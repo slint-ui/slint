@@ -175,7 +175,8 @@ fn handle_property_binding(
     } else {
         let tokens_for_expression = compile_expression(binding_expression, &component);
         init.push(if binding_expression.is_constant() {
-            quote! { #rust_property.set((#tokens_for_expression) as _); }
+            let t = rust_type(&prop_type, &Default::default()).unwrap_or(quote!(_));
+            quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
         } else {
             let binding_tokens = quote!({
                 let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);

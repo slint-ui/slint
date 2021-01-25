@@ -209,6 +209,12 @@ vtable::Layout drop_in_place(ComponentRef component)
     reinterpret_cast<T *>(component.instance)->~T();
     return vtable::Layout { sizeof(T), alignof(T) };
 }
+
+template<typename T> struct ReturnWrapper {
+    ReturnWrapper(T val) : value(std::move(val)) {}
+    T value;
+};
+template<> struct ReturnWrapper<void> {};
 } // namespace private_api
 
 template<typename T>

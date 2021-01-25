@@ -356,7 +356,7 @@ fn handle_property_binding(
             callback_accessor_prefix = callback_accessor_prefix,
             prop = prop_name,
             params = params.join(", "),
-            code = compile_expression(binding_expression, &component)
+            code = compile_expression_wrap_return(binding_expression, &component)
         ));
     } else if let Expression::TwoWayBinding(nr, next) = &binding_expression {
         init.push(format!(
@@ -377,7 +377,7 @@ fn handle_property_binding(
 
         let component = &item.enclosing_component.upgrade().unwrap();
 
-        let init_expr = compile_expression(binding_expression, component);
+        let init_expr = compile_expression_wrap_return(binding_expression, component);
         let cpp_prop = if let Some(vp) = super::as_flickable_viewport_property(elem, prop_name) {
             format!("{}viewport.{}", accessor_prefix, vp,)
         } else {
@@ -1454,15 +1454,14 @@ fn compile_expression(
         Expression::CodeBlock(sub) => {
             let len = sub.len();
             let mut x = sub.iter().enumerate().map(|(i, e)| {
-                match e {
-                    Expression::ReturnStatement(return_expr) if i == len - 1 => {
-                        return_expr.as_ref().map_or_else(String::new, |return_expr| compile_expression(return_expr, component))
-                    },
-                    e => compile_expression(e, component)
+                if i == len - 1 {
+                    return_compile_expression(e, component, None) + ";"
+                }
+                else {
+                    compile_expression(e, component)
                 }
 
-            }).collect::<Vec<_>>();
-            if let Some(s) = x.last_mut() { *s = format!("return {};", s) };
+            });
 
             format!("[&]{{ {} }}()", x.join(";"))
         }
@@ -1552,27 +1551,19 @@ fn compile_expression(
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
+            let ty = expr.ty();
             let cond_code = compile_expression(condition, component);
             let cond_code = remove_parentheses(&cond_code);
-            let true_code = compile_expression(true_expr, component);
-            let false_code = compile_expression(false_expr, component);
-            let ty = expr.ty();
-            if ty == Type::Invalid || ty == Type::Void {
-                format!(
-                    r#"[&]() {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
-                    cond_code,
-                    true_code,
-                    false_code
-                )
-            } else {
-                format!(
-                    r#"[&]() -> {} {{ if ({}) {{ return {}; }} else {{ return {}; }}}}()"#,
-                    ty.cpp_type().unwrap(),
-                    cond_code,
-                    true_code,
-                    false_code
-                )
-            }
+            let true_code = return_compile_expression(true_expr, component, Some(&ty));
+            let false_code = return_compile_expression(false_expr, component, Some(&ty));
+            format!(
+                r#"[&]() -> {} {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
+                ty.cpp_type().unwrap_or("void".into()),
+                cond_code,
+                true_code,
+                false_code
+            )
+
         }
         Expression::Array { element_ty, values } => {
             let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
@@ -1616,9 +1607,13 @@ fn compile_expression(
         Expression::EnumerationValue(value) => {
             format!("sixtyfps::{}::{}", value.enumeration.name, value.to_string())
         }
+        Expression::ReturnStatement(Some(expr)) => format!(
+            "throw sixtyfps::private_api::ReturnWrapper({})",
+            compile_expression(expr, component)
+        ),
+        Expression::ReturnStatement(None) => "throw sixtyfps::private_api::ReturnWrapper<void>()".to_owned(),
         Expression::Uncompiled(_) | Expression::TwoWayBinding(..) => panic!(),
         Expression::Invalid => "\n#error invalid expression\n".to_string(),
-        Expression::ReturnStatement(expr) => format!("return {};", expr.as_ref().map_or_else(String::new, |expr| compile_expression(expr, component))),
     }
 }
 
@@ -2289,4 +2284,63 @@ fn compile_path_events(events: &crate::expression_tree::PathEvents) -> (Vec<Stri
         .collect();
 
     (events, coordinates)
+}
+
+/// Like compile_expression, but wrap inside a try{}catch{} block to intercept the return
+fn compile_expression_wrap_return(expr: &Expression, component: &Rc<Component>) -> String {
+    /// Return a type if there is any `return` in sub expressions
+    fn return_type(expr: &Expression) -> Option<Type> {
+        if let Expression::ReturnStatement(val) = expr {
+            return Some(val.as_ref().map_or(Type::Void, |v| v.ty()));
+        }
+        let mut ret = None;
+        expr.visit(|e| {
+            if ret.is_none() {
+                ret = return_type(e)
+            }
+        });
+        ret
+    }
+
+    if let Some(ty) = return_type(expr) {
+        if ty == Type::Void || ty == Type::Invalid {
+            format!(
+                "[&]{{ try {{ {}; }} catch(const sixtyfps::private_api::ReturnWrapper<void> &w) {{ }} }}()",
+                compile_expression(expr, component)
+            )
+        } else {
+            let cpp_ty = ty.cpp_type().unwrap_or_default();
+            format!(
+                "[&]() -> {} {{ try {{ {}; }} catch(const sixtyfps::private_api::ReturnWrapper<{}> &w) {{ return w.value; }} }}()",
+                cpp_ty,
+                return_compile_expression(expr, component, Some(&ty)),
+                cpp_ty
+            )
+        }
+    } else {
+        compile_expression(expr, component)
+    }
+}
+
+/// Like compile expression, but prepended with `return` if not void.
+/// ret_type is the expecting type that should be returned with that return statement
+fn return_compile_expression(
+    expr: &Expression,
+    component: &Rc<Component>,
+    ret_type: Option<&Type>,
+) -> String {
+    let e = compile_expression(expr, component);
+    if ret_type == Some(&Type::Void) || ret_type == Some(&Type::Invalid) {
+        e
+    } else {
+        let ty = expr.ty();
+        if ty == Type::Invalid && ret_type.is_some() {
+            // e is unreachable so it probably throws. But we still need to return something to avoid a warning
+            format!("{}; return {{}}", e)
+        } else if ty == Type::Invalid || ty == Type::Void {
+            e
+        } else {
+            format!("return {}", e)
+        }
+    }
 }

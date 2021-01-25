@@ -275,6 +275,8 @@ pub struct EvalLocalContext<'a, 'id> {
     local_variables: HashMap<String, Value>,
     function_arguments: Vec<Value>,
     component_instance: ComponentInstance<'a, 'id>,
+    /// When Some, a return statement was executed and one must stop evaluating
+    return_value: Option<Value>,
 }
 
 impl<'a, 'id> EvalLocalContext<'a, 'id> {
@@ -283,6 +285,7 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
             local_variables: Default::default(),
             function_arguments: Default::default(),
             component_instance: ComponentInstance::InstanceRef(component),
+            return_value: None,
         }
     }
 
@@ -295,6 +298,7 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
             component_instance: ComponentInstance::InstanceRef(component),
             function_arguments,
             local_variables: Default::default(),
+            return_value: None,
         }
     }
 
@@ -303,12 +307,16 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
             local_variables: Default::default(),
             function_arguments: Default::default(),
             component_instance: ComponentInstance::GlobalComponent(&global),
+            return_value: None,
         }
     }
 }
 
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> Value {
+    if let Some(r) = &local_context.return_value {
+        return r.clone();
+    }
     match e {
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
@@ -360,10 +368,10 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::CodeBlock(sub) => {
             let mut v = Value::Void;
             for e in sub {
-                if let Expression::ReturnStatement(expr) = e {
-                    return expr.as_ref().map_or(Value::Void, |expr| eval_expression(expr, local_context))
-                }
                 v = eval_expression(e, local_context);
+                if let Some(r) = &local_context.return_value {
+                    return r.clone();
+                }
             }
             v
         }
@@ -577,7 +585,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             {
                 Ok(true) => eval_expression(&**true_expr, local_context),
                 Ok(false) => eval_expression(&**false_expr, local_context),
-                _ => panic!("conditional expression did not evaluate to boolean"),
+                _ => local_context.return_value.clone().expect("conditional expression did not evaluate to boolean"),
             }
         }
         Expression::Array { values, .. } => Value::Array(
@@ -609,7 +617,13 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
         }
-        Expression::ReturnStatement(_) => panic!("internal error: return statement must only appear inside code block and handled there")
+        Expression::ReturnStatement(x) => {
+            let val = x.as_ref().map_or(Value::Void, |x| eval_expression(&x, local_context));
+            if local_context.return_value.is_none() {
+                local_context.return_value = Some(val);
+            }
+            local_context.return_value.clone().unwrap()
+        }
     }
 }
 

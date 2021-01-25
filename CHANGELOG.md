@@ -17,6 +17,8 @@ All notable changes to this project will be documented in this file.
  - color property to the Window element
  - maximum/minimum properties to the SpinBox
  - strings can contain escape code
+ - FocusScope to handle key events
+ - `return` statements
 
 
 ## [0.0.4] - 2020-12-04

@@ -471,7 +471,8 @@ impl Expression {
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
-            Expression::ReturnStatement(expr) => expr.as_ref().map_or(Type::Void, |expr| expr.ty()),
+            // invalid because the expression is unreachable
+            Expression::ReturnStatement(_) => Type::Invalid,
         }
     }
 
@@ -688,15 +689,12 @@ impl Expression {
         node: &impl SpannedWithSourceFile,
         diag: &mut BuildDiagnostics,
     ) -> Expression {
-        if let Expression::ReturnStatement(expr) = self {
-            return Expression::ReturnStatement(expr.map(|mut expr| {
-                let expr = std::mem::replace(&mut *expr, Expression::Invalid);
-                Box::new(expr.maybe_convert_to(target_type, node, diag))
-            }));
-        }
-
         let ty = self.ty();
-        if ty == target_type || target_type == Type::Void || target_type == Type::Invalid {
+        if ty == target_type
+            || target_type == Type::Void
+            || target_type == Type::Invalid
+            || ty == Type::Invalid
+        {
             self
         } else if ty.can_convert(&target_type) {
             let from = match (ty, &target_type) {
@@ -784,8 +782,6 @@ impl Expression {
                 _ => self,
             };
             Expression::Cast { from: Box::new(from), to: target_type }
-        } else if ty == Type::Invalid || target_type == Type::Invalid {
-            self
         } else if matches!((&ty, &target_type, &self), (Type::Array(a), Type::Array(b), Expression::Array{..})
             if a.can_convert(b) || **a == Type::Invalid)
         {
