@@ -491,11 +491,19 @@ impl Expression {
                     name: first_str,
                 });
             } else if property.is_object_type() {
-                todo!("Continue lookling up");
+                todo!("Continue looking up");
             }
         }
 
-        if it.next().is_some() {
+        if let Some(next_identifier) = it.next() {
+            // Qualified enum lookup (NameOfEnum.value)
+            if let Type::Enumeration(enumeration) = ctx.type_register.lookup(first_str.as_str()) {
+                if let Some(value) = enumeration.try_value_from_string(
+                    &crate::parser::normalize_identifier(next_identifier.text().as_str()),
+                ) {
+                    return Expression::EnumerationValue(value);
+                }
+            }
             ctx.diag.push_error(format!("Cannot access id '{}'", first_str), &node);
             return Expression::Invalid;
         }
