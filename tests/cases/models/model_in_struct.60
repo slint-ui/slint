@@ -1,0 +1,24 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+struct Foo := {
+    char: string,
+}
+
+// Make sure that the generated code for this compiles, as we emit
+// #[derive(Debug)] for structures and in this case the field of the
+// struct contains a model handle.
+struct Bar := {
+    foos: [Foo],
+}
+
+TestCase := Rectangle {
+    property <[Bar]> bars: [];
+}

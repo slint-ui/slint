@@ -208,6 +208,12 @@ impl Model for bool {
 #[derive(derive_more::Deref, derive_more::DerefMut, derive_more::From, derive_more::Into)]
 pub struct ModelHandle<T>(pub Option<Rc<dyn Model<Data = T>>>);
 
+impl<T> std::fmt::Debug for ModelHandle<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ModelHandle({:?})", self.0.as_ref().map(|_| "dyn Model"))
+    }
+}
+
 impl<T> Clone for ModelHandle<T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
