@@ -23,8 +23,8 @@ Foo := Rectangle {
 
 TestCase := Rectangle {
 
-    callback emit_glob;
-    emit_glob => {
+    callback call_glob;
+    call_glob => {
         MyGlobal.glob_callback();
     }
     Foo {}

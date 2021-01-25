@@ -229,7 +229,7 @@ impl FileDiagnostics {
     }
 
     #[cfg(feature = "display-diagnostics")]
-    fn emit_diagnostics<'a, Output>(
+    fn call_diagnostics<'a, Output>(
         self,
         output: &'a mut Output,
         emitter_factory: impl for<'b> FnOnce(
@@ -287,7 +287,7 @@ impl FileDiagnostics {
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
     pub fn print(self) {
-        self.emit_diagnostics(&mut (), |_, codemap| {
+        self.call_diagnostics(&mut (), |_, codemap| {
             codemap_diagnostic::Emitter::stderr(codemap_diagnostic::ColorConfig::Always, codemap)
         });
     }
@@ -296,7 +296,7 @@ impl FileDiagnostics {
     /// Print into a string
     pub fn diagnostics_as_string(self) -> String {
         let mut output = Vec::new();
-        self.emit_diagnostics(&mut output, |output, codemap| {
+        self.call_diagnostics(&mut output, |output, codemap| {
             codemap_diagnostic::Emitter::vec(output, codemap)
         });
 

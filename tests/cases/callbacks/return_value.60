@@ -30,7 +30,7 @@ instance.set_some_value(2);
 assert_eq!(instance.get_test_prop(), 4 + 4);
 assert_eq!(instance.get_test_prop2(), sixtyfps::SharedString::from("hello=44"));
 
-assert_eq!(instance.emit_test_func2("xxx".into(), 1), sixtyfps::SharedString::from("xxx=3"));
+assert_eq!(instance.call_test_func2("xxx".into(), 1), sixtyfps::SharedString::from("xxx=3"));
 ```
 
 ```cpp
@@ -45,7 +45,7 @@ instance.set_some_value(2);
 assert_eq(instance.get_test_prop(), 4 + 4);
 assert_eq(instance.get_test_prop2(), sixtyfps::SharedString("hello=44"));
 
-assert_eq(instance.emit_test_func2("xxx", 1), sixtyfps::SharedString("xxx=3"));
+assert_eq(instance.call_test_func2("xxx", 1), sixtyfps::SharedString("xxx=3"));
 ```
 
 

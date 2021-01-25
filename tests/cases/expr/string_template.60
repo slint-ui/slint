@@ -28,7 +28,7 @@ assert_eq(instance.get_s1(), sixtyfps::SharedString("hello1212"));
 assert_eq(instance.get_s2(), sixtyfps::SharedString("10hello5.1"));
 instance.set_a(42);
 assert_eq(instance.get_s1(), sixtyfps::SharedString("hello4242"));
-instance.emit_foo();
+instance.call_foo();
 assert_eq(instance.get_s3(), sixtyfps::SharedString("x42x42"));
 assert_eq(instance.get_s4(), sixtyfps::SharedString("ayoxxx"));
 ```
@@ -40,7 +40,7 @@ assert_eq!(instance.get_s1(), sixtyfps::SharedString::from("hello1212"));
 assert_eq!(instance.get_s2(), sixtyfps::SharedString::from("10hello5.1"));
 instance.set_a(42);
 assert_eq!(instance.get_s1(), sixtyfps::SharedString::from("hello4242"));
-instance.emit_foo();
+instance.call_foo();
 assert_eq!(instance.get_s3(), sixtyfps::SharedString::from("x42x42"));
 assert_eq!(instance.get_s4(), sixtyfps::SharedString::from("ayoxxx"));
 ```

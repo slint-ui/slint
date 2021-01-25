@@ -35,11 +35,11 @@ impl<Arg: ?Sized, Ret> Default for Callback<Arg, Ret> {
 }
 
 impl<Arg: ?Sized, Ret: Default> Callback<Arg, Ret> {
-    /// Emit the callback with the given argument.
-    pub fn emit(&self, a: &Arg) -> Ret {
+    /// Call the callback with the given argument.
+    pub fn call(&self, a: &Arg) -> Ret {
         if let Some(h) = self.handler.take() {
             let r = h(a);
-            assert!(self.handler.take().is_none(), "Callback Handler set while emitted");
+            assert!(self.handler.take().is_none(), "Callback Handler set while callted");
             self.handler.set(Some(h));
             r
         } else {
@@ -47,7 +47,7 @@ impl<Arg: ?Sized, Ret: Default> Callback<Arg, Ret> {
         }
     }
 
-    /// Set an handler to be called when the callback is emited
+    /// Set an handler to be called when the callback is called
     ///
     /// There can only be one single handler per callback.
     pub fn set_handler(&self, f: impl Fn(&Arg) -> Ret + 'static) {
@@ -66,7 +66,7 @@ fn callback_simple_test() {
     let c = Rc::new(Component::default());
     let weak = Rc::downgrade(&c);
     c.clicked.set_handler(move |()| weak.upgrade().unwrap().pressed.set(true));
-    c.clicked.emit(&());
+    c.clicked.call(&());
     assert_eq!(c.pressed.get(), true);
 }
 
@@ -96,12 +96,12 @@ pub(crate) mod ffi {
 
     /// Emit the callback
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_callback_emit(
+    pub unsafe extern "C" fn sixtyfps_callback_call(
         sig: *const CallbackOpaque,
         arg: *const c_void,
     ) {
         let sig = &*(sig as *const Callback<c_void>);
-        sig.emit(&*arg);
+        sig.call(&*arg);
     }
 
     /// Set callback handler.

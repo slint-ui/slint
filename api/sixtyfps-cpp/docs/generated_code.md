@@ -18,7 +18,7 @@ This class will have the following public member functions:
     * A getter `get_<property_name>` returning the property type.
     * A setter `set_<property_name>` taking the new value of the property by const reference
  - for each callbacks:
-    * `emit_<callback_name>` function which takes the callback argument as parameter and emit the callback.
+    * `call_<callback_name>` function which takes the callback argument as parameter and call the callback.
     * `on_<callback_name>` functin wich takes a functor as an argument and sets the callback handler
      for this callback. the functor must accept the type parameter of the callback
 
@@ -63,8 +63,8 @@ public:
     /// Setter for the `user_name` property
     inline void set_user_name (const sixtyfps::SharedString &value) const;
 
-    /// Call this function to emit the `hello` callback
-    inline void emit_hello () const;
+    /// Call this function to call the `hello` callback
+    inline void call_hello () const;
     /// Sets the callback handler for the `hello` callback.
     template<typename Functor> inline void on_hello (Functor && callback_handler) const;
 

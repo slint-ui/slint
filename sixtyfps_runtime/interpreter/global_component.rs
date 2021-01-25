@@ -18,8 +18,8 @@ use sixtyfps_corelib::{rtti, Callback, Property};
 use crate::eval;
 
 pub trait GlobalComponent {
-    fn emit_callback(self: Pin<&Self>, _callback_name: &str, _args: &[eval::Value]) -> eval::Value {
-        todo!("emit callback")
+    fn call_callback(self: Pin<&Self>, _callback_name: &str, _args: &[eval::Value]) -> eval::Value {
+        todo!("call callback")
     }
 
     fn set_property(self: Pin<&Self>, prop_name: &str, value: eval::Value);

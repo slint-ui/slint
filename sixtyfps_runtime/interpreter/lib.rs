@@ -172,7 +172,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if the callback with this name does not exist in this component
-    pub fn emit_callback(
+    pub fn call_callback(
         &self,
         component: ComponentRefPin,
         name: &str,
@@ -183,7 +183,7 @@ impl<'id> dynamic_component::ComponentDescription<'id> {
         }
         let x = self.custom_callbacks.get(name).ok_or(())?;
         let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
-        Ok(sig.emit(args))
+        Ok(sig.call(args))
     }
 }
 

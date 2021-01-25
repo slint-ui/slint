@@ -69,15 +69,15 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
 }
 
 pub trait ErasedCallbackInfo {
-    fn emit(&self, item: Pin<ItemRef>, args: &[Value]) -> Value;
+    fn call(&self, item: Pin<ItemRef>, args: &[Value]) -> Value;
     fn set_handler(&self, item: Pin<ItemRef>, handler: Box<dyn Fn(&[Value]) -> Value>);
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackInfo
     for &'static dyn corelib::rtti::CallbackInfo<Item, Value>
 {
-    fn emit(&self, item: Pin<ItemRef>, args: &[Value]) -> Value {
-        (*self).emit(ItemRef::downcast_pin(item).unwrap(), args).unwrap()
+    fn call(&self, item: Pin<ItemRef>, args: &[Value]) -> Value {
+        (*self).call(ItemRef::downcast_pin(item).unwrap(), args).unwrap()
     }
 
     fn set_handler(&self, item: Pin<ItemRef>, handler: Box<dyn Fn(&[Value]) -> Value>) {
@@ -387,18 +387,18 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                         let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
 
                         if let Some(callback) = item_info.rtti.callbacks.get(name.as_str()) {
-                            callback.emit(item, args.as_slice())
+                            callback.call(item, args.as_slice())
                         } else if let Some(callback_offset) = component_type.custom_callbacks.get(name.as_str())
                         {
                             let callback = callback_offset.apply(&*enclosing_component.instance);
-                            callback.emit(args.as_slice())
+                            callback.call(args.as_slice())
                         } else {
                             panic!("unkown callback {}", name)
                         }
                     }
                     ComponentInstance::GlobalComponent(global) => {
                         let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                        global.as_ref().emit_callback(name.as_ref(), args.collect::<Vec<_>>().as_slice())
+                        global.as_ref().call_callback(name.as_ref(), args.collect::<Vec<_>>().as_slice())
                     }
                 }
             }

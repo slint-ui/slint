@@ -109,7 +109,7 @@ For each top-level property
   - A getter [`fn get_<property_name>(&self) -> <PropertyType>`](docs::generated_code::SampleComponent::get_counter)
 
 For each top-level callback
-  - [`fn emit_<callback_name>(&self)`](docs::generated_code::SampleComponent::emit_hello): to emit the callback
+  - [`fn call_<callback_name>(&self)`](docs::generated_code::SampleComponent::call_hello): to emit the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
 
 After instantiating the component you can call just [`fn run(&self)`] on it, in order to show it and spin the event loop to

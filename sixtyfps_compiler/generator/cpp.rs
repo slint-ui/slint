@@ -679,14 +679,14 @@ fn generate_component(
                 .map_or("void".into(), |t| get_cpp_type(&t, &property_decl.type_node, diag));
             if property_decl.expose_in_public_api && is_root {
                 let callback_emitter = vec![format!(
-                    "return {}.emit({});",
+                    "return {}.call({});",
                     cpp_name,
                     (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 )];
                 component_struct.members.push((
                     Access::Public,
                     Declaration::Function(Function {
-                        name: format!("emit_{}", cpp_name),
+                        name: format!("call_{}", cpp_name),
                         signature: format!(
                             "({}) const -> {}",
                             param_types
@@ -1342,7 +1342,7 @@ fn compile_expression(
             format!(r#"{}.get()"#, access)
         }
         Expression::CallbackReference(nr) => format!(
-            "{}.emit",
+            "{}.call",
             access_named_reference(nr, component, "self")
         ),
         Expression::BuiltinFunctionReference(funcref) => match funcref {

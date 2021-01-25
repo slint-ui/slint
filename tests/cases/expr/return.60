@@ -10,13 +10,9 @@ LICENSE END */
 TestCase := Rectangle {
     property <bool> toggle: { return false; }
     property <int> value: {
-        debug("XXX \{ toggle ? "true" : "false" }");
         if (toggle) {
-            debug("HI");
             return 42;
-            debug("HO");
         }
-        debug("NOP");
         return 100;
     }
 
@@ -38,12 +34,12 @@ assert_eq(instance.get_value(), 100);
 instance.set_toggle(true);
 assert_eq(instance.get_value(), 42);
 
-instance.emit_test_signal();
+instance.call_test_signal();
 assert(instance.get_signal_handled());
 
 instance.set_signal_handled(false);
 instance.set_block_signal(true);
-instance.emit_test_signal();
+instance.call_test_signal();
 assert(!instance.get_signal_handled());
 ```
 
@@ -53,12 +49,12 @@ assert_eq!(instance.get_value(), 100);
 instance.set_toggle(true);
 assert_eq!(instance.get_value(), 42);
 
-instance.emit_test_signal();
+instance.call_test_signal();
 assert!(instance.get_signal_handled());
 
 instance.set_signal_handled(false);
 instance.set_block_signal(true);
-instance.emit_test_signal();
+instance.call_test_signal();
 assert!(!instance.get_signal_handled());
 ```
 

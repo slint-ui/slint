@@ -220,7 +220,7 @@ where
 }
 
 pub trait CallbackInfo<Item, Value> {
-    fn emit(&self, item: Pin<&Item>, args: &[Value]) -> Result<Value, ()>;
+    fn call(&self, item: Pin<&Item>, args: &[Value]) -> Result<Value, ()>;
     fn set_handler(
         &self,
         item: Pin<&Item>,
@@ -231,8 +231,8 @@ pub trait CallbackInfo<Item, Value> {
 impl<Item, Value: Default + 'static> CallbackInfo<Item, Value>
     for FieldOffset<Item, crate::Callback<()>>
 {
-    fn emit(&self, item: Pin<&Item>, _args: &[Value]) -> Result<Value, ()> {
-        self.apply_pin(item).emit(&());
+    fn call(&self, item: Pin<&Item>, _args: &[Value]) -> Result<Value, ()> {
+        self.apply_pin(item).call(&());
         Ok(Default::default())
     }
 
@@ -254,10 +254,10 @@ where
     Value: TryInto<T>,
     T: TryInto<Value>,
 {
-    fn emit(&self, item: Pin<&Item>, args: &[Value]) -> Result<Value, ()> {
+    fn call(&self, item: Pin<&Item>, args: &[Value]) -> Result<Value, ()> {
         let value = args.first().ok_or(())?;
         let value = value.clone().try_into().map_err(|_| ())?;
-        self.apply_pin(item).emit(&(value,));
+        self.apply_pin(item).call(&(value,));
         Ok(Value::default())
     }
 

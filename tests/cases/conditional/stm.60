@@ -41,30 +41,30 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-instance.emit_action();
+instance.call_action();
 assert_eq(instance.get_result(), 3);
 instance.set_value(5);
-instance.emit_action();
+instance.call_action();
 assert_eq(instance.get_result(), 5);
 instance.set_value(8);
-instance.emit_action();
+instance.call_action();
 assert_eq(instance.get_result(), 5+33);
-instance.emit_xxx();
+instance.call_xxx();
 assert_eq(instance.get_result(), 5+33-1);
 ```
 
 
 ```rust
 let instance = TestCase::new();
-instance.emit_action();
+instance.call_action();
 assert_eq!(instance.get_result(), 3);
 instance.set_value(5);
-instance.emit_action();
+instance.call_action();
 assert_eq!(instance.get_result(), 5);
 instance.set_value(8);
-instance.emit_action();
+instance.call_action();
 assert_eq!(instance.get_result(), 5+33);
-instance.emit_xxx();
+instance.call_xxx();
 assert_eq!(instance.get_result(), 5+33-1);
 ```
 

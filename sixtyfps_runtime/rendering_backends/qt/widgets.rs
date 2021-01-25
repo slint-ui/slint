@@ -214,7 +214,7 @@ impl Item for NativeButton {
             }
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(&());
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse
@@ -323,7 +323,7 @@ impl Item for NativeCheckBox {
         }
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
-            Self::FIELD_OFFSETS.toggled.apply_pin(self).emit(&())
+            Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
         }
         InputEventResult::EventAccepted
     }
@@ -1657,7 +1657,7 @@ impl Item for NativeComboBox {
         });
         if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS.is_open.apply_pin(self).set(true);
-            Self::FIELD_OFFSETS.open_popup.apply_pin(self).emit(&());
+            Self::FIELD_OFFSETS.open_popup.apply_pin(self).call(&());
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse

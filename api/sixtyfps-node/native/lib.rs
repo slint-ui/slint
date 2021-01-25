@@ -412,7 +412,7 @@ declare_types! {
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
-        method emit_callback(mut cx) {
+        method call_callback(mut cx) {
             let callback_name = cx.argument::<JsString>(0)?.value();
             let arguments = cx.argument::<JsArray>(1)?.to_vec(&mut cx)?;
             let this = cx.this();
@@ -447,7 +447,7 @@ declare_types! {
 
             let res = run_scoped(&mut cx,this.downcast().unwrap(), || {
                 component.description()
-                    .emit_callback(component.borrow(), callback_name.as_str(), args.as_slice())
+                    .call_callback(component.borrow(), callback_name.as_str(), args.as_slice())
                     .map_err(|()| "Cannot emit callback".to_string())
             })?;
             to_js_value(res, &mut cx)

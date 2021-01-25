@@ -32,7 +32,7 @@ TestCase := Rectangle {
 let instance = TestCase::new();
 assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("444"));
 assert_eq!(instance.get_foo_b(), 12);
-instance.emit_change_foo();
+instance.call_change_foo();
 assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("hello"));
 assert_eq!(instance.get_foo_b(), 20);
 assert_eq!(instance.get_obj_cond_merge_b(), 0);
@@ -50,7 +50,7 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_foo_a(), sixtyfps::SharedString("444"));
 assert_eq(instance.get_foo_b(), 12);
-instance.emit_change_foo();
+instance.call_change_foo();
 assert_eq(instance.get_foo_a(), sixtyfps::SharedString("hello"));
 assert_eq(instance.get_foo_b(), 20);
 assert_eq(instance.get_obj_cond_merge_b(), 0);

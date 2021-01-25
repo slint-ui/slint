@@ -331,7 +331,7 @@ impl Item for TouchArea {
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(event.what != MouseEventType::MouseExit);
 
         let result = if matches!(event.what, MouseEventType::MouseReleased) {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).emit(&());
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse
@@ -428,10 +428,10 @@ impl Item for FocusScope {
     fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
         match event.event_type {
             KeyEventType::KeyPressed => {
-                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).emit(&(event.clone(),));
+                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),));
             }
             KeyEventType::KeyReleased => {
-                Self::FIELD_OFFSETS.key_released.apply_pin(self).emit(&(event.clone(),));
+                Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),));
             }
         };
         KeyEventResult::EventAccepted

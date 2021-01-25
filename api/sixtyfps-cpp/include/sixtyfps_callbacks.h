@@ -36,11 +36,11 @@ struct Callback<Ret(Arg...)>
                 [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
     }
 
-    Ret emit(const Arg &...arg) const
+    Ret call(const Arg &...arg) const
     {
         Ret r{};
         Pair p = std::pair{ &r, Tuple{arg...} };
-        cbindgen_private::sixtyfps_callback_emit(&inner, &p);
+        cbindgen_private::sixtyfps_callback_call(&inner, &p);
         return r;
     }
 
@@ -73,10 +73,10 @@ struct Callback<void(Arg...)>
                 [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
     }
 
-    void emit(const Arg &...arg) const
+    void call(const Arg &...arg) const
     {
         Tuple tuple{arg...};
-        cbindgen_private::sixtyfps_callback_emit(&inner, &tuple);
+        cbindgen_private::sixtyfps_callback_call(&inner, &tuple);
     }
 
 private:

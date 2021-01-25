@@ -288,7 +288,7 @@ impl Item for TextInput {
                         TextInput::delete_char(self, window);
                         return KeyEventResult::EventAccepted;
                     } else if keycode == InternalKeyCode::Return {
-                        Self::FIELD_OFFSETS.accepted.apply_pin(self).emit(&());
+                        Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
                         return KeyEventResult::EventAccepted;
                     }
                 }
@@ -324,7 +324,7 @@ impl Item for TextInput {
                 // nothing is entered or the cursor isn't moved.
                 self.as_ref().show_cursor(window);
 
-                Self::FIELD_OFFSETS.edited.apply_pin(self).emit(&());
+                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
 
                 KeyEventResult::EventAccepted
             }
@@ -486,7 +486,7 @@ impl TextInput {
         self.cursor_position.set(anchor as i32);
         self.anchor_position.set(anchor as i32);
         self.text.set(text.into());
-        Self::FIELD_OFFSETS.edited.apply_pin(self).emit(&());
+        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
     pub fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
@@ -520,7 +520,7 @@ impl TextInput {
         self.cursor_position.set(cursor_pos as i32);
         self.anchor_position.set(cursor_pos as i32);
         self.text.set(text.into());
-        Self::FIELD_OFFSETS.edited.apply_pin(self).emit(&());
+        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
     fn copy(self: Pin<&Self>) {

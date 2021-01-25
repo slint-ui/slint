@@ -275,13 +275,13 @@ fn generate_component(
                 let args_name = (0..callback_args.len())
                     .map(|i| format_ident!("arg_{}", i))
                     .collect::<Vec<_>>();
-                let emitter_ident = format_ident!("emit_{}", prop_name);
+                let caller_ident = format_ident!("call_{}", prop_name);
                 property_and_callback_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #emitter_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
+                        pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
                             let self_pinned = vtable::VRc::as_pin_ref(&self.0);
-                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).emit(&(#(#args_name,)*))
+                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).call(&(#(#args_name,)*))
                         }
                     )
                     ,
@@ -1165,7 +1165,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                             Type::Float32 => quote!(as f32),
                             _ => quote!(.clone()),
                         });
-                        quote! { #f.emit(&(#((#a)#cast,)*).into())}
+                        quote! { #f.call(&(#((#a)#cast,)*).into())}
                     } else {
                         quote! { #f(#(#a.clone()),*)}
                     }
