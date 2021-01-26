@@ -384,13 +384,13 @@ fn generate_component(
                 let children_index = item_tree_array.len() as u32 + 1;
 
                 item_tree_array.push(quote!(
-                sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#inner_component_id::FIELD_OFFSETS.#field_name + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
-                    chilren_count: #children_count,
-                    children_index: #children_index,
-                    parent_index: #parent_index
-                }
-            ));
+                    sixtyfps::re_exports::ItemTreeNode::Item{
+                        item: VOffset::new(#inner_component_id::FIELD_OFFSETS.#field_name + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
+                        chilren_count: #children_count,
+                        children_index: #children_index,
+                        parent_index: #parent_index
+                    }
+                ));
             } else if item.base_type == Type::Void {
                 assert!(component.is_global());
                 for (k, binding_expression) in &item.bindings {
@@ -409,72 +409,72 @@ fn generate_component(
                     },
                 ));
                 extra_components.push(if repeated.is_conditional_element {
-                quote! {
-                     impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
-                        type Data = ();
-                        fn update(&self, _: usize, _: Self::Data) { }
-                    }
-                }
-            } else {
-                let data_type = rust_type(
-                    &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }.ty(),
-                    &item.node.as_ref().map_or_else(Default::default, |n| n.span()),
-                )
-                .unwrap_or_else(|err| {
-                    diag.push_internal_error(err.into());
-                    quote!()
-                });
-
-                let extra_fn = if repeated.is_listview.is_some() {
-                    let am = |prop| access_member(&base_component.root_element, prop, base_component, quote!(self), false);
-                    let p_y = am("y");
-                    let p_height = am("height");
-                    let p_width = am("width");
                     quote! {
-                        fn listview_layout(
-                            self: core::pin::Pin<&Self>,
-                            offset_y: &mut f32,
-                            viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
-                        ) {
-                            use sixtyfps::re_exports::*;
-                            let vp_w = viewport_width.get();
-                            self.apply_layout(Rect::new(Point::new(0., *offset_y), Size::new(vp_w, 0.)));
-                            #p_y.set(*offset_y);
-                            *offset_y += #p_height.get();
-                            let w = #p_width.get();
-                            if vp_w < w {
-                                viewport_width.set(w);
-                            }
+                        impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
+                            type Data = ();
+                            fn update(&self, _: usize, _: Self::Data) { }
                         }
                     }
                 } else {
-                    // TODO: we could generate this code only if we know that this component is in a box layout
-                    let root_id = format_ident!("{}", base_component.root_element.borrow().id);
-                    quote! {
-                        fn box_layout_data<'a>(self: ::core::pin::Pin<&'a Self>) -> sixtyfps::re_exports::BoxLayoutCellData<'a> {
-                            use sixtyfps::re_exports::*;
-                            BoxLayoutCellData {
-                                constraint: self.layout_info(),
-                                x: Some(&self.get_ref().#root_id.x),
-                                y: Some(&self.get_ref().#root_id.y),
-                                width: Some(&self.get_ref().#root_id.width),
-                                height: Some(&self.get_ref().#root_id.height),
+                    let data_type = rust_type(
+                        &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }.ty(),
+                        &item.node.as_ref().map_or_else(Default::default, |n| n.span()),
+                    )
+                    .unwrap_or_else(|err| {
+                        diag.push_internal_error(err.into());
+                        quote!()
+                    });
+
+                    let extra_fn = if repeated.is_listview.is_some() {
+                        let am = |prop| access_member(&base_component.root_element, prop, base_component, quote!(self), false);
+                        let p_y = am("y");
+                        let p_height = am("height");
+                        let p_width = am("width");
+                        quote! {
+                            fn listview_layout(
+                                self: core::pin::Pin<&Self>,
+                                offset_y: &mut f32,
+                                viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
+                            ) {
+                                use sixtyfps::re_exports::*;
+                                let vp_w = viewport_width.get();
+                                self.apply_layout(Rect::new(Point::new(0., *offset_y), Size::new(vp_w, 0.)));
+                                #p_y.set(*offset_y);
+                                *offset_y += #p_height.get();
+                                let w = #p_width.get();
+                                if vp_w < w {
+                                    viewport_width.set(w);
+                                }
                             }
                         }
-                    }
-                };
-
-                quote! {
-                    impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
-                        type Data = #data_type;
-                        fn update(&self, index: usize, data: Self::Data) {
-                            self.index.set(index);
-                            self.model_data.set(data);
+                    } else {
+                        // TODO: we could generate this code only if we know that this component is in a box layout
+                        let root_id = format_ident!("{}", base_component.root_element.borrow().id);
+                        quote! {
+                            fn box_layout_data<'a>(self: ::core::pin::Pin<&'a Self>) -> sixtyfps::re_exports::BoxLayoutCellData<'a> {
+                                use sixtyfps::re_exports::*;
+                                BoxLayoutCellData {
+                                    constraint: self.layout_info(),
+                                    x: Some(&self.get_ref().#root_id.x),
+                                    y: Some(&self.get_ref().#root_id.y),
+                                    width: Some(&self.get_ref().#root_id.width),
+                                    height: Some(&self.get_ref().#root_id.height),
+                                }
+                            }
                         }
-                        #extra_fn
+                    };
+
+                    quote! {
+                        impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
+                            type Data = #data_type;
+                            fn update(&self, index: usize, data: Self::Data) {
+                                self.index.set(index);
+                                self.model_data.set(data);
+                            }
+                            #extra_fn
+                        }
                     }
-                }
-            });
+                });
 
                 let mut model = compile_expression(&repeated.model, component);
                 if repeated.is_conditional_element {
@@ -686,50 +686,50 @@ fn generate_component(
                 }
             }),
             Some(quote! {
-            impl sixtyfps::re_exports::Component for #inner_component_id {
-                fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
-                    -> sixtyfps::re_exports::VisitChildrenResult
-                {
-                    use sixtyfps::re_exports::*;
-                    return sixtyfps::re_exports::visit_item_tree(self, &VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
-                    #[allow(unused)]
-                    fn visit_dynamic(self_pinned: ::core::pin::Pin<&#inner_component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
-                        let _self = self_pinned;
-                        match dyn_index {
-                            #(#repeated_visit_branch)*
-                            _ => panic!("invalid dyn_index {}", dyn_index),
+                impl sixtyfps::re_exports::Component for #inner_component_id {
+                    fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
+                        -> sixtyfps::re_exports::VisitChildrenResult
+                    {
+                        use sixtyfps::re_exports::*;
+                        return sixtyfps::re_exports::visit_item_tree(self, &VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
+                        #[allow(unused)]
+                        fn visit_dynamic(self_pinned: ::core::pin::Pin<&#inner_component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+                            let _self = self_pinned;
+                            match dyn_index {
+                                #(#repeated_visit_branch)*
+                                _ => panic!("invalid dyn_index {}", dyn_index),
+                            }
                         }
                     }
-                }
 
 
-                #layouts
+                    #layouts
 
-                fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
-                    match &Self::item_tree()[index] {
-                        ItemTreeNode::Item { item, .. } => item.apply_pin(self),
-                        ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
+                    fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
+                        match &Self::item_tree()[index] {
+                            ItemTreeNode::Item { item, .. } => item.apply_pin(self),
+                            ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
 
+                        }
+                    }
+
+                    fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut sixtyfps::re_exports::ItemWeak) {
+                        if index == 0 {
+                            #(
+                                if let Some(parent) = self.parent.clone().into_dyn().upgrade() {
+                                    *result = sixtyfps::re_exports::ItemRc::new(parent, #parent_item_index).parent_item();
+                                }
+                            )*
+                            return;
+                        }
+                        let parent_index = match &Self::item_tree()[index] {
+                            ItemTreeNode::Item { parent_index, .. } => *parent_index,
+                            ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index,
+                        };
+                        let self_rc = self.self_weak.get().unwrap().clone().into_dyn().upgrade().unwrap();
+                        *result = ItemRc::new(self_rc, parent_index as _).downgrade()
                     }
                 }
-
-                fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut sixtyfps::re_exports::ItemWeak) {
-                    if index == 0 {
-                        #(
-                            if let Some(parent) = self.parent.clone().into_dyn().upgrade() {
-                                *result = sixtyfps::re_exports::ItemRc::new(parent, #parent_item_index).parent_item();
-                            }
-                        )*
-                        return;
-                    }
-                    let parent_index = match &Self::item_tree()[index] {
-                        ItemTreeNode::Item { parent_index, .. } => *parent_index,
-                        ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index,
-                    };
-                    let self_rc = self.self_weak.get().unwrap().clone().into_dyn().upgrade().unwrap();
-                    *result = ItemRc::new(self_rc, parent_index as _).downgrade()
-                }
-            }
             }),
         )
     };
