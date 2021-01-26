@@ -104,8 +104,8 @@ export FocusScope := _ {
     property <length> width;
     property <length> height;
     property <bool> has_focus;
-    callback key_pressed(KeyEvent);
-    callback key_released(KeyEvent);
+    callback key_pressed(KeyEvent) -> EventResult;
+    callback key_released(KeyEvent) -> EventResult;
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
 }

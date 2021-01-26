@@ -77,6 +77,7 @@ using cbindgen_private::TextVerticalAlignment;
 using cbindgen_private::TraversalOrder;
 using cbindgen_private::ImageFit;
 using cbindgen_private::KeyEvent;
+using cbindgen_private::EventResult;
 using cbindgen_private::KeyboardModifiers;
 
 namespace private_api {

@@ -41,6 +41,7 @@ declare_ValueType![
     crate::model::StandardListViewItem,
     crate::items::ImageFit,
     crate::input::KeyEvent,
+    crate::items::EventResult,
 ];
 
 /// What kind of animation is on a binding

@@ -160,6 +160,14 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
         }
     }
+
+    fn return_type(&self) -> &Type {
+        if let Type::Callback { return_type, .. } = &self.property_type {
+            return_type.as_ref().map_or(&Type::Void, |b| &(**b))
+        } else {
+            &self.property_type
+        }
+    }
 }
 
 fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
@@ -310,11 +318,7 @@ impl Expression {
         node: syntax_nodes::ReturnStatement,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let return_type = if let Type::Callback { return_type, .. } = &ctx.property_type {
-            return_type.as_ref().map_or(Type::Void, |b| (**b).clone())
-        } else {
-            ctx.property_type.clone()
-        };
+        let return_type = ctx.return_type().clone();
         Expression::ReturnStatement(node.Expression().map(|n| {
             Box::new(Self::from_expression_node(n.into(), ctx).maybe_convert_to(
                 return_type,
@@ -555,7 +559,7 @@ impl Expression {
             return Expression::Invalid;
         }
 
-        match &ctx.property_type {
+        match ctx.return_type() {
             Type::Color => {
                 if let Some(c) = css_color_parser2::NAMED_COLORS.get(first_str.as_str()) {
                     let value = ((c.a as u32 * 255) << 24)

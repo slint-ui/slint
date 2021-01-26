@@ -386,6 +386,21 @@ ItemVTable_static! {
     pub static TouchAreaVTable for TouchArea
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+/// What is returned from the event handler
+pub enum EventResult {
+    reject,
+    accept,
+}
+
+impl Default for EventResult {
+    fn default() -> Self {
+        Self::reject
+    }
+}
+
 /// A runtime item that exposes key
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -396,8 +411,8 @@ pub struct FocusScope {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub has_focus: Property<bool>,
-    pub key_pressed: Callback<KeyEventArg>,
-    pub key_released: Callback<KeyEventArg>,
+    pub key_pressed: Callback<KeyEventArg, EventResult>,
+    pub key_released: Callback<KeyEventArg, EventResult>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -431,19 +446,22 @@ impl Item for FocusScope {
                 window.set_focus_item(self_rc);
             }
         }
-        InputEventResult::EventAccepted
+        InputEventResult::EventIgnored
     }
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
-        match event.event_type {
+        let r = match event.event_type {
             KeyEventType::KeyPressed => {
-                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),));
+                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
             }
             KeyEventType::KeyReleased => {
-                Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),));
+                Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
             }
         };
-        KeyEventResult::EventAccepted
+        match r {
+            EventResult::accept => KeyEventResult::EventAccepted,
+            EventResult::reject => KeyEventResult::EventIgnored,
+        }
     }
 
     fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &ComponentWindow) {

@@ -122,6 +122,7 @@ impl TypeRegister {
             &["stretch", "center", "start", "end", "space_between", "space_around"],
         );
         declare_enum("ImageFit", &["fill", "contain"]);
+        declare_enum("EventResult", &["reject", "accept"]);
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());

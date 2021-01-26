@@ -247,6 +247,7 @@ declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVertic
 declare_value_enum_conversion!(corelib::layout::LayoutAlignment, LayoutAlignment);
 declare_value_enum_conversion!(corelib::items::ImageFit, ImageFit);
 declare_value_enum_conversion!(corelib::input::KeyEventType, KeyEventType);
+declare_value_enum_conversion!(corelib::items::EventResult, EventResult);
 
 impl TryFrom<corelib::animations::Instant> for Value {
     type Error = ();

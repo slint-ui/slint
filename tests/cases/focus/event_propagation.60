@@ -19,7 +19,8 @@ TestCase := Rectangle {
             FocusScope {
                 width: 75%;
                 key-pressed(event) => {
-                    recieved += event.text
+                    recieved += event.text;
+                    accept
                 }
 
                 input2 := TextInput {
@@ -80,27 +81,5 @@ sixtyfps::testing::send_keyboard_string_sequence(&instance, "ß", ctrl_modifier)
 assert_eq(instance.get_input2_text(), "Hello");
 assert_eq(instance.get_input1_text(), "");
 assert_eq(instance.get_recieved(), "ß");
-```
-
-```j*s
-var instance = new sixtyfps.TestCase();
-assert(!instance.input1_focused);
-assert(!instance.input2_focused);
-
-instance.send_mouse_click(150., 100.);
-assert(instance.input1_focused);
-assert(!instance.input2_focused);
-
-instance.send_keyboard_string_sequence("Only for field 1");
-assert.equal(instance.input1_text, "Only for field 1");
-assert.equal(instance.input2_text, "");
-
-instance.send_mouse_click(150., 300.);
-assert(!instance.input1_focused);
-assert(instance.input2_focused);
-
-instance.send_keyboard_string_sequence("Only for field 2");
-assert.equal(instance.input1_text, "Only for field 1");
-assert.equal(instance.input2_text, "Only for field 2");
 ```
 */

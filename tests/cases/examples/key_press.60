@@ -28,6 +28,7 @@ W := Window {
                 }
                 debug(event.text);
                 t.text += event.text;
+                accept
             }
             Rectangle { color: yellow; }
         }
