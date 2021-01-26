@@ -334,7 +334,11 @@ impl Expression {
     ) -> Expression {
         ctx.arguments =
             node.DeclaredIdentifier().map(|x| identifier_text(&x).unwrap_or_default()).collect();
-        Self::from_codeblock_node(node.CodeBlock(), ctx)
+        Self::from_codeblock_node(node.CodeBlock(), ctx).maybe_convert_to(
+            ctx.return_type().clone(),
+            &node,
+            &mut ctx.diag,
+        )
     }
 
     fn from_two_way_binding(node: syntax_nodes::TwoWayBinding, ctx: &mut LookupCtx) -> Expression {

@@ -1,0 +1,20 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+Xxx := Rectangle {
+    callback plop() -> string;
+    plop => {}
+//  ^error{Cannot convert void to string}
+    callback plop2() -> int;
+    plop2 => { return 45; "xxx" }
+//  ^error{Cannot convert string to int}
+    callback plop3();
+    plop3 => { return 45; "xxx" }
+}
