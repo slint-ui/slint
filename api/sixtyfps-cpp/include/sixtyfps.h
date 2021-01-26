@@ -167,7 +167,7 @@ namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
                                              const cbindgen_private::ItemVTable *vtable,
                                              uint32_t child_count, uint32_t child_index,
-                                             uint parent_index)
+                                             uint32_t parent_index)
 {
     return ItemTreeNode { ItemTreeNode::Item_Body {
             ItemTreeNode::Tag::Item, { vtable, offset }, child_count, child_index, parent_index } };
