@@ -194,6 +194,7 @@ pub struct KeyEvent {
 /// Represents how an item's key_event handler dealt with a key event.
 /// An accepted event results in no further event propagation.
 #[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum KeyEventResult {
     /// The event was handled.
     EventAccepted,
@@ -203,7 +204,7 @@ pub enum KeyEventResult {
 
 /// This event is sent to a component and items when they receive or loose
 /// the keyboard focus.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(C)]
 pub enum FocusEvent {
     /// This event is sent when an item receives the focus.

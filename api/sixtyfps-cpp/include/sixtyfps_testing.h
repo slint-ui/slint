@@ -25,10 +25,11 @@ inline void send_mouse_click(const ComponentHandle<Component> *component, float 
 }
 
 template<typename Component>
-inline void send_keyboard_string_sequence(const Component &component,
-                                          const sixtyfps::SharedString &str)
+inline void send_keyboard_string_sequence(const Component *component,
+                                          const sixtyfps::SharedString &str,
+                                          KeyboardModifiers modifiers = {})
 {
-    cbindgen_private::send_keyboard_string_sequence(&str, {}, &component.window);
+    cbindgen_private::send_keyboard_string_sequence(&str, modifiers, &component->window);
 }
 
 #define assert_eq(A, B)                                                                            \

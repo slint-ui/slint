@@ -270,7 +270,7 @@ impl Item for TextInput {
         }
 
         match event.event_type {
-            KeyEventType::KeyPressed  => {
+            KeyEventType::KeyPressed => {
                 if let Some(keycode) = InternalKeyCode::try_decode_from_string(&event.text) {
                     if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode.clone())
                     {
@@ -292,12 +292,11 @@ impl Item for TextInput {
                         return KeyEventResult::EventAccepted;
                     }
                 }
-                KeyEventResult::EventIgnored
-            }
-            KeyEventType::KeyReleased
+
                 // Only insert/interpreter non-control character strings
-                if !event.text.is_empty() && event.text.as_str().chars().all(|ch| !ch.is_control()) =>
-            {
+                if event.text.is_empty() || event.text.as_str().chars().any(|ch| ch.is_control()) {
+                    return KeyEventResult::EventIgnored;
+                }
                 if event.modifiers.control {
                     if event.text == "c" {
                         self.copy();
@@ -306,6 +305,7 @@ impl Item for TextInput {
                         self.paste();
                         return KeyEventResult::EventAccepted;
                     }
+                    return KeyEventResult::EventIgnored;
                 }
                 self.delete_selection();
 

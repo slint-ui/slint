@@ -128,6 +128,10 @@ impl ItemRc {
     pub fn downgrade(&self) -> ItemWeak {
         ItemWeak { component: VRc::downgrade(&self.component), index: self.index }
     }
+    pub fn parent_item(&self) -> ItemWeak {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        comp_ref_pin.as_ref().parent_item(self.index)
+    }
 }
 
 /// A Weak reference to an item that can be constructed from an ItemRc.

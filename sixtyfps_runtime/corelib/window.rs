@@ -135,9 +135,15 @@ impl Window {
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
     pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
-        if let Some(focus_item) = self.focus_item.borrow().upgrade() {
+        let mut item = self.focus_item.borrow().clone();
+        while let Some(focus_item) = item.upgrade() {
             let window = &ComponentWindow::new(self.clone());
-            focus_item.borrow().as_ref().key_event(event, &window);
+            if focus_item.borrow().as_ref().key_event(event, &window)
+                == crate::input::KeyEventResult::EventAccepted
+            {
+                return;
+            }
+            item = focus_item.parent_item();
         }
     }
 
