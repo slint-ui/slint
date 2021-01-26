@@ -717,7 +717,7 @@ fn generate_component(
                     if index == 0 {
                         #(
                             if let Some(parent) = self.parent.clone().into_dyn().upgrade() {
-                                *result = sixtyfps::re_exports::ItemRc::new(parent, #parent_item_index).downgrade();
+                                *result = sixtyfps::re_exports::ItemRc::new(parent, #parent_item_index).parent_item();
                             }
                         )*
                         return;

@@ -1515,7 +1515,7 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
                     .into_dyn()
                     .upgrade()
                     .unwrap();
-                *result = ItemRc::new(parent_rc, parent_index).downgrade();
+                *result = ItemRc::new(parent_rc, parent_index).parent_item();
             };
         }
         return;
