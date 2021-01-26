@@ -132,6 +132,7 @@ impl ItemRc {
 
 /// A Weak reference to an item that can be constructed from an ItemRc.
 #[derive(Default, Clone)]
+#[repr(C)]
 pub struct ItemWeak {
     component: crate::component::ComponentWeak,
     index: usize,

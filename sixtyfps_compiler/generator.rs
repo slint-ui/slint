@@ -88,14 +88,18 @@ pub fn generate(
 }
 
 /// Visit each item in order in which they should appear in the children tree array.
-/// The parameter of the visitor are the item, and the first_children_offset, and wether this is the flickable rectangle
+/// The parameter of the visitor are
+///  1. the item
+///  2. the first_children_offset,
+///  3. the parent index
+///  4. wether this is the flickable rectangle
 #[allow(dead_code)]
 pub fn build_array_helper(
     component: &Component,
-    mut visit_item: impl FnMut(&ElementRc, u32, bool),
+    mut visit_item: impl FnMut(&ElementRc, u32, u32, bool),
 ) {
-    visit_item(&component.root_element, 1, false);
-    visit_children(&component.root_element, 1, &mut visit_item);
+    visit_item(&component.root_element, 1, 0, false);
+    visit_children(&component.root_element, &mut 0, 1, &mut visit_item);
 
     fn sub_children_count(e: &ElementRc) -> usize {
         let mut count = e.borrow().children.len();
@@ -110,29 +114,33 @@ pub fn build_array_helper(
 
     fn visit_children(
         item: &ElementRc,
+        index: &mut u32,
         children_offset: u32,
-        visit_item: &mut impl FnMut(&ElementRc, u32, bool),
+        visit_item: &mut impl FnMut(&ElementRc, u32, u32, bool),
     ) {
         let mut offset = children_offset + item.borrow().children.len() as u32;
 
         if is_flickable(item) {
-            visit_item(item, offset, true);
+            visit_item(item, offset, *index, true);
             offset += 1;
         }
 
         for i in &item.borrow().children {
-            visit_item(i, offset, false);
+            visit_item(i, offset, *index, false);
             offset += sub_children_count(i) as u32;
         }
+
+        *index += 1;
 
         let mut offset = children_offset + item.borrow().children.len() as u32;
 
         if is_flickable(item) {
             offset += 1;
+            *index += 1;
         }
 
         for e in &item.borrow().children {
-            visit_children(e, offset, visit_item);
+            visit_children(e, index, offset, visit_item);
             offset += sub_children_count(e) as u32;
         }
     }

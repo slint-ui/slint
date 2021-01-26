@@ -167,6 +167,8 @@ public:
         inner->strong_ref++;
         return { VRc<VTable, X>(inner) };
     }
+
+    VWeak<VTable, Dyn> into_dyn() const { return *reinterpret_cast<const VWeak<VTable, Dyn> *>(this); }
 };
 
 

@@ -65,6 +65,7 @@ using cbindgen_private::ItemVTable;
 using ComponentRef = vtable::VRef<private_api::ComponentVTable>;
 using ItemRef = vtable::VRef<private_api::ItemVTable>;
 using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
+using cbindgen_private::ItemWeak;
 }
 using cbindgen_private::ComponentRc;
 using cbindgen_private::EasingCurve;
@@ -165,22 +166,34 @@ using cbindgen_private::NativeStyleMetrics;
 namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
                                              const cbindgen_private::ItemVTable *vtable,
-                                             uint32_t child_count, uint32_t child_index)
+                                             uint32_t child_count, uint32_t child_index,
+                                             uint parent_index)
 {
     return ItemTreeNode { ItemTreeNode::Item_Body {
-            ItemTreeNode::Tag::Item, { vtable, offset }, child_count, child_index } };
+            ItemTreeNode::Tag::Item, { vtable, offset }, child_count, child_index, parent_index } };
 }
 
-constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset)
+constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t parent_index)
 {
-    return ItemTreeNode { ItemTreeNode::DynamicTree_Body { ItemTreeNode::Tag::DynamicTree,
-                                                           offset } };
+    return ItemTreeNode { ItemTreeNode::DynamicTree_Body {
+        ItemTreeNode::Tag::DynamicTree, offset, parent_index } };
 }
 
 inline ItemRef get_item_ref(ComponentRef component, Slice<ItemTreeNode> item_tree, int index)
 {
     const auto &item = item_tree.ptr[index].item.item;
     return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
+}
+
+inline ItemWeak parent_item(cbindgen_private::ComponentWeak component,
+                                Slice<ItemTreeNode> item_tree, int index)
+{
+    const auto &node = item_tree.ptr[index];
+    if (node.tag == ItemTreeNode::Tag::Item) {
+        return { component, node.item.parent_index };
+    } else {
+        return { component, node.dynamic_tree.parent_index };
+    }
 }
 
 }

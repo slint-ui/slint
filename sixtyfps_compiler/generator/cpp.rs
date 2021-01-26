@@ -1003,59 +1003,67 @@ fn generate_component(
     let mut tree_array = vec![];
     let mut item_names_and_vt_symbols = vec![];
     let mut repeater_count = 0;
-    super::build_array_helper(component, |item_rc, children_offset, is_flickable_rect| {
-        let item = item_rc.borrow();
-        if is_flickable_rect {
-            tree_array.push(format!(
-                "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::private_api::RectangleVTable, {}, {})",
+    super::build_array_helper(
+        component,
+        |item_rc, children_offset, parent_index, is_flickable_rect| {
+            let item = item_rc.borrow();
+            if is_flickable_rect {
+                tree_array.push(format!(
+                "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::private_api::RectangleVTable, {}, {}, {})",
                 &component_id,
                 item.id,
                 item.children.len(),
                 tree_array.len() + 1,
+                parent_index,
             ));
-        } else if item.base_type == Type::Void {
-            assert!(component.is_global());
-            for (prop_name, binding_expression) in &item.bindings {
-                handle_property_binding(item_rc, prop_name, binding_expression, &mut init);
+            } else if item.base_type == Type::Void {
+                assert!(component.is_global());
+                for (prop_name, binding_expression) in &item.bindings {
+                    handle_property_binding(item_rc, prop_name, binding_expression, &mut init);
+                }
+            } else if let Some(repeated) = &item.repeated {
+                tree_array.push(format!(
+                    "sixtyfps::private_api::make_dyn_node({}, {})",
+                    repeater_count, parent_index
+                ));
+                let base_component = item.base_type.as_component();
+                let mut friends = Vec::new();
+                generate_component(file, base_component, diag, Some(&mut friends));
+                if let Some(sub_components) = sub_components.as_mut() {
+                    sub_components.extend_from_slice(friends.as_slice());
+                    sub_components.push(self::component_id(base_component))
+                }
+                component_struct.friends.append(&mut friends);
+                component_struct.friends.push(self::component_id(base_component));
+                handle_repeater(
+                    repeated,
+                    base_component,
+                    component,
+                    repeater_count,
+                    &mut component_struct,
+                    &mut init,
+                    &mut children_visitor_cases,
+                    &mut repeated_input_branch,
+                    &mut repeater_layout_code,
+                    diag,
+                );
+                repeater_count += 1;
+            } else {
+                tree_array.push(format!(
+                    "sixtyfps::private_api::make_item_node(offsetof({}, {}), &sixtyfps::private_api::{}, {}, {}, {})",
+                    component_id,
+                    item.id,
+                    item.base_type.as_native().vtable_symbol,
+                    if super::is_flickable(item_rc) { 1 } else { item.children.len() },
+                    children_offset,
+                    parent_index,
+                ));
+                handle_item(item_rc, &mut component_struct, &mut init);
+                item_names_and_vt_symbols
+                    .push((item.id.clone(), item.base_type.as_native().vtable_symbol.clone()));
             }
-        } else if let Some(repeated) = &item.repeated {
-            tree_array.push(format!("sixtyfps::private_api::make_dyn_node({})", repeater_count,));
-            let base_component = item.base_type.as_component();
-            let mut friends = Vec::new();
-            generate_component(file, base_component, diag, Some(&mut friends));
-            if let Some(sub_components) = sub_components.as_mut() {
-                sub_components.extend_from_slice(friends.as_slice());
-                sub_components.push(self::component_id(base_component))
-            }
-            component_struct.friends.append(&mut friends);
-            component_struct.friends.push(self::component_id(base_component));
-            handle_repeater(
-                repeated,
-                base_component,
-                component,
-                repeater_count,
-                &mut component_struct,
-                &mut init,
-                &mut children_visitor_cases,
-                &mut repeated_input_branch,
-                &mut repeater_layout_code,
-                diag,
-            );
-            repeater_count += 1;
-        } else {
-            tree_array.push(format!(
-                "sixtyfps::private_api::make_item_node(offsetof({}, {}), &sixtyfps::private_api::{}, {}, {})",
-                component_id,
-                item.id,
-                item.base_type.as_native().vtable_symbol,
-                if super::is_flickable(item_rc) { 1 } else { item.children.len() },
-                children_offset,
-            ));
-            handle_item(item_rc, &mut component_struct, &mut init);
-            item_names_and_vt_symbols
-                .push((item.id.clone(), item.base_type.as_native().vtable_symbol.clone()));
-        }
-    });
+        },
+    );
 
     if !component.is_global() {
         component_struct
@@ -1134,6 +1142,31 @@ fn generate_component(
                 is_static: true,
                 statements: Some(vec![
                     "return sixtyfps::private_api::get_item_ref(component, item_tree(), index);".to_owned(),
+                ]),
+                ..Default::default()
+            }),
+        ));
+
+        let parent_item_from_parent_component = if let Some(parent_index) =
+            component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().map(|x| *x))
+        {
+            format!("   return {{ self->parent->self_weak.into_dyn(), {} }};", parent_index)
+        } else {
+            "    return {};".to_owned()
+        };
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Function(Function {
+                name: "parent_item".into(),
+                signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index) -> sixtyfps::private_api::ItemWeak".into(),
+                is_static: true,
+                statements: Some(vec![
+                    format!("auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
+                    "if (index == 0) {".into(),
+                    parent_item_from_parent_component,
+                    "}".into(),
+                    "return sixtyfps::private_api::parent_item(self->self_weak.into_dyn(), item_tree(), index);".into(),
                 ]),
                 ..Default::default()
             }),
@@ -1232,7 +1265,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::static_vtable", component_id),
             init: Some(format!(
-                "{{ visit_children, get_item_ref, layouting_info, apply_layout,  sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+                "{{ visit_children, get_item_ref, parent_item,  layouting_info, apply_layout,  sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
                 component_id)
             ),
         }));

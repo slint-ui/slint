@@ -23,7 +23,9 @@ use sixtyfps_corelib::graphics::{Rect, Resource};
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
-use sixtyfps_corelib::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation, Rectangle};
+use sixtyfps_corelib::items::{
+    Flickable, ItemRc, ItemRef, ItemVTable, ItemWeak, PropertyAnimation, Rectangle,
+};
 use sixtyfps_corelib::layout::{LayoutInfo, Padding};
 use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::model::Repeater;
@@ -208,6 +210,9 @@ impl Component for ErasedComponentBox {
         // to the other ComponentVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
         unsafe { get_item_ref(self.get_ref().borrow(), index) }
+    }
+    fn parent_item(self: Pin<&Self>, index: usize) -> ItemWeak {
+        self.borrow().as_ref().parent_item(index)
     }
 }
 
@@ -517,50 +522,55 @@ fn generate_component<'id>(
     let mut repeater = vec![];
     let mut repeater_names = HashMap::new();
 
-    generator::build_array_helper(component, |rc_item, child_offset, is_flickable_rect| {
-        let item = rc_item.borrow();
-        if is_flickable_rect {
-            use vtable::HasStaticVTable;
-            let offset =
-                items_types[&item.id].offset + Flickable::FIELD_OFFSETS.viewport.get_byte_offset();
-            tree_array.push(ItemTreeNode::Item {
-                item: unsafe { vtable::VOffset::from_raw(Rectangle::static_vtable(), offset) },
-                children_index: tree_array.len() as u32 + 1,
-                chilren_count: item.children.len() as _,
-            });
-        } else if let Some(repeated) = &item.repeated {
-            tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len() });
-            let base_component = item.base_type.as_component();
-            repeater_names.insert(item.id.clone(), repeater.len());
-            generativity::make_guard!(guard);
-            repeater.push(
-                RepeaterWithinComponent {
-                    component_to_repeat: generate_component(base_component, guard),
-                    offset: builder.add_field_type::<Repeater<ErasedComponentBox>>(),
-                    model: repeated.model.clone(),
-                }
-                .into(),
-            );
-        } else {
-            let rt = rtti.get(&*item.base_type.as_native().class_name).unwrap_or_else(|| {
-                panic!("Native type not registered: {}", item.base_type.as_native().class_name)
-            });
-            let offset = builder.add_field(rt.type_info);
-            tree_array.push(ItemTreeNode::Item {
-                item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
-                children_index: child_offset,
-                chilren_count: if generator::is_flickable(rc_item) {
-                    1
-                } else {
-                    item.children.len() as _
-                },
-            });
-            items_types.insert(
-                item.id.clone(),
-                ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
-            );
-        }
-    });
+    generator::build_array_helper(
+        component,
+        |rc_item, child_offset, parent_index, is_flickable_rect| {
+            let item = rc_item.borrow();
+            if is_flickable_rect {
+                use vtable::HasStaticVTable;
+                let offset = items_types[&item.id].offset
+                    + Flickable::FIELD_OFFSETS.viewport.get_byte_offset();
+                tree_array.push(ItemTreeNode::Item {
+                    item: unsafe { vtable::VOffset::from_raw(Rectangle::static_vtable(), offset) },
+                    children_index: tree_array.len() as u32 + 1,
+                    chilren_count: item.children.len() as _,
+                    parent_index,
+                });
+            } else if let Some(repeated) = &item.repeated {
+                tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len(), parent_index });
+                let base_component = item.base_type.as_component();
+                repeater_names.insert(item.id.clone(), repeater.len());
+                generativity::make_guard!(guard);
+                repeater.push(
+                    RepeaterWithinComponent {
+                        component_to_repeat: generate_component(base_component, guard),
+                        offset: builder.add_field_type::<Repeater<ErasedComponentBox>>(),
+                        model: repeated.model.clone(),
+                    }
+                    .into(),
+                );
+            } else {
+                let rt = rtti.get(&*item.base_type.as_native().class_name).unwrap_or_else(|| {
+                    panic!("Native type not registered: {}", item.base_type.as_native().class_name)
+                });
+                let offset = builder.add_field(rt.type_info);
+                tree_array.push(ItemTreeNode::Item {
+                    item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
+                    children_index: child_offset,
+                    chilren_count: if generator::is_flickable(rc_item) {
+                        1
+                    } else {
+                        item.children.len() as _
+                    },
+                    parent_index,
+                });
+                items_types.insert(
+                    item.id.clone(),
+                    ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
+                );
+            }
+        },
+    );
 
     let mut custom_properties = HashMap::new();
     let mut custom_callbacks = HashMap::new();
@@ -672,6 +682,7 @@ fn generate_component<'id>(
         layout_info,
         apply_layout,
         get_item_ref,
+        parent_item,
         drop_in_place,
         dealloc,
     };
@@ -1477,6 +1488,43 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> P
         ),
         ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
     }
+}
+
+unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize) -> ItemWeak {
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    if index == 0 {
+        let parent_item_index = instance_ref
+            .component_type
+            .original
+            .parent_element
+            .upgrade()
+            .and_then(|e| e.borrow().item_index.get().map(|x| *x));
+        if let (Some(parent_offset), Some(parent_index)) =
+            (instance_ref.component_type.parent_component_offset, parent_item_index)
+        {
+            if let Some(parent) = parent_offset.apply(instance_ref.as_ref()) {
+                generativity::make_guard!(new_guard);
+                let parent_instance = InstanceRef::from_pin_ref(*parent, new_guard);
+                let parent_rc = parent_instance
+                    .self_weak()
+                    .get()
+                    .unwrap()
+                    .clone()
+                    .into_dyn()
+                    .upgrade()
+                    .unwrap();
+                return ItemRc::new(parent_rc, parent_index).downgrade();
+            };
+        }
+        return ItemWeak::default();
+    }
+    let parent_index = match &instance_ref.component_type.item_tree.as_slice()[index] {
+        ItemTreeNode::Item { parent_index, .. } => parent_index,
+        ItemTreeNode::DynamicTree { parent_index, .. } => parent_index,
+    };
+    let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
+    ItemRc::new(self_rc, *parent_index as _).downgrade()
 }
 
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) -> vtable::Layout {

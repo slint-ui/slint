@@ -84,12 +84,18 @@ pub enum ItemTreeNode<T> {
 
         /// index of the first children within the item tree
         children_index: u32,
+
+        /// The index of the parent item (not valid for the root)
+        parent_index: u32,
     },
     /// A placeholder for many instance of item in their own component which
     /// are instantiated according to a model.
     DynamicTree {
         /// the undex which is passed in the visit_dynamic callback.
         index: usize,
+
+        /// The index of the parent item (not valid for the root)
+        parent_index: u32,
     },
 }
 
@@ -230,7 +236,7 @@ pub fn visit_item_tree<Base>(
             ItemTreeNode::Item { item, .. } => {
                 visitor.visit_item(component, idx, item.apply_pin(base))
             }
-            ItemTreeNode::DynamicTree { index } => {
+            ItemTreeNode::DynamicTree { index, .. } => {
                 if let Some(sub_idx) =
                     visit_dynamic(base, order, visitor.borrow_mut(), *index).aborted_index()
                 {
