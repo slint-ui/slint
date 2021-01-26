@@ -1,14 +1,14 @@
 # Element positioning and layouting
 
-Most elements have `x`, `y`, `width` and `height` property which specify their geometry.
-There are two ways to position element on the screen: either by setting these properties explicitly, or by using a layout.
+Most elements have `x`, `y`, `width` and `height` properties which specify their geometry.
+There are two ways to position an element on the screen: either by setting these properties explicitly, or by using a layout.
 
 
-## Manual positioning
+## Explicit positioning
 
 
 ```60
-// Example of manual positioning
+// Explicit positioning
 Example := Window {
     width: 200px;
     height: 200px;
@@ -29,26 +29,30 @@ Example := Window {
 }
 ```
 
-The `x`, `y` property is relative to the parent, it can be specified in `px` (logical pixels, scaled with the device pixel ratio), `phx` (physical pixel).
+The `x` and `y` properties are relative to the parent. They can be specified in
+
+*  `px`: logical pixels, scaled with the device pixel ratio
+*  `phx`: physical pixels
+
 The default value for `x` and `y` is always 0.
 
-The `width` and `height` properties are also values in pixels. Additionaly, they can take a value in `%`, in that case, this is the ratio compared to the parent element.
+The `width` and `height` properties are also specified in pixels. Additionaly, they can also take a value in `%`, in that case, this is the ratio compared to the parent element.
 The default values for `width` and `height` depends on the element.
-Some elements have contents had their size is based on their content this is the case for `Image` or `Text` or most widgets.
-Elements that do not have contents, defaults to fill the parent element. For example: `Rectangle`, `TouchArea`, `FocusScope`, `Flickable`, `Clip`.
-The default
+Some elements have content and had their size is based on their content. This is the case for `Image` or `Text` and most widgets.
+Elements that do not have content, default to fill the parent element. For example: `Rectangle`, `TouchArea`, `FocusScope`, `Flickable`,
+and `Clip`.
 
 ## Layouts
 
-There are different kind of layouts, but they all share some common traits.
-Layout are responsible for positioning their direct sub-elements.
-Each element can have a minimum and maximum size which can be set with the `minimum_width` `minimum_height` `maximum_width` and  `maximum_height` properties.
-When the `width`, or `height` is specified directly, it is considered as fixed size.
-If an element contain itself a layout, it will also impact the minimum and maximum size of that element.
-The `horizontal_stretch` and `vertical_stretch` properties specifies how much an element stretchess proportionaly to the other elements.
+There are different kinds of layouts, but they all share some common traits.
+Layouts are responsible for positioning their direct sub-elements.
+Each element has a minimum and maximum size which can be set with the `minimum_width`, `minimum_height`, `maximum_width`, and  `maximum_height` properties.
+When the `width` or `height` is specified directly, it is considered to be of fixed size.
+If an element contains a layout, it also impacts the minimum and maximum size of that element.
+The `horizontal_stretch` and `vertical_stretch` properties specify how much an element stretches proportionally to other elements.
 
-Layout have a `spacing` and `padding` property. Thir default value is defined by the widget style.
-`padding` can be splitted in `padding-left`, `padding-right`, `padding-bottom`, `padding-top`.
+Layouts have a `spacing` and `padding` property. Their default value is defined by the widget style.
+`padding` can be split in `padding-left`, `padding-right`, `padding-bottom` and `padding-top`.
 
 ## VerticalLayout and HorizontalLayout
 
