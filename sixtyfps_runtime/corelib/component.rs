@@ -38,9 +38,11 @@ pub struct ComponentVTable {
         index: usize,
     ) -> core::pin::Pin<VRef<ItemVTable>>,
 
-    /// Return the parent item. The return value is an item weak because it can be null if
-    /// there is no parent
-    pub parent_item: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize) -> ItemWeak,
+    /// Return the parent item.
+    /// The return value is an item weak because it can be null if there is no parent.
+    /// And the return value is passed by &mut because ItemWeak has a destructor
+    pub parent_item:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
 
     /// Returns the layout info for this component
     pub layout_info: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> LayoutInfo,

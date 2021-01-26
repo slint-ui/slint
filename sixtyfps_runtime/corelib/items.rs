@@ -128,9 +128,13 @@ impl ItemRc {
     pub fn downgrade(&self) -> ItemWeak {
         ItemWeak { component: VRc::downgrade(&self.component), index: self.index }
     }
+    /// Return the parent Item in the item tree.
+    /// This is weak because it can be null if there is no parent
     pub fn parent_item(&self) -> ItemWeak {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
-        comp_ref_pin.as_ref().parent_item(self.index)
+        let mut r = ItemWeak::default();
+        comp_ref_pin.as_ref().parent_item(self.index, &mut r);
+        r
     }
 }
 

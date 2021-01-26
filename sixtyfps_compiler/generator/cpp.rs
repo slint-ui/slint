@@ -1150,23 +1150,24 @@ fn generate_component(
         let parent_item_from_parent_component = if let Some(parent_index) =
             component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().map(|x| *x))
         {
-            format!("   return {{ self->parent->self_weak.into_dyn(), {} }};", parent_index)
+            format!("   *result = {{ self->parent->self_weak.into_dyn(), {} }};", parent_index)
         } else {
-            "    return {};".to_owned()
+            "".to_owned()
         };
 
         component_struct.members.push((
             Access::Private,
             Declaration::Function(Function {
                 name: "parent_item".into(),
-                signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index) -> sixtyfps::private_api::ItemWeak".into(),
+                signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index, sixtyfps::private_api::ItemWeak *result) -> void".into(),
                 is_static: true,
                 statements: Some(vec![
                     format!("auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
                     "if (index == 0) {".into(),
                     parent_item_from_parent_component,
+                    "   return;".into(),
                     "}".into(),
-                    "return sixtyfps::private_api::parent_item(self->self_weak.into_dyn(), item_tree(), index);".into(),
+                    "*result = sixtyfps::private_api::parent_item(self->self_weak.into_dyn(), item_tree(), index);".into(),
                 ]),
                 ..Default::default()
             }),

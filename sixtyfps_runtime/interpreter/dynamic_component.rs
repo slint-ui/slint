@@ -211,8 +211,8 @@ impl Component for ErasedComponentBox {
         // indirection and call our implementation directly.
         unsafe { get_item_ref(self.get_ref().borrow(), index) }
     }
-    fn parent_item(self: Pin<&Self>, index: usize) -> ItemWeak {
-        self.borrow().as_ref().parent_item(index)
+    fn parent_item(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
+        self.borrow().as_ref().parent_item(index, result)
     }
 }
 
@@ -1490,7 +1490,7 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> P
     }
 }
 
-unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize) -> ItemWeak {
+unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
     if index == 0 {
@@ -1514,17 +1514,17 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize) -> It
                     .into_dyn()
                     .upgrade()
                     .unwrap();
-                return ItemRc::new(parent_rc, parent_index).downgrade();
+                *result = ItemRc::new(parent_rc, parent_index).downgrade();
             };
         }
-        return ItemWeak::default();
+        return;
     }
     let parent_index = match &instance_ref.component_type.item_tree.as_slice()[index] {
         ItemTreeNode::Item { parent_index, .. } => parent_index,
         ItemTreeNode::DynamicTree { parent_index, .. } => parent_index,
     };
     let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
-    ItemRc::new(self_rc, *parent_index as _).downgrade()
+    *result = ItemRc::new(self_rc, *parent_index as _).downgrade();
 }
 
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) -> vtable::Layout {

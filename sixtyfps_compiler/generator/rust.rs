@@ -713,21 +713,21 @@ fn generate_component(
                     }
                 }
 
-                fn parent_item(self: ::core::pin::Pin<&Self>, index: usize) -> sixtyfps::re_exports::ItemWeak {
+                fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut sixtyfps::re_exports::ItemWeak) {
                     if index == 0 {
                         #(
                             if let Some(parent) = self.parent.clone().into_dyn().upgrade() {
-                                return sixtyfps::re_exports::ItemRc::new(parent, #parent_item_index).downgrade();
+                                *result = sixtyfps::re_exports::ItemRc::new(parent, #parent_item_index).downgrade();
                             }
                         )*
-                        return sixtyfps::re_exports::ItemWeak::default();
+                        return;
                     }
                     let parent_index = match &Self::item_tree()[index] {
                         ItemTreeNode::Item { parent_index, .. } => *parent_index,
                         ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index,
                     };
                     let self_rc = self.self_weak.get().unwrap().clone().into_dyn().upgrade().unwrap();
-                    ItemRc::new(self_rc, parent_index as _).downgrade()
+                    *result = ItemRc::new(self_rc, parent_index as _).downgrade()
                 }
             }
             }),
