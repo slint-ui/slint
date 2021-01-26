@@ -204,8 +204,8 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 ### Callbacks
 
-* **`key_pressed(KeyEvent)`**: Emited when a key is pressed, the argument is a `KeyEvent` object
-* **`key_released(KeyEvent)`**: Emited when a key is released, the argument is a `KeyEvent` object
+* **`key_pressed(KeyEvent) -> EventResult`**: Emited when a key is pressed, the argument is a `KeyEvent` object
+* **`key_released(KeyEvent) -> EventResult`**: Emited when a key is released, the argument is a `KeyEvent` object
 
 ### Example
 
@@ -417,6 +417,8 @@ are pressed during the generation of a key event.
 
 # Builtin Enums
 
+The default value of each enum type is always the first value
+
 ## `TextHorizontalAlignment`
 
 This enum describes the different types of alignment of text along the horizontal axis.
@@ -437,3 +439,9 @@ This enum describes the different types of alignment of text along the vertical 
 * **`TextVerticalAlignment.center`**: The text will be vertically centered within the contained box.
 * **`TextVerticalAlignment.bottom`** The text will be alignt to the bottom of the contained box.
 
+## `EventResult`
+
+This enum describes whether an event was rejected or accepted by an event handler.
+
+* **`EventResult.reject`**: The event is rejected by this event handler and may then be handled by parent item
+* **`EventResult.accept`**: The event is accepted and won't be processed further
