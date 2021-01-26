@@ -1,6 +1,6 @@
 # Element positioning and layouting
 
-Most elements have `x`, `y`, `width` and `height` properties which specify their geometry.
+Most elements have `x`, `y`, `width`, and `height` properties which specify their geometry.
 There are two ways to position an element on the screen: either by setting these properties explicitly, or by using a layout.
 
 
