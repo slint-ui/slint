@@ -10,7 +10,7 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::graphics::{FontRequest, Point, RenderingCache};
+use sixtyfps_corelib::graphics::{Color, FontRequest, Point, RenderingCache};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, ItemRef};
@@ -231,26 +231,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn draw_border_rectangle(&mut self, pos: Point, rect: std::pin::Pin<&items::BorderRectangle>) {
-        let color: u32 = rect.color().as_argb_encoded();
-        let border_color: u32 = rect.border_color().as_argb_encoded();
-        let border_width: f32 = rect.border_width().min(rect.width() / 2.);
-        let radius: f32 = rect.border_radius();
-        let mut rect: qttypes::QRectF = get_geometry!(pos, items::BorderRectangle, rect);
-        // adjust the size so that the border is drawn within the geometry
-        rect.x += border_width as f64 / 2.;
-        rect.y += border_width as f64 / 2.;
-        rect.width -= border_width as f64;
-        rect.height -= border_width as f64;
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", color as "QRgb",  border_color as "QRgb", border_width as "float", radius as "float", rect as "QRectF"] {
-            painter->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
-            painter->setBrush(QColor::fromRgba(color));
-            if (radius > 0) {
-                painter->drawRoundedRect(rect, radius, radius);
-            } else {
-                painter->drawRect(rect);
-            }
-        }}
+        self.draw_rectangle_impl(
+            get_geometry!(pos, items::BorderRectangle, rect),
+            rect.color(),
+            rect.border_color(),
+            rect.border_width(),
+            rect.border_radius(),
+        );
     }
 
     fn draw_image(&mut self, pos: Point, image: Pin<&items::Image>) {
@@ -423,8 +410,20 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_box_shadow(&mut self, _pos: Point, _box_shadow: Pin<&items::BoxShadow>) {
-        todo!()
+    fn draw_box_shadow(&mut self, pos: Point, box_shadow: Pin<&items::BoxShadow>) {
+        // This could be improved to use a guassian blur.
+
+        let mut shadow_rect = get_geometry!(pos, items::BoxShadow, box_shadow);
+        shadow_rect.x += box_shadow.offset_x() as f64;
+        shadow_rect.y += box_shadow.offset_y() as f64;
+
+        self.draw_rectangle_impl(
+            shadow_rect,
+            box_shadow.color(),
+            Color::default(),
+            0.,
+            box_shadow.radius(),
+        );
     }
 
     fn combine_clip(&mut self, pos: Point, clip: Pin<&items::Clip>) {
@@ -533,6 +532,34 @@ impl QtItemRenderer<'_> {
         cpp! { unsafe [painter as "QPainter*", pixmap as "QPixmap*", source_rect as "QRectF", dest_rect as "QRectF"] {
             painter->drawPixmap(dest_rect, *pixmap, source_rect);
         }};
+    }
+
+    fn draw_rectangle_impl(
+        &mut self,
+        mut rect: qttypes::QRectF,
+        color: Color,
+        border_color: Color,
+        border_width: f32,
+        border_radius: f32,
+    ) {
+        let color: u32 = color.as_argb_encoded();
+        let border_color: u32 = border_color.as_argb_encoded();
+        let border_width: f32 = border_width.min((rect.width as f32) / 2.);
+        // adjust the size so that the border is drawn within the geometry
+        rect.x += border_width as f64 / 2.;
+        rect.y += border_width as f64 / 2.;
+        rect.width -= border_width as f64;
+        rect.height -= border_width as f64;
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", color as "QRgb",  border_color as "QRgb", border_width as "float", border_radius as "float", rect as "QRectF"] {
+            painter->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
+            painter->setBrush(QColor::fromRgba(color));
+            if (border_radius > 0) {
+                painter->drawRoundedRect(rect, border_radius, border_radius);
+            } else {
+                painter->drawRect(rect);
+            }
+        }}
     }
 }
 
