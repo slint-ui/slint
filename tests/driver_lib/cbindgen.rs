@@ -33,8 +33,9 @@ fn default_config() -> cbindgen::Config {
         documentation: true,
         export: cbindgen::ExportConfig {
             rename: [
-                ("VoidArg".into(), "void()".into()),
-                ("KeyEventArg".into(), "void(KeyEvent)".into()),
+                ("Callback".into(), "CallbackHelper".into()),
+                ("VoidArg".into(), "void".into()),
+                ("KeyEventArg".into(), "KeyEvent".into()),
             ]
             .iter()
             .cloned()

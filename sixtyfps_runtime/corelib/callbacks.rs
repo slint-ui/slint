@@ -25,7 +25,7 @@ use core::cell::Cell;
 #[repr(C)]
 pub struct Callback<Arg: ?Sized, Ret = ()> {
     /// FIXME: Box<dyn> is a fat object and we probaly want to put an erased type in there
-    handler: Cell<Option<Box<dyn Fn(&Arg) -> Ret>>>,
+    handler: Cell<Option<Box<dyn Fn(&Arg, &mut Ret)>>>,
 }
 
 impl<Arg: ?Sized, Ret> Default for Callback<Arg, Ret> {
@@ -37,21 +37,20 @@ impl<Arg: ?Sized, Ret> Default for Callback<Arg, Ret> {
 impl<Arg: ?Sized, Ret: Default> Callback<Arg, Ret> {
     /// Call the callback with the given argument.
     pub fn call(&self, a: &Arg) -> Ret {
+        let mut r = Ret::default();
         if let Some(h) = self.handler.take() {
-            let r = h(a);
+            h(a, &mut r);
             assert!(self.handler.take().is_none(), "Callback Handler set while callted");
             self.handler.set(Some(h));
-            r
-        } else {
-            Default::default()
         }
+        r
     }
 
     /// Set an handler to be called when the callback is called
     ///
     /// There can only be one single handler per callback.
     pub fn set_handler(&self, f: impl Fn(&Arg) -> Ret + 'static) {
-        self.handler.set(Some(Box::new(f)));
+        self.handler.set(Some(Box::new(move |a: &Arg, r: &mut Ret| *r = f(a))));
     }
 }
 
@@ -99,9 +98,14 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn sixtyfps_callback_call(
         sig: *const CallbackOpaque,
         arg: *const c_void,
+        ret: *mut c_void,
     ) {
         let sig = &*(sig as *const Callback<c_void>);
-        sig.call(&*arg);
+        if let Some(h) = sig.handler.take() {
+            h(&*arg, &mut *ret);
+            assert!(sig.handler.take().is_none(), "Callback Handler set while callted");
+            sig.handler.set(Some(h));
+        }
     }
 
     /// Set callback handler.
@@ -110,7 +114,7 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_callback_set_handler(
         sig: *const CallbackOpaque,
-        binding: extern "C" fn(user_data: *mut c_void, arg: *const c_void),
+        binding: extern "C" fn(user_data: *mut c_void, arg: *const c_void, ret: *mut c_void),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) {
@@ -129,11 +133,9 @@ pub(crate) mod ffi {
             }
         }
         let ud = UserData { user_data, drop_user_data };
-
-        let real_binding = move |arg: &()| {
-            binding(ud.user_data, arg as *const c_void);
-        };
-        sig.set_handler(real_binding);
+        sig.handler.set(Some(Box::new(move |a: &(), r: &mut ()| {
+            binding(ud.user_data, a as *const c_void, r as *mut c_void)
+        })));
     }
 
     /// Destroy callback

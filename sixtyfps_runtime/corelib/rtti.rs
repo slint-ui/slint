@@ -23,6 +23,7 @@ macro_rules! declare_ValueType {
     };
 }
 declare_ValueType![
+    (),
     bool,
     u32,
     u64,
@@ -228,12 +229,14 @@ pub trait CallbackInfo<Item, Value> {
     ) -> Result<(), ()>;
 }
 
-impl<Item, Value: Default + 'static> CallbackInfo<Item, Value>
-    for FieldOffset<Item, crate::Callback<()>>
+impl<Item, Value: Default + 'static, Ret: Default> CallbackInfo<Item, Value>
+    for FieldOffset<Item, crate::Callback<(), Ret>>
+where
+    Value: TryInto<Ret>,
+    Ret: TryInto<Value>,
 {
     fn call(&self, item: Pin<&Item>, _args: &[Value]) -> Result<Value, ()> {
-        self.apply_pin(item).call(&());
-        Ok(Default::default())
+        self.apply_pin(item).call(&()).try_into().map_err(|_| ())
     }
 
     fn set_handler(
@@ -241,24 +244,23 @@ impl<Item, Value: Default + 'static> CallbackInfo<Item, Value>
         item: Pin<&Item>,
         handler: Box<dyn Fn(&[Value]) -> Value>,
     ) -> Result<(), ()> {
-        self.apply_pin(item).set_handler(move |()| {
-            handler(&[]);
-        });
+        self.apply_pin(item).set_handler(move |()| handler(&[]).try_into().ok().unwrap());
         Ok(())
     }
 }
 
-impl<Item, Value: Clone + Default + 'static, T: Clone> CallbackInfo<Item, Value>
-    for FieldOffset<Item, crate::Callback<(T,)>>
+impl<Item, Value: Clone + Default + 'static, T: Clone, Ret: Default> CallbackInfo<Item, Value>
+    for FieldOffset<Item, crate::Callback<(T,), Ret>>
 where
     Value: TryInto<T>,
     T: TryInto<Value>,
+    Value: TryInto<Ret>,
+    Ret: TryInto<Value>,
 {
     fn call(&self, item: Pin<&Item>, args: &[Value]) -> Result<Value, ()> {
         let value = args.first().ok_or(())?;
         let value = value.clone().try_into().map_err(|_| ())?;
-        self.apply_pin(item).call(&(value,));
-        Ok(Value::default())
+        self.apply_pin(item).call(&(value,)).try_into().map_err(|_| ())
     }
 
     fn set_handler(
@@ -268,8 +270,7 @@ where
     ) -> Result<(), ()> {
         self.apply_pin(item).set_handler(move |(val,)| {
             let val: Value = val.clone().try_into().ok().unwrap();
-            handler(&[val]);
-            Value::default();
+            handler(&[val]).try_into().ok().unwrap()
         });
         Ok(())
     }

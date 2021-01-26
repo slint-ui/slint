@@ -28,9 +28,9 @@ struct Callback<Ret(Arg...)>
     {
         cbindgen_private::sixtyfps_callback_set_handler(
                 &inner,
-                [](void *user_data, const void *arg) {
-                    auto *p = reinterpret_cast<const Pair*>(arg);
-                    *p->first = std::apply(*reinterpret_cast<F *>(user_data), p->second);
+                [](void *user_data, const void *arg, void *ret) {
+                    *reinterpret_cast<Ret*>(ret) = std::apply(*reinterpret_cast<F *>(user_data),
+                                                              *reinterpret_cast<const Tuple*>(arg));
                 },
                 new F(std::move(binding)),
                 [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
@@ -39,14 +39,13 @@ struct Callback<Ret(Arg...)>
     Ret call(const Arg &...arg) const
     {
         Ret r{};
-        Pair p = std::pair{ &r, Tuple{arg...} };
-        cbindgen_private::sixtyfps_callback_call(&inner, &p);
+        Tuple tuple{arg...};
+        cbindgen_private::sixtyfps_callback_call(&inner, &tuple, &r);
         return r;
     }
 
 private:
     using Tuple = std::tuple<Arg...>;
-    using Pair = std::pair<Ret *, Tuple>;
     cbindgen_private::CallbackOpaque inner;
 };
 
@@ -65,7 +64,7 @@ struct Callback<void(Arg...)>
     {
         cbindgen_private::sixtyfps_callback_set_handler(
                 &inner,
-                [](void *user_data, const void *arg) {
+                [](void *user_data, const void *arg, void *) {
                     std::apply(*reinterpret_cast<F *>(user_data),
                                *reinterpret_cast<const Tuple*>(arg));
                 },
@@ -76,7 +75,7 @@ struct Callback<void(Arg...)>
     void call(const Arg &...arg) const
     {
         Tuple tuple{arg...};
-        cbindgen_private::sixtyfps_callback_call(&inner, &tuple);
+        cbindgen_private::sixtyfps_callback_call(&inner, &tuple, reinterpret_cast<void *>(0x1));
     }
 
 private:
@@ -84,7 +83,11 @@ private:
     cbindgen_private::CallbackOpaque inner;
 };
 
+template<typename A, typename R> struct CallbackSignatureHelper { using Result = R(A); };
+template<typename R> struct CallbackSignatureHelper<void, R> { using Result = R(); };
+template<typename A, typename R = void> using CallbackHelper =
+    Callback<typename CallbackSignatureHelper<A, R>::Result>;
 
-}
+} // namespace sixtyfps
 
 

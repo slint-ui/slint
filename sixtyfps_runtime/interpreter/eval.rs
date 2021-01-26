@@ -264,6 +264,21 @@ impl TryInto<corelib::animations::Instant> for Value {
     }
 }
 
+impl TryFrom<()> for Value {
+    type Error = ();
+    #[inline]
+    fn try_from(_: ()) -> Result<Self, ()> {
+        Ok(Value::Void)
+    }
+}
+impl TryInto<()> for Value {
+    type Error = ();
+    #[inline]
+    fn try_into(self) -> Result<(), ()> {
+        Ok(())
+    }
+}
+
 #[derive(Copy, Clone)]
 enum ComponentInstance<'a, 'id> {
     InstanceRef(InstanceRef<'a, 'id>),

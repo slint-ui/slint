@@ -80,12 +80,14 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
 
     let mut callback_field_names = Vec::new();
     let mut callback_args = Vec::new();
+    let mut callback_rets = Vec::new();
     for field in fields {
-        if let Some(arg) = callback_arg(&field.ty) {
+        if let Some((arg, ret)) = callback_arg(&field.ty) {
             if matches!(field.vis, syn::Visibility::Public(_)) {
                 let name = field.ident.as_ref().unwrap();
                 callback_field_names.push(name);
                 callback_args.push(arg);
+                callback_rets.push(ret);
             }
         }
     }
@@ -114,7 +116,7 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
             }
             fn callbacks<Value: ValueType>() -> Vec<(&'static str, &'static dyn CallbackInfo<Self, Value>)> {
                 vec![#( {
-                    const O : const_field_offset::FieldOffset<#item_name, Callback<#callback_args>, const_field_offset::AllowPin> =
+                    const O : const_field_offset::FieldOffset<#item_name, Callback<#callback_args, #callback_rets>, const_field_offset::AllowPin> =
                          #item_name::FIELD_OFFSETS.#callback_field_names;
                     (stringify!(#callback_field_names), &O as  &'static dyn CallbackInfo<Self, Value>)
                 } ),*]
@@ -154,8 +156,8 @@ fn property_type(ty: &syn::Type) -> Option<&syn::Type> {
     None
 }
 
-// Try to match `Callback<Args>` on the syn tree and return Args if found
-fn callback_arg(ty: &syn::Type) -> Option<&syn::Type> {
+// Try to match `Callback<Args, Ret>` on the syn tree and return Args and Ret if found
+fn callback_arg(ty: &syn::Type) -> Option<(&syn::Type, Option<&syn::Type>)> {
     if let syn::Type::Path(syn::TypePath { path: syn::Path { segments, .. }, .. }) = ty {
         if let Some(syn::PathSegment {
             ident,
@@ -163,14 +165,19 @@ fn callback_arg(ty: &syn::Type) -> Option<&syn::Type> {
                 syn::PathArguments::AngleBracketed(syn::AngleBracketedGenericArguments { args, .. }),
         }) = segments.first()
         {
-            match args.first() {
-                Some(syn::GenericArgument::Type(property_type))
-                    if ident.to_string() == "Callback" =>
-                {
-                    return Some(property_type)
-                }
-                _ => {}
+            if ident != "Callback" {
+                return None;
             }
+            let mut it = args.iter();
+            let first = match it.next() {
+                Some(syn::GenericArgument::Type(ty)) => ty,
+                _ => return None,
+            };
+            let sec = match it.next() {
+                Some(syn::GenericArgument::Type(ty)) => Some(ty),
+                _ => None,
+            };
+            return Some((first, sec));
         }
     }
     None
