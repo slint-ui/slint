@@ -8,54 +8,57 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-// Test to show the internal `BoxShadow` element. This test case is to be changed
-// in the future to use the `drop-shadow` property instead.
+// Test to show the internal `BoxShadow` element. This can be used for manual
+// visual verification and it also serves as a test to ensure that such generated
+// code compiles.
 
 // Shows three colored rectangles with drop shadow in a vertical box layout. The first
 // is manually created, the other two come out of a repeater.
 
+// Additionally, there are three green rectangles at the bottom placed diagonally
+// using equal spacing and manual calcuation, using a repeater.
+
 TestCase := Window {
-   width: 800px;
-   height: 600px;
+    width: 800px;
+    height: 600px;
 
-   BoxShadow {
-       offset-x: 10px;
-       offset-y: 10px;
-       color: #00000080;
-       blur: 5px;
+    VerticalLayout {
+        padding: 50px;
 
-       x: shadowed_rect.x;
-       y: shadowed_rect.y;
-       width: shadowed_rect.width;
-       height: shadowed_rect.height;
-       border-radius: shadowed_rect.border-radius;
-   }
+        Rectangle {
+            color: blue;
+            drop-shadow-offset-x: 10px;
+            drop-shadow-offset-y: 10px;
+            drop-shadow-color: #00000080;
+            drop-shadow-blur: 5px;
+        }
 
-   VerticalLayout {
-       padding: 50px;
+        for r[i] in [
+            {color: #0f0 },
+            {color: #f00 },
+        ]: Rectangle {
+            color: r.color;
+            drop-shadow-offset-x: 10px;
+            drop-shadow-offset-y: 10px;
+            drop-shadow-color: #00000080;
+            drop-shadow-blur: 5px;
+        }
+    }
 
-       shadowed_rect := Rectangle {
-           color: blue;
-           border-radius: 2px; // FIXME: remove, but triggers assert due to native class minimization eliminating props
-       }
+    for i in 3: Rectangle {
+        color: green;
+        border-color: black;
+        border-width: 1px;     
 
-       for r[i] in [
-           {color: #0f0 },
-           {color: #f00 },
-       ]: BoxShadow {
-           offset-x: 10px;
-           offset-y: 10px;
-           color: #00000080;
-           blur: 5px;
+        x: 100px + i * 50px;
+        y: 300px + i * 30px;
+        width: 30px;
+        height: 20px;
 
-           border-radius: shadowed_rect.border-radius;
-
-           shadowed_rect := Rectangle {
-               color: r.color;
-               border-radius: 2px; // FIXME: remove, but triggers assert due to native class minimization eliminating props
-           }
-       }
-   }
-
+        drop-shadow-offset-x: 5px;
+        drop-shadow-offset-y: 5px;
+        drop-shadow-color: #00000080;
+        drop-shadow-blur: 5px;
+    }
 }
 

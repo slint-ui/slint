@@ -15,7 +15,7 @@ use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{Enumeration, Type};
 use crate::object_tree::Component;
 
-const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] =
+pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] =
     &[("x", Type::Length), ("y", Type::Length), ("width", Type::Length), ("height", Type::Length)];
 
 const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
@@ -42,12 +42,20 @@ const RESERVED_OTHER_PROPERTIES: &'static [(&'static str, Type)] = &[
     ("visible", Type::Bool), // ("enabled", Type::Bool),
 ];
 
+pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &'static [(&'static str, Type)] = &[
+    ("drop_shadow_offset_x", Type::Length),
+    ("drop_shadow_offset_y", Type::Length),
+    ("drop_shadow_blur", Type::Length),
+    ("drop_shadow_color", Type::Color),
+];
+
 /// reserved property injected in every item
 pub fn reserved_property(name: &str) -> Type {
     for (p, t) in RESERVED_GEOMETRY_PROPERTIES
         .iter()
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
+        .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .chain(
             [
                 ("forward_focus", Type::ElementReference),

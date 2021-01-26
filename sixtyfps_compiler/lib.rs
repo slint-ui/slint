@@ -53,6 +53,7 @@ mod passes {
     pub mod inlining;
     pub mod lower_layout;
     pub mod lower_popups;
+    pub mod lower_shadows;
     pub mod lower_states;
     pub mod materialize_fake_properties;
     pub mod move_declarations;
@@ -175,6 +176,7 @@ pub async fn run_passes(
     passes::repeater_component::process_repeater_components(&doc.root_component);
     passes::lower_popups::lower_popups(&doc.root_component, &doc.local_registry, diag);
     passes::lower_layout::lower_layouts(&doc.root_component, &mut type_loader, diag).await;
+    passes::lower_shadows::lower_shadow_properties(&doc.root_component, &doc.local_registry, diag);
     passes::default_geometry::default_geometry(&doc.root_component);
     passes::apply_default_properties_from_style::apply_default_properties_from_style(
         &doc.root_component,
