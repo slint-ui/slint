@@ -48,8 +48,8 @@ glow = { version = "0.7.0", default-features = false }
 font-kit = { version = "0.10", features = ["loader-freetype"] }
 fontdb = { version = "0.5.1" }
 resvg = { version= "0.13", optional = true }
-usvg = { version= "0.13", optional = true }
-tiny-skia = { version= "0.4.2", optional = true }
+usvg = { version= "0.13", optional = true, default-features = false }
+tiny-skia = { version= "0.4.2", optional = true, default-features = false }
 
 # Require font-config from the system. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
 # with distros at times.
