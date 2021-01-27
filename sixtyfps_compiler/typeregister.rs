@@ -15,36 +15,46 @@ use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{Enumeration, Type};
 use crate::object_tree::Component;
 
+const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] =
+    &[("x", Type::Length), ("y", Type::Length), ("width", Type::Length), ("height", Type::Length)];
+
+const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
+    ("minimum_width", Type::Length),
+    ("minimum_height", Type::Length),
+    ("maximum_width", Type::Length),
+    ("maximum_height", Type::Length),
+    ("padding", Type::Length),
+    ("padding_left", Type::Length),
+    ("padding_right", Type::Length),
+    ("padding_top", Type::Length),
+    ("padding_bottom", Type::Length),
+    ("horizontal_stretch", Type::Float32),
+    ("vertical_stretch", Type::Float32),
+    ("col", Type::Int32),
+    ("row", Type::Int32),
+    ("colspan", Type::Int32),
+    ("rowspan", Type::Int32),
+];
+
+const RESERVED_OTHER_PROPERTIES: &'static [(&'static str, Type)] = &[
+    ("clip", Type::Bool),
+    ("opacity", Type::Float32),
+    ("visible", Type::Bool), // ("enabled", Type::Bool),
+];
+
 /// reserved property injected in every item
 pub fn reserved_property(name: &str) -> Type {
-    for (p, t) in [
-        ("x", Type::Length),
-        ("y", Type::Length),
-        ("width", Type::Length),
-        ("height", Type::Length),
-        ("minimum_width", Type::Length),
-        ("minimum_height", Type::Length),
-        ("maximum_width", Type::Length),
-        ("maximum_height", Type::Length),
-        ("padding", Type::Length),
-        ("padding_left", Type::Length),
-        ("padding_right", Type::Length),
-        ("padding_top", Type::Length),
-        ("padding_bottom", Type::Length),
-        ("horizontal_stretch", Type::Float32),
-        ("vertical_stretch", Type::Float32),
-        ("clip", Type::Bool),
-        ("opacity", Type::Float32),
-        ("visible", Type::Bool),
-        // ("enabled", Type::Bool),
-        ("col", Type::Int32),
-        ("row", Type::Int32),
-        ("colspan", Type::Int32),
-        ("rowspan", Type::Int32),
-        ("forward_focus", Type::ElementReference),
-        ("focus", BuiltinFunction::SetFocusItem.ty()),
-    ]
-    .iter()
+    for (p, t) in RESERVED_GEOMETRY_PROPERTIES
+        .iter()
+        .chain(RESERVED_LAYOUT_PROPERTIES.iter())
+        .chain(RESERVED_OTHER_PROPERTIES.iter())
+        .chain(
+            [
+                ("forward_focus", Type::ElementReference),
+                ("focus", BuiltinFunction::SetFocusItem.ty()),
+            ]
+            .iter(),
+        )
     {
         if *p == name {
             return t.clone();
