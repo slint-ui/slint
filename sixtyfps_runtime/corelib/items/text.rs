@@ -119,16 +119,16 @@ pub struct Text {
 impl Item for Text {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
-    // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let text = self.text();
-
-        if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
-            let size = font_metrics.text_size(&text);
+        if self.wrap() == TextWrap::word_wrap {
+            // FIXME: one should limit to the size of the smaler word
+            LayoutInfo::default()
+        } else if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
+            let size = font_metrics.text_size(&self.text());
             LayoutInfo { min_width: size.width, min_height: size.height, ..LayoutInfo::default() }
         } else {
             LayoutInfo::default()

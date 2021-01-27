@@ -18,9 +18,9 @@ use sixtyfps_corelib::graphics::{
     Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource, Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::ImageFit;
-use sixtyfps_corelib::items::Item;
-use sixtyfps_corelib::items::{TextHorizontalAlignment, TextVerticalAlignment};
+use sixtyfps_corelib::items::{
+    ImageFit, Item, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
+};
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::SharedString;
@@ -746,7 +746,8 @@ impl ItemRenderer for GLItemRenderer {
             text.font_request(),
             self.scale_factor,
         );
-        let text_size = font.text_size(string);
+        let wrap = text.wrap() == TextWrap::word_wrap;
+        let text_size = font.text_size(string, if wrap { Some(max_width) } else { None });
         let mut paint = font.paint();
         paint.set_color(text.color().into());
 
@@ -761,15 +762,7 @@ impl ItemRenderer for GLItemRenderer {
                 TextVerticalAlignment::bottom => max_height - text_size.height,
             };
 
-        let mut start = 0;
-        while start < string.len() {
-            let index = canvas.break_text(max_width, &string[start..], paint).unwrap();
-            if index == 0 {
-                break;
-            }
-            let index = start + index;
-            // trim is there to remove the \n
-            let to_draw = string[start..index].trim();
+        let mut draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str| {
             let text_metrics = canvas.measure_text(0., 0., to_draw, paint).unwrap();
             let translate_x = match horizontal_alignment {
                 TextHorizontalAlignment::left => 0.,
@@ -778,7 +771,49 @@ impl ItemRenderer for GLItemRenderer {
             };
             canvas.fill_text(pos.x + translate_x, y, to_draw, paint).unwrap();
             y += font_metrics.height();
-            start = index;
+        };
+
+        if wrap {
+            let mut start = 0;
+            while start < string.len() {
+                let index = canvas.break_text(max_width, &string[start..], paint).unwrap();
+                if index == 0 {
+                    // FIXME the word is too big to be shown, but we should still break, ideally
+                    break;
+                }
+                let index = start + index;
+                // trim is there to remove the \n
+                draw_line(&mut canvas, string[start..index].trim());
+                start = index;
+            }
+        } else {
+            let elide = text.overflow() == TextOverflow::elide;
+            'lines: for line in string.lines() {
+                let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
+                if text_metrics.width() > max_width {
+                    let w = max_width
+                        - if elide {
+                            canvas.measure_text(0., 0., "…", paint).unwrap().width()
+                        } else {
+                            0.
+                        };
+                    let mut current_x = 0.;
+                    for glyph in text_metrics.glyphs {
+                        current_x += glyph.advance_x;
+                        if current_x >= w {
+                            let txt = &line[..glyph.byte_index];
+                            if elide {
+                                let elided = format!("{}…", txt);
+                                draw_line(&mut canvas, &elided);
+                            } else {
+                                draw_line(&mut canvas, txt);
+                            }
+                            continue 'lines;
+                        }
+                    }
+                }
+                draw_line(&mut canvas, line);
+            }
         }
     }
 
@@ -1192,25 +1227,34 @@ impl GLFont {
         paint
     }
 
-    fn text_size(&self, text: &str) -> Size {
+    fn text_size(&self, text: &str, max_width: Option<f32>) -> Size {
         let paint = self.paint();
         let mut canvas = self.canvas.borrow_mut();
         let font_metrics = canvas.measure_font(paint).unwrap();
         let mut y = 0.;
-        let mut start = 0;
         let mut width = 0.;
         let mut height = 0.;
-        while start < text.len() {
-            let index = canvas.break_text(f32::MAX, &text[start..], paint).unwrap();
-            if index == 0 {
-                break;
+        let mut start = 0;
+        if let Some(max_width) = max_width {
+            while start < text.len() {
+                let index = canvas.break_text(max_width, &text[start..], paint).unwrap();
+                if index == 0 {
+                    break;
+                }
+                let index = start + index;
+                let mesure = canvas.measure_text(0., 0., &text[start..index], paint).unwrap();
+                start = index;
+                height = y + mesure.height();
+                y += font_metrics.height();
+                width = mesure.width().max(width);
             }
-            let index = start + index;
-            let mesure = canvas.measure_text(0., 0., &text[start..index], paint).unwrap();
-            start = index;
-            height = y + mesure.height();
-            y += font_metrics.height();
-            width = mesure.width().max(width);
+        } else {
+            for line in text.lines() {
+                let mesure = canvas.measure_text(0., 0., line, paint).unwrap();
+                height = y + mesure.height();
+                y += font_metrics.height();
+                width = mesure.width().max(width);
+            }
         }
         euclid::size2(width, height)
     }
@@ -1224,7 +1268,7 @@ struct GLFontMetrics {
 
 impl FontMetrics for GLFontMetrics {
     fn text_size(&self, text: &str) -> Size {
-        self.font().text_size(text)
+        self.font().text_size(text, None)
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {

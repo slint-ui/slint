@@ -13,7 +13,7 @@ use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::graphics::{Color, FontRequest, Point, RenderingCache};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{self, ItemRef};
+use sixtyfps_corelib::items::{self, ItemRef, TextOverflow, TextWrap};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
@@ -281,13 +281,22 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+        } | match text.wrap() {
+            TextWrap::no_wrap => 0,
+            TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
+        let elide = text.overflow() == TextOverflow::elide && text.wrap() == TextWrap::no_wrap;
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", font as "QFont"] {
+        cpp! { unsafe [painter as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", font as "QFont", elide as "bool"] {
             painter->setFont(font);
             painter->setPen(QColor{color});
             painter->setBrush(Qt::NoBrush);
-            painter->drawText(rect, flags, string);
+            if (!elide) {
+                painter->drawText(rect, flags, string);
+            } else {
+                auto elided = QFontMetrics(font).elidedText(string, Qt::ElideRight, rect.width());
+                painter->drawText(rect, flags, elided);
+            }
         }}
     }
 

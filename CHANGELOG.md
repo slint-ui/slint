@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
  - strings can contain escape code
  - FocusScope to handle key events
  - `return` statements
+ - Text word wrap and elide
 
 
 ## [0.0.4] - 2020-12-04

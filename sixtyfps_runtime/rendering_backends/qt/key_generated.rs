@@ -9,7 +9,7 @@
 LICENSE END */
 /*! Generated with
 ```sh
-bindgen /usr/include/qt/QtCore/qnamespace.h --whitelist-type Qt::Key --whitelist-type Qt::KeyboardModifier --whitelist-type Qt::AlignmentFlag -o sixtyfps_runtime/rendering_backends/qt/key_generated.rs -- -I /usr/include/qt -xc++
+bindgen /usr/include/qt/QtCore/qnamespace.h --whitelist-type Qt::Key --whitelist-type Qt::KeyboardModifier --whitelist-type Qt::AlignmentFlag --whitelist-type Qt::TextFlag -o sixtyfps_runtime/rendering_backends/qt/key_generated.rs -- -I /usr/include/qt -xc++
 ```
 then add licence header and this doc
 */
@@ -43,6 +43,21 @@ pub const Qt_AlignmentFlag_AlignBaseline: Qt_AlignmentFlag = 256;
 pub const Qt_AlignmentFlag_AlignVertical_Mask: Qt_AlignmentFlag = 480;
 pub const Qt_AlignmentFlag_AlignCenter: Qt_AlignmentFlag = 132;
 pub type Qt_AlignmentFlag = ::std::os::raw::c_uint;
+pub const Qt_TextFlag_TextSingleLine: Qt_TextFlag = 256;
+pub const Qt_TextFlag_TextDontClip: Qt_TextFlag = 512;
+pub const Qt_TextFlag_TextExpandTabs: Qt_TextFlag = 1024;
+pub const Qt_TextFlag_TextShowMnemonic: Qt_TextFlag = 2048;
+pub const Qt_TextFlag_TextWordWrap: Qt_TextFlag = 4096;
+pub const Qt_TextFlag_TextWrapAnywhere: Qt_TextFlag = 8192;
+pub const Qt_TextFlag_TextDontPrint: Qt_TextFlag = 16384;
+pub const Qt_TextFlag_TextIncludeTrailingSpaces: Qt_TextFlag = 134217728;
+pub const Qt_TextFlag_TextHideMnemonic: Qt_TextFlag = 32768;
+pub const Qt_TextFlag_TextJustificationForced: Qt_TextFlag = 65536;
+pub const Qt_TextFlag_TextForceLeftToRight: Qt_TextFlag = 131072;
+pub const Qt_TextFlag_TextForceRightToLeft: Qt_TextFlag = 262144;
+pub const Qt_TextFlag_TextLongestVariant: Qt_TextFlag = 524288;
+pub const Qt_TextFlag_TextBypassShaping: Qt_TextFlag = 1048576;
+pub type Qt_TextFlag = ::std::os::raw::c_uint;
 pub const Qt_Key_Key_Escape: Qt_Key = 16777216;
 pub const Qt_Key_Key_Tab: Qt_Key = 16777217;
 pub const Qt_Key_Key_Backtab: Qt_Key = 16777218;
