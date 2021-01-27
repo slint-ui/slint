@@ -121,9 +121,11 @@ A text simply show the text on the screen
 * **`font_family`** (*string*): The font name
 * **`font_size`** (*length*): The font size of the text
 * **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
-* **`color`** (*color*): The color of the text (default: transparent)
+* **`color`** (*color*): The color of the text (default: black)
 * **`horizontal_alignment`** (*enum [`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
 * **`vertical_alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
+* **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text wraps (default: no-wrap).
+* **`overflow`** (*enum [`TextOverflow`](#textoverflow)*): What happens when the text overflows (default: clip).
 
 
 ### Example
@@ -439,9 +441,30 @@ This enum describes the different types of alignment of text along the vertical 
 * **`TextVerticalAlignment.center`**: The text will be vertically centered within the contained box.
 * **`TextVerticalAlignment.bottom`** The text will be alignt to the bottom of the contained box.
 
+## `TextWrap`
+
+This enum describes the how the text wrap if it is too wide to fit in the Text width.
+
+### Values
+
+* **`TextWrap.no-wrap`**: The text will not wrap, but instead will overflow.
+* **`TextWrap.word-wrap`**: The text will be wrapped at word boundaries.
+
+## `TextOverflow`
+
+This enum describes the how the text appear if it is too wide to fit in the Text width.
+
+### Values
+
+* **`TextWrap.clip`**: The text will simpli be clipped.
+* **`TextWrap.elide`**: The text will be ellided with `…`.
+
 ## `EventResult`
 
 This enum describes whether an event was rejected or accepted by an event handler.
 
+### Values
+
 * **`EventResult.reject`**: The event is rejected by this event handler and may then be handled by parent item
 * **`EventResult.accept`**: The event is accepted and won't be processed further
+

@@ -62,6 +62,8 @@ export Text := _ {
     property <color> color: #000;
     property <TextHorizontalAlignment> horizontal_alignment;
     property <TextVerticalAlignment> vertical_alignment;
+    property <TextOverflow> overflow;
+    property <TextWrap> wrap;
     property <length> x;
     property <length> y;
     property <length> width;

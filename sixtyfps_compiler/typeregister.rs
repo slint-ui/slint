@@ -117,6 +117,8 @@ impl TypeRegister {
 
         declare_enum("TextHorizontalAlignment", &["left", "center", "right"]);
         declare_enum("TextVerticalAlignment", &["top", "center", "bottom"]);
+        declare_enum("TextWrap", &["no_wrap", "word_wrap"]);
+        declare_enum("TextOverflow", &["clip", "elide"]);
         declare_enum(
             "LayoutAlignment",
             &["stretch", "center", "start", "end", "space_between", "space_around"],

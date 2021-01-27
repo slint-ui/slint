@@ -38,6 +38,8 @@ declare_ValueType![
     crate::animations::EasingCurve,
     crate::items::TextHorizontalAlignment,
     crate::items::TextVerticalAlignment,
+    crate::items::TextOverflow,
+    crate::items::TextWrap,
     crate::model::StandardListViewItem,
     crate::items::ImageFit,
     crate::input::KeyEvent,

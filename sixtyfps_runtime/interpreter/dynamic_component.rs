@@ -638,6 +638,8 @@ fn generate_component<'id>(
                 "TextVerticalAlignment" => {
                     property_info::<sixtyfps_corelib::items::TextVerticalAlignment>()
                 }
+                "TextWrap" => property_info::<sixtyfps_corelib::items::TextWrap>(),
+                "TextOverflow" => property_info::<sixtyfps_corelib::items::TextOverflow>(),
                 "ImageFit" => property_info::<sixtyfps_corelib::items::ImageFit>(),
                 _ => panic!("unkown enum"),
             },

@@ -67,6 +67,34 @@ impl Default for TextVerticalAlignment {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum TextWrap {
+    no_wrap,
+    word_wrap,
+}
+
+impl Default for TextWrap {
+    fn default() -> Self {
+        Self::no_wrap
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum TextOverflow {
+    clip,
+    elide,
+}
+
+impl Default for TextOverflow {
+    fn default() -> Self {
+        Self::clip
+    }
+}
+
 /// The implementation of the `Text` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -79,6 +107,8 @@ pub struct Text {
     pub color: Property<Color>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub wrap: Property<TextWrap>,
+    pub overflow: Property<TextOverflow>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,

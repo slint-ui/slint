@@ -74,6 +74,8 @@ using cbindgen_private::PropertyAnimation;
 using cbindgen_private::Slice;
 using cbindgen_private::TextHorizontalAlignment;
 using cbindgen_private::TextVerticalAlignment;
+using cbindgen_private::TextOverflow;
+using cbindgen_private::TextWrap;
 using cbindgen_private::TraversalOrder;
 using cbindgen_private::ImageFit;
 using cbindgen_private::KeyEvent;
