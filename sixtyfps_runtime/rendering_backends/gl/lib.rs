@@ -28,6 +28,7 @@ use sixtyfps_corelib::SharedString;
 mod graphics_window;
 use graphics_window::*;
 pub(crate) mod eventloop;
+mod svg;
 
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 
@@ -381,6 +382,12 @@ impl GLRendererData {
                 self.lookup_image_in_cache_or_create(ImageCacheKey::Path(path.to_string()), || {
                     #[cfg(not(target_arch = "wasm32"))]
                     {
+                        #[cfg(feature = "svg")]
+                        if path.ends_with(".svg") {
+                            return Rc::new(CachedImage::new_on_cpu(
+                                svg::load_from_path(std::path::Path::new(&path.as_str())).unwrap(),
+                            ));
+                        }
                         Rc::new(CachedImage::new_on_cpu(
                             image::open(std::path::Path::new(&path.as_str())).unwrap(),
                         ))
@@ -392,6 +399,12 @@ impl GLRendererData {
             Resource::EmbeddedData(data) => self.lookup_image_in_cache_or_create(
                 ImageCacheKey::EmbeddedData(by_address::ByAddress(data.as_slice())),
                 || {
+                    #[cfg(feature = "svg")]
+                    if data.starts_with(b"<svg") {
+                        return Rc::new(CachedImage::new_on_cpu(
+                            svg::load_from_data(data.as_slice()).unwrap(),
+                        ));
+                    }
                     Rc::new(CachedImage::new_on_cpu(
                         image::load_from_memory(data.as_slice()).unwrap(),
                     ))

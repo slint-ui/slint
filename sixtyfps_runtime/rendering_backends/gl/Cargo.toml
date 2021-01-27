@@ -15,7 +15,8 @@ path = "lib.rs"
 [features]
 x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
-default = ["x11"]
+svg = ["resvg", "usvg", "tiny-skia"]
+default = ["x11", "svg"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.4", path = "../../corelib", features = ["femtovg_backend"] }
@@ -33,6 +34,9 @@ smallvec = "1.4.1"
 once_cell = "1.5"
 lyon_path = "0.17"
 copypasta = { version = "0.7.0", default-features = false }
+resvg = { version= "0.13", optional = true }
+usvg = { version= "0.13", optional = true }
+tiny-skia = { version= "0.4.2", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }
