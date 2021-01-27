@@ -49,6 +49,7 @@ mod passes {
     pub mod default_geometry;
     pub mod embed_resources;
     pub mod focus_item;
+    pub mod generate_item_indices;
     pub mod inlining;
     pub mod lower_layout;
     pub mod lower_popups;
@@ -187,28 +188,7 @@ pub async fn run_passes(
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
     passes::collect_globals::collect_globals(&doc.root_component, diag);
     passes::collect_structs::collect_structs(&doc.root_component, diag);
-
-    fn generate_item_indices(component: &Rc<object_tree::Component>) {
-        let mut current_item_index: usize = 0;
-        generator::build_array_helper(&component, move |item_rc, _, _, is_flickable_rect| {
-            let item = item_rc.borrow();
-            if is_flickable_rect {
-                current_item_index += 1;
-            } else if item.base_type == crate::langtype::Type::Void {
-            } else {
-                if let langtype::Type::Component(c) = &item.base_type {
-                    generate_item_indices(c);
-                }
-                item.item_index.set(current_item_index).unwrap();
-                current_item_index += 1;
-            }
-        });
-        for p in component.popup_windows.borrow().iter() {
-            generate_item_indices(&p.component)
-        }
-    }
-
-    generate_item_indices(&doc.root_component);
+    passes::generate_item_indices::generate_item_indices(&doc.root_component);
 }
 
 mod library {
