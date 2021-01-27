@@ -37,6 +37,7 @@ pin-weak = "1"
 auto_enums = "0.7"
 stretch = "0.3.2"
 weak-table =  "0.3"
+scopeguard = "1.1.0"
 femtovg = { version = "0.1.1", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

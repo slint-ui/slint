@@ -353,15 +353,14 @@ impl PropertyHandle {
         assert!(!self.lock_flag(), "Recursion detected");
         unsafe {
             self.set_lock_flag(true);
+            scopeguard::defer! { self.set_lock_flag(false); }
             let handle = self.handle.get();
             let binding = if handle & 0b10 == 0b10 {
                 Some(Pin::new_unchecked(&mut *((handle & !0b11) as *mut BindingHolder)))
             } else {
                 None
             };
-            let r = f(binding);
-            self.set_lock_flag(false);
-            r
+            f(binding)
         }
     }
 
@@ -882,6 +881,7 @@ fn property_two_ways_test_binding() {
     assert_eq!(p2.as_ref().get(), 55 + 9);
     assert_eq!(depends.as_ref().get(), 55 + 9 + 8);
 }
+
 struct PropertyValueAnimationData<T> {
     from_value: T,
     to_value: T,
