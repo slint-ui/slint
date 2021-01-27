@@ -995,7 +995,7 @@ impl ItemRenderer for GLItemRenderer {
             shadow_fill_rect.min_y(),
             shadow_fill_rect.width(),
             shadow_fill_rect.height(),
-            box_shadow.radius(),
+            box_shadow.border_radius(),
             box_shadow.blur(),
             box_shadow.color().into(),
             Color::from_argb_u8(0, 0, 0, 0).into(),
@@ -1007,7 +1007,7 @@ impl ItemRenderer for GLItemRenderer {
             shadow_outer_rect.min_y(),
             shadow_outer_rect.width(),
             shadow_outer_rect.height(),
-            box_shadow.radius(),
+            box_shadow.border_radius(),
         );
         path.rect(
             shadow_inner_rect.min_x(),

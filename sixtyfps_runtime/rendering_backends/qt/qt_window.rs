@@ -431,7 +431,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             box_shadow.color(),
             Color::default(),
             0.,
-            box_shadow.radius(),
+            box_shadow.border_radius(),
         );
     }
 

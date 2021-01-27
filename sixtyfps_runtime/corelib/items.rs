@@ -797,7 +797,7 @@ pub struct BoxShadow {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
-    pub radius: Property<f32>,
+    pub border_radius: Property<f32>,
     // Shadow specific properties
     pub offset_x: Property<f32>,
     pub offset_y: Property<f32>,
@@ -814,7 +814,7 @@ impl Item for BoxShadow {
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo::default()
+        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {

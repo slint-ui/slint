@@ -1,0 +1,61 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// Test to show the internal `BoxShadow` element. This test case is to be changed
+// in the future to use the `drop-shadow` property instead.
+
+// Shows three colored rectangles with drop shadow in a vertical box layout. The first
+// is manually created, the other two come out of a repeater.
+
+TestCase := Window {
+   width: 800px;
+   height: 600px;
+
+   BoxShadow {
+       offset-x: 10px;
+       offset-y: 10px;
+       color: #00000080;
+       blur: 5px;
+
+       x: shadowed_rect.x;
+       y: shadowed_rect.y;
+       width: shadowed_rect.width;
+       height: shadowed_rect.height;
+       border-radius: shadowed_rect.border-radius;
+   }
+
+   VerticalLayout {
+       padding: 50px;
+
+       shadowed_rect := Rectangle {
+           color: blue;
+           border-radius: 2px; // FIXME: remove, but triggers assert due to native class minimization eliminating props
+       }
+
+       for r[i] in [
+           {color: #0f0 },
+           {color: #f00 },
+       ]: BoxShadow {
+           offset-x: 10px;
+           offset-y: 10px;
+           color: #00000080;
+           blur: 5px;
+
+           border-radius: shadowed_rect.border-radius;
+
+           shadowed_rect := Rectangle {
+               color: r.color;
+               border-radius: 2px; // FIXME: remove, but triggers assert due to native class minimization eliminating props
+           }
+       }
+   }
+
+}
+
