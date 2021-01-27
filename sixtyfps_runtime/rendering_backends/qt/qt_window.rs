@@ -373,7 +373,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let stroke_color: u32 = path.stroke_color().as_argb_encoded();
         let stroke_width: f32 = path.stroke_width();
         let mut painter_path = QPainterPath::default();
-        for x in elements.iter().iter() {
+        for x in elements.iter_fitted(path.width(), path.height()).iter() {
             impl From<Point> for qttypes::QPointF {
                 fn from(p: Point) -> Self {
                     qttypes::QPointF { x: p.x as _, y: p.y as _ }

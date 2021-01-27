@@ -926,7 +926,7 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
         let mut fpath = femtovg::Path::new();
-        for x in elements.iter().iter() {
+        for x in elements.iter_fitted(path.width(), path.height()).iter() {
             match x {
                 lyon_path::Event::Begin { at } => {
                     fpath.move_to(at.x, at.y);
