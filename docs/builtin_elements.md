@@ -382,6 +382,7 @@ Example := Window {
             if (event.modifiers.control) {
                 debug("control was pressed during this event");
             }
+            accept
         }
     }
 }
