@@ -23,7 +23,7 @@ TestCase := Rectangle {
         height: root.height;
         commands: "M 100 0 L 100 250 ";
         stroke_color: green;
-        stroke_width: 2;
+        stroke_width: 2px;
     }
 
     PathLayout {

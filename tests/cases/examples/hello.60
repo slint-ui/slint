@@ -119,7 +119,7 @@ Hello := Rectangle {
         y: 300phx;
         fill_color: green;
         stroke_color: black;
-        stroke_width: 2.0;
+        stroke_width: 2px;
 
         LineTo {
             x: 100;
@@ -145,7 +145,7 @@ Hello := Rectangle {
         x: 100phx;
         y: 500phx;
         stroke_color: black;
-        stroke_width: 2.0;
+        stroke_width: 2px;
     }
 }
 
