@@ -47,3 +47,43 @@ pub fn resolve_native_classes(component: &Component) {
         elem.borrow_mut().base_type = Type::Native(new_native_class);
     })
 }
+
+#[test]
+fn select_minimal_class() {
+    let tr = crate::typeregister::TypeRegister::builtin();
+    let tr = tr.borrow();
+    let rect = tr.lookup("Rectangle");
+    let rect = rect.as_builtin();
+    assert_eq!(
+        rect.native_class
+            .clone()
+            .select_minimal_class_based_on_property_usage(
+                ["x".to_owned(), "width".to_owned()].iter()
+            )
+            .class_name,
+        "Rectangle",
+    );
+    assert_eq!(
+        rect.native_class
+            .clone()
+            .select_minimal_class_based_on_property_usage([].iter())
+            .class_name,
+        "Rectangle",
+    );
+    assert_eq!(
+        rect.native_class
+            .clone()
+            .select_minimal_class_based_on_property_usage(["border_width".to_owned()].iter())
+            .class_name,
+        "BorderRectangle",
+    );
+    assert_eq!(
+        rect.native_class
+            .clone()
+            .select_minimal_class_based_on_property_usage(
+                ["border_width".to_owned(), "x".to_owned()].iter()
+            )
+            .class_name,
+        "BorderRectangle",
+    );
+}

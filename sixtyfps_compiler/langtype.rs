@@ -449,8 +449,12 @@ impl NativeClass {
         self: Rc<Self>,
         properties_used: impl Iterator<Item = &'a String>,
     ) -> Rc<Self> {
+        let mut minimal_class = self.clone();
+        while let Some(class) = minimal_class.parent.clone() {
+            minimal_class = class;
+        }
         let (_min_distance, minimal_class) = properties_used.fold(
-            (std::usize::MAX, self.clone()),
+            (std::usize::MAX, minimal_class),
             |(current_distance, current_class), prop_name| {
                 let (prop_distance, prop_class) = self.clone().lookup_property_distance(&prop_name);
 
