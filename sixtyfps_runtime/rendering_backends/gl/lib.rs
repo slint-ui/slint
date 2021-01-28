@@ -399,7 +399,7 @@ impl GLRendererData {
             Resource::EmbeddedData(data) => self.lookup_image_in_cache_or_create(
                 ImageCacheKey::EmbeddedData(by_address::ByAddress(data.as_slice())),
                 || {
-                    #[cfg(all(not(target_arch = "wasm32"), feature = "svg"))]
+                    #[cfg(feature = "svg")]
                     if data.starts_with(b"<svg") {
                         return Rc::new(CachedImage::new_on_cpu(
                             svg::load_from_data(data.as_slice()).unwrap(),

@@ -7,8 +7,9 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-#![cfg(all(not(target_arch = "wasm32"), feature = "svg"))]
+#![cfg(feature = "svg")]
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn load_from_path(path: &std::path::Path) -> Result<image::DynamicImage, usvg::Error> {
     load_image(usvg::Tree::from_file(path, &Default::default())?)
 }
