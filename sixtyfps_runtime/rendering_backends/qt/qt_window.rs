@@ -436,7 +436,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn combine_clip(&mut self, pos: Point, clip: Pin<&items::Clip>) {
-        let clip_rect: qttypes::QRectF = get_geometry!(pos, items::Clip, clip);
+        let clip_rect = qttypes::QRectF {
+            x: (clip.x() + pos.x as f32) as _,
+            y: (clip.y() + pos.y as f32) as _,
+            width: clip.width() as _,
+            height: clip.height() as _,
+        };
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", clip_rect as "QRectF"] {
             painter->setClipRect(clip_rect, Qt::IntersectClip);
