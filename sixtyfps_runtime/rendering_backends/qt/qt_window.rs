@@ -194,7 +194,7 @@ macro_rules! get_geometry {
         let height = Ty::FIELD_OFFSETS.height.apply_pin($obj).get();
         let x = Ty::FIELD_OFFSETS.x.apply_pin($obj).get();
         let y = Ty::FIELD_OFFSETS.y.apply_pin($obj).get();
-        if width < 1. || height < 1. {
+        if width <= 0. || height <= 0. {
             return Default::default();
         };
         qttypes::QRectF {

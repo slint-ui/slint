@@ -671,8 +671,12 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::Rectangle>,
     ) {
+        let geometry = rect.geometry();
+        if geometry.is_empty() {
+            return;
+        }
         // TODO: cache path in item to avoid re-tesselation
-        let mut path = rect_to_path(rect.geometry());
+        let mut path = rect_to_path(geometry);
         let paint = femtovg::Paint::color(rect.color().into());
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
@@ -685,6 +689,11 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
+        let geometry = rect.geometry();
+        if geometry.is_empty() {
+            return;
+        }
+
         // If the border width exceeds the width, just fill the rectangle.
         let border_width = rect.border_width().min(rect.width() / 2.);
         // In CSS the border is entirely towards the inside of the boundary
@@ -693,10 +702,10 @@ impl ItemRenderer for GLItemRenderer {
         // is adjusted accordingly.
         let mut path = femtovg::Path::new();
         path.rounded_rect(
-            rect.x() + border_width / 2.,
-            rect.y() + border_width / 2.,
-            rect.width() - border_width,
-            rect.height() - border_width,
+            geometry.min_x() + border_width / 2.,
+            geometry.min_y() + border_width / 2.,
+            geometry.width() - border_width,
+            geometry.height() - border_width,
             rect.border_radius(),
         );
 
@@ -750,6 +759,11 @@ impl ItemRenderer for GLItemRenderer {
         let pos = pos + euclid::Vector2D::new(text.x(), text.y());
         let max_width = text.width();
         let max_height = text.height();
+
+        if max_width <= 0. || max_height <= 0. {
+            return;
+        }
+
         let string = text.text();
         let string = string.as_str();
         let vertical_alignment = text.vertical_alignment();
@@ -835,6 +849,12 @@ impl ItemRenderer for GLItemRenderer {
         pos: Point,
         text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
     ) {
+        let width = text_input.width();
+        let height = text_input.height();
+        if width <= 0. || height <= 0. {
+            return;
+        }
+
         let pos = pos + euclid::Vector2D::new(text_input.x(), text_input.y());
         let font = self.shared_data.loaded_fonts.borrow_mut().font(
             &self.shared_data.canvas,
@@ -844,8 +864,8 @@ impl ItemRenderer for GLItemRenderer {
 
         let metrics = self.draw_text_impl(
             pos,
-            text_input.width(),
-            text_input.height(),
+            width,
+            height,
             &text_input.text(),
             text_input.font_request(),
             text_input.color(),
@@ -1164,6 +1184,10 @@ impl GLItemRenderer {
         target_height: f32,
         image_fit: ImageFit,
     ) {
+        if target_width <= 0. || target_height < 0. {
+            return;
+        }
+
         let cached_image =
             match self.shared_data.load_cached_item_image(item_cache, || source_property.get()) {
                 Some(image) => image,
