@@ -105,7 +105,7 @@ An Image can be used to represent an image loaded from an image file
 
 ### Properties
 
-* **`source`** (*image*): The image to load. In order to reference image, one uses the `img!"..."` macro
+* **`source`** (*image*): The image to load. In order to reference image, one uses the `@image-url("...")` macro
   which loads the file relative to the directory containing the .60 file.
 * **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (*int*): properties in source
   image coordinates that, when specified, can be used to render only a portion of the specified image.
@@ -118,7 +118,7 @@ An Image can be used to represent an image loaded from an image file
 
 ```60
 Example := Image {
-    source: img!"https://sixtyfps.io/resources/logo_scaled.png";
+    source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
     width: 64px;
     height: 44px;
 }

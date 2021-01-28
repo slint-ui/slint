@@ -46,7 +46,7 @@ MemoryTile := Rectangle {
                 height: root.height - 32px;
                 x: 16px;
                 y: 16px;
-                source: img!"icons/tile_logo.png";
+                source: @image-url("icons/tile_logo.png");
             }
         }
     }
@@ -66,7 +66,7 @@ MemoryTile := Rectangle {
                 height: root.height - 32px;
                 x: right_curtain.width - width - 16px;
                 y: 16px;
-                source: img!"icons/tile_logo.png";
+                source: @image-url("icons/tile_logo.png");
             }
         }
 
@@ -98,14 +98,14 @@ export MainWindow := Window {
     height: (row_count * tile_size) + ((row_count + 1) * tile_spacing);
 
     property<[TileData]> memory_tiles : [
-        { image: img!"icons/at.png" },
-        { image: img!"icons/balance-scale.png" },
-        { image: img!"icons/bicycle.png" },
-        { image: img!"icons/bus.png" },
-        { image: img!"icons/cloud.png" },
-        { image: img!"icons/cogs.png" },
-        { image: img!"icons/motorcycle.png" },
-        { image: img!"icons/video.png" },
+        { image: @image-url("icons/at.png") },
+        { image: @image-url("icons/balance-scale.png") },
+        { image: @image-url("icons/bicycle.png") },
+        { image: @image-url("icons/bus.png") },
+        { image: @image-url("icons/cloud.png") },
+        { image: @image-url("icons/cogs.png") },
+        { image: @image-url("icons/motorcycle.png") },
+        { image: @image-url("icons/video.png") },
     ];
 
     for tile[i] in memory_tiles: MemoryTile {

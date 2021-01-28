@@ -17,6 +17,6 @@ export Page := Rectangle {
 }
 
 export Preview := Image {
-    source: img!"images/cat_preview_round.png";
+    source: @image-url("images/cat_preview_round.png");
     width: self.height * 320/480;
 }

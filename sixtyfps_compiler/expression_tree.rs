@@ -936,7 +936,7 @@ impl Default for EasingCurve {
     }
 }
 
-// The compiler generates ResourceReference::AbsolutePath for all references likg img!"foo.png"
+// The compiler generates ResourceReference::AbsolutePath for all references likg @image-url("foo.png")
 // and the resource lowering path may change this to EmbeddedData if configured.
 #[derive(Clone, Debug)]
 pub enum ResourceReference {

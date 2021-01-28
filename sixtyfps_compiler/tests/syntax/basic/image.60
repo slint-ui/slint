@@ -14,7 +14,7 @@ SubElements := Rectangle {
     color: blue;
 
     Image {
-        source: img!"foo.png";
+        source: @image-url("foo.png");
     }
 
 
