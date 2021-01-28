@@ -167,26 +167,33 @@ A path can be defined in two different ways:
   * Using SVG path commands as a string
   * Using path command elements in `.60` markup.
 
+The coordinates used in the geometric commands are within the imaginary coordinate system of the path.
+When rendering on the screen, the shape is drawn relative to the `x` and `y` properties. If the `width`
+and `height` properties are non-zero, then the entire shape is fit into these bounds - by scaling
+accordingly.
+
 ### Common Path Properties
 
 * **`fill-color`** (*color*): The color for filling the shape of the path.
 * **`stroke-color`** (*color*): The color for drawing the outline of the path.
 * **`stroke-width`** (*length*): The width of the outline.
+* **`width`** (*length*): If non-zero, the path will be scaled to fit into the specified width.
+* **`height`** (*length*): If non-zero, the path will be scaled to fit into the specified height.
 
 #### Path Using SVG commands
 
 SVG is a popular file format for defining scalable graphics, which are often composed of paths. In SVG
 paths are composed using [commands](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/d#path_commands),
 which in turn are written in a string literal. In `.60` the path commands are provided to the `commands`
-property. The following example renders a rectangle, composed of one move-to, three line-to commands, and a
-close-path command:
+property. The following example renders a shape consists of an arc and a rectangle, composed of `line-to`,
+`move-to` and `arc` commands:
 
 ```60
 Example := Path {
     width: 100px;
     height: 100px;
-    commands: "M 0 0 L 100 0 L 100 100 L 0 100 Z";
-    stroke-color: black;
+    commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 -1 Z";
+    stroke-color: red;
     stroke-width: 1px;
 }
 ```
@@ -194,6 +201,90 @@ Example := Path {
 The commands are provided in a property:
 
 * **`commands`** (*string): A string literal providing the commands according to the SVG path specification.
+
+#### Path Using SVG Path Elements
+
+The shape of the path can also be described using elements that resemble the SVG path commands but use the
+`.60` markup syntax. The earlier example using SVG commands can also be written like that:
+
+```60
+Example := Path {
+    width: 100px;
+    height: 100px;
+    commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 -1 Z";
+    stroke-color: blue;
+    stroke-width: 1px;
+
+    MoveTo {
+            x: 0;
+            y: 0;
+        }
+    LineTo {
+        x: 0;
+        y: 100;
+    }
+    ArcTo {
+        radius-x: 1;
+        radius-y: 1;
+        x: 100;
+        y: 100;
+    }
+    LineTo {
+        x: 100;
+        y: 0;
+    }
+    Close {
+    }
+}
+```
+
+Note how the coordinates of the path elements do not use units - they operate within the imaginary
+coordinate system of the scalable path.
+
+##### `MoveTo` Sub-element for `Path`
+
+The `MoveTo` sub-element closes the current sub-path, if present, and moves the current point
+to the location specified by the `x` and `y` properties. Subsequent elements such as `LineTo`
+will it as their starting point, therefore this starts a new sub-path.
+
+###### Properties
+
+* **`x`** (*float): The x position of the new current point.
+* **`y`** (*float): The y position of the new current point.
+
+##### `LineTo` Sub-element for `Path`
+
+The `LineTo` sub-element describes a line from the path's current position to the
+location specified by the `x` and `y` properties.
+###### Properties
+
+* **`x`** (*float): The target x position of the line.
+* **`y`** (*float): The target y position of the line.
+
+##### `ArcTo` Sub-element for `Path`
+
+The `ArcTo` sub-element describes the portion of an ellipse. The arc is drawn from the path's
+current position to the location specified by the `x` and `y` properties. The remaining properties
+are modelled after the SVG specification and allow tuning visual features such as the direction
+or angle.
+
+###### Properties
+
+* **`x`** (*float): The target x position of the line.
+* **`y`** (*float): The target y position of the line.
+* **`radius-x`** (*float): The x-radius of the ellipse.
+* **`radius-y`** (*float): The y-radius of the ellipse.
+* **`x-rotation`** (*float): The x-axis of the ellipse will be rotated by the value of this
+  properties, specified in as angle in degress from 0 to 360.
+* **`large-arc`** (*bool): Out of the two arcs of a closed ellipse, this flag selects that the
+  larger arc is to be rendered. If the property is false, the shorter arc is rendered instead.
+* **`sweep`** (*bool): If the property is true, the arc will be drawn as a clockwise turning arc;
+  anti-clockwise otherwise.
+
+##### `Close` Sub-element for `Path`
+
+The `Close` element closes the current sub-path and draws a straight line from the current
+position to the beginning of the path.
 
 ## `TouchArea`
 
