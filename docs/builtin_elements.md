@@ -157,9 +157,43 @@ Example := Window {
 
 ## `Path`
 
-FIXME: write docs
+The `Path` element allows rendering a generic shape, composed of different geometric commands. A path
+shape can be filled and outlined.
 
 When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+
+A path can be defined in two different ways:
+
+  * Using SVG path commands as a string
+  * Using path command elements in `.60` markup.
+
+### Common Path Properties
+
+* **`fill-color`** (*color*): The color for filling the shape of the path.
+* **`stroke-color`** (*color*): The color for drawing the outline of the path.
+* **`stroke-width`** (*length*): The width of the outline.
+
+#### Path Using SVG commands
+
+SVG is a popular file format for defining scalable graphics, which are often composed of paths. In SVG
+paths are composed using [commands](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/d#path_commands),
+which in turn are written in a string literal. In `.60` the path commands are provided to the `commands`
+property. The following example renders a rectangle, composed of one move-to, three line-to commands, and a
+close-path command:
+
+```60
+Example := Path {
+    width: 100px;
+    height: 100px;
+    commands: "M 0 0 L 100 0 L 100 100 L 0 100 Z";
+    stroke-color: black;
+    stroke-width: 1px;
+}
+```
+
+The commands are provided in a property:
+
+* **`commands`** (*string): A string literal providing the commands according to the SVG path specification.
 
 ## `TouchArea`
 
