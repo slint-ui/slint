@@ -207,7 +207,6 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<String>> {
                 .as_token()
                 .unwrap()
                 .text()
-                .as_str()
                 .strip_prefix("//-")
                 .and_then(|x| x.trim_end().strip_prefix(key))
             {

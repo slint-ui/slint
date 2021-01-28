@@ -471,7 +471,7 @@ impl Expression {
             return Self::Invalid;
         };
 
-        let first_str = crate::parser::normalize_identifier(first.text().as_str());
+        let first_str = crate::parser::normalize_identifier(first.text());
 
         if let Some(index) = ctx.arguments.iter().position(|x| x == &first_str) {
             let ty = match &ctx.property_type {
@@ -535,7 +535,7 @@ impl Expression {
             // Qualified enum lookup (NameOfEnum.value)
             if let Type::Enumeration(enumeration) = ctx.type_register.lookup(first_str.as_str()) {
                 if let Some(value) = enumeration.try_value_from_string(
-                    &crate::parser::normalize_identifier(next_identifier.text().as_str()),
+                    &crate::parser::normalize_identifier(next_identifier.text()),
                 ) {
                     return Expression::EnumerationValue(value);
                 }
@@ -1057,7 +1057,7 @@ fn continue_lookup_within_element(
         ctx.diag.push_error("Cannot take reference of an element".into(), &node);
         return Expression::Invalid;
     };
-    let prop_name = crate::parser::normalize_identifier(second.text().as_str());
+    let prop_name = crate::parser::normalize_identifier(second.text());
 
     let p = elem.borrow().lookup_property(&prop_name);
     if p.is_property_type() {
@@ -1131,7 +1131,7 @@ fn maybe_lookup_object(
     }
 
     for next in it {
-        let next_str = crate::parser::normalize_identifier(next.text().as_str());
+        let next_str = crate::parser::normalize_identifier(next.text());
         match base.ty() {
             Type::Object { fields, .. } => {
                 if fields.get(next_str.as_str()).is_some() {

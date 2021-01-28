@@ -19,7 +19,7 @@ This module has different sub modules with the actual parser functions
 */
 
 use crate::diagnostics::{FileDiagnostics, SourceFile, Spanned, SpannedWithSourceFile};
-pub use rowan::SmolStr;
+pub use smol_str::SmolStr;
 use std::convert::TryFrom;
 
 mod document;
@@ -575,7 +575,7 @@ impl Parser for DefaultParser {
     /// Consume the current token
     fn consume(&mut self) {
         let t = self.current_token();
-        self.builder.token(t.kind.into(), t.text);
+        self.builder.token(t.kind.into(), t.text.as_str());
         self.cursor += 1;
     }
 
