@@ -174,19 +174,9 @@ impl Default for FontCache {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-mod fonts_fontdb;
-#[cfg(not(target_arch = "wasm32"))]
-pub use fonts_fontdb::register_application_font_from_memory;
-#[cfg(not(target_arch = "wasm32"))]
-use fonts_fontdb::*;
-
-#[cfg(target_arch = "wasm32")]
-mod fonts_wasm;
-#[cfg(target_arch = "wasm32")]
-pub use fonts_wasm::register_application_font_from_memory;
-#[cfg(target_arch = "wasm32")]
-use fonts_wasm::*;
+mod fonts;
+pub use fonts::register_application_font_from_memory;
+use fonts::*;
 
 impl FontCache {
     fn load_single_font(&mut self, canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
