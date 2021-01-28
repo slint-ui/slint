@@ -192,7 +192,7 @@ property. The following example renders a shape consists of an arc and a rectang
 Example := Path {
     width: 100px;
     height: 100px;
-    commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 -1 Z";
+    commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 0 Z";
     stroke-color: red;
     stroke-width: 1px;
 }
@@ -211,7 +211,6 @@ The shape of the path can also be described using elements that resemble the SVG
 Example := Path {
     width: 100px;
     height: 100px;
-    commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 -1 Z";
     stroke-color: blue;
     stroke-width: 1px;
 
