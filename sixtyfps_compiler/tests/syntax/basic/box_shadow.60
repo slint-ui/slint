@@ -13,7 +13,7 @@ SuperSimple := Rectangle {
 
     Text {
         drop-shadow-color: black;
-//                        ^error{The drop_shadow_color property is only supported on Rectangle objects right now}
+//                        ^error{The drop_shadow_color property is only supported on Rectangle and Clip elements right now}
     }
 }
 
