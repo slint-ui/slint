@@ -19,7 +19,7 @@ use super::prelude::*;
 /// 42px
 /// #aabbcc
 /// (something)
-/// img!"something"
+/// @image-url("something")
 /// some_id.some_property
 /// function_call()
 /// function_call(hello, world)
@@ -81,20 +81,13 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
         SyntaxKind::LBracket => parse_array(&mut *p),
         SyntaxKind::LBrace => parse_object_notation(&mut *p),
-        SyntaxKind::Plus => {
+        SyntaxKind::Plus | SyntaxKind::Minus | SyntaxKind::Bang => {
             let mut p = p.start_node(SyntaxKind::UnaryOpExpression);
             p.consume();
             parse_expression_helper(&mut *p, OperatorPrecedence::Unary);
         }
-        SyntaxKind::Minus => {
-            let mut p = p.start_node(SyntaxKind::UnaryOpExpression);
-            p.consume();
-            parse_expression_helper(&mut *p, OperatorPrecedence::Unary);
-        }
-        SyntaxKind::Bang => {
-            let mut p = p.start_node(SyntaxKind::UnaryOpExpression);
-            p.consume();
-            parse_expression_helper(&mut *p, OperatorPrecedence::Unary);
+        SyntaxKind::At => {
+            parse_at_keyword(&mut *p);
         }
         _ => {
             p.error("invalid expression");
@@ -193,6 +186,27 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         parse_expression(&mut *p);
         p.expect(SyntaxKind::Colon);
         parse_expression(&mut *p);
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// @image-url("/foo/bar.png")
+/// ```
+fn parse_at_keyword(p: &mut impl Parser) {
+    let checkpoint = p.checkpoint();
+    p.expect(SyntaxKind::At);
+    match p.peek().as_str() {
+        "image-url" | "image_url" => {
+            let mut p = p.start_node_at(checkpoint, SyntaxKind::AtImageUrl);
+            p.consume(); // "image-url"
+            p.expect(SyntaxKind::LParent);
+            p.expect(SyntaxKind::StringLiteral);
+            p.expect(SyntaxKind::RParent);
+        }
+        _ => {
+            p.error("Expected 'image-url' after '@'");
+        }
     }
 }
 

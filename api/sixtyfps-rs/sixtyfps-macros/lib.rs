@@ -197,6 +197,7 @@ fn fill_token_vec(stream: impl Iterator<Item = TokenTree>, vec: &mut Vec<parser:
                         SyntaxKind::Error
                     }
                     '$' => SyntaxKind::Dollar,
+                    '@' => SyntaxKind::At,
                     _ => SyntaxKind::Error,
                 };
                 prev_spacing = p.spacing();

@@ -370,6 +370,7 @@ impl Expression {
             .or_else(|| {
                 node.BangExpression().map(|n| Self::from_bang_expression_node(n.into(), ctx))
             })
+            .or_else(|| node.AtImageUrl().map(|n| Self::from_at_image_url_node(n, ctx)))
             .or_else(|| node.QualifiedName().map(|s| Self::from_qualified_name_node(s.into(), ctx)))
             .or_else(|| {
                 node.child_text(SyntaxKind::StringLiteral).map(|s| {
@@ -471,6 +472,43 @@ impl Expression {
                 Self::Invalid
             }
         }
+    }
+
+    fn from_at_image_url_node(node: syntax_nodes::AtImageUrl, ctx: &mut LookupCtx) -> Self {
+        let s = match node.child_text(SyntaxKind::StringLiteral).and_then(|x| unescape_string(&x)) {
+            Some(s) => s,
+            None => {
+                ctx.diag.push_error("Cannot parse string literal".into(), &node);
+                return Self::Invalid;
+            }
+        };
+
+        let absolute_source_path = {
+            let path = std::path::Path::new(&s);
+
+            if path.is_absolute() || s.starts_with("http://") || s.starts_with("https://") {
+                s
+            } else {
+                ctx.type_loader
+                    .and_then(|loader| {
+                        loader
+                            .import_file(
+                                node.source_file.as_ref().map(|path_rc| path_rc.as_path()),
+                                &s,
+                            )
+                            .map(|resolved_file| resolved_file.path)
+                    })
+                    .unwrap_or_else(|| {
+                        std::env::current_dir()
+                            .map(|b| b.join(&path))
+                            .unwrap_or_else(|_| path.into())
+                    })
+                    .to_string_lossy()
+                    .to_string()
+            }
+        };
+
+        Expression::ResourceReference(ResourceReference::AbsolutePath(absolute_source_path))
     }
 
     /// Perform the lookup

@@ -272,6 +272,7 @@ declare_syntax! {
         Dot -> ".",
         Question -> "?",
         Dollar -> "$",
+        At -> "@",
     }
     // syntax kind
     {
@@ -309,11 +310,13 @@ declare_syntax! {
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
-                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate],
+                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl],
         /// Concetenate the Expressions to make a string (usually expended from a template string)
         StringTemplate -> [*Expression],
         /// `foo!bar`
         BangExpression -> [Expression],
+        /// `@image-url("foo.png")`
+        AtImageUrl -> [],
         /// expression()
         FunctionCallExpression -> [*Expression],
         /// `expression += expression`
