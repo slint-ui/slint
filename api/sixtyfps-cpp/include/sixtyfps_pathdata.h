@@ -18,6 +18,7 @@ using cbindgen_private::types::PathArcTo;
 using cbindgen_private::types::PathElement;
 using cbindgen_private::types::PathEvent;
 using cbindgen_private::types::PathLineTo;
+using cbindgen_private::types::PathMoveTo;
 using cbindgen_private::types::Point;
 
 struct PathData

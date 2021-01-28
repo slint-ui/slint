@@ -989,6 +989,9 @@ fn convert_path_element(
     local_context: &mut EvalLocalContext,
 ) -> PathElement {
     match expr_element.element_type.native_class.class_name.as_str() {
+        "MoveTo" => {
+            PathElement::MoveTo(new_struct_with_bindings(&expr_element.bindings, local_context))
+        }
         "LineTo" => {
             PathElement::LineTo(new_struct_with_bindings(&expr_element.bindings, local_context))
         }

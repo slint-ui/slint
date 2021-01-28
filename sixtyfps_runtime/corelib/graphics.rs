@@ -305,6 +305,21 @@ pub trait FontMetrics {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
 #[pin]
+/// PathMoveTo describes the event of setting the cursor on the path to use as starting
+/// point for sub-sequent events, such as `LineTo`. Moving the cursor also implicitly closes
+/// sub-paths and therefore beings a new sub-path.
+pub struct PathMoveTo {
+    #[rtti_field]
+    /// The x coordinate where the current position should be.
+    pub x: f32,
+    #[rtti_field]
+    /// The y coordinate where the current position should be.
+    pub y: f32,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[pin]
 /// PathLineTo describes the event of moving the cursor on the path to the specified location
 /// along a straight line.
 pub struct PathLineTo {
@@ -350,6 +365,8 @@ pub struct PathArcTo {
 #[derive(Clone, Debug, PartialEq)]
 /// PathElement describes a single element on a path, such as move-to, line-to, etc.
 pub enum PathElement {
+    /// The MoveTo variant sets the current position on the path.
+    MoveTo(PathMoveTo),
     /// The LineTo variant describes a line.
     LineTo(PathLineTo),
     /// The PathArcTo variant describes an arc.
@@ -557,6 +574,9 @@ impl PathData {
         let mut path_builder = lyon::path::Path::builder().with_svg();
         for element in element_it {
             match element {
+                PathElement::MoveTo(PathMoveTo { x, y }) => {
+                    path_builder.move_to(Point::new(*x, *y));
+                }
                 PathElement::LineTo(PathLineTo { x, y }) => {
                     path_builder.line_to(Point::new(*x, *y));
                 }

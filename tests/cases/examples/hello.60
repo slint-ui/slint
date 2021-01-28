@@ -121,6 +121,11 @@ Hello := Rectangle {
         stroke_color: black;
         stroke_width: 2px;
 
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+
         LineTo {
             x: 100;
             y: 50;

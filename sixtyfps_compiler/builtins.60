@@ -202,6 +202,15 @@ export HorizontalLayout := _ {
     property <LayoutAlignment> alignment;
 }
 
+MoveTo := _ {
+    property <float> x;
+    property <float> y;
+
+    //-rust_type_constructor:sixtyfps::re_exports::PathElement::MoveTo(PathMoveTo{{}})
+    //-cpp_type:sixtyfps::PathMoveTo
+    //-is_non_item_type
+}
+
 LineTo := _ {
     property <float> x;
     property <float> y;
@@ -242,6 +251,7 @@ export Path := _ {
     property <string> commands;
 
     //-disallow_global_types_as_child_elements
+    MoveTo {}
     LineTo {}
     ArcTo {}
     Close {}
