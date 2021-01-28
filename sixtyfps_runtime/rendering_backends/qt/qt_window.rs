@@ -632,17 +632,15 @@ impl QtWindow {
         let component_rc = self.self_weak.get().unwrap().upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
-        if self.meta_property_listener.as_ref().is_dirty() {
-            self.meta_property_listener.as_ref().evaluate(|| {
-                self.apply_geometry_constraint(component.as_ref().layout_info());
-                component.as_ref().apply_layout(Default::default());
+        self.meta_property_listener.as_ref().evaluate_if_dirty(|| {
+            self.apply_geometry_constraint(component.as_ref().layout_info());
+            component.as_ref().apply_layout(Default::default());
 
-                let root_item = component.as_ref().get_item_ref(0);
-                if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-                    self.apply_window_properties(window_item);
-                }
-            })
-        }
+            let root_item = component.as_ref().get_item_ref(0);
+            if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+                self.apply_window_properties(window_item);
+            }
+        });
 
         let cache = self.cache.clone();
         self.redraw_listener.as_ref().evaluate(|| {
@@ -728,9 +726,13 @@ impl QtWindow {
     /// Apply windows property such as title to the QWidget*
     fn apply_window_properties(&self, window_item: Pin<&items::Window>) {
         let widget_ptr = self.widget_ptr();
-        let title: qttypes::QString =
-            items::Window::FIELD_OFFSETS.title.apply_pin(window_item).get().as_str().into();
-        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString"] {
+        let title: qttypes::QString = window_item.title().as_str().into();
+        let size = qttypes::QSize {
+            width: window_item.width().ceil() as _,
+            height: window_item.height().ceil() as _,
+        };
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize"] {
+            widget_ptr->resize(size);
             widget_ptr->setWindowTitle(title);
         }};
     }
@@ -739,6 +741,14 @@ impl QtWindow {
 #[allow(unused)]
 impl PlatformWindow for QtWindow {
     fn show(self: Rc<Self>) {
+        let component_rc = self.self_weak.get().unwrap().upgrade().unwrap().component();
+        let component = ComponentRc::borrow_pin(&component_rc);
+        component.as_ref().apply_layout(Default::default());
+        let root_item = component.as_ref().get_item_ref(0);
+        if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+            self.apply_window_properties(window_item);
+        }
+
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             widget_ptr->show();
