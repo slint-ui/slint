@@ -12,7 +12,7 @@ LICENSE END */
 */
 
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
-use crate::expression_tree::Unit;
+use crate::expression_tree::{self, Unit};
 use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
 use crate::langtype::{NativeClass, Type};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
@@ -252,7 +252,7 @@ pub enum PropertyAnimation {
 }
 
 /// An Element is an instentation of a Component
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Element {
     /// The id as named in the original .60 file.
     ///
@@ -298,6 +298,38 @@ impl Spanned for Element {
 impl SpannedWithSourceFile for Element {
     fn source_file(&self) -> Option<&Rc<std::path::PathBuf>> {
         self.node.as_ref().map(|n| n.0.source_file.as_ref()).flatten()
+    }
+}
+
+impl core::fmt::Debug for Element {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(repeated) = &self.repeated {
+            write!(f, "for {}[{}] in ", repeated.model_data_id, repeated.index_id)?;
+            expression_tree::pretty_print(f, &repeated.model)?;
+            write!(f, ":")?;
+        }
+        write!(f, "{} := {} {{ ", self.id, self.base_type)?;
+        for (name, ty) in &self.property_declarations {
+            write!(f, "property<{}> {}; ", ty.property_type, name)?
+        }
+        for (name, expr) in &self.bindings {
+            write!(f, "{}: ", name)?;
+            expression_tree::pretty_print(f, &expr.expression)?;
+            write!(f, "; ")?;
+        }
+        for (name, anim) in &self.property_animations {
+            write!(f, "animate {} {:?} ", name, anim)?;
+        }
+        if !self.states.is_empty() {
+            write!(f, "states {:?} ", self.states)?;
+        }
+        if !self.transitions.is_empty() {
+            write!(f, "transitions {:?} ", self.transitions)?;
+        }
+        for c in &self.children {
+            write!(f, "{:?} ", c)?;
+        }
+        write!(f, "}}")
     }
 }
 

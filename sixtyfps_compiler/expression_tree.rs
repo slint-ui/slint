@@ -17,10 +17,30 @@ use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
 /// Reference to a property or callback of a given name within an element.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NamedReference {
     pub element: Weak<RefCell<Element>>,
     pub name: String,
+}
+
+fn pretty_print_element_ref(
+    f: &mut dyn std::fmt::Write,
+    element: &Weak<RefCell<Element>>,
+) -> std::fmt::Result {
+    match element.upgrade() {
+        Some(e) => match e.try_borrow() {
+            Ok(el) => write!(f, "{}", el.id),
+            Err(_) => write!(f, "<borrowed>"),
+        },
+        None => write!(f, "<null>"),
+    }
+}
+
+impl std::fmt::Debug for NamedReference {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        pretty_print_element_ref(f, &self.element)?;
+        write!(f, ".{}", self.name)
+    }
 }
 
 impl NamedReference {
@@ -942,4 +962,124 @@ impl Default for EasingCurve {
 pub enum ResourceReference {
     AbsolutePath(String),
     EmbeddedData(usize),
+}
+
+/// Print the expression as a .60 code (not nessecarily valid .60)
+pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std::fmt::Result {
+    match expression {
+        Expression::Invalid => write!(f, "<invalid>"),
+        Expression::Uncompiled(u) => write!(f, "{:?}", u),
+        Expression::TwoWayBinding(a, b) => {
+            write!(f, "<=>{:?}", a)?;
+            if let Some(b) = b {
+                write!(f, ":")?;
+                pretty_print(f, b)?;
+            }
+            Ok(())
+        }
+        Expression::StringLiteral(s) => write!(f, "{:?}", s),
+        Expression::NumberLiteral(vl, unit) => write!(f, "{}{}", vl, unit),
+        Expression::BoolLiteral(b) => write!(f, "{:?}", b),
+        Expression::CallbackReference(a) => write!(f, "{:?}", a),
+        Expression::PropertyReference(a) => write!(f, "{:?}", a),
+        Expression::BuiltinFunctionReference(a) => write!(f, "{:?}", a),
+        Expression::MemberFunction { base, base_node: _, member } => {
+            pretty_print(f, base)?;
+            write!(f, ".")?;
+            pretty_print(f, member)
+        }
+        Expression::BuiltinMacroReference(a, _) => write!(f, "{:?}", a),
+        Expression::ElementReference(a) => write!(f, "{:?}", a),
+        Expression::RepeaterIndexReference { element } => pretty_print_element_ref(f, element),
+        Expression::RepeaterModelReference { element } => {
+            pretty_print_element_ref(f, element)?;
+            write!(f, ".@model")
+        }
+        Expression::FunctionParameterReference { index, ty: _ } => write!(f, "_arg_{}", index),
+        Expression::StoreLocalVariable { name, value } => {
+            write!(f, "{} = ", name)?;
+            pretty_print(f, value)
+        }
+        Expression::ReadLocalVariable { name, ty: _ } => write!(f, "{}", name),
+        Expression::ObjectAccess { base, name } => {
+            pretty_print(f, base)?;
+            write!(f, ".{}", name)
+        }
+        Expression::Cast { from, to } => {
+            write!(f, "(")?;
+            pretty_print(f, from)?;
+            write!(f, "/* as {} */)", to)
+        }
+        Expression::CodeBlock(c) => {
+            write!(f, "{{ ")?;
+            for e in c {
+                pretty_print(f, e)?;
+                write!(f, "; ")?;
+            }
+            write!(f, "}}")
+        }
+        Expression::FunctionCall { function, arguments, source_location: _ } => {
+            pretty_print(f, function)?;
+            write!(f, "(")?;
+            for e in arguments {
+                pretty_print(f, e)?;
+                write!(f, ", ")?;
+            }
+            write!(f, ")")
+        }
+        Expression::SelfAssignment { lhs, rhs, op } => {
+            pretty_print(f, lhs)?;
+            write!(f, " {}= ", if *op == '=' { ' ' } else { *op })?;
+            pretty_print(f, rhs)
+        }
+        Expression::BinaryExpression { lhs, rhs, op } => {
+            pretty_print(f, lhs)?;
+            match *op {
+                '=' | '!' => write!(f, " {}= ", op)?,
+                _ => write!(f, " {} ", op)?,
+            };
+            pretty_print(f, rhs)
+        }
+        Expression::UnaryOp { sub, op } => {
+            write!(f, "{}", op)?;
+            pretty_print(f, sub)
+        }
+        Expression::ResourceReference(a) => write!(f, "{:?}", a),
+        Expression::Condition { condition, true_expr, false_expr } => {
+            write!(f, "if (")?;
+            pretty_print(f, condition)?;
+            write!(f, ") {{ ")?;
+            pretty_print(f, true_expr)?;
+            write!(f, " }} else {{ ")?;
+            pretty_print(f, false_expr)?;
+            write!(f, " }}")
+        }
+        Expression::Array { element_ty: _, values } => {
+            write!(f, "[")?;
+            for e in values {
+                pretty_print(f, e)?;
+                write!(f, ", ")?;
+            }
+            write!(f, "]")
+        }
+        Expression::Object { ty: _, values } => {
+            write!(f, "{{ ")?;
+            for (name, e) in values {
+                write!(f, "{}: ", name)?;
+                pretty_print(f, e)?;
+                write!(f, ", ")?;
+            }
+            write!(f, " }}")
+        }
+        Expression::PathElements { elements } => write!(f, "{:?}", elements),
+        Expression::EasingCurve(e) => write!(f, "{:?}", e),
+        Expression::EnumerationValue(e) => match e.enumeration.values.get(e.value as usize) {
+            Some(val) => write!(f, "{}.{}", e.enumeration.name, val),
+            None => write!(f, "{}.{}", e.enumeration.name, e.value),
+        },
+        Expression::ReturnStatement(e) => {
+            write!(f, "return ")?;
+            e.as_ref().map(|e| pretty_print(f, e)).unwrap_or(Ok(()))
+        }
+    }
 }
