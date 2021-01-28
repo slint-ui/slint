@@ -998,6 +998,13 @@ fn convert_path_element(
         "ArcTo" => {
             PathElement::ArcTo(new_struct_with_bindings(&expr_element.bindings, local_context))
         }
+        "CubicTo" => {
+            PathElement::CubicTo(new_struct_with_bindings(&expr_element.bindings, local_context))
+        }
+        "QuadraticTo" => PathElement::QuadraticTo(new_struct_with_bindings(
+            &expr_element.bindings,
+            local_context,
+        )),
         "Close" => PathElement::Close,
         _ => panic!(
             "Cannot create unsupported path element {}",

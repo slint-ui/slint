@@ -15,7 +15,7 @@ TestCase := Rectangle {
         LineTo { x: 100; y: 0; }
         LineTo { x: 100; y: 0; }
         Rectangle {}
-//      ^error{Rectangle is not allowed within Path. Only ArcTo Close LineTo MoveTo are valid children}
+//      ^error{Rectangle is not allowed within Path. Only ArcTo Close CubicTo LineTo MoveTo QuadraticTo are valid children}
     }
 
     LineTo { x: 100; y: 0; }

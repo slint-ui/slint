@@ -362,6 +362,52 @@ pub struct PathArcTo {
 }
 
 #[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[pin]
+/// PathCubicTo describes a smooth Bézier curve from the path's current position
+/// to the specified x/y location, using two control points.
+pub struct PathCubicTo {
+    #[rtti_field]
+    /// The x coordinate of the curve's end point.
+    pub x: f32,
+    #[rtti_field]
+    /// The y coordinate of the curve's end point.
+    pub y: f32,
+    #[rtti_field]
+    /// The x coordinate of the curve's first control point.
+    pub control_1_x: f32,
+    #[rtti_field]
+    /// The y coordinate of the curve's first control point.
+    pub control_1_y: f32,
+    #[rtti_field]
+    /// The x coordinate of the curve's second control point.
+    pub control_2_x: f32,
+    #[rtti_field]
+    /// The y coordinate of the curve's second control point.
+    pub control_2_y: f32,
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[pin]
+/// PathCubicTo describes a smooth Bézier curve from the path's current position
+/// to the specified x/y location, using one control points.
+pub struct PathQuadraticTo {
+    #[rtti_field]
+    /// The x coordinate of the curve's end point.
+    pub x: f32,
+    #[rtti_field]
+    /// The y coordinate of the curve's end point.
+    pub y: f32,
+    #[rtti_field]
+    /// The x coordinate of the curve's control point.
+    pub control_x: f32,
+    #[rtti_field]
+    /// The y coordinate of the curve's control point.
+    pub control_y: f32,
+}
+
+#[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 /// PathElement describes a single element on a path, such as move-to, line-to, etc.
 pub enum PathElement {
@@ -371,6 +417,10 @@ pub enum PathElement {
     LineTo(PathLineTo),
     /// The PathArcTo variant describes an arc.
     ArcTo(PathArcTo),
+    /// The CubicTo variant describes a Bézier curve with two control points.
+    CubicTo(PathCubicTo),
+    /// The QuadraticTo variant describes a Bézier curve with one control point.
+    QuadraticTo(PathQuadraticTo),
     /// Indicates that the path should be closed now by connecting to the starting point.
     Close,
 }
@@ -607,6 +657,26 @@ impl PathData {
                     } else {
                         path_builder.arc_to(radii, x_rotation, flags, to)
                     }
+                }
+                PathElement::CubicTo(PathCubicTo {
+                    x,
+                    y,
+                    control_1_x,
+                    control_1_y,
+                    control_2_x,
+                    control_2_y,
+                }) => {
+                    path_builder.cubic_bezier_to(
+                        Point::new(*control_1_x, *control_1_y),
+                        Point::new(*control_2_x, *control_2_y),
+                        Point::new(*x, *y),
+                    );
+                }
+                PathElement::QuadraticTo(PathQuadraticTo { x, y, control_x, control_y }) => {
+                    path_builder.quadratic_bezier_to(
+                        Point::new(*control_x, *control_y),
+                        Point::new(*x, *y),
+                    );
                 }
                 PathElement::Close => path_builder.close(),
             }

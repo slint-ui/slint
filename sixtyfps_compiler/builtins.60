@@ -234,6 +234,30 @@ ArcTo := _ {
     //-is_non_item_type
 }
 
+CubicTo := _ {
+    property <float> control_1_x;
+    property <float> control_1_y;
+    property <float> control_2_x;
+    property <float> control_2_y;
+    property <float> x;
+    property <float> y;
+
+    //-rust_type_constructor:sixtyfps::re_exports::PathElement::CubicTo(PathCubicTo{{}})
+    //-cpp_type:sixtyfps::PathCubicTo
+    //-is_non_item_type
+}
+
+QuadraticTo := _ {
+    property <float> control_x;
+    property <float> control_y;
+    property <float> x;
+    property <float> y;
+
+    //-rust_type_constructor:sixtyfps::re_exports::PathElement::QuadraticTo(PathQuadraticTo{{}})
+    //-cpp_type:sixtyfps::PathQuadraticTo
+    //-is_non_item_type
+}
+
 Close := _ {
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::Close
     //-is_non_item_type
@@ -254,6 +278,8 @@ export Path := _ {
     MoveTo {}
     LineTo {}
     ArcTo {}
+    CubicTo {}
+    QuadraticTo {}
     Close {}
 
     //-default_size_binding:expands_to_parent_geometry
@@ -267,8 +293,11 @@ export PathLayout := _ {
     property <string> commands;
     property <float> offset;
 
+    MoveTo {}
     LineTo {}
     ArcTo {}
+    CubicTo {}
+    QuadraticTo {}
     Close {}
 }
 

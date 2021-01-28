@@ -280,6 +280,32 @@ or angle.
 * **`sweep`** (*bool): If the property is true, the arc will be drawn as a clockwise turning arc;
   anti-clockwise otherwise.
 
+##### `CubicTo` Sub-element for `Path`
+
+The `CubicTo` sub-element describes a smooth Bézier from the path's current position to the
+location specified by the `x` and `y` properties, using two control points specified by their
+respective properties.
+###### Properties
+
+* **`x`** (*float): The target x position of the curve.
+* **`y`** (*float): The target y position of the curve.
+* **`control-1-x`** (*float): The x coordinate of the curve's first control point.
+* **`control-1-y`** (*float): The y coordinate of the curve's first control point.
+* **`control-2-x`** (*float): The x coordinate of the curve's second control point.
+* **`control-2-y`** (*float): The y coordinate of the curve's second control point.
+
+##### `QuadraticTo` Sub-element for `Path`
+
+The `QuadraticTo` sub-element describes a smooth Bézier from the path's current position to the
+location specified by the `x` and `y` properties, using the control points specified by the
+`control-x` and `control-y` properties.
+###### Properties
+
+* **`x`** (*float): The target x position of the curve.
+* **`y`** (*float): The target y position of the curve.
+* **`control-x`** (*float): The x coordinate of the curve's control point.
+* **`control-y`** (*float): The y coordinate of the curve's control point.
+
 ##### `Close` Sub-element for `Path`
 
 The `Close` element closes the current sub-path and draws a straight line from the current
