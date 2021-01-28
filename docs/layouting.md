@@ -1,11 +1,28 @@
-# Element positioning and layouting
+# Positioning and Layout of Elements
 
-Most elements have `x`, `y`, `width`, and `height` properties which specify their geometry.
-There are two ways to position an element on the screen: either by setting these properties explicitly, or by using a layout.
+All visual elements are shown in a window. Their position is stored in the `x` and `y`
+properties as coordinates relative to their parent element. The absolute position of an element
+in a window is calculated by adding the parent's position to the element's position. If the
+parent has a grandparent element, then that one is added as well. This calculation continues until
+the top-level element is reached.
 
+The size of visual elements is stored in the `width` and `height` properties.
 
-## Explicit positioning
+You can create an entire graphical user interface by placing the elements in two different
+ways:
 
+  * Explicitly - by setting the `x`, `y`, `width`, and `height` properties.
+  * Automatically - by using layout elements.
+
+Explicit placement is great for static scenes with few elements. Layouts are suitable for
+complex user interfaces, because the geometric relationship between the elements is
+expressed in dedicated layout elements. This requires less effort to maintain and helps
+to create scalable user interfaces.
+
+## Explicit Placement
+
+The following example places two rectangles into a window, a blue one and
+a green one that is a child of the blue:
 
 ```60
 // Explicit positioning
@@ -29,35 +46,97 @@ Example := Window {
 }
 ```
 
-The `x` and `y` properties are relative to the parent. They can be specified in
+The position of both rectangles is fixed, as well as the size of the inner green one.
+The outer blue rectangle however has a size that's automatically calculated using binding
+expressions for the `width` and `height` properties. The calculation results in the
+bottom left corner aligning with the corner of the window - it is updated whenever
+the `width` and `height` of the window changes.
 
-*  `px`: logical pixels, scaled with the device pixel ratio
-*  `phx`: physical pixels
+When specifying explicit values for any of the geometric properties, SixtyFPS requires
+you to attach a unit to the number. You can choose between two different units:
 
-The default value for `x` and `y` is always 0.
+  * Logical pixels, using the `px` unit suffix. This is the recommended unit.
+  * Physical pixels, using the `phx` unit suffix
 
-The `width` and `height` properties are also specified in pixels. Additionaly, they can also take a value in `%`, in that case, this is the ratio compared to the parent element.
-The default values for `width` and `height` depends on the element.
-Some elements have content and had their size is based on their content. This is the case for `Image` or `Text` and most widgets.
-Elements that do not have content, default to fill the parent element. For example: `Rectangle`, `TouchArea`, `FocusScope`, `Flickable`,
-and `Clip`.
+Logical pixels scale automatically with the device pixel ratio that your system is
+configured with. For example, on a modern High-DPI display the device pixel ratio can be 2,
+so every logical pixel occupies 2 physical pixels. On an older screen the user
+interface scales without any adaptations.
 
-## Layouts
+Additionally, the `width` and `height` properties can also be specified as a `%` percentage
+unit, which applies relative to the parent element. For example a `width: 50%` means half
+of the parent's `width`.
 
-There are different kinds of layouts, but they all share some common traits.
-Layouts are responsible for positioning their direct sub-elements.
-Each element has a minimum and maximum size which can be set with the `minimum_width`, `minimum_height`, `maximum_width`, and  `maximum_height` properties.
-When the `width` or `height` is specified directly, it is considered to be of fixed size.
-If an element contains a layout, it also impacts the minimum and maximum size of that element.
-The `horizontal_stretch` and `vertical_stretch` properties specify how much an element stretches proportionally to other elements.
+The default values for `x` and `y` properties are 0, which means they align with their parent
+on the screen.
 
-Layouts have a `spacing` and `padding` property. Their default value is defined by the widget style.
-`padding` can be split in `padding-left`, `padding-right`, `padding-bottom` and `padding-top`.
+The default values for `width` and `height` depend on the type of element. Some elements are sized
+automatically based on their content, such as `Image`, `Text`, and most widgets. The following elements
+do not have content and therefore default to fill their parent element:
 
-## VerticalLayout and HorizontalLayout
+ * `Rectangle`
+ * `TouchArea`
+ * `FocusScope`
+ * `Flickable`
+ * `Clip`
 
-These layout the widgets in a column (HorizontalLayout) or in a row (VerticalLayout).
-By default, the elements will be stretched or shrinked so that they take the whole space, but this can be adjusted with the alignment.
+## Automatic Placement using Layouts
+
+SixtyFPS comes with different layout elements that automatically calculate the position and size of their children:
+
+ * `VerticalLayout` / `HorizontalLayout`: The children are placed along the vertical or horizontal axis.
+ * `GridLayout`: The children are placed in a grid of columns and rows.
+ * `PathLayout`: The children are placed along a path.
+
+Layouts can also be nested, making it possible to create complex user interfaces.
+
+You can tune the automatic placement using differen constraints, to accomodate the design of your user
+interface. For example each element has a minimum and a maximum size. Set these explicitly using the
+following properties:
+
+  * `minimum_width`
+  * `minimum_height`
+  * `maximum_width`
+  * `maximum_height`
+
+A layout element also affects the minimum and maximum size of its parent.
+
+An element is considered to have a fixed size in a layout when the `width` and `height` is specified directly.
+
+When there is extra space in a layout, elements can stretch along the layout axis. You can control this stretch
+factor between the element and its siblings with these properties:
+
+  * `horizontal_stretch`
+  * `vertical_stretch`
+
+A value of `0` means that the element will not be stretched at all; unless all siblings also have a stretch
+factor of `0`. Then all the elements will be equally stretched.
+
+## Common Properties on Layout Elements
+
+All layout elements have the following properties in common:
+
+  * `spacing`: This controls the spacing between the children.
+  * `padding`: This specifies the padding within the layout, the space between the elements and the border of the
+    layout.
+
+The default value for both properties is defined by the widget style SixtyFPS is configured width.
+
+For more fine grained control, the `padding` property can be split into properties for each side of the layout:
+
+  * `padding-left`
+  * `padding-right`
+  * `padding-top`
+  * `padding-bottom`
+
+## `VerticalLayout` and `HorizontalLayout`
+
+The `VerticalLayout` and `HorizontalLayout` elements place elements in a column or row.
+By default, they will be stretched or shrunk so that they take the whole space, and their
+alignment can be adjusted.
+
+The following example places the blue and yellow rectangle in a row and evenly stretched
+across the 200 logical pixels of `width`:
 
 ```60
 // Stretch by default
@@ -70,6 +149,10 @@ Example := Window {
     }
 }
 ```
+
+The example below, on the other hand, specifies that the rectangles shell be aligned
+to the start of the layout (the visual left). That results in no stretching but instead
+the rectangles retain their specified minimum width:
 
 ```60
 // Unless an alignment is specified
@@ -84,8 +167,7 @@ Example := Window {
 }
 ```
 
-It can be convinient to put layout within another to make complex UI
-
+The example below nests two layouts for a more complex scene:
 
 ```60
 Example := Window {
