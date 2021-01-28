@@ -64,6 +64,10 @@ cpp! {{
     struct SixtyFPSWidget : QWidget {
         void *rust_window;
 
+        SixtyFPSWidget() {
+            setMouseTracking(true);
+        }
+
         void paintEvent(QPaintEvent *) override {
             QPainter painter(this);
             painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
