@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-wasm-interpreter"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"

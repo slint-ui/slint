@@ -247,7 +247,7 @@ namespace sixtyfps {{
     namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; class ComponentWindow; }}
     namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; using namespace vtable; struct KeyEvent; }}
 }}",
-            0, 0, 4,
+            0, 0, 5,
         ))
         .generate()
         .expect("Unable to generate bindings")
