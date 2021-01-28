@@ -247,6 +247,10 @@ fn init_fake_property(
         && !grid_layout_element.borrow().bindings.contains_key(name)
     {
         if let Some(e) = lazy_default() {
+            if e.name == name && Rc::ptr_eq(&e.element.upgrade().unwrap(), grid_layout_element) {
+                // Don't reference self
+                return;
+            }
             grid_layout_element
                 .borrow_mut()
                 .bindings
