@@ -12,6 +12,19 @@ These properties are valid on all visible items
 * **`horizontal_stretch`** and **`vertical_stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
   When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
 
+ ### Drop Shadows
+
+To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
+an element, it is possible to set the following `drop-shadow` properties:
+
+* **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (*length*): The horizontal and vertical distance of the
+  of the shadow from the element's frame. A negative value places the shadow left / above of the element.
+* **`drop-shadow-color`** (*color*): The base color of the shadow to use. Typically that color is the starting color
+  of a gradient that fades into transparency.
+* **`drop-shadow-blur`** (*length*): The size of the blurred area, over which the shadow color is drawn, possibly shaded.
+
+The `drop-shadow` effect is supported for `Rectangle` and `Clip` elements.
+
 ## `Window`
 
 Window is the root of what is on the screen

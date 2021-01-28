@@ -16,11 +16,12 @@ All notable changes to this project will be documented in this file.
 ### Added
  - title property to the Window element
  - color property to the Window element
- - maximum/minimum properties to the SpinBox
+ - maximum/minimum properties to the `SpinBox`
  - strings can contain escape code
- - FocusScope to handle key events
+ - `FocusScope` to handle key events
  - `return` statements
- - Text word wrap and elide
+ - `Text` word wrap and elide
+ - `drop-shadow-*` properties (limited to `Rectangle` at the moment)
 
 
 ## [0.0.4] - 2020-12-04
