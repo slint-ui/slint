@@ -216,9 +216,9 @@ Example := Path {
     stroke-width: 1px;
 
     MoveTo {
-            x: 0;
-            y: 0;
-        }
+        x: 0;
+        y: 0;
+    }
     LineTo {
         x: 0;
         y: 100;
