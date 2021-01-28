@@ -50,6 +50,7 @@ default-members = [
     'examples/printerdemo/rust',
     'examples/todo/rust',
     'examples/slide_puzzle',
+    'examples/memory',
     'tests/driver',
     'tests/rustdriver'
 ]
