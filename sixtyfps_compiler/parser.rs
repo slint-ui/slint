@@ -159,7 +159,7 @@ macro_rules! declare_syntax {
         $($token:ident -> $rule:expr ,)*
      }
      {
-        $( $(#[$attr:meta])*  $nodekind:ident -> $children:tt ,)*
+        $( $(#[$attr:meta])*  $nodekind:ident -> @children:tt ,)*
     })
     => {
         #[repr(u16)]
@@ -204,11 +204,11 @@ macro_rules! declare_syntax {
                     const KIND: SyntaxKind = SyntaxKind::$nodekind;
                     fn verify(node: SyntaxNode) {
                         assert_eq!(node.kind(), Self::KIND);
-                        verify_node!(node, $children);
+                        verify_node!(node, @children);
                     }
                 }
                 impl $nodekind {
-                    node_accessors!{$children}
+                    node_accessors!{@children}
                 }
 
                 impl Spanned for $nodekind {

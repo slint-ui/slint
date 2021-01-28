@@ -295,7 +295,7 @@ export GroupBox := GridLayout {
 
             GridLayout {
                 padding: 10px;
-                $children
+                @children
             }
         }
     }
@@ -403,7 +403,7 @@ export ScrollView := Rectangle {
     vertical-stretch: 1;
 
     fli := Flickable {
-        $children
+        @children
         x: 1px;
         y: 1px;
         interactive: false;
@@ -433,7 +433,7 @@ export ScrollView := Rectangle {
 }
 
 export ListView := ScrollView {
-    $children
+    @children
 }
 
 export StandardListView := ListView {

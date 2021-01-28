@@ -24,7 +24,7 @@ export GroupBox := NativeGroupBox {
         padding_right: root.native_padding_right;
         padding_top: root.native_padding_top;
         padding_bottom: root.native_padding_bottom;
-        $children
+        @children
     }
  }
 export LineEdit := NativeLineEdit {
@@ -79,7 +79,7 @@ export ScrollView := NativeScrollView {
         y: root.native_padding_top;
         height: root.height - root.native_padding_top - root.native_padding_bottom;
 
-        $children
+        @children
         interactive: false;
         viewport_y <=> root.vertical_value;
         viewport_x <=> root.horizontal_value;
@@ -89,7 +89,7 @@ export ScrollView := NativeScrollView {
 }
 
 export ListView := ScrollView {
-    $children
+    @children
 }
 
 export StandardListView := ListView {

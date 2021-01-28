@@ -16,7 +16,7 @@ Container := Rectangle {
             Rectangle {
                 color: green;
             }
-            $children
+            @children
         }
     }
 }

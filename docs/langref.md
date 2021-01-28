@@ -83,7 +83,7 @@ MyApp := Window {
 Such a `BoxWithLabel` could be implemented using a layout, but by default child elements like
 the `Text` element become children of the `BoxWithLabel`, when they would have to be somewhere
 else, inside the layout. For this purpose, you can change the default child placement by using
-the `$children` expression inside the element hierarchy of a component:
+the `@children` expression inside the element hierarchy of a component:
 
 ```60
 BoxWithLabel := GridLayout {
@@ -93,7 +93,7 @@ BoxWithLabel := GridLayout {
         }
     }
     Row {
-        $children
+        @children
     }
 }
 ```

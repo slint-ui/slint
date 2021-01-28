@@ -9,17 +9,17 @@
 LICENSE END */
 
 TestBox := Rectangle {
-    $children
-    $children
-//  ^error{The \$children placeholder can only appear once in an element}
+    @children
+    @children
+//  ^error{The \@children placeholder can only appear once in an element}
 }
 
 TestBox2 := Rectangle {
     Rectangle {
-        $children
+        @children
     }
-    $children
-//  ^error{The \$children placeholder can only appear once in an element hierarchy}
+    @children
+//  ^error{The \@children placeholder can only appear once in an element hierarchy}
 }
 
 

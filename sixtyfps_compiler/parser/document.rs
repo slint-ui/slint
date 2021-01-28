@@ -114,7 +114,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// property<int> width;
 /// animate someProp { }
 /// animate * { }
-/// $children
+/// @children
 /// double_binding <=> element.property;
 /// ```
 fn parse_element_content(p: &mut impl Parser) {
@@ -159,7 +159,7 @@ fn parse_element_content(p: &mut impl Parser) {
                     }
                 }
             },
-            SyntaxKind::Dollar => {
+            SyntaxKind::At => {
                 let checkpoint = p.checkpoint();
                 p.consume();
                 if p.peek().as_str() == "children" {
@@ -170,7 +170,7 @@ fn parse_element_content(p: &mut impl Parser) {
                     p.consume()
                 } else {
                     p.consume();
-                    p.error("Unexpected identifier. Expected $children.")
+                    p.error("Unexpected identifier. Expected @children.")
                 }
             }
             _ => {

@@ -22,7 +22,7 @@ global MyType := {
 //  ^error{A global component cannot have states}
     transitions [ ]
 //  ^error{A global component cannot have transitions}
-    $children
+    @children
 //  ^error{A global component cannot have sub elements}
     Rectangle { }
 //  ^error{A global component cannot have sub elements}

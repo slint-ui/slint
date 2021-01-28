@@ -16,14 +16,14 @@ Container := Rectangle {
             Rectangle {
                 color: green;
             }
-            $children
+            @children
         }
     }
 }
 
 MegaContainer := Rectangle {
     Container {
-        $children
+        @children
         width: parent.width;
         height: parent.height;
     }

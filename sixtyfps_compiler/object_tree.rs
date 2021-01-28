@@ -581,7 +581,7 @@ impl Element {
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 if children_placeholder.is_some() {
                     diag.push_error(
-                        "The $children placeholder can only appear once in an element".into(),
+                        "The @children placeholder can only appear once in an element".into(),
                         &se,
                     )
                 } else {
@@ -593,7 +593,7 @@ impl Element {
         if let Some(children_placeholder) = children_placeholder {
             if component_child_insertion_point.is_some() {
                 diag.push_error(
-                    "The $children placeholder can only appear once in an element hierarchy".into(),
+                    "The @children placeholder can only appear once in an element hierarchy".into(),
                     &children_placeholder,
                 )
             } else {
