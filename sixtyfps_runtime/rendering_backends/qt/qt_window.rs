@@ -763,12 +763,13 @@ impl PlatformWindow for QtWindow {
     }
 
     fn request_redraw(&self) {
-        if self.redraw_listener.is_dirty() {
-            let widget_ptr = self.widget_ptr();
-            cpp! {unsafe [widget_ptr as "QWidget*"] {
-                return widget_ptr->update();
-            }}
-        }
+        // We should check that redraw_listener.is_dirty, but that does not take in account the repeater
+        //if self.redraw_listener.is_dirty() {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            return widget_ptr->update();
+        }}
+        //}
     }
 
     fn scale_factor(&self) -> f32 {
@@ -905,10 +906,20 @@ fn timer_event() {
         }
     });
 
-    if let Some(instant) = sixtyfps_corelib::timers::TimerList::next_timeout() {
+    let mut timeout = sixtyfps_corelib::timers::TimerList::next_timeout().map(|instant| {
         let now = std::time::Instant::now();
-        let timeout =
-            if instant > now { instant.duration_since(now).as_millis() as i32 } else { 0 };
+        if instant > now {
+            instant.duration_since(now).as_millis() as i32
+        } else {
+            0
+        }
+    });
+    if sixtyfps_corelib::animations::CURRENT_ANIMATION_DRIVER
+        .with(|driver| driver.has_active_animations())
+    {
+        timeout = timeout.map(|x| x.max(16)).or(Some(16));
+    };
+    if let Some(timeout) = timeout {
         cpp! { unsafe [timeout as "int"] {
             TimerHandler::instance().timer.start(timeout, &TimerHandler::instance());
         }}
