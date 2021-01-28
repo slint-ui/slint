@@ -11,7 +11,7 @@ path = "main.rs"
 name = "memory"
 
 [dependencies]
-rand = "0.7.3"
+rand = "0.8"
 sixtyfps = { path = "../../api/sixtyfps-rs" }
 
 [build-dependencies]
