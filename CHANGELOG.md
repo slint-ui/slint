@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.5] - 2021-01-28
+
 ### Changed
  - Renamed "signal" to "callback"
  - And calling a callback is done with `call_<name>` instread of `emit_<name>`
@@ -26,7 +28,7 @@ All notable changes to this project will be documented in this file.
  - `drop-shadow-*` properties (limited to `Rectangle` at the moment)
 
 
-## [0.0.4] - 2020-12-04
+## [0.0.4] - 2020-12-14
 
 ### Changed
  - Changed Rust `build.rs` API to use an opaque compiler configuration type
@@ -95,3 +97,4 @@ All notable changes to this project will be documented in this file.
 [0.0.2]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.2
 [0.0.3]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.3
 [0.0.4]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.4
+[0.0.5]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.5
