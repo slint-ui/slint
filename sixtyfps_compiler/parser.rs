@@ -308,13 +308,11 @@ declare_syntax! {
         CodeBlock-> [ *Expression, *ReturnStatement ],
         ReturnStatement -> [ ?Expression ],
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
-        Expression-> [ ?Expression, ?BangExpression, ?FunctionCallExpression, ?SelfAssignment,
+        Expression-> [ ?Expression, ?FunctionCallExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl],
         /// Concetenate the Expressions to make a string (usually expended from a template string)
         StringTemplate -> [*Expression],
-        /// `foo!bar`
-        BangExpression -> [Expression],
         /// `@image-url("foo.png")`
         AtImageUrl -> [],
         /// expression()

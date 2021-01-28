@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
  - Renamed `initial-focus` to `forward-focus` as focus related property on elements
  - The "align-" prefix was removed from `TextHorizontalAlignment` and `TextVerticalAlignment`. Either
    change `align-left` to `left` or qualify with `TextHorizontalAlignment.left`.
+ - `img!"..."` is replaced by `@image-url("...")`
 
 ### Added
  - title property to the Window element

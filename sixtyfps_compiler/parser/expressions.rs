@@ -51,7 +51,6 @@ enum OperatorPrecedence {
     /// `* /`
     Mul,
     Unary,
-    Bang,
 }
 
 fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) {
@@ -59,11 +58,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     let checkpoint = p.checkpoint();
     match p.nth(0).kind() {
         SyntaxKind::Identifier => {
-            if p.nth(1).kind() == SyntaxKind::Bang {
-                parse_bang_expression(&mut *p)
-            } else {
-                parse_qualified_name(&mut *p);
-            }
+            parse_qualified_name(&mut *p);
         }
         SyntaxKind::StringLiteral => {
             if p.nth(0).as_str().ends_with('{') {
@@ -208,22 +203,6 @@ fn parse_at_keyword(p: &mut impl Parser) {
             p.error("Expected 'image-url' after '@'");
         }
     }
-}
-
-#[cfg_attr(test, parser_test)]
-/// ```test,BangExpression
-/// foo!bar
-/// foo!(bar)
-/// foo!("bar")
-/// foo ! "bar"
-/// foo ! plop ! bar
-/// foo ! (plop ! bar)
-/// ```
-fn parse_bang_expression(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::BangExpression);
-    p.expect(SyntaxKind::Identifier); // Or assert?
-    p.expect(SyntaxKind::Bang); // Or assert?
-    parse_expression_helper(&mut *p, OperatorPrecedence::Bang);
 }
 
 #[cfg_attr(test, parser_test)]

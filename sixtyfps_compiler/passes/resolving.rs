@@ -367,9 +367,6 @@ impl Expression {
     fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
         node.Expression()
             .map(|n| Self::from_expression_node(n, ctx))
-            .or_else(|| {
-                node.BangExpression().map(|n| Self::from_bang_expression_node(n.into(), ctx))
-            })
             .or_else(|| node.AtImageUrl().map(|n| Self::from_at_image_url_node(n, ctx)))
             .or_else(|| node.QualifiedName().map(|s| Self::from_qualified_name_node(s.into(), ctx)))
             .or_else(|| {
@@ -418,60 +415,6 @@ impl Expression {
             .or_else(|| node.CodeBlock().map(|n| Self::from_codeblock_node(n, ctx)))
             .or_else(|| node.StringTemplate().map(|n| Self::from_string_template_node(n, ctx)))
             .unwrap_or(Self::Invalid)
-    }
-
-    fn from_bang_expression_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
-        match identifier_text(&node).as_deref() {
-            None => {
-                debug_assert!(false, "the parser should not allow that");
-                ctx.diag.push_error("Missing bang keyword".into(), &node);
-                Self::Invalid
-            }
-            Some("img") => {
-                // FIXME: we probably need a better syntax and make this at another level.
-                let s = match node
-                    .child_node(SyntaxKind::Expression)
-                    .map_or(Self::Invalid, |n| Self::from_expression_node(n.into(), ctx))
-                {
-                    Expression::StringLiteral(p) => p,
-                    _ => {
-                        ctx.diag.push_error("img! Must be followed by a valid path".into(), &node);
-                        return Self::Invalid;
-                    }
-                };
-
-                let absolute_source_path = {
-                    let path = std::path::Path::new(&s);
-
-                    if path.is_absolute() || s.starts_with("http://") || s.starts_with("https://") {
-                        s
-                    } else {
-                        ctx.type_loader
-                            .and_then(|loader| {
-                                loader
-                                    .import_file(
-                                        node.source_file.as_ref().map(|path_rc| path_rc.as_path()),
-                                        &s,
-                                    )
-                                    .map(|resolved_file| resolved_file.path)
-                            })
-                            .unwrap_or_else(|| {
-                                std::env::current_dir()
-                                    .map(|b| b.join(&path))
-                                    .unwrap_or_else(|_| path.into())
-                            })
-                            .to_string_lossy()
-                            .to_string()
-                    }
-                };
-
-                Expression::ResourceReference(ResourceReference::AbsolutePath(absolute_source_path))
-            }
-            Some(x) => {
-                ctx.diag.push_error(format!("Unknown bang keyword `{}`", x), &node);
-                Self::Invalid
-            }
-        }
     }
 
     fn from_at_image_url_node(node: syntax_nodes::AtImageUrl, ctx: &mut LookupCtx) -> Self {
