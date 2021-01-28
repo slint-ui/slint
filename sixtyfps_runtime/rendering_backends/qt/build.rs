@@ -52,4 +52,8 @@ fn main() {
     println!("cargo:rustc-link-lib{}=Qt{}Widgets", macos_lib_search, macos_lib_framework);
     println!("cargo:rustc-link-lib{}=Qt{}Gui", macos_lib_search, macos_lib_framework);
     println!("cargo:rustc-link-lib{}=Qt{}Core", macos_lib_search, macos_lib_framework);
+
+    println!("cargo:rerun-if-changed=qt_window.rs");
+    println!("cargo:rerun-if-changed=widgets.rs");
+    println!("cargo:rerun-if-changed=qttypes.rs");
 }
