@@ -10,7 +10,7 @@
 # LICENSE END
 cargo publish --manifest-path sixtyfps_runtime/corelib_macros/Cargo.toml
 cargo publish --manifest-path sixtyfps_compiler/Cargo.toml
-cargo publish --manifest-path sixtyfps_runtime/corelib/Cargo.toml --features x11
+cargo publish --manifest-path sixtyfps_runtime/corelib/Cargo.toml
 cargo publish --manifest-path api/sixtyfps-rs/sixtyfps-macros/Cargo.toml
 cargo publish --manifest-path sixtyfps_runtime/rendering_backends/gl/Cargo.toml
 cargo publish --manifest-path api/sixtyfps-rs/sixtyfps-build/Cargo.toml
