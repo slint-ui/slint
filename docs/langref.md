@@ -88,12 +88,17 @@ the `@children` expression inside the element hierarchy of a component:
 ```60
 BoxWithLabel := GridLayout {
     Row {
-        Text {
-            // label text here
-        }
+        Text { text: "label text here"; }
     }
     Row {
         @children
+    }
+}
+
+MyApp := Window {
+    BoxWithLabel {
+        Rectangle { color: blue; }
+        Rectangle { color: yellow; }
     }
 }
 ```
