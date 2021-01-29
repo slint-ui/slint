@@ -25,14 +25,14 @@ let model = new sixtyfps.ArrayModel(tiles);
 window.memory_tiles = model
 
 window.check_if_pair_solved.setHandler(function () {
-    let flipped_tiles = tiles.flatMap((tile, index) => {
+    let flipped_tiles = [];
+    tiles.forEach((tile, index) => {
         if (tile.image_visible && !tile.solved) {
-            return {
+            flipped_tiles.push({
                 index,
                 tile
-            };
+            });
         }
-        return [];
     });
 
     if (flipped_tiles.length == 2) {
