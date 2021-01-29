@@ -327,7 +327,11 @@ impl core::fmt::Debug for Element {
             write!(f, "transitions {:?} ", self.transitions)?;
         }
         for c in &self.children {
-            write!(f, "{:?} ", c)?;
+            write!(f, "{:?} ", *c.borrow())?;
+        }
+
+        if let Type::Component(base) = &self.base_type {
+            write!(f, "{:?} ", base)?;
         }
         write!(f, "}}")
     }
@@ -976,6 +980,10 @@ pub fn recurse_elem_including_sub_components<State>(
     vis: &mut impl FnMut(&ElementRc, &State) -> State,
 ) {
     recurse_elem(&component.root_element, state, &mut |elem, state| {
+        debug_assert!(std::ptr::eq(
+            component as *const Component,
+            (&*elem.borrow().enclosing_component.upgrade().unwrap()) as *const Component
+        ));
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
                 recurse_elem_including_sub_components(base, state, vis);
