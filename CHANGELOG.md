@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
  - Renamed "signal" to "callback"
- - And calling a callback is done with `call_<name>` instread of `emit_<name>`
+ - And calling a callback is done from C++/Rust with `call_<name>` instead of `emit_<name>`
  - Renamed "SharedArray" to "SharedVector" in the C++/Rust API
  - Renamed Slider min and max property to minimum and maximum
  - The graphics rendering backend was changed to use femtovg or Qt
@@ -18,10 +18,10 @@ All notable changes to this project will be documented in this file.
  - `$children` is replaced by `@children`
 
 ### Added
- - title property to the Window element
- - color property to the Window element
- - maximum/minimum properties to the `SpinBox`
- - strings can contain escape code
+ - `title` property to the Window element
+ - `color` property to the Window element
+ - `maximum`/`minimum` properties to the `SpinBox`
+ - strings can contain escape codes
  - `FocusScope` to handle key events
  - `return` statements
  - `Text` word wrap and elide
