@@ -30,6 +30,5 @@ derive_more = "0.99.5"
 [build-dependencies]
 rustc_version = "0.3"
 
-# Currently disabled because it does not look good and it depends on external URL which are not stable yet
-# [package.metadata.docs.rs]
-# rustdoc-args = [ "--html-in-header", "sixtyfps-docs-integration.html" ]
+[package.metadata.docs.rs]
+rustdoc-args = [ "--html-in-header", "sixtyfps-docs-integration.html" ]
