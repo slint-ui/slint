@@ -364,7 +364,7 @@ ScrollBar := Rectangle {
         width: !horizontal ? parent.width : max <= 0phx ? 0phx : parent.width * (page_size / (max + page_size));
         height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page_size / (max + page_size));
 
-        border_radius: self.width / 2;
+        border_radius: (horizontal ? self.height : self.width) / 2;
         color: touch_area.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
         animate color { duration: 100ms; }
         x: !horizontal ? 0phx : (root.width - handle.width) * (new_value / max);
