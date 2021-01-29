@@ -66,5 +66,5 @@ app.remove_done.setHandler(function () {
     }
 })
 
-app.show();
+app.run();
 
