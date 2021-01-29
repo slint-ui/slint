@@ -917,7 +917,7 @@ fn generate_component(
         ));
 
         component_struct.members.push((
-            Access::Private,
+            Access::Public, // FIXME: Used for the tests
             Declaration::Var(Var {
                 ty: format!(
                     "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",

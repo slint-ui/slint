@@ -17,11 +17,10 @@ inline void mock_elapsed_time(int64_t time_in_ms)
     cbindgen_private::sixtyfps_mock_elapsed_time(time_in_ms);
 }
 template<typename Component>
-inline void send_mouse_click(const ComponentHandle<Component> *component, float x, float y)
+inline void send_mouse_click(const Component *component, float x, float y)
 {
-    cbindgen_private::sixtyfps_send_mouse_click(
-        reinterpret_cast<const vtable::VRc<private_api::ComponentVTable>*>(component),
-        x, y, &(*component)->window);
+    auto crc = *component->self_weak.into_dyn().lock();
+    cbindgen_private::sixtyfps_send_mouse_click(&crc, x, y, &component->window);
 }
 
 template<typename Component>

@@ -71,7 +71,7 @@ assert_eq!(another_model.row_data(2).1, sixtyfps::SharedString::from("world"));
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-sixtyfps::testing::send_mouse_click(&handle, 15., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 791);
 
 using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
@@ -82,10 +82,10 @@ array.push_back(ModelData{"a3", "world", 333.});
 auto another_model = std::make_shared<sixtyfps::VectorModel<ModelData>>(std::move(array));
 instance.set_model(another_model);
 
-sixtyfps::testing::send_mouse_click(&handle, 25., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 335);
 assert_eq(std::get<2>(another_model->row_data(2)), 335.);
-sixtyfps::testing::send_mouse_click(&handle, 25., 5.);
+sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 337);
 assert_eq(std::get<2>(another_model->row_data(2)), 337.);
 assert_eq(std::get<1>(another_model->row_data(2)), "world");
