@@ -685,7 +685,8 @@ You can manually activate the focus on an element by calling `focus()`:
 import { Button } from "sixtyfps_widgets.60";
 
 App := Window {
-    GridLayout {
+    VerticalLayout {
+        alignment: start;
         Button {
             text: "press me";
             clicked => { input.focus(); }
