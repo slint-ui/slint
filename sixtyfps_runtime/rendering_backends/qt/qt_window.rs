@@ -736,7 +736,8 @@ impl QtWindow {
             height: window_item.height().ceil() as _,
         };
         cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize"] {
-            widget_ptr->resize(size);
+            if (!size.isEmpty())
+                widget_ptr->resize(size);
             widget_ptr->setWindowTitle(title);
         }};
     }
