@@ -868,17 +868,20 @@ fn generate_component(
             ));
         } else if parent_element.borrow().repeated.is_some() {
             let p_x = access_member(&component.root_element, "x", component, "this");
+            let root_c = &component.layouts.borrow().root_constraints;
+
             component_struct.members.push((
                 Access::Public, // Because Repeater accesses it
                 Declaration::Function(Function {
                     name: "box_layout_data".into(),
                     signature: "() const -> sixtyfps::BoxLayoutCellData".to_owned(),
                     statements: Some(vec![format!(
-                        "return {{ layouting_info({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}), &{x}, &{y}, &{w}, &{h} }};",
+                        "return {{ layouting_info({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}), &{x}, &{y}, {w}, {h} }};",
                         x = p_x,
                         y = p_y,
-                        w = p_width,
-                        h = p_height
+                        w = if root_c.fixed_width  { "nullptr".into() } else { format!("&{}", p_width) },
+                        h = if root_c.fixed_height  { "nullptr".into() } else { format!("&{}", p_height) },
+
                     )]),
                     ..Function::default()
                 }),
@@ -2171,7 +2174,7 @@ fn compute_layout(
     let mut res = vec![intro.clone()];
     let mut layout_info = vec![
         intro.clone(),
-        "return self->root_item().vtable->layouting_info(self->root_item(), &self->window);".into(),
+        "auto layout_info = self->root_item().vtable->layouting_info(self->root_item(), &self->window);".into(),
     ];
     let component_layouts = component.layouts.borrow();
     component_layouts.iter().enumerate().for_each(|(idx, layout)| {
@@ -2185,7 +2188,10 @@ fn compute_layout(
         );
 
         if component_layouts.main_layout == Some(idx) {
-            layout_info = vec![intro.clone(), format!("return {};", layout_item.layout_info())];
+            layout_info = vec![
+                intro.clone(),
+                format!("sixtyfps::LayoutInfo layout_info = {};", layout_item.layout_info()),
+            ];
         }
 
         let mut creation_code = inverse_layout_tree
@@ -2213,6 +2219,23 @@ fn compute_layout(
             .for_each(|layout| layout.emit_solve_calls(component, &mut res));
         res.push("    }".into());
     });
+
+    let root_constraints = &component.layouts.borrow().root_constraints;
+    if root_constraints.has_explicit_restrictions() {
+        layout_info.push("auto layout_info_other = layout_info;".into());
+        for (expr, name) in root_constraints.for_each_restrictions().iter() {
+            if let Some(e) = expr {
+                layout_info.push(format!(
+                    "layout_info_other.{} = {}.get();",
+                    name,
+                    access_named_reference(e, component, "self")
+                ));
+            }
+        }
+        layout_info.push("return layout_info.merge(layout_info_other);".into());
+    } else {
+        layout_info.push("return layout_info;".into());
+    }
 
     res.append(repeater_layout_code);
 

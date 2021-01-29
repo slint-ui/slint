@@ -166,7 +166,7 @@ impl RepeatedComponent for ErasedComponentBox {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
 
-        let root_item = &s.component_type.original.root_element;
+        let root_item = &s.component_type.original.root_element.clone();
         let get_prop = |name: &str| {
             if root_item.borrow().lookup_property(name) == Type::Length {
                 let nr = NamedReference::new(root_item, name);
@@ -179,12 +179,13 @@ impl RepeatedComponent for ErasedComponentBox {
             }
         };
 
+        let root_c = &s.component_type.original.layouts.borrow().root_constraints;
         BoxLayoutCellData {
             constraint: self.borrow().as_ref().layout_info(),
             x: get_prop("x"),
             y: get_prop("y"),
-            width: get_prop("width"),
-            height: get_prop("height"),
+            width: if root_c.fixed_width { None } else { get_prop("width") },
+            height: if root_c.fixed_height { None } else { get_prop("height") },
         }
     }
 }
@@ -1445,7 +1446,7 @@ extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
     let component_layouts = instance_ref.component_type.original.layouts.borrow();
-    if let Some(idx) = component_layouts.main_layout {
+    let result = if let Some(idx) = component_layouts.main_layout {
         let mut inverse_layout_tree = Default::default();
         collect_layouts_recursively(
             &mut inverse_layout_tree,
@@ -1456,6 +1457,22 @@ extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
         .layout_info()
     } else {
         instance_ref.root_item().as_ref().layouting_info(&eval::window_ref(instance_ref).unwrap())
+    };
+    if component_layouts.root_constraints.has_explicit_restrictions() {
+        let mut info = LayoutInfo::default();
+        fill_layout_info_constraints(
+            &mut info,
+            &component_layouts.root_constraints,
+            &|nr: &NamedReference| {
+                eval::load_property(instance_ref, &nr.element.upgrade().unwrap(), nr.name.as_ref())
+                    .unwrap()
+                    .try_into()
+                    .unwrap()
+            },
+        );
+        result.merge(&info)
+    } else {
+        result
     }
 }
 

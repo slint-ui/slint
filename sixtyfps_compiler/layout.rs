@@ -9,6 +9,7 @@
 LICENSE END */
 //! Datastructures used to represent layouts in the compiler
 
+use crate::diagnostics::BuildDiagnostics;
 use crate::langtype::Type;
 use crate::object_tree::{ElementRc, PropertyDeclaration};
 use crate::{
@@ -53,6 +54,8 @@ pub struct LayoutVec {
     pub layouts: Vec<Layout>,
     /// The index within the vector of the layout which applies to the root item, if any
     pub main_layout: Option<usize>,
+    /// The constraints that applies to the root item
+    pub root_constraints: LayoutConstraints,
 }
 
 /// An Item in the layout tree
@@ -61,14 +64,12 @@ pub struct LayoutItem {
     pub element: Option<ElementRc>,
     pub layout: Option<Layout>,
     pub constraints: LayoutConstraints,
-    pub fixed_width: bool,
-    pub fixed_height: bool,
 }
 
 impl LayoutItem {
     pub fn rect(&self) -> Cow<LayoutRect> {
         if let Some(e) = &self.element {
-            let prop = |name: &str| {
+            let p = |name: &str| {
                 if e.borrow().lookup_property(name) == Type::Length {
                     Some(NamedReference::new(e, name))
                 } else {
@@ -76,17 +77,17 @@ impl LayoutItem {
                 }
             };
             Cow::Owned(LayoutRect {
-                x_reference: prop("x"),
-                y_reference: prop("y"),
-                width_reference: if !self.fixed_width { prop("width") } else { None },
-                height_reference: if !self.fixed_height { prop("height") } else { None },
+                x_reference: p("x"),
+                y_reference: p("y"),
+                width_reference: if !self.constraints.fixed_width { p("width") } else { None },
+                height_reference: if !self.constraints.fixed_height { p("height") } else { None },
             })
         } else if let Some(l) = &self.layout {
             let mut r = Cow::Borrowed(l.rect());
-            if r.width_reference.is_some() && self.fixed_width {
+            if r.width_reference.is_some() && self.constraints.fixed_width {
                 r.to_mut().width_reference = None;
             }
-            if r.height_reference.is_some() && self.fixed_height {
+            if r.height_reference.is_some() && self.constraints.fixed_height {
                 r.to_mut().height_reference = None;
             }
             r
@@ -142,18 +143,44 @@ pub struct LayoutConstraints {
     pub maximum_height: Option<NamedReference>,
     pub horizontal_stretch: Option<NamedReference>,
     pub vertical_stretch: Option<NamedReference>,
+    pub fixed_width: bool,
+    pub fixed_height: bool,
 }
 
 impl LayoutConstraints {
-    pub fn new(element: &ElementRc) -> Self {
-        Self {
+    pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics) -> Self {
+        let mut constraints = Self {
             minimum_width: binding_reference(&element, "minimum_width"),
             maximum_width: binding_reference(&element, "maximum_width"),
             minimum_height: binding_reference(&element, "minimum_height"),
             maximum_height: binding_reference(&element, "maximum_height"),
             horizontal_stretch: binding_reference(&element, "horizontal_stretch"),
             vertical_stretch: binding_reference(&element, "vertical_stretch"),
-        }
+            fixed_width: false,
+            fixed_height: false,
+        };
+        let mut apply_size_constraint = |prop, binding, op: &mut Option<NamedReference>| {
+            if let Some(other_prop) = op {
+                diag.push_error(
+                    format!("Cannot specity both {} and {}.", prop, other_prop.name),
+                    binding,
+                )
+            }
+            *op = Some(NamedReference::new(element, prop))
+        };
+        let e = element.borrow();
+        e.bindings.get("height").map(|s| {
+            apply_size_constraint("height", s, &mut constraints.minimum_height);
+            apply_size_constraint("height", s, &mut constraints.maximum_height);
+            constraints.fixed_height = true;
+        });
+        e.bindings.get("width").map(|s| {
+            apply_size_constraint("width", s, &mut constraints.minimum_width);
+            apply_size_constraint("width", s, &mut constraints.maximum_width);
+            constraints.fixed_width = true;
+        });
+
+        constraints
     }
 
     pub fn has_explicit_restrictions(&self) -> bool {

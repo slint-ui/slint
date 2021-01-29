@@ -251,6 +251,10 @@ fn lower_layouts_impl(
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
+    // FIXME: one should enable minimum_width and minimum_height on the window, but not height and width
+    //component.layouts.borrow_mut().root_constraints =
+    //    LayoutConstraints::new(&component.root_element, diag);
+
     recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
         let component = elem.borrow().enclosing_component.upgrade().unwrap();
         let mut layouts = lower_element_layout(&component, elem, style_metrics, diag);
@@ -271,32 +275,16 @@ fn create_layout_item(
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<LayoutItem> {
-    let mut constraints = LayoutConstraints::new(item_element);
-    let mut fixed_height = false;
-    let mut fixed_width = false;
-    let mut apply_size_constraint = |prop, binding, op: &mut Option<NamedReference>| {
-        if let Some(other_prop) = op {
-            diag.push_error(
-                format!("Cannot specity both {} and {}.", prop, other_prop.name),
-                binding,
-            )
-        }
-        *op = Some(NamedReference::new(item_element, prop))
-    };
-    let e = item_element.borrow();
-    e.bindings.get("height").map(|s| {
-        apply_size_constraint("height", s, &mut constraints.minimum_height);
-        apply_size_constraint("height", s, &mut constraints.maximum_height);
-        fixed_height = true;
-    });
-    e.bindings.get("width").map(|s| {
-        apply_size_constraint("width", s, &mut constraints.minimum_width);
-        apply_size_constraint("width", s, &mut constraints.maximum_width);
-        fixed_width = true;
-    });
-    drop(e);
+    let constraints = LayoutConstraints::new(item_element, diag);
 
     item_element.borrow_mut().child_of_layout = true;
+
+    if item_element.borrow().repeated.is_some() {
+        let rep_comp = item_element.borrow().base_type.as_component().clone();
+        rep_comp.layouts.borrow_mut().root_constraints =
+            LayoutConstraints::new(&rep_comp.root_element, diag);
+        rep_comp.root_element.borrow_mut().child_of_layout = true;
+    }
 
     if let Some(nested_layout_parser) = layout_parse_function(item_element) {
         let layout_rect = LayoutRect::install_on_element(&item_element);
@@ -309,13 +297,7 @@ fn create_layout_item(
             style_metrics,
             diag,
         )
-        .map(|x| LayoutItem {
-            layout: Some(x),
-            constraints,
-            fixed_width,
-            fixed_height,
-            element: None,
-        })
+        .map(|x| LayoutItem { layout: Some(x), constraints, element: None })
     } else {
         collected_children.push(item_element.clone());
         let element = item_element.clone();
@@ -327,7 +309,7 @@ fn create_layout_item(
                 Some(layouts.remove(0))
             }
         };
-        Some(LayoutItem { element: Some(element), layout, constraints, fixed_height, fixed_width })
+        Some(LayoutItem { element: Some(element), layout, constraints })
     }
 }
 

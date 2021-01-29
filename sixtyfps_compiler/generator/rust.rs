@@ -450,6 +450,9 @@ fn generate_component(
                     } else {
                         // TODO: we could generate this code only if we know that this component is in a box layout
                         let root_id = format_ident!("{}", base_component.root_element.borrow().id);
+                        let root_c = &base_component.layouts.borrow().root_constraints;
+                        let width = if root_c.fixed_width { quote!(None) } else { quote!(Some(&self.get_ref().#root_id.width)) };
+                        let height = if root_c.fixed_height { quote!(None) } else { quote!(Some(&self.get_ref().#root_id.height)) };
                         quote! {
                             fn box_layout_data<'a>(self: ::core::pin::Pin<&'a Self>) -> sixtyfps::re_exports::BoxLayoutCellData<'a> {
                                 use sixtyfps::re_exports::*;
@@ -457,8 +460,8 @@ fn generate_component(
                                     constraint: self.layout_info(),
                                     x: Some(&self.get_ref().#root_id.x),
                                     y: Some(&self.get_ref().#root_id.y),
-                                    width: Some(&self.get_ref().#root_id.width),
-                                    height: Some(&self.get_ref().#root_id.height),
+                                    width: #width,
+                                    height: #height,
                                 }
                             }
                         }
@@ -1642,9 +1645,16 @@ fn get_layout_info_ref<'a, 'b>(
         (Some(x), None) => x,
         (Some(layout_info), Some(elem_info)) => quote!(#layout_info.merge(&#elem_info)),
     };
-    if item.constraints.has_explicit_restrictions() {
-        let (name, expr): (Vec<_>, Vec<_>) = item
-            .constraints
+    apply_layout_constraint(layout_info, &item.constraints, component)
+}
+
+fn apply_layout_constraint(
+    layout_info: TokenStream,
+    constraints: &crate::layout::LayoutConstraints,
+    component: &Rc<Component>,
+) -> TokenStream {
+    if constraints.has_explicit_restrictions() {
+        let (name, expr): (Vec<_>, Vec<_>) = constraints
             .for_each_restrictions()
             .iter()
             .filter_map(|(e, s)| {
@@ -1916,6 +1926,12 @@ fn compute_layout(
             .rev()
             .for_each(|layout| layout.emit_solve_calls(component, &mut layouts));
     });
+
+    layout_info = apply_layout_constraint(
+        layout_info,
+        &component.layouts.borrow().root_constraints,
+        component,
+    );
 
     quote! {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
