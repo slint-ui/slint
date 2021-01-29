@@ -577,6 +577,25 @@ Example := Rectangle {
 }
 ```
 
+## Global Singletons
+
+You can declare global singleton for properties that are available in the entire project.
+The syntax is `global Name := { /* .. properties or callbacks .. */ }`.
+Then can be then used using the `Name.property` syntax.
+
+```60
+global Palette := {
+    property<color> primary: blue;
+    property<color> secondary: green;
+}
+
+Example := Rectangle {
+    color: Palette.primary;
+    border-color: Palette.secondary;
+    border-width: 2px;
+}
+```
+
 ## Modules
 
 Components declared in a .60 file can be shared with components in other .60 files, by means of exporting and importing them.
@@ -646,6 +665,8 @@ App := Rectangle {
     Button {} // from button.60
 }
 ```
+
+Elements, globals and structs can be exported and imported.
 
 ## Focus Handling
 
