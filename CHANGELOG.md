@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.0.5] - 2021-01-28
+## [0.0.5] - 2021-01-29
 
 ### Changed
  - Renamed "signal" to "callback"
