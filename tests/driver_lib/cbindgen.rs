@@ -197,6 +197,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
             .with_config(special_config)
             .with_src(crate_dir.join("graphics.rs"))
             .with_src(crate_dir.join("graphics/color.rs"))
+            .with_src(crate_dir.join("graphics/path.rs"))
             .with_src(crate_dir.join("animations.rs"))
             //            .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
