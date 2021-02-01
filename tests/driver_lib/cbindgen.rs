@@ -84,6 +84,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         "Color",
         "PathData",
         "PathElement",
+        "Brush",
         "sixtyfps_new_path_elements",
         "sixtyfps_new_path_events",
         "Property",
@@ -142,9 +143,9 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .context("Unable to generate bindings for sixtyfps_properties_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
-    for (rust_types, internal_header) in [
-        (vec!["Resource"], "sixtyfps_resource_internal.h"),
-        (vec!["Color"], "sixtyfps_color_internal.h"),
+    for (rust_types, extra_excluded_types, internal_header) in [
+        (vec!["Resource"], vec![], "sixtyfps_resource_internal.h"),
+        (vec!["Color"], vec![], "sixtyfps_color_internal.h"),
         (
             vec![
                 "PathData",
@@ -152,7 +153,13 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
                 "sixtyfps_new_path_elements",
                 "sixtyfps_new_path_events",
             ],
+            vec![],
             "sixtyfps_pathdata_internal.h",
+        ),
+        (
+            vec!["Brush", "LinearGradient", "GradientStop"],
+            vec!["Color"],
+            "sixtyfps_brush_internal.h",
         ),
     ]
     .iter()
@@ -176,6 +183,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         ]
         .iter()
         .filter(|exclusion| rust_types.iter().find(|inclusion| inclusion == exclusion).is_none())
+        .chain(extra_excluded_types.into_iter())
         .map(|s| s.to_string())
         .collect();
 
@@ -244,6 +252,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
         .with_include("sixtyfps_resource.h")
         .with_include("sixtyfps_color.h")
         .with_include("sixtyfps_pathdata.h")
+        .with_include("sixtyfps_brush.h")
         .with_after_include(format!(
             r"
 namespace sixtyfps {{

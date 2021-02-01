@@ -14,31 +14,28 @@ This module contains brush related types for the run-time library.
 use super::Color;
 use crate::SharedVector;
 
-/// A brush is an opaque data structure that is used to describe how
+/// A brush is a data structure that is used to describe how
 /// a shape, such as a rectangle, path or even text, shall be filled.
 /// A brush can also be applied to the outline of a shape, that means
 /// the fill of the outline itself.
-#[repr(transparent)]
-pub struct Brush(BrushInner);
-
-/// BrushInner is the variant for the `Brush` type that can be either
-/// a color or a linear gradient.
 #[repr(C)]
-pub enum BrushInner {
+pub enum Brush {
+    /// The brush will not produce any fill.
+    NoBrush,
     /// The color variant of brush is a plain color that is to be used for the fill.
-    Color(Color),
+    SolidColor(Color),
     /// The linear gradient variant of a brush describes the gradient stops for a fill
     /// where all color stops are along a line that's rotated by the specified angle.
-    LinearGradient(LinearGradient),
+    LinearGradient(LinearGradientBrush),
 }
 
-/// The LinearGradient describes a way of filling a shape with different colors, which
+/// The LinearGradientBrush describes a way of filling a shape with different colors, which
 /// are interpolated between different stops. The colors are aligned with a line that's rotated
 /// by the LinearGradient's angle.
 #[repr(transparent)]
-pub struct LinearGradient(SharedVector<GradientStop>);
+pub struct LinearGradientBrush(SharedVector<GradientStop>);
 
-impl LinearGradient {
+impl LinearGradientBrush {
     /// Creates a new linear gradient, described by the specified angle and the provided color stops.
     pub fn new(angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let stop_iter = stops.into_iter();
