@@ -10,8 +10,6 @@ license = "GPL-3.0-only"
 path = "lib.rs"
 
 [dependencies]
-cargo_metadata = "0.12"
 regex = "1.4"
 lazy_static = "1"
-anyhow = "1"
 walkdir = "2"

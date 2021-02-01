@@ -7,33 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-pub use cargo_metadata::Message;
 use regex::Regex;
-use std::error::Error;
-use std::process::Command;
-
-pub fn run_cargo(
-    cargo_command: &str,
-    sub_command: &str,
-    params: &[&str],
-    mut message_handler: impl FnMut(&Message) -> Result<(), Box<dyn Error>>,
-) -> Result<std::process::ExitStatus, Box<dyn Error>> {
-    let mut cmd = Command::new(cargo_command)
-        .arg(sub_command)
-        .arg("--message-format=json")
-        .args(params)
-        .stdout(std::process::Stdio::piped())
-        .spawn()
-        .unwrap();
-
-    let reader = std::io::BufReader::new(cmd.stdout.take().unwrap());
-
-    for message in cargo_metadata::Message::parse_stream(reader) {
-        message_handler(&message.unwrap())?;
-    }
-
-    Ok(cmd.wait()?)
-}
 
 pub struct TestCase {
     pub absolute_path: std::path::PathBuf,
