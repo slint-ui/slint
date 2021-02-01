@@ -11,7 +11,7 @@ path = "main.rs"
 name = "test_rust_driver"
 
 [dependencies]
-sixtyfps = { path = "../../api/sixtyfps-rs" }
+sixtyfps = { path = "../../../api/sixtyfps-rs" }
 
 [build-dependencies]
-test_driver_lib = { path = "../driver_lib" }
+test_driver_lib = { path = "../driverlib" }

@@ -269,41 +269,39 @@ fn extract_include_paths(
 ) -> (impl Iterator<Item = TokenTree>, Vec<std::path::PathBuf>) {
     let mut include_paths = Vec::new();
 
-    let mut remaining_stream = stream.clone();
-
-    // parse #[include_path="../foo/bar/baz"]
-    // ### support multiple occurrences
-    match (stream.next(), stream.next()) {
-        (Some(TokenTree::Punct(p)), Some(TokenTree::Group(group)))
-            if p.as_char() == '#' && group.delimiter() == proc_macro::Delimiter::Bracket =>
-        {
-            let mut attr_stream = group.stream().into_iter();
-            match (attr_stream.next(), attr_stream.next(), attr_stream.next()) {
-                (
-                    Some(TokenTree::Ident(include_ident)),
-                    Some(TokenTree::Punct(equal_punct)),
-                    Some(TokenTree::Literal(path)),
-                ) if include_ident.to_string() == "include_path"
-                    && equal_punct.as_char() == '=' =>
-                {
-                    let path_with_quotes = path.to_string();
-                    let path_with_quotes_stripped = if path_with_quotes.starts_with("r") {
-                        let hash_removed = path_with_quotes[1..].trim_matches('#');
-                        hash_removed.strip_prefix("\"").unwrap().strip_suffix("\"").unwrap()
-                    } else {
-                        // FIXME: unescape
-                        path_with_quotes.trim_matches('\"')
-                    };
-                    include_paths.push(path_with_quotes_stripped.into());
-                    remaining_stream = stream;
+    let mut remaining_stream;
+    loop {
+        remaining_stream = stream.clone();
+        match (stream.next(), stream.next()) {
+            (Some(TokenTree::Punct(p)), Some(TokenTree::Group(group)))
+                if p.as_char() == '#' && group.delimiter() == proc_macro::Delimiter::Bracket =>
+            {
+                let mut attr_stream = group.stream().into_iter();
+                match (attr_stream.next(), attr_stream.next(), attr_stream.next()) {
+                    (
+                        Some(TokenTree::Ident(include_ident)),
+                        Some(TokenTree::Punct(equal_punct)),
+                        Some(TokenTree::Literal(path)),
+                    ) if include_ident.to_string() == "include_path"
+                        && equal_punct.as_char() == '=' =>
+                    {
+                        let path_with_quotes = path.to_string();
+                        let path_with_quotes_stripped = if path_with_quotes.starts_with("r") {
+                            let hash_removed = path_with_quotes[1..].trim_matches('#');
+                            hash_removed.strip_prefix("\"").unwrap().strip_suffix("\"").unwrap()
+                        } else {
+                            // FIXME: unescape
+                            path_with_quotes.trim_matches('\"')
+                        };
+                        include_paths.push(path_with_quotes_stripped.into());
+                    }
+                    _ => break,
                 }
-                _ => (),
             }
+            _ => break,
         }
-        _ => (),
     }
-
-    (remaining_stream, include_paths)
+    return (remaining_stream, include_paths);
 }
 
 /// This macro allows you to use the `.60` design markup language inline in Rust code. Within the braces of the macro

@@ -9,16 +9,7 @@
 LICENSE END */
 use anyhow::Context;
 use std::iter::Extend;
-use std::path::{Path, PathBuf};
-
-/// The root dir of the git repository
-fn root_dir() -> PathBuf {
-    let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    // $root/tests/driver_lib -> $root
-    root.pop();
-    root.pop();
-    root
-}
+use std::path::Path;
 
 fn default_config() -> cbindgen::Config {
     cbindgen::Config {
@@ -46,7 +37,7 @@ fn default_config() -> cbindgen::Config {
     }
 }
 
-fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
+fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     let mut config = default_config();
     config.export.include = [
         "Rectangle",
@@ -103,7 +94,7 @@ fn gen_corelib(include_dir: &Path) -> anyhow::Result<()> {
     .map(|x| x.to_string())
     .collect();
 
-    let mut crate_dir = root_dir();
+    let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["sixtyfps_runtime", "corelib"].iter());
 
     let mut string_config = config.clone();
@@ -268,7 +259,7 @@ namespace sixtyfps {{
     Ok(())
 }
 
-fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
+fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     let mut config = default_config();
     config.export.include = [
         "NativeButton",
@@ -290,7 +281,7 @@ fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
         .body
         .insert("NativeStyleMetrics".to_owned(), "    inline NativeStyleMetrics();".to_owned());
 
-    let mut crate_dir = root_dir();
+    let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "qt"].iter());
     cbindgen::Builder::new()
         .with_config(config)
@@ -303,9 +294,9 @@ fn gen_backend_qt(include_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn gen_backend_default(include_dir: &Path) -> anyhow::Result<()> {
+fn gen_backend_default(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     let config = default_config();
-    let mut crate_dir = root_dir();
+    let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "default"].iter());
     cbindgen::Builder::new()
         .with_config(config)
@@ -319,11 +310,12 @@ fn gen_backend_default(include_dir: &Path) -> anyhow::Result<()> {
 }
 
 /// Generate the headers.
+/// `root_dir` is the root directory of the sixtyfps git repo
 /// `include_dir` is the output directory
-pub fn gen_all(include_dir: &Path) -> anyhow::Result<()> {
+pub fn gen_all(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
-    gen_corelib(include_dir)?;
-    gen_backend_qt(include_dir)?;
-    gen_backend_default(include_dir)?;
+    gen_corelib(root_dir, include_dir)?;
+    gen_backend_qt(root_dir, include_dir)?;
+    gen_backend_default(root_dir, include_dir)?;
     Ok(())
 }

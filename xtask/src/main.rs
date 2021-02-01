@@ -82,7 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::from_args().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs => cppdocs::generate()?,
-        TaskCommand::Cbindgen(cmd) => cbindgen::gen_all(Path::new(&cmd.output_dir))?,
+        TaskCommand::Cbindgen(cmd) => cbindgen::gen_all(&root_dir()?, Path::new(&cmd.output_dir))?,
         TaskCommand::NodePackage => nodepackage::generate()?,
     };
 

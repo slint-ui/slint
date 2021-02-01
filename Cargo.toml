@@ -27,9 +27,9 @@ members = [
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
     'xtask',
-    'tests/driver',
-    'tests/driver_lib',
-    'tests/rustdriver'
+    'tests/driver/driver',
+    'tests/driver/driverlib',
+    'tests/driver/rust'
 ]
 
 default-members = [
@@ -51,8 +51,8 @@ default-members = [
     'examples/todo/rust',
     'examples/slide_puzzle',
     'examples/memory',
-    'tests/driver',
-    'tests/rustdriver'
+    'tests/driver/driver',
+    'tests/driver/rust'
 ]
 
 [profile.release]

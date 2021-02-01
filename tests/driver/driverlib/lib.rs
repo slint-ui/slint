@@ -19,7 +19,7 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
 
     let case_root_dir: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "..", "cases"].iter().collect();
+        [env!("CARGO_MANIFEST_DIR"), "..", "..", "cases"].iter().collect();
 
     for entry in walkdir::WalkDir::new(case_root_dir.clone()).follow_links(true) {
         let entry = entry?;
