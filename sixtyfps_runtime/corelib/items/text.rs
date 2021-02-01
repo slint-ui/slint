@@ -129,7 +129,14 @@ impl Item for Text {
             LayoutInfo::default()
         } else if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
             let size = font_metrics.text_size(&self.text());
-            LayoutInfo { min_width: size.width, min_height: size.height, ..LayoutInfo::default() }
+            // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
+            // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
+            // letters will be cut off, apply the ceiling here.
+            LayoutInfo {
+                min_width: size.width.ceil(),
+                min_height: size.height.ceil(),
+                ..LayoutInfo::default()
+            }
         } else {
             LayoutInfo::default()
         }
