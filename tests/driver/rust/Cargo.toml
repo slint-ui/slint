@@ -1,5 +1,5 @@
 [package]
-name = "test_rust_driver"
+name = "test-driver-rust"
 version = "0.1.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
@@ -8,7 +8,7 @@ publish = false
 
 [[bin]]
 path = "main.rs"
-name = "test_rust_driver"
+name = "test-driver-rust"
 
 [dependencies]
 sixtyfps = { path = "../../../api/sixtyfps-rs" }
