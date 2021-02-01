@@ -228,13 +228,13 @@ declare_units! {
     // angles
 
     /// Degree
-    Deg = "deg" -> Float32,
+    Deg = "deg" -> Angle,
     /// Gradians
-    Grad = "grad" -> Float32 * 400/360,
+    Grad = "grad" -> Angle * 400/360,
     /// Turns
-    Turn = "turn" -> Float32 * 1/360,
+    Turn = "turn" -> Angle * 1/360,
     /// Radians
-    Rad = "rad" -> Float32 * std::f32::consts::TAU/360.,
+    Rad = "rad" -> Angle * std::f32::consts::TAU/360.,
 }
 
 impl Default for Unit {
@@ -495,7 +495,7 @@ impl Expression {
                             }
                         }
                     }
-                    unit_operations!(Duration Length LogicalLength)
+                    unit_operations!(Duration Length LogicalLength Angle)
                 } else {
                     Type::Bool
                 }
@@ -893,6 +893,7 @@ impl Expression {
                 to: Type::Color,
             },
             Type::Duration => Expression::NumberLiteral(0., Unit::Ms),
+            Type::Angle => Expression::NumberLiteral(0., Unit::Deg),
             Type::Length => Expression::NumberLiteral(0., Unit::Phx),
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
             Type::Percent => Expression::NumberLiteral(100., Unit::Percent),

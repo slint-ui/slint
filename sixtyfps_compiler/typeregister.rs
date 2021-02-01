@@ -121,6 +121,7 @@ impl TypeRegister {
         register.insert_type(Type::Model);
         register.insert_type(Type::Percent);
         register.insert_type(Type::Easing);
+        register.insert_type(Type::Angle);
 
         let mut declare_enum = |name: &str, values: &[&str]| {
             register.insert_type_with_name(

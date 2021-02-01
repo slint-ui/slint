@@ -171,6 +171,7 @@ fn to_eval_value<'cx>(
         Type::Float32
         | Type::Int32
         | Type::Duration
+        | Type::Angle
         | Type::Length
         | Type::LogicalLength
         | Type::Percent => Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value())),

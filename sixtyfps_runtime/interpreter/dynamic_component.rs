@@ -617,6 +617,7 @@ fn generate_component<'id>(
             Type::String => property_info::<SharedString>(),
             Type::Color => animated_property_info::<Color>(),
             Type::Duration => animated_property_info::<i64>(),
+            Type::Angle => animated_property_info::<f32>(),
             Type::Length => animated_property_info::<f32>(),
             Type::LogicalLength => animated_property_info::<f32>(),
             Type::Resource => property_info::<Resource>(),

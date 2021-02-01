@@ -473,7 +473,7 @@ impl Expression {
         }
         let angle = Box::new(
             Expression::from_expression_node(angle_expr.as_node().unwrap().into(), ctx)
-                .maybe_convert_to(Type::Float32, &angle_expr, &mut ctx.diag),
+                .maybe_convert_to(Type::Angle, &angle_expr, &mut ctx.diag),
         );
 
         let mut stops = vec![];
@@ -899,7 +899,7 @@ impl Expression {
                         }
                     };
                 }
-                unit_operations!(Duration Length LogicalLength)
+                unit_operations!(Duration Length LogicalLength Angle)
             }
         };
         Expression::BinaryExpression {
@@ -1078,6 +1078,7 @@ fn min_max_macro(
         Type::Length => Type::Length,
         Type::LogicalLength => Type::LogicalLength,
         Type::Duration => Type::Duration,
+        Type::Angle => Type::Angle,
         Type::Percent => Type::Float32,
         _ => {
             diag.push_error("Invalid argument type".into(), &arg_node);

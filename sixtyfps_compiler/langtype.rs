@@ -41,6 +41,7 @@ pub enum Type {
     Duration,
     Length,
     LogicalLength,
+    Angle,
     Percent,
     Resource,
     Bool,
@@ -77,6 +78,7 @@ impl core::cmp::PartialEq for Type {
             Type::String => matches!(other, Type::String),
             Type::Color => matches!(other, Type::Color),
             Type::Duration => matches!(other, Type::Duration),
+            Type::Angle => matches!(other, Type::Angle),
             Type::Length => matches!(other, Type::Length),
             Type::LogicalLength => matches!(other, Type::LogicalLength),
             Type::Percent => matches!(other, Type::Percent),
@@ -134,6 +136,7 @@ impl Display for Type {
             Type::Int32 => write!(f, "int"),
             Type::String => write!(f, "string"),
             Type::Duration => write!(f, "duration"),
+            Type::Angle => write!(f, "angle"),
             Type::Length => write!(f, "length"),
             Type::LogicalLength => write!(f, "logical_length"),
             Type::Percent => write!(f, "percent"),
@@ -171,6 +174,7 @@ impl Type {
             | Self::String
             | Self::Color
             | Self::Duration
+            | Self::Angle
             | Self::Length
             | Self::LogicalLength
             | Self::Percent
@@ -186,7 +190,7 @@ impl Type {
 
     pub fn ok_for_public_api(&self) -> bool {
         // Duration and Easing don't have good types for public API exposure yet.
-        !matches!(self, Self::Duration | Self::Easing)
+        !matches!(self, Self::Duration | Self::Easing | Self::Angle)
     }
 
     pub fn lookup_property(&self, name: &str) -> Type {
@@ -351,6 +355,7 @@ impl Type {
             Type::Length => Some(Unit::Phx),
             Type::LogicalLength => Some(Unit::Px),
             Type::Percent => Some(Unit::Percent),
+            Type::Angle => Some(Unit::Deg),
             Type::Invalid => None,
             Type::Void => None,
             Type::Component(_) => None,

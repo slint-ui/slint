@@ -30,5 +30,8 @@ X := Rectangle {
     property<color> g10: @linear-gradient(90deg, blue 10% red 20%, yellow);
 //                                                        ^error{Expected comma}
     property<color> g11: @linear-gradient(20deg,);
+    property<color> g12: @linear-gradient(2, blue 45%, red 88%);
+//                                        ^error{Cannot convert float to angle. Use an unit, or multiply by 1deg to convert explicitly.}
+    property<color> g13: @linear-gradient(90deg + 0.5turn, true ? blue : red 45%, red 88% + 0.1);
 }
 

@@ -34,6 +34,7 @@ fn rust_type(
         Type::String => Ok(quote!(sixtyfps::re_exports::SharedString)),
         Type::Color => Ok(quote!(sixtyfps::re_exports::Color)),
         Type::Duration => Ok(quote!(i64)),
+        Type::Angle => Ok(quote!(f32)),
         Type::Length => Ok(quote!(f32)),
         Type::LogicalLength => Ok(quote!(f32)),
         Type::Percent => Ok(quote!(f32)),
@@ -1224,6 +1225,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                             | Type::Duration
                             | Type::Length
                             | Type::LogicalLength
+                            | Type::Angle
                     ) =>
                 {
                     (Some(quote!(as f64)), Some(quote!(as f64)))
