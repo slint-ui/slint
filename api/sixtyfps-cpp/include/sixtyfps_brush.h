@@ -17,7 +17,7 @@ namespace sixtyfps {
 
 using cbindgen_private::types::GradientStop;
 
-struct Brush
+class Brush
 {
 public:
     Brush() : data(Inner::NoBrush()) { }
