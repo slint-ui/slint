@@ -75,7 +75,7 @@ fn test_linear_gradient_encoding() {
         GradientStop { position: 1.0, color: Color::from_argb_u8(255, 0, 0, 255) },
     ]
     .into();
-    let grad = LinearGradient::new(256., stops.clone());
+    let grad = LinearGradientBrush::new(256., stops.clone());
     assert_eq!(grad.angle(), 256.);
     assert!(grad.stops().eq(stops.iter()));
 }
