@@ -8,33 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use std::io::Write;
-use std::path::PathBuf;
-
-fn os_dylib_prefix_and_suffix() -> (&'static str, &'static str) {
-    if cfg!(target_os = "windows") {
-        ("", "dll")
-    } else if cfg!(target_os = "macos") || cfg!(target_os = "ios") {
-        ("lib", "dylib")
-    } else {
-        ("lib", "so")
-    }
-}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // target/{debug|release}/build/package/out/ -> target/{debug|release}
-    let mut target_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    target_dir.pop();
-    target_dir.pop();
-    target_dir.pop();
-
-    let nodejs_native_lib_name = {
-        let (prefix, suffix) = os_dylib_prefix_and_suffix();
-        format!("{}sixtyfps_node_native.{}", prefix, suffix)
-    };
-    println!(
-        "cargo:rustc-env=SIXTYFPS_NODE_NATIVE_LIB={}",
-        target_dir.join(nodejs_native_lib_name).display()
-    );
 
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
@@ -62,14 +38,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[test]
             fn test_interpreter_{function_name}() {{
                 interpreter::test(&test_driver_lib::TestCase{{
-                    absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
-                    relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
-                }}).unwrap();
-            }}
-
-            #[test]
-            fn test_nodejs_{function_name}() {{
-                nodejs::test(&test_driver_lib::TestCase{{
                     absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
                     relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
                 }}).unwrap();

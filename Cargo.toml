@@ -27,10 +27,11 @@ members = [
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
     'xtask',
-    'tests/driver/driver',
     'tests/driver/driverlib',
     'tests/driver/rust',
     'tests/driver/cpp',
+    'tests/driver/nodejs',
+    'tests/driver/interpreter',
 ]
 
 default-members = [
@@ -52,9 +53,10 @@ default-members = [
     'examples/todo/rust',
     'examples/slide_puzzle',
     'examples/memory',
-    'tests/driver/driver',
     'tests/driver/rust',
     'tests/driver/cpp',
+    'tests/driver/nodejs',
+    'tests/driver/interpreter',
 ]
 
 [profile.release]
