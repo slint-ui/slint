@@ -8,9 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 #[cfg(test)]
-mod interpreter;
-#[cfg(test)]
-mod nodejs;
+mod cppdriver;
 
 include!(env!("TEST_FUNCTIONS"));
 

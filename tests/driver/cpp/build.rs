@@ -10,30 +10,50 @@ LICENSE END */
 use std::io::Write;
 use std::path::PathBuf;
 
-fn os_dylib_prefix_and_suffix() -> (&'static str, &'static str) {
-    if cfg!(target_os = "windows") {
-        ("", "dll")
-    } else if cfg!(target_os = "macos") || cfg!(target_os = "ios") {
-        ("lib", "dylib")
-    } else {
-        ("lib", "so")
-    }
+#[path = "../../../xtask/src/cbindgen.rs"]
+mod cbindgen;
+
+/// The root dir of the git repository
+fn root_dir() -> PathBuf {
+    let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    // $root/tests/driver/driver/ -> $root
+    root.pop();
+    root.pop();
+    root.pop();
+    root
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Variables that cc.rs needs.
+    println!("cargo:rustc-env=TARGET={}", std::env::var("TARGET").unwrap());
+    println!("cargo:rustc-env=HOST={}", std::env::var("HOST").unwrap());
+    println!("cargo:rustc-env=OPT_LEVEL={}", std::env::var("OPT_LEVEL").unwrap());
+
     // target/{debug|release}/build/package/out/ -> target/{debug|release}
     let mut target_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     target_dir.pop();
     target_dir.pop();
     target_dir.pop();
 
-    let nodejs_native_lib_name = {
-        let (prefix, suffix) = os_dylib_prefix_and_suffix();
-        format!("{}sixtyfps_node_native.{}", prefix, suffix)
-    };
+    println!("cargo:rustc-env=CPP_LIB_PATH={}", target_dir.display());
+
+    let mut include_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    include_dir.push("include");
+    println!("cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}", include_dir.display());
+    cbindgen::gen_all(&root_dir(), &include_dir)?;
+    // re-run cbindgen if files changes
+    let root_dir = root_dir();
+    println!("cargo:rerun-if-changed={}/sixtyfps_runtime/corelib/", root_dir.display());
+    for entry in std::fs::read_dir(root_dir.join("sixtyfps_runtime/corelib/"))? {
+        let entry = entry?;
+        if entry.path().extension().map_or(false, |e| e == "rs") {
+            println!("cargo:rerun-if-changed={}", entry.path().display());
+        }
+    }
+
     println!(
-        "cargo:rustc-env=SIXTYFPS_NODE_NATIVE_LIB={}",
-        target_dir.join(nodejs_native_lib_name).display()
+        "cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/sixtyfps-cpp/include",
+        root_dir.display()
     );
 
     let tests_file_path =
@@ -60,20 +80,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             tests_file,
             r##"
             #[test]
-            fn test_interpreter_{function_name}() {{
-                interpreter::test(&test_driver_lib::TestCase{{
+            fn test_cpp_{function_name}() {{
+                cppdriver::test(&test_driver_lib::TestCase{{
                     absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
                     relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
                 }}).unwrap();
             }}
 
-            #[test]
-            fn test_nodejs_{function_name}() {{
-                nodejs::test(&test_driver_lib::TestCase{{
-                    absolute_path: std::path::PathBuf::from(r#"{absolute_path}"#),
-                    relative_path: std::path::PathBuf::from(r#"{relative_path}"#),
-                }}).unwrap();
-            }}
         "##,
             function_name = test_function_name,
             absolute_path = testcase.absolute_path.to_string_lossy(),

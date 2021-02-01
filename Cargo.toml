@@ -29,7 +29,8 @@ members = [
     'xtask',
     'tests/driver/driver',
     'tests/driver/driverlib',
-    'tests/driver/rust'
+    'tests/driver/rust',
+    'tests/driver/cpp',
 ]
 
 default-members = [
@@ -52,7 +53,8 @@ default-members = [
     'examples/slide_puzzle',
     'examples/memory',
     'tests/driver/driver',
-    'tests/driver/rust'
+    'tests/driver/rust',
+    'tests/driver/cpp',
 ]
 
 [profile.release]

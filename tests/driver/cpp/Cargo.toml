@@ -1,0 +1,24 @@
+[package]
+name = "test-driver-cpp"
+version = "0.1.0"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2018"
+publish = false
+license = "GPL-3.0-only"
+
+[[bin]]
+path = "main.rs"
+name = "test-driver-cpp"
+
+[dev-dependencies]
+sixtyfps-compilerlib = { path = "../../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
+cc = "1.0.54"
+tempfile = "3"
+scopeguard = "1.1.0"
+test_driver_lib = { path = "../driverlib" }
+spin_on = "0.1"
+
+[build-dependencies]
+test_driver_lib = { path = "../driverlib" }
+anyhow = "1"
+cbindgen = "0.16"
