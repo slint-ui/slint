@@ -510,7 +510,7 @@ fn parse_state(p: &mut impl Parser) -> bool {
     }
     if p.peek().as_str() == "when" {
         p.consume();
-        parse_expression(&mut *p)
+        parse_expression(&mut *p);
     }
     p.expect(SyntaxKind::Colon);
     if !p.expect(SyntaxKind::LBrace) {

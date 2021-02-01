@@ -33,7 +33,7 @@ use super::prelude::*;
 /// [array]
 /// {object:42}
 /// ```
-pub fn parse_expression(p: &mut impl Parser) {
+pub fn parse_expression(p: &mut impl Parser) -> bool {
     parse_expression_helper(p, OperatorPrecedence::Default)
 }
 
@@ -53,7 +53,7 @@ enum OperatorPrecedence {
     Unary,
 }
 
-fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) {
+fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) -> bool {
     let mut p = p.start_node(SyntaxKind::Expression);
     let checkpoint = p.checkpoint();
     match p.nth(0).kind() {
@@ -86,7 +86,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
         _ => {
             p.error("invalid expression");
-            return;
+            return false;
         }
     }
 
@@ -99,7 +99,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     }
 
     if precedence >= OperatorPrecedence::Mul {
-        return;
+        return true;
     }
 
     while matches!(p.nth(0).kind(), SyntaxKind::Star | SyntaxKind::Div) {
@@ -112,7 +112,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     }
 
     if precedence >= OperatorPrecedence::Add {
-        return;
+        return true;
     }
 
     while matches!(p.nth(0).kind(), SyntaxKind::Plus | SyntaxKind::Minus) {
@@ -125,7 +125,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     }
 
     if precedence > OperatorPrecedence::Equality {
-        return;
+        return true;
     }
 
     if matches!(
@@ -150,7 +150,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     }
 
     if precedence >= OperatorPrecedence::Logical {
-        return;
+        return true;
     }
 
     let mut prev_logical_op = None;
@@ -182,25 +182,31 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         p.expect(SyntaxKind::Colon);
         parse_expression(&mut *p);
     }
+    true
 }
 
 #[cfg_attr(test, parser_test)]
 /// ```test
 /// @image-url("/foo/bar.png")
+/// @linear-gradient(0deg, blue, red)
 /// ```
 fn parse_at_keyword(p: &mut impl Parser) {
-    let checkpoint = p.checkpoint();
-    p.expect(SyntaxKind::At);
-    match p.peek().as_str() {
+    debug_assert_eq!(p.peek().kind(), SyntaxKind::At);
+    match p.nth(1).as_str() {
         "image-url" | "image_url" => {
-            let mut p = p.start_node_at(checkpoint, SyntaxKind::AtImageUrl);
+            let mut p = p.start_node(SyntaxKind::AtImageUrl);
+            p.consume(); // "@"
             p.consume(); // "image-url"
             p.expect(SyntaxKind::LParent);
             p.expect(SyntaxKind::StringLiteral);
             p.expect(SyntaxKind::RParent);
         }
+        "linear-gradient" | "linear_gradient" => {
+            parse_at_linear_gradient(p);
+        }
         _ => {
-            p.error("Expected 'image-url' after '@'");
+            p.consume();
+            p.error("Expected 'image-url' or 'linear-gradient' after '@'");
         }
     }
 }
@@ -291,5 +297,28 @@ fn parse_template_string(p: &mut impl Parser) {
         if !cont {
             break;
         }
+    }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtLinearGradient
+/// @linear-gradient(#e66465, #9198e5)
+/// @linear-gradient(0.25turn, #3f87a6, #ebf8e1, #f69d3c)
+/// @linear-gradient(to left, #333, #333 50%, #eee 75%, #333 75%)
+/// @linear-gradient(217deg, rgba(255,0,0,0.8), rgba(255,0,0,0) 70.71%)
+/// ```
+fn parse_at_linear_gradient(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtLinearGradient);
+    p.expect(SyntaxKind::At);
+    debug_assert_eq!(p.peek().as_str(), "linear-gradient");
+    p.consume(); //"linear-gradient"
+
+    p.expect(SyntaxKind::LParent);
+
+    while !p.test(SyntaxKind::RParent) {
+        if !parse_expression(&mut *p) {
+            return;
+        }
+        p.test(SyntaxKind::Comma);
     }
 }

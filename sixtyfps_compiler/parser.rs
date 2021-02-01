@@ -315,6 +315,8 @@ declare_syntax! {
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
         AtImageUrl -> [],
+        /// `@linear-gradient(...)`
+        AtLinearGradient -> [*Expression],
         /// expression()
         FunctionCallExpression -> [*Expression],
         /// `expression += expression`
