@@ -10,7 +10,7 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::graphics::{Color, FontRequest, Point, RenderingCache};
+use sixtyfps_corelib::graphics::{Color, FontRequest, Point, Rect, RenderingCache};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, ItemRef, TextOverflow, TextWrap};
@@ -439,12 +439,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn combine_clip(&mut self, pos: Point, clip: Pin<&items::Clip>) {
+    fn combine_clip(&mut self, pos: Point, rect: Rect) {
         let clip_rect = qttypes::QRectF {
-            x: (clip.x() + pos.x as f32) as _,
-            y: (clip.y() + pos.y as f32) as _,
-            width: clip.width() as _,
-            height: clip.height() as _,
+            x: (rect.min_x() + pos.x as f32) as _,
+            y: (rect.min_y() + pos.y as f32) as _,
+            width: rect.width() as _,
+            height: rect.height() as _,
         };
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", clip_rect as "QRectF"] {

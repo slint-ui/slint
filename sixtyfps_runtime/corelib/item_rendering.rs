@@ -13,7 +13,7 @@ LICENSE END */
 use super::graphics::RenderingCache;
 use super::items::*;
 use crate::component::ComponentRc;
-use crate::graphics::Point;
+use crate::graphics::{Point, Rect};
 use crate::item_tree::ItemVisitorResult;
 use core::pin::Pin;
 use std::cell::{Cell, RefCell};
@@ -107,7 +107,7 @@ pub trait ItemRenderer {
     fn draw_text_input(&mut self, pos: Point, text_input: Pin<&TextInput>);
     fn draw_path(&mut self, pos: Point, path: Pin<&Path>);
     fn draw_box_shadow(&mut self, pos: Point, box_shadow: Pin<&BoxShadow>);
-    fn combine_clip(&mut self, pos: Point, clip: Pin<&Clip>);
+    fn combine_clip(&mut self, pos: Point, rect: Rect);
     fn save_state(&mut self);
     fn restore_state(&mut self);
 

@@ -534,7 +534,7 @@ impl Item for Clip {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
-        (*backend).combine_clip(pos, self)
+        (*backend).combine_clip(pos, self.geometry())
     }
 }
 
@@ -668,7 +668,9 @@ impl Item for Flickable {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, _pos: Point, _backend: &mut ItemRendererRef) {}
+    fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
+        (*backend).combine_clip(pos, self.geometry())
+    }
 }
 
 impl ItemConsts for Flickable {
