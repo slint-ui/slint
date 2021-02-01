@@ -43,6 +43,7 @@ impl LinearGradient {
     pub fn new(angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let stop_iter = stops.into_iter();
         let mut encoded_angle_and_stops = SharedVector::with_capacity(stop_iter.size_hint().0 + 1);
+        // The gradient's first stop is a fake stop to store the angle
         encoded_angle_and_stops.push(GradientStop { color: Default::default(), position: angle });
         encoded_angle_and_stops.extend(stop_iter);
         Self(encoded_angle_and_stops)
@@ -53,6 +54,7 @@ impl LinearGradient {
     }
     /// Returns the color stops of the linear gradient.
     pub fn stops<'a>(&'a self) -> impl Iterator<Item = &'a GradientStop> + 'a {
+        // skip the first fake stop that just contains the angle
         self.0.iter().skip(1)
     }
 }
