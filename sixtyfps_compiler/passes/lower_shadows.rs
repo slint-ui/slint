@@ -13,7 +13,6 @@ LICENSE END */
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::ExpressionSpanned;
-use crate::langtype::Type;
 use crate::{expression_tree::Expression, object_tree::*};
 use crate::{expression_tree::NamedReference, typeregister::TypeRegister};
 use std::cell::RefCell;
@@ -76,23 +75,8 @@ fn inject_shadow_element_in_repeated_element(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    // Since we're going to replace the repeated element's component, we need to assert that
-    // outside this function no strong reference exists to it. Then we can unwrap and
-    // replace the root element.
-    let component = repeated_element.borrow().base_type.as_component().clone();
-    debug_assert_eq!(Rc::strong_count(&component), 2);
-
-    // Any elements with a weak reference to the repeater's component will need fixing later.
-    let mut elements_with_enclosing_component_reference = Vec::new();
-    recurse_elem(&component.root_element, &(), &mut |element: &ElementRc, _| {
-        if let Some(enclosing_component) = element.borrow().enclosing_component.upgrade() {
-            if Rc::ptr_eq(&enclosing_component, &component) {
-                elements_with_enclosing_component_reference.push(element.clone());
-            }
-        }
-    });
-
-    let element_with_shadow_property = &component.root_element;
+    let element_with_shadow_property =
+        &repeated_element.borrow().base_type.as_component().root_element.clone();
 
     let mut shadow_element = match create_box_shadow_element(
         shadow_property_bindings,
@@ -123,30 +107,10 @@ fn inject_shadow_element_in_repeated_element(
         }
     }
 
-    let shadow_element = ElementRc::new(RefCell::new(shadow_element));
-    elements_with_enclosing_component_reference.push(shadow_element.clone());
-
-    shadow_element.borrow_mut().child_of_layout =
-        std::mem::replace(&mut element_with_shadow_property.borrow_mut().child_of_layout, false);
-
-    // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
-    // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.
-    drop(std::mem::take(&mut repeated_element.borrow_mut().base_type));
-
-    debug_assert_eq!(Rc::strong_count(&component), 1);
-
-    let mut component = Rc::try_unwrap(component).expect("internal compiler error: more than one strong reference left to repeated component when lowering shadow properties");
-
-    let element_with_shadow_property =
-        std::mem::replace(&mut component.root_element, shadow_element.clone());
-    shadow_element.borrow_mut().children.push(element_with_shadow_property);
-
-    let component = Rc::new(component);
-    repeated_element.borrow_mut().base_type = Type::Component(component.clone());
-
-    for elem in elements_with_enclosing_component_reference {
-        elem.borrow_mut().enclosing_component = Rc::downgrade(&component);
-    }
+    crate::object_tree::inject_element_as_repeated_element(
+        repeated_element,
+        ElementRc::new(RefCell::new(shadow_element)),
+    );
 }
 
 fn take_shadow_property_bindings(element: &ElementRc) -> HashMap<String, ExpressionSpanned> {

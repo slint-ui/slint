@@ -13,7 +13,9 @@ use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::layout::*;
 use crate::object_tree::*;
+use crate::typeregister::TypeRegister;
 use crate::{diagnostics::BuildDiagnostics, typeloader::TypeLoader};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 fn lower_grid_layout(
@@ -21,6 +23,7 @@ fn lower_grid_layout(
     rect: LayoutRect,
     grid_layout_element: &ElementRc,
     collected_children: &mut Vec<ElementRc>,
+    type_register: &TypeRegister,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
@@ -50,6 +53,7 @@ fn lower_grid_layout(
                     x,
                     (&mut row, &mut col),
                     diag,
+                    type_register,
                     style_metrics,
                     &component,
                     collected_children,
@@ -62,6 +66,7 @@ fn lower_grid_layout(
                 layout_child,
                 (&mut row, &mut col),
                 diag,
+                type_register,
                 style_metrics,
                 &component,
                 collected_children,
@@ -82,6 +87,7 @@ fn lower_box_layout(
     rect: LayoutRect,
     layout_element: &ElementRc,
     collected_children: &mut Vec<ElementRc>,
+    type_register: &TypeRegister,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
@@ -93,9 +99,14 @@ fn lower_box_layout(
     };
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
     for layout_child in layout_children {
-        if let Some(item) =
-            create_layout_item(&layout_child, component, collected_children, style_metrics, diag)
-        {
+        if let Some(item) = create_layout_item(
+            &layout_child,
+            component,
+            collected_children,
+            type_register,
+            style_metrics,
+            diag,
+        ) {
             layout.elems.push(item)
         }
     }
@@ -112,7 +123,8 @@ fn lower_path_layout(
     rect: LayoutRect,
     path_layout_element: &ElementRc,
     collected_children: &mut Vec<ElementRc>,
-    _: &Option<Rc<Component>>,
+    _type_register: &TypeRegister,
+    _style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
     let layout_children = std::mem::take(&mut path_layout_element.borrow_mut().children);
@@ -155,6 +167,7 @@ type LayoutParseFunction = dyn Fn(
     LayoutRect,
     &ElementRc,
     &mut Vec<ElementRc>,
+    &TypeRegister,
     &Option<Rc<Component>>,
     &mut BuildDiagnostics,
 ) -> Option<Layout>;
@@ -179,6 +192,7 @@ fn layout_parse_function(
 fn lower_element_layout(
     component: &Rc<Component>,
     elem: &ElementRc,
+    type_register: &TypeRegister,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> LayoutVec {
@@ -206,6 +220,7 @@ fn lower_element_layout(
                 rect_to_layout.clone(),
                 &child,
                 &mut children,
+                type_register,
                 style_metrics,
                 diag,
             ) {
@@ -243,11 +258,12 @@ pub async fn lower_layouts<'a>(
         .await;
     let style_metrics =
         style_metrics.and_then(|sm| if let Type::Component(c) = sm { Some(c) } else { None });
-    lower_layouts_impl(component, &style_metrics, diag);
+    lower_layouts_impl(component, &type_loader.global_type_registry.borrow(), &style_metrics, diag);
 }
 
 fn lower_layouts_impl(
     component: &Rc<Component>,
+    type_register: &TypeRegister,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
@@ -257,7 +273,8 @@ fn lower_layouts_impl(
 
     recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
         let component = elem.borrow().enclosing_component.upgrade().unwrap();
-        let mut layouts = lower_element_layout(&component, elem, style_metrics, diag);
+        let mut layouts =
+            lower_element_layout(&component, elem, type_register, style_metrics, diag);
         let mut component_layouts = component.layouts.borrow_mut();
         component_layouts.main_layout = component_layouts
             .main_layout
@@ -272,6 +289,7 @@ fn create_layout_item(
     item_element: &ElementRc,
     component: &Rc<Component>,
     collected_children: &mut Vec<ElementRc>,
+    type_register: &TypeRegister,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<LayoutItem> {
@@ -284,9 +302,21 @@ fn create_layout_item(
         rep_comp.layouts.borrow_mut().root_constraints =
             LayoutConstraints::new(&rep_comp.root_element, diag);
         rep_comp.root_element.borrow_mut().child_of_layout = true;
-    }
+        collected_children.push(item_element.clone());
 
-    if let Some(nested_layout_parser) = layout_parse_function(item_element) {
+        if layout_parse_function(&rep_comp.root_element).is_some() {
+            let new_root = ElementRc::new(RefCell::new(Element {
+                id: format!("{}_rootrect", item_element.borrow().id),
+                base_type: type_register.lookup_element("Rectangle").unwrap(),
+                enclosing_component: Rc::downgrade(&rep_comp),
+                ..Default::default()
+            }));
+            drop(rep_comp);
+            crate::object_tree::inject_element_as_repeated_element(item_element, new_root);
+        }
+
+        Some(LayoutItem { element: Some(item_element.clone()), layout: None, constraints })
+    } else if let Some(nested_layout_parser) = layout_parse_function(item_element) {
         let layout_rect = LayoutRect::install_on_element(&item_element);
 
         nested_layout_parser(
@@ -294,6 +324,7 @@ fn create_layout_item(
             layout_rect,
             &item_element,
             collected_children,
+            type_register,
             style_metrics,
             diag,
         )
@@ -302,7 +333,8 @@ fn create_layout_item(
         collected_children.push(item_element.clone());
         let element = item_element.clone();
         let layout = {
-            let mut layouts = lower_element_layout(component, &element, style_metrics, diag);
+            let mut layouts =
+                lower_element_layout(component, &element, type_register, style_metrics, diag);
             if layouts.is_empty() {
                 None
             } else {
@@ -319,6 +351,7 @@ impl GridLayout {
         item_element: ElementRc,
         (row, col): (&mut u16, &mut u16),
         diag: &mut BuildDiagnostics,
+        type_register: &TypeRegister,
         style_metrics: &Option<Rc<Component>>,
         component: &Rc<Component>,
         collected_children: &mut Vec<ElementRc>,
@@ -340,9 +373,14 @@ impl GridLayout {
             *col = c;
         }
 
-        if let Some(layout_item) =
-            create_layout_item(&item_element, component, collected_children, style_metrics, diag)
-        {
+        if let Some(layout_item) = create_layout_item(
+            &item_element,
+            component,
+            collected_children,
+            type_register,
+            style_metrics,
+            diag,
+        ) {
             self.elems.push(GridLayoutElement {
                 col: *col,
                 row: *row,

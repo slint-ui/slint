@@ -1303,3 +1303,48 @@ impl Exports {
         )
     }
 }
+
+/// This function replace the root element of a repeated element. the previous root becomes the only
+/// child of the new root element.
+/// Note that no reference to the base component must exist ourside of repeated_element.base_type
+pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root: ElementRc) {
+    let component = repeated_element.borrow().base_type.as_component().clone();
+    // Since we're going to replace the repeated element's component, we need to assert that
+    // outside this function no strong reference exists to it. Then we can unwrap and
+    // replace the root element.
+    debug_assert_eq!(Rc::strong_count(&component), 2);
+    let old_root = &component.root_element;
+
+    // Any elements with a weak reference to the repeater's component will need fixing later.
+    let mut elements_with_enclosing_component_reference = Vec::new();
+    recurse_elem(&old_root, &(), &mut |element: &ElementRc, _| {
+        if let Some(enclosing_component) = element.borrow().enclosing_component.upgrade() {
+            if Rc::ptr_eq(&enclosing_component, &component) {
+                elements_with_enclosing_component_reference.push(element.clone());
+            }
+        }
+    });
+
+    elements_with_enclosing_component_reference.push(new_root.clone());
+
+    new_root.borrow_mut().child_of_layout =
+        std::mem::replace(&mut old_root.borrow_mut().child_of_layout, false);
+
+    // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
+    // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.
+    drop(std::mem::take(&mut repeated_element.borrow_mut().base_type));
+
+    debug_assert_eq!(Rc::strong_count(&component), 1);
+
+    let mut component = Rc::try_unwrap(component).expect("internal compiler error: more than one strong reference left to repeated component when lowering shadow properties");
+
+    let old_root = std::mem::replace(&mut component.root_element, new_root.clone());
+    new_root.borrow_mut().children.push(old_root);
+
+    let component = Rc::new(component);
+    repeated_element.borrow_mut().base_type = Type::Component(component.clone());
+
+    for elem in elements_with_enclosing_component_reference {
+        elem.borrow_mut().enclosing_component = Rc::downgrade(&component);
+    }
+}
