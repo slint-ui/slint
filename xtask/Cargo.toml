@@ -8,8 +8,8 @@ publish = false
 
 [dependencies]
 structopt = "0.3.14"
+cbindgen = "0.16"
 cargo_metadata = "0.12"
-test_driver_lib = { path = "../tests/driver_lib" }
 anyhow = "1.0"
 lazy_static = "1.4.0"
 regex = "1.4"

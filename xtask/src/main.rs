@@ -9,7 +9,7 @@
 LICENSE END */
 use anyhow::Context;
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use structopt::StructOpt;
 
 mod cbindgen;
@@ -24,7 +24,7 @@ pub enum TaskCommand {
     #[structopt(name = "cppdocs")]
     CppDocs,
     #[structopt(name = "cbindgen")]
-    Cbindgen(cbindgen::CbindgenCommand),
+    Cbindgen(CbindgenCommand),
     #[structopt(name = "node_package")]
     NodePackage,
 }
@@ -34,6 +34,12 @@ pub enum TaskCommand {
 pub struct ApplicationArguments {
     #[structopt(subcommand)]
     pub command: TaskCommand,
+}
+
+#[derive(Debug, StructOpt)]
+pub struct CbindgenCommand {
+    #[structopt(long)]
+    output_dir: String,
 }
 
 pub fn root_dir() -> anyhow::Result<PathBuf> {
@@ -76,7 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::from_args().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs => cppdocs::generate()?,
-        TaskCommand::Cbindgen(cmd) => cmd.run()?,
+        TaskCommand::Cbindgen(cmd) => cbindgen::gen_all(Path::new(&cmd.output_dir))?,
         TaskCommand::NodePackage => nodepackage::generate()?,
     };
 

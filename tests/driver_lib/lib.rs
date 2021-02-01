@@ -12,8 +12,6 @@ use regex::Regex;
 use std::error::Error;
 use std::process::Command;
 
-pub mod cbindgen;
-
 pub fn run_cargo(
     cargo_command: &str,
     sub_command: &str,

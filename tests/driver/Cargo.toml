@@ -23,3 +23,5 @@ spin_on = "0.1"
 
 [build-dependencies]
 test_driver_lib = { path = "../driver_lib" }
+anyhow = "1"
+cbindgen = "0.16"

@@ -10,6 +10,9 @@ LICENSE END */
 use std::io::Write;
 use std::path::PathBuf;
 
+#[path = "../../xtask/src/cbindgen.rs"]
+mod cbindgen;
+
 fn os_dylib_prefix_and_suffix() -> (&'static str, &'static str) {
     if cfg!(target_os = "windows") {
         ("", "dll")
@@ -46,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut include_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
     include_dir.push("include");
     println!("cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}", include_dir.display());
-    test_driver_lib::cbindgen::gen_all(&include_dir)?;
+    cbindgen::gen_all(&include_dir)?;
     // re-run cbindgen if files changes
     let mut manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     manifest_dir.pop();
