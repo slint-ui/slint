@@ -691,13 +691,19 @@ impl ItemRenderer for GLItemRenderer {
         // and 50% outwards. We choose the CSS model, so the inner rectangle
         // is adjusted accordingly.
         let mut path = femtovg::Path::new();
-        path.rounded_rect(
-            geometry.min_x() + border_width / 2.,
-            geometry.min_y() + border_width / 2.,
-            geometry.width() - border_width,
-            geometry.height() - border_width,
-            rect.border_radius(),
-        );
+        let border_radius = rect.border_radius();
+        let x = geometry.min_x() + border_width / 2.;
+        let y = geometry.min_y() + border_width / 2.;
+        let width = geometry.width() - border_width;
+        let height = geometry.height() - border_width;
+        // If we're drawing a circle, use directly connected bezier curves instead of
+        // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
+        // rendering artifacts due to those edges.
+        if width == height && border_radius * 2. == width {
+            path.circle(x + border_radius, y + border_radius, border_radius);
+        } else {
+            path.rounded_rect(x, y, width, height, border_radius);
+        }
 
         let fill_paint = femtovg::Paint::color(rect.color().into());
 
