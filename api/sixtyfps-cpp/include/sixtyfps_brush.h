@@ -15,15 +15,32 @@ LICENSE END */
 
 namespace sixtyfps {
 
+using cbindgen_private::types::GradientStop;
+
 struct Brush
 {
 public:
     Brush() : data(Inner::NoBrush()) { }
+    explicit Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
+    explicit Brush(float angle, const GradientStop *firstStop, int stopCount)
+        : data(Inner::LinearGradient(make_linear_gradient(angle, firstStop, stopCount)))
+    {
+    }
 
     friend bool operator==(const Brush &a, const Brush &b) { return a.data == b.data; }
     friend bool operator!=(const Brush &a, const Brush &b) { return a.data != b.data; }
 
 private:
+    static SharedVector<GradientStop>
+    make_linear_gradient(float angle, const GradientStop *firstStop, int stopCount)
+    {
+        SharedVector<GradientStop> gradient;
+        gradient.push_back({ Color::from_argb_encoded(0).inner, angle });
+        for (int i = 0; i < stopCount; ++i, ++firstStop)
+            gradient.push_back(*firstStop);
+        return gradient;
+    }
+
     using Tag = cbindgen_private::types::Brush::Tag;
     using Inner = cbindgen_private::types::Brush;
     Inner data;
