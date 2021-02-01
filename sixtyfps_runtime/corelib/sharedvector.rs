@@ -314,6 +314,14 @@ impl<T> FromIterator<T> for SharedVector<T> {
     }
 }
 
+impl<T: Clone> Extend<T> for SharedVector<T> {
+    fn extend<X: IntoIterator<Item = T>>(&mut self, iter: X) {
+        for item in iter {
+            self.push(item);
+        }
+    }
+}
+
 static SHARED_NULL: SharedVectorHeader =
     SharedVectorHeader { refcount: std::sync::atomic::AtomicIsize::new(-1), size: 0, capacity: 0 };
 

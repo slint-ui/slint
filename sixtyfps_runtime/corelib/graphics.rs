@@ -37,6 +37,9 @@ pub use color::*;
 mod path;
 pub use path::*;
 
+mod brush;
+pub use brush::*;
+
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
