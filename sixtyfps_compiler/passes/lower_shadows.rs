@@ -126,6 +126,9 @@ fn inject_shadow_element_in_repeated_element(
     let shadow_element = ElementRc::new(RefCell::new(shadow_element));
     elements_with_enclosing_component_reference.push(shadow_element.clone());
 
+    shadow_element.borrow_mut().child_of_layout =
+        std::mem::replace(&mut element_with_shadow_property.borrow_mut().child_of_layout, false);
+
     // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
     // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.
     drop(std::mem::take(&mut repeated_element.borrow_mut().base_type));
