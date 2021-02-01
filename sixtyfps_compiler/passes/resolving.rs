@@ -368,6 +368,7 @@ impl Expression {
         node.Expression()
             .map(|n| Self::from_expression_node(n, ctx))
             .or_else(|| node.AtImageUrl().map(|n| Self::from_at_image_url_node(n, ctx)))
+            .or_else(|| node.AtLinearGradient().map(|n| Self::from_at_linear_gradient(n, ctx)))
             .or_else(|| node.QualifiedName().map(|s| Self::from_qualified_name_node(s.into(), ctx)))
             .or_else(|| {
                 node.child_text(SyntaxKind::StringLiteral).map(|s| {
@@ -452,6 +453,71 @@ impl Expression {
         };
 
         Expression::ResourceReference(ResourceReference::AbsolutePath(absolute_source_path))
+    }
+
+    fn from_at_linear_gradient(node: syntax_nodes::AtLinearGradient, ctx: &mut LookupCtx) -> Self {
+        let mut subs = node
+            .children_with_tokens()
+            .filter(|n| matches!(n.kind(), SyntaxKind::Comma | SyntaxKind::Expression));
+        let angle_expr = match subs.next() {
+            Some(e) if e.kind() == SyntaxKind::Expression => e,
+            _ => {
+                ctx.diag.push_error("Expected angle expression".into(), &node);
+                return Expression::Invalid;
+            }
+        };
+        if subs.next().map_or(false, |s| s.kind() != SyntaxKind::Comma) {
+            ctx.diag
+                .push_error("Angle expression must be an angle followed by a comma".into(), &node);
+            return Expression::Invalid;
+        }
+        let angle = Box::new(
+            Expression::from_expression_node(angle_expr.as_node().unwrap().into(), ctx)
+                .maybe_convert_to(Type::Float32, &angle_expr, &mut ctx.diag),
+        );
+
+        let mut stops = vec![];
+        enum Stop {
+            Empty,
+            Color(Expression),
+            Finished,
+        }
+        /*         let mut append = |current_stop : &mut Stop| {
+            let cur = std::mem::replace(current_stop, Stop::Finished);
+        }; */
+        let mut current_stop = Stop::Empty;
+        for n in subs {
+            if n.kind() == SyntaxKind::Comma {
+                match std::mem::replace(&mut current_stop, Stop::Empty) {
+                    Stop::Empty => {
+                        ctx.diag.push_error("Expected expression".into(), &n);
+                        break;
+                    }
+                    Stop::Finished => {}
+                    Stop::Color(col) => stops.push((col, Expression::Invalid)),
+                }
+            } else {
+                let e = Expression::from_expression_node(n.as_node().unwrap().into(), ctx);
+                match std::mem::replace(&mut current_stop, Stop::Finished) {
+                    Stop::Empty => {
+                        current_stop =
+                            Stop::Color(e.maybe_convert_to(Type::Color, &n, &mut ctx.diag))
+                    }
+                    Stop::Finished => {
+                        ctx.diag.push_error("Expected comma".into(), &n);
+                        break;
+                    }
+                    Stop::Color(col) => {
+                        stops.push((col, e.maybe_convert_to(Type::Float32, &n, &mut ctx.diag)))
+                    }
+                }
+            }
+        }
+        if let Stop::Color(col) = current_stop {
+            stops.push((col, Expression::Invalid))
+        };
+
+        Expression::LinearGradient { angle, stops }
     }
 
     /// Perform the lookup

@@ -310,7 +310,7 @@ declare_syntax! {
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?FunctionCallExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
-                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl],
+                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtLinearGradient],
         /// Concetenate the Expressions to make a string (usually expended from a template string)
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`

@@ -632,6 +632,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
         }),
+        Expression::LinearGradient{..} => todo!(),
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
         }

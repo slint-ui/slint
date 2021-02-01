@@ -224,6 +224,17 @@ declare_units! {
     S = "s" -> Duration * 1000,
     /// Milliseconds
     Ms = "ms" -> Duration,
+
+    // angles
+
+    /// Degree
+    Deg = "deg" -> Float32,
+    /// Gradians
+    Grad = "grad" -> Float32 * 400/360,
+    /// Turns
+    Turn = "turn" -> Float32 * 1/360,
+    /// Radians
+    Rad = "rad" -> Float32 * std::f32::consts::TAU/360.,
 }
 
 impl Default for Unit {
@@ -382,6 +393,12 @@ pub enum Expression {
 
     EasingCurve(EasingCurve),
 
+    LinearGradient {
+        angle: Box<Expression>,
+        /// First expression in the tuple is a color, second expression is the stop position
+        stops: Vec<(Expression, Expression)>,
+    },
+
     EnumerationValue(EnumerationValue),
 
     ReturnStatement(Option<Box<Expression>>),
@@ -490,6 +507,7 @@ impl Expression {
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
+            Expression::LinearGradient { .. } => Type::Color, // FIXME: brush
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
@@ -565,6 +583,13 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(&**value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
+            Expression::LinearGradient { angle, stops } => {
+                visitor(&angle);
+                for (c, s) in stops {
+                    visitor(c);
+                    visitor(s);
+                }
+            }
             Expression::EnumerationValue(_) => {}
             Expression::ReturnStatement(expr) => {
                 expr.as_deref().map(|expr| visitor(expr));
@@ -640,6 +665,13 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(&mut **value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
+            Expression::LinearGradient { angle, stops } => {
+                visitor(&mut *angle);
+                for (c, s) in stops {
+                    visitor(c);
+                    visitor(s);
+                }
+            }
             Expression::EnumerationValue(_) => {}
             Expression::ReturnStatement(expr) => {
                 expr.as_deref_mut().map(|expr| visitor(expr));
@@ -695,6 +727,9 @@ impl Expression {
             Expression::StoreLocalVariable { .. } => false,
             Expression::ReadLocalVariable { .. } => false,
             Expression::EasingCurve(_) => true,
+            Expression::LinearGradient { angle, stops } => {
+                angle.is_constant() && stops.iter().all(|(c, s)| c.is_constant() && s.is_constant())
+            }
             Expression::EnumerationValue(_) => true,
             Expression::ReturnStatement(expr) => {
                 expr.as_ref().map_or(true, |expr| expr.is_constant())
@@ -1073,6 +1108,17 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::PathElements { elements } => write!(f, "{:?}", elements),
         Expression::EasingCurve(e) => write!(f, "{:?}", e),
+        Expression::LinearGradient { angle, stops } => {
+            write!(f, "@linear-gradient(")?;
+            pretty_print(f, &angle)?;
+            for (c, s) in stops {
+                pretty_print(f, &c)?;
+                write!(f, "  ")?;
+                pretty_print(f, &s)?;
+                write!(f, ", ")?;
+            }
+            write!(f, ")")
+        }
         Expression::EnumerationValue(e) => match e.enumeration.values.get(e.value as usize) {
             Some(val) => write!(f, "{}.{}", e.enumeration.name, val),
             None => write!(f, "{}.{}", e.enumeration.name, e.value),

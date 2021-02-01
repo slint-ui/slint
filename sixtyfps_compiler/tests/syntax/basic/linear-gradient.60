@@ -1,0 +1,34 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// Cannot be put in the easing.60 test because it is in a different pass
+
+X := Rectangle {
+    property<color> g1: @linear-gradient();
+//                      ^error{Expected angle expression}
+    property<color> g2: @linear-gradient(to left, blue, red);
+//                      ^error{Angle expression must be an angle followed by a comma}
+    property<color> g3: @linear-gradient(0deg, blue, red);
+    property<color> g4: @linear-gradient(45deg, blue 45%, red red);
+//                                                            ^error{Cannot convert color to float}
+    property<color> g5: @linear-gradient(128deg, blue 45%, red);
+    property<color> g6: @linear-gradient(90deg, blue 45%, red 88%);
+    property<color> g7: @linear-gradient(90deg, 42 45%, red 0.3);
+//                                              ^error{Cannot convert float to color}
+    property<color> g8: @linear-gradient(90deg, blue red green);
+//                                                   ^error{Cannot convert color to float}
+//                                                       ^^error{Expected comma}
+    property<color> g9: @linear-gradient(0deg blue, blue, red);
+//                      ^error{Angle expression must be an angle followed by a comma}
+    property<color> g10: @linear-gradient(90deg, blue 10% red 20%, yellow);
+//                                                        ^error{Expected comma}
+    property<color> g11: @linear-gradient(20deg,);
+}
+

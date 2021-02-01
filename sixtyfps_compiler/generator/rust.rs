@@ -1324,6 +1324,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sixtyfps::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
+        Expression::LinearGradient{..} => todo!(),
         Expression::EnumerationValue(value) => {
             let base_ident = format_ident!("{}", value.enumeration.name);
             let value_ident = format_ident!("{}", value.to_string());

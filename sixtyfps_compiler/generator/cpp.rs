@@ -1644,6 +1644,7 @@ fn compile_expression(
             "sixtyfps::EasingCurve(sixtyfps::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
             a, b, c, d
         ),
+        Expression::LinearGradient{..} => todo!(),
         Expression::EnumerationValue(value) => {
             format!("sixtyfps::{}::{}", value.enumeration.name, value.to_string())
         }
