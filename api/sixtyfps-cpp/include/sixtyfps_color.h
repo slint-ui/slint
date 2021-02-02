@@ -157,6 +157,7 @@ public:
 
 private:
     cbindgen_private::types::Color inner;
+    friend class LinearGradientBrush;
     friend class Brush;
 };
 

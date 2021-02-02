@@ -17,20 +17,28 @@ namespace sixtyfps {
 
 using cbindgen_private::types::GradientStop;
 
-class Brush
+class LinearGradientBrush
 {
 public:
-    Brush() : data(Inner::NoBrush()) { }
-    explicit Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
-    explicit Brush(float angle, const GradientStop *firstStop, int stopCount)
-        : data(Inner::LinearGradient(make_linear_gradient(angle, firstStop, stopCount)))
+    LinearGradientBrush() = default;
+    LinearGradientBrush(float angle, const GradientStop *firstStop, int stopCount)
+        : inner(make_linear_gradient(angle, firstStop, stopCount))
     {
     }
 
-    friend bool operator==(const Brush &a, const Brush &b) { return a.data == b.data; }
-    friend bool operator!=(const Brush &a, const Brush &b) { return a.data != b.data; }
+    float angle() const
+    {
+        // The gradient's first stop is a fake stop to store the angle
+        return inner[0].position;
+    }
+
+    // TODO: Add function to return span for stops?
 
 private:
+    cbindgen_private::types::LinearGradientBrush inner;
+
+    friend class Brush;
+
     static SharedVector<GradientStop>
     make_linear_gradient(float angle, const GradientStop *firstStop, int stopCount)
     {
@@ -40,7 +48,22 @@ private:
             gradient.push_back(*firstStop);
         return gradient;
     }
+};
 
+class Brush
+{
+public:
+    Brush() : data(Inner::NoBrush()) { }
+    explicit Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
+    explicit Brush(const LinearGradientBrush &gradient)
+        : data(Inner::LinearGradient(gradient.inner))
+    {
+    }
+
+    friend bool operator==(const Brush &a, const Brush &b) { return a.data == b.data; }
+    friend bool operator!=(const Brush &a, const Brush &b) { return a.data != b.data; }
+
+private:
     using Tag = cbindgen_private::types::Brush::Tag;
     using Inner = cbindgen_private::types::Brush;
     Inner data;
