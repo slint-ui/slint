@@ -45,13 +45,17 @@ used by `MyApp`. `MyApp` also re-uses the `MyButton` component.
 You can assign a name to the elements using the `:=`  syntax in front an element:
 
 ```60
-//...
+MyButton := Text {
+    // ...
+}
+
 MyApp := Window {
     hello := MyButton {
         text: "hello";
     }
     world := MyButton {
         text: "world";
+        x: 50px;
     }
 }
 ```
@@ -67,7 +71,7 @@ When creating components, it may sometimes be useful to influence where child el
 are placed when they are used. For example, imagine a component that draws label above
 whatever element the user places inside:
 
-```60
+```60,ignore
 MyApp := Window {
 
     BoxWithLabel {
@@ -257,9 +261,9 @@ Example := Window {
     // ok even if a is missing, it will just have the default value
     property<{a: string, b: int}> prop2: { b: 12 };
     // ok even if c is too many, it will be discarded
-    property<{a: string, b: int}> prop2: { a: "x", b: 12, c: 42 };
+    property<{a: string, b: int}> prop3: { a: "x", b: 12, c: 42 };
     // ERROR: b is missing and c is extra, this does not compile, because it could be a typo.
-    // property<{a: string, b: int}> prop2: { a: "x", c: 42 };
+    // property<{a: string, b: int}> prop4: { a: "x", c: 42 };
 
     property<string> xxx: "42.1";
     property<float> xxx1: xxx.to_float(); // 42.1
@@ -646,7 +650,7 @@ export Button := Rectangle {
 
 Similarly, components exported from other files can be accessed by importing them:
 
-```60
+```60,ignore
 import { Button } from "./button.60";
 
 App := Rectangle {
@@ -660,7 +664,7 @@ App := Rectangle {
 In the event that two files export a type under the same name, then you have the option
 of assigning a different name at import time:
 
-```60
+```60,ignore
 import { Button } from "./button.60";
 import { Button as CoolButton } from "../other_theme/button.60";
 
@@ -702,6 +706,8 @@ If you have wrapped the `TextInput` in a component, then you can forward such a 
 using the `forward-focus` property to refer to the element that should receive it:
 
 ```60
+import { Button } from "sixtyfps_widgets.60";
+
 LabeledInput := GridLayout {
     forward-focus: input;
     Row {
@@ -722,7 +728,7 @@ App := Window {
         }
     }
 }
-``````
+```
 
 If you use the `forward-focus` property on a `Window`, then the specified element will receive
 the focus the very first time the window receives the focus - it becomes the initial focus element.

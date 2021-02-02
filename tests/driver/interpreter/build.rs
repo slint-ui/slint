@@ -10,8 +10,6 @@ LICENSE END */
 use std::io::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // target/{debug|release}/build/package/out/ -> target/{debug|release}
-
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");
 
