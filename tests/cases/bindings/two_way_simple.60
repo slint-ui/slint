@@ -22,7 +22,7 @@ TestCase := Rectangle {
         property<int> foo <=> root.sub_foo1;
     }
 
-    if (true) : Rectangle { color: root.extra_color; }
+    if (true) : Rectangle { background: root.extra_color; }
 }
 
 

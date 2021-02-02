@@ -31,7 +31,7 @@ Booker := Window {
             Rectangle {
                 width: 100%;
                 height: 100%;
-                color: validate_date(t1.text) ? transparent : #f008;
+                background: validate_date(t1.text) ? transparent : #f008;
             }
         }
         t2 := LineEdit {
@@ -40,7 +40,7 @@ Booker := Window {
             Rectangle {
                 width: 100%;
                 height: 100%;
-                color: validate_date(t2.text) ? transparent : #f008;
+                background: validate_date(t2.text) ? transparent : #f008;
             }
         }
         Button {
@@ -52,7 +52,7 @@ Booker := Window {
     if (message_visible) : Rectangle {
         width: 100%;
         height: 100%;
-        color: #ee8;
+        background: #ee8;
         Text {
             width: 100%;
             height: 100%;

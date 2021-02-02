@@ -26,7 +26,7 @@ TestCase := Window {
         padding: 50px;
 
         Rectangle {
-            color: blue;
+            background: blue;
             drop-shadow-offset-x: 10px;
             drop-shadow-offset-y: 10px;
             drop-shadow-color: #00000080;
@@ -37,7 +37,7 @@ TestCase := Window {
             {color: #0f0 },
             {color: #f00 },
         ]: Rectangle {
-            color: r.color;
+            background: r.color;
             drop-shadow-offset-x: 10px;
             drop-shadow-offset-y: 10px;
             drop-shadow-color: #00000080;
@@ -46,7 +46,7 @@ TestCase := Window {
     }
 
     for i in 3: Rectangle {
-        color: green;
+        background: green;
         border-color: black;
         border-width: 1px;     
 

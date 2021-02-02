@@ -16,7 +16,7 @@ Inline1 := Rectangle {
 
 SubElements := Rectangle {
     Inline1 {
-        color: yellow;
+        background: yellow;
         invalid: yellow;
 //      ^error{Unknown property invalid in Inline1}
     }

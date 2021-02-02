@@ -28,33 +28,33 @@ TestCase := Rectangle {
             padding: 0phx;
             spacing: 2phx;
             alignment: start;
-            rs1 := MyWid { color: blue; }
-            rs2 := MyWid { color: red; }
-            rs3 := MyWid { color: yellow; }
+            rs1 := MyWid { background: blue; }
+            rs2 := MyWid { background: red; }
+            rs3 := MyWid { background: yellow; }
         }
         HorizontalLayout {
             padding: 0phx;
             spacing: 2phx;
             alignment: space-between;
-            rb1 := MyWid { color: green; }
-            rb2 := MyWid { color: black; }
-            rb3 := MyWid { color: orange; }
+            rb1 := MyWid { background: green; }
+            rb2 := MyWid { background: black; }
+            rb3 := MyWid { background: orange; }
         }
         HorizontalLayout {
             padding: 0phx;
             spacing: 2phx;
             alignment: space-around;
-            ra1 := MyWid { color: pink; }
-            ra2 := MyWid { color: lightblue; }
-            ra3 := MyWid { color: gray; }
+            ra1 := MyWid { background: pink; }
+            ra2 := MyWid { background: lightblue; }
+            ra3 := MyWid { background: gray; }
         }
         HorizontalLayout {
             padding: 0phx;
             spacing: 2phx;
             alignment: center;
-            rc1 := MyWid { color: violet; }
-            rc2 := MyWid { color: lightgreen; }
-            rc3 := MyWid { color: purple; }
+            rc1 := MyWid { background: violet; }
+            rc2 := MyWid { background: lightgreen; }
+            rc3 := MyWid { background: purple; }
         }
     }
 

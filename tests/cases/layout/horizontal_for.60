@@ -15,14 +15,14 @@ export TestCase := Rectangle {
 
     HorizontalLayout {
 
-        Rectangle { color: orange; }
+        Rectangle { background: orange; }
 
         for i in [
             {color: #0f0, value: 8, },
             {color: #00f, value: 9, },
             {color: #f00, value: 10, },
         ] : Rectangle {
-            color: i.color;
+            background: i.color;
             TouchArea {
                 width: 100%;
                 height: 100%;
@@ -32,7 +32,7 @@ export TestCase := Rectangle {
             }
         }
 
-        Rectangle { color: pink; }
+        Rectangle { background: pink; }
     }
 }
 

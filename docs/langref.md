@@ -26,7 +26,7 @@ export MyApp := Window {
     Rectangle {
         width: 200px;
         height: 100px;
-        color: green;
+        background: green;
     }
     MyButton {
         text: "hello";
@@ -101,8 +101,8 @@ BoxWithLabel := GridLayout {
 
 MyApp := Window {
     BoxWithLabel {
-        Rectangle { color: blue; }
-        Rectangle { color: yellow; }
+        Rectangle { background: blue; }
+        Rectangle { background: yellow; }
     }
 }
 ```
@@ -176,7 +176,7 @@ Example := Window {
     r:= Rectangle {
         width: parent.width;
         height: parent.height;
-        color: blue;
+        background: blue;
     }
 }
 ```
@@ -280,9 +280,9 @@ For example the following inner blue rectangle has half the size of the outer gr
 
 ```60
 Example := Rectangle {
-    color: green;
+    background: green;
     Rectangle {
-        color: blue;
+        background: blue;
         width: parent.width * 50%;
         height: parent.height * 50%;
     }
@@ -300,9 +300,9 @@ use the percentage. The earlier example then looks like this:
 
 ```60
 Example := Rectangle {
-    color: green;
+    background: green;
     Rectangle {
-        color: blue;
+        background: blue;
         width: 50%;
         height: 50%;
     }
@@ -425,7 +425,7 @@ Color literals follow the syntax of CSS:
 
 ```60
 Example := Rectangle {
-    color: blue;
+    background: blue;
     property<color> c1: #ffaaff;
 }
 ```
@@ -495,7 +495,7 @@ Example := Window {
         height: 100px;
         width: 60px;
         x: width * index;
-        color: my_color;
+        background: my_color;
     }
 }
 ```
@@ -507,7 +507,7 @@ Simple animation that animates a property can be declared with `animate` like so
 ```60
 Example := Rectangle {
     property<bool> pressed;
-    color: pressed ? blue : red;
+    background: pressed ? blue : red;
     animate color {
         duration: 100ms;
     }
@@ -548,7 +548,7 @@ Example := Rectangle {
             text.color: white;
         }
         down when pressed : {
-            color: blue;
+            background: blue;
         }
     ]
 }
@@ -573,7 +573,7 @@ Example := Rectangle {
             text.color: white;
         }
         down when pressed : {
-            color: blue;
+            background: blue;
         }
     ]
 
@@ -601,7 +601,7 @@ global Palette := {
 }
 
 Example := Rectangle {
-    color: Palette.primary;
+    background: Palette.primary;
     border-color: Palette.secondary;
     border-width: 2px;
 }

@@ -12,7 +12,7 @@ LICENSE END */
 // line comment
 SuperSimple := Rectangle {
     /* block comment */
-    color: green;
+    background: green;
 
     //comment
 
@@ -20,7 +20,7 @@ SuperSimple := Rectangle {
        on several
        lines
     */
-    color: /* . */ blue;
+    background: /* . */ blue;
 //  ^error{Duplicated property}
 }
 

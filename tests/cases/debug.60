@@ -14,6 +14,6 @@ TestCase := Rectangle {
     foo => {
         debug("callback");
     }
-    color: { text2; blue  }
+    background: { text2; blue  }
 }
 

@@ -16,28 +16,28 @@ TestCase := Rectangle {
         padding: 0phx;
         Row {
             rect1 := Rectangle {
-                color: red;
+                background: red;
                 width: 10%;
             }
             rect2 := Rectangle {
-                color: blue;
+                background: blue;
                 height: 30%;
             }
         }
 
         Row {
             rect3 := Rectangle {
-                color: green;
+                background: green;
                 height: 20phx;
             }
         }
 
         Row {
             rect4 := Rectangle {
-                color: cyan;
+                background: cyan;
             }
             rect5 := Rectangle {
-                color: yellow;
+                background: yellow;
             }
         }
 

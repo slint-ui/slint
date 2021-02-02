@@ -10,6 +10,6 @@ LICENSE END */
 
 
 SuperSimple := Rectangle {
-    	color: green;
+    	background: green;
 }
 

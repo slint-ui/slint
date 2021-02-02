@@ -21,7 +21,7 @@ TestCase := Rectangle {
         height: 100phx;
         GridLayout {
             Rectangle {
-                color: c;
+                background: c;
 
                 TouchArea {
                     width: parent.width;

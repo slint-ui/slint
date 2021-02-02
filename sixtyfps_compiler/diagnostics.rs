@@ -215,6 +215,22 @@ impl FileDiagnostics {
         self.inner.push(error.into());
     }
 
+    pub fn push_property_deprecation_warning(
+        &mut self,
+        old_property: &str,
+        new_property: &str,
+        source: &dyn Spanned,
+    ) {
+        self.push_diagnostic_with_span(
+            format!(
+                "The property '{}' has been deprecated. Please use '{}' instead",
+                old_property, new_property
+            ),
+            source.span(),
+            crate::diagnostics::Level::Warning,
+        )
+    }
+
     /// Return true if there is at least one compilation error for this file
     pub fn has_error(&self) -> bool {
         self.inner.iter().any(|diag| match diag {

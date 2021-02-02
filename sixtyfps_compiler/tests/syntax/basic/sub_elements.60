@@ -12,13 +12,13 @@ LICENSE END */
 SubElements := Rectangle {
 
     Rectangle {
-        color: yellow;
+        background: yellow;
     }
 
-    color: blue;
+    background: blue;
 
     Rectangle {
-        color: red;
+        background: red;
     }
 
     foo := Rectangle {}

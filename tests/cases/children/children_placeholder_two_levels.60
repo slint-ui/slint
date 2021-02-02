@@ -14,7 +14,7 @@ Container := Rectangle {
         spacing: 0phx;
         Row {
             Rectangle {
-                color: green;
+                background: green;
             }
             @children
         }
@@ -34,7 +34,7 @@ TestCase := MegaContainer {
     height: 200phx;
 
     rect1 := Rectangle {
-        color: black;
+        background: black;
     }
 
 

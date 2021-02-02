@@ -10,8 +10,8 @@ LICENSE END */
 
 
 SuperSimple := Rectangle {
-    color: green;
-    color: red;
+    background: green;
+    background: red;
 //  ^error{Duplicated property}
 }
 

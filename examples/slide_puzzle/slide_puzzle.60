@@ -50,7 +50,7 @@ Checkbox := Rectangle {
     property<color> unchecked_color;
 
     hover_rect := Rectangle {
-        color: #f5f5f5;
+        background: #f5f5f5;
         x: - parent.width / 4;
         y: - parent.height / 4;
         width: ta.has_hover ? root.width * 1.5 : 0px;
@@ -251,12 +251,12 @@ export MainWindow := Window {
     }
 
     Rectangle {
-        color: current-theme.window-background-color;
+        background: current-theme.window-background-color;
         animate color { duration: 500ms; easing: ease-out; }
     }
 
     Rectangle {
-        color: current-theme.game-background-color;
+        background: current-theme.game-background-color;
         border-color: current-theme.game-text-color;
         border-width: current-theme.game-border;
         border-radius: current-theme.game-radius;
@@ -281,7 +281,7 @@ export MainWindow := Window {
                         horizontal-alignment: center;
                     }
                     Rectangle {
-                        color: t.color;
+                        background: t.color;
                         height: idx == current-theme-index ? 2px: 1px;
                         y: parent.height - height;
                     }
@@ -329,12 +329,12 @@ export MainWindow := Window {
                         x: (parent.width - width) / 2;
                         y: (parent.height - height) / 2;
                         border-radius: width;
-                        color: is_correct ? #0008 : #fff8;
+                        background: is_correct ? #0008 : #fff8;
                     }
                 }
 
                 if (!current-theme.game-use-background-image) : Rectangle {
-                    color: i >= 8 ? current-theme.piece-background-2 : current-theme.piece-background-1;
+                    background: i >= 8 ? current-theme.piece-background-2 : current-theme.piece-background-1;
                     border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
                     border-width: current-theme.piece-border;
                     border-radius: current-theme.piece-radius;
@@ -361,7 +361,7 @@ export MainWindow := Window {
                     circle := Rectangle {
                         height: width;
                         border-radius: width/2;
-                        color: #0002;
+                        background: #0002;
                         x: touch.pressed_x - width/2;
                         y: touch.pressed_y - width/2;
                     }
@@ -417,7 +417,7 @@ export MainWindow := Window {
         Rectangle {
             width: parent.width;
             height: 1px;
-            color: current-theme.game-text-color;
+            background: current-theme.game-text-color;
             y: parent.height - pieces_size / 2;
         }
 

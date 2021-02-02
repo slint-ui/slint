@@ -25,8 +25,8 @@ global my_lowercase := {
 
 X := Rectangle {
     x: MyGlobal.custom_prop;
-    color: MyGlobal.blue;
-//                  ^error{'MyGlobal' does not have a property 'blue'}
+    background: MyGlobal.blue;
+//                       ^error{'MyGlobal' does not have a property 'blue'}
     y: SomeComp.foo;
 //     ^error{Cannot access id 'SomeComp'}
 

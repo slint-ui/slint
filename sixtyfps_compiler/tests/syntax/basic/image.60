@@ -11,7 +11,7 @@ LICENSE END */
 
 SubElements := Rectangle {
 
-    color: blue;
+    background: blue;
 
     Image {
         source: @image-url("foo.png");
@@ -19,7 +19,7 @@ SubElements := Rectangle {
 
 
     Rectangle {
-        color: red;
+        background: red;
     }
 
 

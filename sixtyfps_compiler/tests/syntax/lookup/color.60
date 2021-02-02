@@ -11,24 +11,24 @@ LICENSE END */
 
 X := Rectangle {
     Rectangle {
-        color: blue;
+        background: blue;
     }
     Rectangle {
-        color: {blue}
-    }
-
-    Rectangle {
-        color: not_a_color;
-//             ^error{Unknown unqualified identifier 'not_a_color'}
+        background: {blue}
     }
 
     Rectangle {
-        color: yellow;
+        background: not_a_color;
+//                  ^error{Unknown unqualified identifier 'not_a_color'}
     }
 
     Rectangle {
-        color: #blue;
-//             ^error{Invalid color literal}
+        background: yellow;
+    }
+
+    Rectangle {
+        background: #blue;
+//                  ^error{Invalid color literal}
         x: #0;
 //         ^error{Invalid color literal}
         y: #0000000000;

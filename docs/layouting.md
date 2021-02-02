@@ -34,13 +34,13 @@ Example := Window {
         y: 70px;
         width: parent.width - x;
         height: parent.height - y;
-        color: blue;
+        background: blue;
         Rectangle {
             x: 10px;
             y: 5px;
             width: 50px;
             height: 30px;
-            color: green;
+            background: green;
         }
     }
 }
@@ -144,8 +144,8 @@ Example := Window {
     width: 200px;
     height: 200px;
     HorizontalLayout {
-        Rectangle { color: blue; minimum_width: 20px; }
-        Rectangle { color: yellow; minimum_width: 30px; }
+        Rectangle { background: blue; minimum_width: 20px; }
+        Rectangle { background: yellow; minimum_width: 30px; }
     }
 }
 ```
@@ -161,8 +161,8 @@ Example := Window {
     height: 200px;
     HorizontalLayout {
         alignment: start;
-        Rectangle { color: blue; minimum_width: 20px; }
-        Rectangle { color: yellow; minimum_width: 30px; }
+        Rectangle { background: blue; minimum_width: 20px; }
+        Rectangle { background: yellow; minimum_width: 30px; }
     }
 }
 ```
@@ -175,12 +175,12 @@ Example := Window {
     height: 200px;
     HorizontalLayout {
         // Side panel
-        Rectangle { color: green; width: 10px; }
+        Rectangle { background: green; width: 10px; }
 
         VerticalLayout {
             padding: 0px;
             //toolbar
-            Rectangle { color: blue; height: 7px; }
+            Rectangle { background: blue; height: 7px; }
 
             Rectangle {
                 border-color: red; border-width: 2px;
@@ -220,44 +220,44 @@ Example := Window {
         HorizontalLayout {
             alignment: stretch;
             Text { text: "stretch (default)"; }
-            Rectangle { color: blue; minimum_width: 20px; }
-            Rectangle { color: yellow; minimum_width: 30px; }
+            Rectangle { background: blue; minimum_width: 20px; }
+            Rectangle { background: yellow; minimum_width: 30px; }
         }
         HorizontalLayout {
             alignment: start;
             Text { text: "start"; }
-            Rectangle { color: blue; minimum_width: 20px; }
-            Rectangle { color: yellow; minimum_width: 30px; }
+            Rectangle { background: blue; minimum_width: 20px; }
+            Rectangle { background: yellow; minimum_width: 30px; }
         }
         HorizontalLayout {
             alignment: end;
             Text { text: "end"; }
-            Rectangle { color: blue; minimum_width: 20px; }
-            Rectangle { color: yellow; minimum_width: 30px; }
+            Rectangle { background: blue; minimum_width: 20px; }
+            Rectangle { background: yellow; minimum_width: 30px; }
         }
         HorizontalLayout {
             alignment: start;
             Text { text: "start"; }
-            Rectangle { color: blue; minimum_width: 20px; }
-            Rectangle { color: yellow; minimum_width: 30px; }
+            Rectangle { background: blue; minimum_width: 20px; }
+            Rectangle { background: yellow; minimum_width: 30px; }
         }
         HorizontalLayout {
             alignment: center;
             Text { text: "center"; }
-            Rectangle { color: blue; minimum_width: 20px; }
-            Rectangle { color: yellow; minimum_width: 30px; }
+            Rectangle { background: blue; minimum_width: 20px; }
+            Rectangle { background: yellow; minimum_width: 30px; }
         }
         HorizontalLayout {
             alignment: space-between;
             Text { text: "space-between"; }
-            Rectangle { color: blue; minimum_width: 20px; }
-            Rectangle { color: yellow; minimum_width: 30px; }
+            Rectangle { background: blue; minimum_width: 20px; }
+            Rectangle { background: yellow; minimum_width: 30px; }
         }
         HorizontalLayout {
             alignment: space-around;
             Text { text: "space-around"; }
-            Rectangle { color: blue; minimum_width: 20px; }
-            Rectangle { color: yellow; minimum_width: 30px; }
+            Rectangle { background: blue; minimum_width: 20px; }
+            Rectangle { background: yellow; minimum_width: 30px; }
         }
     }
 }
@@ -282,26 +282,26 @@ Example := Window {
     VerticalLayout {
         // Same stretch factor (1 by default): the size is devided equally
         HorizontalLayout {
-            Rectangle { color: blue; }
-            Rectangle { color: yellow;}
-            Rectangle { color: green;}
+            Rectangle { background: blue; }
+            Rectangle { background: yellow;}
+            Rectangle { background: green;}
         }
         // Elements with a bigger minimum-width are given a bigger size before they expand
         HorizontalLayout {
-            Rectangle { color: cyan; minimum-width: 100px;}
-            Rectangle { color: magenta; minimum-width: 50px;}
-            Rectangle { color: gold;}
+            Rectangle { background: cyan; minimum-width: 100px;}
+            Rectangle { background: magenta; minimum-width: 50px;}
+            Rectangle { background: gold;}
         }
         // Stretch factor twice as big:  grows twice as much
         HorizontalLayout {
-            Rectangle { color: navy; horizontal-stretch: 2;}
-            Rectangle { color: gray; }
+            Rectangle { background: navy; horizontal-stretch: 2;}
+            Rectangle { background: gray; }
         }
         // All elements not having a maximum width have a stretch factor of 0 so they grow
         HorizontalLayout {
-            Rectangle { color: red; maximum-width: 20px; }
-            Rectangle { color: orange; horizontal-stretch: 0; }
-            Rectangle { color: pink; horizontal-stretch: 0; }
+            Rectangle { background: red; maximum-width: 20px; }
+            Rectangle { background: orange; horizontal-stretch: 0; }
+            Rectangle { background: pink; horizontal-stretch: 0; }
         }
     }
 }
@@ -317,11 +317,11 @@ Example := Window {
     width: 200px;
     height: 50px;
     HorizontalLayout {
-        Rectangle { color: green; }
+        Rectangle { background: green; }
         for t in [ "Hello", "World", "!" ] : Text {
             text: t;
         }
-        Rectangle { color: blue; }
+        Rectangle { background: blue; }
     }
 }
 ```
@@ -346,12 +346,12 @@ Foo := Window {
     GridLayout {
         spacing: 5px;
         Row {
-            Rectangle { color: red; }
-            Rectangle { color: blue; }
+            Rectangle { background: red; }
+            Rectangle { background: blue; }
         }
         Row {
-            Rectangle { color: yellow; }
-            Rectangle { color: green; }
+            Rectangle { background: yellow; }
+            Rectangle { background: green; }
         }
     }
 }
@@ -365,11 +365,11 @@ Foo := Window {
     height: 150px;
     GridLayout {
         spacing: 0px;
-        Rectangle { color: red; }
-        Rectangle { color: blue; }
-        Rectangle { color: yellow; row: 1; }
-        Rectangle { color: green; }
-        Rectangle { color: black; col: 2; row: 0; }
+        Rectangle { background: red; }
+        Rectangle { background: blue; }
+        Rectangle { background: yellow; row: 1; }
+        Rectangle { background: green; }
+        Rectangle { background: black; col: 2; row: 0; }
     }
 }
 ```

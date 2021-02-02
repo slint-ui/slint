@@ -17,7 +17,7 @@ TestCase := Rectangle {
     fit_rect := Rectangle {
         x: 0phx;
         y: 100phx;
-        color: red;
+        background: red;
         width: 700phx;
         height: 500phx;
 

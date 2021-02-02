@@ -19,7 +19,7 @@ TopPanel := Rectangle {
    property<int> active_page: 0;
    callback quit();
 
-   color: white;
+   background: white;
 
     HorizontalLayout {
         alignment: center;
@@ -105,7 +105,7 @@ MainWindow := Window {
         y: root.height / 4;
         x: idx * (w + (root.width - w*4) / 5) + (root.width - w*4)/5;
         border_radius: 25px;
-        color: page_info.color;
+        background: page_info.color;
         img := Image {
             y: 5px;
             x: (w - (root.width / 6.25)) / 2;
@@ -193,18 +193,18 @@ MainWindow := Window {
         height: root.height / 5;
         x: root.width - self.width - 20px;
         y: root.height - self.height - 20px;
-        color: #eee;
+        background: #eee;
 
         HorizontalLayout {
             spacing: 10px;
             padding: 10px;
             for color_info[idx] in ink_levels : Rectangle {
-                color: white;
+                background: white;
                 Rectangle {
                     width: parent.width;
                     height: parent.height * color_info.level;
                     y: parent.height - self.height;
-                    color: color_info.color;
+                    background: color_info.color;
                     states [
                         innactive when root.active_page != 0 : {
                             height: 0phx;

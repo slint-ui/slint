@@ -24,7 +24,7 @@ X := Rectangle {
         x: 42phx;
         width <=> parent.width;
         height <=> x;
-        color <=> root.x;
+        background <=> root.x;
 //      ^error{The property does not have the same type as the bound property}
         y <=> y;
 //      ^error{Property cannot alias to itself}

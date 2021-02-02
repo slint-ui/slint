@@ -29,7 +29,7 @@ Btn := Rectangle {
 PlusMinus := Rectangle {
     width: 100phx;
     height: 300phx;
-    color: white;
+    background: white;
 
     property<int> counter;
 

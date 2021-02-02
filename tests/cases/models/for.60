@@ -35,7 +35,7 @@ Extra2 := Rectangle {
 export TestCase := Rectangle {
     width: 100phx;
     height: 100phx;
-    color: white;
+    background: white;
     property<float> top_level: 42;
     property<int> value: 0;
 

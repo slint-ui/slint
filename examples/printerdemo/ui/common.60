@@ -12,7 +12,7 @@ export Label := Text {
 }
 
 export Page := Rectangle {
-    color: white;
+    background: white;
     animate y { duration: 300ms; easing: ease_out; }
 }
 

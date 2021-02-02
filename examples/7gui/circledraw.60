@@ -34,12 +34,12 @@ CircleDraw := Window {
             Button { text: "Redo"; }
         }
         Rectangle {
-            color: white;
+            background: white;
             border-color: black;
             border-width: 2px;
 
             for circle[idx] in model : Rectangle {
-                color: clicked_idx == idx ? gray : white;
+                background: clicked_idx == idx ? gray : white;
                 border-color: black;
                 border-width: 2px;
                 border-radius: width / 2;
@@ -66,7 +66,7 @@ CircleDraw := Window {
         clicked => { clicked_idx = -1; }
     }
     if (clicked_idx != -1) : Rectangle {
-        color: lightgray;
+        background: lightgray;
         height: 30%;
         width: 70%;
         x: (parent.width - width) / 2;

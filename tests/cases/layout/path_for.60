@@ -24,7 +24,7 @@ TestCase := Rectangle {
         Rectangle {
             width: 20phx;
             height: 20phx;
-            color: green;
+            background: green;
         }
 
         for t in [
@@ -39,7 +39,7 @@ TestCase := Rectangle {
         Rectangle {
             width: 20phx;
             height: 20phx;
-            color: yellow;
+            background: yellow;
         }
 
 

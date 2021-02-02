@@ -17,29 +17,29 @@ TestCase := Rectangle {
 
         Row {
             Rectangle {
-                color: orange;
+                background: orange;
             }
         }
         Row {
             rect1 := Rectangle {
-                color: red;
+                background: red;
                 GridLayout {
                     padding: 0phx;
                     spacing: 10px;
                     Row {
                         rect2 := Rectangle {
-                            color: green;
+                            background: green;
                             maximum_width: 50phx;
                             maximum_height: 50phx;
                         }
                         rect3 := Rectangle {
-                            color: black;
+                            background: black;
                         }
                     }
                 }
             }
             rect4 := Rectangle {
-                color: blue;
+                background: blue;
             }
         }
     }

@@ -21,11 +21,11 @@ Timer := Window {
             Text { text: "Elapsed Time:"; }
             Rectangle {
                 maximum-height: 30px;
-                color: gray;
+                background: gray;
                 Rectangle {
                     height: 100%;
                     width: parent.width * progress;
-                    color: lightblue;
+                    background: lightblue;
                 }
             }
         }

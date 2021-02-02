@@ -16,7 +16,7 @@ TestCase := Rectangle {
         padding: 0phx;
 
         rect_orange := Rectangle {
-            color: orange;
+            background: orange;
             maximum_height: 10phx;
         }
         HorizontalLayout {
@@ -24,29 +24,29 @@ TestCase := Rectangle {
             padding: 0phx;
 
             rect_red := Rectangle {
-                color: red;
+                background: red;
                 minimum_width: 200phx;
                 horizontal-stretch: 0;
                 HorizontalLayout {
                     spacing: 10px;
                     padding: 0phx;
                     rect_green := Rectangle {
-                        color: green;
+                        background: green;
                         maximum_width: 50phx;
                         maximum_height: 50phx;
                     }
                     rect_pink := Rectangle {
-                        color: pink;
+                        background: pink;
                     }
                 }
             }
             rect_blue := Rectangle {
                 horizontal-stretch: 1;
-                color: blue;
+                background: blue;
             }
         }
         rect_yellow := Rectangle {
-            color: yellow;
+            background: yellow;
             HorizontalLayout {
                 padding-top: 2phx;
                 padding-bottom: 4phx;
@@ -60,10 +60,10 @@ TestCase := Rectangle {
                     padding-left: 0phx;
                     padding-right: 0phx;
                     rect_black1 := Rectangle {
-                        color: black;
+                        background: black;
                     }
                     rect_white1 := Rectangle {
-                        color: white;
+                        background: white;
                     }
                 }
                 VerticalLayout {
@@ -73,10 +73,10 @@ TestCase := Rectangle {
                     padding-left: 0phx;
                     padding-right: 0phx;
                     rect_black2 := Rectangle {
-                        color: black;
+                        background: black;
                     }
                     rect_white2 := Rectangle {
-                        color: white;
+                        background: white;
                     }
                 }
             }

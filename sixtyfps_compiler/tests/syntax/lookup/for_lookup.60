@@ -41,8 +41,8 @@ Hello := Rectangle {
     for plop in [1,2,3,4]: Rectangle {
         x: plop * 1phx;
         Rectangle {
-            color: plop;
-//                ^error{Cannot convert float to color}
+            background: plop;
+//                     ^error{Cannot convert float to color}
         }
     }
 

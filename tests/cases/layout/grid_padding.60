@@ -23,7 +23,7 @@ TestCase := Rectangle {
             padding_bottom: 40phx;
             Row {
                 rect1 := Rectangle {
-                    color: red;
+                    background: red;
                 }
             }
         }
@@ -43,7 +43,7 @@ TestCase := Rectangle {
             padding_right: 30phx;
             Row {
                 rect2 := Rectangle {
-                    color: blue;
+                    background: blue;
                 }
             }
         }

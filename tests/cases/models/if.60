@@ -11,7 +11,7 @@ LICENSE END */
 TestCase := Rectangle {
     width: 100phx;
     height: 100phx;
-    color: white;
+    background: white;
     property<int> top_level: 42;
 
     property<bool> cond1;
@@ -28,7 +28,7 @@ TestCase := Rectangle {
     }
 
     if (cond1 ? cond2 : cond3) : Rectangle {
-        color: root.color;
+        background: root.color;
     }
 }
 

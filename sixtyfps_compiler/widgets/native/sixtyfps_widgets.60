@@ -119,7 +119,7 @@ export ComboBox := NativeComboBox {
     popup := PopupWindow {
         // FIXME: the popup should have a native background
         Rectangle {
-            color: lightgray;
+            background: lightgray;
             width: 100%;
             height: 100%;
         }

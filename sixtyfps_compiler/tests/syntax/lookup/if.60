@@ -11,7 +11,7 @@ Hello := Rectangle {
 
     width: 100phx;
     height: 100phx;
-    color: white;
+    background: white;
     property<length> top_level: 42phx;
 
     property<bool> cond1;
@@ -19,7 +19,7 @@ Hello := Rectangle {
     property<bool> cond3;
 
     if (cond1) : Rectangle {
-        color: root.color;
+        background: root.color;
         property<length> xx: root.top_level;
     }
 

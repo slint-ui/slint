@@ -21,7 +21,7 @@ TestCase := Window {
         alignment: start;
 
         for x_[i] in xs: Rectangle {
-            color: i == 0 ? red : i == 1 ? green : blue;
+            background: i == 0 ? red : i == 1 ? green : blue;
             height: 100px;
             TouchArea {
                 clicked => { last_clicked = x_; }
@@ -29,7 +29,7 @@ TestCase := Window {
         }
 
         for x_[i] in xs: Rectangle {
-            color: i == 0 ? red : i == 1 ? green : blue;
+            background: i == 0 ? red : i == 1 ? green : blue;
             minimum-height: 50px;
             TouchArea {
                 clicked => { last_clicked = 10 + x_; }

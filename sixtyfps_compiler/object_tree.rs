@@ -807,6 +807,15 @@ impl Element {
                     &name_token,
                 );
             }
+
+            if resolved_name != unresolved_name {
+                diag.push_property_deprecation_warning(
+                    &unresolved_name,
+                    &resolved_name,
+                    &name_token,
+                );
+            }
+
             if self
                 .bindings
                 .insert(resolved_name.to_string(), ExpressionSpanned::new_uncompiled(b))

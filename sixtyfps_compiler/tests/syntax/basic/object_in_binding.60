@@ -12,7 +12,7 @@ H := Rectangle {
 //    ^error{Cannot convert \{ foo: string,\} to length}
     y: [ 45, 45, 45, 45 ];
 //    ^error{Cannot convert \[float\] to length}
-    color: [ { a: 45, b: 55, }, {a: 44, b: 54},];
-//        ^error{Cannot convert \[\{ a: float,b: float,\}\] to color}
+    background: [ { a: 45, b: 55, }, {a: 44, b: 54},];
+//             ^error{Cannot convert \[\{ a: float,b: float,\}\] to color}
 
 }

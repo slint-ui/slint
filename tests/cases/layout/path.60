@@ -44,17 +44,17 @@ TestCase := Rectangle {
         item1 := Rectangle {
             width: 2phx;
             height: 2phx;
-            color: red;
+            background: red;
         }
         item2 := Rectangle {
             width: 2phx;
             height: 2phx;
-            color: blue;
+            background: blue;
         }
         item3 := Rectangle {
             width: 2phx;
             height: 2phx;
-            color: green;
+            background: green;
         }
     }
     property <bool> test1 : item1.x == item1.y && item2.x == item2.y && item3.x == item3.y;
@@ -73,7 +73,7 @@ TestCase := Rectangle {
         single_item := Rectangle {
             width: 2phx;
             height: 2phx;
-            color: yellow;
+            background: yellow;
         }
     }
     property <bool> test5 : single_item.x == item2.x && single_item.y == item2.y;

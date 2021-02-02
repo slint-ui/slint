@@ -18,33 +18,33 @@ TestCase := Rectangle {
             spacing: 0phx;
             padding: 0phx;
             blue-rect := Rectangle {
-                color: blue;
+                background: blue;
                 height: 100phx;
                 minimum-width: 100phx;
                 horizontal-stretch: 0;
             }
             red-rect := Rectangle {
                 width: 50px;
-                color: red;
+                background: red;
                 minimum-height: 50phx;
             }
             green-rect := Rectangle {
-                color: green;
+                background: green;
                 maximum-width: 20phx;
                 horizontal-stretch: 2;
             }
             orange-rect := Rectangle {
-                color: orange;
+                background: orange;
                 width: 10phx;
                 horizontal-stretch: 8;
             }
             yellow-rect := Rectangle {
-                color: yellow;
+                background: yellow;
                 maximum-width: 200phx;
                 horizontal-stretch: 1;
             }
             pink-rect := Rectangle {
-                color: pink;
+                background: pink;
                 horizontal-stretch: 2;
                 maximum-height: 9000phx;
             }
@@ -52,7 +52,7 @@ TestCase := Rectangle {
 
         }
         black-rect := Rectangle {
-            color: black;
+            background: black;
         }
     }
 

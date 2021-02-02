@@ -10,7 +10,7 @@ LICENSE END */
 TestCase := Rectangle {
     property<bool> condition;
     property<color> extra_color;
-    color: condition ? root.extra_color : red;
+    background: condition ? root.extra_color : red;
     property<string> s1 : condition ? "abc" : 123;
     property<string> s2 : condition ? 123 : "abc";
 

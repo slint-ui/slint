@@ -12,7 +12,7 @@ Compo := Rectangle {
     property <int> prop_a: 10;
     property <int> prop_b;
     prop_b: 20;
-    color: blue;
+    background: blue;
 }
 
 TestCase := Rectangle {

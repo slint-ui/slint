@@ -16,17 +16,17 @@ TestCase := Rectangle {
         padding: 0phx;
         Row {
             rect1 := Rectangle {
-                color: red;
+                background: red;
                 rowspan: 1;
             }
             rect2 := Rectangle {
-                color: red;
+                background: red;
             }
         }
 
         Row {
             rect3 := Rectangle {
-                color: green;
+                background: green;
             }
         }
     }

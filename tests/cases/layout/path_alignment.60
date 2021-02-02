@@ -34,7 +34,7 @@ TestCase := Rectangle {
         commands: "M 100 0 L 100 250 ";
 
         Rectangle {
-            color: red;
+            background: red;
             width: 50phx;
             height: 50phx;
         }

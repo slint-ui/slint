@@ -12,7 +12,7 @@ Combo := Rectangle {
     property <color> inner_color;
     my_popup := PopupWindow {
         Rectangle {
-            color: root.inner_color;
+            background: root.inner_color;
             insidelayout := VerticalLayout {
                 spacing: 3px;
                 for aa in [1, 2]: Text { text: aa; }

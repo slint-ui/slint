@@ -18,27 +18,27 @@ TestCase := Rectangle {
         spacing: 1phx;
         Row {
             rect1 := Rectangle {
-                color: red;
+                background: red;
                 minimum_width: 50phx;
                 minimum_height: 20phx;
                 maximum_height: 20phx;
 
             }
             rect2 := Rectangle {
-                color: blue;
+                background: blue;
             }
         }
 
         Row {
             rect3 := Rectangle {
-                color: green;
+                background: green;
                 maximum_width: 60phx;
             }
             rect4 := Rectangle {
-                color: red;
+                background: red;
             }
             rect5 := Rectangle {
-                color: black;
+                background: black;
                 maximum_width: 100phx;
             }
         }

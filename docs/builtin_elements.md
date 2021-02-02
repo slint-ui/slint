@@ -43,7 +43,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Properties
 
-* **`color`** (*color*): The background color of the Rectangle. (default value: transparent)
+* **`background`** (*color*): The background color of the Rectangle. (default value: transparent)
 * **`border_width`** (*length*): The width of the border. (default value: 0)
 * **`border_color`** (*color*): The color of the border. (default value: transparent)
 * **`border_radius`** (*length*): The size of the radius. (default value: 0)
@@ -60,7 +60,7 @@ Example := Window {
         y: 10px;
         width: 50px;
         height: 50px;
-        color: blue;
+        background: blue;
     }
 
     // Rectangle with a border
@@ -69,7 +69,7 @@ Example := Window {
         y: 10px;
         width: 50px;
         height: 50px;
-        color: green;
+        background: green;
         border_width: 2px;
         border_color: red;
     }
@@ -91,7 +91,7 @@ Example := Window {
         y: 10px;
         width: 50px;
         height: 50px;
-        color: yellow;
+        background: yellow;
         border_width: 2px;
         border_color: blue;
         border_radius: width/2;
@@ -345,7 +345,7 @@ Example := Window {
     Rectangle {
         width: parent.width / 2;
         height: parent.height;
-        color: area.pressed ? blue: red;
+        background: area.pressed ? blue: red;
     }
     rect2 := Rectangle {
         x: parent.width / 2;
@@ -411,10 +411,10 @@ Foo := Window {
     height: 100px;
     HorizontalLayout {
         spacing: 5px;
-        Rectangle { color: red; width: 10px; }
-        Rectangle { color: blue; minimum-width: 10px; }
-        Rectangle { color: yellow; horizontal-stretch: 1; }
-        Rectangle { color: green; horizontal-stretch: 2; }
+        Rectangle { background: red; width: 10px; }
+        Rectangle { background: blue; minimum-width: 10px; }
+        Rectangle { background: yellow; horizontal-stretch: 1; }
+        Rectangle { background: green; horizontal-stretch: 2; }
     }
 }
 ```
@@ -445,12 +445,12 @@ Foo := Window {
     GridLayout {
         spacing: 5px;
         Row {
-            Rectangle { color: red; }
-            Rectangle { color: blue; }
+            Rectangle { background: red; }
+            Rectangle { background: blue; }
         }
         Row {
-            Rectangle { color: yellow; }
-            Rectangle { color: green; }
+            Rectangle { background: yellow; }
+            Rectangle { background: green; }
         }
     }
 }
@@ -463,11 +463,11 @@ Foo := Window {
     width: 200px;
     height: 150px;
     GridLayout {
-        Rectangle { color: red; }
-        Rectangle { color: blue; }
-        Rectangle { color: yellow; row: 1; }
-        Rectangle { color: green; }
-        Rectangle { color: black; col: 2; row: 0; }
+        Rectangle { background: red; }
+        Rectangle { background: blue; }
+        Rectangle { background: yellow; row: 1; }
+        Rectangle { background: green; }
+        Rectangle { background: black; col: 2; row: 0; }
     }
 }
 ```
@@ -546,7 +546,7 @@ Example := Window {
     height: 100px;
 
     popup := PopupWindow {
-        Rectangle { height:100%; width: 100%; color: yellow; }
+        Rectangle { height:100%; width: 100%; background: yellow; }
         x: 20px; y: 20px; height: 50px; width: 50px;
     }
 

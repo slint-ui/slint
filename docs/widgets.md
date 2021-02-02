@@ -184,10 +184,10 @@ Example := Window {
         height: 200px;
         viewport_width: 300px;
         viewport_height: 300px;
-        Rectangle { width: 30px; height: 30px; x: 275px; y: 50px; color: blue; }
-        Rectangle { width: 30px; height: 30px; x: 175px; y: 130px; color: red; }
-        Rectangle { width: 30px; height: 30px; x: 25px; y: 210px; color: yellow; }
-        Rectangle { width: 30px; height: 30px; x: 98px; y: 55px; color: orange; }
+        Rectangle { width: 30px; height: 30px; x: 275px; y: 50px; background: blue; }
+        Rectangle { width: 30px; height: 30px; x: 175px; y: 130px; background: red; }
+        Rectangle { width: 30px; height: 30px; x: 25px; y: 210px; background: yellow; }
+        Rectangle { width: 30px; height: 30px; x: 98px; y: 55px; background: orange; }
     }
 }
 ```
@@ -224,7 +224,7 @@ Example := Window {
             { text: "Cyan", color: #00ffff, bg: #222222 },
         ] : Rectangle {
             height: 30px;
-            color: data.bg;
+            background: data.bg;
             width: parent.width;
             Text {
                 text: data.text;

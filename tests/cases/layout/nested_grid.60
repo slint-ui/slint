@@ -16,18 +16,18 @@ TestCase := Rectangle {
         padding: 0phx;
 
         Row {
-            rect1 := Rectangle { color: red; horizontal-stretch: 2;}
+            rect1 := Rectangle { background: red; horizontal-stretch: 2;}
         }
 
         Row {
-            rect2 := Rectangle { color: green; horizontal-stretch: 2; }
+            rect2 := Rectangle { background: green; horizontal-stretch: 2; }
             GridLayout {
                 spacing: 4phx;
                 padding: 0phx;
-                rect3 := Rectangle { color: black; }
-                rect4 := Rectangle { color: blue; }
-                rect5 := Rectangle { color: red; row: 1; }
-                rect6 := Rectangle { color: green; }
+                rect3 := Rectangle { background: black; }
+                rect4 := Rectangle { background: blue; }
+                rect5 := Rectangle { background: red; row: 1; }
+                rect6 := Rectangle { background: green; }
             }
         }
     }

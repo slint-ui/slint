@@ -29,8 +29,8 @@ X := Rectangle {
     }
 
     Rectangle {
-        color: "blue";
-//            ^error{Cannot convert string to color$}
+        background: "blue";
+//                 ^error{Cannot convert string to color$}
         property<length> no_matching_parent: 50%;
 //                                          ^error{Automatic conversion from percentage to lenght is only possible for the properties width and height}
     }

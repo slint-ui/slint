@@ -17,7 +17,7 @@ TwoRectangle := Rectangle {
         y: 50.0phx;
         width: 25phx;
         height: 25phx;
-        color: red;
+        background: red;
 
         my_area := TouchArea {
             width: 25phx;
@@ -34,7 +34,7 @@ ButtonRectangle := Rectangle {
     height: 75phx;
 
     inner := Rectangle {
-        color: { area.pressed ? green : root.color };
+        background: { area.pressed ? green : root.color };
         animate color { duration: 500ms; }
         area := TouchArea {
             width: inner.width;
@@ -69,12 +69,12 @@ Hello := Rectangle {
     callback plus_clicked;
     callback minus_clicked;
 
-    color: white;
+    background: white;
 
     TwoRectangle {
         width: 100phx;
         height: 100phx;
-        color: blue;
+        background: blue;
         clicked => { foobar() }
     }
     Rectangle {
@@ -82,13 +82,13 @@ Hello := Rectangle {
         y: 100phx;
         width: (100phx);
         height: {100phx}
-        color: green;
+        background: green;
         Rectangle {
             x: 50phx;
             y: 50.0phx;
             width: 25phx;
             height: 25phx;
-            color: yellow;
+            background: yellow;
         }
     }
     Image {
@@ -98,7 +98,7 @@ Hello := Rectangle {
     }
 
     ButtonRectangle {
-        color: #888;
+        background: #888;
         x: 50phx;
         y: 225phx;
         clicked => { counter += 1 }
@@ -107,7 +107,7 @@ Hello := Rectangle {
     property<int> counter;
     counter_label := Text { x: 100phx; y: 300phx; text: counter; color: black; }
     ButtonRectangle {
-        color: #888;
+        background: #888;
         x: 50phx;
         y: 350phx;
         clicked => { minus_clicked() }

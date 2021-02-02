@@ -36,7 +36,7 @@ TestCase := Rectangle {
         Rectangle {
             width: 20phx;
             height: 20phx;
-            color: green;
+            background: green;
         }
 
         Text {

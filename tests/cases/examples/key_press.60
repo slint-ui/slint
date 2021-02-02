@@ -10,7 +10,7 @@ LICENSE END */
 
 W := Window {
     VerticalLayout {
-        Rectangle { color: field.has_focus ? blue: red;  }
+        Rectangle { background: field.has_focus ? blue: red;  }
         field := FocusScope {
             vertical_stretch: 1;
             key-pressed(event) => {
@@ -30,7 +30,7 @@ W := Window {
                 t.text += event.text;
                 accept
             }
-            Rectangle { color: yellow; }
+            Rectangle { background: yellow; }
         }
         t:= Text {
             text: "> ";
