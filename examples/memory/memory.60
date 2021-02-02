@@ -22,7 +22,7 @@ MemoryTile := Rectangle {
     property <resource> icon;
 
     background: solved ? #34CE57 : #3960D5;
-    animate color { duration: 800ms; }
+    animate background { duration: 800ms; }
 
     Image {
         source: icon;

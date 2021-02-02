@@ -567,6 +567,14 @@ impl Element {
                             diag,
                             tr,
                         ) {
+                            if unresolved_prop_name != resolved_name.as_ref() {
+                                diag.push_property_deprecation_warning(
+                                    &unresolved_prop_name,
+                                    &resolved_name,
+                                    &prop_name_token,
+                                );
+                            }
+
                             if r.property_animations
                                 .insert(
                                     resolved_name.to_string(),

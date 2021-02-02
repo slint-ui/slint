@@ -508,7 +508,7 @@ Simple animation that animates a property can be declared with `animate` like so
 Example := Rectangle {
     property<bool> pressed;
     background: pressed ? blue : red;
-    animate color {
+    animate background {
         duration: 100ms;
     }
 }

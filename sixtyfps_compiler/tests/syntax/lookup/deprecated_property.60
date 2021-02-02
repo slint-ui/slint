@@ -15,5 +15,9 @@ Xxx := Rectangle {
     Rectangle {
         background: root.color;
 //                       ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+        animate color {
+//              ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+            duration: 250ms;
+        }
     }
 }

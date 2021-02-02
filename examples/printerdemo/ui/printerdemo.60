@@ -139,7 +139,7 @@ MainWindow := Window {
             }
         }
 
-        animate x, y, height, width, color, border_radius {
+        animate x, y, height, width, background, border_radius {
             duration: 300ms;
             easing: ease_in_out;
         }

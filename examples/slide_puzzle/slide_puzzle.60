@@ -252,7 +252,7 @@ export MainWindow := Window {
 
     Rectangle {
         background: current-theme.window-background-color;
-        animate color { duration: 500ms; easing: ease-out; }
+        animate background { duration: 500ms; easing: ease-out; }
     }
 
     Rectangle {
@@ -264,7 +264,7 @@ export MainWindow := Window {
         height: pieces_size * 5.4;
         x: (parent.width - width)/2;
         y: (parent.height - height)/2;
-        animate color, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
+        animate background, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
 
         Rectangle {
             width: parent.width * 90%;

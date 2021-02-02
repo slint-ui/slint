@@ -41,7 +41,7 @@ export Button := Rectangle {
     border_radius: 2px;
     border_color: Palette.text_color;
     background: !self.enabled ? Palette.button_background_disabled: self.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
-    animate color { duration: 100ms; }
+    animate background { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
 
@@ -92,7 +92,7 @@ export CheckBox := Rectangle {
         border_radius: root.height / 2;
         border_color: root.enabled ? (root.checked ? Palette.highlight_background : black) : Palette.text_color_disabled;
         background: root.checked ? (root.enabled ? Palette.highlight_background : Palette.text_color_disabled) : white;
-        animate color { duration: 100ms; }
+        animate background { duration: 100ms; }
 
         bubble := Rectangle {
             width: root.height - 8px;
@@ -102,7 +102,7 @@ export CheckBox := Rectangle {
             x: 4px + a * (indicator.width - bubble.width - 8px);
             property <float> a: root.checked ? 1 : 0;
             background: root.checked ? white : (root.enabled ? Palette.button_background : Palette.text_color_disabled);
-            animate a, color { duration: 200ms; easing: ease;}
+            animate a, background { duration: 200ms; easing: ease;}
         }
     }
 
@@ -137,7 +137,7 @@ SpinBoxButton := Rectangle {
     border_radius: 2px;
     border_color: black;
     background: !enabled ? Palette.button_background_disabled : touch.pressed ? Palette.button_pressed : (touch.has_hover ? Palette.button_hover : Palette.button_background);
-    animate color { duration: 100ms; }
+    animate background { duration: 100ms; }
     touch := TouchArea {
         clicked => {
             if (enabled) {
@@ -255,7 +255,7 @@ export Slider := Rectangle {
         border_radius: 3px;
         border_color: black;
         background: (touch_area.pressed && enabled) ? Palette.button_pressed : white;
-        animate color { duration: 100ms; }
+        animate background { duration: 100ms; }
         x: (root.width - handle.width) * (new_value - minimum)/(maximum - minimum);
         property<float> new_value_tmp : (touch_area.pressed && enabled)
             ? root.value + (touch_area.mouse_x - touch_area.pressed_x) * (maximum - minimum) / (root.width - handle.width)
@@ -366,7 +366,7 @@ ScrollBar := Rectangle {
 
         border_radius: (horizontal ? self.height : self.width) / 2;
         background: touch_area.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
-        animate color { duration: 100ms; }
+        animate background { duration: 100ms; }
         x: !horizontal ? 0phx : (root.width - handle.width) * (new_value / max);
         y: horizontal ? 0phx : (root.height - handle.height) * (new_value / max);
         property<length> new_value_tmp : -root.value + (
@@ -466,7 +466,7 @@ export ComboBox := Rectangle {
     border_radius: 2px;
     border_color: Palette.text_color;
     background: !enabled ? Palette.button_background_disabled : touch_area.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
-    animate color { duration: 100ms; }
+    animate background { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
     minimum_width: 170px;

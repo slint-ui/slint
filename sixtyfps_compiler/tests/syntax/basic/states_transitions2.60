@@ -10,7 +10,7 @@ LICENSE END */
 TestCase := Rectangle {
     property<bool> checked;
     property <int> border;
-    animate color { }
+    animate background { }
     states [
         checked when checked: {
             color: blue;
@@ -25,7 +25,7 @@ TestCase := Rectangle {
         }
         in checked: {
 //        ^error{The property 'background' cannot have transition because it already has an animation}
-            animate color { }
+            animate background { }
         }
     ]
 
