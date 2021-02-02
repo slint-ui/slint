@@ -29,10 +29,8 @@ pub fn deduplicate_property_read(component: &Component) {
 #[derive(Default)]
 struct PropertyReadCounts {
     counts: HashMap<NamedReference, usize>,
-    // If at least one element of the map has duplicates
+    /// If at least one element of the map has duplicates
     has_duplicate: bool,
-    // If there is at least one conditional expression
-    has_conditions: bool,
 }
 
 #[derive(Default)]
@@ -119,11 +117,9 @@ fn collect_unconditional_read_count(expr: &Expression, result: &DedupPropState) 
         //Expression::RepeaterIndexReference { element } => {}
         //Expression::RepeaterModelReference { element } => {}
         Expression::BinaryExpression { lhs, rhs: _, op } if matches!(op, '|' | '&') => {
-            result.counts.borrow_mut().has_conditions = true;
             lhs.visit(|sub| collect_unconditional_read_count(sub, result))
         }
         Expression::Condition { condition, .. } => {
-            result.counts.borrow_mut().has_conditions = true;
             condition.visit(|sub| collect_unconditional_read_count(sub, result))
         }
         _ => expr.visit(|sub| collect_unconditional_read_count(sub, result)),
