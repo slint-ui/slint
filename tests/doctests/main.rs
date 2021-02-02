@@ -14,7 +14,7 @@ fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
         sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
     );
 
-    let (component, _warnings) = match spin_on::spin_on(sixtyfps_interpreter::load(
+    let (component, warnings) = match spin_on::spin_on(sixtyfps_interpreter::load(
         snippet.into(),
         Default::default(),
         config,
@@ -26,6 +26,8 @@ fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
             return Err(vec.join("\n").into());
         }
     };
+
+    warnings.print();
 
     component.create();
 
