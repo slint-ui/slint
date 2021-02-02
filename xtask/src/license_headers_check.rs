@@ -273,7 +273,7 @@ const EXPECTED_HOMEPAGE: &str = "https://sixtyfps.io";
 const EXPECTED_REPOSITORY: &str = "https://github.com/sixtyfpsui/sixtyfps";
 
 fn collect_files() -> Result<Vec<PathBuf>> {
-    let root = super::root_dir()?;
+    let root = super::root_dir();
     let ls_files_output = super::run_command(
         "git",
         &["ls-files", "-z"],
@@ -552,7 +552,7 @@ impl LicenseHeaderCheck {
     }
 
     fn check_file(&self, path: &Path) -> Result<()> {
-        let repo_relative_path = path.strip_prefix(super::root_dir()?)?;
+        let repo_relative_path = path.strip_prefix(super::root_dir())?;
         let path_str = repo_relative_path.to_str().unwrap();
         let location = LICENSE_LOCATION_FOR_FILE
             .iter()

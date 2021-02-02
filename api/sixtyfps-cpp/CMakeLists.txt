@@ -50,7 +50,7 @@ file(GLOB generated_headers_dependencies
 add_custom_target(
     generated_headers_target
     COMMAND
-    ${CMAKE_COMMAND} -E env CARGO_MANIFEST_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../xtask}" $<TARGET_FILE:xtask> cbindgen --output-dir "${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
+    xtask cbindgen --output-dir "${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
     BYPRODUCTS ${generated_headers}
     DEPENDS ${generated_headers_dependencies}
 )

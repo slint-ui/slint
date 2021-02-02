@@ -11,7 +11,7 @@ use anyhow::Context;
 use xshell::{cmd, cp, pushd, read_file, rm_rf, write_file};
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
-    let root = super::root_dir().context("error determining root directory")?;
+    let root = super::root_dir();
     let node_dir = root.join("api").join("sixtyfps-node");
 
     let cargo_toml_path = node_dir.join("native").join("Cargo.toml");

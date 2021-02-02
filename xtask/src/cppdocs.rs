@@ -60,7 +60,7 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
 }
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
-    let root = super::root_dir()?;
+    let root = super::root_dir();
 
     let docs_source_dir = root.join("api/sixtyfps-cpp");
     let docs_build_dir = root.join("target/cppdocs");

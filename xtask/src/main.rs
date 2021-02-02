@@ -42,10 +42,11 @@ pub struct CbindgenCommand {
     output_dir: String,
 }
 
-pub fn root_dir() -> anyhow::Result<PathBuf> {
-    let mut root = PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").ok_or_else(|| anyhow::anyhow!("Cannot determine root directory - CARGO_MANIFEST_DIR is not set -- you can only run xtask via cargo"))?);
+/// The root dir of the git repository
+fn root_dir() -> PathBuf {
+    let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     root.pop(); // $root/xtask -> $root
-    Ok(root)
+    root
 }
 
 fn run_command<I, K, V>(program: &str, args: &[&str], env: I) -> anyhow::Result<Vec<u8>>
@@ -57,7 +58,7 @@ where
     let cmdline = || format!("{} {}", program, args.join(" "));
     let output = std::process::Command::new(program)
         .args(args)
-        .current_dir(root_dir()?)
+        .current_dir(root_dir())
         .envs(env)
         .output()
         .with_context(|| format!("Error launching {}", cmdline()))?;
@@ -82,7 +83,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::from_args().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs => cppdocs::generate()?,
-        TaskCommand::Cbindgen(cmd) => cbindgen::gen_all(&root_dir()?, Path::new(&cmd.output_dir))?,
+        TaskCommand::Cbindgen(cmd) => cbindgen::gen_all(&root_dir(), Path::new(&cmd.output_dir))?,
         TaskCommand::NodePackage => nodepackage::generate()?,
     };
 
