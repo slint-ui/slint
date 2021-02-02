@@ -14,7 +14,6 @@ LICENSE END */
 //!
 //! Most of the code for the resolving actualy lies in the expression_tree module
 
-use crate::diagnostics::{BuildDiagnostics, SpannedWithSourceFile};
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
@@ -22,6 +21,10 @@ use crate::parser::{
     identifier_text, syntax_nodes, NodeOrTokenWithSourceFile, SyntaxKind, SyntaxNodeWithSourceFile,
 };
 use crate::typeregister::TypeRegister;
+use crate::{
+    diagnostics::{BuildDiagnostics, SpannedWithSourceFile},
+    langtype::PropertyLookupResult,
+};
 use std::{collections::HashMap, rc::Rc};
 
 /// This represeresent a scope for the Component, where Component is the repeated component, but
@@ -235,8 +238,9 @@ fn attempt_percent_conversion(
 
     let mut parent = ctx.component_scope.last().and_then(find_parent_element);
     while let Some(p) = parent {
-        let ty = p.borrow().lookup_property(property_name);
-        if ty == Type::Length {
+        let PropertyLookupResult { resolved_name, property_type } =
+            p.borrow().lookup_property(property_name);
+        if property_type == Type::Length {
             return Expression::BinaryExpression {
                 lhs: Box::new(Expression::BinaryExpression {
                     lhs: Box::new(e),
@@ -245,7 +249,7 @@ fn attempt_percent_conversion(
                 }),
                 rhs: Box::new(Expression::PropertyReference(NamedReference {
                     element: Rc::downgrade(&p),
-                    name: property_name.to_string(),
+                    name: resolved_name.to_string(),
                 })),
                 op: '*',
             };
@@ -577,22 +581,23 @@ impl Expression {
                 }
             }
 
-            let property = elem.borrow().lookup_property(&first_str);
-            if property.is_property_type() {
+            let PropertyLookupResult { resolved_name, property_type } =
+                elem.borrow().lookup_property(&first_str);
+            if property_type.is_property_type() {
                 let prop = Self::PropertyReference(NamedReference {
                     element: Rc::downgrade(&elem),
-                    name: first_str,
+                    name: resolved_name.to_string(),
                 });
                 return maybe_lookup_object(prop, it, ctx);
-            } else if matches!(property, Type::Callback{..}) {
+            } else if matches!(property_type, Type::Callback{..}) {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error("Cannot access fields of callback".into(), &x)
                 }
                 return Self::CallbackReference(NamedReference {
                     element: Rc::downgrade(&elem),
-                    name: first_str,
+                    name: resolved_name.to_string(),
                 });
-            } else if property.is_object_type() {
+            } else if property_type.is_object_type() {
                 todo!("Continue looking up");
             }
         }
@@ -681,8 +686,9 @@ impl Expression {
                     }
                 }
 
-                let property = elem.borrow().lookup_property(&first_str);
-                if property.is_property_type() {
+                let PropertyLookupResult { resolved_name: _, property_type } =
+                    elem.borrow().lookup_property(&first_str);
+                if property_type.is_property_type() {
                     report_minus_error(ctx);
                     return Expression::Invalid;
                 }
@@ -1128,23 +1134,24 @@ fn continue_lookup_within_element(
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
 
-    let p = elem.borrow().lookup_property(&prop_name);
-    if p.is_property_type() {
+    let PropertyLookupResult { resolved_name, property_type } =
+        elem.borrow().lookup_property(&prop_name);
+    if property_type.is_property_type() {
         let prop = Expression::PropertyReference(NamedReference {
             element: Rc::downgrade(elem),
-            name: prop_name,
+            name: resolved_name.to_string(),
         });
         maybe_lookup_object(prop, it, ctx)
-    } else if matches!(p, Type::Callback{..}) {
+    } else if matches!(property_type, Type::Callback{..}) {
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
         Expression::CallbackReference(NamedReference {
             element: Rc::downgrade(elem),
-            name: prop_name,
+            name: resolved_name.to_string(),
         })
-    } else if matches!(p, Type::Function{..}) {
-        let member = elem.borrow().base_type.lookup_member_function(&prop_name);
+    } else if matches!(property_type, Type::Function{..}) {
+        let member = elem.borrow().base_type.lookup_member_function(&resolved_name);
         Expression::MemberFunction {
             base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
             base_node: node.into(),
@@ -1169,7 +1176,9 @@ fn continue_lookup_within_element(
         };
         if let Some(minus_pos) = second.text().find('-') {
             // Attempt to recover if the user wanted to write "-"
-            if elem.borrow().lookup_property(&second.text()[0..minus_pos]) != Type::Invalid {
+            if elem.borrow().lookup_property(&second.text()[0..minus_pos]).property_type
+                != Type::Invalid
+            {
                 err(" Use space before the '-' if you meant a substraction.");
                 return Expression::Invalid;
             }
@@ -1213,15 +1222,16 @@ fn maybe_lookup_object(
                 }
             }
             Type::Component(c) => {
-                let prop_ty = c.root_element.borrow().lookup_property(next_str.as_str());
-                if prop_ty != Type::Invalid {
+                let PropertyLookupResult { resolved_name, property_type } =
+                    c.root_element.borrow().lookup_property(next_str.as_str());
+                if property_type != Type::Invalid {
                     base = Expression::ObjectAccess {
                         base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
-                        name: next.to_string(),
+                        name: resolved_name.to_string(),
                     }
                 } else {
                     return error_or_try_minus(ctx, next, |x| {
-                        c.root_element.borrow().lookup_property(x) != Type::Invalid
+                        c.root_element.borrow().lookup_property(x).property_type != Type::Invalid
                     });
                 }
             }

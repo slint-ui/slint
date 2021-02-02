@@ -19,7 +19,8 @@ LICENSE END */
  */
 
 Rectangle := _ {
-    property <color> color;
+    property <color> background;
+    property <color> color <=> background;
     property <length> x;
     property <length> y;
     property <length> width;

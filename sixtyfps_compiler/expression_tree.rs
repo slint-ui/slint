@@ -420,13 +420,13 @@ impl Expression {
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
             Expression::TwoWayBinding(NamedReference { element, name }, _) => {
-                element.upgrade().unwrap().borrow().lookup_property(name)
+                element.upgrade().unwrap().borrow().lookup_property(name).property_type
             }
             Expression::CallbackReference(NamedReference { element, name }) => {
-                element.upgrade().unwrap().borrow().lookup_property(name)
+                element.upgrade().unwrap().borrow().lookup_property(name).property_type
             }
             Expression::PropertyReference(NamedReference { element, name }) => {
-                element.upgrade().unwrap().borrow().lookup_property(name)
+                element.upgrade().unwrap().borrow().lookup_property(name).property_type
             }
             Expression::BuiltinFunctionReference(funcref) => funcref.ty(),
             Expression::MemberFunction { member, .. } => member.ty(),
@@ -456,7 +456,7 @@ impl Expression {
                 Type::Object { fields, .. } => {
                     fields.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
                 }
-                Type::Component(c) => c.root_element.borrow().lookup_property(name.as_str()),
+                Type::Component(c) => c.root_element.borrow().lookup_property(name).property_type,
                 _ => Type::Invalid,
             },
             Expression::Cast { to, .. } => to.clone(),

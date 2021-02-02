@@ -14,12 +14,13 @@ LICENSE END */
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::expression_tree::{self, Unit};
 use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
+use crate::langtype::PropertyLookupResult;
 use crate::langtype::{NativeClass, Type};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::TypeRegister;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
+use std::{borrow::Cow, cell::RefCell};
 
 /// The full document (a complete file)
 #[derive(Default, Debug)]
@@ -418,9 +419,13 @@ impl Element {
         for prop_decl in node.PropertyDeclaration() {
             let type_node = prop_decl.Type();
             let prop_type = type_from_node(type_node.clone(), diag, tr);
-            let prop_name = identifier_text(&prop_decl.DeclaredIdentifier()).unwrap();
+            let unresolved_prop_name = identifier_text(&prop_decl.DeclaredIdentifier()).unwrap();
+            let PropertyLookupResult {
+                resolved_name: prop_name,
+                property_type: maybe_existing_prop_type,
+            } = r.lookup_property(&unresolved_prop_name);
 
-            if !matches!(r.lookup_property(&prop_name), Type::Invalid) {
+            if !matches!(maybe_existing_prop_type, Type::Invalid) {
                 diag.push_error(
                     format!("Cannot override property '{}'", prop_name),
                     &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
@@ -435,7 +440,7 @@ impl Element {
             }
 
             r.property_declarations.insert(
-                prop_name.clone(),
+                prop_name.to_string(),
                 PropertyDeclaration {
                     property_type: prop_type,
                     type_node: Some(type_node.into()),
@@ -445,7 +450,7 @@ impl Element {
 
             if let Some(csn) = prop_decl.BindingExpression() {
                 if r.bindings
-                    .insert(prop_name.clone(), ExpressionSpanned::new_uncompiled(csn.into()))
+                    .insert(prop_name.to_string(), ExpressionSpanned::new_uncompiled(csn.into()))
                     .is_some()
                 {
                     diag.push_error(
@@ -456,7 +461,7 @@ impl Element {
             }
             if let Some(csn) = prop_decl.TwoWayBinding() {
                 if r.bindings
-                    .insert(prop_name, ExpressionSpanned::new_uncompiled(csn.into()))
+                    .insert(prop_name.into(), ExpressionSpanned::new_uncompiled(csn.into()))
                     .is_some()
                 {
                     diag.push_error(
@@ -504,18 +509,19 @@ impl Element {
         }
 
         for con_node in node.CallbackConnection() {
-            let name = match identifier_text(&con_node) {
+            let unresolved_name = match identifier_text(&con_node) {
                 Some(x) => x,
                 None => continue,
             };
-            let prop_type = r.lookup_property(&name);
-            if let Type::Callback { args, .. } = prop_type {
+            let PropertyLookupResult { resolved_name, property_type } =
+                r.lookup_property(&unresolved_name);
+            if let Type::Callback { args, .. } = property_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
                 if num_arg > args.len() {
                     diag.push_error(
                         format!(
                             "'{}' only has {} arguments, but {} were provided",
-                            name,
+                            unresolved_name,
                             args.len(),
                             num_arg
                         ),
@@ -523,7 +529,10 @@ impl Element {
                     );
                 }
                 if r.bindings
-                    .insert(name, ExpressionSpanned::new_uncompiled(con_node.clone().into()))
+                    .insert(
+                        resolved_name.into_owned(),
+                        ExpressionSpanned::new_uncompiled(con_node.clone().into()),
+                    )
                     .is_some()
                 {
                     diag.push_error(
@@ -533,7 +542,7 @@ impl Element {
                 }
             } else {
                 diag.push_error(
-                    format!("'{}' is not a callback{}", name, name_for_looup_errors),
+                    format!("'{}' is not a callback{}", unresolved_name, name_for_looup_errors),
                     &con_node.child_token(SyntaxKind::Identifier).unwrap(),
                 );
             }
@@ -548,17 +557,21 @@ impl Element {
             };
             for prop_name_token in anim.QualifiedName() {
                 match QualifiedTypeName::from_node(prop_name_token.clone()).members.as_slice() {
-                    [prop_name] => {
-                        let prop_type = r.lookup_property(&prop_name);
+                    [unresolved_prop_name] => {
+                        let PropertyLookupResult { resolved_name, property_type } =
+                            r.lookup_property(&unresolved_prop_name);
                         if let Some(anim_element) = animation_element_from_node(
                             &anim,
                             &prop_name_token,
-                            prop_type,
+                            property_type,
                             diag,
                             tr,
                         ) {
                             if r.property_animations
-                                .insert(prop_name.clone(), PropertyAnimation::Static(anim_element))
+                                .insert(
+                                    resolved_name.to_string(),
+                                    PropertyAnimation::Static(anim_element),
+                                )
                                 .is_some()
                             {
                                 diag.push_error("Duplicated animation".into(), &prop_name_token)
@@ -750,13 +763,14 @@ impl Element {
         e
     }
 
-    /// Return the type of a property in this element or its base
-    pub fn lookup_property(&self, name: &str) -> Type {
-        self.property_declarations
-            .get(name)
-            .cloned()
-            .map(|decl| decl.property_type)
-            .unwrap_or_else(|| self.base_type.lookup_property(name))
+    /// Return the type of a property in this element or its base, along with the final name, in case
+    /// the provided name points towards a property alias. Type::Invalid is returned if the property does
+    /// not exist.
+    pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
+        self.property_declarations.get(name).cloned().map(|decl| decl.property_type).map_or_else(
+            || self.base_type.lookup_property(name),
+            |property_type| PropertyLookupResult { resolved_name: name.into(), property_type },
+        )
     }
 
     /// Return the Span of this element in the AST for error reporting
@@ -773,26 +787,31 @@ impl Element {
         diag: &mut FileDiagnostics,
     ) {
         for (name_token, b) in bindings {
-            let name = crate::parser::normalize_identifier(name_token.text());
-            let prop_type = self.lookup_property(&name);
-            if !prop_type.is_property_type() {
+            let unresolved_name = crate::parser::normalize_identifier(name_token.text());
+            let PropertyLookupResult { resolved_name, property_type } =
+                self.lookup_property(&unresolved_name);
+            if !property_type.is_property_type() {
                 diag.push_error(
-                    match prop_type {
+                    match property_type {
                         Type::Invalid => {
-                            format!("Unknown property {}{}", name, name_for_lookup_error)
+                            format!("Unknown property {}{}", unresolved_name, name_for_lookup_error)
                         }
                         Type::Callback { .. } => {
-                            format!("'{}' is a callback. Use `=>` to connect", name)
+                            format!("'{}' is a callback. Use `=>` to connect", unresolved_name)
                         }
                         _ => format!(
                             "Cannot assign to {}{} because it does not have a valid property type.",
-                            name, name_for_lookup_error
+                            unresolved_name, name_for_lookup_error
                         ),
                     },
                     &name_token,
                 );
             }
-            if self.bindings.insert(name, ExpressionSpanned::new_uncompiled(b)).is_some() {
+            if self
+                .bindings
+                .insert(resolved_name.to_string(), ExpressionSpanned::new_uncompiled(b))
+                .is_some()
+            {
                 diag.push_error("Duplicated property binding".into(), &name_token);
             }
         }
@@ -917,25 +936,34 @@ fn lookup_property_from_qualified_name(
 ) -> (NamedReference, Type) {
     let qualname = QualifiedTypeName::from_node(node.clone());
     match qualname.members.as_slice() {
-        [prop_name] => {
-            let ty = r.borrow().lookup_property(prop_name.as_ref());
-            if !ty.is_property_type() {
+        [unresolved_prop_name] => {
+            let PropertyLookupResult { resolved_name, property_type } =
+                r.borrow().lookup_property(unresolved_prop_name.as_ref());
+            if !property_type.is_property_type() {
                 diag.push_error(format!("'{}' is not a valid property", qualname), &node);
             }
-            (NamedReference { element: Rc::downgrade(&r), name: prop_name.clone() }, ty)
+            (
+                NamedReference { element: Rc::downgrade(&r), name: resolved_name.to_string() },
+                property_type,
+            )
         }
-        [elem_id, prop_name] => {
-            let (element, ty) = if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
-                let ty = element.borrow().lookup_property(prop_name.as_ref());
-                if !ty.is_property_type() {
-                    diag.push_error(format!("'{}' not found in '{}'", prop_name, elem_id), &node);
-                }
-                (Rc::downgrade(&element), ty)
-            } else {
-                diag.push_error(format!("'{}' is not a valid element id", elem_id), &node);
-                (Weak::new(), Type::Invalid)
-            };
-            (NamedReference { element, name: prop_name.clone() }, ty)
+        [elem_id, unresolved_prop_name] => {
+            let (element, name, ty) =
+                if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
+                    let PropertyLookupResult { resolved_name, property_type } =
+                        element.borrow().lookup_property(unresolved_prop_name.as_ref());
+                    if !property_type.is_property_type() {
+                        diag.push_error(
+                            format!("'{}' not found in '{}'", unresolved_prop_name, elem_id),
+                            &node,
+                        );
+                    }
+                    (Rc::downgrade(&element), resolved_name, property_type)
+                } else {
+                    diag.push_error(format!("'{}' is not a valid element id", elem_id), &node);
+                    (Weak::new(), Cow::Borrowed(unresolved_prop_name.as_ref()), Type::Invalid)
+                };
+            (NamedReference { element, name: name.to_string() }, ty)
         }
         _ => {
             diag.push_error(format!("'{}' is not a valid property", qualname), &node);
@@ -1049,7 +1077,7 @@ pub fn visit_element_expressions(
     ) {
         let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
         for (name, expr) in &mut bindings {
-            vis(expr, Some(name.as_str()), &|| elem.borrow().lookup_property(name));
+            vis(expr, Some(name.as_str()), &|| elem.borrow().lookup_property(name).property_type);
         }
         elem.borrow_mut().bindings = bindings;
     }
@@ -1068,7 +1096,12 @@ pub fn visit_element_expressions(
         }
         for (ne, e) in &mut s.property_changes {
             vis(e, Some(ne.name.as_ref()), &|| {
-                ne.element.upgrade().unwrap().borrow().lookup_property(ne.name.as_ref())
+                ne.element
+                    .upgrade()
+                    .unwrap()
+                    .borrow()
+                    .lookup_property(ne.name.as_ref())
+                    .property_type
             });
         }
     }

@@ -149,7 +149,9 @@ fn lower_transitions_in_element(
 /// Returns a suitable unique name for the "state" property
 fn compute_state_property_name(root_element: &ElementRc) -> String {
     let mut property_name = "state".to_owned();
-    while root_element.borrow().lookup_property(property_name.as_ref()) != Type::Invalid {
+    while root_element.borrow().lookup_property(property_name.as_ref()).property_type
+        != Type::Invalid
+    {
         property_name += "_";
     }
     property_name
@@ -168,5 +170,5 @@ fn expression_for_property(element: &ElementRc, name: &str) -> Expression {
             None
         };
     }
-    Expression::default_value_for_type(&element.borrow().lookup_property(name))
+    Expression::default_value_for_type(&element.borrow().lookup_property(name).property_type)
 }

@@ -24,7 +24,7 @@ TestCase := Rectangle {
             animate * { }
         }
         in checked: {
-//        ^error{The property 'color' cannot have transition because it already has an animation}
+//        ^error{The property 'background' cannot have transition because it already has an animation}
             animate color { }
         }
     ]

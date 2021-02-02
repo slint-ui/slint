@@ -7,8 +7,10 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
+use std::rc::Rc;
 
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::Component;
@@ -193,18 +195,39 @@ impl Type {
         !matches!(self, Self::Duration | Self::Easing | Self::Angle)
     }
 
-    pub fn lookup_property(&self, name: &str) -> Type {
+    pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
         match self {
             Type::Component(c) => c.root_element.borrow().lookup_property(name),
-            Type::Builtin(b) => b.properties.get(name).cloned().unwrap_or_else(|| {
-                if b.is_non_item_type {
-                    Type::Invalid
+            Type::Builtin(b) => {
+                let resolved_name =
+                    if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
+                        Cow::Owned(alias_name.to_string())
+                    } else {
+                        Cow::Borrowed(name)
+                    };
+                let property_type =
+                    b.properties.get(resolved_name.as_ref()).cloned().unwrap_or_else(|| {
+                        if b.is_non_item_type {
+                            Type::Invalid
+                        } else {
+                            crate::typeregister::reserved_property(resolved_name.as_ref())
+                        }
+                    });
+                PropertyLookupResult { resolved_name, property_type }
+            }
+            Type::Native(n) => {
+                let resolved_name = if let Some(alias_name) = n.lookup_alias(name.as_ref()) {
+                    Cow::Owned(alias_name.to_string())
                 } else {
-                    crate::typeregister::reserved_property(name)
-                }
-            }),
-            Type::Native(n) => n.lookup_property(name).unwrap_or_default(),
-            _ => Type::Invalid,
+                    Cow::Borrowed(name)
+                };
+                let property_type = n.lookup_property(resolved_name.as_ref()).unwrap_or_default();
+                PropertyLookupResult { resolved_name, property_type }
+            }
+            _ => PropertyLookupResult {
+                resolved_name: Cow::Borrowed(name),
+                property_type: Type::Invalid,
+            },
         }
     }
 
@@ -392,6 +415,7 @@ pub struct NativeClass {
     pub class_name: String,
     pub vtable_symbol: String,
     pub properties: HashMap<String, Type>,
+    pub deprecated_aliases: HashMap<String, String>,
     pub cpp_type: Option<String>,
     pub rust_type_constructor: Option<String>,
 }
@@ -436,6 +460,18 @@ impl NativeClass {
             Some(ty.clone())
         } else if let Some(parent_class) = &self.parent {
             parent_class.lookup_property(name)
+        } else {
+            None
+        }
+    }
+
+    pub fn lookup_alias(&self, name: &str) -> Option<&str> {
+        if let Some(alias_target) = self.deprecated_aliases.get(name) {
+            Some(alias_target)
+        } else if self.properties.contains_key(name) {
+            None
+        } else if let Some(parent_class) = &self.parent {
+            parent_class.lookup_alias(name)
         } else {
             None
         }
@@ -557,6 +593,11 @@ fn test_select_minimal_class_based_on_property_usage() {
     );
 
     assert_eq!(reduce_to_second.class_name, second.class_name);
+}
+
+pub struct PropertyLookupResult<'a> {
+    pub resolved_name: std::borrow::Cow<'a, str>,
+    pub property_type: Type,
 }
 
 #[derive(Debug, Clone)]

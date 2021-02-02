@@ -81,11 +81,15 @@ pub fn load_builtins(register: &mut TypeRegister) {
         let mut n = NativeClass::new_with_properties(
             &id,
             e.PropertyDeclaration()
-                .map(|p| {
-                    (
-                        identifier_text(&p.DeclaredIdentifier()).unwrap(),
-                        object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register),
-                    )
+                .flat_map(|p| {
+                    if p.TwoWayBinding().is_some() {
+                        None // aliases are handled further down
+                    } else {
+                        Some((
+                            identifier_text(&p.DeclaredIdentifier()).unwrap(),
+                            object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register),
+                        ))
+                    }
                 })
                 .chain(e.CallbackDeclaration().map(|s| {
                     (
@@ -108,6 +112,21 @@ pub fn load_builtins(register: &mut TypeRegister) {
                     )
                 })),
         );
+        n.deprecated_aliases = e
+            .PropertyDeclaration()
+            .flat_map(|p| {
+                if let Some(twb) = p.TwoWayBinding() {
+                    let alias_name = identifier_text(&p.DeclaredIdentifier()).unwrap();
+                    let alias_target = identifier_text(&twb.Expression().QualifiedName().expect(
+                        "internal error: built-in aliases can only be declared within the type",
+                    ))
+                    .unwrap();
+                    Some((alias_name, alias_target))
+                } else {
+                    None
+                }
+            })
+            .collect();
         n.cpp_type = parse_annotation("cpp_type", &e.node).map(|x| x.unwrap());
         n.rust_type_constructor =
             parse_annotation("rust_type_constructor", &e.node).map(|x| x.unwrap());

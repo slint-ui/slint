@@ -14,10 +14,10 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use expression_tree::NamedReference;
 use object_tree::{Element, ElementRc};
-use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::*;
+use sixtyfps_compilerlib::{expression_tree::Expression, langtype::PropertyLookupResult};
 use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::{Rect, Resource};
 use sixtyfps_corelib::item_tree::{
@@ -168,8 +168,10 @@ impl RepeatedComponent for ErasedComponentBox {
 
         let root_item = &s.component_type.original.root_element.clone();
         let get_prop = |name: &str| {
-            if root_item.borrow().lookup_property(name) == Type::Length {
-                let nr = NamedReference::new(root_item, name);
+            let PropertyLookupResult { resolved_name, property_type } =
+                root_item.borrow().lookup_property(name);
+            if property_type == Type::Length {
+                let nr = NamedReference::new(root_item, resolved_name.as_ref());
                 let p = get_property_ptr(&nr, s.borrow_instance());
                 // Safety: assuming get_property_ptr returned a valid pointer,
                 // we know that `Type::Length` is a property of type `f32`
@@ -820,9 +822,10 @@ pub fn instantiate<'id>(
         unsafe {
             let item = item_within_component.item_from_component(instance_ref.as_ptr());
             let elem = item_within_component.elem.borrow();
-            for (prop, expr) in &elem.bindings {
-                let ty = elem.lookup_property(prop.as_str());
-                if let Type::Callback { .. } = ty {
+            for (unresolved_prop_name, expr) in &elem.bindings {
+                let PropertyLookupResult { resolved_name, property_type } =
+                    elem.lookup_property(unresolved_prop_name.as_str());
+                if let Type::Callback { .. } = property_type {
                     let expr = expr.clone();
                     let component_type = component_type.clone();
                     let instance = component_box.instance.as_ptr();
@@ -830,7 +833,8 @@ pub fn instantiate<'id>(
                         NonNull::from(&component_type.ct).cast(),
                         instance.cast(),
                     ));
-                    if let Some(callback) = item_within_component.rtti.callbacks.get(prop.as_str())
+                    if let Some(callback) =
+                        item_within_component.rtti.callbacks.get(resolved_name.as_ref())
                     {
                         callback.set_handler(
                             item,
@@ -845,7 +849,7 @@ pub fn instantiate<'id>(
                             }),
                         )
                     } else if let Some(callback_offset) =
-                        component_type.custom_callbacks.get(prop.as_str())
+                        component_type.custom_callbacks.get(resolved_name.as_ref())
                     {
                         let callback = callback_offset.apply(instance_ref.as_ref());
                         callback.set_handler(move |args| {
@@ -857,13 +861,14 @@ pub fn instantiate<'id>(
                             eval::eval_expression(&expr, &mut local_context)
                         })
                     } else {
-                        panic!("unkown callback {}", prop)
+                        panic!("unkown callback {}", unresolved_prop_name)
                     }
                 } else {
                     if let Some(prop_rtti) =
-                        item_within_component.rtti.properties.get(prop.as_str())
+                        item_within_component.rtti.properties.get(resolved_name.as_ref())
                     {
-                        let maybe_animation = animation_for_property(instance_ref, &elem, prop);
+                        let maybe_animation =
+                            animation_for_property(instance_ref, &elem, resolved_name.as_ref());
                         let mut e = Some(&expr.expression);
                         while let Some(Expression::TwoWayBinding(nr, next)) = &e {
                             // Safety: The compiler must have ensured that the properties exist and are of the same type
@@ -908,14 +913,14 @@ pub fn instantiate<'id>(
                         }
                     } else if let Some(PropertiesWithinComponent {
                         offset, prop: prop_info, ..
-                    }) = component_type.custom_properties.get(prop.as_str())
+                    }) = component_type.custom_properties.get(resolved_name.as_ref())
                     {
                         let c = Pin::new_unchecked(vtable::VRef::from_raw(
                             NonNull::from(&component_type.ct).cast(),
                             component_box.instance.as_ptr().cast(),
                         ));
 
-                        let is_state_info = match ty {
+                        let is_state_info = match property_type {
                             Type::Object { name: Some(name), .. }
                                 if name.ends_with("::StateInfo") =>
                             {
@@ -946,7 +951,7 @@ pub fn instantiate<'id>(
                         let maybe_animation = animation_for_property(
                             instance_ref,
                             &component_type.original.root_element.borrow(),
-                            prop,
+                            resolved_name.as_ref(),
                         );
                         let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
 
@@ -983,7 +988,7 @@ pub fn instantiate<'id>(
                             }
                         }
                     } else {
-                        panic!("unkown property {}", prop);
+                        panic!("unkown property {}", unresolved_prop_name);
                     }
                 }
             }

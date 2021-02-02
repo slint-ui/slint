@@ -157,7 +157,7 @@ impl ItemWeak {
 #[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
-    pub color: Property<Color>,
+    pub background: Property<Color>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -218,7 +218,7 @@ ItemVTable_static! {
 #[pin]
 /// The implementation of the `BorderRectangle` element
 pub struct BorderRectangle {
-    pub color: Property<Color>,
+    pub background: Property<Color>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,

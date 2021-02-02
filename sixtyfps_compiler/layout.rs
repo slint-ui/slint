@@ -9,9 +9,9 @@
 LICENSE END */
 //! Datastructures used to represent layouts in the compiler
 
-use crate::diagnostics::BuildDiagnostics;
 use crate::langtype::Type;
 use crate::object_tree::{ElementRc, PropertyDeclaration};
+use crate::{diagnostics::BuildDiagnostics, langtype::PropertyLookupResult};
 use crate::{
     expression_tree::{Expression, NamedReference, Path},
     object_tree::Component,
@@ -69,9 +69,11 @@ pub struct LayoutItem {
 impl LayoutItem {
     pub fn rect(&self) -> Cow<LayoutRect> {
         if let Some(e) = &self.element {
-            let p = |name: &str| {
-                if e.borrow().lookup_property(name) == Type::Length {
-                    Some(NamedReference::new(e, name))
+            let p = |unresolved_name: &str| {
+                let PropertyLookupResult { resolved_name, property_type } =
+                    e.borrow().lookup_property(unresolved_name);
+                if property_type == Type::Length {
+                    Some(NamedReference::new(e, resolved_name.as_ref()))
                 } else {
                     None
                 }

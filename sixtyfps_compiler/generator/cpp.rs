@@ -337,7 +337,7 @@ fn handle_property_binding(
     let item = elem.borrow();
     let component = item.enclosing_component.upgrade().unwrap();
     let id = &item.id;
-    let prop_type = item.lookup_property(prop_name);
+    let prop_type = item.lookup_property(prop_name).property_type;
     if let Type::Callback { args, .. } = &prop_type {
         let callback_accessor_prefix = if item.property_declarations.contains_key(prop_name) {
             String::new()
@@ -2059,14 +2059,14 @@ impl<'a> LayoutTreeItem<'a> {
                 let path_layout_item_data =
                     |elem: &ElementRc, elem_cpp: &str, component_cpp: &str| {
                         let prop_ref = |n: &str| {
-                            if elem.borrow().lookup_property(n) == Type::Length {
+                            if elem.borrow().lookup_property(n).property_type == Type::Length {
                                 format!("&{}.{}", elem_cpp, n)
                             } else {
                                 "nullptr".to_owned()
                             }
                         };
                         let prop_value = |n: &str| {
-                            if elem.borrow().lookup_property(n) == Type::Length {
+                            if elem.borrow().lookup_property(n).property_type == Type::Length {
                                 let value_accessor = access_member(
                                     &elem,
                                     n,

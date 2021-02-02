@@ -667,7 +667,7 @@ impl ItemRenderer for GLItemRenderer {
         }
         // TODO: cache path in item to avoid re-tesselation
         let mut path = rect_to_path(geometry);
-        let paint = femtovg::Paint::color(rect.color().into());
+        let paint = femtovg::Paint::color(rect.background().into());
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, paint)
@@ -705,7 +705,7 @@ impl ItemRenderer for GLItemRenderer {
             path.rounded_rect(x, y, width, height, border_radius);
         }
 
-        let fill_paint = femtovg::Paint::color(rect.color().into());
+        let fill_paint = femtovg::Paint::color(rect.background().into());
 
         let mut border_paint = femtovg::Paint::color(rect.border_color().into());
         border_paint.set_line_width(border_width);

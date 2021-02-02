@@ -146,7 +146,7 @@ fn handle_property_binding(
     init: &mut Vec<TokenStream>,
 ) {
     let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
-    let prop_type = item_rc.borrow().lookup_property(prop_name);
+    let prop_type = item_rc.borrow().lookup_property(prop_name).property_type;
     if matches!(prop_type, Type::Callback{..}) {
         let tokens_for_expression = compile_expression(binding_expression, &component);
         init.push(quote!(
@@ -1774,7 +1774,7 @@ impl<'a> LayoutTreeItem<'a> {
                 let path_layout_item_data =
                     |elem: &ElementRc, elem_rs: TokenStream, component_rust: TokenStream| {
                         let prop_ref = |n: &str| {
-                            if elem.borrow().lookup_property(n) == Type::Length {
+                            if elem.borrow().lookup_property(n).property_type == Type::Length {
                                 let n = format_ident!("{}", n);
                                 quote! {Some(& #elem_rs.#n)}
                             } else {
@@ -1782,7 +1782,7 @@ impl<'a> LayoutTreeItem<'a> {
                             }
                         };
                         let prop_value = |n: &str| {
-                            if elem.borrow().lookup_property(n) == Type::Length {
+                            if elem.borrow().lookup_property(n).property_type == Type::Length {
                                 let accessor = access_member(
                                     &elem,
                                     n,

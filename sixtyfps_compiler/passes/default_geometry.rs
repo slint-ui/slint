@@ -12,10 +12,13 @@ LICENSE END */
 
 use std::rc::Rc;
 
-use crate::expression_tree::{BuiltinFunction, Expression, NamedReference};
 use crate::langtype::DefaultSizeBinding;
 use crate::langtype::Type;
 use crate::object_tree::{Component, ElementRc};
+use crate::{
+    expression_tree::{BuiltinFunction, Expression, NamedReference},
+    langtype::PropertyLookupResult,
+};
 
 pub fn default_geometry(root_component: &Rc<Component>) {
     crate::object_tree::recurse_elem_including_sub_components(
@@ -44,11 +47,14 @@ pub fn default_geometry(root_component: &Rc<Component>) {
 }
 
 fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str) {
-    if parent_element.borrow().lookup_property(property) != Type::Length {
+    let PropertyLookupResult { resolved_name, property_type } =
+        parent_element.borrow().lookup_property(property);
+    if property_type != Type::Length {
         return;
     }
-    elem.borrow_mut().bindings.entry(property.into()).or_insert_with(|| {
-        Expression::PropertyReference(NamedReference::new(parent_element, property)).into()
+    elem.borrow_mut().bindings.entry(resolved_name.to_string()).or_insert_with(|| {
+        Expression::PropertyReference(NamedReference::new(parent_element, resolved_name.as_ref()))
+            .into()
     });
 }
 
