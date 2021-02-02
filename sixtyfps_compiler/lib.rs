@@ -146,6 +146,11 @@ pub async fn compile_syntax_node(
 
     build_diagnostics.add(diagnostics);
 
+    if let Some((_, node)) = &*doc.root_component.child_insertion_point.borrow() {
+        build_diagnostics
+            .push_error("@children placeholder not allowed in the final component".into(), node)
+    }
+
     if !build_diagnostics.has_error() {
         // FIXME: ideally we would be able to run more passes, but currently we panic because invariant are not met.
         run_passes(&doc, &mut build_diagnostics, &mut loader, &compiler_config).await;

@@ -128,6 +128,8 @@ pub struct PopupWindow {
     pub y: NamedReference,
 }
 
+type ChildrenInsertionPoint = (ElementRc, syntax_nodes::ChildrenPlaceholder);
+
 /// A component is a type in the language which can be instantiated,
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
@@ -153,7 +155,7 @@ pub struct Component {
 
     /// When creating this component and inserting "children", append them to the children of
     /// the element pointer to by this field.
-    pub child_insertion_point: RefCell<Option<ElementRc>>,
+    pub child_insertion_point: RefCell<Option<ChildrenInsertionPoint>>,
 
     /// Code to be inserted into the constructor
     pub setup_code: RefCell<Vec<Expression>>,
@@ -367,7 +369,7 @@ impl Element {
         node: syntax_nodes::Element,
         id: String,
         parent_type: Type,
-        component_child_insertion_point: &mut Option<ElementRc>,
+        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -621,7 +623,7 @@ impl Element {
                         &se,
                     )
                 } else {
-                    children_placeholder = Some(se.clone());
+                    children_placeholder = Some(se.clone().into());
                 }
             }
         }
@@ -633,7 +635,7 @@ impl Element {
                     &children_placeholder,
                 )
             } else {
-                *component_child_insertion_point = Some(r.clone());
+                *component_child_insertion_point = Some((r.clone(), children_placeholder));
             }
         }
 
@@ -685,7 +687,7 @@ impl Element {
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
         parent: &ElementRc,
-        component_child_insertion_point: &mut Option<ElementRc>,
+        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -725,7 +727,7 @@ impl Element {
     fn from_conditional_node(
         node: syntax_nodes::ConditionalElement,
         parent_type: Type,
-        component_child_insertion_point: &mut Option<ElementRc>,
+        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
         diag: &mut FileDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
