@@ -36,7 +36,7 @@ X := Rectangle {
 
     property <int> my_lowercase: 45;
 
-    property<color> xxx: my_lowercase.color;
+    property<color> xxx: my_lowercase.background;
     property<int> yyy: my_lowercase.glob; // error because this is not the global, but the local element
     //                              ^error{Element 'Rectangle' does not have a property 'glob'}
 

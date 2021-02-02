@@ -11,4 +11,9 @@ LICENSE END */
 Xxx := Rectangle {
     color: white;
 //  ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+
+    Rectangle {
+        background: root.color;
+//                       ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+    }
 }

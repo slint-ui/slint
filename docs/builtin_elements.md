@@ -339,7 +339,7 @@ Example := Window {
         width: parent.width;
         height: parent.height;
         clicked => {
-            rect2.color = #ff0;
+            rect2.background = #ff0;
         }
     }
     Rectangle {

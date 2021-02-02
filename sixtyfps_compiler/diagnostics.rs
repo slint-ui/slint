@@ -425,6 +425,12 @@ impl BuildDiagnostics {
         }
     }
 
+    fn file_diagnostics(&mut self, source_file: &Rc<PathBuf>) -> &mut FileDiagnostics {
+        self.per_input_file_diagnostics.entry(source_file.clone()).or_insert_with(|| {
+            FileDiagnostics { current_path: source_file.clone(), ..Default::default() }
+        })
+    }
+
     pub fn push_diagnostic(
         &mut self,
         message: String,
@@ -432,14 +438,11 @@ impl BuildDiagnostics {
         level: Level,
     ) {
         match source.source_file() {
-            Some(source_file) => self
-                .per_input_file_diagnostics
-                .entry(source_file.clone())
-                .or_insert_with(|| FileDiagnostics {
-                    current_path: source_file.clone(),
-                    ..Default::default()
-                })
-                .push_diagnostic_with_span(message, source.span(), level),
+            Some(source_file) => self.file_diagnostics(source_file).push_diagnostic_with_span(
+                message,
+                source.span(),
+                level,
+            ),
             None => self.push_internal_error(
                 CompilerDiagnostic { message, span: source.span(), level }.into(),
             ),
@@ -458,6 +461,18 @@ impl BuildDiagnostics {
             })
             .inner
             .push(err)
+    }
+
+    pub fn push_property_deprecation_warning(
+        &mut self,
+        old_property: &str,
+        new_property: &str,
+        source: &impl SpannedWithSourceFile,
+    ) {
+        self.file_diagnostics(
+            source.source_file().expect("deprecations cannot be created as internal errors"),
+        )
+        .push_property_deprecation_warning(old_property, new_property, source);
     }
 
     fn iter(&self) -> impl Iterator<Item = &FileDiagnostics> {

@@ -20,7 +20,7 @@ X := PopupWindow {
             }
         }
 
-        background: r.color;
+        background: r.background;
 
     }
 

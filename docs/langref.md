@@ -172,7 +172,7 @@ The right hand side of the `<=>` must be a reference to a property of the same t
 
 ```60
 Example := Window {
-    property<color> rect_color <=> r.color;
+    property<color> rect_color <=> r.background;
     r:= Rectangle {
         width: parent.width;
         height: parent.height;

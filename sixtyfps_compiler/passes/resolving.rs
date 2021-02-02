@@ -1137,6 +1137,9 @@ fn continue_lookup_within_element(
     let PropertyLookupResult { resolved_name, property_type } =
         elem.borrow().lookup_property(&prop_name);
     if property_type.is_property_type() {
+        if resolved_name != prop_name {
+            ctx.diag.push_property_deprecation_warning(&prop_name, &resolved_name, &second);
+        }
         let prop = Expression::PropertyReference(NamedReference {
             element: Rc::downgrade(elem),
             name: resolved_name.to_string(),

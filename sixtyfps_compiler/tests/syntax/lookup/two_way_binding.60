@@ -10,7 +10,7 @@ LICENSE END */
 
 X := Rectangle {
 
-    property <color> my_color <=> self.color;
+    property <color> my_color <=> self.background;
     x <=> y;
     width <=> self.height;
 
