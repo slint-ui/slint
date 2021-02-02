@@ -27,7 +27,7 @@ SuperSimple := Rectangle {
     property <int> g: min(42, 42, 42cm);
 //                                ^error{Cannot convert logical_length to float}
     property <int> h: min(42, 42 + 1) + max(1px , 2phx);
-//                                     ^error{Cannot convert logical_length to float}
+//                    ^error{Cannot convert float to logical_length}
 
 
 }

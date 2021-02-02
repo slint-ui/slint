@@ -863,6 +863,12 @@ impl Expression {
                 }
             } else if let Some(to_unit) = target_type.default_unit() {
                 if matches!(ty, Type::Int32 | Type::Float32) {
+                    if let Expression::NumberLiteral(value, Unit::None) = self {
+                        if value == 0. {
+                            // Allow conversion from literal 0 to any unit
+                            return Expression::NumberLiteral(0., to_unit);
+                        }
+                    }
                     message = format!(
                         "{}. Use an unit, or multiply by 1{} to convert explicitly.",
                         message, to_unit

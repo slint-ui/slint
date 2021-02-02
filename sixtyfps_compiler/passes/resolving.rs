@@ -854,6 +854,8 @@ impl Expression {
                             $(
                                 ('+', Type::$unit, _) => Type::$unit,
                                 ('-', Type::$unit, _) => Type::$unit,
+                                ('+', _, Type::$unit) => Type::$unit,
+                                ('-', _, Type::$unit) => Type::$unit,
                                 ('*', Type::$unit, _) => {
                                     return Expression::BinaryExpression {
                                         lhs: Box::new(lhs),
