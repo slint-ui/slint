@@ -30,6 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(tests_file, "\nmod {} {{", stem)?;
 
         let file = std::fs::read_to_string(&path)?;
+        let file = file.replace("\r", ""); // Remove \r, because Windows.
         let mut rest = file.as_str();
         let mut count = 0;
         const BEGIN_MARKER: &str = "\n```60\n";
