@@ -1479,9 +1479,6 @@ fn compile_expression(
                 (Type::Float32, Type::Color) => {
                     format!("sixtyfps::Color::from_argb_encoded({})", f)
                 }
-                (Type::Color, Type::Brush) => {
-                    format!("sixtyfps::Brush({})", f)
-                }
                 (Type::Object { .. }, Type::Object{ fields, name: Some(n)}) => {
                     format!(
                         "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
@@ -1661,7 +1658,7 @@ fn compile_expression(
                 format!("sixtyfps::GradientStop{{ {}, {}, }}", color, position)
             });
             format!(
-                "[&] {{ const sixtyfps::GradientStop stops[] = {{ {} }}; return sixtyfps::Brush(sixtyfps::LinearGradientBrush({}, stops, {})); }}()",
+                "[&] {{ const sixtyfps::GradientStop stops[] = {{ {} }}; return sixtyfps::LinearGradientBrush({}, stops, {}); }}()",
                 stops_it.join(", "), angle, stops.len()
             )
         }

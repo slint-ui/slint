@@ -54,11 +54,8 @@ class Brush
 {
 public:
     Brush() : data(Inner::NoBrush()) { }
-    explicit Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
-    explicit Brush(const LinearGradientBrush &gradient)
-        : data(Inner::LinearGradient(gradient.inner))
-    {
-    }
+    Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
+    Brush(const LinearGradientBrush &gradient) : data(Inner::LinearGradient(gradient.inner)) { }
 
     friend bool operator==(const Brush &a, const Brush &b) { return a.data == b.data; }
     friend bool operator!=(const Brush &a, const Brush &b) { return a.data != b.data; }
