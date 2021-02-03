@@ -115,7 +115,8 @@ pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequ
                 weight: _request.weight,
                 pixel_size: _request.pixel_size,
             })
-            .take(2) // Take only the top two from the fallback list until we have a more efficent on-demand font loading mechanism in femtovg
+            .filter(|fallback| !fallback.family.starts_with(".")) // font-kit asserts when loading `.Apple Fallback`
+            .take(1) // Take only the top from the fallback list until we mmap the llaaarge font files
             .collect::<Vec<_>>()
         })
         .unwrap_or_default()
