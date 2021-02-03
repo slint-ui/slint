@@ -501,7 +501,13 @@ impl Expression {
                     Stop::Color(col) => stops.push((col, Expression::Invalid)),
                 }
             } else {
-                let e = Expression::from_expression_node(n.as_node().unwrap().into(), ctx);
+                // To faciliate color literal conversion, adjust the expected return type.
+                let e = {
+                    let old_property_type = std::mem::replace(&mut ctx.property_type, Type::Color);
+                    let e = Expression::from_expression_node(n.as_node().unwrap().into(), ctx);
+                    ctx.property_type = old_property_type;
+                    e
+                };
                 match std::mem::replace(&mut current_stop, Stop::Finished) {
                     Stop::Empty => {
                         current_stop =
