@@ -15,18 +15,8 @@ fn main() -> std::io::Result<()> {
         Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated.rs"),
     )?;
 
-    let mut test_dirs = std::collections::HashSet::new();
-
     for testcase in test_driver_lib::collect_test_cases()? {
-        println!("cargo:rerun-if-changed={}", testcase.absolute_path.to_string_lossy());
-
-        test_dirs.insert(testcase.absolute_path.parent().unwrap().to_owned());
-
-        let mut module_name = testcase
-            .relative_path
-            .with_extension("")
-            .to_string_lossy()
-            .replace(std::path::MAIN_SEPARATOR, "_");
+        let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
             module_name.insert_str(0, "_");
         }
@@ -84,10 +74,6 @@ fn main() -> std::io::Result<()> {
             )?;
         }
     }
-
-    test_dirs.iter().for_each(|dir| {
-        println!("cargo:rerun-if-changed={}", dir.to_string_lossy());
-    });
 
     Ok(())
 }

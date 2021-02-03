@@ -14,6 +14,16 @@ pub struct TestCase {
     pub relative_path: std::path::PathBuf,
 }
 
+impl TestCase {
+    /// Return a string which is a valid C++/Rust identifier
+    pub fn identifier(&self) -> String {
+        self.relative_path
+            .with_extension("")
+            .to_string_lossy()
+            .replace(std::path::MAIN_SEPARATOR, "_")
+    }
+}
+
 /// Returns a list of all the `.60` files in the `tests/cases` subfolders.
 pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
@@ -24,6 +34,10 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     for entry in walkdir::WalkDir::new(case_root_dir.clone()).follow_links(true) {
         let entry = entry?;
         let absolute_path = entry.into_path();
+        if absolute_path.is_dir() {
+            println!("cargo:rerun-if-changed={}", absolute_path.display());
+            continue;
+        }
         if let Some(ext) = absolute_path.extension() {
             if ext == "60" {
                 let relative_path =

@@ -41,20 +41,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut tests_file = std::fs::File::create(&tests_file_path)?;
 
-    let mut test_dirs = std::collections::HashSet::new();
-
     for testcase in test_driver_lib::collect_test_cases()? {
-        test_dirs.insert({
-            let mut dir = testcase.absolute_path.clone();
-            dir.pop();
-            dir
-        });
-
-        let test_function_name = testcase
-            .relative_path
-            .with_extension("")
-            .to_string_lossy()
-            .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
+        println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
+        let test_function_name = testcase.identifier();
 
         write!(
             tests_file,
@@ -72,10 +61,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             relative_path = testcase.relative_path.to_string_lossy(),
         )?;
     }
-
-    test_dirs.iter().for_each(|dir| {
-        println!("cargo:rerun-if-changed={}", dir.to_string_lossy());
-    });
 
     println!("cargo:rustc-env=TEST_FUNCTIONS={}", tests_file_path.to_string_lossy());
 
