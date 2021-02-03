@@ -155,6 +155,9 @@ public:
                       << ")";
     }
 
+    // FIXME: we need this to create GradientStop
+    operator const cbindgen_private::types::Color&() { return inner; }
+
 private:
     cbindgen_private::types::Color inner;
     friend class LinearGradientBrush;

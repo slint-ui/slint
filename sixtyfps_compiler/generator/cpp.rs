@@ -1645,7 +1645,22 @@ fn compile_expression(
             "sixtyfps::EasingCurve(sixtyfps::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
             a, b, c, d
         ),
-        Expression::LinearGradient{..} => todo!(),
+        Expression::LinearGradient{angle, stops} => {
+            let angle = compile_expression(angle, component);
+            let mut stops_it = stops.iter().map(|(color, stop)| {
+                let color = compile_expression(color, component);
+                let position = if matches!(stop, Expression::Invalid) {
+                    "std::numeric_limits<double>::quiet_NaN()".to_string()
+                } else {
+                    compile_expression(stop, component)
+                };
+                format!("sixtyfps::GradientStop{{ {}, {}, }}", color, position)
+            });
+            format!(
+                "[&] {{ const sixtyfps::GradientStop stops[] = {{ {} }}; return sixtyfps::LinearGradientBrush({}, stops, {}); }}()",
+                stops_it.join(", "), angle, stops.len()
+            )
+        }
         Expression::EnumerationValue(value) => {
             format!("sixtyfps::{}::{}", value.enumeration.name, value.to_string())
         }
