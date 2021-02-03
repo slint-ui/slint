@@ -223,19 +223,36 @@ cpp_class!(
 impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
     fn from(brush: sixtyfps_corelib::Brush) -> Self {
         match brush {
-            sixtyfps_corelib::Brush::NoBrush => {
-                cpp!(unsafe [] -> QBrush as "QBrush" {
-                    return QBrush();
-                })
-            }
+            sixtyfps_corelib::Brush::NoBrush => QBrush::default(),
             sixtyfps_corelib::Brush::SolidColor(color) => {
                 let color: u32 = color.as_argb_encoded();
                 cpp!(unsafe [color as "QRgb"] -> QBrush as "QBrush" {
                     return QBrush(QColor::fromRgba(color));
                 })
             }
-            sixtyfps_corelib::Brush::LinearGradient(_) => {
-                unimplemented!()
+            sixtyfps_corelib::Brush::LinearGradient(g) => {
+                let angle = g.angle().to_radians();
+                let r = (angle.sin().abs() + angle.cos().abs()) / 2.;
+                let (y, x) = (angle - std::f32::consts::PI / 2.).sin_cos();
+                let (y, x) = (y * r, x * r);
+                let p1 = QPointF { x: (0.5 - x) as _, y: (0.5 - y) as _ };
+                let p2 = QPointF { x: (0.5 + x) as _, y: (0.5 + y) as _ };
+                cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
+                let mut qlg = cpp! {
+                    unsafe [p1 as "QPointF", p2 as "QPointF"] -> QLinearGradient as "QLinearGradient" {
+                        return QLinearGradient(p1, p2);
+                    }
+                };
+                for s in g.stops() {
+                    let pos: f32 = s.position;
+                    let color: u32 = s.color.as_argb_encoded();
+                    cpp! {unsafe [mut qlg as "QLinearGradient", pos as "float", color as "QRgb"] {
+                        qlg.setColorAt(pos, QColor::fromRgba(color));
+                    }};
+                }
+                cpp! {unsafe [qlg as "QLinearGradient"] -> QBrush as "QBrush" {
+                    return QBrush(qlg);
+                }}
             }
         }
     }
