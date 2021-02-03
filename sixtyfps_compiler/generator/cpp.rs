@@ -1661,7 +1661,7 @@ fn compile_expression(
                 format!("sixtyfps::GradientStop{{ {}, {}, }}", color, position)
             });
             format!(
-                "[&] {{ const sixtyfps::GradientStop stops[] = {{ {} }}; return sixtyfps::LinearGradientBrush({}, stops, {}); }}()",
+                "[&] {{ const sixtyfps::GradientStop stops[] = {{ {} }}; return sixtyfps::Brush(sixtyfps::LinearGradientBrush({}, stops, {})); }}()",
                 stops_it.join(", "), angle, stops.len()
             )
         }
