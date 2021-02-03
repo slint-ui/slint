@@ -22,7 +22,7 @@ TestCase := Rectangle {
         width: root.width;
         height: root.height;
         commands: "M 100 0 L 100 250 ";
-        stroke_color: green;
+        stroke: green;
         stroke_width: 2px;
     }
 

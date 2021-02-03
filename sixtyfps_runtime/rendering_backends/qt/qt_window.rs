@@ -373,8 +373,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         // FIXME: handle width/height
         //let rect: qttypes::QRectF = get_geometry!(pos, items::Path, path);
         let pos = qttypes::QPoint { x: (pos.x + path.x()) as _, y: (pos.y + path.y()) as _ };
-        let fill_color: u32 = path.fill_color().as_argb_encoded();
-        let stroke_color: u32 = path.stroke_color().as_argb_encoded();
+        let fill_brush: qttypes::QBrush = path.fill().into();
+        let stroke_brush: qttypes::QBrush = path.stroke().into();
         let stroke_width: f32 = path.stroke_width();
         let mut painter_path = QPainterPath::default();
         for x in elements.iter_fitted(path.width(), path.height()).iter() {
@@ -411,14 +411,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 painter as "QPainter*",
                 pos as "QPoint",
                 mut painter_path as "QPainterPath",
-                fill_color as "QRgb",
-                stroke_color as "QRgb",
+                fill_brush as "QBrush",
+                stroke_brush as "QBrush",
                 stroke_width as "float"] {
             painter->save();
             auto cleanup = qScopeGuard([&] { painter->restore(); });
             painter->translate(pos);
-            painter->setPen(stroke_width > 0 ? QPen(QColor::fromRgba(stroke_color), stroke_width) : Qt::NoPen);
-            painter->setBrush(QColor::fromRgba(fill_color));
+            painter->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width) : Qt::NoPen);
+            painter->setBrush(fill_brush);
             painter->drawPath(painter_path);
         }}
     }

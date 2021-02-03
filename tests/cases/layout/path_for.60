@@ -14,7 +14,7 @@ TestCase := Rectangle {
     Path {
         commands: "M 400 300 A 50 50 0 1 1 550 300 C 550 400 450 450 250 450";
         stroke_width: 2px;
-        stroke_color: black;
+        stroke: black;
     }
 
     PathLayout {

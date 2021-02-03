@@ -559,8 +559,8 @@ pub struct Path {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub elements: Property<PathData>,
-    pub fill_color: Property<Color>,
-    pub stroke_color: Property<Color>,
+    pub fill: Property<Brush>,
+    pub stroke: Property<Brush>,
     pub stroke_width: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }

@@ -270,8 +270,10 @@ export Path := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <color> fill_color;
-    property <color> stroke_color;
+    property <brush> fill;
+    property <brush> fill_color <=> fill;
+    property <brush> stroke;
+    property <color> stroke_color <=> stroke;
     property <length> stroke_width;
     property <string> commands;
 

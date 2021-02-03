@@ -978,8 +978,8 @@ impl ItemRenderer for GLItemRenderer {
             }
         }
 
-        let fill_paint = femtovg::Paint::color(path.fill_color().into());
-        let mut border_paint = femtovg::Paint::color(path.stroke_color().into());
+        let fill_paint = self.brush_to_paint(path.fill(), &mut fpath);
+        let mut border_paint = self.brush_to_paint(path.stroke(), &mut fpath);
         border_paint.set_line_width(path.stroke_width());
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {

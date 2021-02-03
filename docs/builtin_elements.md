@@ -174,8 +174,8 @@ accordingly.
 
 ### Common Path Properties
 
-* **`fill-color`** (*color*): The color for filling the shape of the path.
-* **`stroke-color`** (*color*): The color for drawing the outline of the path.
+* **`fill`** (*brush*): The color for filling the shape of the path.
+* **`stroke`** (*brush*): The color for drawing the outline of the path.
 * **`stroke-width`** (*length*): The width of the outline.
 * **`width`** (*length*): If non-zero, the path will be scaled to fit into the specified width.
 * **`height`** (*length*): If non-zero, the path will be scaled to fit into the specified height.
@@ -193,7 +193,7 @@ Example := Path {
     width: 100px;
     height: 100px;
     commands: "M 0 0 L 0 100 A 1 1 0 0 0 100 100 L 100 0 Z";
-    stroke-color: red;
+    stroke: red;
     stroke-width: 1px;
 }
 ```
@@ -211,7 +211,7 @@ The shape of the path can also be described using elements that resemble the SVG
 Example := Path {
     width: 100px;
     height: 100px;
-    stroke-color: blue;
+    stroke: blue;
     stroke-width: 1px;
 
     MoveTo {

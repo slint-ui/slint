@@ -117,8 +117,8 @@ Hello := Rectangle {
      Path {
         x: 100phx;
         y: 300phx;
-        fill_color: green;
-        stroke_color: black;
+        fill: green;
+        stroke: black;
         stroke_width: 2px;
 
         MoveTo {
@@ -166,7 +166,7 @@ Hello := Rectangle {
         commands: "M 100 300 Q 150 50 250 150 C 250 300 300 300 300 450 A 50 50 0 1 0 450 450 L 550 300";
         x: 100phx;
         y: 500phx;
-        stroke_color: black;
+        stroke: black;
         stroke_width: 2px;
     }
 }
