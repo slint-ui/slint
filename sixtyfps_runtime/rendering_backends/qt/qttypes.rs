@@ -240,7 +240,9 @@ impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
                 cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
                 let mut qlg = cpp! {
                     unsafe [p1 as "QPointF", p2 as "QPointF"] -> QLinearGradient as "QLinearGradient" {
-                        return QLinearGradient(p1, p2);
+                        QLinearGradient qlg(p1, p2);
+                        qlg.setCoordinateMode(QGradient::ObjectMode);
+                        return qlg;
                     }
                 };
                 for s in g.stops() {
