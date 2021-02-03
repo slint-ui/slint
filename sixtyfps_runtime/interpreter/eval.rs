@@ -642,7 +642,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 let position = eval_expression(stop, local_context).try_into().unwrap_or(f32::NAN);
                 GradientStop{ color, position }
             }))))
-        },
+        }
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
         }

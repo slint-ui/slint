@@ -1326,7 +1326,21 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sixtyfps::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
-        Expression::LinearGradient{..} => todo!(),
+        Expression::LinearGradient{angle, stops} => {
+            let angle = compile_expression(angle, component);
+            let stops = stops.iter().map(|(color, stop)| {
+                let color = compile_expression(color, component);
+                let position = if matches!(stop, Expression::Invalid) {
+                    quote!(f32::NAN)
+                } else {
+                    compile_expression(stop, component)
+                };
+                quote!(sixtyfps::re_exports::GradientStop{ color: #color, position: #position as _ })
+            });
+            quote!(sixtyfps::re_exports::Brush::LinearGradient(
+                sixtyfps::re_exports::LinearGradientBrush::new(#angle as _, [#(#stops),*].iter().cloned())
+            ))
+        }
         Expression::EnumerationValue(value) => {
             let base_ident = format_ident!("{}", value.enumeration.name);
             let value_ident = format_ident!("{}", value.to_string());
