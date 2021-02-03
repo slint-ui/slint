@@ -31,6 +31,9 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let case_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "..", "cases"].iter().collect();
 
+    println!("cargo:rerun-if-env-changed=SIXTYFPS_TEST_FILTER");
+    let filter = std::env::var("SIXTYFPS_TEST_FILTER").ok();
+
     for entry in walkdir::WalkDir::new(case_root_dir.clone()).follow_links(true) {
         let entry = entry?;
         let absolute_path = entry.into_path();
@@ -38,16 +41,19 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
             println!("cargo:rerun-if-changed={}", absolute_path.display());
             continue;
         }
+        let relative_path =
+            std::path::PathBuf::from(absolute_path.strip_prefix(&case_root_dir).unwrap());
+        if let Some(filter) = &filter {
+            if !relative_path.to_str().unwrap().contains(filter) {
+                continue;
+            }
+        }
         if let Some(ext) = absolute_path.extension() {
             if ext == "60" {
-                let relative_path =
-                    std::path::PathBuf::from(absolute_path.strip_prefix(&case_root_dir).unwrap());
-
                 results.push(TestCase { absolute_path, relative_path });
             }
         }
     }
-
     Ok(results)
 }
 
