@@ -890,7 +890,7 @@ struct PropertyValueAnimationData<T> {
     loop_iteration: i32,
 }
 
-impl<T: InterpolatedPropertyValue> PropertyValueAnimationData<T> {
+impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
     fn new(from_value: T, to_value: T, details: PropertyAnimation) -> Self {
         let start_time = crate::animations::current_tick();
         Self { from_value, to_value, details, start_time, loop_iteration: 0 }
@@ -912,7 +912,7 @@ impl<T: InterpolatedPropertyValue> PropertyValueAnimationData<T> {
         let progress = time_progress as f32 / self.details.duration as f32;
         assert!(progress <= 1.);
         let t = crate::animations::easing_curve(&self.details.easing, progress);
-        let val = self.from_value.interpolate(self.to_value, t);
+        let val = self.from_value.interpolate(&self.to_value, t);
         (val, false)
     }
 }
@@ -933,7 +933,7 @@ struct AnimatedBindingCallable<T, A> {
 
 type AnimationDetail = Option<(PropertyAnimation, crate::animations::Instant)>;
 
-impl<T: InterpolatedPropertyValue, A: Fn() -> AnimationDetail> BindingCallable
+impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable
     for AnimatedBindingCallable<T, A>
 {
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
@@ -989,36 +989,34 @@ impl<T: InterpolatedPropertyValue, A: Fn() -> AnimationDetail> BindingCallable
 /// InterpolatedPropertyValue is a trait used to enable properties to be used with
 /// animations that interpolate values. The basic requirement is the ability to apply
 /// a progress that's typically between 0 and 1 to a range.
-pub trait InterpolatedPropertyValue:
-    PartialEq + Clone + Copy + std::fmt::Display + Default + 'static
-{
+pub trait InterpolatedPropertyValue: PartialEq + std::fmt::Display + Default + 'static {
     /// Returns the interpolated value between self and target_value according to the
     /// progress parameter t that's usually between 0 and 1. With certain animation
     /// easing curves it may over- or undershoot though.
-    fn interpolate(self, target_value: Self, t: f32) -> Self;
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self;
 }
 
 impl InterpolatedPropertyValue for f32 {
-    fn interpolate(self, target_value: Self, t: f32) -> Self {
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         self + t * (target_value - self)
     }
 }
 
 impl InterpolatedPropertyValue for i32 {
-    fn interpolate(self, target_value: Self, t: f32) -> Self {
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         self + (t * (target_value - self) as f32) as i32
     }
 }
 
 impl InterpolatedPropertyValue for i64 {
-    fn interpolate(self, target_value: Self, t: f32) -> Self {
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         self + (t * (target_value - self) as f32) as Self
     }
 }
 
 impl InterpolatedPropertyValue for u8 {
-    fn interpolate(self, target_value: Self, t: f32) -> Self {
-        ((self as f32) + (t * ((target_value as f32) - (self as f32)))).min(255.).max(0.) as u8
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self {
+        ((*self as f32) + (t * ((*target_value as f32) - (*self as f32)))).min(255.).max(0.) as u8
     }
 }
 
@@ -1501,7 +1499,7 @@ pub(crate) mod ffi {
         core::ptr::read(handle);
     }
 
-    fn c_set_animated_value<T: InterpolatedPropertyValue>(
+    fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
         handle: &PropertyHandleOpaque,
         from: T,
         to: T,
@@ -1557,7 +1555,7 @@ pub(crate) mod ffi {
         c_set_animated_value(handle, from, to, animation_data);
     }
 
-    unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue>(
+    unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut T),
         user_data: *mut c_void,

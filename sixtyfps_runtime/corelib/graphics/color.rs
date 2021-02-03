@@ -169,12 +169,12 @@ impl Color {
 }
 
 impl InterpolatedPropertyValue for Color {
-    fn interpolate(self, target_value: Self, t: f32) -> Self {
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         Self {
-            red: self.red.interpolate(target_value.red, t),
-            green: self.green.interpolate(target_value.green, t),
-            blue: self.blue.interpolate(target_value.blue, t),
-            alpha: self.alpha.interpolate(target_value.alpha, t),
+            red: self.red.interpolate(&target_value.red, t),
+            green: self.green.interpolate(&target_value.green, t),
+            blue: self.blue.interpolate(&target_value.blue, t),
+            alpha: self.alpha.interpolate(&target_value.alpha, t),
         }
     }
 }
