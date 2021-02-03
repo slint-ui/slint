@@ -34,8 +34,8 @@ ButtonRectangle := Rectangle {
     height: 75phx;
 
     inner := Rectangle {
-        background: { area.pressed ? green : root.color };
-        animate color { duration: 500ms; }
+        background: { area.pressed ? green : root.background };
+        animate background { duration: 500ms; }
         area := TouchArea {
             width: inner.width;
             height: inner.height;

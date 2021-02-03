@@ -28,7 +28,7 @@ TestCase := Rectangle {
     }
 
     if (cond1 ? cond2 : cond3) : Rectangle {
-        background: root.color;
+        background: root.background;
     }
 }
 
