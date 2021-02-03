@@ -486,9 +486,6 @@ impl Expression {
             Color(Expression),
             Finished,
         }
-        /*         let mut append = |current_stop : &mut Stop| {
-            let cur = std::mem::replace(current_stop, Stop::Finished);
-        }; */
         let mut current_stop = Stop::Empty;
         for n in subs {
             if n.kind() == SyntaxKind::Comma {
@@ -498,7 +495,14 @@ impl Expression {
                         break;
                     }
                     Stop::Finished => {}
-                    Stop::Color(col) => stops.push((col, Expression::Invalid)),
+                    Stop::Color(col) => stops.push((
+                        col,
+                        if stops.len() == 0 {
+                            Expression::NumberLiteral(0., Unit::None)
+                        } else {
+                            Expression::Invalid
+                        },
+                    )),
                 }
             } else {
                 // To faciliate color literal conversion, adjust the expected return type.
@@ -524,8 +528,47 @@ impl Expression {
             }
         }
         if let Stop::Color(col) = current_stop {
-            stops.push((col, Expression::Invalid))
+            stops.push((col, Expression::NumberLiteral(1., Unit::None)))
         };
+
+        // Fix the stop so each has a position.
+        let mut start = 0;
+        while start < stops.len() {
+            start += match stops[start..].iter().position(|s| matches!(s.1, Expression::Invalid)) {
+                Some(p) => p,
+                None => break,
+            };
+            let (before, rest) = stops.split_at_mut(start);
+            let pos =
+                rest.iter().position(|s| !matches!(s.1, Expression::Invalid)).unwrap_or(rest.len());
+            if pos > 0 {
+                let (middle, after) = rest.split_at_mut(pos);
+                let begin = &before.last().expect("The first should never be invlid").1;
+                let end = &after.last().expect("The last should never be invalid").1;
+                for (i, (_, e)) in middle.iter_mut().enumerate() {
+                    debug_assert!(matches!(e, Expression::Invalid));
+                    // e = begin + (i+1) * (end - begin) / (pos+1)
+                    *e = Expression::BinaryExpression {
+                        lhs: Box::new(begin.clone()),
+                        rhs: Box::new(Expression::BinaryExpression {
+                            lhs: Box::new(Expression::BinaryExpression {
+                                lhs: Box::new(Expression::NumberLiteral(i as f64 + 1., Unit::None)),
+                                rhs: Box::new(Expression::BinaryExpression {
+                                    lhs: Box::new(end.clone()),
+                                    rhs: Box::new(begin.clone()),
+                                    op: '-',
+                                }),
+                                op: '*',
+                            }),
+                            rhs: Box::new(Expression::NumberLiteral(pos as f64 + 1., Unit::None)),
+                            op: '/',
+                        }),
+                        op: '+',
+                    };
+                }
+            }
+            start += pos + 1;
+        }
 
         Expression::LinearGradient { angle, stops }
     }

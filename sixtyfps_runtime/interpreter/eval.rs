@@ -640,7 +640,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             let angle = eval_expression(angle, local_context);
             Value::Brush(Brush::LinearGradient(LinearGradientBrush::new(angle.try_into().unwrap(), stops.iter().map(|(color, stop)| {
                 let color = eval_expression(color, local_context).try_into().unwrap();
-                let position = eval_expression(stop, local_context).try_into().unwrap_or(f32::NAN);
+                let position = eval_expression(stop, local_context).try_into().unwrap();
                 GradientStop{ color, position }
             }))))
         }

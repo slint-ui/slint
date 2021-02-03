@@ -1334,11 +1334,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let angle = compile_expression(angle, component);
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, component);
-                let position = if matches!(stop, Expression::Invalid) {
-                    quote!(f32::NAN)
-                } else {
-                    compile_expression(stop, component)
-                };
+                let position = compile_expression(stop, component);
                 quote!(sixtyfps::re_exports::GradientStop{ color: #color, position: #position as _ })
             });
             quote!(sixtyfps::Brush::LinearGradient(

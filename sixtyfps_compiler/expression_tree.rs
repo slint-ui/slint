@@ -1079,12 +1079,14 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             pretty_print(f, rhs)
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
+            write!(f, "(")?;
             pretty_print(f, lhs)?;
             match *op {
                 '=' | '!' => write!(f, " {}= ", op)?,
                 _ => write!(f, " {} ", op)?,
             };
-            pretty_print(f, rhs)
+            pretty_print(f, rhs)?;
+            write!(f, ")")
         }
         Expression::UnaryOp { sub, op } => {
             write!(f, "{}", op)?;
@@ -1123,10 +1125,10 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "@linear-gradient(")?;
             pretty_print(f, &angle)?;
             for (c, s) in stops {
+                write!(f, ", ")?;
                 pretty_print(f, &c)?;
                 write!(f, "  ")?;
                 pretty_print(f, &s)?;
-                write!(f, ", ")?;
             }
             write!(f, ")")
         }

@@ -1650,11 +1650,7 @@ fn compile_expression(
             let angle = compile_expression(angle, component);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, component);
-                let position = if matches!(stop, Expression::Invalid) {
-                    "std::numeric_limits<double>::quiet_NaN()".to_string()
-                } else {
-                    compile_expression(stop, component)
-                };
+                let position = compile_expression(stop, component);
                 format!("sixtyfps::GradientStop{{ {}, {}, }}", color, position)
             });
             format!(
