@@ -277,12 +277,13 @@ fn to_js_value<'cx>(
             }
             js_object.as_value(cx)
         }
-        Value::Color(c) => JsString::new(
+        Value::Color(c) | Value::Brush(sixtyfps_corelib::Brush::SolidColor(c)) => JsString::new(
             cx,
             &format!("#{:02x}{:02x}{:02x}{:02x}", c.red(), c.green(), c.blue(), c.alpha()),
         )
         .as_value(cx),
-        Value::PathElements(_)
+        Value::Brush(_)
+        | Value::PathElements(_)
         | Value::EasingCurve(_)
         | Value::EnumerationValue(..)
         | Value::Model(_) => todo!("converting {:?} to js has not been implemented", val),

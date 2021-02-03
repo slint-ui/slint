@@ -11,11 +11,11 @@ use crate::dynamic_component::InstanceRef;
 use core::convert::{TryFrom, TryInto};
 use core::iter::FromIterator;
 use core::pin::Pin;
-use corelib::graphics::PathElement;
+use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::ComponentWindow;
-use corelib::{Color, PathData, Resource, SharedString, SharedVector};
+use corelib::{Brush, Color, PathData, Resource, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
     PathElement as ExprPathElement,
@@ -124,6 +124,8 @@ pub enum Value {
     Object(HashMap<String, Value>),
     /// A color
     Color(Color),
+    /// A brush
+    Brush(Brush),
     /// The elements of a path
     PathElements(PathData),
     /// An easing curve
@@ -177,6 +179,7 @@ declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Resource => [Resource] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
+declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
 
@@ -632,7 +635,14 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 corelib::animations::EasingCurve::CubicBezier([*a, *b, *c, *d])
             }
         }),
-        Expression::LinearGradient{..} => todo!(),
+        Expression::LinearGradient{angle, stops} => {
+            let angle = eval_expression(angle, local_context);
+            Value::Brush(Brush::LinearGradient(LinearGradientBrush::new(angle.try_into().unwrap(), stops.iter().map(|(color, stop)| {
+                let color = eval_expression(color, local_context).try_into().unwrap();
+                let position = eval_expression(stop, local_context).try_into().unwrap_or(f32::NAN);
+                GradientStop{ color, position }
+            }))))
+        },
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.clone(), value.to_string())
         }

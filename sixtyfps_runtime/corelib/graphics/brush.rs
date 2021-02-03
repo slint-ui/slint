@@ -18,7 +18,7 @@ use crate::SharedVector;
 /// a shape, such as a rectangle, path or even text, shall be filled.
 /// A brush can also be applied to the outline of a shape, that means
 /// the fill of the outline itself.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 #[repr(C)]
 pub enum Brush {
     /// The brush will not produce any fill.
@@ -39,7 +39,7 @@ impl Default for Brush {
 /// The LinearGradientBrush describes a way of filling a shape with different colors, which
 /// are interpolated between different stops. The colors are aligned with a line that's rotated
 /// by the LinearGradient's angle.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 #[repr(transparent)]
 pub struct LinearGradientBrush(SharedVector<GradientStop>);
 
@@ -70,9 +70,9 @@ impl LinearGradientBrush {
 #[derive(Clone, Debug, PartialEq)]
 pub struct GradientStop {
     /// The color to draw at this stop.
-    color: Color,
+    pub color: Color,
     /// The position of this stop on the entire shape, as a normalized value between 0 and 1.
-    position: f32,
+    pub position: f32,
 }
 
 #[cfg(feature = "femtovg_backend")]
