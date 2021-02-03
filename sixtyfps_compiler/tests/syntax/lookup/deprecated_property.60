@@ -20,4 +20,10 @@ Xxx := Rectangle {
             duration: 250ms;
         }
     }
+
+    callback not_called;
+    not_called() => {
+        color = #000000;
+//      ^warning{The property 'color' has been deprecated. Please use 'background' instead}
+    }
 }

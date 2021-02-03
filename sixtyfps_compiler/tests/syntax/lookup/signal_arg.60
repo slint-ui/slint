@@ -13,7 +13,7 @@ Xxx := Rectangle {
     property <color> glop_col;
     property <string> blah: "yo";
     plop(x, blah, hello) => {
-        color = blah;
+        background = blah;
         x = 42 + hello;
 //      ^error{Assignement need to be done on a property}
         width = x;

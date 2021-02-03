@@ -584,6 +584,9 @@ impl Expression {
             let PropertyLookupResult { resolved_name, property_type } =
                 elem.borrow().lookup_property(&first_str);
             if property_type.is_property_type() {
+                if resolved_name.as_ref() != &first_str {
+                    ctx.diag.push_property_deprecation_warning(&first_str, &resolved_name, &first);
+                }
                 let prop = Self::PropertyReference(NamedReference {
                     element: Rc::downgrade(&elem),
                     name: resolved_name.to_string(),
