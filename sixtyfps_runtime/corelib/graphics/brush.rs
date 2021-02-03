@@ -12,6 +12,7 @@ This module contains brush related types for the run-time library.
 */
 
 use super::Color;
+use crate::properties::InterpolatedPropertyValue;
 use crate::SharedVector;
 
 /// A brush is a data structure that is used to describe how
@@ -33,6 +34,16 @@ pub enum Brush {
 impl Default for Brush {
     fn default() -> Self {
         Self::NoBrush
+    }
+}
+
+impl std::fmt::Display for Brush {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Brush::NoBrush => write!(f, "Brush::NoBrush()"),
+            Brush::SolidColor(col) => write!(f, "Brush::SolidColor({})", col),
+            Brush::LinearGradient(_) => write!(f, "Brush::LinearGradient(todo)"),
+        }
     }
 }
 
@@ -93,6 +104,26 @@ impl From<Brush> for femtovg::Paint {
             Brush::NoBrush => Default::default(),
             Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
             Brush::LinearGradient(_) => unimplemented!(),
+        }
+    }
+}
+
+impl InterpolatedPropertyValue for Brush {
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self {
+        match (self, target_value) {
+            (Brush::NoBrush, Brush::NoBrush) => Brush::NoBrush,
+            (Brush::NoBrush, Brush::SolidColor(col)) => {
+                Brush::SolidColor(Color::default().interpolate(col, t))
+            }
+            (Brush::NoBrush, Brush::LinearGradient(_)) => unimplemented!(),
+            (Brush::SolidColor(_), Brush::NoBrush) => unimplemented!(),
+            (Brush::SolidColor(source_col), Brush::SolidColor(target_col)) => {
+                Brush::SolidColor(source_col.interpolate(target_col, t))
+            }
+            (Brush::SolidColor(_), Brush::LinearGradient(_)) => unimplemented!(),
+            (Brush::LinearGradient(_), Brush::NoBrush) => unimplemented!(),
+            (Brush::LinearGradient(_), Brush::SolidColor(_)) => unimplemented!(),
+            (Brush::LinearGradient(_), Brush::LinearGradient(_)) => unimplemented!(),
         }
     }
 }

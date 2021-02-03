@@ -383,6 +383,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     Value::String(SharedString::from(format!("{}", n).as_str()))
                 }
                 (Value::Number(n), Type::Color) => Value::Color(Color::from_argb_encoded(n as u32)),
+                (Value::Color(col), Type::Brush) => Value::Brush(Brush::SolidColor(col)),
                 (v, _) => v,
             }
         }

@@ -30,7 +30,7 @@ X := Rectangle {
 
     Rectangle {
         background: "blue";
-//                 ^error{Cannot convert string to color$}
+//                 ^error{Cannot convert string to brush$}
         property<length> no_matching_parent: 50%;
 //                                          ^error{Automatic conversion from percentage to lenght is only possible for the properties width and height}
     }

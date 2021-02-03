@@ -55,6 +55,7 @@ fn rust_type(
             let e = format_ident!("{}", e.name);
             Ok(quote!(sixtyfps::re_exports::#e))
         }
+        Type::Brush => Ok(quote!(sixtyfps::Brush)),
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
             span: span.clone(),
@@ -1035,6 +1036,9 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
                 }
+                (Type::Color, Type::Brush) => {
+                    quote!(sixtyfps::Brush::SolidColor(#f))
+                }
                 (Type::Object { ref fields, .. }, Type::Component(c)) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
@@ -1337,7 +1341,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 };
                 quote!(sixtyfps::re_exports::GradientStop{ color: #color, position: #position as _ })
             });
-            quote!(sixtyfps::re_exports::Brush::LinearGradient(
+            quote!(sixtyfps::Brush::LinearGradient(
                 sixtyfps::re_exports::LinearGradientBrush::new(#angle as _, [#(#stops),*].iter().cloned())
             ))
         }

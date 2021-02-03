@@ -9,7 +9,7 @@
 LICENSE END */
 
 TestCase := Rectangle {
-    property<color> extra_color <=> color;
+    property<brush> extra_color <=> color;
     property<length> sub_width1 <=> sub.width;
     property<length> sub_width2: sub.width;
 

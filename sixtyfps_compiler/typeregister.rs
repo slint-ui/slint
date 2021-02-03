@@ -122,6 +122,7 @@ impl TypeRegister {
         register.insert_type(Type::Percent);
         register.insert_type(Type::Easing);
         register.insert_type(Type::Angle);
+        register.insert_type(Type::Brush);
 
         let mut declare_enum = |name: &str, values: &[&str]| {
             register.insert_type_with_name(
@@ -150,6 +151,7 @@ impl TypeRegister {
         register.supported_property_animation_types.insert(Type::Color.to_string());
         register.supported_property_animation_types.insert(Type::Length.to_string());
         register.supported_property_animation_types.insert(Type::LogicalLength.to_string());
+        register.supported_property_animation_types.insert(Type::Brush.to_string());
 
         crate::load_builtins::load_builtins(&mut register);
 

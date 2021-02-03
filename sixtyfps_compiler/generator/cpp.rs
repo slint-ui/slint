@@ -255,6 +255,7 @@ impl CppType for Type {
             Type::Resource => Some("sixtyfps::Resource".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),
+            Type::Brush => Some("sixtyfps::Brush".to_owned()),
             _ => None,
         }
     }
@@ -1477,6 +1478,9 @@ fn compile_expression(
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => {
                     format!("sixtyfps::Color::from_argb_encoded({})", f)
+                }
+                (Type::Color, Type::Brush) => {
+                    format!("sixtyfps::Brush({})", f)
                 }
                 (Type::Object { .. }, Type::Object{ fields, name: Some(n)}) => {
                     format!(

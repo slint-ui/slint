@@ -226,7 +226,7 @@ struct QtItemRenderer<'a> {
 impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_rectangle(&mut self, pos: Point, rect: Pin<&items::Rectangle>) {
         let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
-        let brush: qttypes::QBrush = Brush::SolidColor(rect.background()).into();
+        let brush: qttypes::QBrush = rect.background().into();
         let rect: qttypes::QRectF = get_geometry!(pos, items::Rectangle, rect);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", brush as "QBrush", rect as "QRectF"] {
@@ -237,7 +237,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_border_rectangle(&mut self, pos: Point, rect: std::pin::Pin<&items::BorderRectangle>) {
         self.draw_rectangle_impl(
             get_geometry!(pos, items::BorderRectangle, rect),
-            Brush::SolidColor(rect.background()),
+            rect.background(),
             rect.border_color(),
             rect.border_width(),
             rect.border_radius(),

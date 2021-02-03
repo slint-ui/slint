@@ -10,7 +10,7 @@ LICENSE END */
 X := Rectangle {
     background: {
         return 42;
-//      ^error{Cannot convert float to color}
+//      ^error{Cannot convert float to brush}
         return blue;
     }
 

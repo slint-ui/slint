@@ -25,7 +25,7 @@ X := Rectangle {
 //         ^error{Cannot find parent property to apply relative lenght}
     Foo {
         background: 30%;
-//                 ^error{Cannot convert percent to color}
+//                 ^error{Cannot convert percent to brush}
         y: 30%;
 //        ^error{conversion from percentage to lenght is only possible for the properties width and height}
     }

@@ -631,6 +631,21 @@ impl Expression {
                     };
                 }
             }
+            Type::Brush => {
+                if let Some(c) = css_color_parser2::NAMED_COLORS.get(first_str.as_str()) {
+                    let value = ((c.a as u32 * 255) << 24)
+                        | ((c.r as u32) << 16)
+                        | ((c.g as u32) << 8)
+                        | (c.b as u32);
+                    return Expression::Cast {
+                        from: Box::new(Expression::Cast {
+                            from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
+                            to: Type::Color,
+                        }),
+                        to: Type::Brush,
+                    };
+                }
+            }
             Type::Easing => {
                 // These value are coming from CSSn with - replaced by _
                 let value = match first_str.as_str() {

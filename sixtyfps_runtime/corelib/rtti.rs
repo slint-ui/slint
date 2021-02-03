@@ -44,6 +44,7 @@ declare_ValueType![
     crate::items::ImageFit,
     crate::input::KeyEvent,
     crate::items::EventResult,
+    crate::Brush,
 ];
 
 /// What kind of animation is on a binding

@@ -129,7 +129,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))
         .with_src(crate_dir.join("callbacks.rs"))
-        .with_after_include("namespace sixtyfps { class Color; }")
+        .with_after_include("namespace sixtyfps { class Color; class Brush; }")
         .generate()
         .context("Unable to generate bindings for sixtyfps_properties_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));

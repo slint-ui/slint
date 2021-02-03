@@ -166,7 +166,7 @@ pub use sixtyfps_corelib::model::{
 pub use sixtyfps_corelib::sharedvector::SharedVector;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::timers::{Timer, TimerMode};
-pub use sixtyfps_corelib::{Color, RgbaColor};
+pub use sixtyfps_corelib::{Brush, Color, RgbaColor};
 
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType

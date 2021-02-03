@@ -42,7 +42,7 @@ Hello := Rectangle {
         x: plop * 1phx;
         Rectangle {
             background: plop;
-//                     ^error{Cannot convert float to color}
+//                     ^error{Cannot convert float to brush}
         }
     }
 

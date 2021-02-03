@@ -46,7 +46,12 @@ void sixtyfps_property_set_animated_binding_helper(const cbindgen_private::Prope
     cbindgen_private::sixtyfps_property_set_animated_binding_color(handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
-
+void sixtyfps_property_set_animated_binding_helper(const cbindgen_private::PropertyHandleOpaque *handle,
+        void (*binding)(void*, Brush*), void *user_data, void (*drop_user_data)(void*),
+        const cbindgen_private::PropertyAnimation *animation_data,
+        cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *)) {
+    cbindgen_private::sixtyfps_property_set_animated_binding_brush(handle, binding, user_data, drop_user_data, animation_data, transition_data);
+}
 
 }
 

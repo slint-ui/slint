@@ -25,7 +25,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use crate::component::ComponentVTable;
-use crate::graphics::{Color, PathData, Point, Rect, Size};
+use crate::graphics::{Brush, Color, PathData, Point, Rect, Size};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
     MouseEventType,
@@ -157,7 +157,7 @@ impl ItemWeak {
 #[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
-    pub background: Property<Color>,
+    pub background: Property<Brush>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -218,7 +218,7 @@ ItemVTable_static! {
 #[pin]
 /// The implementation of the `BorderRectangle` element
 pub struct BorderRectangle {
-    pub background: Property<Color>,
+    pub background: Property<Brush>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,

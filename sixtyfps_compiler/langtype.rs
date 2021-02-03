@@ -50,6 +50,7 @@ pub enum Type {
     Model,
     PathElements,
     Easing,
+    Brush,
 
     Array(Box<Type>),
     Object {
@@ -89,6 +90,7 @@ impl core::cmp::PartialEq for Type {
             Type::Model => matches!(other, Type::Model),
             Type::PathElements => matches!(other, Type::PathElements),
             Type::Easing => matches!(other, Type::Easing),
+            Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
             Type::Object { fields, name } => {
                 matches!(other, Type::Object{fields: f, name: n} if fields == f && name == n)
@@ -158,6 +160,7 @@ impl Display for Type {
 
             Type::PathElements => write!(f, "pathelements"),
             Type::Easing => write!(f, "easing"),
+            Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::ElementReference => write!(f, "element ref"),
         }
@@ -187,7 +190,8 @@ impl Type {
             | Self::Enumeration(_)
             | Self::ElementReference
             | Self::Object { .. }
-            | Self::Array(_))
+            | Self::Array(_)
+            | Self::Brush)
     }
 
     pub fn ok_for_public_api(&self) -> bool {
@@ -342,7 +346,8 @@ impl Type {
             | (Type::Int32, Type::Model)
             | (Type::Length, Type::LogicalLength)
             | (Type::LogicalLength, Type::Length)
-            | (Type::Percent, Type::Float32) => true,
+            | (Type::Percent, Type::Float32)
+            | (Type::Color, Type::Brush) => true,
             (Type::Object { fields: a, .. }, Type::Object { fields: b, .. }) => {
                 can_convert_object(a, b)
             }
@@ -395,6 +400,7 @@ impl Type {
             Type::Model => None,
             Type::PathElements => None,
             Type::Easing => None,
+            Type::Brush => None,
             Type::Array(_) => None,
             Type::Object { .. } => None,
             Type::Enumeration(_) => None,

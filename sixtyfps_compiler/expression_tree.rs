@@ -921,6 +921,10 @@ impl Expression {
                     .collect(),
             },
             Type::Easing => Expression::EasingCurve(EasingCurve::default()),
+            Type::Brush => Expression::Cast {
+                from: Box::new(Expression::default_value_for_type(&Type::Color)),
+                to: Type::Brush,
+            },
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }

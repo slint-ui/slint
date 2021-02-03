@@ -97,7 +97,7 @@ use core::cell::{Cell, RefCell, UnsafeCell};
 use core::{marker::PhantomPinned, pin::Pin};
 use std::rc::Rc;
 
-use crate::graphics::Color;
+use crate::graphics::{Brush, Color};
 use crate::items::PropertyAnimation;
 
 /// The return value of a binding
@@ -1657,6 +1657,28 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut Color),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        animation_data: Option<&PropertyAnimation>,
+        transition_data: Option<
+            extern "C" fn(user_data: *mut c_void, start_instant: &mut u64) -> PropertyAnimation,
+        >,
+    ) {
+        c_set_animated_binding(
+            handle,
+            binding,
+            user_data,
+            drop_user_data,
+            animation_data,
+            transition_data,
+        );
+    }
+
+    /// Internal function to set up a property animation between values produced by the specified binding for a brush property.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_brush(
+        handle: &PropertyHandleOpaque,
+        binding: extern "C" fn(*mut c_void, *mut Brush),
         user_data: *mut c_void,
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
         animation_data: Option<&PropertyAnimation>,
