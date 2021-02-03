@@ -15,7 +15,7 @@ use std::{
 };
 
 use sixtyfps_corelib::graphics::{
-    Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource, Size,
+    Brush, Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource, Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
@@ -667,7 +667,7 @@ impl ItemRenderer for GLItemRenderer {
         }
         // TODO: cache path in item to avoid re-tesselation
         let mut path = rect_to_path(geometry);
-        let paint = rect.background().into();
+        let paint = self.brush_to_paint(rect.background(), &mut path);
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, paint)
@@ -705,7 +705,7 @@ impl ItemRenderer for GLItemRenderer {
             path.rounded_rect(x, y, width, height, border_radius);
         }
 
-        let fill_paint = rect.background().into();
+        let fill_paint = self.brush_to_paint(rect.background(), &mut path);
 
         let mut border_paint = femtovg::Paint::color(rect.border_color().into());
         border_paint.set_line_width(border_width);
@@ -1228,6 +1228,33 @@ impl GLItemRenderer {
 
             canvas.fill_path(&mut path, fill_paint);
         })
+    }
+
+    fn brush_to_paint(&self, brush: Brush, path: &mut femtovg::Path) -> femtovg::Paint {
+        match brush {
+            Brush::NoBrush => Default::default(),
+            Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
+            Brush::LinearGradient(gradient) => {
+                let path_bounds = self.shared_data.canvas.borrow().path_bbox(path);
+
+                let path_width = path_bounds.maxx - path_bounds.minx;
+                let path_height = path_bounds.maxy - path_bounds.miny;
+
+                let transform = euclid::Transform2D::scale(path_width, path_height)
+                    .then_translate(euclid::Vector2D::new(path_bounds.minx, path_bounds.miny));
+
+                let (start, end) = gradient.start_end_points();
+
+                let start: Point = transform.transform_point(start);
+                let end: Point = transform.transform_point(end);
+
+                let stops = gradient
+                    .stops()
+                    .map(|stop| (stop.position, stop.color.into()))
+                    .collect::<Vec<_>>();
+                femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, &stops)
+            }
+        }
     }
 }
 

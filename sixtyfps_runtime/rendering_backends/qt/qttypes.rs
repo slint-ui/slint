@@ -231,12 +231,9 @@ impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
                 })
             }
             sixtyfps_corelib::Brush::LinearGradient(g) => {
-                let angle = g.angle().to_radians();
-                let r = (angle.sin().abs() + angle.cos().abs()) / 2.;
-                let (y, x) = (angle - std::f32::consts::PI / 2.).sin_cos();
-                let (y, x) = (y * r, x * r);
-                let p1 = QPointF { x: (0.5 - x) as _, y: (0.5 - y) as _ };
-                let p2 = QPointF { x: (0.5 + x) as _, y: (0.5 + y) as _ };
+                let (start, end) = g.start_end_points();
+                let p1 = QPointF { x: start.x as _, y: start.y as _ };
+                let p2 = QPointF { x: end.x as _, y: end.y as _ };
                 cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
                 let mut qlg = cpp! {
                     unsafe [p1 as "QPointF", p2 as "QPointF"] -> QLinearGradient as "QLinearGradient" {

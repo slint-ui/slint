@@ -11,7 +11,7 @@ LICENSE END */
 This module contains brush related types for the run-time library.
 */
 
-use super::Color;
+use super::{Color, Point};
 use crate::properties::InterpolatedPropertyValue;
 use crate::SharedVector;
 
@@ -73,6 +73,17 @@ impl LinearGradientBrush {
         // skip the first fake stop that just contains the angle
         self.0.iter().skip(1)
     }
+
+    /// Returns the start / end points of the gradient within the [-0.5; 0.5] unit square, based on the angle.
+    pub fn start_end_points(&self) -> (Point, Point) {
+        let angle = self.angle().to_radians();
+        let r = (angle.sin().abs() + angle.cos().abs()) / 2.;
+        let (y, x) = (angle - std::f32::consts::PI / 2.).sin_cos();
+        let (y, x) = (y * r, x * r);
+        let start = Point::new(0.5 - x, 0.5 - y);
+        let end = Point::new(0.5 + x, 0.5 + y);
+        (start, end)
+    }
 }
 
 /// GradientStop describes a single color stop in a gradient. The colors between multiple
@@ -84,28 +95,6 @@ pub struct GradientStop {
     pub color: Color,
     /// The position of this stop on the entire shape, as a normalized value between 0 and 1.
     pub position: f32,
-}
-
-#[cfg(feature = "femtovg_backend")]
-impl From<&Brush> for femtovg::Paint {
-    fn from(brush: &Brush) -> Self {
-        match brush {
-            Brush::NoBrush => Default::default(),
-            Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
-            Brush::LinearGradient(_) => unimplemented!(),
-        }
-    }
-}
-
-#[cfg(feature = "femtovg_backend")]
-impl From<Brush> for femtovg::Paint {
-    fn from(brush: Brush) -> Self {
-        match brush {
-            Brush::NoBrush => Default::default(),
-            Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
-            Brush::LinearGradient(_) => unimplemented!(),
-        }
-    }
 }
 
 impl InterpolatedPropertyValue for Brush {
