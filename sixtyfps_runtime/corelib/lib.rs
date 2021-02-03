@@ -60,6 +60,9 @@ pub use callbacks::Callback;
 pub use graphics::Color;
 
 #[doc(inline)]
+pub use graphics::Brush;
+
+#[doc(inline)]
 pub use graphics::RgbaColor;
 
 #[doc(inline)]

@@ -215,3 +215,28 @@ pub struct QRectF {
     pub width: qreal,
     pub height: qreal,
 }
+
+cpp_class!(
+    pub unsafe struct QBrush as "QBrush"
+);
+
+impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
+    fn from(brush: sixtyfps_corelib::Brush) -> Self {
+        match brush {
+            sixtyfps_corelib::Brush::NoBrush => {
+                cpp!(unsafe [] -> QBrush as "QBrush" {
+                    return QBrush();
+                })
+            }
+            sixtyfps_corelib::Brush::SolidColor(color) => {
+                let color: u32 = color.as_argb_encoded();
+                cpp!(unsafe [color as "QRgb"] -> QBrush as "QBrush" {
+                    return QBrush(QColor::fromRgba(color));
+                })
+            }
+            sixtyfps_corelib::Brush::LinearGradient(_) => {
+                unimplemented!()
+            }
+        }
+    }
+}

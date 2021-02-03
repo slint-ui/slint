@@ -18,6 +18,7 @@ use crate::SharedVector;
 /// a shape, such as a rectangle, path or even text, shall be filled.
 /// A brush can also be applied to the outline of a shape, that means
 /// the fill of the outline itself.
+#[derive(Clone, PartialEq)]
 #[repr(C)]
 pub enum Brush {
     /// The brush will not produce any fill.
@@ -29,9 +30,16 @@ pub enum Brush {
     LinearGradient(LinearGradientBrush),
 }
 
+impl Default for Brush {
+    fn default() -> Self {
+        Self::NoBrush
+    }
+}
+
 /// The LinearGradientBrush describes a way of filling a shape with different colors, which
 /// are interpolated between different stops. The colors are aligned with a line that's rotated
 /// by the LinearGradient's angle.
+#[derive(Clone, PartialEq)]
 #[repr(transparent)]
 pub struct LinearGradientBrush(SharedVector<GradientStop>);
 
@@ -65,6 +73,28 @@ pub struct GradientStop {
     color: Color,
     /// The position of this stop on the entire shape, as a normalized value between 0 and 1.
     position: f32,
+}
+
+#[cfg(feature = "femtovg_backend")]
+impl From<&Brush> for femtovg::Paint {
+    fn from(brush: &Brush) -> Self {
+        match brush {
+            Brush::NoBrush => Default::default(),
+            Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
+            Brush::LinearGradient(_) => unimplemented!(),
+        }
+    }
+}
+
+#[cfg(feature = "femtovg_backend")]
+impl From<Brush> for femtovg::Paint {
+    fn from(brush: Brush) -> Self {
+        match brush {
+            Brush::NoBrush => Default::default(),
+            Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
+            Brush::LinearGradient(_) => unimplemented!(),
+        }
+    }
 }
 
 #[test]

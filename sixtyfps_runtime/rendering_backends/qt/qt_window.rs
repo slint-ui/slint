@@ -10,7 +10,7 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::graphics::{Color, FontRequest, Point, Rect, RenderingCache};
+use sixtyfps_corelib::graphics::{Brush, Color, FontRequest, Point, Rect, RenderingCache};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, ItemRef, TextOverflow, TextWrap};
@@ -226,18 +226,18 @@ struct QtItemRenderer<'a> {
 impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_rectangle(&mut self, pos: Point, rect: Pin<&items::Rectangle>) {
         let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
-        let color: u32 = rect.background().as_argb_encoded();
+        let brush: qttypes::QBrush = Brush::SolidColor(rect.background()).into();
         let rect: qttypes::QRectF = get_geometry!(pos, items::Rectangle, rect);
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", color as "QRgb", rect as "QRectF"] {
-            painter->fillRect(rect, QColor::fromRgba(color));
+        cpp! { unsafe [painter as "QPainter*", brush as "QBrush", rect as "QRectF"] {
+            painter->fillRect(rect, brush);
         }}
     }
 
     fn draw_border_rectangle(&mut self, pos: Point, rect: std::pin::Pin<&items::BorderRectangle>) {
         self.draw_rectangle_impl(
             get_geometry!(pos, items::BorderRectangle, rect),
-            rect.background(),
+            Brush::SolidColor(rect.background()),
             rect.border_color(),
             rect.border_width(),
             rect.border_radius(),
@@ -432,7 +432,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
         self.draw_rectangle_impl(
             shadow_rect,
-            box_shadow.color(),
+            Brush::SolidColor(box_shadow.color()),
             Color::default(),
             0.,
             box_shadow.border_radius(),
@@ -555,12 +555,12 @@ impl QtItemRenderer<'_> {
     fn draw_rectangle_impl(
         &mut self,
         mut rect: qttypes::QRectF,
-        color: Color,
+        brush: Brush,
         border_color: Color,
         border_width: f32,
         border_radius: f32,
     ) {
-        let color: u32 = color.as_argb_encoded();
+        let brush: qttypes::QBrush = brush.into();
         let border_color: u32 = border_color.as_argb_encoded();
         let border_width: f32 = border_width.min((rect.width as f32) / 2.);
         // adjust the size so that the border is drawn within the geometry
@@ -569,9 +569,9 @@ impl QtItemRenderer<'_> {
         rect.width -= border_width as f64;
         rect.height -= border_width as f64;
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", color as "QRgb",  border_color as "QRgb", border_width as "float", border_radius as "float", rect as "QRectF"] {
+        cpp! { unsafe [painter as "QPainter*", brush as "QBrush",  border_color as "QRgb", border_width as "float", border_radius as "float", rect as "QRectF"] {
             painter->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
-            painter->setBrush(QColor::fromRgba(color));
+            painter->setBrush(brush);
             if (border_radius > 0) {
                 painter->drawRoundedRect(rect, border_radius, border_radius);
             } else {
