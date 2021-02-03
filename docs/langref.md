@@ -191,6 +191,7 @@ All properties in elements have a type. The following types are supported:
 | `float` | Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`. |
 | `string` | UTF-8 encoded, reference counted string. |
 | `color` | RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as `#RRGGBBAA` or `#RGB`. |
+| `brush` | A brush is a special type that can be either initialized from a color or a gradient specification. See the [Colors Section](#colors) for more information. |
 | `length` | The type used for `x`, `y`, `width` and `height` coordinates. This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1phx`. |
 | `logical_length` | Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
 | `duration` | Type for the duration of animations. A suffix like `ms` (milisecond) or `s` (second) is used to indicate the precision. |
@@ -432,6 +433,34 @@ Example := Rectangle {
 
 (TODO: currently color name are only limited to a handfull and only supported in color property)
 
+In addition to plain colors, many elements have properties that are of type `brush` instead of `color`.
+A brush is a type that can be either a color or gradient. The brush is then used to fill an element or
+draw the outline.
+
+#### Gradients
+
+Gradients allow creating smooth colorful surfaces. They are specified using an angle and a series of 
+color stops. The colors will be linearly interpolated between the stops, aligned to an imaginary line
+that is rotated by the specified angle. This is called a linear gradient and is specified using the
+`@linear-gradient` macro with the following signature:
+
+**`@linear-gradient(angle, color percentage, color percentage, ...)`**
+
+The first parameter to the macro is an angle (see [Types](##types)). The gradient line's starting point
+will be rotated by the specified value.
+
+Following the initial angle is one or multiple color stops, describe as a space separated pair of a
+`color` value and a `percentage`. The color specifies which value the linear color interpolation should
+reach at the specified percentage along the axis of the gradient.
+
+The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
+color, interpolates to a very light shade in the center and finishes with an orange tone:
+
+```60
+Example := Rectangle {
+    background: background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
+}
+```
 ### Arrays/Objects
 
 Arrays are currently only supported in `for` expressions. `[1, 2, 3]` is an array of integers.
