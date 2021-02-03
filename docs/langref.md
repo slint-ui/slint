@@ -458,7 +458,7 @@ color, interpolates to a very light shade in the center and finishes with an ora
 
 ```60
 Example := Rectangle {
-    background: background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
+    background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
 }
 ```
 ### Arrays/Objects
