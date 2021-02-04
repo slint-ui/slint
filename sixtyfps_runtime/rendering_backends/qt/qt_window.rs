@@ -372,12 +372,16 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
         // FIXME: handle width/height
         //let rect: qttypes::QRectF = get_geometry!(pos, items::Path, path);
-        let pos = qttypes::QPoint { x: (pos.x + path.x()) as _, y: (pos.y + path.y()) as _ };
         let fill_brush: qttypes::QBrush = path.fill().into();
         let stroke_brush: qttypes::QBrush = path.stroke().into();
         let stroke_width: f32 = path.stroke_width();
+        let (offset, path_events) = path.fitted_path_events();
+        let pos = qttypes::QPoint {
+            x: (pos.x + path.x() + offset.x) as _,
+            y: (pos.y + path.y() + offset.y) as _,
+        };
         let mut painter_path = QPainterPath::default();
-        for x in elements.iter_fitted(path.width(), path.height()).iter() {
+        for x in path_events.iter() {
             impl From<Point> for qttypes::QPointF {
                 fn from(p: Point) -> Self {
                     qttypes::QPointF { x: p.x as _, y: p.y as _ }

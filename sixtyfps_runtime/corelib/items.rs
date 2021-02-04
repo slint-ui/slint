@@ -25,6 +25,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundent
 
 use crate::component::ComponentVTable;
+use crate::graphics::PathDataIterator;
 use crate::graphics::{Brush, Color, PathData, Point, Rect, Size};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
@@ -597,6 +598,22 @@ impl Item for Path {
 
     fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
         (*backend).draw_path(pos, self)
+    }
+}
+
+impl Path {
+    /// Returns an iterator of the events of the path and an offset, so that the
+    /// shape fits into the width/height of the path while respecting the stroke
+    /// width.
+    pub fn fitted_path_events(
+        self: Pin<&Self>,
+    ) -> (euclid::default::Vector2D<f32>, PathDataIterator) {
+        let stroke_width = self.stroke_width();
+        let bounds_width = (self.width() - stroke_width).max(0.);
+        let bounds_height = (self.height() - stroke_width).max(0.);
+        let offset = euclid::default::Vector2D::new(stroke_width / 2., stroke_width / 2.);
+        let event_iterator = self.elements().iter_fitted(bounds_width, bounds_height);
+        (offset, event_iterator)
     }
 }
 

@@ -954,8 +954,11 @@ impl ItemRenderer for GLItemRenderer {
         if matches!(elements, sixtyfps_corelib::PathData::None) {
             return;
         }
+
+        let (offset, path_events) = path.fitted_path_events();
+
         let mut fpath = femtovg::Path::new();
-        for x in elements.iter_fitted(path.width(), path.height()).iter() {
+        for x in path_events.iter() {
             match x {
                 lyon_path::Event::Begin { at } => {
                     fpath.move_to(at.x, at.y);
@@ -983,7 +986,7 @@ impl ItemRenderer for GLItemRenderer {
         border_paint.set_line_width(path.stroke_width());
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(pos.x + path.x(), pos.y + path.y());
+            canvas.translate(pos.x + path.x() + offset.x, pos.y + path.y() + offset.y);
             canvas.fill_path(&mut fpath, fill_paint);
             canvas.stroke_path(&mut fpath, border_paint);
         })
