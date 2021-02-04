@@ -226,7 +226,7 @@ pub struct BorderRectangle {
     pub height: Property<f32>,
     pub border_width: Property<f32>,
     pub border_radius: Property<f32>,
-    pub border_color: Property<Color>,
+    pub border_color: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

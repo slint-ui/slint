@@ -710,13 +710,15 @@ impl ItemRenderer for GLItemRenderer {
 
         let fill_paint = self.brush_to_paint(rect.background(), &mut path);
 
-        let mut border_paint = femtovg::Paint::color(rect.border_color().into());
-        border_paint.set_line_width(border_width);
+        let border_paint = self.brush_to_paint(rect.border_color(), &mut path).map(|mut paint| {
+            paint.set_line_width(border_width);
+            paint
+        });
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             fill_paint.map(|paint| canvas.fill_path(&mut path, paint));
-            canvas.stroke_path(&mut path, border_paint);
+            border_paint.map(|border_paint| canvas.stroke_path(&mut path, border_paint));
         })
     }
 

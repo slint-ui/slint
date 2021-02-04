@@ -45,7 +45,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 * **`background`** (*brush*): The background brush of the Rectangle, typically a color. (default value: transparent)
 * **`border_width`** (*length*): The width of the border. (default value: 0)
-* **`border_color`** (*color*): The color of the border. (default value: transparent)
+* **`border_color`** (*brush*): The color of the border. (default value: transparent)
 * **`border_radius`** (*length*): The size of the radius. (default value: 0)
 
 ### Example

@@ -437,7 +437,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         self.draw_rectangle_impl(
             shadow_rect,
             Brush::SolidColor(box_shadow.color()),
-            Color::default(),
+            Brush::default(),
             0.,
             box_shadow.border_radius(),
         );
@@ -560,12 +560,12 @@ impl QtItemRenderer<'_> {
         &mut self,
         mut rect: qttypes::QRectF,
         brush: Brush,
-        border_color: Color,
+        border_color: Brush,
         border_width: f32,
         border_radius: f32,
     ) {
         let brush: qttypes::QBrush = brush.into();
-        let border_color: u32 = border_color.as_argb_encoded();
+        let border_color: qttypes::QBrush = border_color.into();
         let border_width: f32 = border_width.min((rect.width as f32) / 2.);
         // adjust the size so that the border is drawn within the geometry
         rect.x += border_width as f64 / 2.;
@@ -573,8 +573,8 @@ impl QtItemRenderer<'_> {
         rect.width -= border_width as f64;
         rect.height -= border_width as f64;
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", brush as "QBrush",  border_color as "QRgb", border_width as "float", border_radius as "float", rect as "QRectF"] {
-            painter->setPen(border_width > 0 ? QPen(QColor::fromRgba(border_color), border_width) : Qt::NoPen);
+        cpp! { unsafe [painter as "QPainter*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {
+            painter->setPen(border_width > 0 ? QPen(border_color, border_width) : Qt::NoPen);
             painter->setBrush(brush);
             if (border_radius > 0) {
                 painter->drawRoundedRect(rect, border_radius, border_radius);

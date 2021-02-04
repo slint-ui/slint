@@ -30,7 +30,7 @@ Rectangle := _ {
 BorderRectangle := Rectangle {
     property <length> border_width;
     property <length> border_radius;
-    property <color> border_color;
+    property <brush> border_color;
     //-default_size_binding:expands_to_parent_geometry
 }
 
