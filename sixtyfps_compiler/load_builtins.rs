@@ -141,11 +141,12 @@ pub fn load_builtins(register: &mut TypeRegister) {
         };
         let mut builtin = BuiltinElement::new(Rc::new(n));
         builtin.is_global = global;
+        let properties = &builtin.properties;
         builtin.default_bindings.extend(e.PropertyDeclaration().filter_map(|p| {
-            Some((
-                identifier_text(&p.DeclaredIdentifier())?,
-                compiled(p.BindingExpression()?, register),
-            ))
+            let name = identifier_text(&p.DeclaredIdentifier())?;
+            let e = p.BindingExpression()?;
+            let ty = properties.get(&name).unwrap().clone();
+            Some((name, compiled(e, register, ty)))
         }));
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e.node).is_some();
@@ -200,13 +201,18 @@ pub fn load_builtins(register: &mut TypeRegister) {
     }
 }
 
-/// Compile an expression, knowing that the expression is basic
-fn compiled(node: syntax_nodes::BindingExpression, type_register: &TypeRegister) -> Expression {
+/// Compile an expression, knowing that the expression is basic (does not have lookup to other things)
+fn compiled(
+    node: syntax_nodes::BindingExpression,
+    type_register: &TypeRegister,
+    ty: Type,
+) -> Expression {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
     let e = Expression::from_binding_expression_node(
-        node.into(),
+        node.clone().into(),
         &mut crate::passes::resolving::LookupCtx::empty_context(type_register, &mut diag),
-    );
+    )
+    .maybe_convert_to(ty, &node, &mut diag);
     if diag.has_error() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
