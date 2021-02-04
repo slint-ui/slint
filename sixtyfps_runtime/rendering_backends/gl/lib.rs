@@ -667,7 +667,10 @@ impl ItemRenderer for GLItemRenderer {
         }
         // TODO: cache path in item to avoid re-tesselation
         let mut path = rect_to_path(geometry);
-        let paint = self.brush_to_paint(rect.background(), &mut path);
+        let paint = match self.brush_to_paint(rect.background(), &mut path) {
+            Some(paint) => paint,
+            None => return,
+        };
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
             canvas.fill_path(&mut path, paint)
@@ -712,7 +715,7 @@ impl ItemRenderer for GLItemRenderer {
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
-            canvas.fill_path(&mut path, fill_paint);
+            fill_paint.map(|paint| canvas.fill_path(&mut path, paint));
             canvas.stroke_path(&mut path, border_paint);
         })
     }
@@ -771,8 +774,11 @@ impl ItemRenderer for GLItemRenderer {
         );
         let wrap = text.wrap() == TextWrap::word_wrap;
         let text_size = font.text_size(string, if wrap { Some(max_width) } else { None });
-        let paint =
-            font.init_paint(self.brush_to_paint(text.color(), &mut rect_to_path(text.geometry())));
+
+        let paint = match self.brush_to_paint(text.color(), &mut rect_to_path(text.geometry())) {
+            Some(paint) => font.init_paint(paint),
+            None => return,
+        };
 
         let mut canvas = self.shared_data.canvas.borrow_mut();
 
@@ -858,8 +864,12 @@ impl ItemRenderer for GLItemRenderer {
             self.scale_factor,
         );
 
-        let paint =
-            self.brush_to_paint(text_input.color(), &mut rect_to_path(text_input.geometry()));
+        let paint = match self
+            .brush_to_paint(text_input.color(), &mut rect_to_path(text_input.geometry()))
+        {
+            Some(paint) => paint,
+            None => return,
+        };
 
         let metrics = self.draw_text_impl(
             pos,
@@ -946,7 +956,9 @@ impl ItemRenderer for GLItemRenderer {
                 font.height(),
             );
             let text_paint = self.brush_to_paint(text_input.color(), &mut cursor_rect);
-            self.shared_data.canvas.borrow_mut().fill_path(&mut cursor_rect, text_paint);
+            text_paint.map(|text_paint| {
+                self.shared_data.canvas.borrow_mut().fill_path(&mut cursor_rect, text_paint)
+            });
         }
     }
 
@@ -983,13 +995,15 @@ impl ItemRenderer for GLItemRenderer {
         }
 
         let fill_paint = self.brush_to_paint(path.fill(), &mut fpath);
-        let mut border_paint = self.brush_to_paint(path.stroke(), &mut fpath);
-        border_paint.set_line_width(path.stroke_width());
+        let border_paint = self.brush_to_paint(path.stroke(), &mut fpath).map(|mut paint| {
+            paint.set_line_width(path.stroke_width());
+            paint
+        });
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x + path.x() + offset.x, pos.y + path.y() + offset.y);
-            canvas.fill_path(&mut fpath, fill_paint);
-            canvas.stroke_path(&mut fpath, border_paint);
+            fill_paint.map(|fill_paint| canvas.fill_path(&mut fpath, fill_paint));
+            border_paint.map(|border_paint| canvas.stroke_path(&mut fpath, border_paint));
         })
     }
 
@@ -1243,9 +1257,9 @@ impl GLItemRenderer {
         })
     }
 
-    fn brush_to_paint(&self, brush: Brush, path: &mut femtovg::Path) -> femtovg::Paint {
-        match brush {
-            Brush::NoBrush => Default::default(),
+    fn brush_to_paint(&self, brush: Brush, path: &mut femtovg::Path) -> Option<femtovg::Paint> {
+        Some(match brush {
+            Brush::NoBrush => return None,
             Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
             Brush::LinearGradient(gradient) => {
                 let path_bounds = self.shared_data.canvas.borrow().path_bbox(path);
@@ -1267,7 +1281,7 @@ impl GLItemRenderer {
                     .collect::<Vec<_>>();
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, &stops)
             }
-        }
+        })
     }
 }
 
