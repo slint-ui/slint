@@ -371,6 +371,7 @@ impl Type {
             | (Type::Length, Type::LogicalLength)
             | (Type::LogicalLength, Type::Length)
             | (Type::Percent, Type::Float32)
+            | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
             (Type::Object { fields: a, .. }, Type::Object { fields: b, .. }) => {
                 can_convert_object(a, b)

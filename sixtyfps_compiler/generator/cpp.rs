@@ -1479,6 +1479,12 @@ fn compile_expression(
                 (Type::Float32, Type::Color) => {
                     format!("sixtyfps::Color::from_argb_encoded({})", f)
                 }
+                (Type::Color, Type::Brush) => {
+                    format!("sixtyfps::Brush({})", f)
+                }
+                (Type::Brush, Type::Color) => {
+                    format!("{}.color()", f)
+                }
                 (Type::Object { .. }, Type::Object{ fields, name: Some(n)}) => {
                     format!(
                         "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",

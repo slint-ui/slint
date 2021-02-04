@@ -1039,6 +1039,9 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 (Type::Color, Type::Brush) => {
                     quote!(sixtyfps::Brush::SolidColor(#f))
                 }
+                (Type::Brush, Type::Color) => {
+                    quote!(#f.color())
+                }
                 (Type::Object { ref fields, .. }, Type::Component(c)) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);

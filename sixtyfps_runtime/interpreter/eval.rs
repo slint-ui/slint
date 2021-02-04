@@ -384,6 +384,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 }
                 (Value::Number(n), Type::Color) => Value::Color(Color::from_argb_encoded(n as u32)),
                 (Value::Color(col), Type::Brush) => Value::Brush(Brush::SolidColor(col)),
+                (Value::Brush(brush), Type::Color) => Value::Color(brush.color()),
                 (v, _) => v,
             }
         }

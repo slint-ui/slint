@@ -47,6 +47,21 @@ impl std::fmt::Display for Brush {
     }
 }
 
+impl Brush {
+    /// If the brush is NoBrush, the default constructed color is returned.
+    /// If the brush is SolidColor, the contained color is returned.
+    /// If the brush is a LinearGradient, the color of the first stop is returned.
+    pub fn color(&self) -> Color {
+        match self {
+            Brush::NoBrush => Default::default(),
+            Brush::SolidColor(col) => *col,
+            Brush::LinearGradient(gradient) => {
+                gradient.stops().next().map(|stop| stop.color).unwrap_or_default()
+            }
+        }
+    }
+}
+
 /// The LinearGradientBrush describes a way of filling a shape with different colors, which
 /// are interpolated between different stops. The colors are aligned with a line that's rotated
 /// by the LinearGradient's angle.

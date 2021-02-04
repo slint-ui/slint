@@ -33,6 +33,8 @@ public:
     }
 
     // TODO: Add function to return span for stops?
+    const GradientStop *stopsBegin() const { return inner.begin() + 1; }
+    const GradientStop *stopsEnd() const { return inner.end(); }
 
 private:
     cbindgen_private::types::LinearGradientBrush inner;
@@ -57,6 +59,8 @@ public:
     Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
     Brush(const LinearGradientBrush &gradient) : data(Inner::LinearGradient(gradient.inner)) { }
 
+    inline Color color() const;
+
     friend bool operator==(const Brush &a, const Brush &b) { return a.data == b.data; }
     friend bool operator!=(const Brush &a, const Brush &b) { return a.data != b.data; }
 
@@ -65,5 +69,24 @@ private:
     using Inner = cbindgen_private::types::Brush;
     Inner data;
 };
+
+Color Brush::color() const
+{
+    Color result;
+    switch (data.tag) {
+    case Tag::NoBrush:
+        break;
+    case Tag::SolidColor: {
+        result.inner = data.solid_color._0;
+        break;
+    }
+    case Tag::LinearGradient:
+        if (data.linear_gradient._0.size() > 1) {
+            result.inner = data.linear_gradient._0[1].color;
+        }
+        break;
+    }
+    return result;
+}
 
 }
