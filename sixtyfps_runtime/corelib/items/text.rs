@@ -21,7 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 
 use super::{Item, ItemConsts, ItemRc, VoidArg};
-use crate::graphics::{Color, Point, Rect, Size};
+use crate::graphics::{Brush, Color, Point, Rect, Size};
 use crate::input::InternalKeyCode;
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
@@ -104,7 +104,7 @@ pub struct Text {
     pub font_family: Property<SharedString>,
     pub font_size: Property<f32>,
     pub font_weight: Property<i32>,
-    pub color: Property<Color>,
+    pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
@@ -208,7 +208,7 @@ pub struct TextInput {
     pub font_family: Property<SharedString>,
     pub font_size: Property<f32>,
     pub font_weight: Property<i32>,
-    pub color: Property<Color>,
+    pub color: Property<Brush>,
     pub selection_foreground_color: Property<Color>,
     pub selection_background_color: Property<Color>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,

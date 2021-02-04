@@ -274,7 +274,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&items::Text>) {
         let rect: qttypes::QRectF = get_geometry!(pos, items::Text, text);
-        let color: u32 = text.color().as_argb_encoded();
+        let fill_brush: qttypes::QBrush = text.color().into();
         let string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request());
         let flags = match text.horizontal_alignment() {
@@ -291,9 +291,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
         };
         let elide = text.overflow() == TextOverflow::elide && text.wrap() == TextWrap::no_wrap;
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", rect as "QRectF", color as "QRgb", string as "QString", flags as "int", font as "QFont", elide as "bool"] {
+        cpp! { unsafe [painter as "QPainter*", rect as "QRectF", fill_brush as "QBrush", string as "QString", flags as "int", font as "QFont", elide as "bool"] {
             painter->setFont(font);
-            painter->setPen(QColor{color});
+            painter->setPen(QPen(fill_brush, 0));
             painter->setBrush(Qt::NoBrush);
             if (!elide) {
                 painter->drawText(rect, flags, string);
@@ -306,7 +306,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_text_input(&mut self, pos: Point, text_input: std::pin::Pin<&items::TextInput>) {
         let rect: qttypes::QRectF = get_geometry!(pos, items::TextInput, text_input);
-        let color: u32 = text_input.color().as_argb_encoded();
+        let fill_brush: qttypes::QBrush = text_input.color().into();
         let selection_foreground_color: u32 =
             text_input.selection_foreground_color().as_argb_encoded();
         let selection_background_color: u32 =
@@ -332,7 +332,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         cpp! { unsafe [
                 painter as "QPainter*",
                 rect as "QRectF",
-                color as "QRgb",
+                fill_brush as "QBrush",
                 selection_foreground_color as "QRgb",
                 selection_background_color as "QRgb",
                 string as "QString",
@@ -346,7 +346,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             layout.beginLayout();
             layout.createLine();
             layout.endLayout();
-            painter->setPen(QColor{color});
+            painter->setPen(QPen(fill_brush, 0));
             QVector<QTextLayout::FormatRange> selections;
             if (anchor_position != cursor_position) {
                 QTextCharFormat fmt;

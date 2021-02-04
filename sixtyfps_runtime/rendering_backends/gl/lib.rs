@@ -771,8 +771,8 @@ impl ItemRenderer for GLItemRenderer {
         );
         let wrap = text.wrap() == TextWrap::word_wrap;
         let text_size = font.text_size(string, if wrap { Some(max_width) } else { None });
-        let mut paint = font.paint();
-        paint.set_color(text.color().into());
+        let paint =
+            font.init_paint(self.brush_to_paint(text.color(), &mut rect_to_path(text.geometry())));
 
         let mut canvas = self.shared_data.canvas.borrow_mut();
 
@@ -858,13 +858,16 @@ impl ItemRenderer for GLItemRenderer {
             self.scale_factor,
         );
 
+        let paint =
+            self.brush_to_paint(text_input.color(), &mut rect_to_path(text_input.geometry()));
+
         let metrics = self.draw_text_impl(
             pos,
             width,
             height,
             &text_input.text(),
             text_input.font_request(),
-            text_input.color(),
+            paint,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
         );
@@ -914,7 +917,7 @@ impl ItemRenderer for GLItemRenderer {
                 text_input.height(),
                 &text_input.text(),
                 text_input.font_request(),
-                text_input.selection_foreground_color().into(),
+                femtovg::Paint::color(text_input.selection_foreground_color().into()),
                 text_input.horizontal_alignment(),
                 text_input.vertical_alignment(),
             );
@@ -942,10 +945,8 @@ impl ItemRenderer for GLItemRenderer {
                 text_input.text_cursor_width() * self.scale_factor,
                 font.height(),
             );
-            self.shared_data
-                .canvas
-                .borrow_mut()
-                .fill_path(&mut cursor_rect, femtovg::Paint::color(text_input.color().into()));
+            let text_paint = self.brush_to_paint(text_input.color(), &mut cursor_rect);
+            self.shared_data.canvas.borrow_mut().fill_path(&mut cursor_rect, text_paint);
         }
     }
 
@@ -1138,7 +1139,7 @@ impl GLItemRenderer {
         max_height: f32,
         text: &str,
         font_request: FontRequest,
-        color: Color,
+        paint: femtovg::Paint,
         horizontal_alignment: TextHorizontalAlignment,
         vertical_alignment: TextVerticalAlignment,
     ) -> femtovg::TextMetrics {
@@ -1148,8 +1149,7 @@ impl GLItemRenderer {
             self.scale_factor,
         );
 
-        let mut paint = font.paint();
-        paint.set_color(color.into());
+        let paint = font.init_paint(paint);
 
         let mut canvas = self.shared_data.canvas.borrow_mut();
         let (text_width, text_height) = {
@@ -1275,15 +1275,21 @@ struct GLFont {
 
 impl GLFont {
     fn measure(&self, text: &str) -> femtovg::TextMetrics {
-        self.canvas.borrow_mut().measure_text(0., 0., text, self.paint()).unwrap()
+        self.canvas
+            .borrow_mut()
+            .measure_text(0., 0., text, self.init_paint(femtovg::Paint::default()))
+            .unwrap()
     }
 
     fn height(&self) -> f32 {
-        self.canvas.borrow_mut().measure_font(self.paint()).unwrap().height()
+        self.canvas
+            .borrow_mut()
+            .measure_font(self.init_paint(femtovg::Paint::default()))
+            .unwrap()
+            .height()
     }
 
-    fn paint(&self) -> femtovg::Paint {
-        let mut paint = femtovg::Paint::default();
+    fn init_paint(&self, mut paint: femtovg::Paint) -> femtovg::Paint {
         paint.set_font(&self.fonts);
         paint.set_font_size(self.pixel_size);
         paint.set_text_baseline(femtovg::Baseline::Top);
@@ -1291,7 +1297,7 @@ impl GLFont {
     }
 
     fn text_size(&self, text: &str, max_width: Option<f32>) -> Size {
-        let paint = self.paint();
+        let paint = self.init_paint(femtovg::Paint::default());
         let mut canvas = self.canvas.borrow_mut();
         let font_metrics = canvas.measure_font(paint).unwrap();
         let mut y = 0.;
@@ -1347,7 +1353,12 @@ impl FontMetrics for GLFontMetrics {
     }
 
     fn height(&self) -> f32 {
-        self.shared_data.canvas.borrow_mut().measure_font(self.font().paint()).unwrap().height()
+        self.shared_data
+            .canvas
+            .borrow_mut()
+            .measure_font(self.font().init_paint(femtovg::Paint::default()))
+            .unwrap()
+            .height()
     }
 }
 

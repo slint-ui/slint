@@ -43,7 +43,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Properties
 
-* **`background`** (*color*): The background color of the Rectangle. (default value: transparent)
+* **`background`** (*brush*): The background brush of the Rectangle, typically a color. (default value: transparent)
 * **`border_width`** (*length*): The width of the border. (default value: 0)
 * **`border_color`** (*color*): The color of the border. (default value: transparent)
 * **`border_radius`** (*length*): The size of the radius. (default value: 0)
@@ -134,7 +134,7 @@ A text simply show the text on the screen
 * **`font_family`** (*string*): The font name
 * **`font_size`** (*length*): The font size of the text
 * **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
-* **`color`** (*color*): The color of the text (default: black)
+* **`color`** (*brush*): The color of the text (default: black)
 * **`horizontal_alignment`** (*enum [`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
 * **`vertical_alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
 * **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text wraps (default: no-wrap).
@@ -494,7 +494,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`font_family`** (*string*): The font name
 * **`font_size`** (*length*): The font size of the text
 * **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
-* **`color`** (*color*): The color of the text (default: transparent)
+* **`color`** (*brush*): The color of the text (default: transparent)
 * **`horizontal_alignment`** (enum *[`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
 * **`vertical_alignment`** (enum *[`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
 * **`has_focus`** (*bool*): Set to true when item is focused and receives keyboard events.

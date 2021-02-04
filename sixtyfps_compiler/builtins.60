@@ -60,7 +60,7 @@ export Text := _ {
     property <string> font_family;
     property <length> font_size;
     property <int> font_weight;
-    property <color> color: #000;
+    property <brush> color: #000;
     property <TextHorizontalAlignment> horizontal_alignment;
     property <TextVerticalAlignment> vertical_alignment;
     property <TextOverflow> overflow;
@@ -153,7 +153,7 @@ export TextInput := _ {
     property <string> font_family;
     property <length> font_size;
     property <int> font_weight;
-    property <color> color: #000;
+    property <brush> color: #000;
     property <color> selection_foreground_color: #000;
     property <color> selection_background_color: #808080;
     property <TextHorizontalAlignment> horizontal_alignment;
