@@ -236,31 +236,36 @@ impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::P
 /// through the low-level events of a path. If the path was constructed from said
 /// events, then it is a very thin abstraction. If the path was created from higher-level
 /// elements, then an intermediate lyon path is required/built.
-pub struct PathDataIterator<'a> {
-    it: LyonPathIteratorVariant<'a>,
-    transform: Option<lyon::math::Transform>,
+pub struct PathDataIterator {
+    it: LyonPathIteratorVariant,
+    transform: lyon::math::Transform,
 }
 
-enum LyonPathIteratorVariant<'a> {
+enum LyonPathIteratorVariant {
     FromPath(lyon::path::Path),
-    FromEvents(&'a crate::SharedVector<PathEvent>, &'a crate::SharedVector<Point>),
+    FromEvents(crate::SharedVector<PathEvent>, crate::SharedVector<Point>),
 }
 
-impl<'a> PathDataIterator<'a> {
+impl PathDataIterator {
     /// Create a new iterator for path traversal.
     #[auto_enum(Iterator)]
-    pub fn iter(
+    pub fn iter<'a>(
         &'a self,
     ) -> impl Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a {
         match &self.it {
-            LyonPathIteratorVariant::FromPath(path) => self.apply_transform(path.iter()),
+            LyonPathIteratorVariant::FromPath(path) => {
+                TransformedLyonPathIterator { it: path.iter(), transform: self.transform }
+            }
             LyonPathIteratorVariant::FromEvents(events, coordinates) => {
-                self.apply_transform(ToLyonPathEventIterator {
-                    events_it: events.iter(),
-                    coordinates_it: coordinates.iter(),
-                    first: coordinates.first(),
-                    last: coordinates.last(),
-                })
+                TransformedLyonPathIterator {
+                    it: ToLyonPathEventIterator {
+                        events_it: events.iter(),
+                        coordinates_it: coordinates.iter(),
+                        first: coordinates.first(),
+                        last: coordinates.last(),
+                    },
+                    transform: self.transform,
+                }
             }
         }
     }
@@ -268,21 +273,11 @@ impl<'a> PathDataIterator<'a> {
     fn fit(&mut self, width: f32, height: f32) {
         if width > 0. || height > 0. {
             let br = lyon::algorithms::aabb::bounding_rect(self.iter());
-            self.transform = Some(lyon::algorithms::fit::fit_rectangle(
+            self.transform = lyon::algorithms::fit::fit_rectangle(
                 &br,
                 &Rect::from_size(Size::new(width, height)),
                 lyon::algorithms::fit::FitStyle::Min,
-            ));
-        }
-    }
-    #[auto_enum(Iterator)]
-    fn apply_transform(
-        &'a self,
-        event_it: impl Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a,
-    ) -> impl Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a {
-        match self.transform {
-            Some(transform) => TransformedLyonPathIterator { it: event_it, transform },
-            None => event_it,
+            );
         }
     }
 }
@@ -309,7 +304,7 @@ impl Default for PathData {
 
 impl PathData {
     /// This function returns an iterator that allows traversing the path by means of lyon events.
-    pub fn iter(&self) -> PathDataIterator {
+    pub fn iter(self) -> PathDataIterator {
         PathDataIterator {
             it: match self {
                 PathData::None => LyonPathIteratorVariant::FromPath(lyon::path::Path::new()),
@@ -320,12 +315,12 @@ impl PathData {
                     LyonPathIteratorVariant::FromEvents(events, coordinates)
                 }
             },
-            transform: None,
+            transform: Default::default(),
         }
     }
 
     /// This function returns an iterator that allows traversing the path by means of lyon events.
-    pub fn iter_fitted(&self, width: f32, height: f32) -> PathDataIterator {
+    pub fn iter_fitted(self, width: f32, height: f32) -> PathDataIterator {
         let mut it = self.iter();
         it.fit(width, height);
         it

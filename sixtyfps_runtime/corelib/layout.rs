@@ -656,7 +656,8 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
         return;
     }
 
-    let path_iter = data.elements.iter_fitted(data.width, data.height);
+    // Clone of path elements is cheap because it's a clone of underlying SharedVector
+    let path_iter = data.elements.clone().iter_fitted(data.width, data.height);
 
     let tolerance = lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE;
 
