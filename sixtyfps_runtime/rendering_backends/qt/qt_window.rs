@@ -10,7 +10,7 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::graphics::{Brush, Color, FontRequest, Point, Rect, RenderingCache};
+use sixtyfps_corelib::graphics::{Brush, FontRequest, Point, Rect, RenderingCache};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, ItemRef, TextOverflow, TextWrap};
