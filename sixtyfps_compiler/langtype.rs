@@ -12,6 +12,8 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Display;
 use std::rc::Rc;
 
+use itertools::Itertools;
+
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::Component;
 use crate::typeregister::TypeRegister;
@@ -59,6 +61,11 @@ pub enum Type {
     },
     Enumeration(Rc<Enumeration>),
 
+    /// A type made up of the product of several "unit" types.
+    /// The first parameter is the unit, and the second parameter is the power.
+    /// The vector should be sorted by 1) the power, 2) the unit.
+    UnitProduct(Vec<(Unit, i8)>),
+
     ElementReference,
 }
 
@@ -96,6 +103,7 @@ impl core::cmp::PartialEq for Type {
                 matches!(other, Type::Object{fields: f, name: n} if fields == f && name == n)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
+            Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
         }
     }
@@ -162,6 +170,22 @@ impl Display for Type {
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
+            Type::UnitProduct(vec) => {
+                const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+                let mut x = vec.iter().map(|(unit, power)| {
+                    if *power == 1 {
+                        return unit.to_string();
+                    }
+                    let mut res = format!("{}{}", unit, if *power < 0 { "⁻" } else { "" });
+                    let value = power.abs().to_string();
+                    for x in value.as_bytes() {
+                        res.push(POWERS[(x - b'0') as usize]);
+                    }
+
+                    res
+                });
+                write!(f, "({})", x.join("×"))
+            }
             Type::ElementReference => write!(f, "element ref"),
         }
     }
@@ -382,7 +406,8 @@ impl Type {
             Type::Duration => Some(Unit::Ms),
             Type::Length => Some(Unit::Phx),
             Type::LogicalLength => Some(Unit::Px),
-            Type::Percent => Some(Unit::Percent),
+            // Unit::Percent is special that it does not combine with other units like
+            Type::Percent => None,
             Type::Angle => Some(Unit::Deg),
             Type::Invalid => None,
             Type::Void => None,
@@ -404,6 +429,7 @@ impl Type {
             Type::Array(_) => None,
             Type::Object { .. } => None,
             Type::Enumeration(_) => None,
+            Type::UnitProduct(_) => None,
             Type::ElementReference => None,
         }
     }

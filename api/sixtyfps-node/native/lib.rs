@@ -174,7 +174,10 @@ fn to_eval_value<'cx>(
         | Type::Angle
         | Type::Length
         | Type::LogicalLength
-        | Type::Percent => Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value())),
+        | Type::Percent
+        | Type::UnitProduct(_) => {
+            Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
+        }
         Type::String => Ok(Value::String(val.to_string(cx)?.value().into())),
         Type::Color => {
             let c = val

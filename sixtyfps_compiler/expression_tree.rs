@@ -157,7 +157,7 @@ pub fn operator_class(op: char) -> OperatorClass {
 macro_rules! declare_units {
     ($( $(#[$m:meta])* $ident:ident = $string:literal -> $ty:ident $(* $factor:expr)? ,)*) => {
         /// The units that can be used after numbers in the language
-        #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
         pub enum Unit {
             $($(#[$m])* $ident,)*
         }
@@ -478,26 +478,55 @@ impl Expression {
                 }
             }
             Expression::BinaryExpression { op, lhs, rhs } => {
-                if operator_class(*op) == OperatorClass::ArithmeticOp {
-                    macro_rules! unit_operations {
-                        ($($unit:ident)*) => {
-                            match (*op, lhs.ty(), rhs.ty()) {
-                                $(
-                                    ('+', Type::$unit, Type::$unit) => Type::$unit,
-                                    ('-', Type::$unit, Type::$unit) => Type::$unit,
-                                    ('*', Type::$unit, _) => Type::$unit,
-                                    ('*', _, Type::$unit) => Type::$unit,
-                                    ('/', Type::$unit, Type::$unit) => Type::Float32,
-                                    ('/', Type::$unit, _) => Type::$unit,
-                                )*
-                                ('+', Type::String, Type::String) => Type::String,
-                                _ => Type::Float32,
-                            }
+                if operator_class(*op) != OperatorClass::ArithmeticOp {
+                    Type::Bool
+                } else if *op == '+' || *op == '-' {
+                    let (rhs_ty, lhs_ty) = (rhs.ty(), lhs.ty());
+                    if rhs_ty == lhs_ty {
+                        rhs_ty
+                    } else {
+                        Type::Invalid
+                    }
+                } else {
+                    debug_assert!(*op == '*' || *op == '/');
+                    let unit_vec = |ty| {
+                        if let Type::UnitProduct(v) = ty {
+                            v.clone()
+                        } else if let Some(u) = ty.default_unit() {
+                            vec![(u, 1)]
+                        } else {
+                            vec![]
+                        }
+                    };
+                    let mut l_units = unit_vec(lhs.ty());
+                    let mut r_units = unit_vec(rhs.ty());
+                    if *op == '/' {
+                        for (_, power) in &mut r_units {
+                            *power = -*power;
                         }
                     }
-                    unit_operations!(Duration Length LogicalLength Angle)
-                } else {
-                    Type::Bool
+                    for (unit, power) in r_units {
+                        if let Some((_, p)) = l_units.iter_mut().find(|(u, _)| *u == unit) {
+                            *p += power;
+                        } else {
+                            l_units.push((unit, power));
+                        }
+                    }
+
+                    // normalize the vector by removing empty and sorting
+                    l_units.retain(|(_, p)| *p != 0);
+                    l_units.sort_unstable_by(|(u1, p1), (u2, p2)| match p2.cmp(p1) {
+                        std::cmp::Ordering::Equal => u1.cmp(u2),
+                        x => x,
+                    });
+
+                    if l_units.is_empty() {
+                        Type::Float32
+                    } else if l_units.len() == 1 && l_units[0].1 == 1 {
+                        l_units[0].0.ty()
+                    } else {
+                        Type::UnitProduct(l_units)
+                    }
                 }
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
@@ -928,6 +957,10 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
+            Type::UnitProduct(_) => Expression::Cast {
+                from: Box::new(Expression::NumberLiteral(0., Unit::None)),
+                to: ty.clone(),
+            },
         }
     }
 

@@ -918,63 +918,60 @@ impl Expression {
             }
             OperatorClass::LogicalOp => Type::Bool,
             OperatorClass::ArithmeticOp => {
-                macro_rules! unit_operations {
-                    ($($unit:ident)*) => {
-                        match (op, lhs.ty(), rhs.ty()) {
-                            ('+', Type::String, _) => Type::String,
-                            ('+', _, Type::String) => Type::String,
-
-                            $(
-                                ('+', Type::$unit, _) => Type::$unit,
-                                ('-', Type::$unit, _) => Type::$unit,
-                                ('+', _, Type::$unit) => Type::$unit,
-                                ('-', _, Type::$unit) => Type::$unit,
-                                ('*', Type::$unit, _) => {
-                                    return Expression::BinaryExpression {
-                                        lhs: Box::new(lhs),
-                                        rhs: Box::new(rhs.maybe_convert_to(
-                                            Type::Float32,
-                                            &lhs_n,
-                                            &mut ctx.diag,
-                                        )),
-                                        op,
-                                    }
-                                }
-                                ('*', _, Type::$unit) => {
-                                    return Expression::BinaryExpression {
-                                        lhs: Box::new(lhs.maybe_convert_to(
-                                            Type::Float32,
-                                            &lhs_n,
-                                            &mut ctx.diag,
-                                        )),
-                                        rhs: Box::new(rhs),
-                                        op,
-                                    }
-                                }
-                                ('/', Type::$unit, Type::$unit) => {
-                                    return Expression::BinaryExpression {
-                                        lhs: Box::new(lhs),
-                                        rhs: Box::new(rhs),
-                                        op,
-                                    }
-                                }
-                                ('/', Type::$unit, _) => {
-                                    return Expression::BinaryExpression {
-                                        lhs: Box::new(lhs),
-                                        rhs: Box::new(rhs.maybe_convert_to(
-                                            Type::Float32,
-                                            &lhs_n,
-                                            &mut ctx.diag,
-                                        )),
-                                        op,
-                                    }
-                                }
-                            )*
-                            _ => Type::Float32,
-                        }
+                let (lhs_ty, rhs_ty) = (lhs.ty(), rhs.ty());
+                if op == '+' && (lhs_ty == Type::String || rhs_ty == Type::String) {
+                    Type::String
+                } else if op == '+' || op == '-' {
+                    if lhs_ty.default_unit().is_some() {
+                        lhs_ty
+                    } else if rhs_ty.default_unit().is_some() {
+                        rhs_ty
+                    } else if matches!(lhs_ty, Type::UnitProduct(_)) {
+                        lhs_ty
+                    } else if matches!(rhs_ty, Type::UnitProduct(_)) {
+                        rhs_ty
+                    } else {
+                        Type::Float32
+                    }
+                } else if op == '*' || op == '/' {
+                    let has_unit = |ty: &Type| {
+                        matches!(ty, Type::UnitProduct(_)) || ty.default_unit().is_some()
                     };
+                    match (has_unit(&lhs_ty), has_unit(&rhs_ty)) {
+                        (true, true) => {
+                            return Expression::BinaryExpression {
+                                lhs: Box::new(lhs),
+                                rhs: Box::new(rhs),
+                                op,
+                            }
+                        }
+                        (true, false) => {
+                            return Expression::BinaryExpression {
+                                lhs: Box::new(lhs),
+                                rhs: Box::new(rhs.maybe_convert_to(
+                                    Type::Float32,
+                                    &rhs_n,
+                                    &mut ctx.diag,
+                                )),
+                                op,
+                            }
+                        }
+                        (false, true) => {
+                            return Expression::BinaryExpression {
+                                lhs: Box::new(lhs.maybe_convert_to(
+                                    Type::Float32,
+                                    &lhs_n,
+                                    &mut ctx.diag,
+                                )),
+                                rhs: Box::new(rhs),
+                                op,
+                            }
+                        }
+                        (false, false) => Type::Float32,
+                    }
+                } else {
+                    unreachable!()
                 }
-                unit_operations!(Duration Length LogicalLength Angle)
             }
         };
         Expression::BinaryExpression {
