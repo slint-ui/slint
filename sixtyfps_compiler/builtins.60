@@ -50,6 +50,7 @@ export ClippedImage := Image {
     property <int> source-clip-y;
     property <int> source-clip-width;
     property <int> source-clip-height;
+    property <brush> colorize;
     //-default_size_binding:implicit_size
 }
 
@@ -145,7 +146,7 @@ export BoxShadow := _ {
     property <length> offset_y;
     property <color> color;
     property <length> blur;
-    //-default_size_binding:expands_to_parent_geometry    
+    //-default_size_binding:expands_to_parent_geometry
 }
 
 export TextInput := _ {

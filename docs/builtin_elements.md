@@ -112,15 +112,22 @@ An Image can be used to represent an image loaded from an image file
 * **`image-fit`** (*enum*): Specifies how the source image shall be fit into the image element. Possible values are:
    * `fill` (default): Scales and stretches the image to fit the width and height of the element.
    * `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
+* **`colorize`** (*brush*): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
 
 ### Example
 
 
 ```60
-Example := Image {
-    source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
-    width: 64px;
-    height: 44px;
+Example := Window {
+    VerticalLayout {
+        Image {
+            source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+        }
+        Image {
+            source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+            colorize: red;
+        }
+    }
 }
 ```
 

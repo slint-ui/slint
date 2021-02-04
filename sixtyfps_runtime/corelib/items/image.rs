@@ -28,7 +28,7 @@ use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::ComponentWindow;
-use crate::Property;
+use crate::{Brush, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
@@ -115,6 +115,7 @@ pub struct ClippedImage {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub image_fit: Property<ImageFit>,
+    pub colorize: Property<Brush>,
     pub source_clip_x: Property<i32>,
     pub source_clip_y: Property<i32>,
     pub source_clip_width: Property<i32>,

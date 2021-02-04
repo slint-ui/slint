@@ -47,6 +47,18 @@ impl QPixmap {
         cpp!(unsafe [self as "const QPixmap*"] -> QSize as "QSize" { return self->size(); })
     }
 }
+/*
+impl From<QPixmap> for QImage {
+    fn from(pixmap: QPixmap) -> Self {
+        cpp!(unsafe [pixmap as "QPixmap"] -> QImage as "QImage" { return pixmap.toImage(); })
+    }
+}
+
+impl From<QImage> for QPixmap {
+    fn from(image: QImage) -> Self {
+        cpp!(unsafe [image as "QImage"] -> QPixmap as "QPixmap" { return QPixmap::fromImage(image); })
+    }
+}*/
 
 cpp_class!(
     /// Wrapper around [`QByteArray`][class] class.

@@ -252,6 +252,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             dest_rect,
             None,
             image.image_fit(),
+            None,
         );
     }
 
@@ -269,6 +270,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             dest_rect,
             Some(source_rect),
             image.image_fit(),
+            Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image)),
         );
     }
 
@@ -515,12 +517,24 @@ impl QtItemRenderer<'_> {
         dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
         image_fit: ImageFit,
+        colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
         let cached = item_cache.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
-            load_image_from_resource(source_property.get())
-                .map_or(QtRenderingCacheItem::Invalid, |pixmap| {
+            load_image_from_resource(source_property.get()).map_or(
+                QtRenderingCacheItem::Invalid,
+                |mut pixmap: qttypes::QPixmap| {
+                    let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
+                    if colorize != Brush::NoBrush {
+                        let brush: qttypes::QBrush = colorize.into();
+                        cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
+                            QPainter p(&pixmap);
+                            p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+                            p.fillRect(QRect(QPoint(), pixmap.size()), brush);
+                        });
+                    }
                     QtRenderingCacheItem::Pixmap(pixmap)
-                })
+                },
+            )
         });
         let pixmap: &qttypes::QPixmap = match &cached {
             QtRenderingCacheItem::Pixmap(pixmap) => pixmap,
