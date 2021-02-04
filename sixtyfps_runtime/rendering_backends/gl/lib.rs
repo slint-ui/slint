@@ -993,6 +993,13 @@ impl ItemRenderer for GLItemRenderer {
         })
     }
 
+    /// Draws a rectangular shadow shape, which is usually placed underneath another rectangular shape
+    /// with an offset (the drop-shadow-offset-x/y).
+    /// The rendering happens in two phases:
+    ///   * The (possibly round) rectangle is filled with the shadow color.
+    ///   * A blurred shadow border is drawn using femtovg's box gradient. The shadow border is the
+    ///     shape of a slightly bigger rounded rect with the inner shape subtracted. That's because
+    //      we don't want the box gradient to visually "leak" into the inside.
     fn draw_box_shadow(
         &mut self,
         pos: Point,
@@ -1023,7 +1030,7 @@ impl ItemRenderer for GLItemRenderer {
             box_shadow.height(),
         );
 
-        let paint = femtovg::Paint::box_gradient(
+        let shadow_paint = femtovg::Paint::box_gradient(
             shadow_fill_rect.min_x(),
             shadow_fill_rect.min_y(),
             shadow_fill_rect.width(),
@@ -1034,35 +1041,38 @@ impl ItemRenderer for GLItemRenderer {
             Color::from_argb_u8(0, 0, 0, 0).into(),
         );
 
-        let mut path = femtovg::Path::new();
-        path.rounded_rect(
+        let mut shadow_path = femtovg::Path::new();
+        shadow_path.rounded_rect(
             shadow_outer_rect.min_x(),
             shadow_outer_rect.min_y(),
             shadow_outer_rect.width(),
             shadow_outer_rect.height(),
             box_shadow.border_radius(),
         );
-        path.rect(
+        shadow_path.rounded_rect(
             shadow_inner_rect.min_x(),
             shadow_inner_rect.min_y(),
             shadow_inner_rect.width(),
             shadow_inner_rect.height(),
+            box_shadow.border_radius(),
         );
-        path.solidity(femtovg::Solidity::Hole);
+        shadow_path.solidity(femtovg::Solidity::Hole);
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
-            canvas.fill_path(&mut path, paint);
 
-            let mut shadow_inner_path = femtovg::Path::new();
-            shadow_inner_path.rect(
+            let mut shadow_inner_fill_path = femtovg::Path::new();
+            shadow_inner_fill_path.rounded_rect(
                 shadow_inner_rect.min_x(),
                 shadow_inner_rect.min_y(),
                 shadow_inner_rect.width(),
                 shadow_inner_rect.height(),
+                box_shadow.border_radius() - blur / 2.,
             );
             let fill = femtovg::Paint::color(box_shadow.color().into());
-            canvas.fill_path(&mut shadow_inner_path, fill);
+            canvas.fill_path(&mut shadow_inner_fill_path, fill);
+
+            canvas.fill_path(&mut shadow_path, shadow_paint);
         })
     }
 
