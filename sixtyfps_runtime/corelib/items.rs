@@ -299,6 +299,7 @@ pub struct TouchArea {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
+    pub enabled: Property<bool>,
     /// FIXME: We should anotate this as an "output" property.
     pub pressed: Property<bool>,
     pub has_hover: Property<bool>,
@@ -336,6 +337,10 @@ impl Item for TouchArea {
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
+        if !self.enabled() {
+            return InputEventResult::EventIgnored;
+        }
+
         Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
         Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(event.what != MouseEventType::MouseExit);

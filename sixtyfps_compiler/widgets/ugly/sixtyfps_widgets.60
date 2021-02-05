@@ -35,7 +35,7 @@ export Button := Rectangle {
     property<string> text;
     property<length> font-size;
     property<bool> pressed: self.enabled && touch_area.pressed;
-    property<bool> enabled: true;
+    property<bool> enabled <=> touch_area.enabled;
 
     border_width: 1px;
     border_radius: 2px;
@@ -65,9 +65,7 @@ export Button := Rectangle {
         width: root.width;
         height: root.height;
         clicked => {
-            if (root.enabled) {
-                root.clicked();
-            }
+            root.clicked();
         }
     }
 }
@@ -76,7 +74,7 @@ export CheckBox := Rectangle {
     callback toggled;
     property <string> text;
     property <bool> checked;
-    property<bool> enabled: true;
+    property<bool> enabled <=> touch_area.enabled;
 
     maximum_height: 20px;
     minimum_height: 20px;
@@ -132,7 +130,7 @@ SpinBoxButton := Rectangle {
     callback clicked;
     property<string> text;
     property <length> font-size;
-    property<bool> enabled;
+    property<bool> enabled <=> touch.enabled;
     border_width: 1px;
     border_radius: 2px;
     border_color: black;
@@ -140,9 +138,7 @@ SpinBoxButton := Rectangle {
     animate background { duration: 100ms; }
     touch := TouchArea {
         clicked => {
-            if (enabled) {
-                root.clicked();
-            }
+            root.clicked();
         }
     }
     Text {
@@ -186,13 +182,13 @@ export SpinBox := Rectangle {
         }
         width: parent.height;
         height: parent.height;
-        enabled: root.enabled;
+        enabled <=> root.enabled;
     }
 
     plus_button := SpinBoxButton {
         width: parent.height;
         height: parent.height;
-        enabled: root.enabled;
+        enabled <=> root.enabled;
         x: parent.width - self.width;
         font-size: root.font-size;
         text: "+";
@@ -219,7 +215,7 @@ export Slider := Rectangle {
     property<float> maximum: 100;
     property<float> minimum: 0;
     property<float> value;
-    property<bool> enabled: true;
+    property<bool> enabled <=> touch_area.enabled;
 
     maximum_height: 32px;
     minimum_height: 32px;
@@ -305,7 +301,7 @@ export LineEdit := Rectangle {
     property <string> text;
     property <string> placeholder_text;
     property <bool> has_focus: input.has_focus;
-    property <bool> enabled: true;
+    property <bool> enabled <=> input.enabled;
     callback accepted(string);
     callback edited(string);
     forward-focus: input;
@@ -328,7 +324,6 @@ export LineEdit := Rectangle {
             GridLayout {
                 padding: 3px;
                 input := TextInput {
-                    enabled: root.enabled;
                     text <=> root.text;
                     accepted => {
                         root.accepted(self.text);
@@ -460,7 +455,7 @@ export ComboBox := Rectangle {
     property <int> current_index : -1;
     property <string> current_value;
     //property <bool> is_open: false;
-    property <bool> enabled: true;
+    property<bool> enabled <=> touch_area.enabled;
 
     border_width: 1px;
     border_radius: 2px;
@@ -496,10 +491,8 @@ export ComboBox := Rectangle {
         width: 100%;
         height: 100%;
         clicked => {
-            if (root.enabled) {
-                //is_open = !is_open;
-                popup.show();
-            }
+            //is_open = !is_open;
+            popup.show();
         }
     }
 

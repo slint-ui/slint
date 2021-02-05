@@ -78,6 +78,7 @@ export TouchArea := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    property <bool> enabled: true;
     property <bool> pressed;
     property <bool> has_hover;
     property <length> mouse_x;
