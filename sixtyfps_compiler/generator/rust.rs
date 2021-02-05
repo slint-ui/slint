@@ -156,7 +156,7 @@ fn handle_property_binding(
                 move |args| {
                     let self_pinned = self_weak.upgrade().unwrap();
                     let _self = self_pinned.as_pin_ref();
-                    #tokens_for_expression
+                    (#tokens_for_expression) as _
                 }
             });
         ));

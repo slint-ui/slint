@@ -15,6 +15,9 @@ TestCase := Rectangle {
     property <int> test_prop: 4 + test_func(2);
     property <string> test_prop2: test_func2("hello", 42);
     property <int> some_value: 8;
+
+    callback dummy() -> int;
+    dummy => { 4.4 }
 }
 
 /*
