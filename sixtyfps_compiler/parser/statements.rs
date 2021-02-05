@@ -68,6 +68,7 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
 /// if (true) { foo = bar; } else { bar = foo;  }
 /// if (true) { foo += bar; }
 /// if (true) { } else { ; }
+/// if (true) { } else if (false) { } else if (xxx) { }
 /// ```
 fn parse_if_statement(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ConditionalExpression);
@@ -83,7 +84,11 @@ fn parse_if_statement(p: &mut impl Parser) {
     if p.peek().as_str() == "else" {
         p.expect(SyntaxKind::Identifier);
         let mut p = p.start_node(SyntaxKind::Expression);
-        parse_code_block(&mut *p);
+        if p.peek().as_str() == "if" {
+            parse_if_statement(&mut *p)
+        } else {
+            parse_code_block(&mut *p);
+        }
     } else {
         // We need an expression so fake an empty block.
         // FIXME: this shouldn't be needed

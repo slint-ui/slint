@@ -16,6 +16,7 @@ fn main() -> std::io::Result<()> {
     )?;
 
     for testcase in test_driver_lib::collect_test_cases()? {
+        println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
             module_name.insert_str(0, "_");

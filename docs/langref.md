@@ -439,7 +439,7 @@ draw the outline.
 
 #### Gradients
 
-Gradients allow creating smooth colorful surfaces. They are specified using an angle and a series of 
+Gradients allow creating smooth colorful surfaces. They are specified using an angle and a series of
 color stops. The colors will be linearly interpolated between the stops, aligned to an imaginary line
 that is rotated by the specified angle. This is called a linear gradient and is specified using the
 `@linear-gradient` macro with the following signature:
@@ -498,8 +498,10 @@ Conditional expression
 clicked => {
     if (condition) {
         foo = 42;
-    } else {
+    } else if (other_condition) {
         bar = 28;
+    } else {
+        foo = 4;
     }
 }
 ```

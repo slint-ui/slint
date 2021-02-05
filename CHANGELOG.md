@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
  - `Image::colorize` allows to apply a color filter on image
  - `0` can be converted to anything with units
  - Support power of unit in intermediate expression. (eg: `3px * width / height` is now supported but used to be an error)
+ - Support for `else if`
 
 ## [0.0.5] - 2021-01-29
 

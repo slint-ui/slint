@@ -36,6 +36,17 @@ TestCase := Rectangle {
             action();
         }
     }
+
+    callback elseif(int) -> int;
+    elseif(v) => {
+        if (v == 1) {
+            41
+        } else if (v == 2) {
+            42
+        } else {
+            43
+        }
+    }
 }
 /*
 ```cpp
@@ -51,6 +62,9 @@ instance.call_action();
 assert_eq(instance.get_result(), 5+33);
 instance.call_xxx();
 assert_eq(instance.get_result(), 5+33-1);
+assert_eq(instance.call_elseif(1), 41);
+assert_eq(instance.call_elseif(2), 42);
+assert_eq(instance.call_elseif(3), 43);
 ```
 
 
@@ -66,6 +80,9 @@ instance.call_action();
 assert_eq!(instance.get_result(), 5+33);
 instance.call_xxx();
 assert_eq!(instance.get_result(), 5+33-1);
+assert_eq!(instance.call_elseif(1), 41);
+assert_eq!(instance.call_elseif(2), 42);
+assert_eq!(instance.call_elseif(3), 43);
 ```
 
 ```js
@@ -80,5 +97,8 @@ instance.action();
 assert.equal(instance.result, 5+33);
 instance.xxx();
 assert.equal(instance.result, 5+33-1);
+assert.equal(instance.elseif(1), 41);
+assert.equal(instance.elseif(2), 42);
+assert.equal(instance.elseif(3), 43);
 ```
 */
