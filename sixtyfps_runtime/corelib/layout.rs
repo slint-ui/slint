@@ -577,12 +577,14 @@ pub extern "C" fn box_layout_info<'a>(
         let min_height = cells.iter().map(|c| c.constraint.min_height).max_by(order_float).unwrap()
             + padding.top
             + padding.bottom;
-        let max_height = cells.iter().map(|c| c.constraint.max_height).min_by(order_float).unwrap()
-            + padding.top
-            + padding.bottom;
+        let max_height =
+            (cells.iter().map(|c| c.constraint.max_height).min_by(order_float).unwrap()
+                + padding.top
+                + padding.bottom)
+                .max(min_height);
         let min_width = cells.iter().map(|c| c.constraint.min_width).sum::<Coord>() + extra_w;
         let max_width = if is_stretch {
-            cells.iter().map(|c| c.constraint.max_width).sum::<Coord>() + extra_w
+            (cells.iter().map(|c| c.constraint.max_width).sum::<Coord>() + extra_w).max(min_width)
         } else {
             f32::MAX
         };
@@ -603,12 +605,13 @@ pub extern "C" fn box_layout_info<'a>(
         let min_width = cells.iter().map(|c| c.constraint.min_width).max_by(order_float).unwrap()
             + padding.left
             + padding.right;
-        let max_width = cells.iter().map(|c| c.constraint.max_width).min_by(order_float).unwrap()
+        let max_width = (cells.iter().map(|c| c.constraint.max_width).min_by(order_float).unwrap()
             + padding.left
-            + padding.right;
+            + padding.right)
+            .max(min_width);
         let min_height = cells.iter().map(|c| c.constraint.min_height).sum::<Coord>() + extra_h;
         let max_height = if is_stretch {
-            cells.iter().map(|c| c.constraint.max_height).sum::<Coord>() + extra_h
+            (cells.iter().map(|c| c.constraint.max_height).sum::<Coord>() + extra_h).max(min_height)
         } else {
             f32::MAX
         };
