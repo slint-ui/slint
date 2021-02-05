@@ -975,33 +975,42 @@ impl Expression {
     }
 }
 
+/// The expression in the Element::binding hash table
 #[derive(Default, Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
-pub struct ExpressionSpanned {
+pub struct BindingExpression {
     #[deref]
     #[deref_mut]
     pub expression: Expression,
+    /// The location of this expression in the source code
     pub span: Option<SourceLocation>,
+    /// How deep is this binding declared in the hierarchy. When two binding are conflicting
+    /// for the same priority (because of two way binding), the lower priority wins.
+    pub priority: i32,
 }
 
-impl std::convert::From<Expression> for ExpressionSpanned {
+impl std::convert::From<Expression> for BindingExpression {
     fn from(expression: Expression) -> Self {
-        Self { expression, span: None }
+        Self { expression, span: None, priority: 0 }
     }
 }
 
-impl ExpressionSpanned {
+impl BindingExpression {
     pub fn new_uncompiled(node: SyntaxNodeWithSourceFile) -> Self {
-        Self { expression: Expression::Uncompiled(node.clone()), span: Some(node.into()) }
+        Self {
+            expression: Expression::Uncompiled(node.clone()),
+            span: Some(node.into()),
+            priority: 0,
+        }
     }
 }
 
-impl SpannedWithSourceFile for ExpressionSpanned {
+impl SpannedWithSourceFile for BindingExpression {
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
         self.span.as_ref().and_then(|x| x.source_file())
     }
 }
 
-impl Spanned for ExpressionSpanned {
+impl Spanned for BindingExpression {
     fn span(&self) -> crate::diagnostics::Span {
         self.span.as_ref().map(|x| x.span()).unwrap_or_default()
     }
@@ -1018,7 +1027,7 @@ pub enum Path {
 #[derive(Debug, Clone)]
 pub struct PathElement {
     pub element_type: Rc<BuiltinElement>,
-    pub bindings: HashMap<String, ExpressionSpanned>,
+    pub bindings: HashMap<String, BindingExpression>,
 }
 
 #[derive(Clone, Debug)]

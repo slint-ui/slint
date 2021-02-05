@@ -12,7 +12,7 @@ LICENSE END */
 // of a rectangle is a box shadow.
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::ExpressionSpanned;
+use crate::expression_tree::BindingExpression;
 use crate::{expression_tree::Expression, object_tree::*};
 use crate::{expression_tree::NamedReference, typeregister::TypeRegister};
 use std::cell::RefCell;
@@ -22,7 +22,7 @@ use std::rc::Rc;
 // Creates a new element for the drop shadow properties that'll be a sibling to the specified
 // sibling element.
 fn create_box_shadow_element(
-    shadow_property_bindings: HashMap<String, ExpressionSpanned>,
+    shadow_property_bindings: HashMap<String, BindingExpression>,
     sibling_element: &ElementRc,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
@@ -70,7 +70,7 @@ fn create_box_shadow_element(
 // For a repeated element, this function creates a new element for the drop shadow properties that
 // will act as the new root element in the repeater. The former root will become a child.
 fn inject_shadow_element_in_repeated_element(
-    shadow_property_bindings: HashMap<String, ExpressionSpanned>,
+    shadow_property_bindings: HashMap<String, BindingExpression>,
     repeated_element: &ElementRc,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
@@ -113,7 +113,7 @@ fn inject_shadow_element_in_repeated_element(
     );
 }
 
-fn take_shadow_property_bindings(element: &ElementRc) -> HashMap<String, ExpressionSpanned> {
+fn take_shadow_property_bindings(element: &ElementRc) -> HashMap<String, BindingExpression> {
     crate::typeregister::RESERVED_DROP_SHADOW_PROPERTIES
         .iter()
         .flat_map(|(shadow_property_name, _)| {

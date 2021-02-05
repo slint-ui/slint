@@ -13,7 +13,7 @@ LICENSE END */
 
 use crate::diagnostics::{FileDiagnostics, Spanned, SpannedWithSourceFile};
 use crate::expression_tree::{self, Unit};
-use crate::expression_tree::{Expression, ExpressionSpanned, NamedReference};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::PropertyLookupResult;
 use crate::langtype::{NativeClass, Type};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
@@ -266,7 +266,7 @@ pub struct Element {
     //pub base: QualifiedTypeName,
     pub base_type: crate::langtype::Type,
     /// Currently contains also the callbacks. FIXME: should that be changed?
-    pub bindings: HashMap<String, ExpressionSpanned>,
+    pub bindings: HashMap<String, BindingExpression>,
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
     pub enclosing_component: Weak<Component>,
@@ -313,7 +313,11 @@ impl core::fmt::Debug for Element {
         }
         write!(f, "{} := {} {{ ", self.id, self.base_type)?;
         for (name, ty) in &self.property_declarations {
-            write!(f, "property<{}> {}; ", ty.property_type, name)?
+            if let Some(alias) = &ty.is_alias {
+                write!(f, "alias<{}> {} <=> {:?}; ", ty.property_type, name, alias)?
+            } else {
+                write!(f, "property<{}> {}; ", ty.property_type, name)?
+            }
         }
         for (name, expr) in &self.bindings {
             write!(f, "{}: ", name)?;
@@ -450,7 +454,7 @@ impl Element {
 
             if let Some(csn) = prop_decl.BindingExpression() {
                 if r.bindings
-                    .insert(prop_name.to_string(), ExpressionSpanned::new_uncompiled(csn.into()))
+                    .insert(prop_name.to_string(), BindingExpression::new_uncompiled(csn.into()))
                     .is_some()
                 {
                     diag.push_error(
@@ -461,7 +465,7 @@ impl Element {
             }
             if let Some(csn) = prop_decl.TwoWayBinding() {
                 if r.bindings
-                    .insert(prop_name.into(), ExpressionSpanned::new_uncompiled(csn.into()))
+                    .insert(prop_name.into(), BindingExpression::new_uncompiled(csn.into()))
                     .is_some()
                 {
                     diag.push_error(
@@ -531,7 +535,7 @@ impl Element {
                 if r.bindings
                     .insert(
                         resolved_name.into_owned(),
-                        ExpressionSpanned::new_uncompiled(con_node.clone().into()),
+                        BindingExpression::new_uncompiled(con_node.clone().into()),
                     )
                     .is_some()
                 {
@@ -826,7 +830,7 @@ impl Element {
 
             if self
                 .bindings
-                .insert(resolved_name.to_string(), ExpressionSpanned::new_uncompiled(b))
+                .insert(resolved_name.to_string(), BindingExpression::new_uncompiled(b))
                 .is_some()
             {
                 diag.push_error("Duplicated property binding".into(), &name_token);

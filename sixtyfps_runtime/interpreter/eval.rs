@@ -17,7 +17,7 @@ use corelib::rtti::AnimatedBindingKind;
 use corelib::window::ComponentWindow;
 use corelib::{Brush, Color, PathData, Resource, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
-    BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference, Path as ExprPath,
+    BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference, Path as ExprPath,
     PathElement as ExprPathElement,
 };
 use sixtyfps_compilerlib::langtype::Type;
@@ -924,7 +924,7 @@ fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
 pub fn new_struct_with_bindings<
     ElementType: 'static + Default + sixtyfps_corelib::rtti::BuiltinItem,
 >(
-    bindings: &HashMap<String, ExpressionSpanned>,
+    bindings: &HashMap<String, BindingExpression>,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();

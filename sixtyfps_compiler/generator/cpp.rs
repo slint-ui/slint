@@ -218,7 +218,7 @@ mod cpp_ast {
 
 use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, EasingCurve, Expression, ExpressionSpanned, NamedReference,
+    BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference,
 };
 use crate::langtype::Type;
 use crate::layout::LayoutGeometry;
@@ -284,7 +284,7 @@ fn remove_parentheses(expr: &str) -> &str {
 
 fn new_struct_with_bindings(
     type_name: &str,
-    bindings: &HashMap<String, ExpressionSpanned>,
+    bindings: &HashMap<String, BindingExpression>,
     component: &Rc<Component>,
 ) -> String {
     let bindings_initialization: Vec<String> = bindings

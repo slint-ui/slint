@@ -131,7 +131,7 @@ fn lower_path_layout(
     collected_children.extend(layout_children.iter().cloned());
     component.optimized_elements.borrow_mut().push(path_layout_element.clone());
     let path_elements_expr = match path_layout_element.borrow_mut().bindings.remove("elements") {
-        Some(ExpressionSpanned { expression: Expression::PathElements { elements }, .. }) => {
+        Some(BindingExpression { expression: Expression::PathElements { elements }, .. }) => {
             elements
         }
         _ => {

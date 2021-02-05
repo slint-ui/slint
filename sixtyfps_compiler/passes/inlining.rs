@@ -9,7 +9,7 @@
 LICENSE END */
 //! Inline each object_tree::Component within the main Component
 
-use crate::expression_tree::{Expression, NamedReference};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::*;
 use by_address::ByAddress;
@@ -109,10 +109,11 @@ fn inline_element(
     for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
         match elem_mut.bindings.entry(k.clone()) {
             std::collections::hash_map::Entry::Vacant(entry) => {
-                entry.insert(val.clone());
+                entry.insert(val.clone()).priority += 1;
             }
             std::collections::hash_map::Entry::Occupied(mut entry) => {
-                maybe_merge_two_ways(entry.get_mut(), val);
+                let b = entry.get_mut();
+                maybe_merge_two_ways(&mut b.expression, &mut b.priority, val);
             }
         }
     }
@@ -127,15 +128,24 @@ fn inline_element(
 }
 
 /// Normally, binding would be kept intact. But if they are two ways binding, they need to be merged
-pub fn maybe_merge_two_ways(binding: &mut Expression, original: &Expression) {
-    match (binding, original) {
-        (Expression::TwoWayBinding(_, Some(ref mut x)), o) => maybe_merge_two_ways(&mut *x, o),
-        (Expression::TwoWayBinding(_, x), o) => *x = Some(Box::new(o.clone())),
+pub fn maybe_merge_two_ways(
+    binding: &mut Expression,
+    priority: &mut i32,
+    original: &BindingExpression,
+) {
+    match (binding, &original.expression) {
+        (Expression::TwoWayBinding(_, Some(ref mut x)), _) => {
+            maybe_merge_two_ways(&mut *x, priority, original);
+        }
+        (Expression::TwoWayBinding(_, x), o) => {
+            *priority = original.priority + 1;
+            *x = Some(Box::new(o.clone()));
+        }
         (ref mut x, Expression::TwoWayBinding(nr, _)) => {
             let n = Expression::TwoWayBinding(nr.clone(), Some(Box::new(std::mem::take(*x))));
             **x = n
         }
-        _ => (),
+        _ => *priority += 1,
     }
 }
 
