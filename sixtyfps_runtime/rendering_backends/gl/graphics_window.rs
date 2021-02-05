@@ -293,7 +293,7 @@ impl GraphicsWindow {
         let root_item = component.as_ref().get_item_ref(0);
         let background_color =
             if let Some(window_item) = ItemRef::downcast_pin::<corelib::items::Window>(root_item) {
-                window_item.color()
+                window_item.background()
             } else {
                 RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
             };

@@ -32,7 +32,7 @@ Window is the root of what is on the screen
 ### Properties
 
 * **`title`** (*string*): The window title that is shown in the title bar.
-* **`color`** (*color*): The background color of the Window. (default value: depends on the style)
+* **`background`** (*color*): The background color of the Window. (default value: depends on the style)
 
 ## `Rectangle`
 

@@ -757,7 +757,7 @@ pub struct PropertyAnimation {
 pub struct Window {
     pub width: Property<f32>,
     pub height: Property<f32>,
-    pub color: Property<Color>,
+    pub background: Property<Color>,
     pub title: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
 }

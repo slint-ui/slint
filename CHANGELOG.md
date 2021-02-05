@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Changed
- - `Rectangle::color` was deprecated and replaced by `Rectangle::background`
+ - `Rectangle::color` was deprecated and replaced by `Rectangle::background`, same for `Window::color`
  - `Path::fill-color` was renamed to `fill`, and `Path::stroke-color` was renamed to `stroke`, which are now brushes instead of color
  - Many other color property became brush in order to support gradients
 
