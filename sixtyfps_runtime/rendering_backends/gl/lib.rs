@@ -8,11 +8,10 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    rc::{Rc, Weak},
-};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::pin::Pin;
+use std::rc::{Rc, Weak};
 
 use sixtyfps_corelib::graphics::{
     Brush, Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource, Size,
@@ -155,12 +154,19 @@ enum ImageCacheKey {
 #[derive(Clone)]
 enum ItemGraphicsCacheEntry {
     Image(Rc<CachedImage>),
+    ColorizedImage {
+        // This original image Rc is kept here to keep the image in the shared image cache, so that
+        // changes to the colorization brush will not require re-uploading the image.
+        original_image: Rc<CachedImage>,
+        colorized_image: Rc<CachedImage>,
+    },
 }
 
 impl ItemGraphicsCacheEntry {
     fn as_image(&self) -> &Rc<CachedImage> {
         match self {
             ItemGraphicsCacheEntry::Image(image) => image,
+            ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
             //_ => panic!("internal error. image requested for non-image gpu data"),
         }
     }
@@ -404,20 +410,18 @@ impl GLRendererData {
         }))
     }
 
-    // Load the image from the specified Resource property (via getter fn), unless it was cached in the item's rendering
+    // Load the image from the specified load factory fn, unless it was cached in the item's rendering
     // cache.
-    fn load_cached_item_image(
+    fn load_cached_item_image_from_function(
         &self,
         item_cache: &CachedRenderingData,
-        source_property_getter: impl FnOnce() -> Resource,
+        load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
     ) -> Option<Rc<CachedImage>> {
         let mut cache = self.item_graphics_cache.borrow_mut();
-        item_cache
-            .ensure_up_to_date(&mut cache, || self.load_image_resource(source_property_getter()))
-            .map(|gpu_resource| {
-                let image = gpu_resource.as_image();
-                image.clone()
-            })
+        item_cache.ensure_up_to_date(&mut cache, || load_fn()).map(|gpu_resource| {
+            let image = gpu_resource.as_image();
+            image.clone()
+        })
     }
 }
 
@@ -638,7 +642,9 @@ impl GLRenderer {
         source: core::pin::Pin<&sixtyfps_corelib::properties::Property<Resource>>,
     ) -> sixtyfps_corelib::graphics::Size {
         self.shared_data
-            .load_cached_item_image(item_graphics_cache, || source.get())
+            .load_cached_item_image_from_function(item_graphics_cache, || {
+                self.shared_data.load_image_resource(source.get())
+            })
             .map(|image| image.size())
             .unwrap_or_default()
     }
@@ -731,6 +737,7 @@ impl ItemRenderer for GLItemRenderer {
             image.width(),
             image.height(),
             image.image_fit(),
+            None,
         );
     }
 
@@ -753,6 +760,11 @@ impl ItemRenderer for GLItemRenderer {
             clipped_image.width(),
             clipped_image.height(),
             clipped_image.image_fit(),
+            Some(
+                sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
+                    .colorize
+                    .apply_pin(clipped_image),
+            ),
         );
     }
 
@@ -1140,6 +1152,7 @@ impl ItemRenderer for GLItemRenderer {
         });
         let image_id = match cache_entry {
             Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(&self),
+            Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
             None => return,
         };
         let mut canvas = self.shared_data.canvas.borrow_mut();
@@ -1199,6 +1212,68 @@ impl GLItemRenderer {
         canvas.fill_text(pos.x + translate_x, pos.y + translate_y, text, paint).unwrap()
     }
 
+    fn colorize_image(
+        &self,
+        image: ItemGraphicsCacheEntry,
+        colorize_property: Option<Pin<&Property<Brush>>>,
+    ) -> ItemGraphicsCacheEntry {
+        let colorize_brush = match colorize_property.map_or(Brush::default(), |prop| prop.get()) {
+            Brush::NoBrush => return image,
+            brush => brush,
+        };
+        let image = image.as_image();
+
+        let image_size = image.size();
+        let image_id = image.ensure_uploaded_to_gpu(&self);
+        let colorized_image = self
+            .shared_data
+            .canvas
+            .borrow_mut()
+            .create_image_empty(
+                image_size.width as _,
+                image_size.height as _,
+                femtovg::PixelFormat::Rgba8,
+                femtovg::ImageFlags::empty(),
+            )
+            .expect("internal error allocating temporary texture for image colirization");
+
+        let mut image_rect = femtovg::Path::new();
+        image_rect.rect(0., 0., image_size.width, image_size.height);
+        let brush_paint = self.brush_to_paint(colorize_brush, &mut image_rect).unwrap();
+
+        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
+            canvas.set_render_target(femtovg::RenderTarget::Image(colorized_image));
+
+            canvas.global_composite_operation(femtovg::CompositeOperation::Copy);
+            canvas.fill_path(
+                &mut image_rect,
+                femtovg::Paint::image(
+                    image_id,
+                    0.,
+                    0.,
+                    image_size.width,
+                    image_size.height,
+                    0.,
+                    1.0,
+                ),
+            );
+
+            canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
+            canvas.fill_path(&mut image_rect, brush_paint);
+
+            canvas.set_render_target(femtovg::RenderTarget::Screen);
+        });
+
+        ItemGraphicsCacheEntry::ColorizedImage {
+            original_image: image.clone(),
+            colorized_image: Rc::new(CachedImage::new_on_gpu(
+                &self.shared_data.canvas,
+                colorized_image,
+                None,
+            )),
+        }
+    }
+
     fn draw_image_impl(
         &mut self,
         pos: Point,
@@ -1208,13 +1283,18 @@ impl GLItemRenderer {
         target_width: f32,
         target_height: f32,
         image_fit: ImageFit,
+        colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
         if target_width <= 0. || target_height < 0. {
             return;
         }
 
         let cached_image =
-            match self.shared_data.load_cached_item_image(item_cache, || source_property.get()) {
+            match self.shared_data.load_cached_item_image_from_function(item_cache, || {
+                self.shared_data
+                    .load_image_resource(source_property.get())
+                    .map(|image| self.colorize_image(image, colorize_property))
+            }) {
                 Some(image) => image,
                 None => return,
             };
