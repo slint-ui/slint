@@ -1399,12 +1399,12 @@ fn compile_expression(
             BuiltinFunction::Round => "[](float a){ return std::round(a); }".into(),
             BuiltinFunction::Ceil => "[](float a){ return std::ceil(a); }".into(),
             BuiltinFunction::Floor => "[](float a){ return std::floor(a); }".into(),
-            BuiltinFunction::Sin => "[](float a){ return std::sin(a * M_PI / 180); }".into(),
-            BuiltinFunction::Cos => "[](float a){ return std::cos(a * M_PI / 180); }".into(),
-            BuiltinFunction::Tan => "[](float a){ return std::tan(a * M_PI / 180); }".into(),
-            BuiltinFunction::ASin => "[](float a){ return std::asin(a) * 180 / M_PI; }".into(),
-            BuiltinFunction::ACos => "[](float a){ return std::acos(a) * 180 / M_PI; }".into(),
-            BuiltinFunction::ATan => "[](float a){ return std::atan(a) * 180 / M_PI; }".into(),
+            BuiltinFunction::Sin => format!("[](float a){{ return std::sin(a * {}); }}", std::f32::consts::PI / 180.),
+            BuiltinFunction::Cos => format!("[](float a){{ return std::cos(a * {}); }}", std::f32::consts::PI / 180.),
+            BuiltinFunction::Tan => format!("[](float a){{ return std::tan(a * {}); }}", std::f32::consts::PI / 180.),
+            BuiltinFunction::ASin => format!("[](float a){{ return std::asin(a) / {}; }}", std::f32::consts::PI / 180.),
+            BuiltinFunction::ACos => format!("[](float a){{ return std::acos(a) / {}; }}", std::f32::consts::PI / 180.),
+            BuiltinFunction::ATan => format!("[](float a){{ return std::atan(a) / {}; }}", std::f32::consts::PI / 180.),
             BuiltinFunction::SetFocusItem => {
                 "self->window.set_focus_item".into()
             }
