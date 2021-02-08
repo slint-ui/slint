@@ -6,7 +6,8 @@ const dist = path.resolve(__dirname, "dist");
 
 module.exports = {
     entry: {
-        app: './index.ts',
+        main: './index.ts',
+        preview: './preview.ts',
         'editor.worker': 'monaco-editor/esm/vs/editor/editor.worker.js',
         'json.worker': 'monaco-editor/esm/vs/language/json/json.worker',
         'css.worker': 'monaco-editor/esm/vs/language/css/css.worker',
@@ -41,7 +42,14 @@ module.exports = {
     plugins: [
         new HtmlWebPackPlugin({
             title: 'SixtyFPS Online Editor',
-            template: 'index.html'
+            template: 'index.html',
+            chunks: ['main']
+        }),
+        new HtmlWebPackPlugin({
+            title: 'SixtyFPS Preview',
+            template: 'preview.html',
+            filename: 'preview.html',
+            chunks: ['preview']
         }),
         new WasmPackPlugin({
             crateDirectory: path.resolve(__dirname, "../../api/sixtyfps-wasm-interpreter/"),
