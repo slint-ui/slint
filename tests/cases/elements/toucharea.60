@@ -10,6 +10,7 @@ LICENSE END */
 TestCase := Rectangle {
     property <int> touch1;
     property <int> touch2;
+    property <int> touch3;
 
     TouchArea {
         x: 100phx;
@@ -17,6 +18,13 @@ TestCase := Rectangle {
         width: 10phx;
         height: 10phx;
         clicked => { touch1+=1; }
+        TouchArea {
+            y: 2phx;
+            height: 2phx;
+            x: 3phx;
+            width: 4phx;
+            clicked => { touch3+=1; }
+        }
     }
     TouchArea {
         x: 100phx;
@@ -36,16 +44,26 @@ const TestCase &instance = *handle;
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
+assert_eq(instance.get_touch3(), 0);
 
 // click on second one
 sixtyfps::testing::send_mouse_click(&instance, 101., 101.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 1);
+assert_eq(instance.get_touch3(), 0);
 
 // click on first one only
 sixtyfps::testing::send_mouse_click(&instance, 108., 108.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
+assert_eq(instance.get_touch3(), 0);
+
+// click on the third
+sixtyfps::testing::send_mouse_click(&instance, 106., 103.);
+assert_eq(instance.get_touch1(), 1);
+assert_eq(instance.get_touch2(), 1);
+assert_eq(instance.get_touch3(), 1);
+
 ```
 
 
@@ -55,16 +73,26 @@ let instance = TestCase::new();
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 0);
+assert_eq!(instance.get_touch3(), 0);
 
 // click on second one
 sixtyfps::testing::send_mouse_click(&instance, 101., 101.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 1);
+assert_eq!(instance.get_touch3(), 0);
 
 // click on first one only
 sixtyfps::testing::send_mouse_click(&instance, 108., 108.);
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 1);
+assert_eq!(instance.get_touch3(), 0);
+
+// click on the third
+sixtyfps::testing::send_mouse_click(&instance, 106., 103.);
+assert_eq!(instance.get_touch1(), 1);
+assert_eq!(instance.get_touch2(), 1);
+assert_eq!(instance.get_touch3(), 1);
+
 ```
 
 ```js
@@ -73,15 +101,24 @@ var instance = new sixtyfps.TestCase();
 instance.send_mouse_click(5., 5.);
 assert.equal(instance.touch1, 0);
 assert.equal(instance.touch2, 0);
+assert.equal(instance.touch3, 0);
 
 // click on second one
 instance.send_mouse_click(101., 101.);
 assert.equal(instance.touch1, 0);
 assert.equal(instance.touch2, 1);
+assert.equal(instance.touch3, 0);
 
 // click on first one only
 instance.send_mouse_click(108., 108.);
 assert.equal(instance.touch1, 1);
 assert.equal(instance.touch2, 1);
+assert.equal(instance.touch3, 0);
+
+// click on the third
+instance.send_mouse_click(106., 103.);
+assert.equal(instance.touch1, 1);
+assert.equal(instance.touch2, 1);
+assert.equal(instance.touch3, 1);
 ```
 */

@@ -86,8 +86,9 @@ pub fn render_component_items(
 
             (ItemVisitorResult::Continue(translation), ())
         },
-        |_, _, _| {
+        |_, _, _, r| {
             renderer.borrow_mut().restore_state();
+            r
         },
         origin,
     );

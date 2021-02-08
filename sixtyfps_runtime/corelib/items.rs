@@ -137,6 +137,15 @@ impl ItemRc {
         comp_ref_pin.as_ref().parent_item(self.index, &mut r);
         r
     }
+
+    /// Return the index of the item within the component
+    pub fn index(&self) -> usize {
+        self.index
+    }
+    /// Returns a reference to the component holding this item
+    pub fn component(&self) -> vtable::VRc<ComponentVTable> {
+        self.component.clone()
+    }
 }
 
 /// A Weak reference to an item that can be constructed from an ItemRc.

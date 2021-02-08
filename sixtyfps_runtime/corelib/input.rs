@@ -12,7 +12,7 @@ LICENSE END */
 #![warn(missing_docs)]
 
 use crate::graphics::Point;
-use crate::item_tree::ItemVisitorResult;
+use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::Property;
 use crate::{component::ComponentRc, SharedString};
@@ -273,35 +273,51 @@ pub fn process_mouse_input(
 
     let mut result = MouseInputState::default();
     type State = (Vector2D<f32>, Vec<ItemWeak>);
-    crate::item_tree::visit_items(
+    crate::item_tree::visit_items_with_post_visit(
         &component,
         crate::item_tree::TraversalOrder::FrontToBack,
         |comp_rc: &ComponentRc,
          item: core::pin::Pin<ItemRef>,
          item_index: usize,
-         (offset, mouse_grabber_stack): &State|
-         -> ItemVisitorResult<State> {
+         (offset, mouse_grabber_stack): &State| {
             let item_rc = ItemRc::new(comp_rc.clone(), item_index);
 
             let geom = item.as_ref().geometry();
             let geom = geom.translate(*offset);
 
-            if geom.contains(mouse_event.pos) {
+            let post_visit_state = if geom.contains(mouse_event.pos) {
                 let mut event2 = mouse_event.clone();
                 event2.pos -= geom.origin.to_vector();
+                Some((event2, mouse_grabber_stack.clone(), item_rc.clone()))
+            } else {
+                None
+            };
+
+            let mut mouse_grabber_stack = mouse_grabber_stack.clone();
+            mouse_grabber_stack.push(item_rc.downgrade());
+            (
+                ItemVisitorResult::Continue((geom.origin.to_vector(), mouse_grabber_stack)),
+                post_visit_state,
+            )
+        },
+        |_, item, post_state, r| {
+            if r.has_aborted() {
+                return r;
+            }
+            if let Some((event2, mouse_grabber_stack, item_rc)) = post_state {
                 match item.as_ref().input_event(event2, window, &item_rc) {
                     InputEventResult::EventAccepted => {
                         result.item_stack = mouse_grabber_stack.clone();
                         result.item_stack.push(item_rc.downgrade());
                         result.grabbed = false;
-                        return ItemVisitorResult::Abort;
+                        return VisitChildrenResult::abort(item_rc.index(), 0);
                     }
                     InputEventResult::EventIgnored => (),
                     InputEventResult::GrabMouse => {
                         result.item_stack = mouse_grabber_stack.clone();
                         result.item_stack.push(item_rc.downgrade());
                         result.grabbed = true;
-                        return ItemVisitorResult::Abort;
+                        return VisitChildrenResult::abort(item_rc.index(), 0);
                     }
                     InputEventResult::ObserveHover => {
                         result.item_stack = mouse_grabber_stack.clone();
@@ -310,10 +326,7 @@ pub fn process_mouse_input(
                     }
                 };
             }
-
-            let mut mouse_grabber_stack = mouse_grabber_stack.clone();
-            mouse_grabber_stack.push(item_rc.downgrade());
-            ItemVisitorResult::Continue((geom.origin.to_vector(), mouse_grabber_stack))
+            r
         },
         (Vector2D::new(0., 0.), Vec::new()),
     );

@@ -152,7 +152,7 @@ pub fn visit_items<State>(
         component,
         order,
         &mut |component, item, index, state| (visitor(component, item, index, state), ()),
-        &mut |_, _, _| {},
+        &mut |_, _, _, r| r,
         -1,
         &state,
     )
@@ -172,7 +172,12 @@ pub fn visit_items_with_post_visit<State, PostVisitState>(
         usize,
         &State,
     ) -> (ItemVisitorResult<State>, PostVisitState),
-    mut post_visitor: impl FnMut(&ComponentRc, Pin<ItemRef>, PostVisitState),
+    mut post_visitor: impl FnMut(
+        &ComponentRc,
+        Pin<ItemRef>,
+        PostVisitState,
+        VisitChildrenResult,
+    ) -> VisitChildrenResult,
     state: State,
 ) -> VisitChildrenResult {
     visit_internal(component, order, &mut visitor, &mut post_visitor, -1, &state)
@@ -187,7 +192,12 @@ fn visit_internal<State, PostVisitState>(
         usize,
         &State,
     ) -> (ItemVisitorResult<State>, PostVisitState),
-    post_visitor: &mut impl FnMut(&ComponentRc, Pin<ItemRef>, PostVisitState),
+    post_visitor: &mut impl FnMut(
+        &ComponentRc,
+        Pin<ItemRef>,
+        PostVisitState,
+        VisitChildrenResult,
+    ) -> VisitChildrenResult,
     index: isize,
     state: &State,
 ) -> VisitChildrenResult {
@@ -197,10 +207,9 @@ fn visit_internal<State, PostVisitState>(
      -> VisitChildrenResult {
         match visitor(component, item, index, state) {
             (ItemVisitorResult::Continue(state), post_visit_state) => {
-                let result =
+                let r =
                     visit_internal(component, order, visitor, post_visitor, index as isize, &state);
-                post_visitor(component, item, post_visit_state);
-                result
+                post_visitor(component, item, post_visit_state, r)
             }
             (ItemVisitorResult::Abort, _) => VisitChildrenResult::abort(index, 0),
         }
