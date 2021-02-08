@@ -97,6 +97,8 @@ pub enum InternalKeyCode {
     Delete,
     /// Code corresponding to the return key -- encoded as 0xA ASCII (newline)
     Return,
+    /// Code corresponding to the return key -- encoded as 0x1b ASCII (escape)
+    Escape,
 }
 
 const LEFT_CODE: char = '\u{000E}'; // shift out
@@ -106,6 +108,7 @@ const END_CODE: char = '\u{0003}'; // end of text
 const BACK_CODE: char = '\u{0007}'; // backspace \b
 const DELETE_CODE: char = '\u{007F}'; // cancel
 const RETURN_CODE: char = '\u{000A}'; // \n
+const ESCAPE_CODE: char = '\u{001B}'; // esc
 
 impl InternalKeyCode {
     /// Encodes the internal key code as string
@@ -118,6 +121,7 @@ impl InternalKeyCode {
             InternalKeyCode::Back => BACK_CODE,
             InternalKeyCode::Delete => DELETE_CODE,
             InternalKeyCode::Return => RETURN_CODE,
+            InternalKeyCode::Escape => ESCAPE_CODE,
         }
         .to_string()
         .into()
@@ -136,6 +140,7 @@ impl InternalKeyCode {
                 BACK_CODE => Self::Back,
                 DELETE_CODE => Self::Delete,
                 RETURN_CODE => Self::Return,
+                ESCAPE_CODE => Self::Escape,
                 _ => return None,
             })
         } else {

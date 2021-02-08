@@ -315,6 +315,9 @@ pub fn run() {
                                         winit::event::VirtualKeyCode::Return => {
                                             Some(InternalKeyCode::Return)
                                         }
+                                        winit::event::VirtualKeyCode::Escape => {
+                                            Some(InternalKeyCode::Escape)
+                                        }
                                         _ => None,
                                     }
                                 })
