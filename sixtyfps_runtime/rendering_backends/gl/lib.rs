@@ -375,6 +375,9 @@ impl GLRendererData {
         Some(ItemGraphicsCacheEntry::Image(match resource {
             Resource::None => return None,
             Resource::AbsoluteFilePath(path) => {
+                if path.is_empty() {
+                    return None;
+                }
                 self.lookup_image_in_cache_or_create(ImageCacheKey::Path(path.to_string()), || {
                     #[cfg(not(target_arch = "wasm32"))]
                     {
