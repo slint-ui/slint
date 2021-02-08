@@ -1076,6 +1076,12 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::Round => quote!((|a| (a as f64).round())),
             BuiltinFunction::Ceil => quote!((|a| (a as f64).ceil())),
             BuiltinFunction::Floor => quote!((|a| (a as f64).floor())),
+            BuiltinFunction::Sin => quote!((|a| (a as f64).to_radians().sin())),
+            BuiltinFunction::Cos => quote!((|a| (a as f64).to_radians().cos())),
+            BuiltinFunction::Tan => quote!((|a| (a as f64).to_radians().tan())),
+            BuiltinFunction::ASin => quote!((|a| (a as f64).asin().to_degrees())),
+            BuiltinFunction::ACos => quote!((|a| (a as f64).acos().to_degrees())),
+            BuiltinFunction::ATan => quote!((|a| (a as f64).atan().to_degrees())),
             BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::ImplicitItemSize => {
                 panic!("internal error: should be handled directly in CallFunction")
             }

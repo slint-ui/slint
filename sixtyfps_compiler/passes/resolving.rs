@@ -736,6 +736,12 @@ impl Expression {
             "min" => {
                 return Expression::BuiltinMacroReference(BuiltinMacroFunction::Min, first.into())
             }
+            "sin" => return Expression::BuiltinFunctionReference(BuiltinFunction::Sin),
+            "cos" => return Expression::BuiltinFunctionReference(BuiltinFunction::Cos),
+            "tan" => return Expression::BuiltinFunctionReference(BuiltinFunction::Tan),
+            "asin" => return Expression::BuiltinFunctionReference(BuiltinFunction::ASin),
+            "acos" => return Expression::BuiltinFunctionReference(BuiltinFunction::ACos),
+            "atan" => return Expression::BuiltinFunctionReference(BuiltinFunction::ATan),
             _ => {}
         };
 

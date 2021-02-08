@@ -790,4 +790,9 @@ Return the value rounded to the nearest integer
 
  Return the ceiling or floor
 
+  * **`sin(angle) -> float`**, **`cos(angle) -> float`**, **`tan(angle) -> float`**, **`asin(float) -> angle`**, **`acos(float) -> angle`**, **`atan(float) -> angle`**
+
+The trigonometry funtion. Note that the should be typed with `deg` or `rad` unit
+(for example `cos(90deg)` or `sin(slider.value * 1deg)`).
+
 

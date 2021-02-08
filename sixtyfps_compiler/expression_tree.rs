@@ -73,6 +73,12 @@ pub enum BuiltinFunction {
     Round,
     Ceil,
     Floor,
+    Cos,
+    Sin,
+    Tan,
+    ACos,
+    ASin,
+    ATan,
     SetFocusItem,
     ShowPopupWindow,
     /// the "42".to_float()
@@ -105,6 +111,12 @@ impl BuiltinFunction {
             },
             BuiltinFunction::Round | BuiltinFunction::Ceil | BuiltinFunction::Floor => {
                 Type::Function { return_type: Box::new(Type::Int32), args: vec![Type::Float32] }
+            }
+            BuiltinFunction::Cos | BuiltinFunction::Sin | BuiltinFunction::Tan => {
+                Type::Function { return_type: Box::new(Type::Float32), args: vec![Type::Angle] }
+            }
+            BuiltinFunction::ACos | BuiltinFunction::ASin | BuiltinFunction::ATan => {
+                Type::Function { return_type: Box::new(Type::Angle), args: vec![Type::Float32] }
             }
             BuiltinFunction::SetFocusItem => Type::Function {
                 return_type: Box::new(Type::Void),

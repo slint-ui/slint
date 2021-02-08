@@ -452,6 +452,30 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.floor())
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Sin) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.to_radians().sin())
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Cos) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.to_radians().cos())
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Tan) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.to_radians().tan())
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ASin) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.asin().to_degrees())
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ACos) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.acos().to_degrees())
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ATan) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.atan().to_degrees())
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to SetFocusItem")
