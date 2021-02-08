@@ -12,7 +12,7 @@ LICENSE END */
 use crate::animations::EasingCurve;
 use crate::animations::Instant;
 use crate::graphics::Point;
-use crate::input::{MouseEvent, MouseEventType};
+use crate::input::{InputEventResult, MouseEvent, MouseEventType};
 use crate::items::{Flickable, PropertyAnimation, Rectangle};
 use core::cell::RefCell;
 use core::pin::Pin;
@@ -31,7 +31,7 @@ pub struct FlickableData {
 }
 
 impl FlickableData {
-    pub fn handle_mouse(&self, flick: Pin<&Flickable>, event: MouseEvent) {
+    pub fn handle_mouse(&self, flick: Pin<&Flickable>, event: MouseEvent) -> InputEventResult {
         let mut inner = self.inner.borrow_mut();
         match event.what {
             MouseEventType::MousePressed => {
@@ -44,7 +44,8 @@ impl FlickableData {
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                         .apply_pin(flick)
                         .get(),
-                )
+                );
+                InputEventResult::GrabMouse
             }
             MouseEventType::MouseExit | MouseEventType::MouseReleased => {
                 if let Some(pressed_time) = inner.pressed_time {
@@ -69,7 +70,8 @@ impl FlickableData {
                         .apply_pin(flick)
                         .set_animated_value(final_pos.y, anim);
                 }
-                inner.pressed_time = None
+                inner.pressed_time = None;
+                InputEventResult::EventAccepted
             }
             MouseEventType::MouseMoved => {
                 if inner.pressed_time.is_some() {
@@ -83,6 +85,9 @@ impl FlickableData {
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                         .apply_pin(flick)
                         .set(new_pos.y);
+                    InputEventResult::EventAccepted
+                } else {
+                    InputEventResult::EventIgnored
                 }
             }
         }
