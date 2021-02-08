@@ -70,9 +70,8 @@ assert_eq!(instance.get_ti1_text(), sixtyfps::SharedString::from("Hello"));
 assert_eq!(instance.get_ti2_text(), sixtyfps::SharedString::from("Blah"));
 assert_eq!(instance.get_text_item_text(), sixtyfps::SharedString::from("Blah"));
 assert_eq!(instance.get_othercomp_t(), instance.get_othercomp_get_text());
-//FIXME: the initialization order is wrong currently
-//assert_eq!(instance.get_othercomp_t(), sixtyfps::SharedString::from("real value"));
-//assert_eq!(instance.get_othercomp_get_text(), sixtyfps::SharedString::from("real value"));
+assert_eq!(instance.get_othercomp_t(), sixtyfps::SharedString::from("real value"));
+assert_eq!(instance.get_othercomp_get_text(), sixtyfps::SharedString::from("real value"));
 
 instance.set_text1(sixtyfps::SharedString::from("Text1New"));
 instance.set_text2(sixtyfps::SharedString::from("Text2New"));
@@ -119,9 +118,8 @@ assert_eq(instance.get_ti1_text(), sixtyfps::SharedString("Hello"));
 assert_eq(instance.get_ti2_text(), sixtyfps::SharedString("Blah"));
 assert_eq(instance.get_text_item_text(), sixtyfps::SharedString("Blah"));
 assert_eq(instance.get_othercomp_t(), instance.get_othercomp_get_text());
-//FIXME: the initialization order is wrong currently
-//assert_eq(instance.get_othercomp_t(), sixtyfps::SharedString("real value"));
-//assert_eq(instance.get_othercomp_get_text(), sixtyfps::SharedString("real value"));
+assert_eq(instance.get_othercomp_t(), sixtyfps::SharedString("real value"));
+assert_eq(instance.get_othercomp_get_text(), sixtyfps::SharedString("real value"));
 
 
 instance.set_text1(sixtyfps::SharedString("Text1New"));
@@ -166,9 +164,8 @@ assert.equal(instance.ti1_text, "Hello");
 assert.equal(instance.ti2_text, "Blah");
 assert.equal(instance.text_item_text, "Blah");
 assert.equal(instance.othercomp_t, instance.othercomp_get_text);
-//FIXME: the initialization order is wrong currently
-//assert.equal(instance.othercomp_t, "real value");
-//assert.equal(instance.othercomp_get_text, "real value");
+assert.equal(instance.othercomp_t, "real value");
+assert.equal(instance.othercomp_get_text, "real value");
 
 instance.text1 = "Text1New";
 instance.text2 = "Text2New";

@@ -12,40 +12,88 @@ LICENSE END */
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
 use crate::object_tree::*;
-use std::collections::{hash_map::Entry, HashMap};
+use std::cell::RefCell;
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::rc::Rc;
 
 type Mapping = HashMap<NamedReference, NamedReference>;
-type PropertyReference<'a> = (&'a ElementRc, &'a str);
+
+#[derive(Default, Debug)]
+struct PropertySets {
+    map: HashMap<NamedReference, Rc<RefCell<HashSet<NamedReference>>>>,
+    all_sets: Vec<Rc<RefCell<HashSet<NamedReference>>>>,
+}
+
+impl PropertySets {
+    fn add_link(&mut self, p1: NamedReference, p2: NamedReference) {
+        if let Some(s1) = self.map.get(&p1).cloned() {
+            if let Some(s2) = self.map.get(&p2).cloned() {
+                if Rc::ptr_eq(&s1, &s2) {
+                    return;
+                }
+                for x in s1.borrow().iter() {
+                    self.map.insert(x.clone(), s2.clone());
+                    s2.borrow_mut().insert(x.clone());
+                }
+                *s1.borrow_mut() = HashSet::new();
+            } else {
+                s1.borrow_mut().insert(p2.clone());
+                self.map.insert(p2, s1);
+            }
+        } else if let Some(s2) = self.map.get(&p2).cloned() {
+            s2.borrow_mut().insert(p1.clone());
+            self.map.insert(p1, s2);
+        } else {
+            let mut set = HashSet::new();
+            set.insert(p1.clone());
+            set.insert(p2.clone());
+            let set = Rc::new(RefCell::new(set));
+            self.map.insert(p1, set.clone());
+            self.map.insert(p2, set.clone());
+            self.all_sets.push(set)
+        }
+    }
+}
 
 pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    // The key will be removed and replaced by the named reference
-    let mut aliases_to_remove = Mapping::new();
-
-    // Detects all aliases
+    // collect all sets that are linked together
+    let mut property_sets = PropertySets::default();
     recurse_elem_including_sub_components(component, &(), &mut |e, _| {
-        for (name, expr) in &e.borrow().bindings {
-            if let Expression::TwoWayBinding(nr, _) = &expr.expression {
+        'bindings: for (name, binding) in &e.borrow().bindings {
+            let mut exp = &binding.expression;
+            while let Expression::TwoWayBinding(nr, next) = exp {
                 let other_e = nr.element.upgrade().unwrap();
                 if name == &nr.name && Rc::ptr_eq(e, &other_e) {
-                    diag.push_error("Property cannot alias to itself".into(), expr);
-                    continue;
+                    diag.push_error("Property cannot alias to itself".into(), binding);
+                    continue 'bindings;
                 }
-                process_alias(
-                    component,
-                    (e, name.as_str()),
-                    (&other_e, nr.name.as_str()),
-                    &mut aliases_to_remove,
-                )
+                property_sets.add_link(NamedReference::new(e, &name), nr.clone());
+
+                exp = match next {
+                    Some(x) => &*x,
+                    None => break,
+                };
             }
         }
     });
 
-    // Make sure that the aliases_to_remove don't map to alias that themselves need to be removed
-    let copy = aliases_to_remove.clone();
-    for (_, v) in aliases_to_remove.iter_mut() {
-        while let Some(other) = copy.get(v) {
-            *v = other.clone();
+    // The key will be removed and replaced by the named reference
+    let mut aliases_to_remove = Mapping::new();
+
+    // For each set, find a "master" property. Only reference to this master property will be kept,
+    // and only the master property will keep its binding
+    for set in property_sets.all_sets {
+        let set = set.borrow();
+        let mut set_iter = set.iter();
+        if let Some(mut best) = set_iter.next().cloned() {
+            for candidate in set_iter {
+                best = best_property(component, best.clone(), candidate.clone());
+            }
+            for x in set.iter() {
+                if *x != best {
+                    aliases_to_remove.insert(x.clone(), best.clone());
+                }
+            }
         }
     }
 
@@ -63,11 +111,13 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         // Remove the declaration
         {
             let mut elem = elem.borrow_mut();
-            if elem.property_declarations[&remove.name].expose_in_public_api {
-                elem.property_declarations.get_mut(&remove.name).unwrap().is_alias =
-                    Some(to.clone());
-            } else {
-                elem.property_declarations.remove(&remove.name);
+            if let Some(d) = elem.property_declarations.get_mut(&remove.name) {
+                if d.expose_in_public_api {
+                    d.is_alias = Some(to.clone());
+                } else {
+                    drop(d);
+                    elem.property_declarations.remove(&remove.name);
+                }
             }
         }
 
@@ -114,46 +164,33 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     }
 }
 
-fn is_declaration(x: &PropertyReference) -> bool {
-    x.0.borrow().property_declarations.contains_key(x.1)
+fn is_declaration(x: &NamedReference) -> bool {
+    x.element.upgrade().unwrap().borrow().property_declarations.contains_key(&x.name)
 }
 
-/// `from` is an alias to `to` which may contains further binding.
-/// This funciton will fill the aliases_to_remove and aliases_to_invert map
-fn process_alias<'a>(
+/// Out of two named reference, return the one which is the best to keep.
+fn best_property<'a>(
     component: &Rc<Component>,
-    mut from: PropertyReference<'a>,
-    mut to: PropertyReference<'a>,
-    aliases_to_remove: &mut Mapping,
-) {
+    p1: NamedReference,
+    p2: NamedReference,
+) -> NamedReference {
     // Try to find which is the more canical property
     macro_rules! canonical_order {
-        ($x: expr) => {
+        ($x: expr) => {{
             (
                 is_declaration(&$x),
-                !Rc::ptr_eq(&component.root_element, $x.0),
-                &$x.0.borrow().id,
-                $x.1,
+                !Rc::ptr_eq(&component.root_element, &$x.element.upgrade().unwrap()),
+                $x.element.upgrade().unwrap().borrow().id.clone(),
+                $x.name.as_str(),
             )
-        };
+        }};
     }
 
-    if canonical_order!(from) < canonical_order!(to) {
-        std::mem::swap(&mut from, &mut to);
+    if canonical_order!(p1) < canonical_order!(p2) {
+        p1
+    } else {
+        p2
     }
-
-    if !is_declaration(&from) {
-        // Cannot remove if this is not a declaration
-        return;
-    }
-
-    let k = NamedReference { element: Rc::downgrade(&from.0), name: from.1.to_string() };
-    let mut to = NamedReference { element: Rc::downgrade(&to.0), name: to.1.to_string() };
-    if let Some(other) = aliases_to_remove.get(&to) {
-        to = other.clone();
-    }
-
-    aliases_to_remove.entry(k).or_insert(to);
 }
 
 /// Remove the `TwoWayBinding(to, _)` from the chain of TwoWayBinding
