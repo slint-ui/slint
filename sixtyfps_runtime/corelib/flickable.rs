@@ -85,7 +85,7 @@ impl FlickableData {
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                         .apply_pin(flick)
                         .set(new_pos.y);
-                    InputEventResult::EventAccepted
+                    InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored
                 }
