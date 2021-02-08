@@ -311,36 +311,36 @@ impl core::fmt::Debug for Element {
             expression_tree::pretty_print(f, &repeated.model)?;
             write!(f, ":")?;
         }
-        write!(f, "{} := {} {{ ", self.id, self.base_type)?;
+        writeln!(f, "{} := {} {{", self.id, self.base_type)?;
         for (name, ty) in &self.property_declarations {
             if let Some(alias) = &ty.is_alias {
-                write!(f, "alias<{}> {} <=> {:?}; ", ty.property_type, name, alias)?
+                writeln!(f, "  alias<{}> {} <=> {:?};", ty.property_type, name, alias)?
             } else {
-                write!(f, "property<{}> {}; ", ty.property_type, name)?
+                writeln!(f, "  property<{}> {};", ty.property_type, name)?
             }
         }
         for (name, expr) in &self.bindings {
-            write!(f, "{}: ", name)?;
+            write!(f, "   {}: ", name)?;
             expression_tree::pretty_print(f, &expr.expression)?;
-            write!(f, "; ")?;
+            writeln!(f, "; /*{}*/", expr.priority)?;
         }
         for (name, anim) in &self.property_animations {
-            write!(f, "animate {} {:?} ", name, anim)?;
+            writeln!(f, "  animate {} {:?}", name, anim)?;
         }
         if !self.states.is_empty() {
-            write!(f, "states {:?} ", self.states)?;
+            writeln!(f, "  states {:?}", self.states)?;
         }
         if !self.transitions.is_empty() {
-            write!(f, "transitions {:?} ", self.transitions)?;
+            writeln!(f, "  transitions {:?} ", self.transitions)?;
         }
         for c in &self.children {
-            write!(f, "{:?} ", *c.borrow())?;
+            writeln!(f, "  {:?}", *c.borrow())?;
         }
 
         if let Type::Component(base) = &self.base_type {
-            write!(f, "{:?} ", base)?;
+            writeln!(f, "{:?}", base)?;
         }
-        write!(f, "}}")
+        writeln!(f, "}}")
     }
 }
 

@@ -165,8 +165,8 @@ fn duplicate_element_with_mapping(
             .iter()
             .map(|(k, v)| (k.clone(), duplicate_property_animation(v, mapping, root_component)))
             .collect(),
-        // We will do the fixup of the bindings later
-        bindings: elem.bindings.clone(),
+        // We will do the fixup of the references in bindings later
+        bindings: elem.bindings.iter().map(increment_priority).collect(),
         children: elem
             .children
             .iter()
@@ -186,6 +186,13 @@ fn duplicate_element_with_mapping(
     }));
     mapping.insert(element_key(element.clone()), new.clone());
     new
+}
+
+/// Clone and increase the priority of a binding
+fn increment_priority((k, b): (&String, &BindingExpression)) -> (String, BindingExpression) {
+    let mut b = b.clone();
+    b.priority += 1;
+    (k.clone(), b)
 }
 
 fn duplicate_property_animation(
