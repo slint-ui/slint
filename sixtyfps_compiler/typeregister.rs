@@ -143,7 +143,7 @@ impl TypeRegister {
             "LayoutAlignment",
             &["stretch", "center", "start", "end", "space_between", "space_around"],
         );
-        declare_enum("ImageFit", &["fill", "contain"]);
+        declare_enum("ImageFit", &["fill", "contain", "cover"]);
         declare_enum("EventResult", &["reject", "accept"]);
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());

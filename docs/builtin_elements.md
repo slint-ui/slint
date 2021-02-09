@@ -112,6 +112,7 @@ An Image can be used to represent an image loaded from an image file
 * **`image-fit`** (*enum*): Specifies how the source image shall be fit into the image element. Possible values are:
    * `fill` (default): Scales and stretches the image to fit the width and height of the element.
    * `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
+   * `cover`: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
 * **`colorize`** (*brush*): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
 
 ### Example

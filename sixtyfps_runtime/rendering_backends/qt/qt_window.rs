@@ -547,9 +547,10 @@ impl QtItemRenderer<'_> {
             width: image_size.width as _,
             height: image_size.height as _,
         });
+        let mut dest_rect = dest_rect;
         match image_fit {
             sixtyfps_corelib::items::ImageFit::fill => (),
-            sixtyfps_corelib::items::ImageFit::contain => {
+            sixtyfps_corelib::items::ImageFit::cover => {
                 let ratio = qttypes::qreal::max(
                     dest_rect.width / source_rect.width,
                     dest_rect.height / source_rect.height,
@@ -561,6 +562,20 @@ impl QtItemRenderer<'_> {
                 if source_rect.height > dest_rect.height / ratio {
                     source_rect.y += (source_rect.height - dest_rect.height / ratio) / 2.;
                     source_rect.height = dest_rect.height / ratio;
+                }
+            }
+            sixtyfps_corelib::items::ImageFit::contain => {
+                let ratio = qttypes::qreal::min(
+                    dest_rect.width / source_rect.width,
+                    dest_rect.height / source_rect.height,
+                );
+                if dest_rect.width > source_rect.width * ratio {
+                    dest_rect.x += (dest_rect.width - source_rect.width * ratio) / 2.;
+                    dest_rect.width = source_rect.width * ratio;
+                }
+                if dest_rect.height > source_rect.height * ratio {
+                    dest_rect.y += (dest_rect.height - source_rect.height * ratio) / 2.;
+                    dest_rect.height = source_rect.height * ratio;
                 }
             }
         };

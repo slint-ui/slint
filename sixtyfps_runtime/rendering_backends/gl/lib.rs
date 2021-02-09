@@ -1290,7 +1290,7 @@ impl GLItemRenderer {
 
     fn draw_image_impl(
         &mut self,
-        pos: Point,
+        mut pos: Point,
         item_cache: &CachedRenderingData,
         source_property: std::pin::Pin<&Property<Resource>>,
         source_clip_rect: Rect,
@@ -1329,7 +1329,7 @@ impl GLItemRenderer {
         // begin rendered.
         let (source_to_target_scale_x, source_to_target_scale_y) = match image_fit {
             ImageFit::fill => (target_width / source_width, target_height / source_height),
-            ImageFit::contain => {
+            ImageFit::cover => {
                 let ratio = f32::max(target_width / source_width, target_height / source_height);
 
                 if source_width > target_width / ratio {
@@ -1337,6 +1337,18 @@ impl GLItemRenderer {
                 }
                 if source_height > target_height / ratio {
                     source_y += (source_height - target_height / ratio) / 2.
+                }
+
+                (ratio, ratio)
+            }
+            ImageFit::contain => {
+                let ratio = f32::min(target_width / source_width, target_height / source_height);
+
+                if source_width < target_width / ratio {
+                    pos.x += (target_width - source_width * ratio) / 2.;
+                }
+                if source_height < target_height / ratio {
+                    pos.y += (target_height - source_height * ratio) / 2.
                 }
 
                 (ratio, ratio)

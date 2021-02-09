@@ -39,6 +39,7 @@ use sixtyfps_corelib_macros::*;
 pub enum ImageFit {
     fill,
     contain,
+    cover,
 }
 
 impl Default for ImageFit {

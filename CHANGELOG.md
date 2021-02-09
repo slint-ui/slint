@@ -15,6 +15,9 @@ All notable changes to this project will be documented in this file.
  - Support power of unit in intermediate expression. (eg: `3px * width / height` is now supported but used to be an error)
  - Support for `else if`
 
+### Fixed
+ - `Image::image-fit`'s `cover` and `contains` varient are fixed to match the CSS spec
+
 ## [0.0.5] - 2021-01-29
 
 ### Changed
