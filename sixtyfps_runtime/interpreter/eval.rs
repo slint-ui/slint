@@ -962,9 +962,9 @@ pub fn new_struct_with_bindings<
 }
 
 fn convert_from_lyon_path<'a>(
-    it: impl IntoIterator<Item = &'a lyon::path::Event<lyon::math::Point, lyon::math::Point>>,
+    it: impl IntoIterator<Item = &'a lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
 ) -> PathData {
-    use lyon::path::Event;
+    use lyon_path::Event;
     use sixtyfps_corelib::graphics::PathEvent;
 
     let mut coordinates = Vec::new();

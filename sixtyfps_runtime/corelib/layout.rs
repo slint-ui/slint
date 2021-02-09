@@ -652,8 +652,8 @@ pub struct PathLayoutItemData<'a> {
 /// FIXME: rename with sixstyfps prefix
 #[no_mangle]
 pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
-    use lyon::geom::*;
-    use lyon::path::iterator::PathIterator;
+    use lyon_geom::*;
+    use lyon_path::iterator::PathIterator;
 
     if data.items.is_empty() {
         return;
@@ -662,7 +662,7 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
     // Clone of path elements is cheap because it's a clone of underlying SharedVector
     let path_iter = data.elements.clone().iter_fitted(data.width, data.height);
 
-    let tolerance = lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE;
+    let tolerance: f32 = 0.1; // lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE
 
     let segment_lengths: Vec<Coord> = path_iter
         .iter()

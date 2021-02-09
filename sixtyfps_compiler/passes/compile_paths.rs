@@ -73,8 +73,8 @@ pub fn compile_paths(
                 }
             };
 
-            let path_builder = lyon::path::Path::builder().with_svg();
-            let path = lyon::svg::path_utils::build_path(path_builder, &commands);
+            let path_builder = lyon_path::Path::builder().with_svg();
+            let path = lyon_svg::path_utils::build_path(path_builder, &commands);
             match path {
                 Ok(path) => Path::Events(path.into_iter().collect()),
                 Err(err) => {

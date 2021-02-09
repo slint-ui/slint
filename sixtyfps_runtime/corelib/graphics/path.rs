@@ -168,9 +168,9 @@ struct ToLyonPathEventIterator<'a> {
 }
 
 impl<'a> Iterator for ToLyonPathEventIterator<'a> {
-    type Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>;
+    type Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>;
     fn next(&mut self) -> Option<Self::Item> {
-        use lyon::path::Event;
+        use lyon_path::Event;
 
         self.events_it.next().map(|event| match event {
             PathEvent::Begin => Event::Begin { at: self.coordinates_it.next().unwrap().clone() },
@@ -211,13 +211,14 @@ impl<'a> ExactSizeIterator for ToLyonPathEventIterator<'a> {}
 
 struct TransformedLyonPathIterator<EventIt> {
     it: EventIt,
-    transform: lyon::math::Transform,
+    transform: lyon_path::math::Transform,
 }
 
-impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>>> Iterator
-    for TransformedLyonPathIterator<EventIt>
+impl<
+        EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
+    > Iterator for TransformedLyonPathIterator<EventIt>
 {
-    type Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>;
+    type Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>;
     fn next(&mut self) -> Option<Self::Item> {
         self.it.next().map(|ev| ev.transformed(&self.transform))
     }
@@ -227,8 +228,9 @@ impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::P
     }
 }
 
-impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>>>
-    ExactSizeIterator for TransformedLyonPathIterator<EventIt>
+impl<
+        EventIt: Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
+    > ExactSizeIterator for TransformedLyonPathIterator<EventIt>
 {
 }
 
@@ -238,11 +240,11 @@ impl<EventIt: Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::P
 /// elements, then an intermediate lyon path is required/built.
 pub struct PathDataIterator {
     it: LyonPathIteratorVariant,
-    transform: lyon::math::Transform,
+    transform: lyon_path::math::Transform,
 }
 
 enum LyonPathIteratorVariant {
-    FromPath(lyon::path::Path),
+    FromPath(lyon_path::Path),
     FromEvents(crate::SharedVector<PathEvent>, crate::SharedVector<Point>),
 }
 
@@ -251,7 +253,8 @@ impl PathDataIterator {
     #[auto_enum(Iterator)]
     pub fn iter<'a>(
         &'a self,
-    ) -> impl Iterator<Item = lyon::path::Event<lyon::math::Point, lyon::math::Point>> + 'a {
+    ) -> impl Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>> + 'a
+    {
         match &self.it {
             LyonPathIteratorVariant::FromPath(path) => {
                 TransformedLyonPathIterator { it: path.iter(), transform: self.transform }
@@ -272,11 +275,11 @@ impl PathDataIterator {
 
     fn fit(&mut self, width: f32, height: f32) {
         if width > 0. || height > 0. {
-            let br = lyon::algorithms::aabb::bounding_rect(self.iter());
-            self.transform = lyon::algorithms::fit::fit_rectangle(
+            let br = lyon_algorithms::aabb::bounding_rect(self.iter());
+            self.transform = lyon_algorithms::fit::fit_rectangle(
                 &br,
                 &Rect::from_size(Size::new(width, height)),
-                lyon::algorithms::fit::FitStyle::Min,
+                lyon_algorithms::fit::FitStyle::Min,
             );
         }
     }
@@ -307,7 +310,7 @@ impl PathData {
     pub fn iter(self) -> PathDataIterator {
         PathDataIterator {
             it: match self {
-                PathData::None => LyonPathIteratorVariant::FromPath(lyon::path::Path::new()),
+                PathData::None => LyonPathIteratorVariant::FromPath(lyon_path::Path::new()),
                 PathData::Elements(elements) => LyonPathIteratorVariant::FromPath(
                     PathData::build_path(elements.as_slice().iter()),
                 ),
@@ -326,13 +329,13 @@ impl PathData {
         it
     }
 
-    fn build_path(element_it: std::slice::Iter<PathElement>) -> lyon::path::Path {
-        use lyon::geom::SvgArc;
-        use lyon::math::{Angle, Point, Vector};
-        use lyon::path::traits::SvgPathBuilder;
-        use lyon::path::ArcFlags;
+    fn build_path(element_it: std::slice::Iter<PathElement>) -> lyon_path::Path {
+        use lyon_geom::SvgArc;
+        use lyon_path::math::{Angle, Point, Vector};
+        use lyon_path::traits::SvgPathBuilder;
+        use lyon_path::ArcFlags;
 
-        let mut path_builder = lyon::path::Path::builder().with_svg();
+        let mut path_builder = lyon_path::Path::builder().with_svg();
         for element in element_it {
             match element {
                 PathElement::MoveTo(PathMoveTo { x, y }) => {

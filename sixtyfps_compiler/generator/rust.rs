@@ -1983,7 +1983,7 @@ fn compute_layout(
 }
 
 fn compile_path_events(events: &crate::expression_tree::PathEvents) -> TokenStream {
-    use lyon::path::Event;
+    use lyon_path::Event;
 
     let mut coordinates = Vec::new();
 

@@ -1028,7 +1028,7 @@ impl Spanned for BindingExpression {
     }
 }
 
-pub type PathEvents = Vec<lyon::path::Event<lyon::math::Point, lyon::math::Point>>;
+pub type PathEvents = Vec<lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>;
 
 #[derive(Debug, Clone)]
 pub enum Path {

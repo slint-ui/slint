@@ -142,7 +142,7 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
             if !(0.0..=1.0).contains(a) && !(0.0..=1.0).contains(c) {
                 return value;
             };
-            let curve = lyon::algorithms::geom::cubic_bezier::CubicBezierSegment {
+            let curve = lyon_algorithms::geom::cubic_bezier::CubicBezierSegment {
                 from: (0., 0.).into(),
                 ctrl1: (*a, *b).into(),
                 ctrl2: (*c, *d).into(),
