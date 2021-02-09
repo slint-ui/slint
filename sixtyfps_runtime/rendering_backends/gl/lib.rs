@@ -1311,10 +1311,31 @@ impl GLItemRenderer {
             (source_clip_rect.width() as _, source_clip_rect.height() as _)
         };
 
+        let mut source_x = source_clip_rect.min_x();
+        let mut source_y = source_clip_rect.min_y();
+
+        // The source_to_target scale is applied to the paint that holds the image as well as path
+        // begin rendered.
+        let (source_to_target_scale_x, source_to_target_scale_y) = match image_fit {
+            ImageFit::fill => (target_width / source_width, target_height / source_height),
+            ImageFit::contain => {
+                let ratio = f32::max(target_width / source_width, target_height / source_height);
+
+                if source_width > target_width / ratio {
+                    source_x += (source_width - target_width / ratio) / 2.;
+                }
+                if source_height > target_height / ratio {
+                    source_y += (source_height - target_height / ratio) / 2.
+                }
+
+                (ratio, ratio)
+            }
+        };
+
         let fill_paint = femtovg::Paint::image(
             image_id,
-            -source_clip_rect.min_x(),
-            -source_clip_rect.min_y(),
+            -source_x,
+            -source_y,
             image_size.width,
             image_size.height,
             0.0,
@@ -1327,16 +1348,7 @@ impl GLItemRenderer {
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(pos.x, pos.y);
 
-            match image_fit {
-                ImageFit::fill => {
-                    canvas.scale(target_width / source_width, target_height / source_height);
-                }
-                ImageFit::contain => {
-                    let ratio =
-                        f32::max(target_width / source_width, target_height / source_height);
-                    canvas.scale(ratio, ratio)
-                }
-            };
+            canvas.scale(source_to_target_scale_x, source_to_target_scale_y);
 
             canvas.fill_path(&mut path, fill_paint);
         })
