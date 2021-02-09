@@ -21,6 +21,7 @@ use sixtyfps_corelib::items::{
     ImageFit, Item, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
 };
 use sixtyfps_corelib::properties::Property;
+use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::SharedString;
 
@@ -77,6 +78,64 @@ impl CachedImage {
             canvas: canvas.clone(),
             upload_pending: upload_pending_notifier,
         }))
+    }
+
+    fn new_from_resource(resource: &Resource) -> Option<Self> {
+        match resource {
+            Resource::None => None,
+            Resource::AbsoluteFilePath(path) => Self::new_from_path(path),
+            Resource::EmbeddedData(data) => Self::new_from_data(data),
+            Resource::EmbeddedRgbaImage { .. } => todo!(),
+        }
+    }
+
+    fn new_from_path(path: &SharedString) -> Option<Self> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            #[cfg(feature = "svg")]
+            if path.ends_with(".svg") {
+                return Some(Self::new_on_cpu(
+                    svg::load_from_path(std::path::Path::new(&path.as_str())).map_or_else(
+                        |err| {
+                            eprintln!("Error loading SVG from {}: {}", &path, err);
+                            None
+                        },
+                        |svg_image| Some(svg_image),
+                    )?,
+                ));
+            }
+            Some(Self::new_on_cpu(image::open(std::path::Path::new(&path.as_str())).map_or_else(
+                |decode_err| {
+                    eprintln!("Error loading image from {}: {}", &path, decode_err);
+                    None
+                },
+                |image| Some(image),
+            )?))
+        }
+        #[cfg(target_arch = "wasm32")]
+        Some(self.load_html_image(&path))
+    }
+
+    fn new_from_data(data: &Slice<u8>) -> Option<Self> {
+        #[cfg(feature = "svg")]
+        if data.starts_with(b"<svg") {
+            return Some(CachedImage::new_on_cpu(
+                svg::load_from_data(data.as_slice()).map_or_else(
+                    |svg_err| {
+                        eprintln!("Error loading SVG: {}", svg_err);
+                        None
+                    },
+                    |svg_image| Some(svg_image),
+                )?,
+            ));
+        }
+        Some(CachedImage::new_on_cpu(image::load_from_memory(data.as_slice()).map_or_else(
+            |decode_err| {
+                eprintln!("Error decoding image: {}", decode_err);
+                None
+            },
+            |decoded_image| Some(decoded_image),
+        )?))
     }
 
     // Upload the image to the GPU? if that hasn't happened yet. This function could take just a canvas
@@ -151,6 +210,25 @@ enum ImageCacheKey {
     Path(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }
+
+impl ImageCacheKey {
+    fn new(resource: &Resource) -> Option<Self> {
+        Some(match resource {
+            Resource::None => return None,
+            Resource::AbsoluteFilePath(path) => {
+                if path.is_empty() {
+                    return None;
+                }
+                Self::Path(path.to_string())
+            }
+            Resource::EmbeddedData(data) => {
+                Self::EmbeddedData(by_address::ByAddress(data.as_slice()))
+            }
+            Resource::EmbeddedRgbaImage { .. } => return None,
+        })
+    }
+}
+
 #[derive(Clone)]
 enum ItemGraphicsCacheEntry {
     Image(Rc<CachedImage>),
@@ -355,65 +433,33 @@ impl GLRendererData {
     fn lookup_image_in_cache_or_create(
         &self,
         cache_key: ImageCacheKey,
-        image_create_fn: impl Fn() -> Rc<CachedImage>,
-    ) -> Rc<CachedImage> {
+        image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
+    ) -> Option<Rc<CachedImage>> {
         match self.image_cache.borrow_mut().entry(cache_key) {
             std::collections::hash_map::Entry::Occupied(mut existing_entry) => {
-                existing_entry.get().upgrade().unwrap_or_else(|| {
-                    let new_image = image_create_fn();
+                existing_entry.get().upgrade().or_else(|| {
+                    let new_image = image_create_fn()?;
                     existing_entry.insert(Rc::downgrade(&new_image));
-                    new_image
+                    Some(new_image)
                 })
             }
             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image = image_create_fn();
+                let new_image = image_create_fn()?;
                 vacant_entry.insert(Rc::downgrade(&new_image));
-                new_image
+                Some(new_image)
             }
         }
     }
 
     // Try to load the image the given resource points to
     fn load_image_resource(&self, resource: Resource) -> Option<ItemGraphicsCacheEntry> {
-        Some(ItemGraphicsCacheEntry::Image(match resource {
-            Resource::None => return None,
-            Resource::AbsoluteFilePath(path) => {
-                if path.is_empty() {
-                    return None;
-                }
-                self.lookup_image_in_cache_or_create(ImageCacheKey::Path(path.to_string()), || {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        #[cfg(feature = "svg")]
-                        if path.ends_with(".svg") {
-                            return Rc::new(CachedImage::new_on_cpu(
-                                svg::load_from_path(std::path::Path::new(&path.as_str())).unwrap(),
-                            ));
-                        }
-                        Rc::new(CachedImage::new_on_cpu(
-                            image::open(std::path::Path::new(&path.as_str())).unwrap(),
-                        ))
-                    }
-                    #[cfg(target_arch = "wasm32")]
-                    self.load_html_image(&path)
-                })
-            }
-            Resource::EmbeddedData(data) => self.lookup_image_in_cache_or_create(
-                ImageCacheKey::EmbeddedData(by_address::ByAddress(data.as_slice())),
-                || {
-                    #[cfg(feature = "svg")]
-                    if data.starts_with(b"<svg") {
-                        return Rc::new(CachedImage::new_on_cpu(
-                            svg::load_from_data(data.as_slice()).unwrap(),
-                        ));
-                    }
-                    Rc::new(CachedImage::new_on_cpu(
-                        image::load_from_memory(data.as_slice()).unwrap(),
-                    ))
-                },
-            ),
-            Resource::EmbeddedRgbaImage { .. } => todo!(),
-        }))
+        let cache_key = ImageCacheKey::new(&resource)?;
+
+        let cached_image = self.lookup_image_in_cache_or_create(cache_key, || {
+            Some(Rc::new(CachedImage::new_from_resource(&resource)?))
+        })?;
+
+        Some(ItemGraphicsCacheEntry::Image(cached_image))
     }
 
     // Load the image from the specified load factory fn, unless it was cached in the item's rendering
