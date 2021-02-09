@@ -8,9 +8,6 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 (async function () {
-
-    console.log("HELLO");
-
     let sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
 
     var base_url = "";

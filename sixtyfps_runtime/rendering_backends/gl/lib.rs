@@ -491,7 +491,7 @@ impl GLRenderer {
 
             let window = Rc::new(
                 window_builder
-                    .with_canvas(Some(canvas))
+                    .with_canvas(Some(canvas.clone()))
                     .build(&event_loop.event_loop_target())
                     .unwrap(),
             );
@@ -501,15 +501,8 @@ impl GLRenderer {
 
             let resize_canvas = {
                 let event_loop_proxy = event_loop_proxy.clone();
-                let canvas = web_sys::window()
-                    .unwrap()
-                    .document()
-                    .unwrap()
-                    .get_element_by_id(canvas_id)
-                    .unwrap()
-                    .dyn_into::<web_sys::HtmlCanvasElement>()
-                    .unwrap();
                 let window = window.clone();
+                let canvas = canvas.clone();
                 move |_: web_sys::Event| {
                     let existing_canvas_size = winit::dpi::LogicalSize::new(
                         canvas.client_width() as u32,

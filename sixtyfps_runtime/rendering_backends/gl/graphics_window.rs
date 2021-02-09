@@ -98,6 +98,27 @@ impl GraphicsWindow {
                         },
                     );
                     window.constraints.set(constraints);
+
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
+                        let existing_size = window.backend.borrow().window().inner_size();
+                        if !(min_width..=max_width).contains(&(existing_size.width as f32))
+                            || !(min_height..=max_height).contains(&(existing_size.height as f32))
+                        {
+                            let new_size = winit::dpi::PhysicalSize::new(
+                                existing_size
+                                    .width
+                                    .min(max_width.ceil() as u32)
+                                    .max(min_width.ceil() as u32),
+                                existing_size
+                                    .height
+                                    .min(max_height.ceil() as u32)
+                                    .max(min_height.ceil() as u32),
+                            );
+                            window.backend.borrow().window().set_inner_size(new_size);
+                        }
+                    }
                 }
             }
         }
