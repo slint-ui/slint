@@ -115,7 +115,7 @@ impl CachedImage {
             )))
         }
         #[cfg(target_arch = "wasm32")]
-        Some(_renderer.load_html_image(&path))
+        Some(Self::load_html_image(&path, _renderer))
     }
 
     fn new_from_data(data: &Slice<u8>) -> Option<Self> {
@@ -138,6 +138,74 @@ impl CachedImage {
             },
             |decoded_image| Some(decoded_image),
         )?))
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn load_html_image(url: &str, renderer: &GLRendererData) -> Rc<CachedImage> {
+        let image_id = renderer
+            .canvas
+            .borrow_mut()
+            .create_image_empty(1, 1, femtovg::PixelFormat::Rgba8, femtovg::ImageFlags::empty())
+            .unwrap();
+
+        let cached_image = Rc::new(Self::new_on_gpu(
+            &renderer.canvas,
+            image_id,
+            Some(Box::pin(/*upload pending*/ Property::new(true))),
+        ));
+
+        let html_image = web_sys::HtmlImageElement::new().unwrap();
+        html_image.set_cross_origin(Some("anonymous"));
+        html_image.set_onload(Some(
+            &wasm_bindgen::closure::Closure::once_into_js({
+                let canvas_weak = Rc::downgrade(&renderer.canvas);
+                let html_image = html_image.clone();
+                let image_id = image_id.clone();
+                let window_weak = Rc::downgrade(&renderer.window);
+                let cached_image_weak = Rc::downgrade(&cached_image);
+                let event_loop_proxy_weak = Rc::downgrade(&renderer.event_loop_proxy);
+                move || {
+                    let (canvas, window, event_loop_proxy, cached_image) = match (
+                        canvas_weak.upgrade(),
+                        window_weak.upgrade(),
+                        event_loop_proxy_weak.upgrade(),
+                        cached_image_weak.upgrade(),
+                    ) {
+                        (
+                            Some(canvas),
+                            Some(window),
+                            Some(event_loop_proxy),
+                            Some(cached_image),
+                        ) => (canvas, window, event_loop_proxy, cached_image),
+                        _ => return,
+                    };
+                    canvas
+                        .borrow_mut()
+                        .realloc_image(
+                            image_id,
+                            html_image.width() as usize,
+                            html_image.height() as usize,
+                            femtovg::PixelFormat::Rgba8,
+                            femtovg::ImageFlags::empty(),
+                        )
+                        .unwrap();
+                    canvas.borrow_mut().update_image(image_id, &html_image.into(), 0, 0).unwrap();
+
+                    cached_image.notify_loaded();
+
+                    // As you can paint on a HTML canvas at any point in time, request_redraw()
+                    // on a winit window only queues an additional internal event, that'll be
+                    // be dispatched as the next event. We are however not in an event loop
+                    // call, so we also need to wake up the event loop.
+                    window.request_redraw();
+                    event_loop_proxy.send_event(crate::eventloop::CustomEvent::WakeUpAndPoll).ok();
+                }
+            })
+            .into(),
+        ));
+        html_image.set_src(&url);
+
+        cached_image
     }
 
     // Upload the image to the GPU? if that hasn't happened yet. This function could take just a canvas
@@ -362,74 +430,6 @@ struct GLRendererData {
 }
 
 impl GLRendererData {
-    #[cfg(target_arch = "wasm32")]
-    fn load_html_image(&self, url: &str) -> Rc<CachedImage> {
-        let image_id = self
-            .canvas
-            .borrow_mut()
-            .create_image_empty(1, 1, femtovg::PixelFormat::Rgba8, femtovg::ImageFlags::empty())
-            .unwrap();
-
-        let cached_image = Rc::new(CachedImage::new_on_gpu(
-            &self.canvas,
-            image_id,
-            Some(Box::pin(/*upload pending*/ Property::new(true))),
-        ));
-
-        let html_image = web_sys::HtmlImageElement::new().unwrap();
-        html_image.set_cross_origin(Some("anonymous"));
-        html_image.set_onload(Some(
-            &wasm_bindgen::closure::Closure::once_into_js({
-                let canvas_weak = Rc::downgrade(&self.canvas);
-                let html_image = html_image.clone();
-                let image_id = image_id.clone();
-                let window_weak = Rc::downgrade(&self.window);
-                let cached_image_weak = Rc::downgrade(&cached_image);
-                let event_loop_proxy_weak = Rc::downgrade(&self.event_loop_proxy);
-                move || {
-                    let (canvas, window, event_loop_proxy, cached_image) = match (
-                        canvas_weak.upgrade(),
-                        window_weak.upgrade(),
-                        event_loop_proxy_weak.upgrade(),
-                        cached_image_weak.upgrade(),
-                    ) {
-                        (
-                            Some(canvas),
-                            Some(window),
-                            Some(event_loop_proxy),
-                            Some(cached_image),
-                        ) => (canvas, window, event_loop_proxy, cached_image),
-                        _ => return,
-                    };
-                    canvas
-                        .borrow_mut()
-                        .realloc_image(
-                            image_id,
-                            html_image.width() as usize,
-                            html_image.height() as usize,
-                            femtovg::PixelFormat::Rgba8,
-                            femtovg::ImageFlags::empty(),
-                        )
-                        .unwrap();
-                    canvas.borrow_mut().update_image(image_id, &html_image.into(), 0, 0).unwrap();
-
-                    cached_image.notify_loaded();
-
-                    // As you can paint on a HTML canvas at any point in time, request_redraw()
-                    // on a winit window only queues an additional internal event, that'll be
-                    // be dispatched as the next event. We are however not in an event loop
-                    // call, so we also need to wake up the event loop.
-                    window.request_redraw();
-                    event_loop_proxy.send_event(crate::eventloop::CustomEvent::WakeUpAndPoll).ok();
-                }
-            })
-            .into(),
-        ));
-        html_image.set_src(&url);
-
-        cached_image
-    }
-
     // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
     // otherwise a new image is created/loaded from the given callback.
     fn lookup_image_in_cache_or_create(
