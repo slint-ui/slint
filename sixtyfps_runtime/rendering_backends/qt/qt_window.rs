@@ -37,9 +37,11 @@ cpp! {{
     #include <QtGui/QWindow>
     #include <QtGui/QResizeEvent>
     #include <QtGui/QTextLayout>
+    #include <QtGui/QImageReader>
     #include <QtCore/QBasicTimer>
     #include <QtCore/QTimer>
     #include <QtCore/QPointer>
+    #include <QtCore/QBuffer>
     #include <memory>
     void ensure_initialized();
 
@@ -257,6 +259,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             items::Image::FIELD_OFFSETS.source.apply_pin(image),
             dest_rect,
             None,
+            items::Image::FIELD_OFFSETS.width.apply_pin(image),
+            items::Image::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             None,
         );
@@ -275,6 +279,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             items::ClippedImage::FIELD_OFFSETS.source.apply_pin(image),
             dest_rect,
             Some(source_rect),
+            items::ClippedImage::FIELD_OFFSETS.width.apply_pin(image),
+            items::ClippedImage::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image)),
         );
@@ -507,18 +513,39 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 }
 
-fn load_image_from_resource(resource: Resource) -> Option<qttypes::QPixmap> {
+fn load_image_from_resource(
+    resource: Resource,
+    source_size: Option<qttypes::QSize>,
+) -> Option<qttypes::QPixmap> {
     let (is_path, data) = match resource {
         Resource::None => return None,
         Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
         Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
         Resource::EmbeddedRgbaImage { .. } => todo!(),
     };
-    Some(cpp! { unsafe [data as "QByteArray", is_path as "bool"] -> qttypes::QPixmap as "QPixmap" {
-        QPixmap img;
-        is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
-        return img;
-    }})
+    let size_requested = source_size.is_some();
+    let source_size = source_size.unwrap_or_default();
+    Some(
+        cpp! { unsafe [data as "QByteArray", is_path as "bool", size_requested as "bool", source_size as "QSize"] -> qttypes::QPixmap as "QPixmap" {
+            if (size_requested) {
+                QImageReader reader;
+                QBuffer buffer;
+                if (is_path) {
+                    reader.setFileName(QString::fromUtf8(data));
+                } else {
+                    buffer.setBuffer(const_cast<QByteArray *>(&data));
+                    reader.setDevice(&buffer);
+                }
+                if (reader.supportsOption(QImageIOHandler::ScaledSize)) {
+                    reader.setScaledSize(source_size);
+                    return QPixmap::fromImageReader(&reader);
+                }
+            }
+            QPixmap img;
+            is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
+            return img;
+        }},
+    )
 }
 
 impl QtItemRenderer<'_> {
@@ -528,11 +555,27 @@ impl QtItemRenderer<'_> {
         source_property: Pin<&Property<Resource>>,
         dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
+        target_width: std::pin::Pin<&Property<f32>>,
+        target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
+        // Caller ensured that zero/negative width/height resulted in an early return via get_geometry!.
+        debug_assert!(target_width.get() > 0.);
+        debug_assert!(target_height.get() > 0.);
+
         let cached = item_cache.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
-            load_image_from_resource(source_property.get()).map_or(
+            let source_size = if source_rect.is_none() {
+                // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
+                Some(qttypes::QSize {
+                    width: target_width.get() as u32,
+                    height: target_height.get() as u32,
+                })
+            } else {
+                // Source size & clipping is not implemented yet
+                None
+            };
+            load_image_from_resource(source_property.get(), source_size).map_or(
                 QtRenderingCacheItem::Invalid,
                 |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
@@ -878,7 +921,7 @@ impl PlatformWindow for QtWindow {
         &self,
         source: Pin<&sixtyfps_corelib::properties::Property<Resource>>,
     ) -> sixtyfps_corelib::graphics::Size {
-        load_image_from_resource(source.get())
+        load_image_from_resource(source.get(), None)
             .map(|img| {
                 let qsize = img.size();
                 euclid::size2(qsize.width as f32, qsize.height as f32)
