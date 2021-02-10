@@ -142,7 +142,11 @@ pub fn render(
 fn render_frame(frame: &Frame, rc: &mut Ctx) -> Result<bool, Box<dyn std::error::Error>> {
     rc.begin_element("Rectangle", &frame.node, Some(&frame.absoluteBoundingBox))?;
     rc.offset = frame.absoluteBoundingBox.origin();
-    if !frame.backgroundColor.is_transparent() {
+    let mut has_background = false;
+    for p in frame.background.iter() {
+        has_background |= handle_paint(p, rc, "background")?;
+    }
+    if !has_background && !frame.backgroundColor.is_transparent() {
         writeln!(rc, "background: {};", frame.backgroundColor)?;
     }
     if frame.clipsContent || frame.isMask {
@@ -166,14 +170,10 @@ fn render_vector(
                 writeln!(rc, "stroke-width: {}px;", vector.strokeWeight)?;
             }
             for p in vector.strokes.iter() {
-                if let Some(color) = &p.color {
-                    writeln!(rc, "stroke: {};", color)?;
-                }
+                handle_paint(p, rc, "stroke")?;
             }
             for p in vector.fills.iter() {
-                if let Some(color) = &p.color {
-                    writeln!(rc, "fill: {};", color)?;
-                }
+                handle_paint(p, rc, "fill")?;
                 if let Some(_imr) = &p.imageRef { /* */ }
             }
             rc.end_element()?;
@@ -185,7 +185,7 @@ fn render_vector(
         if let Some(color) = &p.color {
             if !color.is_transparent() {
                 rc.begin_element("Rectangle", &vector.node, Some(&vector.absoluteBoundingBox))?;
-                writeln!(rc, "background: {};", color)?;
+                handle_paint(p, rc, "background")?;
                 rc.end_element()?;
             }
         }
@@ -212,9 +212,7 @@ fn render_text(
     writeln!(rc, "horizontal-alignment: {};", font.textAlignHorizontal.to_ascii_lowercase())?;
     writeln!(rc, "vertical-alignment: {};", font.textAlignVertical.to_ascii_lowercase())?;
     for p in vector.fills.iter() {
-        if let Some(color) = &p.color {
-            writeln!(rc, "color: {};", color)?;
-        }
+        handle_paint(p, rc, "color")?;
     }
     rc.end_element()?;
     Ok(())
@@ -236,18 +234,13 @@ fn render_rectangle(
     }
     let mut has_border = false;
     for p in vector.strokes.iter() {
-        if let Some(color) = &p.color {
-            writeln!(rc, "border-color: {};", color)?;
-            has_border = true;
-        }
+        has_border |= handle_paint(p, rc, "border-color")?;
     }
     if vector.strokeWeight > 0. && has_border {
         writeln!(rc, "border-width: {}px;", vector.strokeWeight)?;
     }
     for p in vector.fills.iter() {
-        if let Some(color) = &p.color {
-            writeln!(rc, "background: {};", color)?;
-        }
+        handle_paint(p, rc, "background")?;
         if let Some(imr) = &p.imageRef {
             writeln!(rc, "Image {{")?;
             writeln!(rc, "    width: 100%; height: 100%;")?;
@@ -283,9 +276,7 @@ fn render_line(
 
     rc.begin_element("Rectangle", &vector.node, Some(&bb))?;
     for p in vector.strokes.iter() {
-        if let Some(color) = &p.color {
-            writeln!(rc, "background: {};", color)?;
-        }
+        handle_paint(p, rc, "background")?;
     }
     rc.end_element()?;
     Ok(())
@@ -336,4 +327,34 @@ fn render_node(
     rc.offset = prev_ctx.1;
 
     Ok(())
+}
+
+fn handle_paint(p: &Paint, rc: &mut Ctx, arg: &str) -> Result<bool, Box<dyn std::error::Error>> {
+    if !p.visible {
+        return Ok(false);
+    }
+    let mut has_something = false;
+    if !p.gradientStops.is_empty() {
+        let p1 = *p
+            .gradientHandlePositions
+            .get(0)
+            .ok_or_else(|| "Gradient with missing 'gradientHandlePositions'".to_string())?;
+        let p2 = *p
+            .gradientHandlePositions
+            .get(1)
+            .ok_or_else(|| "Gradient with missing 'gradientHandlePositions'".to_string())?;
+        let sub = p1 - p2;
+        write!(rc, "{}: @linear-gradient({}deg", arg, -f32::atan2(sub.x, sub.y).to_degrees())?;
+        for stop in &p.gradientStops {
+            write!(rc, ", {} {}", stop.color, stop.position)?;
+        }
+        writeln!(rc, ");")?;
+        has_something = true;
+    } else if let Some(color) = &p.color {
+        if !color.is_transparent() {
+            writeln!(rc, "{}: {};", arg, color)?;
+            has_something = true;
+        }
+    }
+    Ok(has_something)
 }
