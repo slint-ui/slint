@@ -139,24 +139,24 @@ pub fn render(
     Ok(ctx.out)
 }
 
-fn render_frame(frame: &Frame, rc: &mut Ctx) -> Result<(), Box<dyn std::error::Error>> {
+fn render_frame(frame: &Frame, rc: &mut Ctx) -> Result<bool, Box<dyn std::error::Error>> {
     rc.begin_element("Rectangle", &frame.node, Some(&frame.absoluteBoundingBox))?;
     rc.offset = frame.absoluteBoundingBox.origin();
     if !frame.backgroundColor.is_transparent() {
         writeln!(rc, "background: {};", frame.backgroundColor)?;
     }
-    if frame.clipsContent {
+    if frame.clipsContent || frame.isMask {
         writeln!(rc, "Clip {{")?;
         rc.indent += 1;
     }
-    Ok(())
+    Ok(frame.isMask)
 }
 
 fn render_vector(
     vector: &VectorNode,
     rc: &mut Ctx,
     _doc: &Document,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<bool, Box<dyn std::error::Error>> {
     if !vector.fillGeometry.is_empty() || !vector.strokeGeometry.is_empty() {
         for p in vector.fillGeometry.iter().chain(vector.strokeGeometry.iter()) {
             rc.begin_element("Path", &vector.node, Some(&vector.absoluteBoundingBox))?;
@@ -177,7 +177,7 @@ fn render_vector(
                 if let Some(_imr) = &p.imageRef { /* */ }
             }
             rc.end_element()?;
-            return Ok(());
+            return Ok(false);
         }
     }
 
@@ -195,7 +195,7 @@ fn render_vector(
             rc.end_element()?;
         }
     }
-    Ok(())
+    Ok(false)
 }
 
 fn render_text(
@@ -220,12 +220,12 @@ fn render_text(
     Ok(())
 }
 
-fn renter_rectangle(
+fn render_rectangle(
     vector: &VectorNode,
     cornerRadius: &Option<f32>,
     rc: &mut Ctx,
     _doc: &Document,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<bool, Box<dyn std::error::Error>> {
     rc.begin_element("Rectangle", &vector.node, Some(&vector.absoluteBoundingBox))?;
     rc.offset = vector.absoluteBoundingBox.origin();
     if let Some(cornerRadius) = cornerRadius {
@@ -259,7 +259,11 @@ fn renter_rectangle(
             writeln!(rc, "    }}")?;
         }
     }
-    Ok(())
+    if vector.isMask {
+        writeln!(rc, "Clip {{")?;
+        rc.indent += 1;
+    }
+    Ok(vector.isMask)
 }
 
 fn render_line(
@@ -293,7 +297,7 @@ fn render_node(
     doc: &Document,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let prev_ctx = (rc.indent, rc.offset);
-    match node {
+    let is_mask = match node {
         Node::FRAME(f) => render_frame(f, rc)?,
         Node::GROUP(f) => render_frame(f, rc)?,
         Node::COMPONENT(f) => render_frame(f, rc)?,
@@ -301,61 +305,28 @@ fn render_node(
         Node::VECTOR(vector) => render_vector(vector, rc, doc)?,
         Node::BOOLEAN_OPERATION { vector, .. } => render_vector(vector, rc, doc)?,
         Node::STAR(vector) => render_vector(vector, rc, doc)?,
-        Node::LINE(vector) => render_line(vector, rc, doc)?,
+        Node::LINE(vector) => {
+            render_line(vector, rc, doc)?;
+            false
+        }
         Node::ELLIPSE(vector) => render_vector(vector, rc, doc)?,
         Node::REGULAR_POLYGON(vector) => render_vector(vector, rc, doc)?,
         Node::RECTANGLE { vector, cornerRadius, .. } => {
-            renter_rectangle(vector, cornerRadius, rc, doc)?
+            render_rectangle(vector, cornerRadius, rc, doc)?
         }
         Node::TEXT { vector, characters, style, .. } => {
-            //render_vector(vector, rc, doc)?;
             render_text(characters, style, &vector, rc)?;
+            false
         }
-        _ => (),
+        _ => false,
     };
-
-    /*match node {
-        Node::DOCUMENT{node, children, ..} => {
-            if node.visible {
-                for x in children {
-                    x.render(state);
-                }
-            }
-        }
-        Node::CANVAS{node, children, backgroundColor, prototypeStartNodeID, ..} => {
-            println!("Rendering CANVAS {} of color {:?}  START: {:?}", node.name ,  backgroundColor, prototypeStartNodeID);
-            if node.visible {
-                for x in children {
-                    x.render(state);
-                }
-            }
-
-        }
-        Node::FRAME(Frame{node, absoluteBoundingBox, ..}) => {
-            if node.visible {
-                println!("   A FRAME {}  {} where: {:?}", node.name, node.id, absoluteBoundingBox);
-            }
-
-        }
-        Node::GROUP(Frame{node, absoluteBoundingBox, ..}, ..) => {
-            if node.visible {
-                println!("   A GROUP {} where: {:?} ", node.name, absoluteBoundingBox);
-            }
-        }
-        Node::COMPONENT(Frame{node, absoluteBoundingBox, ..}, ..) => {
-            if node.visible {
-                println!("   A COMPO?E?NT {} where: {:?} ", node.name, absoluteBoundingBox);
-            }
-
-        }
-
-        _ => {
-            //println!("   UNKOWN {:?}", self);
-        }
-    };*/
 
     for x in node.common().children.iter() {
         render_node(&x, rc, doc)?;
+    }
+
+    if is_mask {
+        return Ok(());
     }
 
     while rc.indent != prev_ctx.0 {
