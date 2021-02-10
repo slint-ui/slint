@@ -145,6 +145,10 @@ fn render_frame(frame: &Frame, rc: &mut Ctx) -> Result<(), Box<dyn std::error::E
     if !frame.backgroundColor.is_transparent() {
         writeln!(rc, "background: {};", frame.backgroundColor)?;
     }
+    if frame.clipsContent {
+        writeln!(rc, "Clip {{")?;
+        rc.indent += 1;
+    }
     Ok(())
 }
 
