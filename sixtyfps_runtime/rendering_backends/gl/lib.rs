@@ -110,7 +110,7 @@ impl CachedImage {
         }
     }
 
-    fn size(&self) -> Size {
+    fn size(&self) -> Option<Size> {
         use image::GenericImageView;
 
         match &*self.0.borrow() {
@@ -119,21 +119,21 @@ impl CachedImage {
                     .as_ref()
                     .map_or(false, |pending_property| pending_property.as_ref().get())
                 {
-                    Ok((1., 1.))
+                    None
                 } else {
                     canvas
                         .borrow()
                         .image_info(*id)
                         .map(|info| (info.width() as f32, info.height() as f32))
+                        .ok()
                 }
             }
             ImageData::CPUSide { decoded_image: data } => {
                 let (width, height) = data.dimensions();
-                Ok((width as f32, height as f32))
+                Some((width as f32, height as f32))
             }
         }
         .map(|(width, height)| euclid::size2(width, height))
-        .unwrap_or_default()
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -169,6 +169,9 @@ impl ItemGraphicsCacheEntry {
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
             //_ => panic!("internal error. image requested for non-image gpu data"),
         }
+    }
+    fn is_colorized_image(&self) -> bool {
+        matches!(self, ItemGraphicsCacheEntry::ColorizedImage{..})
     }
 }
 
@@ -419,12 +422,9 @@ impl GLRendererData {
         &self,
         item_cache: &CachedRenderingData,
         load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
-    ) -> Option<Rc<CachedImage>> {
+    ) -> Option<ItemGraphicsCacheEntry> {
         let mut cache = self.item_graphics_cache.borrow_mut();
-        item_cache.ensure_up_to_date(&mut cache, || load_fn()).map(|gpu_resource| {
-            let image = gpu_resource.as_image();
-            image.clone()
-        })
+        item_cache.ensure_up_to_date(&mut cache, || load_fn())
     }
 }
 
@@ -646,8 +646,8 @@ impl GLRenderer {
             .load_cached_item_image_from_function(item_graphics_cache, || {
                 self.shared_data.load_image_resource(source.get())
             })
-            .map(|image| image.size())
-            .unwrap_or_default()
+            .and_then(|image| image.as_image().size())
+            .unwrap_or_else(|| Size::new(1., 1.))
     }
 }
 
@@ -1228,16 +1228,20 @@ impl GLItemRenderer {
 
     fn colorize_image(
         &self,
-        image: ItemGraphicsCacheEntry,
+        image_cache_entry: ItemGraphicsCacheEntry,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) -> ItemGraphicsCacheEntry {
         let colorize_brush = match colorize_property.map_or(Brush::default(), |prop| prop.get()) {
-            Brush::NoBrush => return image,
+            Brush::NoBrush => return image_cache_entry,
             brush => brush,
         };
-        let image = image.as_image();
+        let image = image_cache_entry.as_image();
 
-        let image_size = image.size();
+        let image_size = match image.size() {
+            Some(size) => size,
+            None => return image_cache_entry,
+        };
+
         let image_id = image.ensure_uploaded_to_gpu(&self);
         let colorized_image = self
             .shared_data
@@ -1249,7 +1253,7 @@ impl GLItemRenderer {
                 femtovg::PixelFormat::Rgba8,
                 femtovg::ImageFlags::empty(),
             )
-            .expect("internal error allocating temporary texture for image colirization");
+            .expect("internal error allocating temporary texture for image colorization");
 
         let mut image_rect = femtovg::Path::new();
         image_rect.rect(0., 0., image_size.width, image_size.height);
@@ -1303,18 +1307,38 @@ impl GLItemRenderer {
             return;
         }
 
-        let cached_image =
-            match self.shared_data.load_cached_item_image_from_function(item_cache, || {
-                self.shared_data
-                    .load_image_resource(source_property.get())
-                    .map(|image| self.colorize_image(image, colorize_property))
-            }) {
-                Some(image) => image,
-                None => return,
+        let cached_image = loop {
+            let image_cache_entry =
+                self.shared_data.load_cached_item_image_from_function(item_cache, || {
+                    self.shared_data
+                        .load_image_resource(source_property.get())
+                        .map(|image| self.colorize_image(image, colorize_property))
+                });
+
+            // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
+            // later when the callback from load_html_image has issued a repaint
+            let cached_image = match image_cache_entry {
+                Some(entry) if entry.as_image().size().is_some() => entry,
+                _ => {
+                    return;
+                }
             };
 
+            // It's possible that our cached image went from no colorization to some brush, in which case we have to
+            // invalidate the cache and try again.
+            if colorize_property.map_or(false, |prop| !matches!(prop.get(), Brush::NoBrush))
+                && !cached_image.is_colorized_image()
+            {
+                let mut cache = self.shared_data.item_graphics_cache.borrow_mut();
+                item_cache.release(&mut cache);
+                continue;
+            }
+
+            break cached_image.as_image().clone();
+        };
+
         let image_id = cached_image.ensure_uploaded_to_gpu(&self);
-        let image_size = cached_image.size();
+        let image_size = cached_image.size().unwrap_or_default();
 
         let (source_width, source_height) = if source_clip_rect.is_empty() {
             (image_size.width, image_size.height)

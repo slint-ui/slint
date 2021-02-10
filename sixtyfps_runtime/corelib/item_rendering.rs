@@ -59,6 +59,7 @@ impl CachedRenderingData {
         if self.cache_ok.get() {
             let index = self.cache_index.get();
             cache.remove(index);
+            self.cache_ok.set(false);
         }
     }
 }
