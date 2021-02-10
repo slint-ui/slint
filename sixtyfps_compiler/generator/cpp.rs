@@ -2353,9 +2353,7 @@ fn compile_path_events(events: &crate::expression_tree::PathEvents) -> (Vec<Stri
                 coordinates.push(to);
                 "sixtyfps::PathEvent::Cubic"
             }
-            Event::End { last, first, close } => {
-                debug_assert_eq!(coordinates.first(), Some(&first));
-                debug_assert_eq!(coordinates.last(), Some(&last));
+            Event::End { close, .. } => {
                 if *close {
                     "sixtyfps::PathEvent::EndClosed"
                 } else {

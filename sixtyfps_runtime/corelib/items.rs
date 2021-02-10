@@ -564,6 +564,20 @@ ItemVTable_static! {
     pub static ClipVTable for Clip
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum FillRule {
+    nonzero,
+    evenodd,
+}
+
+impl Default for FillRule {
+    fn default() -> Self {
+        Self::nonzero
+    }
+}
+
 /// The implementation of the `Path` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -575,6 +589,7 @@ pub struct Path {
     pub height: Property<f32>,
     pub elements: Property<PathData>,
     pub fill: Property<Brush>,
+    pub fill_rule: Property<FillRule>,
     pub stroke: Property<Brush>,
     pub stroke_width: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,

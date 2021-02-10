@@ -275,6 +275,7 @@ export Path := _ {
     property <length> height;
     property <brush> fill;
     property <brush> fill_color <=> fill;
+    property <FillRule> fill_rule;
     property <brush> stroke;
     property <color> stroke_color <=> stroke;
     property <length> stroke_width;

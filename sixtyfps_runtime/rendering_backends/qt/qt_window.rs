@@ -13,7 +13,7 @@ use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::graphics::{Brush, FontRequest, Point, Rect, RenderingCache};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{self, ItemRef, TextOverflow, TextWrap};
+use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
 use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
@@ -185,6 +185,12 @@ impl QPainterPath {
     pub fn close(&mut self) {
         cpp! { unsafe [self as "QPainterPath*"] {
             self->closeSubpath();
+        }}
+    }
+
+    pub fn set_fill_rule(&mut self, rule: key_generated::Qt_FillRule) {
+        cpp! { unsafe [self as "QPainterPath*", rule as "Qt::FillRule" ] {
+            self->setFillRule(rule);
         }}
     }
 }
@@ -383,6 +389,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
             y: (pos.y + path.y() + offset.y) as _,
         };
         let mut painter_path = QPainterPath::default();
+
+        painter_path.set_fill_rule(match path.fill_rule() {
+            FillRule::nonzero => key_generated::Qt_FillRule_WindingFill,
+            FillRule::evenodd => key_generated::Qt_FillRule_OddEvenFill,
+        });
+
         for x in path_events.iter() {
             impl From<Point> for qttypes::QPointF {
                 fn from(p: Point) -> Self {

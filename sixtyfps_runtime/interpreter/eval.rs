@@ -253,6 +253,7 @@ declare_value_enum_conversion!(corelib::layout::LayoutAlignment, LayoutAlignment
 declare_value_enum_conversion!(corelib::items::ImageFit, ImageFit);
 declare_value_enum_conversion!(corelib::input::KeyEventType, KeyEventType);
 declare_value_enum_conversion!(corelib::items::EventResult, EventResult);
+declare_value_enum_conversion!(corelib::items::FillRule, FillRule);
 
 impl TryFrom<corelib::animations::Instant> for Value {
     type Error = ();
@@ -994,9 +995,7 @@ fn convert_from_lyon_path<'a>(
                 coordinates.push(to);
                 PathEvent::Cubic
             }
-            Event::End { last, first, close } => {
-                debug_assert_eq!(coordinates.first(), Some(&first));
-                debug_assert_eq!(coordinates.last(), Some(&last));
+            Event::End { close, .. } => {
                 if *close {
                     PathEvent::EndClosed
                 } else {

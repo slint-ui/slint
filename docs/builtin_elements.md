@@ -183,6 +183,7 @@ accordingly.
 ### Common Path Properties
 
 * **`fill`** (*brush*): The color for filling the shape of the path.
+* **`fill-rule`** (enum *[`FillRule`](#fillrule)*): The fill rule to use for the path. (default value: `nonzero`)
 * **`stroke`** (*brush*): The color for drawing the outline of the path.
 * **`stroke-width`** (*length*): The width of the outline.
 * **`width`** (*length*): If non-zero, the path will be scaled to fit into the specified width.
@@ -640,3 +641,11 @@ This enum describes whether an event was rejected or accepted by an event handle
 * **`EventResult.reject`**: The event is rejected by this event handler and may then be handled by parent item
 * **`EventResult.accept`**: The event is accepted and won't be processed further
 
+## `FillRule`
+
+This enum describes the different ways of deciding what the inside of a shape described by a path shall be.
+
+### Values
+
+* **`FillRule.nonzero`**: The ["nonzero" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#nonzero).
+* **`FillRule.evenodd`**: The ["evenodd" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#evenodd).

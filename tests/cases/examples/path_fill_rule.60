@@ -1,0 +1,39 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+PathFillRule := Window {
+    GridLayout {
+        Row {
+            Text {
+                text: "The rectangle to the right should have a hole in the center";
+            }
+            Path {
+                commands: "M210,0  h90 v90 h-90 z M230,20 v50 h50 v-50 z";
+                fill: black;
+                fill-rule: evenodd;
+                stroke: red;
+                stroke-width: 1px;
+            }
+        }
+        Row {
+            Text {
+                text: "The rectangle to the right should be filled in the center";
+            }
+            Path {
+                commands: "M210,0  h90 v90 h-90 z M230,20 v50 h50 v-50 z";
+                fill: black;
+                fill-rule: nonzero;
+                stroke: red;
+                stroke-width: 1px;
+            }
+        }
+    }
+}
+

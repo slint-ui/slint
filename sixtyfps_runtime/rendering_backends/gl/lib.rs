@@ -18,7 +18,8 @@ use sixtyfps_corelib::graphics::{
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
-    ImageFit, Item, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
+    FillRule, ImageFit, Item, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment,
+    TextWrap,
 };
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
@@ -820,7 +821,14 @@ impl ItemRenderer for GLItemRenderer {
             }
         }
 
-        let fill_paint = self.brush_to_paint(path.fill(), &mut fpath);
+        let fill_paint = self.brush_to_paint(path.fill(), &mut fpath).map(|mut fill_paint| {
+            fill_paint.set_fill_rule(match path.fill_rule() {
+                FillRule::nonzero => femtovg::FillRule::NonZero,
+                FillRule::evenodd => femtovg::FillRule::EvenOdd,
+            });
+            fill_paint
+        });
+
         let border_paint = self.brush_to_paint(path.stroke(), &mut fpath).map(|mut paint| {
             paint.set_line_width(path.stroke_width());
             paint

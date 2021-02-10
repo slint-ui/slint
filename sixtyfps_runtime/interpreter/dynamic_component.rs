@@ -645,6 +645,7 @@ fn generate_component<'id>(
                 "TextWrap" => property_info::<sixtyfps_corelib::items::TextWrap>(),
                 "TextOverflow" => property_info::<sixtyfps_corelib::items::TextOverflow>(),
                 "ImageFit" => property_info::<sixtyfps_corelib::items::ImageFit>(),
+                "FillRule" => property_info::<sixtyfps_corelib::items::FillRule>(),
                 _ => panic!("unkown enum"),
             },
             _ => panic!("bad type"),

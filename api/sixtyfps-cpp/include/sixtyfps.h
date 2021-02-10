@@ -81,6 +81,7 @@ using cbindgen_private::ImageFit;
 using cbindgen_private::KeyEvent;
 using cbindgen_private::EventResult;
 using cbindgen_private::KeyboardModifiers;
+using cbindgen_private::FillRule;
 
 namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;

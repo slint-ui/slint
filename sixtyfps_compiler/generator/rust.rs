@@ -2012,9 +2012,7 @@ fn compile_path_events(events: &crate::expression_tree::PathEvents) -> TokenStre
                 coordinates.push(to);
                 quote!(sixtyfps::re_exports::PathEvent::Cubic)
             }
-            Event::End { last, first, close } => {
-                debug_assert_eq!(coordinates.first(), Some(&first));
-                debug_assert_eq!(coordinates.last(), Some(&last));
+            Event::End { close, .. } => {
                 if *close {
                     quote!(sixtyfps::re_exports::PathEvent::EndClosed)
                 } else {
