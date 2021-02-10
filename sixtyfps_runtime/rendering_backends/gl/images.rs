@@ -263,7 +263,7 @@ impl CachedImage {
 
     #[cfg(target_arch = "wasm32")]
     fn notify_loaded(&self) {
-        if let ImageData::Texture { upload_pending, .. } = &*self.0.borrow() {
+        if let ImageData::Texture(Texture { upload_pending, .. }) = &*self.0.borrow() {
             upload_pending.as_ref().map(|pending_property| {
                 pending_property.as_ref().set(false);
             });
