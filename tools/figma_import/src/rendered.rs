@@ -225,15 +225,20 @@ fn renter_rectangle(
     rc.begin_element("Rectangle", &vector.node, Some(&vector.absoluteBoundingBox))?;
     rc.offset = vector.absoluteBoundingBox.origin();
     if let Some(cornerRadius) = cornerRadius {
-        writeln!(rc, "border-radius: {}px;", cornerRadius)?;
+        // Note that figma rendering when the cornerRadius > min(height,width)/2 is different
+        // than ours, so we adjust it there
+        let min_edge = vector.absoluteBoundingBox.width.min(vector.absoluteBoundingBox.height);
+        writeln!(rc, "border-radius: {}px;", cornerRadius.min(min_edge / 2.))?;
     }
-    if vector.strokeWeight > 0. {
-        writeln!(rc, "border-width: {}px;", vector.strokeWeight)?;
-    }
+    let mut has_border = false;
     for p in vector.strokes.iter() {
         if let Some(color) = &p.color {
             writeln!(rc, "border-color: {};", color)?;
+            has_border = true;
         }
+    }
+    if vector.strokeWeight > 0. && has_border {
+        writeln!(rc, "border-width: {}px;", vector.strokeWeight)?;
     }
     for p in vector.fills.iter() {
         if let Some(color) = &p.color {
