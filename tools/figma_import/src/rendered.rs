@@ -157,8 +157,8 @@ fn render_vector(
     rc: &mut Ctx,
     _doc: &Document,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if !vector.fillGeometry.is_empty() {
-        for p in vector.fillGeometry.iter() {
+    if !vector.fillGeometry.is_empty() || !vector.strokeGeometry.is_empty() {
+        for p in vector.fillGeometry.iter().chain(vector.strokeGeometry.iter()) {
             rc.begin_element("Path", &vector.node, Some(&vector.absoluteBoundingBox))?;
             writeln!(rc, "commands: \"{}\";", p.path)?;
             writeln!(rc, "fill-rule: {};", p.windingRule.to_ascii_lowercase())?;
@@ -262,6 +262,31 @@ fn renter_rectangle(
     Ok(())
 }
 
+fn render_line(
+    vector: &VectorNode,
+    rc: &mut Ctx,
+    _doc: &Document,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut bb = vector.absoluteBoundingBox;
+    if bb.height == 0. {
+        bb.y -= vector.strokeWeight;
+        bb.height += vector.strokeWeight;
+    }
+    if bb.width == 0. {
+        bb.x -= vector.strokeWeight;
+        bb.width += vector.strokeWeight;
+    }
+
+    rc.begin_element("Rectangle", &vector.node, Some(&bb))?;
+    for p in vector.strokes.iter() {
+        if let Some(color) = &p.color {
+            writeln!(rc, "background: {};", color)?;
+        }
+    }
+    rc.end_element()?;
+    Ok(())
+}
+
 fn render_node(
     node: &figmatypes::Node,
     rc: &mut Ctx,
@@ -276,7 +301,7 @@ fn render_node(
         Node::VECTOR(vector) => render_vector(vector, rc, doc)?,
         Node::BOOLEAN_OPERATION { vector, .. } => render_vector(vector, rc, doc)?,
         Node::STAR(vector) => render_vector(vector, rc, doc)?,
-        Node::LINE(vector) => render_vector(vector, rc, doc)?,
+        Node::LINE(vector) => render_line(vector, rc, doc)?,
         Node::ELLIPSE(vector) => render_vector(vector, rc, doc)?,
         Node::REGULAR_POLYGON(vector) => render_vector(vector, rc, doc)?,
         Node::RECTANGLE { vector, cornerRadius, .. } => {
