@@ -157,6 +157,7 @@ fn render_vector(
         for p in vector.fillGeometry.iter() {
             rc.begin_element("Path", &vector.node, Some(&vector.absoluteBoundingBox))?;
             writeln!(rc, "commands: \"{}\";", p.path)?;
+            writeln!(rc, "fill-rule: {};", p.windingRule.to_ascii_lowercase())?;
             if vector.strokeWeight > 0. {
                 writeln!(rc, "stroke-width: {}px;", vector.strokeWeight)?;
             }
