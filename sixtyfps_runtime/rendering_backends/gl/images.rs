@@ -8,14 +8,15 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use sixtyfps_corelib::{graphics::Size, slice::Slice, Property, Resource, SharedString};
 
 use super::{CanvasRc, GLItemRenderer, GLRendererData};
 
 enum ImageData {
-    GPUSide {
+    Texture {
         id: femtovg::ImageId,
         canvas: CanvasRc,
         /// If present, this boolean property indicates whether the image has been uploaded yet or
@@ -24,18 +25,19 @@ enum ImageData {
         /// to graphics items that query for the size.
         upload_pending: Option<core::pin::Pin<Box<Property<bool>>>>,
     },
-    CPUSide {
-        decoded_image: image::DynamicImage,
-    },
+    DecodedImage(image::DynamicImage),
+    #[cfg(feature = "svg")]
+    SVG(usvg::Tree),
 }
 
 impl Drop for ImageData {
     fn drop(&mut self) {
         match self {
-            ImageData::GPUSide { id, canvas, .. } => {
+            ImageData::Texture { id, canvas, .. } => {
                 canvas.borrow_mut().delete_image(*id);
             }
-            ImageData::CPUSide { .. } => {}
+            ImageData::DecodedImage(..) => {}
+            ImageData::SVG(..) => {}
         }
     }
 }
@@ -44,7 +46,7 @@ pub(crate) struct CachedImage(RefCell<ImageData>);
 
 impl CachedImage {
     fn new_on_cpu(decoded_image: image::DynamicImage) -> Self {
-        Self(RefCell::new(ImageData::CPUSide { decoded_image }))
+        Self(RefCell::new(ImageData::DecodedImage(decoded_image)))
     }
 
     pub fn new_on_gpu(
@@ -52,11 +54,16 @@ impl CachedImage {
         image_id: femtovg::ImageId,
         upload_pending_notifier: Option<core::pin::Pin<Box<Property<bool>>>>,
     ) -> Self {
-        Self(RefCell::new(ImageData::GPUSide {
+        Self(RefCell::new(ImageData::Texture {
             id: image_id,
             canvas: canvas.clone(),
             upload_pending: upload_pending_notifier,
         }))
+    }
+
+    #[cfg(feature = "svg")]
+    fn new_on_cpu_svg(tree: usvg::Tree) -> Self {
+        Self(RefCell::new(ImageData::SVG(tree)))
     }
 
     pub fn new_from_resource(resource: &Resource, renderer: &GLRendererData) -> Option<Rc<Self>> {
@@ -73,13 +80,13 @@ impl CachedImage {
         {
             #[cfg(feature = "svg")]
             if path.ends_with(".svg") {
-                return Some(Rc::new(Self::new_on_cpu(
+                return Some(Rc::new(Self::new_on_cpu_svg(
                     super::svg::load_from_path(std::path::Path::new(&path.as_str())).map_or_else(
                         |err| {
                             eprintln!("Error loading SVG from {}: {}", &path, err);
                             None
                         },
-                        |svg_image| Some(svg_image),
+                        |svg_tree| Some(svg_tree),
                     )?,
                 )));
             }
@@ -100,13 +107,13 @@ impl CachedImage {
     fn new_from_data(data: &Slice<u8>) -> Option<Self> {
         #[cfg(feature = "svg")]
         if data.starts_with(b"<svg") {
-            return Some(CachedImage::new_on_cpu(
+            return Some(CachedImage::new_on_cpu_svg(
                 super::svg::load_from_data(data.as_slice()).map_or_else(
                     |svg_err| {
                         eprintln!("Error loading SVG: {}", svg_err);
                         None
                     },
-                    |svg_image| Some(svg_image),
+                    |svg_tree| Some(svg_tree),
                 )?,
             ));
         }
@@ -196,7 +203,7 @@ impl CachedImage {
         let canvas = &current_renderer.shared_data.canvas;
 
         let img = &mut *self.0.borrow_mut();
-        if let ImageData::CPUSide { decoded_image } = img {
+        if let ImageData::DecodedImage(decoded_image) = img {
             let image_id = match femtovg::ImageSource::try_from(&*decoded_image) {
                 Ok(image_source) => {
                     canvas.borrow_mut().create_image(image_source, femtovg::ImageFlags::empty())
@@ -209,11 +216,11 @@ impl CachedImage {
             }
             .unwrap();
 
-            *img = ImageData::GPUSide { id: image_id, canvas: canvas.clone(), upload_pending: None }
+            *img = ImageData::Texture { id: image_id, canvas: canvas.clone(), upload_pending: None }
         };
 
         match &img {
-            ImageData::GPUSide { id, .. } => *id,
+            ImageData::Texture { id, .. } => *id,
             _ => unreachable!(),
         }
     }
@@ -222,7 +229,7 @@ impl CachedImage {
         use image::GenericImageView;
 
         match &*self.0.borrow() {
-            ImageData::GPUSide { id, canvas, upload_pending } => {
+            ImageData::Texture { id, canvas, upload_pending } => {
                 if upload_pending
                     .as_ref()
                     .map_or(false, |pending_property| pending_property.as_ref().get())
@@ -236,9 +243,15 @@ impl CachedImage {
                         .ok()
                 }
             }
-            ImageData::CPUSide { decoded_image: data } => {
-                let (width, height) = data.dimensions();
+            ImageData::DecodedImage(decoded_image) => {
+                let (width, height) = decoded_image.dimensions();
                 Some((width as f32, height as f32))
+            }
+
+            #[cfg(feature = "svg")]
+            ImageData::SVG(tree) => {
+                let size = tree.svg_node().size.to_screen_size();
+                Some((size.width() as f32, size.height() as f32))
             }
         }
         .map(|(width, height)| euclid::size2(width, height))
@@ -246,10 +259,28 @@ impl CachedImage {
 
     #[cfg(target_arch = "wasm32")]
     fn notify_loaded(&self) {
-        if let ImageData::GPUSide { upload_pending, .. } = &*self.0.borrow() {
+        if let ImageData::Texture { upload_pending, .. } = &*self.0.borrow() {
             upload_pending.as_ref().map(|pending_property| {
                 pending_property.as_ref().set(false);
             });
         }
+    }
+
+    pub fn as_renderable(
+        self: Rc<Self>,
+        target_size: euclid::default::Size2D<u32>,
+    ) -> Option<Rc<Self>> {
+        Some(match &*self.0.borrow() {
+            ImageData::Texture { .. } => self.clone(),
+            ImageData::DecodedImage(_) => self.clone(),
+            #[cfg(feature = "svg")]
+            ImageData::SVG(svg_tree) => match super::svg::render(&svg_tree, target_size) {
+                Ok(rendered_svg_image) => Rc::new(Self::new_on_cpu(rendered_svg_image)),
+                Err(err) => {
+                    eprintln!("Error rendering SVG: {}", err);
+                    return None;
+                }
+            },
+        })
     }
 }

@@ -542,8 +542,8 @@ impl ItemRenderer for GLItemRenderer {
             &image.cached_rendering_data,
             sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
             Rect::default(),
-            image.width(),
-            image.height(),
+            sixtyfps_corelib::items::Image::FIELD_OFFSETS.width.apply_pin(image),
+            sixtyfps_corelib::items::Image::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             None,
         );
@@ -565,8 +565,8 @@ impl ItemRenderer for GLItemRenderer {
             &clipped_image.cached_rendering_data,
             sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
             source_clip_rect,
-            clipped_image.width(),
-            clipped_image.height(),
+            sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS.width.apply_pin(clipped_image),
+            sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS.height.apply_pin(clipped_image),
             clipped_image.image_fit(),
             Some(
                 sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS
@@ -1109,12 +1109,12 @@ impl GLItemRenderer {
         item_cache: &CachedRenderingData,
         source_property: std::pin::Pin<&Property<Resource>>,
         source_clip_rect: Rect,
-        target_width: f32,
-        target_height: f32,
+        target_width: std::pin::Pin<&Property<f32>>,
+        target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
-        if target_width <= 0. || target_height < 0. {
+        if target_width.get() <= 0. || target_height.get() < 0. {
             return;
         }
 
@@ -1123,6 +1123,12 @@ impl GLItemRenderer {
                 self.shared_data.load_cached_item_image_from_function(item_cache, || {
                     self.shared_data
                         .load_image_resource(source_property.get())
+                        .and_then(|cached_image| {
+                            cached_image.as_renderable(
+                                // The condition at the entry of the function ensures that width/height are positive
+                                [target_width.get() as u32, target_height.get() as u32].into(),
+                            )
+                        })
                         .map(|image| self.colorize_image(image, colorize_property))
                 });
 
@@ -1148,6 +1154,9 @@ impl GLItemRenderer {
 
             break cached_image.as_image().clone();
         };
+
+        let target_width = target_width.get();
+        let target_height = target_height.get();
 
         let image_id = cached_image.ensure_uploaded_to_gpu(&self);
         let image_size = cached_image.size().unwrap_or_default();
