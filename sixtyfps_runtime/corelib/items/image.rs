@@ -75,7 +75,7 @@ impl Item for Image {
     }
 
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
-        window.0.image_size(&self.cached_rendering_data, Self::FIELD_OFFSETS.source.apply_pin(self))
+        window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self))
     }
 
     fn input_event(
@@ -137,7 +137,7 @@ impl Item for ClippedImage {
     }
 
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
-        window.0.image_size(&self.cached_rendering_data, Self::FIELD_OFFSETS.source.apply_pin(self))
+        window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self))
     }
 
     fn input_event(

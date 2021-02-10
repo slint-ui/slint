@@ -216,14 +216,12 @@ impl GLRendererData {
     }
 
     // Try to load the image the given resource points to
-    fn load_image_resource(&self, resource: Resource) -> Option<ItemGraphicsCacheEntry> {
+    fn load_image_resource(&self, resource: Resource) -> Option<Rc<CachedImage>> {
         let cache_key = ImageCacheKey::new(&resource)?;
 
-        let cached_image = self.lookup_image_in_cache_or_create(cache_key, || {
+        self.lookup_image_in_cache_or_create(cache_key, || {
             CachedImage::new_from_resource(&resource, self)
-        })?;
-
-        Some(ItemGraphicsCacheEntry::Image(cached_image))
+        })
     }
 
     // Load the image from the specified load factory fn, unless it was cached in the item's rendering
@@ -449,14 +447,11 @@ impl GLRenderer {
     /// to the window scale factor.
     fn image_size(
         &self,
-        item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         source: core::pin::Pin<&sixtyfps_corelib::properties::Property<Resource>>,
     ) -> sixtyfps_corelib::graphics::Size {
         self.shared_data
-            .load_cached_item_image_from_function(item_graphics_cache, || {
-                self.shared_data.load_image_resource(source.get())
-            })
-            .and_then(|image| image.as_image().size())
+            .load_image_resource(source.get())
+            .and_then(|image| image.size())
             .unwrap_or_else(|| Size::new(1., 1.))
     }
 }
@@ -1045,21 +1040,20 @@ impl GLItemRenderer {
 
     fn colorize_image(
         &self,
-        image_cache_entry: ItemGraphicsCacheEntry,
+        original_image: Rc<CachedImage>,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) -> ItemGraphicsCacheEntry {
         let colorize_brush = match colorize_property.map_or(Brush::default(), |prop| prop.get()) {
-            Brush::NoBrush => return image_cache_entry,
+            Brush::NoBrush => return ItemGraphicsCacheEntry::Image(original_image),
             brush => brush,
         };
-        let image = image_cache_entry.as_image();
 
-        let image_size = match image.size() {
+        let image_size = match original_image.size() {
             Some(size) => size,
-            None => return image_cache_entry,
+            None => return ItemGraphicsCacheEntry::Image(original_image),
         };
 
-        let image_id = image.ensure_uploaded_to_gpu(&self);
+        let image_id = original_image.ensure_uploaded_to_gpu(&self);
         let colorized_image = self
             .shared_data
             .canvas
@@ -1100,7 +1094,7 @@ impl GLItemRenderer {
         });
 
         ItemGraphicsCacheEntry::ColorizedImage {
-            original_image: image.clone(),
+            original_image,
             colorized_image: Rc::new(CachedImage::new_on_gpu(
                 &self.shared_data.canvas,
                 colorized_image,

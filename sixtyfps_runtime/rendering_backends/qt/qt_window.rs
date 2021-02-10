@@ -876,7 +876,6 @@ impl PlatformWindow for QtWindow {
 
     fn image_size(
         &self,
-        _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         source: Pin<&sixtyfps_corelib::properties::Property<Resource>>,
     ) -> sixtyfps_corelib::graphics::Size {
         load_image_from_resource(source.get())
