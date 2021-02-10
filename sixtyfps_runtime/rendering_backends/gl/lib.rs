@@ -1324,8 +1324,9 @@ impl GLItemRenderer {
                 }
             };
 
-            // It's possible that our cached image went from no colorization to some brush, in which case we have to
-            // invalidate the cache and try again.
+            // It's possible that our item cache contains an image but it's not colorized yet because it was only
+            // placed there via the `image_size` function (which doesn't colorize). So we may have to invalidate our
+            // item cache and try again.
             if colorize_property.map_or(false, |prop| !matches!(prop.get(), Brush::NoBrush))
                 && !cached_image.is_colorized_image()
             {
