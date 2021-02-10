@@ -15,31 +15,46 @@ use sixtyfps_corelib::{graphics::Size, slice::Slice, Property, Resource, SharedS
 
 use super::{CanvasRc, GLItemRenderer, GLRendererData};
 
+struct Texture {
+    id: femtovg::ImageId,
+    canvas: CanvasRc,
+    /// If present, this boolean property indicates whether the image has been uploaded yet or
+    /// if that operation is still pending. If not present, then the image *is* available. This is
+    /// used for remote HTML image loading and the property will be used to correctly track dependencies
+    /// to graphics items that query for the size.
+    upload_pending: Option<core::pin::Pin<Box<Property<bool>>>>,
+}
+
+impl Texture {
+    fn size(&self) -> Option<Size> {
+        if self
+            .upload_pending
+            .as_ref()
+            .map_or(false, |pending_property| pending_property.as_ref().get())
+        {
+            None
+        } else {
+            self.canvas
+                .borrow()
+                .image_info(self.id)
+                .map(|info| [info.width() as f32, info.height() as f32].into())
+                .ok()
+        }
+    }
+}
+
+impl Drop for Texture {
+    fn drop(&mut self) {
+        self.canvas.borrow_mut().delete_image(self.id);
+    }
+}
+
+#[derive(derive_more::From)]
 enum ImageData {
-    Texture {
-        id: femtovg::ImageId,
-        canvas: CanvasRc,
-        /// If present, this boolean property indicates whether the image has been uploaded yet or
-        /// if that operation is still pending. If not present, then the image *is* available. This is
-        /// used for remote HTML image loading and the property will be used to correctly track dependencies
-        /// to graphics items that query for the size.
-        upload_pending: Option<core::pin::Pin<Box<Property<bool>>>>,
-    },
+    Texture(Texture),
     DecodedImage(image::DynamicImage),
     #[cfg(feature = "svg")]
     SVG(usvg::Tree),
-}
-
-impl Drop for ImageData {
-    fn drop(&mut self) {
-        match self {
-            ImageData::Texture { id, canvas, .. } => {
-                canvas.borrow_mut().delete_image(*id);
-            }
-            ImageData::DecodedImage(..) => {}
-            ImageData::SVG(..) => {}
-        }
-    }
 }
 
 pub(crate) struct CachedImage(RefCell<ImageData>);
@@ -54,11 +69,14 @@ impl CachedImage {
         image_id: femtovg::ImageId,
         upload_pending_notifier: Option<core::pin::Pin<Box<Property<bool>>>>,
     ) -> Self {
-        Self(RefCell::new(ImageData::Texture {
-            id: image_id,
-            canvas: canvas.clone(),
-            upload_pending: upload_pending_notifier,
-        }))
+        Self(RefCell::new(
+            Texture {
+                id: image_id,
+                canvas: canvas.clone(),
+                upload_pending: upload_pending_notifier,
+            }
+            .into(),
+        ))
     }
 
     #[cfg(feature = "svg")]
@@ -216,11 +234,11 @@ impl CachedImage {
             }
             .unwrap();
 
-            *img = ImageData::Texture { id: image_id, canvas: canvas.clone(), upload_pending: None }
+            *img = Texture { id: image_id, canvas: canvas.clone(), upload_pending: None }.into()
         };
 
         match &img {
-            ImageData::Texture { id, .. } => *id,
+            ImageData::Texture(Texture { id, .. }) => *id,
             _ => unreachable!(),
         }
     }
@@ -229,32 +247,18 @@ impl CachedImage {
         use image::GenericImageView;
 
         match &*self.0.borrow() {
-            ImageData::Texture { id, canvas, upload_pending } => {
-                if upload_pending
-                    .as_ref()
-                    .map_or(false, |pending_property| pending_property.as_ref().get())
-                {
-                    None
-                } else {
-                    canvas
-                        .borrow()
-                        .image_info(*id)
-                        .map(|info| (info.width() as f32, info.height() as f32))
-                        .ok()
-                }
-            }
+            ImageData::Texture(texture) => texture.size(),
             ImageData::DecodedImage(decoded_image) => {
                 let (width, height) = decoded_image.dimensions();
-                Some((width as f32, height as f32))
+                Some([width as f32, height as f32].into())
             }
 
             #[cfg(feature = "svg")]
             ImageData::SVG(tree) => {
                 let size = tree.svg_node().size.to_screen_size();
-                Some((size.width() as f32, size.height() as f32))
+                Some([size.width() as f32, size.height() as f32].into())
             }
         }
-        .map(|(width, height)| euclid::size2(width, height))
     }
 
     #[cfg(target_arch = "wasm32")]
