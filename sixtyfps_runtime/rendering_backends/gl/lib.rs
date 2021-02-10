@@ -80,21 +80,21 @@ impl CachedImage {
         }))
     }
 
-    fn new_from_resource(resource: &Resource) -> Option<Self> {
+    fn new_from_resource(resource: &Resource, renderer: &GLRendererData) -> Option<Rc<Self>> {
         match resource {
             Resource::None => None,
-            Resource::AbsoluteFilePath(path) => Self::new_from_path(path),
-            Resource::EmbeddedData(data) => Self::new_from_data(data),
+            Resource::AbsoluteFilePath(path) => Self::new_from_path(path, renderer),
+            Resource::EmbeddedData(data) => Self::new_from_data(data).map(Rc::new),
             Resource::EmbeddedRgbaImage { .. } => todo!(),
         }
     }
 
-    fn new_from_path(path: &SharedString) -> Option<Self> {
+    fn new_from_path(path: &SharedString, _renderer: &GLRendererData) -> Option<Rc<Self>> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             #[cfg(feature = "svg")]
             if path.ends_with(".svg") {
-                return Some(Self::new_on_cpu(
+                return Some(Rc::new(Self::new_on_cpu(
                     svg::load_from_path(std::path::Path::new(&path.as_str())).map_or_else(
                         |err| {
                             eprintln!("Error loading SVG from {}: {}", &path, err);
@@ -102,18 +102,20 @@ impl CachedImage {
                         },
                         |svg_image| Some(svg_image),
                     )?,
-                ));
+                )));
             }
-            Some(Self::new_on_cpu(image::open(std::path::Path::new(&path.as_str())).map_or_else(
-                |decode_err| {
-                    eprintln!("Error loading image from {}: {}", &path, decode_err);
-                    None
-                },
-                |image| Some(image),
-            )?))
+            Some(Rc::new(Self::new_on_cpu(
+                image::open(std::path::Path::new(&path.as_str())).map_or_else(
+                    |decode_err| {
+                        eprintln!("Error loading image from {}: {}", &path, decode_err);
+                        None
+                    },
+                    |image| Some(image),
+                )?,
+            )))
         }
         #[cfg(target_arch = "wasm32")]
-        Some(self.load_html_image(&path))
+        Some(_renderer.load_html_image(&path))
     }
 
     fn new_from_data(data: &Slice<u8>) -> Option<Self> {
@@ -456,7 +458,7 @@ impl GLRendererData {
         let cache_key = ImageCacheKey::new(&resource)?;
 
         let cached_image = self.lookup_image_in_cache_or_create(cache_key, || {
-            Some(Rc::new(CachedImage::new_from_resource(&resource)?))
+            CachedImage::new_from_resource(&resource, self)
         })?;
 
         Some(ItemGraphicsCacheEntry::Image(cached_image))
