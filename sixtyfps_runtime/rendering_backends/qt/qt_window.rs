@@ -565,16 +565,24 @@ impl QtItemRenderer<'_> {
         debug_assert!(target_height.get() > 0.);
 
         let cached = item_cache.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
-            let source_size = if source_rect.is_none() {
-                // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-                Some(qttypes::QSize {
-                    width: target_width.get() as u32,
-                    height: target_height.get() as u32,
-                })
+            // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
+            let target_width = target_width.get() as f64;
+            let target_height = target_height.get() as f64;
+
+            let has_source_clipping = source_rect.map_or(false, |rect| {
+                rect.is_valid()
+                    && (rect.x != 0.
+                        || rect.y != 0.
+                        || rect.width != target_width
+                        || rect.height != target_height)
+            });
+            let source_size = if !has_source_clipping {
+                Some(qttypes::QSize { width: target_width as u32, height: target_height as u32 })
             } else {
                 // Source size & clipping is not implemented yet
                 None
             };
+
             load_image_from_resource(source_property.get(), source_size).map_or(
                 QtRenderingCacheItem::Invalid,
                 |mut pixmap: qttypes::QPixmap| {

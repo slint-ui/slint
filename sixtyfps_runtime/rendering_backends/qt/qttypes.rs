@@ -228,6 +228,13 @@ pub struct QRectF {
     pub height: qreal,
 }
 
+impl QRectF {
+    // Same as QRectF::isValid()
+    pub fn is_valid(&self) -> bool {
+        self.width > 0. && self.height > 0.
+    }
+}
+
 cpp_class!(
     pub unsafe struct QBrush as "QBrush"
 );
