@@ -9,6 +9,7 @@
 LICENSE END */
 //! Functions usefull for testing
 #![warn(missing_docs)]
+#![allow(unsafe_code)]
 
 use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent, MouseEventType};
 use crate::window::ComponentWindow;

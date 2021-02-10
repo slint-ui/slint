@@ -1929,7 +1929,7 @@ impl<'a> LayoutTreeItem<'a> {
     fn layout_info(&self) -> String {
         match self {
             LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => format!(
-                "sixtyfps::grid_layout_info(&{}, {}, &{})",
+                "sixtyfps::sixtyfps_grid_layout_info(&{}, {}, &{})",
                 cell_ref_variable, spacing, padding
             ),
             LayoutTreeItem::BoxLayout {
@@ -1940,7 +1940,7 @@ impl<'a> LayoutTreeItem<'a> {
                 is_horizontal,
                 ..
             } => format!(
-                "sixtyfps::box_layout_info(&{}, {}, &{}, {}, {})",
+                "sixtyfps::sixtyfps_box_layout_info(&{}, {}, &{}, {}, {})",
                 cell_ref_variable, spacing, padding, alignment, is_horizontal
             ),
             LayoutTreeItem::PathLayout(_) => "{/*layout_info for path not implemented*/}".into(),
@@ -2047,7 +2047,7 @@ impl<'a> LayoutTreeItem<'a> {
                 ));
                 code_stream.push(format!("        {cv}", cv = cell_ref_variable));
                 code_stream.push("    };".to_owned());
-                code_stream.push("    sixtyfps::solve_grid_layout(&grid);".to_owned());
+                code_stream.push("    sixtyfps::sixtyfps_solve_grid_layout(&grid);".to_owned());
                 code_stream.push("    } ".into());
             }
             LayoutTreeItem::BoxLayout {
@@ -2073,8 +2073,10 @@ impl<'a> LayoutTreeItem<'a> {
                 ));
                 code_stream.push(format!("        {cv}", cv = cell_ref_variable));
                 code_stream.push("    };".to_owned());
-                code_stream
-                    .push(format!("    sixtyfps::solve_box_layout(&box, {});", is_horizontal));
+                code_stream.push(format!(
+                    "    sixtyfps::sixtyfps_solve_box_layout(&box, {});",
+                    is_horizontal
+                ));
                 code_stream.push("    } ".into());
             }
             LayoutTreeItem::PathLayout(path_layout) => {
@@ -2182,7 +2184,7 @@ impl<'a> LayoutTreeItem<'a> {
                 code_stream.push(slice);
                 code_stream.push("        x, y, width, height, offset".to_owned());
                 code_stream.push("    };".to_owned());
-                code_stream.push("    sixtyfps::solve_path_layout(&pl);".to_owned());
+                code_stream.push("    sixtyfps::sixtyfps_solve_path_layout(&pl);".to_owned());
                 code_stream.push("}".to_owned());
             }
         }

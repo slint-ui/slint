@@ -227,9 +227,7 @@ pub struct GridLayoutCellData<'a> {
     pub height: Option<&'a Property<Coord>>,
 }
 
-/// FIXME: rename with sixstyfps prefix
-#[no_mangle]
-pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
+pub fn solve_grid_layout(data: &GridLayoutData) {
     let (mut num_col, mut num_row) = (0, 0);
     for cell in data.cells.iter() {
         num_row = num_row.max(cell.row + cell.rowspan);
@@ -318,8 +316,7 @@ pub extern "C" fn solve_grid_layout(data: &GridLayoutData) {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn grid_layout_info<'a>(
+pub fn grid_layout_info<'a>(
     cells: &Slice<'a, GridLayoutCellData<'a>>,
     spacing: Coord,
     padding: &Padding,
@@ -454,8 +451,7 @@ pub struct BoxLayoutCellData<'a> {
 }
 
 /// Solve a BoxLayout
-#[no_mangle]
-pub extern "C" fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
+pub fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
     use stretch::geometry::*;
     use stretch::number::*;
     use stretch::style::*;
@@ -555,9 +551,8 @@ pub extern "C" fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
     }
 }
 
-#[no_mangle]
 /// Return the LayoutInfo for a BoxLayout with the given cells.
-pub extern "C" fn box_layout_info<'a>(
+pub fn box_layout_info<'a>(
     cells: &Slice<'a, BoxLayoutCellData<'a>>,
     spacing: Coord,
     padding: &Padding,
@@ -649,9 +644,7 @@ pub struct PathLayoutItemData<'a> {
     pub height: Coord,
 }
 
-/// FIXME: rename with sixstyfps prefix
-#[no_mangle]
-pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
+pub fn solve_path_layout(data: &PathLayoutData) {
     use lyon_geom::*;
     use lyon_path::iterator::PathIterator;
 
@@ -716,5 +709,47 @@ pub extern "C" fn solve_path_layout(data: &PathLayoutData) {
                 break;
             }
         }
+    }
+}
+
+pub(crate) mod ffi {
+    #![allow(unsafe_code)]
+
+    use super::*;
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_solve_grid_layout(data: &GridLayoutData) {
+        super::solve_grid_layout(data)
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_grid_layout_info<'a>(
+        cells: &Slice<'a, GridLayoutCellData<'a>>,
+        spacing: Coord,
+        padding: &Padding,
+    ) -> LayoutInfo {
+        super::grid_layout_info(cells, spacing, padding)
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
+        super::solve_box_layout(data, is_horizontal)
+    }
+
+    #[no_mangle]
+    /// Return the LayoutInfo for a BoxLayout with the given cells.
+    pub extern "C" fn sixtyfps_box_layout_info<'a>(
+        cells: &Slice<'a, BoxLayoutCellData<'a>>,
+        spacing: Coord,
+        padding: &Padding,
+        alignment: LayoutAlignment,
+        is_horizontal: bool,
+    ) -> LayoutInfo {
+        super::box_layout_info(cells, spacing, padding, alignment, is_horizontal)
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_solve_path_layout(data: &PathLayoutData) {
+        super::solve_path_layout(data)
     }
 }

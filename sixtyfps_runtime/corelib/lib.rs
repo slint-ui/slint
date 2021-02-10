@@ -77,7 +77,7 @@ pub fn use_modules() -> usize {
     tests::sixtyfps_mock_elapsed_time as usize
         + callbacks::ffi::sixtyfps_callback_init as usize
         + sharedvector::ffi::sixtyfps_shared_vector_empty as usize
-        + layout::solve_grid_layout as usize
+        + layout::ffi::sixtyfps_solve_grid_layout as usize
         + item_tree::ffi::sixtyfps_visit_item_tree as usize
         + graphics::ffi::sixtyfps_new_path_elements as usize
         + properties::ffi::sixtyfps_property_init as usize

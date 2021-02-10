@@ -315,10 +315,10 @@ private:
 
 
 // layouts:
-using cbindgen_private::box_layout_info;
+using cbindgen_private::sixtyfps_box_layout_info;
 using cbindgen_private::BoxLayoutCellData;
 using cbindgen_private::BoxLayoutData;
-using cbindgen_private::grid_layout_info;
+using cbindgen_private::sixtyfps_grid_layout_info;
 using cbindgen_private::GridLayoutCellData;
 using cbindgen_private::GridLayoutData;
 using cbindgen_private::LayoutAlignment;
@@ -327,9 +327,9 @@ using cbindgen_private::Padding;
 using cbindgen_private::PathLayoutData;
 using cbindgen_private::PathLayoutItemData;
 using cbindgen_private::Rect;
-using cbindgen_private::solve_box_layout;
-using cbindgen_private::solve_grid_layout;
-using cbindgen_private::solve_path_layout;
+using cbindgen_private::sixtyfps_solve_box_layout;
+using cbindgen_private::sixtyfps_solve_grid_layout;
+using cbindgen_private::sixtyfps_solve_path_layout;
 
 inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 {

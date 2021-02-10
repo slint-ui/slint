@@ -304,6 +304,8 @@ fn lower_bound<T>(vec: &Vec<T>, mut less_than: impl FnMut(&T) -> bool) -> usize 
 }
 
 pub(crate) mod ffi {
+    #![allow(unsafe_code)]
+
     use super::*;
     #[allow(non_camel_case_types)]
     type c_void = ();
