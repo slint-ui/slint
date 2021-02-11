@@ -10,7 +10,6 @@ LICENSE END */
 
 Foo := Rectangle {
     width: 30%;
-//        ^error{Cannot find parent property to apply relative lenght}
 
     Rectangle {
         height: 111%;

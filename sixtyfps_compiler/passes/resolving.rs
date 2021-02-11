@@ -212,55 +212,6 @@ fn find_parent_element(e: &ElementRc) -> Option<ElementRc> {
     recurse(&root, e)
 }
 
-/// If the type of the expression is a percentage, and the current property evaluated is
-/// `width` or `height`, attempt to multiply by the parent `width` or `height`
-fn attempt_percent_conversion(
-    ctx: &mut LookupCtx,
-    e: Expression,
-    node: &dyn SpannedWithSourceFile,
-) -> Expression {
-    if ctx.property_type != Type::Length || e.ty() != Type::Percent {
-        return e;
-    }
-
-    const RELATIVE_TO_PARENT_PROPERTIES: [&str; 2] = ["width", "height"];
-    let property_name = ctx.property_name.unwrap_or_default();
-    if !RELATIVE_TO_PARENT_PROPERTIES.contains(&property_name) {
-        ctx.diag.push_error(
-            format!(
-                "Automatic conversion from percentage to lenght is only possible for the properties {}",
-                RELATIVE_TO_PARENT_PROPERTIES.join(" and ")
-            ),
-            node
-        );
-        return Expression::Invalid;
-    }
-
-    let mut parent = ctx.component_scope.last().and_then(find_parent_element);
-    while let Some(p) = parent {
-        let PropertyLookupResult { resolved_name, property_type } =
-            p.borrow().lookup_property(property_name);
-        if property_type == Type::Length {
-            return Expression::BinaryExpression {
-                lhs: Box::new(Expression::BinaryExpression {
-                    lhs: Box::new(e),
-                    rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
-                    op: '*',
-                }),
-                rhs: Box::new(Expression::PropertyReference(NamedReference {
-                    element: Rc::downgrade(&p),
-                    name: resolved_name.to_string(),
-                })),
-                op: '*',
-            };
-        }
-        parent = find_parent_element(&p);
-    }
-
-    ctx.diag.push_error("Cannot find parent property to apply relative lenght".into(), node);
-    Expression::Invalid
-}
-
 impl Expression {
     pub fn from_binding_expression_node(
         node: SyntaxNodeWithSourceFile,
@@ -275,7 +226,23 @@ impl Expression {
                     .map(|c| Self::from_codeblock_node(c.into(), ctx))
             })
             .unwrap_or(Self::Invalid);
-        let e = attempt_percent_conversion(ctx, e, &node);
+        if ctx.property_type == Type::Length && e.ty() == Type::Percent {
+            // See if a conversion from percentage to lenght is allowed
+            const RELATIVE_TO_PARENT_PROPERTIES: [&str; 2] = ["width", "height"];
+            let property_name = ctx.property_name.unwrap_or_default();
+            if RELATIVE_TO_PARENT_PROPERTIES.contains(&property_name) {
+                return e;
+            } else {
+                ctx.diag.push_error(
+                    format!(
+                        "Automatic conversion from percentage to lenght is only possible for the properties {}",
+                        RELATIVE_TO_PARENT_PROPERTIES.join(" and ")
+                    ),
+                    &node
+                );
+                return Expression::Invalid;
+            }
+        };
         e.maybe_convert_to(ctx.property_type.clone(), &node, &mut ctx.diag)
     }
 

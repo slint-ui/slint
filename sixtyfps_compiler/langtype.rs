@@ -628,6 +628,7 @@ fn test_select_minimal_class_based_on_property_usage() {
     assert_eq!(reduce_to_second.class_name, second.class_name);
 }
 
+#[derive(PartialEq, Debug)]
 pub struct PropertyLookupResult<'a> {
     pub resolved_name: std::borrow::Cow<'a, str>,
     pub property_type: Type,
