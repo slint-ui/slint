@@ -88,3 +88,25 @@ pub extern "C" fn send_keyboard_string_sequence(
         });
     }
 }
+
+cfg_if::cfg_if! {
+    if #[cfg(target_arch = "wasm32")] {
+        use wasm_bindgen::prelude::*;
+
+        #[wasm_bindgen]
+        extern "C" {
+            #[wasm_bindgen(js_namespace = console)]
+            pub fn log(s: &str);
+        }
+
+        #[macro_export]
+        macro_rules! debug_log {
+            ($($t:tt)*) => ($crate::tests::log(&format_args!($($t)*).to_string()))
+        }
+    } else {
+        #[macro_export]
+        macro_rules! debug_log {
+            ($($t:tt)*) => (eprintln!($($t)*))
+        }
+    }
+}
