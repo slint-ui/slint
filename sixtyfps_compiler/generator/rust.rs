@@ -1682,11 +1682,8 @@ fn apply_layout_constraint(
     if constraints.has_explicit_restrictions() {
         let (name, expr): (Vec<_>, Vec<_>) = constraints
             .for_each_restrictions()
-            .iter()
-            .filter_map(|(e, s)| {
-                e.as_ref().map(|e| {
-                    (format_ident!("{}", s), access_named_reference(e, component, quote!(_self)))
-                })
+            .map(|(e, s)| {
+                (format_ident!("{}", s), access_named_reference(e, component, quote!(_self)))
             })
             .unzip();
         quote!({

@@ -339,6 +339,10 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
                         std::min(max_width, other.max_width),
                         std::max(min_height, other.min_height),
                         std::min(max_height, other.max_height),
+                        std::max(min_width_percent, other.min_width_percent),
+                        std::min(max_width_percent, other.max_width_percent),
+                        std::max(min_height_percent, other.min_height_percent),
+                        std::min(max_height_percent, other.max_height_percent),
                         std::min(horizontal_stretch, other.horizontal_stretch),
                         std::min(vertical_stretch, other.vertical_stretch) };
 }

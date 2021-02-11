@@ -1196,10 +1196,36 @@ fn fill_layout_info_constraints(
     constraints: &LayoutConstraints,
     expr_eval: &impl Fn(&NamedReference) -> f32,
 ) {
-    constraints.minimum_width.as_ref().map(|e| layout_info.min_width = expr_eval(e));
-    constraints.maximum_width.as_ref().map(|e| layout_info.max_width = expr_eval(e));
-    constraints.minimum_height.as_ref().map(|e| layout_info.min_height = expr_eval(e));
-    constraints.maximum_height.as_ref().map(|e| layout_info.max_height = expr_eval(e));
+    let is_percent =
+        |nr: &NamedReference| Expression::PropertyReference(nr.clone()).ty() == Type::Percent;
+    constraints.minimum_width.as_ref().map(|e| {
+        if !is_percent(e) {
+            layout_info.min_width = expr_eval(e)
+        } else {
+            layout_info.min_width_percent = expr_eval(e)
+        }
+    });
+    constraints.maximum_width.as_ref().map(|e| {
+        if !is_percent(e) {
+            layout_info.max_width = expr_eval(e)
+        } else {
+            layout_info.max_width_percent = expr_eval(e)
+        }
+    });
+    constraints.minimum_height.as_ref().map(|e| {
+        if !is_percent(e) {
+            layout_info.min_height = expr_eval(e)
+        } else {
+            layout_info.min_height_percent = expr_eval(e)
+        }
+    });
+    constraints.maximum_height.as_ref().map(|e| {
+        if !is_percent(e) {
+            layout_info.max_height = expr_eval(e)
+        } else {
+            layout_info.max_height_percent = expr_eval(e)
+        }
+    });
     constraints.horizontal_stretch.as_ref().map(|e| layout_info.horizontal_stretch = expr_eval(e));
     constraints.vertical_stretch.as_ref().map(|e| layout_info.vertical_stretch = expr_eval(e));
 }

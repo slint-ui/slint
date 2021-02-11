@@ -28,6 +28,15 @@ pub struct LayoutInfo {
     /// The maximum height for the item.
     pub max_height: f32,
 
+    /// The minimum width in percentage of the parent (value between 0 and 100).
+    pub min_width_percent: f32,
+    /// The maximum width in percentage of the parent (value between 0 and 100).
+    pub max_width_percent: f32,
+    /// The minimum height in percentage of the parent (value between 0 and 100).
+    pub min_height_percent: f32,
+    /// The maximum height in percentage of the parent (value between 0 and 100).
+    pub max_height_percent: f32,
+
     /// the horizontal stretch factor
     pub horizontal_stretch: f32,
     /// the vertical stretch factor
@@ -41,6 +50,10 @@ impl Default for LayoutInfo {
             max_width: f32::MAX,
             min_height: 0.,
             max_height: f32::MAX,
+            min_width_percent: 0.,
+            max_width_percent: 100.,
+            min_height_percent: 0.,
+            max_height_percent: 100.,
             horizontal_stretch: 0.,
             vertical_stretch: 0.,
         }
@@ -55,6 +68,10 @@ impl LayoutInfo {
             max_width: self.max_width.min(other.max_width),
             min_height: self.min_height.max(other.min_height),
             max_height: self.max_height.min(other.max_height),
+            min_width_percent: self.min_width_percent.max(other.min_width_percent),
+            max_width_percent: self.max_width_percent.min(other.max_width_percent),
+            min_height_percent: self.min_height_percent.max(other.min_height_percent),
+            max_height_percent: self.max_height_percent.min(other.max_height_percent),
             horizontal_stretch: self.horizontal_stretch.min(other.horizontal_stretch),
             vertical_stretch: self.vertical_stretch.min(other.vertical_stretch),
         }
@@ -240,29 +257,35 @@ pub fn solve_grid_layout(data: &GridLayoutData) {
 
     let mut row_layout_data = vec![grid_internal::LayoutData::default(); num_row as usize];
     let mut col_layout_data = vec![grid_internal::LayoutData::default(); num_col as usize];
+
     for cell in data.cells.iter() {
-        let row_max = cell.constraint.max_height / (cell.rowspan as f32);
-        let row_min = cell.constraint.min_height / (cell.rowspan as f32);
-        let row_pref = cell.constraint.min_height / (cell.rowspan as f32);
+        let cnstr = &cell.constraint;
+        let row_max = cnstr.max_height.min(data.height * cnstr.max_height_percent / 100.)
+            / (cell.rowspan as f32);
+        let row_min = cnstr.min_height.max(data.height * cnstr.min_height_percent / 100.)
+            / (cell.rowspan as f32);
+        let row_pref = row_min;
 
         for r in 0..(cell.rowspan as usize) {
             let rdata = &mut row_layout_data[cell.row as usize + r];
             rdata.max = rdata.max.min(row_max);
             rdata.min = rdata.min.max(row_min);
             rdata.pref = rdata.pref.max(row_pref);
-            rdata.stretch = rdata.stretch.min(cell.constraint.vertical_stretch);
+            rdata.stretch = rdata.stretch.min(cnstr.vertical_stretch);
         }
 
-        let col_max = cell.constraint.max_width / (cell.colspan as f32);
-        let col_min = cell.constraint.min_width / (cell.colspan as f32);
-        let col_pref = cell.constraint.min_width / (cell.colspan as f32);
+        let col_max = cnstr.max_width.min(data.width * cnstr.max_width_percent / 100.)
+            / (cell.colspan as f32);
+        let col_min = cnstr.min_width.max(data.width * cnstr.min_width_percent / 100.)
+            / (cell.colspan as f32);
+        let col_pref = col_min;
 
         for c in 0..(cell.colspan as usize) {
             let cdata = &mut col_layout_data[cell.col as usize + c];
             cdata.max = cdata.max.min(col_max);
             cdata.min = cdata.min.max(col_min);
             cdata.pref = cdata.pref.max(col_pref);
-            cdata.stretch = cdata.stretch.min(cell.constraint.horizontal_stretch);
+            cdata.stretch = cdata.stretch.min(cnstr.horizontal_stretch);
         }
     }
 
@@ -374,6 +397,10 @@ pub fn grid_layout_info<'a>(
         max_width,
         min_height,
         max_height,
+        min_width_percent: 0.,
+        max_width_percent: 100.,
+        min_height_percent: 0.,
+        max_height_percent: 100.,
         horizontal_stretch,
         vertical_stretch,
     }
@@ -502,12 +529,45 @@ pub fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
                 margin.bottom = Dimension::Points(data.spacing / 2.);
             }
         }
-        let min = |m| if m == 0.0 { Dimension::Undefined } else { Dimension::Points(m) };
-        let max = |m| if m == f32::MAX { Dimension::Undefined } else { Dimension::Points(m) };
-        let min_size =
-            Size { width: min(cell.constraint.min_width), height: min(cell.constraint.min_height) };
-        let max_size =
-            Size { width: max(cell.constraint.max_width), height: max(cell.constraint.max_height) };
+        let min = |m, m_p, tot| {
+            if m_p <= 0.0 {
+                if m <= 0.0 {
+                    Dimension::Undefined
+                } else {
+                    Dimension::Points(m)
+                }
+            } else {
+                if m <= 0.0 {
+                    Dimension::Percent(m_p / 100.)
+                } else {
+                    Dimension::Points(m.min(m_p * tot / 100.))
+                }
+            }
+        };
+        let max = |m, m_p, tot| {
+            if m_p >= 100. {
+                if m == f32::MAX {
+                    Dimension::Undefined
+                } else {
+                    Dimension::Points(m)
+                }
+            } else {
+                if m == f32::MAX {
+                    Dimension::Percent(m_p / 100.)
+                } else {
+                    Dimension::Points(m.max(m_p * tot / 100.))
+                }
+            }
+        };
+        let constraint = &cell.constraint;
+        let min_size = Size {
+            width: min(constraint.min_width, constraint.min_width_percent, data.width),
+            height: min(constraint.min_height, constraint.min_height_percent, data.height),
+        };
+        let max_size = Size {
+            width: max(constraint.max_width, constraint.max_width_percent, data.width),
+            height: max(constraint.max_height, constraint.max_height_percent, data.height),
+        };
         let cell_style = Style {
             min_size,
             max_size,
@@ -591,6 +651,10 @@ pub fn box_layout_info<'a>(
             max_width,
             min_height,
             max_height,
+            min_width_percent: 0.,
+            max_width_percent: 100.,
+            min_height_percent: 0.,
+            max_height_percent: 100.,
             horizontal_stretch,
             vertical_stretch,
         }
@@ -618,6 +682,10 @@ pub fn box_layout_info<'a>(
             max_width,
             min_height,
             max_height,
+            min_width_percent: 0.,
+            max_width_percent: 100.,
+            min_height_percent: 0.,
+            max_height_percent: 100.,
             horizontal_stretch,
             vertical_stretch,
         }

@@ -293,12 +293,36 @@ fn create_layout_item(
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<LayoutItem> {
+    let fix_explicit_percent = |prop: &str, item: &ElementRc| {
+        if !item.borrow().bindings.get(prop).map_or(false, |b| b.ty() == Type::Percent) {
+            return;
+        }
+        let mut item = item.borrow_mut();
+        let b = item.bindings.remove(prop).unwrap();
+        // FIXME: this should be the preferred size instead, progably
+        item.bindings.insert(format!("minimum_{}", prop), b.clone());
+        item.bindings.insert(format!("maximum_{}", prop), b);
+        item.property_declarations.insert(
+            format!("minimum_{}", prop),
+            PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
+        );
+        item.property_declarations.insert(
+            format!("maximum_{}", prop),
+            PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
+        );
+    };
+    fix_explicit_percent("width", item_element);
+    fix_explicit_percent("height", item_element);
+
     let constraints = LayoutConstraints::new(item_element, diag);
 
     item_element.borrow_mut().child_of_layout = true;
 
     if item_element.borrow().repeated.is_some() {
         let rep_comp = item_element.borrow().base_type.as_component().clone();
+        fix_explicit_percent("width", &rep_comp.root_element);
+        fix_explicit_percent("height", &rep_comp.root_element);
+
         rep_comp.layouts.borrow_mut().root_constraints =
             LayoutConstraints::new(&rep_comp.root_element, diag);
         rep_comp.root_element.borrow_mut().child_of_layout = true;

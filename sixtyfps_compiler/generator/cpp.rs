@@ -1972,14 +1972,12 @@ fn get_layout_info_ref<'a, 'b>(
     };
     if item.constraints.has_explicit_restrictions() {
         layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
-        for (expr, name) in item.constraints.for_each_restrictions().iter() {
-            if let Some(e) = expr {
-                layout_info += &format!(
-                    " layout_info.{} = {}.get();",
-                    name,
-                    access_named_reference(e, component, "self")
-                );
-            }
+        for (expr, name) in item.constraints.for_each_restrictions() {
+            layout_info += &format!(
+                " layout_info.{} = {}.get();",
+                name,
+                access_named_reference(expr, component, "self")
+            );
         }
         layout_info += " return layout_info; }()";
     }
@@ -2251,14 +2249,12 @@ fn compute_layout(
     let root_constraints = &component.layouts.borrow().root_constraints;
     if root_constraints.has_explicit_restrictions() {
         layout_info.push("auto layout_info_other = layout_info;".into());
-        for (expr, name) in root_constraints.for_each_restrictions().iter() {
-            if let Some(e) = expr {
-                layout_info.push(format!(
-                    "layout_info_other.{} = {}.get();",
-                    name,
-                    access_named_reference(e, component, "self")
-                ));
-            }
+        for (expr, name) in root_constraints.for_each_restrictions() {
+            layout_info.push(format!(
+                "layout_info_other.{} = {}.get();",
+                name,
+                access_named_reference(expr, component, "self")
+            ));
         }
         layout_info.push("return layout_info.merge(layout_info_other);".into());
     } else {

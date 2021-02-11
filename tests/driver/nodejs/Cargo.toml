@@ -11,7 +11,6 @@ path = "main.rs"
 name = "test-driver-nodejs"
 
 [dev-dependencies]
-sixtyfps-compilerlib = { path = "../../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
 test_driver_lib = { path = "../driverlib" }
 lazy_static = "1.4.0"
 which = "4.0.2"

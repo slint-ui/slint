@@ -172,14 +172,18 @@ impl LayoutConstraints {
         };
         let e = element.borrow();
         e.bindings.get("height").map(|s| {
+            constraints.fixed_height = true;
             apply_size_constraint("height", s, &mut constraints.minimum_height);
             apply_size_constraint("height", s, &mut constraints.maximum_height);
-            constraints.fixed_height = true;
         });
         e.bindings.get("width").map(|s| {
+            if s.expression.ty() == Type::Percent {
+                apply_size_constraint("width", s, &mut constraints.minimum_width);
+                return;
+            }
+            constraints.fixed_width = true;
             apply_size_constraint("width", s, &mut constraints.minimum_width);
             apply_size_constraint("width", s, &mut constraints.maximum_width);
-            constraints.fixed_width = true;
         });
 
         constraints
@@ -194,15 +198,41 @@ impl LayoutConstraints {
             || self.vertical_stretch.is_some()
     }
 
-    pub fn for_each_restrictions<'a>(&'a self) -> [(&Option<NamedReference>, &'static str); 6] {
-        [
-            (&self.minimum_width, "min_width"),
-            (&self.maximum_width, "max_width"),
-            (&self.minimum_height, "min_height"),
-            (&self.maximum_height, "max_height"),
-            (&self.horizontal_stretch, "horizontal_stretch"),
-            (&self.vertical_stretch, "vertical_stretch"),
-        ]
+    // Iterate over the constraint with a reference to a property, and the corresponding member in the sixtyfps_corelib::layout::LayoutInfo struct
+    pub fn for_each_restrictions<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = (&NamedReference, &'static str)> {
+        std::iter::empty()
+            .chain(self.minimum_width.as_ref().map(|x| {
+                if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
+                    (x, "min_width")
+                } else {
+                    (x, "min_width_percent")
+                }
+            }))
+            .chain(self.maximum_width.as_ref().map(|x| {
+                if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
+                    (x, "max_width")
+                } else {
+                    (x, "max_width_percent")
+                }
+            }))
+            .chain(self.minimum_height.as_ref().map(|x| {
+                if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
+                    (x, "min_height")
+                } else {
+                    (x, "min_height_percent")
+                }
+            }))
+            .chain(self.maximum_height.as_ref().map(|x| {
+                if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
+                    (x, "max_height")
+                } else {
+                    (x, "max_height_percent")
+                }
+            }))
+            .chain(self.horizontal_stretch.as_ref().map(|x| (x, "horizontal_stretch")))
+            .chain(self.vertical_stretch.as_ref().map(|x| (x, "vertical_stretch")))
     }
 
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
