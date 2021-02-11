@@ -11,7 +11,7 @@ LICENSE END */
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use sixtyfps_corelib::graphics::{
     Brush, Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource, Size,
@@ -184,9 +184,9 @@ struct GLRendererData {
     event_loop_proxy: Rc<winit::event_loop::EventLoopProxy<eventloop::CustomEvent>>,
     item_graphics_cache: RefCell<RenderingCache<Option<ItemGraphicsCacheEntry>>>,
 
-    // Cache used to avoid repeatedly decoding images from disk. The weak references are
-    // drained after flushing the renderer commands to the screen.
-    image_cache: RefCell<HashMap<ImageCacheKey, Weak<CachedImage>>>,
+    // Cache used to avoid repeatedly decoding images from disk. Entries with a count
+    // of 1 are drained after flushing the renderer commands to the screen.
+    image_cache: RefCell<HashMap<ImageCacheKey, Rc<CachedImage>>>,
 
     loaded_fonts: RefCell<FontCache>,
 }
@@ -199,20 +199,16 @@ impl GLRendererData {
         cache_key: ImageCacheKey,
         image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
     ) -> Option<Rc<CachedImage>> {
-        match self.image_cache.borrow_mut().entry(cache_key) {
-            std::collections::hash_map::Entry::Occupied(mut existing_entry) => {
-                existing_entry.get().upgrade().or_else(|| {
-                    let new_image = image_create_fn()?;
-                    existing_entry.insert(Rc::downgrade(&new_image));
-                    Some(new_image)
-                })
+        Some(match self.image_cache.borrow_mut().entry(cache_key) {
+            std::collections::hash_map::Entry::Occupied(existing_entry) => {
+                existing_entry.get().clone()
             }
             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
                 let new_image = image_create_fn()?;
-                vacant_entry.insert(Rc::downgrade(&new_image));
-                Some(new_image)
+                vacant_entry.insert(new_image.clone());
+                new_image
             }
-        }
+        })
     }
 
     // Try to load the image the given resource points to
@@ -418,11 +414,10 @@ impl GLRenderer {
             *self.shared_data.windowed_context.borrow_mut() = ctx.make_not_current().into();
         }
 
-        self.shared_data.image_cache.borrow_mut().retain(|_, cached_image_weak| {
-            cached_image_weak
-                .upgrade()
-                .map_or(false, |cached_image_rc| Rc::strong_count(&cached_image_rc) > 1)
-        });
+        self.shared_data
+            .image_cache
+            .borrow_mut()
+            .retain(|_, cached_image| Rc::strong_count(cached_image) > 1);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
