@@ -108,22 +108,9 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     for (remove, to) in aliases_to_remove {
         let elem = remove.element.upgrade().unwrap();
 
-        // Remove the declaration
-        {
-            let mut elem = elem.borrow_mut();
-            if let Some(d) = elem.property_declarations.get_mut(&remove.name) {
-                if d.expose_in_public_api {
-                    d.is_alias = Some(to.clone());
-                } else {
-                    drop(d);
-                    elem.property_declarations.remove(&remove.name);
-                }
-            }
-        }
-
         // adjust the bindings
         let old_binding = elem.borrow_mut().bindings.remove(&remove.name);
-        if let Some(mut binding) = old_binding {
+        let must_simplify = if let Some(mut binding) = old_binding {
             simplify_expression(&mut binding.expression, &to);
             if !matches!(binding.expression, Expression::Invalid) {
                 let to_elem = to.element.upgrade().unwrap();
@@ -149,16 +136,38 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                         e.insert(binding);
                     }
                 };
-                continue;
+                false
+            } else {
+                true
+            }
+        } else {
+            true
+        };
+
+        if must_simplify {
+            let to_elem = to.element.upgrade().unwrap();
+            let mut to_elem = to_elem.borrow_mut();
+            if let Some(b) = to_elem.bindings.get_mut(&to.name) {
+                simplify_expression(&mut b.expression, &to);
+                if matches!(b.expression, Expression::Invalid) {
+                    to_elem.bindings.remove(&to.name);
+                }
             }
         }
 
-        let to_elem = to.element.upgrade().unwrap();
-        let mut to_elem = to_elem.borrow_mut();
-        if let Some(b) = to_elem.bindings.get_mut(&to.name) {
-            simplify_expression(&mut b.expression, &to);
-            if matches!(b.expression, Expression::Invalid) {
-                to_elem.bindings.remove(&to.name);
+        // Remove the declaration
+        {
+            let mut elem = elem.borrow_mut();
+            if let Some(d) = elem.property_declarations.get_mut(&remove.name) {
+                if d.expose_in_public_api {
+                    d.is_alias = Some(to.clone());
+                } else {
+                    drop(d);
+                    elem.property_declarations.remove(&remove.name);
+                }
+            } else {
+                // This is not a declaration, we must re-create the binding
+                elem.bindings.insert(remove.name, Expression::TwoWayBinding(to, None).into());
             }
         }
     }
