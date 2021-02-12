@@ -16,6 +16,7 @@ You should use the `sixtyfps` crate instead
 
 */
 
+#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 // It would be nice to keep the compiler free of unsafe code
 #![deny(unsafe_code)]
 

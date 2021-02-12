@@ -47,7 +47,7 @@ fn main() {
 }
 ```
 */
-
+#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![warn(missing_docs)]
 
 use std::env;

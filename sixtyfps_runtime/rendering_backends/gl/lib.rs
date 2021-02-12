@@ -7,6 +7,14 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+/*!
+
+*NOTE*: This library is an internal crate for the [SixtyFPS project](https://sixtyfps.io).
+This crate should not be used directly by application using SixtyFPS.
+You should use the `sixtyfps` crate instead.
+
+*/
+#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 use std::cell::RefCell;
 use std::collections::HashMap;
