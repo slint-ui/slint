@@ -71,6 +71,12 @@ impl ImageCacheKey {
 #[derive(Clone)]
 enum ItemGraphicsCacheEntry {
     Image(Rc<CachedImage>),
+    ScalableImage {
+        // This variant is used for SVG images, where `scalable_source` refers to the parsed
+        // SVG tree here, just to keep it in the image cache.
+        scalable_source: Rc<CachedImage>,
+        scaled_image: Rc<CachedImage>,
+    },
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
         // changes to the colorization brush will not require re-uploading the image.
@@ -84,6 +90,7 @@ impl ItemGraphicsCacheEntry {
         match self {
             ItemGraphicsCacheEntry::Image(image) => image,
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
+            ItemGraphicsCacheEntry::ScalableImage { scaled_image, .. } => scaled_image,
             //_ => panic!("internal error. image requested for non-image gpu data"),
         }
     }
@@ -955,6 +962,7 @@ impl ItemRenderer for GLItemRenderer {
         let image_id = match cache_entry {
             Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(&self),
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
+            Some(ItemGraphicsCacheEntry::ScalableImage { .. }) => unreachable!(),
             None => return,
         };
         let mut canvas = self.shared_data.canvas.borrow_mut();
@@ -1023,17 +1031,18 @@ impl GLItemRenderer {
 
     fn colorize_image(
         &self,
-        original_image: Rc<CachedImage>,
+        original_cache_entry: ItemGraphicsCacheEntry,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) -> ItemGraphicsCacheEntry {
         let colorize_brush = match colorize_property.map_or(Brush::default(), |prop| prop.get()) {
-            Brush::NoBrush => return ItemGraphicsCacheEntry::Image(original_image),
+            Brush::NoBrush => return original_cache_entry,
             brush => brush,
         };
+        let original_image = original_cache_entry.as_image();
 
         let image_size = match original_image.size() {
             Some(size) => size,
-            None => return ItemGraphicsCacheEntry::Image(original_image),
+            None => return original_cache_entry,
         };
 
         let image_id = original_image.ensure_uploaded_to_gpu(&self);
@@ -1077,7 +1086,7 @@ impl GLItemRenderer {
         });
 
         ItemGraphicsCacheEntry::ColorizedImage {
-            original_image,
+            original_image: original_image.clone(),
             colorized_image: Rc::new(CachedImage::new_on_gpu(
                 &self.shared_data.canvas,
                 colorized_image,
@@ -1111,7 +1120,7 @@ impl GLItemRenderer {
                                 [target_width.get() as u32, target_height.get() as u32].into(),
                             )
                         })
-                        .map(|image| self.colorize_image(image, colorize_property))
+                        .map(|cache_entry| self.colorize_image(cache_entry, colorize_property))
                 });
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return

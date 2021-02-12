@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 use sixtyfps_corelib::{graphics::Size, slice::Slice, Property, Resource, SharedString};
 
-use super::{CanvasRc, GLItemRenderer, GLRendererData};
+use super::{CanvasRc, GLItemRenderer, GLRendererData, ItemGraphicsCacheEntry};
 
 struct Texture {
     id: femtovg::ImageId,
@@ -273,13 +273,16 @@ impl CachedImage {
     pub fn as_renderable(
         self: Rc<Self>,
         target_size: euclid::default::Size2D<u32>,
-    ) -> Option<Rc<Self>> {
+    ) -> Option<ItemGraphicsCacheEntry> {
         Some(match &*self.0.borrow() {
-            ImageData::Texture { .. } => self.clone(),
-            ImageData::DecodedImage(_) => self.clone(),
+            ImageData::Texture { .. } => ItemGraphicsCacheEntry::Image(self.clone()),
+            ImageData::DecodedImage(_) => ItemGraphicsCacheEntry::Image(self.clone()),
             #[cfg(feature = "svg")]
             ImageData::SVG(svg_tree) => match super::svg::render(&svg_tree, target_size) {
-                Ok(rendered_svg_image) => Rc::new(Self::new_on_cpu(rendered_svg_image)),
+                Ok(rendered_svg_image) => ItemGraphicsCacheEntry::ScalableImage {
+                    scalable_source: self.clone(),
+                    scaled_image: Rc::new(Self::new_on_cpu(rendered_svg_image)),
+                },
                 Err(err) => {
                     eprintln!("Error rendering SVG: {}", err);
                     return None;
