@@ -81,7 +81,15 @@ impl Color {
     }
 }
 
+// Sometimes figma is having null for coordinate for some reason, just ignore that and consider it is tempty
+fn deserialize_or_default<'de, T: Default + Deserialize<'de>, D: serde::Deserializer<'de>>(
+    de: D,
+) -> Result<T, D::Error> {
+    Ok(T::deserialize(de).unwrap_or_default())
+}
+
 #[derive(Debug, Deserialize, Default, Clone, Copy)]
+#[serde(default)]
 pub struct Rectangle {
     pub x: f32,
     pub y: f32,
@@ -205,8 +213,11 @@ pub struct Frame {
     pub transitionEasing: Option<EasingType>,
     #[serde(default = "return_one")]
     pub opacity: f32,
+    #[serde(deserialize_with = "deserialize_or_default")]
     pub absoluteBoundingBox: Rectangle,
+    #[serde(deserialize_with = "deserialize_or_default")]
     pub size: Option<Vector>,
+    #[serde(deserialize_with = "deserialize_or_default")]
     pub relativeTransform: Option<Transform>,
     pub clipsContent: bool,
     #[serde(default)]
@@ -247,9 +258,12 @@ pub struct VectorNode {
     pub transitionEasing: Option<EasingType>,
     #[default(1.)]
     pub opacity: f32,
+    #[serde(deserialize_with = "deserialize_or_default")]
     pub absoluteBoundingBox: Rectangle,
     pub effects: Vec<Effect>,
+    #[serde(deserialize_with = "deserialize_or_default")]
     pub size: Option<Vector>,
+    #[serde(deserialize_with = "deserialize_or_default")]
     pub relativeTransform: Option<Transform>,
     pub isMask: bool,
     pub fills: Vec<Paint>,
@@ -311,8 +325,11 @@ pub enum Node {
         node: NodeCommon,
         #[serde(default)]
         exportSettings: Vec<ExportSetting>,
+        #[serde(deserialize_with = "deserialize_or_default")]
         absoluteBoundingBox: Rectangle,
+        #[serde(deserialize_with = "deserialize_or_default")]
         size: Option<Vector>,
+        #[serde(deserialize_with = "deserialize_or_default")]
         relativeTransform: Option<Transform>,
     },
     COMPONENT(Frame),

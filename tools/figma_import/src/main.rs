@@ -28,6 +28,9 @@ struct Opt {
     /// If present, load the specific child node at the specified index
     #[structopt(long = "child")]
     child_index: Option<usize>,
+    /// If set, don't connect to the network, but use the `figma_output/cache.json`
+    #[structopt(long)]
+    read_from_cache: bool,
     /// Figma file
     file: String,
 }
@@ -52,18 +55,20 @@ impl Display for Error {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let opt = Opt::from_args();
-
+async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::error::Error>> {
     println!("Fetch document {}...", opt.file);
-    let r: figmatypes::File = reqwest::Client::new()
+    let full_doc = reqwest::Client::new()
         .get(&format!("https://api.figma.com/v1/files/{}?geometry=paths", opt.file))
         .header("X-Figma-Token", opt.token.clone())
         .send()
         .await?
-        .json()
+        .bytes()
         .await?;
+
+    std::fs::create_dir_all("figma_output/images")?;
+    std::fs::write("figma_output/cache.json", &full_doc)?;
+
+    let r: figmatypes::File = serde_json::from_slice(&full_doc)?;
 
     use serde::Deserialize;
     #[derive(Deserialize)]
@@ -77,16 +82,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let i: ImageResult = reqwest::Client::new()
         .get(&format!("https://api.figma.com/v1/files/{}/images", opt.file))
-        .header("X-Figma-Token", opt.token)
+        .header("X-Figma-Token", &opt.token)
         .send()
         .await?
         .json()
         .await?;
-
-    let mut nodeHash = HashMap::new();
-    fill_hash(&mut nodeHash, &r.document);
-
-    std::fs::create_dir_all("figma_output/images")?;
 
     println!("Fetch {} images ...", i.meta.images.len());
     let mut images = stream::iter(i.meta.images);
@@ -97,7 +97,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             file.write_all(&(bytes?)).await?;
         }
     }
+    Ok(r)
+}
 
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let opt = Opt::from_args();
+
+    let r = if !opt.read_from_cache {
+        load_from_network(&opt).await?
+    } else {
+        let full_doc = std::fs::read("figma_output/cache.json")?;
+        serde_json::from_slice(&full_doc)?
+    };
+
+    let mut nodeHash = HashMap::new();
+    fill_hash(&mut nodeHash, &r.document);
     let doc = rendered::Document { nodeHash };
 
     if let figmatypes::Node::DOCUMENT(document) = &r.document {
