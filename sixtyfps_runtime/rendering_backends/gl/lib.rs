@@ -26,8 +26,7 @@ use sixtyfps_corelib::graphics::{
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
-    FillRule, ImageFit, Item, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment,
-    TextWrap,
+    FillRule, ImageFit, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
 };
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
@@ -89,7 +88,7 @@ impl ItemGraphicsCacheEntry {
         }
     }
     fn is_colorized_image(&self) -> bool {
-        matches!(self, ItemGraphicsCacheEntry::ColorizedImage{..})
+        matches!(self, ItemGraphicsCacheEntry::ColorizedImage { .. })
     }
 }
 
@@ -472,13 +471,14 @@ fn rect_to_path(r: Rect) -> femtovg::Path {
     path
 }
 
+fn item_rect<Item: sixtyfps_corelib::items::Item>(item: Pin<&Item>) -> Rect {
+    let geometry = item.geometry();
+    euclid::rect(0., 0., geometry.width(), geometry.height())
+}
+
 impl ItemRenderer for GLItemRenderer {
-    fn draw_rectangle(
-        &mut self,
-        pos: Point,
-        rect: std::pin::Pin<&sixtyfps_corelib::items::Rectangle>,
-    ) {
-        let geometry = rect.geometry();
+    fn draw_rectangle(&mut self, rect: std::pin::Pin<&sixtyfps_corelib::items::Rectangle>) {
+        let geometry = item_rect(rect);
         if geometry.is_empty() {
             return;
         }
@@ -488,18 +488,14 @@ impl ItemRenderer for GLItemRenderer {
             Some(paint) => paint,
             None => return,
         };
-        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(pos.x, pos.y);
-            canvas.fill_path(&mut path, paint)
-        })
+        self.shared_data.canvas.borrow_mut().fill_path(&mut path, paint)
     }
 
     fn draw_border_rectangle(
         &mut self,
-        pos: Point,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
-        let geometry = rect.geometry();
+        let geometry = item_rect(rect);
         if geometry.is_empty() {
             return;
         }
@@ -532,16 +528,13 @@ impl ItemRenderer for GLItemRenderer {
             paint
         });
 
-        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(pos.x, pos.y);
-            fill_paint.map(|paint| canvas.fill_path(&mut path, paint));
-            border_paint.map(|border_paint| canvas.stroke_path(&mut path, border_paint));
-        })
+        let mut canvas = self.shared_data.canvas.borrow_mut();
+        fill_paint.map(|paint| canvas.fill_path(&mut path, paint));
+        border_paint.map(|border_paint| canvas.stroke_path(&mut path, border_paint));
     }
 
-    fn draw_image(&mut self, pos: Point, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
+    fn draw_image(&mut self, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
         self.draw_image_impl(
-            pos + euclid::Vector2D::new(image.x(), image.y()),
             &image.cached_rendering_data,
             sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
             Rect::default(),
@@ -554,7 +547,6 @@ impl ItemRenderer for GLItemRenderer {
 
     fn draw_clipped_image(
         &mut self,
-        pos: Point,
         clipped_image: std::pin::Pin<&sixtyfps_corelib::items::ClippedImage>,
     ) {
         let source_clip_rect = Rect::new(
@@ -564,7 +556,6 @@ impl ItemRenderer for GLItemRenderer {
         );
 
         self.draw_image_impl(
-            pos + euclid::Vector2D::new(clipped_image.x(), clipped_image.y()),
             &clipped_image.cached_rendering_data,
             sixtyfps_corelib::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
             source_clip_rect,
@@ -579,8 +570,7 @@ impl ItemRenderer for GLItemRenderer {
         );
     }
 
-    fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
-        let pos = pos + euclid::Vector2D::new(text.x(), text.y());
+    fn draw_text(&mut self, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
         let max_width = text.width();
         let max_height = text.height();
 
@@ -600,7 +590,7 @@ impl ItemRenderer for GLItemRenderer {
         let wrap = text.wrap() == TextWrap::word_wrap;
         let text_size = font.text_size(string, if wrap { Some(max_width) } else { None });
 
-        let paint = match self.brush_to_paint(text.color(), &mut rect_to_path(text.geometry())) {
+        let paint = match self.brush_to_paint(text.color(), &mut rect_to_path(item_rect(text))) {
             Some(paint) => font.init_paint(paint),
             None => return,
         };
@@ -609,12 +599,11 @@ impl ItemRenderer for GLItemRenderer {
 
         let font_metrics = canvas.measure_font(paint).unwrap();
 
-        let mut y = pos.y
-            + match vertical_alignment {
-                TextVerticalAlignment::top => 0.,
-                TextVerticalAlignment::center => max_height / 2. - text_size.height / 2.,
-                TextVerticalAlignment::bottom => max_height - text_size.height,
-            };
+        let mut y = match vertical_alignment {
+            TextVerticalAlignment::top => 0.,
+            TextVerticalAlignment::center => max_height / 2. - text_size.height / 2.,
+            TextVerticalAlignment::bottom => max_height - text_size.height,
+        };
 
         let mut draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str| {
             let text_metrics = canvas.measure_text(0., 0., to_draw, paint).unwrap();
@@ -623,7 +612,7 @@ impl ItemRenderer for GLItemRenderer {
                 TextHorizontalAlignment::center => max_width / 2. - text_metrics.width() / 2.,
                 TextHorizontalAlignment::right => max_width - text_metrics.width(),
             };
-            canvas.fill_text(pos.x + translate_x, y, to_draw, paint).unwrap();
+            canvas.fill_text(translate_x, y, to_draw, paint).unwrap();
             y += font_metrics.height();
         };
 
@@ -671,18 +660,13 @@ impl ItemRenderer for GLItemRenderer {
         }
     }
 
-    fn draw_text_input(
-        &mut self,
-        pos: Point,
-        text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
-    ) {
+    fn draw_text_input(&mut self, text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>) {
         let width = text_input.width();
         let height = text_input.height();
         if width <= 0. || height <= 0. {
             return;
         }
 
-        let pos = pos + euclid::Vector2D::new(text_input.x(), text_input.y());
         let font = self.shared_data.loaded_fonts.borrow_mut().font(
             &self.shared_data.canvas,
             text_input.font_request(),
@@ -690,14 +674,13 @@ impl ItemRenderer for GLItemRenderer {
         );
 
         let paint = match self
-            .brush_to_paint(text_input.color(), &mut rect_to_path(text_input.geometry()))
+            .brush_to_paint(text_input.color(), &mut rect_to_path(item_rect(text_input)))
         {
             Some(paint) => paint,
             None => return,
         };
 
         let metrics = self.draw_text_impl(
-            pos,
             width,
             height,
             &text_input.text(),
@@ -726,7 +709,7 @@ impl ItemRenderer for GLItemRenderer {
             }
 
             let selection_rect = Rect::new(
-                [selection_start_x, pos.y].into(),
+                [selection_start_x, 0.].into(),
                 [selection_end_x - selection_start_x, font.height()].into(),
             );
 
@@ -743,11 +726,10 @@ impl ItemRenderer for GLItemRenderer {
                     selection_rect.min_y(),
                     selection_rect.width(),
                     selection_rect.height(),
-                );
+                )
             }
 
             self.draw_text_impl(
-                pos,
                 text_input.width(),
                 text_input.height(),
                 &text_input.text(),
@@ -772,11 +754,11 @@ impl ItemRenderer for GLItemRenderer {
                         None
                     }
                 })
-                .unwrap_or_else(|| pos.x + metrics.width());
+                .unwrap_or_else(|| metrics.width());
             let mut cursor_rect = femtovg::Path::new();
             cursor_rect.rect(
                 cursor_x,
-                pos.y,
+                0.,
                 text_input.text_cursor_width() * self.scale_factor,
                 font.height(),
             );
@@ -787,7 +769,7 @@ impl ItemRenderer for GLItemRenderer {
         }
     }
 
-    fn draw_path(&mut self, pos: Point, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
+    fn draw_path(&mut self, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
         let elements = path.elements();
         if matches!(elements, sixtyfps_corelib::PathData::None) {
             return;
@@ -833,7 +815,7 @@ impl ItemRenderer for GLItemRenderer {
         });
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(pos.x + path.x() + offset.x, pos.y + path.y() + offset.y);
+            canvas.translate(offset.x, offset.y);
             fill_paint.map(|fill_paint| canvas.fill_path(&mut fpath, fill_paint));
             border_paint.map(|border_paint| canvas.stroke_path(&mut fpath, border_paint));
         })
@@ -846,25 +828,21 @@ impl ItemRenderer for GLItemRenderer {
     ///   * A blurred shadow border is drawn using femtovg's box gradient. The shadow border is the
     ///     shape of a slightly bigger rounded rect with the inner shape subtracted. That's because
     //      we don't want the box gradient to visually "leak" into the inside.
-    fn draw_box_shadow(
-        &mut self,
-        pos: Point,
-        box_shadow: std::pin::Pin<&sixtyfps_corelib::items::BoxShadow>,
-    ) {
+    fn draw_box_shadow(&mut self, box_shadow: std::pin::Pin<&sixtyfps_corelib::items::BoxShadow>) {
         // TODO: cache path in item to avoid re-tesselation
 
         let blur = box_shadow.blur();
 
         let shadow_outer_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
-            box_shadow.x() + box_shadow.offset_x() - blur / 2.,
-            box_shadow.y() + box_shadow.offset_y() - blur / 2.,
+            box_shadow.offset_x() - blur / 2.,
+            box_shadow.offset_y() - blur / 2.,
             box_shadow.width() + blur,
             box_shadow.height() + blur,
         );
 
         let shadow_inner_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
-            box_shadow.x() + box_shadow.offset_x() + blur / 2.,
-            box_shadow.y() + box_shadow.offset_y() + blur / 2.,
+            box_shadow.offset_x() + blur / 2.,
+            box_shadow.offset_y() + blur / 2.,
             box_shadow.width() - blur,
             box_shadow.height() - blur,
         );
@@ -904,26 +882,22 @@ impl ItemRenderer for GLItemRenderer {
         );
         shadow_path.solidity(femtovg::Solidity::Hole);
 
-        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(pos.x, pos.y);
+        let mut canvas = self.shared_data.canvas.borrow_mut();
+        let mut shadow_inner_fill_path = femtovg::Path::new();
+        shadow_inner_fill_path.rounded_rect(
+            shadow_inner_rect.min_x(),
+            shadow_inner_rect.min_y(),
+            shadow_inner_rect.width(),
+            shadow_inner_rect.height(),
+            box_shadow.border_radius() - blur / 2.,
+        );
+        let fill = femtovg::Paint::color(box_shadow.color().into());
+        canvas.fill_path(&mut shadow_inner_fill_path, fill);
 
-            let mut shadow_inner_fill_path = femtovg::Path::new();
-            shadow_inner_fill_path.rounded_rect(
-                shadow_inner_rect.min_x(),
-                shadow_inner_rect.min_y(),
-                shadow_inner_rect.width(),
-                shadow_inner_rect.height(),
-                box_shadow.border_radius() - blur / 2.,
-            );
-            let fill = femtovg::Paint::color(box_shadow.color().into());
-            canvas.fill_path(&mut shadow_inner_fill_path, fill);
-
-            canvas.fill_path(&mut shadow_path, shadow_paint);
-        })
+        canvas.fill_path(&mut shadow_path, shadow_paint);
     }
 
-    fn combine_clip(&mut self, pos: Point, rect: Rect) {
-        let clip_rect = rect.translate([pos.x, pos.y].into());
+    fn combine_clip(&mut self, clip_rect: Rect) {
         // FIXME: Go back to using Canvas::intersect_scissor when https://github.com/femtovg/femtovg/pull/29 is merged
         let final_clip_rect = if let Some(existing_clip) = self.current_scissor_rect {
             existing_clip.intersection(&clip_rect).unwrap_or_default()
@@ -958,7 +932,6 @@ impl ItemRenderer for GLItemRenderer {
     fn draw_cached_pixmap(
         &mut self,
         item_cache: &CachedRenderingData,
-        pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         let canvas = &self.shared_data.canvas;
@@ -988,21 +961,28 @@ impl ItemRenderer for GLItemRenderer {
 
         let image_info = canvas.image_info(image_id).unwrap();
         let (width, height) = (image_info.width() as f32, image_info.height() as f32);
-        let fill_paint = femtovg::Paint::image(image_id, pos.x, pos.y, width, height, 0.0, 1.0);
+        let fill_paint = femtovg::Paint::image(image_id, 0., 0., width, height, 0.0, 1.0);
         let mut path = femtovg::Path::new();
-        path.rect(pos.x, pos.y, width, height);
+        path.rect(0., 0., width, height);
         canvas.fill_path(&mut path, fill_paint);
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {
         self
     }
+
+    fn translate(&mut self, x: f32, y: f32) {
+        self.shared_data.canvas.borrow_mut().translate(x, y);
+    }
+
+    fn rotate(&mut self, angle_in_degrees: f32) {
+        self.shared_data.canvas.borrow_mut().rotate(angle_in_degrees.to_radians());
+    }
 }
 
 impl GLItemRenderer {
     fn draw_text_impl(
         &mut self,
-        pos: Point,
         max_width: f32,
         max_height: f32,
         text: &str,
@@ -1038,7 +1018,7 @@ impl GLItemRenderer {
             TextVerticalAlignment::bottom => max_height - text_height,
         };
 
-        canvas.fill_text(pos.x + translate_x, pos.y + translate_y, text, paint).unwrap()
+        canvas.fill_text(translate_x, translate_y, text, paint).unwrap()
     }
 
     fn colorize_image(
@@ -1108,7 +1088,6 @@ impl GLItemRenderer {
 
     fn draw_image_impl(
         &mut self,
-        mut pos: Point,
         item_cache: &CachedRenderingData,
         source_property: std::pin::Pin<&Property<Resource>>,
         source_clip_rect: Rect,
@@ -1173,6 +1152,8 @@ impl GLItemRenderer {
         let mut source_x = source_clip_rect.min_x();
         let mut source_y = source_clip_rect.min_y();
 
+        let mut image_fit_offset = Point::default();
+
         // The source_to_target scale is applied to the paint that holds the image as well as path
         // begin rendered.
         let (source_to_target_scale_x, source_to_target_scale_y) = match image_fit {
@@ -1193,10 +1174,10 @@ impl GLItemRenderer {
                 let ratio = f32::min(target_width / source_width, target_height / source_height);
 
                 if source_width < target_width / ratio {
-                    pos.x += (target_width - source_width * ratio) / 2.;
+                    image_fit_offset.x = (target_width - source_width * ratio) / 2.;
                 }
                 if source_height < target_height / ratio {
-                    pos.y += (target_height - source_height * ratio) / 2.
+                    image_fit_offset.y = (target_height - source_height * ratio) / 2.
                 }
 
                 (ratio, ratio)
@@ -1217,7 +1198,7 @@ impl GLItemRenderer {
         path.rect(0., 0., source_width, source_height);
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
-            canvas.translate(pos.x, pos.y);
+            canvas.translate(image_fit_offset.x, image_fit_offset.y);
 
             canvas.scale(source_to_target_scale_x, source_to_target_scale_y);
 
@@ -1230,7 +1211,17 @@ impl GLItemRenderer {
             Brush::NoBrush => return None,
             Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
             Brush::LinearGradient(gradient) => {
-                let path_bounds = self.shared_data.canvas.borrow().path_bbox(path);
+                // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
+                // we operate in item local coordinates with the `path` parameter as well as the resulting
+                // paint.
+                let path_bounds = {
+                    let mut canvas = self.shared_data.canvas.borrow_mut();
+                    canvas.save();
+                    canvas.reset_transform();
+                    let bbox = canvas.path_bbox(path);
+                    canvas.restore();
+                    bbox
+                };
 
                 let path_width = path_bounds.maxx - path_bounds.minx;
                 let path_height = path_bounds.maxy - path_bounds.miny;

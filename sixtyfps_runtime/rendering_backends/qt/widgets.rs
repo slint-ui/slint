@@ -27,7 +27,7 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::graphics::{Point, Rect, Size};
+use sixtyfps_corelib::graphics::{Rect, Size};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
 };
@@ -60,16 +60,12 @@ macro_rules! get_size {
 
 macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident => $($tt:tt)*) => {
-        fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
-            let x = self.x();
-            let y = self.y();
+        fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
             let $dpr: f32 = backend.scale_factor();
             if let Some(painter) = std::any::Any::downcast_mut::<QPainter>(backend.as_any()) {
                 let $size: qttypes::QSize = get_size!(self);
                 let $this = self;
-                let pos = qttypes::QPoint { x: (x + pos.x) as _, y: (y + pos.y) as _ };
                 painter.save_state();
-                cpp!(unsafe [painter as "QPainter*", pos as "QPoint"] { painter->translate(pos); });
                 let $painter = painter;
                 $($tt)*
                 $painter.restore_state();
@@ -77,7 +73,6 @@ macro_rules! fn_render {
                 // Fallback: this happen when the Qt backend is not used and the gl backend is used instead
                 backend.draw_cached_pixmap(
                     &self.cached_rendering_data,
-                    Point::new(x, y) + pos.to_vector(),
                     &mut |callback| {
                         let $size: qttypes::QSize = get_size!(self);
                         let mut imgarray = QImageWrapArray::new($size, $dpr);

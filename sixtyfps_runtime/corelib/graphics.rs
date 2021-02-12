@@ -30,6 +30,8 @@ pub type IntRect = euclid::default::Rect<i32>;
 pub type Point = euclid::default::Point2D<f32>;
 /// 2D Size
 pub type Size = euclid::default::Size2D<f32>;
+/// 2D Transform
+pub type Transform = euclid::default::Transform2D<f32>;
 
 mod color;
 pub use color::*;
@@ -159,6 +161,18 @@ pub(crate) mod ffi {
     struct Size {
         width: f32,
         height: f32,
+    }
+
+    /// Expand Transform so that cbindgen can see it. ( is in fact euclid::default::Transform2D<f32>)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct Size {
+        pub m11: T,
+        pub m12: T,
+        pub m21: T,
+        pub m22: T,
+        pub m31: T,
+        pub m32: T,
     }
 
     pub use super::path::ffi::*;

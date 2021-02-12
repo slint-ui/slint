@@ -13,7 +13,7 @@ LICENSE END */
 use super::graphics::RenderingCache;
 use super::items::*;
 use crate::component::ComponentRc;
-use crate::graphics::{Point, Rect};
+use crate::graphics::Rect;
 use crate::item_tree::ItemVisitorResult;
 use core::pin::Pin;
 use std::cell::{Cell, RefCell};
@@ -73,26 +73,34 @@ pub fn render_component_items(
 ) {
     let renderer = RefCell::new(renderer);
 
+    {
+        let mut renderer = renderer.borrow_mut();
+        renderer.save_state();
+        renderer.translate(origin.x, origin.y);
+    }
+
     crate::item_tree::visit_items_with_post_visit(
         component,
         crate::item_tree::TraversalOrder::BackToFront,
-        |_, item, _, translation| {
+        |_, item, _, _| {
             renderer.borrow_mut().save_state();
 
-            item.as_ref()
-                .render(*translation, &mut (*renderer.borrow_mut() as &mut dyn ItemRenderer));
+            let item_origin = item.as_ref().geometry().origin;
 
-            let origin = item.as_ref().geometry().origin;
-            let translation = *translation + euclid::Vector2D::new(origin.x, origin.y);
+            renderer.borrow_mut().translate(item_origin.x, item_origin.y);
 
-            (ItemVisitorResult::Continue(translation), ())
+            item.as_ref().render(&mut (*renderer.borrow_mut() as &mut dyn ItemRenderer));
+
+            (ItemVisitorResult::Continue(()), ())
         },
         |_, _, _, r| {
             renderer.borrow_mut().restore_state();
             r
         },
-        origin,
+        (),
     );
+
+    renderer.borrow_mut().restore_state();
 }
 
 /// Trait used to render each items.
@@ -101,15 +109,19 @@ pub fn render_component_items(
 /// draw_rectangle should draw a rectangle in `(pos.x + rect.x, pos.y + rect.y)`
 #[allow(missing_docs)]
 pub trait ItemRenderer {
-    fn draw_rectangle(&mut self, pos: Point, rect: Pin<&Rectangle>);
-    fn draw_border_rectangle(&mut self, pos: Point, rect: Pin<&BorderRectangle>);
-    fn draw_image(&mut self, pos: Point, image: Pin<&Image>);
-    fn draw_clipped_image(&mut self, pos: Point, image: Pin<&ClippedImage>);
-    fn draw_text(&mut self, pos: Point, text: Pin<&Text>);
-    fn draw_text_input(&mut self, pos: Point, text_input: Pin<&TextInput>);
-    fn draw_path(&mut self, pos: Point, path: Pin<&Path>);
-    fn draw_box_shadow(&mut self, pos: Point, box_shadow: Pin<&BoxShadow>);
-    fn combine_clip(&mut self, pos: Point, rect: Rect);
+    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>);
+    fn draw_border_rectangle(&mut self, rect: Pin<&BorderRectangle>);
+    fn draw_image(&mut self, image: Pin<&Image>);
+    fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>);
+    fn draw_text(&mut self, text: Pin<&Text>);
+    fn draw_text_input(&mut self, text_input: Pin<&TextInput>);
+    fn draw_path(&mut self, path: Pin<&Path>);
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
+    fn combine_clip(&mut self, rect: Rect);
+
+    fn translate(&mut self, x: f32, y: f32);
+    fn rotate(&mut self, angle_in_degrees: f32);
+
     fn save_state(&mut self);
     fn restore_state(&mut self);
 
@@ -123,7 +135,6 @@ pub trait ItemRenderer {
     fn draw_cached_pixmap(
         &mut self,
         item_cache: &CachedRenderingData,
-        pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     );
 

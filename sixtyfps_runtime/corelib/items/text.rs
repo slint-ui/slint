@@ -21,7 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 
 use super::{Item, ItemConsts, ItemRc, VoidArg};
-use crate::graphics::{Brush, Color, Point, Rect, Size};
+use crate::graphics::{Brush, Color, Rect, Size};
 use crate::input::InternalKeyCode;
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
@@ -165,8 +165,8 @@ impl Item for Text {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
-        (*backend).draw_text(pos, self)
+    fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
+        (*backend).draw_text(self)
     }
 }
 
@@ -382,8 +382,8 @@ impl Item for TextInput {
         }
     }
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
-        (*backend).draw_text_input(pos, self)
+    fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
+        (*backend).draw_text_input(self)
     }
 }
 

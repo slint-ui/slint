@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 use super::{Item, ItemConsts, ItemRc};
-use crate::graphics::{Point, Rect, Resource, Size};
+use crate::graphics::{Rect, Resource, Size};
 use crate::input::{FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
@@ -93,8 +93,8 @@ impl Item for Image {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
-        (*backend).draw_image(pos, self)
+    fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
+        (*backend).draw_image(self)
     }
 }
 
@@ -155,8 +155,8 @@ impl Item for ClippedImage {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut &mut dyn ItemRenderer) {
-        (*backend).draw_clipped_image(pos, self)
+    fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
+        (*backend).draw_clipped_image(self)
     }
 }
 

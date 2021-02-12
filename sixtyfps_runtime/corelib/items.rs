@@ -26,7 +26,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use crate::component::ComponentVTable;
 use crate::graphics::PathDataIterator;
-use crate::graphics::{Brush, Color, PathData, Point, Rect, Size};
+use crate::graphics::{Brush, Color, PathData, Rect, Size};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
     MouseEventType,
@@ -97,8 +97,7 @@ pub struct ItemVTable {
         window: &ComponentWindow,
     ) -> KeyEventResult,
 
-    pub render:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, pos: Point, backend: &mut ItemRendererRef),
+    pub render: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, backend: &mut ItemRendererRef),
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
@@ -205,8 +204,8 @@ impl Item for Rectangle {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
-        (*backend).draw_rectangle(pos, self)
+    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+        (*backend).draw_rectangle(self)
     }
 }
 
@@ -269,8 +268,8 @@ impl Item for BorderRectangle {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
-        (*backend).draw_border_rectangle(pos, self)
+    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+        (*backend).draw_border_rectangle(self)
     }
 }
 
@@ -385,7 +384,7 @@ impl Item for TouchArea {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, _pos: Point, _backend: &mut ItemRendererRef) {}
+    fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
 }
 
 impl ItemConsts for TouchArea {
@@ -490,7 +489,7 @@ impl Item for FocusScope {
         }
     }
 
-    fn render(self: Pin<&Self>, _pos: Point, _backend: &mut ItemRendererRef) {}
+    fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
 }
 
 impl ItemConsts for FocusScope {
@@ -548,8 +547,9 @@ impl Item for Clip {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
-        (*backend).combine_clip(pos, self.geometry())
+    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+        let geometry = self.geometry();
+        (*backend).combine_clip(euclid::rect(0., 0., geometry.width(), geometry.height()))
     }
 }
 
@@ -625,8 +625,8 @@ impl Item for Path {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
-        (*backend).draw_path(pos, self)
+    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+        (*backend).draw_path(self)
     }
 }
 
@@ -707,8 +707,9 @@ impl Item for Flickable {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
-        (*backend).combine_clip(pos, self.geometry())
+    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+        let geometry = self.geometry();
+        (*backend).combine_clip(euclid::rect(0., 0., geometry.width(), geometry.height()))
     }
 }
 
@@ -814,7 +815,7 @@ impl Item for Window {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, _pos: Point, _backend: &mut ItemRendererRef) {}
+    fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
 }
 
 impl ItemConsts for Window {
@@ -877,8 +878,8 @@ impl Item for BoxShadow {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
-    fn render(self: Pin<&Self>, pos: Point, backend: &mut ItemRendererRef) {
-        (*backend).draw_box_shadow(pos, self)
+    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+        (*backend).draw_box_shadow(self)
     }
 }
 

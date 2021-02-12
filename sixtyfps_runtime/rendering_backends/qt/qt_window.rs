@@ -200,21 +200,14 @@ impl QPainterPath {
 /// Given a position offset and an object of a given type that has x,y,width,height properties,
 /// create a QRectF that fits it.
 macro_rules! get_geometry {
-    ($pos:expr, $ty:ty, $obj:expr) => {{
+    ($ty:ty, $obj:expr) => {{
         type Ty = $ty;
         let width = Ty::FIELD_OFFSETS.width.apply_pin($obj).get();
         let height = Ty::FIELD_OFFSETS.height.apply_pin($obj).get();
-        let x = Ty::FIELD_OFFSETS.x.apply_pin($obj).get();
-        let y = Ty::FIELD_OFFSETS.y.apply_pin($obj).get();
         if width <= 0. || height <= 0. {
             return Default::default();
         };
-        qttypes::QRectF {
-            x: (x + $pos.x as f32) as _,
-            y: (y + $pos.y as f32) as _,
-            width: width as _,
-            height: height as _,
-        }
+        qttypes::QRectF { x: 0., y: 0., width: width as _, height: height as _ }
     }};
 }
 
@@ -232,19 +225,18 @@ struct QtItemRenderer<'a> {
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
-    fn draw_rectangle(&mut self, pos: Point, rect: Pin<&items::Rectangle>) {
-        let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
+    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>) {
         let brush: qttypes::QBrush = rect.background().into();
-        let rect: qttypes::QRectF = get_geometry!(pos, items::Rectangle, rect);
+        let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", brush as "QBrush", rect as "QRectF"] {
             painter->fillRect(rect, brush);
         }}
     }
 
-    fn draw_border_rectangle(&mut self, pos: Point, rect: std::pin::Pin<&items::BorderRectangle>) {
+    fn draw_border_rectangle(&mut self, rect: std::pin::Pin<&items::BorderRectangle>) {
         self.draw_rectangle_impl(
-            get_geometry!(pos, items::BorderRectangle, rect),
+            get_geometry!(items::BorderRectangle, rect),
             rect.background(),
             rect.border_color(),
             rect.border_width(),
@@ -252,8 +244,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_image(&mut self, pos: Point, image: Pin<&items::Image>) {
-        let dest_rect: qttypes::QRectF = get_geometry!(pos, items::Image, image);
+    fn draw_image(&mut self, image: Pin<&items::Image>) {
+        let dest_rect: qttypes::QRectF = get_geometry!(items::Image, image);
         self.draw_image_impl(
             &image.cached_rendering_data,
             items::Image::FIELD_OFFSETS.source.apply_pin(image),
@@ -266,8 +258,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_clipped_image(&mut self, pos: Point, image: Pin<&items::ClippedImage>) {
-        let dest_rect: qttypes::QRectF = get_geometry!(pos, items::ClippedImage, image);
+    fn draw_clipped_image(&mut self, image: Pin<&items::ClippedImage>) {
+        let dest_rect: qttypes::QRectF = get_geometry!(items::ClippedImage, image);
         let source_rect = qttypes::QRectF {
             x: image.source_clip_x() as _,
             y: image.source_clip_y() as _,
@@ -286,8 +278,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_text(&mut self, pos: Point, text: std::pin::Pin<&items::Text>) {
-        let rect: qttypes::QRectF = get_geometry!(pos, items::Text, text);
+    fn draw_text(&mut self, text: std::pin::Pin<&items::Text>) {
+        let rect: qttypes::QRectF = get_geometry!(items::Text, text);
         let fill_brush: qttypes::QBrush = text.color().into();
         let string: qttypes::QString = text.text().as_str().into();
         let font: QFont = get_font(text.font_request());
@@ -318,8 +310,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_text_input(&mut self, pos: Point, text_input: std::pin::Pin<&items::TextInput>) {
-        let rect: qttypes::QRectF = get_geometry!(pos, items::TextInput, text_input);
+    fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>) {
+        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let fill_brush: qttypes::QBrush = text_input.color().into();
         let selection_foreground_color: u32 =
             text_input.selection_foreground_color().as_argb_encoded();
@@ -379,7 +371,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_path(&mut self, pos: Point, path: Pin<&items::Path>) {
+    fn draw_path(&mut self, path: Pin<&items::Path>) {
         let elements = path.elements();
         if matches!(elements, PathData::None) {
             return;
@@ -390,10 +382,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let stroke_brush: qttypes::QBrush = path.stroke().into();
         let stroke_width: f32 = path.stroke_width();
         let (offset, path_events) = path.fitted_path_events();
-        let pos = qttypes::QPoint {
-            x: (pos.x + path.x() + offset.x) as _,
-            y: (pos.y + path.y() + offset.y) as _,
-        };
+        let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
 
         painter_path.set_fill_rule(match path.fill_rule() {
@@ -447,10 +436,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_box_shadow(&mut self, pos: Point, box_shadow: Pin<&items::BoxShadow>) {
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>) {
         // This could be improved to use a guassian blur.
 
-        let mut shadow_rect = get_geometry!(pos, items::BoxShadow, box_shadow);
+        let mut shadow_rect = get_geometry!(items::BoxShadow, box_shadow);
         shadow_rect.x += box_shadow.offset_x() as f64;
         shadow_rect.y += box_shadow.offset_y() as f64;
 
@@ -463,10 +452,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn combine_clip(&mut self, pos: Point, rect: Rect) {
+    fn combine_clip(&mut self, rect: Rect) {
         let clip_rect = qttypes::QRectF {
-            x: (rect.min_x() + pos.x as f32) as _,
-            y: (rect.min_y() + pos.y as f32) as _,
+            x: rect.min_x() as _,
+            y: rect.min_y() as _,
             width: rect.width() as _,
             height: rect.height() as _,
         };
@@ -494,22 +483,34 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_cached_pixmap(
         &mut self,
         _item_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
-        pos: Point,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         update_fn(&mut |width: u32, height: u32, data: &[u8]| {
-            let pos = qttypes::QPoint { x: pos.x as _, y: pos.y as _ };
             let data = data.as_ptr();
             let painter: &mut QPainter = &mut *self.painter;
-            cpp! { unsafe [painter as "QPainter*", pos as "QPoint", width as "int", height as "int", data as "const unsigned char *"] {
+            cpp! { unsafe [painter as "QPainter*",  width as "int", height as "int", data as "const unsigned char *"] {
                 QImage img(data, width, height, width * 4, QImage::Format_ARGB32_Premultiplied);
-                painter->drawImage(pos, img);
+                painter->drawImage(QPoint(), img);
             }}
         })
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {
         self.painter
+    }
+
+    fn translate(&mut self, x: f32, y: f32) {
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", x as "float", y as "float"] {
+            painter->translate(x, y);
+        }}
+    }
+
+    fn rotate(&mut self, angle_in_degrees: f32) {
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", angle_in_degrees as "float"] {
+            painter->rotate(angle_in_degrees);
+        }}
     }
 }
 
