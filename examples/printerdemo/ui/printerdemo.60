@@ -44,7 +44,7 @@ TopPanel := Rectangle {
     power_button := Image {
         x: parent.width - self.width - 20px;
         y: (parent.height - height) / 2;
-        source: @image-url("images/power.png");
+        source: @image-url("images/power.svg");
         width: 5%;
         height: self.width;
 
@@ -94,10 +94,10 @@ MainWindow := Window {
     }
 
     for page_info[idx] in [
-        { color: #1ac80a, text: "Copy", img_small: @image-url("images/replicate.png") },
-        { color: #00c889, text: "Fax", img_small: @image-url("images/laptop.png") },
-        { color: #00bbc8, text: "Print", img_small: @image-url("images/printer.png") },
-        { color: #009dc8, text: "Settings", img_small: @image-url("images/list.png") },
+        { color: #1ac80a, text: "Copy", img_small: @image-url("images/replicate.svg") },
+        { color: #00c889, text: "Fax", img_small: @image-url("images/laptop.svg") },
+        { color: #00bbc8, text: "Print", img_small: @image-url("images/printer.svg") },
+        { color: #009dc8, text: "Settings", img_small: @image-url("images/list.svg") },
     ] : Rectangle {
         property <length> w: root.width / 5;
         width: w;
