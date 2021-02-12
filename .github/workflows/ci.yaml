@@ -441,23 +441,23 @@ jobs:
             mkdir -p demos
 
             mkdir -p demos/gallery
-            cp -a ../examples/gallery/{pkg,index.html} demos/gallery/
+            cp -a ../gallery/{pkg,index.html} demos/gallery/
             rm demos/gallery/pkg/.gitignore
 
             mkdir -p demos/printerdemo
-            cp -a ../examples/printerdemo/rust/{pkg,index.html} demos/printerdemo/
+            cp -a ../printerdemo/rust/{pkg,index.html} demos/printerdemo/
             rm demos/printerdemo/pkg/.gitignore
 
             mkdir -p demos/todo
-            cp -a ../examples/todo/rust/{pkg,index.html} demos/todo/
+            cp -a ../todo/rust/{pkg,index.html} demos/todo/
             rm demos/todo/pkg/.gitignore
 
             mkdir -p demos/slide_puzzle
-            cp -a ../examples/slide_puzzle/{pkg,index.html,plaster-font} demos/slide_puzzle/
+            cp -a ../slide_puzzle/{pkg,index.html,plaster-font} demos/slide_puzzle/
             rm demos/slide_puzzle/pkg/.gitignore
 
             mkdir -p demos/memory
-            cp -a ../examples/memory/{pkg,index.html} demos/memory/
+            cp -a ../memory/{pkg,index.html} demos/memory/
             rm demos/memory/pkg/.gitignore
 
             git add demos
