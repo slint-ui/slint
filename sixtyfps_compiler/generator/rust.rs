@@ -529,13 +529,13 @@ fn generate_component(
                     ));
                 } else {
                     repeated_visit_branch.push(quote!(
-                    #repeater_index => {
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
-                                || { #rep_inner_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
-                            );
-                        self_pinned.#repeater_id.visit(order, visitor)
-                    }
-                ));
+                        #repeater_index => {
+                            #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
+                                    || { #rep_inner_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
+                                );
+                            self_pinned.#repeater_id.visit(order, visitor)
+                        }
+                    ));
 
                     repeated_element_layouts.push(quote!(
                         self_pinned.#repeater_id.compute_layout();

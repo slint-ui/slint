@@ -433,6 +433,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             self.inner.borrow().borrow_mut().components.clear();
         }
     }
+
     // returns true if new items were created
     fn ensure_updated_impl(
         self: Pin<&Self>,
