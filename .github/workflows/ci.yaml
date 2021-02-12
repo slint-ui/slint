@@ -428,6 +428,9 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: wasm
+      - uses: actions/download-artifact@v2
+        with:
+          name: wasm_demo
       - name: Publish Docs and Demos
         run: |
             git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
