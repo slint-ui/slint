@@ -522,6 +522,7 @@ fn handle_repeater(
             i = repeater_count,
         ));
 
+        layout_repeater_code.push(format!("self->{}.ensure_updated(self);", repeater_id));
         // FIXME: we should probably pass the parent element rect?
         layout_repeater_code
             .push(format!("self->{}.compute_layout(sixtyfps::Rect{{  }});", repeater_id,));

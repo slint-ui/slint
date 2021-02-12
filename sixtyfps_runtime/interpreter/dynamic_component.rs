@@ -322,49 +322,58 @@ extern "C" fn visit_children_item(
             // `ensure_updated` needs a 'static lifetime so we must call get_untaged.
             // Safety: we do not mix the component with other component id in this function
             let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untaged() };
+            ensure_repeater_updated(instance_ref, rep_in_comp);
             let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
-            let init = || {
-                instantiate(
-                    rep_in_comp.component_to_repeat.clone(),
-                    Some(component),
-                    #[cfg(target_arch = "wasm32")]
-                    String::new(),
-                )
-            };
-            if let Some(lv) = &rep_in_comp
-                .component_to_repeat
-                .original
-                .parent_element
-                .upgrade()
-                .unwrap()
-                .borrow()
-                .repeated
-                .as_ref()
-                .unwrap()
-                .is_listview
-            {
-                let assume_property_f32 =
-                    |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<f32>)) };
-                let get_prop = |nr: &NamedReference| -> f32 {
-                    eval::load_property(instance_ref, &nr.element.upgrade().unwrap(), &nr.name)
-                        .unwrap()
-                        .try_into()
-                        .unwrap()
-                };
-                repeater.ensure_updated_listview(
-                    init,
-                    assume_property_f32(get_property_ptr(&lv.viewport_width, instance_ref)),
-                    assume_property_f32(get_property_ptr(&lv.viewport_height, instance_ref)),
-                    assume_property_f32(get_property_ptr(&lv.viewport_y, instance_ref)),
-                    get_prop(&lv.listview_width),
-                    assume_property_f32(get_property_ptr(&lv.listview_height, instance_ref)),
-                );
-            } else {
-                repeater.ensure_updated(init);
-            }
             repeater.visit(order, visitor)
         },
     )
+}
+
+/// Make sure that the repeater is updated
+fn ensure_repeater_updated<'id>(
+    instance_ref: InstanceRef<'_, 'id>,
+    rep_in_comp: &RepeaterWithinComponent<'id, '_>,
+) {
+    let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+    let init = || {
+        instantiate(
+            rep_in_comp.component_to_repeat.clone(),
+            Some(instance_ref.borrow()),
+            #[cfg(target_arch = "wasm32")]
+            String::new(),
+        )
+    };
+    if let Some(lv) = &rep_in_comp
+        .component_to_repeat
+        .original
+        .parent_element
+        .upgrade()
+        .unwrap()
+        .borrow()
+        .repeated
+        .as_ref()
+        .unwrap()
+        .is_listview
+    {
+        let assume_property_f32 =
+            |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<f32>)) };
+        let get_prop = |nr: &NamedReference| -> f32 {
+            eval::load_property(instance_ref, &nr.element.upgrade().unwrap(), &nr.name)
+                .unwrap()
+                .try_into()
+                .unwrap()
+        };
+        repeater.ensure_updated_listview(
+            init,
+            assume_property_f32(get_property_ptr(&lv.viewport_width, instance_ref)),
+            assume_property_f32(get_property_ptr(&lv.viewport_height, instance_ref)),
+            assume_property_f32(get_property_ptr(&lv.viewport_y, instance_ref)),
+            get_prop(&lv.listview_width),
+            assume_property_f32(get_property_ptr(&lv.listview_height, instance_ref)),
+        );
+    } else {
+        repeater.ensure_updated(init);
+    }
 }
 
 /// Information attached to a builtin item
@@ -1528,6 +1537,7 @@ extern "C" fn apply_layout(component: ComponentRefPin, _r: sixtyfps_corelib::gra
     for rep_in_comp in &instance_ref.component_type.repeater {
         generativity::make_guard!(g);
         let rep_in_comp = rep_in_comp.unerase(g);
+        ensure_repeater_updated(instance_ref, rep_in_comp);
         rep_in_comp.offset.apply_pin(instance_ref.instance).compute_layout();
     }
 }
