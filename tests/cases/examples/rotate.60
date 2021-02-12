@@ -1,0 +1,84 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// Test for manual visual verification of rotation
+//
+// The green rectangle should be 45 degree rotated inside the black rectangle
+//
+// The rectangle with the linear gradient should be rotated by 315 degrees
+// inside the other black rectangle
+
+TestCase := Window {
+    width: 800px;
+    height: 600px;
+
+    // "box" to act as translation
+    Rectangle {
+        x: 50px;
+        y: 50px;
+
+        Rotate {
+            angle: 45deg;
+            origin-x: r.x;
+            origin-y: r.y;
+
+            r := Rectangle {
+                x: 50px;
+                y: 50px;
+                width: 50px;
+                height: 50px;
+                background: green;
+            }
+        }
+
+        Rectangle {
+            x: 50px;
+            y: 50px;
+            width: 50px;
+            height: 50px;
+            border-width: 1px;
+            border-color: black;
+        }
+
+    }
+
+    // -------
+
+    // "box" to act as translation
+    Rectangle {
+        x: 200px;
+        y: 50px;
+
+        Rotate {
+            angle: 315deg;
+            origin-x: r.x;
+            origin-y: r.y;
+
+            r := Rectangle {
+                x: 50px;
+                y: 50px;
+                width: 50px;
+                height: 50px;
+                background: @linear-gradient(90deg, red, blue);
+            }
+        }
+
+        Rectangle {
+            x: 50px;
+            y: 50px;
+            width: 50px;
+            height: 50px;
+            border-width: 1px;
+            border-color: black;
+        }
+
+    }
+}
+

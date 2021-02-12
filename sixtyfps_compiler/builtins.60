@@ -56,6 +56,15 @@ export ClippedImage := Image {
 
 export { ClippedImage as Image }
 
+export Rotate := _ {
+    property <angle> angle;
+    property <length> origin-x;
+    property <length> origin-y;
+    property <length> width;
+    property <length> height;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
 export Text := _ {
     property <string> text;
     property <string> font_family;

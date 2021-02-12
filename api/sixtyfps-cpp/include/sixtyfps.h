@@ -46,6 +46,7 @@ extern const cbindgen_private::ItemVTable WindowVTable;
 extern const cbindgen_private::ItemVTable TextInputVTable;
 extern const cbindgen_private::ItemVTable ClipVTable;
 extern const cbindgen_private::ItemVTable BoxShadowVTable;
+extern const cbindgen_private::ItemVTable RotateVTable;
 
 extern const cbindgen_private::ItemVTable NativeButtonVTable;
 extern const cbindgen_private::ItemVTable NativeCheckBoxVTable;
@@ -157,6 +158,7 @@ using cbindgen_private::TextInput;
 using cbindgen_private::TouchArea;
 using cbindgen_private::Window;
 using cbindgen_private::BoxShadow;
+using cbindgen_private::Rotate;
 
 using cbindgen_private::NativeButton;
 using cbindgen_private::NativeCheckBox;

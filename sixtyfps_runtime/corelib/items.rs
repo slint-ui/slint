@@ -564,6 +564,69 @@ ItemVTable_static! {
     pub static ClipVTable for Clip
 }
 
+#[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[pin]
+/// The implementation of the `Rotate` element
+pub struct Rotate {
+    pub angle: Property<f32>,
+    pub origin_x: Property<f32>,
+    pub origin_y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Rotate {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(0., 0., 0., 0.)
+    }
+
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+        (*backend).translate(self.origin_x(), self.origin_y());
+        (*backend).rotate(self.angle());
+        (*backend).translate(-self.origin_x(), -self.origin_y());
+    }
+}
+
+impl ItemConsts for Rotate {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        Rotate,
+        CachedRenderingData,
+    > = Rotate::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! {
+    /// The VTable for `Rotate`
+    #[no_mangle]
+    pub static RotateVTable for Rotate
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]

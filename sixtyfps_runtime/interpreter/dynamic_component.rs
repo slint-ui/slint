@@ -502,6 +502,7 @@ fn generate_component<'id>(
                 rtti_for::<TextInput>(),
                 rtti_for::<Clip>(),
                 rtti_for::<BoxShadow>(),
+                rtti_for::<Rotate>(),
             ]
             .iter()
             .cloned(),
