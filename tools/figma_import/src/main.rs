@@ -89,14 +89,20 @@ async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::e
         .await?;
 
     println!("Fetch {} images ...", i.meta.images.len());
-    let mut images = stream::iter(i.meta.images);
-    while let Some((k, v)) = images.next().await {
-        let mut resp = reqwest::Client::new().get(&v).send().await?.bytes_stream();
-        let mut file = tokio::fs::File::create(format!("figma_output/images/{}", k)).await?;
-        while let Some(bytes) = resp.next().await {
-            file.write_all(&(bytes?)).await?;
-        }
+    let mut images = stream::iter(i.meta.images)
+        .map(|(k, v)| async move {
+            let mut resp = reqwest::Client::new().get(&v).send().await?.bytes_stream();
+            let mut file = tokio::fs::File::create(format!("figma_output/images/{}", k)).await?;
+            while let Some(bytes) = resp.next().await {
+                file.write_all(&(bytes?)).await?;
+            }
+            Result::<(), Box<dyn std::error::Error>>::Ok(())
+        })
+        .buffer_unordered(8);
+    if let Some(x) = images.next().await {
+        x?
     }
+
     Ok(r)
 }
 
