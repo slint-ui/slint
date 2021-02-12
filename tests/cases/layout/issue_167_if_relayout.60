@@ -49,14 +49,11 @@ assert_eq!(instance.get_last_clicked(), 2);
 
 ```js
 var instance = new sixtyfps.TestCase();
-instance.send_mouse_click(5., 455.);
 assert.equal(instance.last_clicked, 0);
-instance.send_mouse_click(5., 305.);
-assert.equal(instance.last_clicked, 11);
-instance.send_mouse_click(5., 295.);
-assert.equal(instance.last_clicked, 3);
-instance.send_mouse_click(5., 95.);
+instance.send_mouse_click(15., 145.);
 assert.equal(instance.last_clicked, 1);
+instance.send_mouse_click(15., 155.);
+assert.equal(instance.last_clicked, 2);
 ```
 */
 
