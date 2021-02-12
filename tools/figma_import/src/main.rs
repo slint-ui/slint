@@ -99,7 +99,7 @@ async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::e
             Result::<(), Box<dyn std::error::Error>>::Ok(())
         })
         .buffer_unordered(8);
-    if let Some(x) = images.next().await {
+    while let Some(x) = images.next().await {
         x?
     }
 
