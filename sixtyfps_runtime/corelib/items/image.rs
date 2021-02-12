@@ -21,7 +21,9 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 use super::{Item, ItemConsts, ItemRc};
 use crate::graphics::{Rect, Resource, Size};
-use crate::input::{FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent};
+use crate::input::{
+    FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
+};
 use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
 use crate::layout::LayoutInfo;
@@ -76,6 +78,15 @@ impl Item for Image {
 
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
         window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self))
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(
@@ -138,6 +149,15 @@ impl Item for ClippedImage {
 
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
         window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self))
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(

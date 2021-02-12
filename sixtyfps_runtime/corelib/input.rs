@@ -45,9 +45,10 @@ pub struct MouseEvent {
     pub what: MouseEventType,
 }
 
-/// This value is returned by the input handler of a component
+/// This value is returned by the `input_event` function of an Item
 /// to notify the run-time about how the event was handled and
 /// what the next steps are.
+/// See [`ItemVTable::input_event`].
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum InputEventResult {
@@ -56,26 +57,39 @@ pub enum InputEventResult {
     EventAccepted,
     /// The event was ignored.
     EventIgnored,
-    /* /// Same as grab, but continue forwarding the event to children.
-    /// If a child grab the mouse, the grabber will be stored in the item itself.
-    /// Only item that have grabbed storage can return this.
-    /// The new_grabber is a reference to a usize to store thenext grabber
-    TentativeGrab {
-        new_grabber: &'a Cell<usize>,
-    },
-    /// While we have a TentaztiveGrab
-    Forward {
-        to: usize,
-    },*/
     /// All further mouse event need to be sent to this item or component
     GrabMouse,
-    /// One must send an MouseExit when the mouse leave this item
-    ObserveHover,
 }
 
 impl Default for InputEventResult {
     fn default() -> Self {
         Self::EventIgnored
+    }
+}
+
+/// This value is returned by the `input_event_filter_before_children` function, which
+/// can specify how to further process the event.
+/// See [`ItemVTable::input_event_filter_before_children`].
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum InputEventFilterResult {
+    /// The event is going to be forwarded to children, then the [`ItemVTable::input_event`]
+    /// function is called
+    ForwardEvent,
+    /// The event will be forwarded to the children, but the [`ItemVTable::input_event`] is not
+    /// going to be called for this item
+    ForwardAndIgnore,
+    /// Just like `ForwardEvent`, but even in the case the children grabs the mouse, this function
+    /// Will still be called for further event.
+    ForwardAndInterceptGrab,
+    /// The Event will not be forwarded to children, if a children already had the grab, the
+    /// grab will be cancelled with a [`MouseEventType::MouseExit`] event
+    Intercept,
+}
+
+impl Default for InputEventFilterResult {
+    fn default() -> Self {
+        Self::ForwardEvent
     }
 }
 
@@ -238,18 +252,49 @@ pub fn process_mouse_input(
     component: ComponentRc,
     mouse_event: MouseEvent,
     window: &crate::window::ComponentWindow,
-    mouse_input_state: MouseInputState,
+    mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     'grab: loop {
         if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
             break 'grab;
         };
         let mut event = mouse_event.clone();
-        for it in mouse_input_state.item_stack.iter() {
-            let item = if let Some(item) = it.upgrade() { item } else { break 'grab };
+        let mut intercept = false;
+        let mut invalid = false;
+
+        mouse_input_state.item_stack.retain(|it| {
+            if invalid {
+                return false;
+            }
+            let item = if let Some(item) = it.upgrade() {
+                item
+            } else {
+                invalid = true;
+                return false;
+            };
+            if intercept {
+                item.borrow().as_ref().input_event(
+                    MouseEvent { pos: event.pos, what: MouseEventType::MouseExit },
+                    window,
+                    &item,
+                );
+                return false;
+            }
             let g = item.borrow().as_ref().geometry();
             event.pos -= g.origin.to_vector();
+
+            if item.borrow().as_ref().input_event_filter_before_children(event, window, &item)
+                == InputEventFilterResult::Intercept
+            {
+                intercept = true;
+                return false;
+            }
+            true
+        });
+        if invalid {
+            break 'grab;
         }
+
         let grabber = mouse_input_state.item_stack.last().unwrap().upgrade().unwrap();
         return match grabber.borrow().as_ref().input_event(event, window, &grabber) {
             InputEventResult::GrabMouse => mouse_input_state,
@@ -285,16 +330,33 @@ pub fn process_mouse_input(
             let geom = item.as_ref().geometry();
             let geom = geom.translate(*offset);
 
+            let mut mouse_grabber_stack = mouse_grabber_stack.clone();
+            // FIXME: ideally we should add ourself to the stack only if InputEventFilterResult::ForwardAndInterceptGrab
+            // is used, but at the moment, we also use the mouse_grabber_stack to compute the offset
+            mouse_grabber_stack.push(item_rc.downgrade());
+
             let post_visit_state = if geom.contains(mouse_event.pos) {
                 let mut event2 = mouse_event.clone();
                 event2.pos -= geom.origin.to_vector();
-                Some((event2, mouse_grabber_stack.clone(), item_rc.clone()))
+
+                match item.as_ref().input_event_filter_before_children(
+                    event2.clone(),
+                    window,
+                    &item_rc,
+                ) {
+                    InputEventFilterResult::ForwardAndIgnore => None,
+                    InputEventFilterResult::ForwardEvent => {
+                        Some((event2, mouse_grabber_stack.clone(), item_rc.clone()))
+                    }
+                    InputEventFilterResult::ForwardAndInterceptGrab => {
+                        Some((event2, mouse_grabber_stack.clone(), item_rc.clone()))
+                    }
+                    InputEventFilterResult::Intercept => return (ItemVisitorResult::Abort, None),
+                }
             } else {
                 None
             };
 
-            let mut mouse_grabber_stack = mouse_grabber_stack.clone();
-            mouse_grabber_stack.push(item_rc.downgrade());
             (
                 ItemVisitorResult::Continue((geom.origin.to_vector(), mouse_grabber_stack)),
                 post_visit_state,
@@ -307,8 +369,7 @@ pub fn process_mouse_input(
             if let Some((event2, mouse_grabber_stack, item_rc)) = post_state {
                 match item.as_ref().input_event(event2, window, &item_rc) {
                     InputEventResult::EventAccepted => {
-                        result.item_stack = mouse_grabber_stack.clone();
-                        result.item_stack.push(item_rc.downgrade());
+                        result.item_stack = mouse_grabber_stack;
                         result.grabbed = false;
                         return VisitChildrenResult::abort(item_rc.index(), 0);
                     }
@@ -318,11 +379,6 @@ pub fn process_mouse_input(
                         result.item_stack.push(item_rc.downgrade());
                         result.grabbed = true;
                         return VisitChildrenResult::abort(item_rc.index(), 0);
-                    }
-                    InputEventResult::ObserveHover => {
-                        result.item_stack = mouse_grabber_stack.clone();
-                        result.item_stack.push(item_rc.downgrade());
-                        result.grabbed = false;
                     }
                 };
             }

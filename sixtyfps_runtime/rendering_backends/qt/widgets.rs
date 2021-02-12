@@ -29,7 +29,8 @@ use core::pin::Pin;
 use cpp::cpp;
 use sixtyfps_corelib::graphics::{Rect, Size};
 use sixtyfps_corelib::input::{
-    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, MouseEvent, MouseEventType,
+    FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
+    MouseEventType,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
@@ -186,6 +187,15 @@ impl Item for NativeButton {
         Default::default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
+    }
+
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
@@ -305,6 +315,15 @@ impl Item for NativeCheckBox {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(
@@ -454,6 +473,15 @@ impl Item for NativeSpinBox {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(
@@ -659,6 +687,15 @@ impl Item for NativeSlider {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(
@@ -906,6 +943,15 @@ impl Item for NativeGroupBox {
         Default::default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -1048,6 +1094,15 @@ impl Item for NativeLineEdit {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(
@@ -1202,6 +1257,15 @@ impl Item for NativeScrollView {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(
@@ -1523,6 +1587,15 @@ impl Item for NativeStandardListViewItem {
         Default::default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
@@ -1625,6 +1698,15 @@ impl Item for NativeComboBox {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(

@@ -28,8 +28,8 @@ use crate::component::ComponentVTable;
 use crate::graphics::PathDataIterator;
 use crate::graphics::{Brush, Color, PathData, Rect, Size};
 use crate::input::{
-    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, MouseEvent,
-    MouseEventType,
+    FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, KeyEventType,
+    MouseEvent, MouseEventType,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
@@ -80,7 +80,18 @@ pub struct ItemVTable {
     pub implicit_size:
         extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow) -> Size,
 
-    /// input event
+    /// Event handler for mouse and touch event. This function is called before being called on children.
+    /// Then, depending on the return value, it is called for the children, and their children, then
+    /// [`Self::input_event`] is called on the children, and finaly [`Self::input_event`] is called
+    /// on this item again.
+    pub input_event_filter_before_children: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        MouseEvent,
+        window: &ComponentWindow,
+        self_rc: &ItemRc,
+    ) -> InputEventFilterResult,
+
+    /// Handle input event for mouse and touch event
     pub input_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
@@ -189,6 +200,15 @@ impl Item for Rectangle {
         Default::default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -251,6 +271,15 @@ impl Item for BorderRectangle {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(
@@ -339,20 +368,33 @@ impl Item for TouchArea {
         Default::default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        if !self.enabled() {
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+        Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
+        Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
+        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(event.what != MouseEventType::MouseExit);
+        InputEventFilterResult::ForwardAndInterceptGrab
+    }
+
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
+        if event.what == MouseEventType::MouseExit {
+            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false)
+        }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-
-        Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
-        Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
-        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(event.what != MouseEventType::MouseExit);
-
         let result = if matches!(event.what, MouseEventType::MouseReleased) {
             Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             InputEventResult::EventAccepted
@@ -371,7 +413,7 @@ impl Item for TouchArea {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
-                    InputEventResult::ObserveHover
+                    InputEventResult::EventAccepted
                 }
             }
         });
@@ -444,6 +486,15 @@ impl Item for FocusScope {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(
@@ -532,6 +583,15 @@ impl Item for Clip {
         Default::default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -590,6 +650,15 @@ impl Item for Rotate {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(
@@ -673,6 +742,15 @@ impl Item for Path {
         Default::default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -750,6 +828,16 @@ impl Item for Flickable {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        // TODO!
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(
@@ -863,6 +951,15 @@ impl Item for Window {
         Default::default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
@@ -924,6 +1021,15 @@ impl Item for BoxShadow {
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
         Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
     }
 
     fn input_event(

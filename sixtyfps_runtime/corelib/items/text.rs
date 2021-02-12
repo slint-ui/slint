@@ -22,11 +22,11 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use super::{Item, ItemConsts, ItemRc, VoidArg};
 use crate::graphics::{Brush, Color, Rect, Size};
-use crate::input::InternalKeyCode;
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
     MouseEvent, MouseEventType,
 };
+use crate::input::{InputEventFilterResult, InternalKeyCode};
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::LayoutInfo;
 #[cfg(feature = "rtti")]
@@ -150,6 +150,15 @@ impl Item for Text {
             .unwrap_or_default()
     }
 
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -258,6 +267,15 @@ impl Item for TextInput {
             .font_metrics(self.font_request())
             .map(|metrics| metrics.text_size(&self.text()))
             .unwrap_or_default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
     }
 
     fn input_event(
