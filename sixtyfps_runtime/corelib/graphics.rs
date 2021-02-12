@@ -163,17 +163,5 @@ pub(crate) mod ffi {
         height: f32,
     }
 
-    /// Expand Transform so that cbindgen can see it. ( is in fact euclid::default::Transform2D<f32>)
-    #[cfg(cbindgen)]
-    #[repr(C)]
-    struct Size {
-        pub m11: T,
-        pub m12: T,
-        pub m21: T,
-        pub m22: T,
-        pub m31: T,
-        pub m32: T,
-    }
-
     pub use super::path::ffi::*;
 }
