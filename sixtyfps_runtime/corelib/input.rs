@@ -287,7 +287,6 @@ pub fn process_mouse_input(
                 == InputEventFilterResult::Intercept
             {
                 intercept = true;
-                return false;
             }
             true
         });
@@ -303,17 +302,19 @@ pub fn process_mouse_input(
     }
 
     // Send the Exit event.
-    // FIXME: we should send the exit event only if they no longer have the mouse
     let mut pos = mouse_event.pos;
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.upgrade() { item } else { break };
         let g = item.borrow().as_ref().geometry();
+        let contains = g.contains(pos);
         pos -= g.origin.to_vector();
-        item.borrow().as_ref().input_event(
-            MouseEvent { pos, what: MouseEventType::MouseExit },
-            window,
-            &item,
-        );
+        if !contains {
+            item.borrow().as_ref().input_event(
+                MouseEvent { pos, what: MouseEventType::MouseExit },
+                window,
+                &item,
+            );
+        }
     }
 
     let mut result = MouseInputState::default();
@@ -346,12 +347,17 @@ pub fn process_mouse_input(
                 ) {
                     InputEventFilterResult::ForwardAndIgnore => None,
                     InputEventFilterResult::ForwardEvent => {
-                        Some((event2, mouse_grabber_stack.clone(), item_rc.clone()))
+                        Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), false))
                     }
                     InputEventFilterResult::ForwardAndInterceptGrab => {
-                        Some((event2, mouse_grabber_stack.clone(), item_rc.clone()))
+                        Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), false))
                     }
-                    InputEventFilterResult::Intercept => return (ItemVisitorResult::Abort, None),
+                    InputEventFilterResult::Intercept => {
+                        return (
+                            ItemVisitorResult::Abort,
+                            Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), true)),
+                        )
+                    }
                 }
             } else {
                 None
@@ -363,10 +369,10 @@ pub fn process_mouse_input(
             )
         },
         |_, item, post_state, r| {
-            if r.has_aborted() {
-                return r;
-            }
-            if let Some((event2, mouse_grabber_stack, item_rc)) = post_state {
+            if let Some((event2, mouse_grabber_stack, item_rc, intercept)) = post_state {
+                if r.has_aborted() && !intercept {
+                    return r;
+                }
                 match item.as_ref().input_event(event2, window, &item_rc) {
                     InputEventResult::EventAccepted => {
                         result.item_stack = mouse_grabber_stack;
@@ -376,7 +382,6 @@ pub fn process_mouse_input(
                     InputEventResult::EventIgnored => (),
                     InputEventResult::GrabMouse => {
                         result.item_stack = mouse_grabber_stack.clone();
-                        result.item_stack.push(item_rc.downgrade());
                         result.grabbed = true;
                         return VisitChildrenResult::abort(item_rc.index(), 0);
                     }

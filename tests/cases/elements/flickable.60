@@ -8,9 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-TestCase := Rectangle {
-    width: 100phx;
-    height: 100phx;
+TestCase := Window {
+    width: 500phx;
+    height: 500phx;
 
     f := Flickable {
         width: parent.width;
@@ -22,6 +22,9 @@ TestCase := Rectangle {
             y: 150phx;
             width: 30phx;
             height: 30phx;
+            Rectangle {
+                background: parent.pressed ? blue : parent.has_hover ? green : red;
+            }
         }
 
     }

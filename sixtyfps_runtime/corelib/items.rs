@@ -832,12 +832,14 @@ impl Item for Flickable {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        event: MouseEvent,
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        // TODO!
-        InputEventFilterResult::ForwardEvent
+        if !self.interactive() {
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+        self.data.handle_mouse_filter(self, event)
     }
 
     fn input_event(

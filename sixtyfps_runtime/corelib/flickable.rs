@@ -12,26 +12,36 @@ LICENSE END */
 use crate::animations::EasingCurve;
 use crate::animations::Instant;
 use crate::graphics::Point;
-use crate::input::{InputEventResult, MouseEvent, MouseEventType};
+use crate::input::{InputEventFilterResult, InputEventResult, MouseEvent, MouseEventType};
 use crate::items::{Flickable, PropertyAnimation, Rectangle};
 use core::cell::RefCell;
 use core::pin::Pin;
 
+/// The distance required before it starts flicking if there is another item intercepting the mouse.
+/// FIXME: this is currently phicical pixel, but it should be logical
+const THRESHOLD: f32 = 4.;
+
 #[derive(Default, Debug)]
-struct FlickableDataInnter {
+struct FlickableDataInner {
     /// The position in which the press was made
     pressed_pos: Point,
     pressed_time: Option<Instant>,
     pressed_viewport_pos: Point,
+    /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
+    capture_events: bool,
 }
 
 #[derive(Default, Debug)]
 pub struct FlickableData {
-    inner: RefCell<FlickableDataInnter>,
+    inner: RefCell<FlickableDataInner>,
 }
 
 impl FlickableData {
-    pub fn handle_mouse(&self, flick: Pin<&Flickable>, event: MouseEvent) -> InputEventResult {
+    pub fn handle_mouse_filter(
+        &self,
+        flick: Pin<&Flickable>,
+        event: MouseEvent,
+    ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
         match event.what {
             MouseEventType::MousePressed => {
@@ -45,36 +55,50 @@ impl FlickableData {
                         .apply_pin(flick)
                         .get(),
                 );
+                if inner.capture_events {
+                    InputEventFilterResult::Intercept
+                } else {
+                    InputEventFilterResult::ForwardAndInterceptGrab
+                }
+            }
+            MouseEventType::MouseExit | MouseEventType::MouseReleased => {
+                let was_capturing = inner.capture_events;
+                Self::mouse_released(&mut inner, flick, event);
+                if was_capturing {
+                    InputEventFilterResult::Intercept
+                } else {
+                    InputEventFilterResult::ForwardEvent
+                }
+            }
+            MouseEventType::MouseMoved => {
+                if inner.capture_events
+                    || (inner.pressed_time.is_some()
+                        && (event.pos - inner.pressed_pos).square_length() > THRESHOLD * THRESHOLD)
+                {
+                    InputEventFilterResult::Intercept
+                } else if inner.pressed_time.is_some() {
+                    InputEventFilterResult::ForwardAndInterceptGrab
+                } else {
+                    InputEventFilterResult::ForwardEvent
+                }
+            }
+        }
+    }
+
+    pub fn handle_mouse(&self, flick: Pin<&Flickable>, event: MouseEvent) -> InputEventResult {
+        let mut inner = self.inner.borrow_mut();
+        match event.what {
+            MouseEventType::MousePressed => {
+                inner.capture_events = true;
                 InputEventResult::GrabMouse
             }
             MouseEventType::MouseExit | MouseEventType::MouseReleased => {
-                if let Some(pressed_time) = inner.pressed_time {
-                    let dist = event.pos - inner.pressed_pos;
-                    let speed = dist
-                        / ((crate::animations::current_tick() - pressed_time).as_millis() as f32);
-
-                    let duration = 100;
-                    let final_pos = ensure_in_bound(
-                        flick,
-                        inner.pressed_viewport_pos + dist + speed * (duration as f32),
-                    );
-                    let anim = PropertyAnimation {
-                        duration,
-                        easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
-                        ..PropertyAnimation::default()
-                    };
-                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
-                        .apply_pin(flick)
-                        .set_animated_value(final_pos.x, anim.clone());
-                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
-                        .apply_pin(flick)
-                        .set_animated_value(final_pos.y, anim);
-                }
-                inner.pressed_time = None;
+                Self::mouse_released(&mut inner, flick, event);
                 InputEventResult::EventAccepted
             }
             MouseEventType::MouseMoved => {
                 if inner.pressed_time.is_some() {
+                    inner.capture_events = true;
                     let new_pos = ensure_in_bound(
                         flick,
                         inner.pressed_viewport_pos + (event.pos - inner.pressed_pos),
@@ -87,10 +111,38 @@ impl FlickableData {
                         .set(new_pos.y);
                     InputEventResult::GrabMouse
                 } else {
+                    inner.capture_events = false;
                     InputEventResult::EventIgnored
                 }
             }
         }
+    }
+
+    fn mouse_released(inner: &mut FlickableDataInner, flick: Pin<&Flickable>, event: MouseEvent) {
+        if let Some(pressed_time) = inner.pressed_time {
+            let dist = event.pos - inner.pressed_pos;
+            let speed =
+                dist / ((crate::animations::current_tick() - pressed_time).as_millis() as f32);
+
+            let duration = 100;
+            let final_pos = ensure_in_bound(
+                flick,
+                inner.pressed_viewport_pos + dist + speed * (duration as f32),
+            );
+            let anim = PropertyAnimation {
+                duration,
+                easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
+                ..PropertyAnimation::default()
+            };
+            (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
+                .apply_pin(flick)
+                .set_animated_value(final_pos.x, anim.clone());
+            (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
+                .apply_pin(flick)
+                .set_animated_value(final_pos.y, anim);
+        }
+        inner.capture_events = false; // FIXME: should only be set to false once the flick animation is over
+        inner.pressed_time = None;
     }
 }
 
