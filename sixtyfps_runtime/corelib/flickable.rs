@@ -9,6 +9,8 @@
 LICENSE END */
 //! The implementation details behind the Flickable
 
+use instant::Duration;
+
 use crate::animations::EasingCurve;
 use crate::animations::Instant;
 use crate::graphics::Point;
@@ -19,7 +21,9 @@ use core::pin::Pin;
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
 /// FIXME: this is currently phicical pixel, but it should be logical
-const THRESHOLD: f32 = 4.;
+const DISTANCE_THRESHOLD: f32 = 4.;
+/// Time required before we stop caring about child event if the mouse hasn't been moved
+const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
 
 #[derive(Default, Debug)]
 struct FlickableDataInner {
@@ -72,8 +76,11 @@ impl FlickableData {
             }
             MouseEventType::MouseMoved => {
                 if inner.capture_events
-                    || (inner.pressed_time.is_some()
-                        && (event.pos - inner.pressed_pos).square_length() > THRESHOLD * THRESHOLD)
+                    || inner.pressed_time.map_or(false, |pressed_time| {
+                        crate::animations::current_tick() - pressed_time < DURATION_THRESHOLD
+                            && (event.pos - inner.pressed_pos).square_length()
+                                > DISTANCE_THRESHOLD * DISTANCE_THRESHOLD
+                    })
                 {
                     InputEventFilterResult::Intercept
                 } else if inner.pressed_time.is_some() {
