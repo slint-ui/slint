@@ -1944,7 +1944,7 @@ fn compute_layout(
             .collect::<Vec<_>>();
 
         if component_layouts.main_layout == Some(idx) {
-            layout_info = quote!(#(#creation_code)* #layout_info);
+            layout_info = quote!({#(#creation_code)* #layout_info});
         }
 
         layouts.append(&mut creation_code);
