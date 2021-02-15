@@ -407,12 +407,7 @@ impl GLRenderer {
             canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
         }
 
-        GLItemRenderer {
-            shared_data: self.shared_data.clone(),
-            scale_factor,
-            saved_scissor_rects: Vec::new(),
-            current_scissor_rect: None,
-        }
+        GLItemRenderer { shared_data: self.shared_data.clone(), scale_factor }
     }
 
     /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
@@ -468,8 +463,6 @@ impl GLRenderer {
 pub struct GLItemRenderer {
     shared_data: Rc<GLRendererData>,
     scale_factor: f32,
-    saved_scissor_rects: Vec<Rect>,
-    current_scissor_rect: Option<Rect>,
 }
 
 fn rect_to_path(r: Rect) -> femtovg::Path {
@@ -905,30 +898,19 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn combine_clip(&mut self, clip_rect: Rect) {
-        // FIXME: Go back to using Canvas::intersect_scissor when https://github.com/femtovg/femtovg/pull/29 is merged
-        let final_clip_rect = if let Some(existing_clip) = self.current_scissor_rect {
-            existing_clip.intersection(&clip_rect).unwrap_or_default()
-        } else {
-            clip_rect
-        };
-        self.shared_data.canvas.borrow_mut().scissor(
-            final_clip_rect.min_x(),
-            final_clip_rect.min_y(),
-            final_clip_rect.width(),
-            final_clip_rect.height(),
+        self.shared_data.canvas.borrow_mut().intersect_scissor(
+            clip_rect.min_x(),
+            clip_rect.min_y(),
+            clip_rect.width(),
+            clip_rect.height(),
         );
-        self.current_scissor_rect = Some(final_clip_rect);
     }
 
     fn save_state(&mut self) {
-        if let Some(scissor_rect) = self.current_scissor_rect {
-            self.saved_scissor_rects.push(scissor_rect);
-        }
         self.shared_data.canvas.borrow_mut().save();
     }
 
     fn restore_state(&mut self) {
-        self.current_scissor_rect = self.saved_scissor_rects.pop();
         self.shared_data.canvas.borrow_mut().restore();
     }
 

@@ -63,3 +63,7 @@ default-members = [
 
 [profile.release]
 lto = true
+
+# Needed to pull in fix for https://github.com/femtovg/femtovg/pull/29
+[patch.crates-io]
+femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master" }
