@@ -65,9 +65,9 @@ MainWindow := Window {
     HorizontalLayout {
         // The sidebar is placed manually in the 10%
         padding: 10px;
-        padding-left: 10px + 10% * parent.width;
+        padding-left: 10px + 8% * parent.width;
 
-        Rectangle {
+        main_view := Rectangle {
             height: 100%;
             border-radius: 30px;
             background: white;
@@ -77,7 +77,7 @@ MainWindow := Window {
     }
 
     sidebar := Rectangle {
-        width: 7% * root.width;
+        width: 6% * root.width;
         x: 1.25% * root.width;
 
         callback icon_y(int) -> logical_length;
@@ -89,11 +89,12 @@ MainWindow := Window {
 
         Image {
             source: @image-url("images/page_selection.svg");
-            y: sidebar.icon_y(root.active_page) - self.width / 3;
+            y: sidebar.icon_y(root.active_page) - self.width / 2.8;
             animate y {
                 duration: 125ms;
             }
-            height: 2 * self.width;
+            width: main_view.x - sidebar.x;
+            height: 1.5 * self.width;
         }
 
         for page_icon[idx] in [
@@ -106,7 +107,7 @@ MainWindow := Window {
             height: self.width;
 
             icon := Image {
-                //colorize: active ? DemoPalette.active_page_icon_color : DemoPalette.inactive_page_icon_color;
+                colorize: (root.active_page == idx) ? DemoPalette.active_page_icon_color : DemoPalette.inactive_page_icon_color;
                 source: page_icon;
                 image-fit: contain;
             }
