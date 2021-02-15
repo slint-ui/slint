@@ -10,11 +10,6 @@ LICENSE END */
 
 import { DemoPalette, Page } from "./common.60";
 
-export struct PrinterAction := {
-    name: string,
-    icon: resource,
-}
-
 ActionButton := Rectangle {
 
     property <resource> icon <=> img.source;
@@ -46,8 +41,6 @@ ActionButton := Rectangle {
 }
 
 export HomePage := Page {
-    property <[PrinterAction]> actions;
-
     property <length> header_row_height: 40px;
 
     header := Text {
@@ -62,7 +55,12 @@ export HomePage := Page {
     property <length> button_width: root.width / 3 - 2 * button_spacing;
     property <length> button_height: button_width + /* spacing */ 4px + /* label size */ 22px;
 
-    for action[idx] in actions: ActionButton {
+    for action[idx] in [
+        { name: "Print", icon: @image-url("images/print.svg") },
+        { name: "Scan", icon: @image-url("images/scan.svg") },
+        { name: "Copy", icon: @image-url("images/copy.svg") },
+        { name: "USB", icon: @image-url("images/usb.svg") },
+    ]: ActionButton {
         x: mod(idx, 2) * (button_width + button_spacing);
         y: floor(idx / 2) * (button_height + button_spacing) + header_row_height;
         width: button_width;
