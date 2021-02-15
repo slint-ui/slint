@@ -12,9 +12,7 @@ export global DemoPalette := {
     // Color of the home/settings/ink buttons on the left side bar
     property <color> active_page_icon_color: #122F7B;
     property <color> inactive_page_icon_color: #BDC0D1;
-}
 
-export global GlobalSettings := {
     property <bool> night_mode: false;
 }
 
