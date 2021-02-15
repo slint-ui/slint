@@ -93,7 +93,7 @@ MainWindow := Window {
             animate y {
                 duration: 125ms;
             }
-            width: main_view.x - sidebar.x;
+            width: main_view.x - sidebar.x + 1px;
             height: 1.5 * self.width;
         }
 
