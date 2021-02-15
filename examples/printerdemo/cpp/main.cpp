@@ -26,16 +26,5 @@ int main()
     printer_demo->set_ink_levels(std::make_shared<InkLevelModel>());
     printer_demo->on_quit([] { std::exit(0); });
 
-    printer_demo->on_fax_number_erase([printer_demo = sixtyfps::ComponentWeakHandle(printer_demo)] {
-        std::string fax_number{(*printer_demo.lock())->get_fax_number()};
-        fax_number.pop_back();
-        (*printer_demo.lock())->set_fax_number(fax_number.data());
-    });
-
-    printer_demo->on_fax_send([printer_demo = sixtyfps::ComponentWeakHandle(printer_demo)] {
-        std::cout << "Sending a fax to " << (*printer_demo.lock())->get_fax_number() << std::endl;
-        (*printer_demo.lock())->set_fax_number({});
-    });
-
     printer_demo->run();
 }
