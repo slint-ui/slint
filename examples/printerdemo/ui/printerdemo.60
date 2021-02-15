@@ -16,7 +16,6 @@ struct InkLevel := {
     level: float,
 }
 
-
 SideBarIcon := Rectangle {
     property <bool> active;
     callback activate;
@@ -37,7 +36,7 @@ MainWindow := Window {
     width: 800px;
     height: 600px;
     title: "SixtyFPS printer demo";
-    background: #0E133F;
+    background: DemoPalette.main_background;
 
     property <[PrinterAction]> printer_actions: [
         { name: "Print", icon: @image-url("images/print.svg") },
@@ -72,12 +71,33 @@ MainWindow := Window {
             minimum-width: 800px;
             minimum-height: 600px;
 
-            if (active_page == 0) : HomePage {
-                x: parent.border-radius;
-                y: parent.border-radius;
-                width: parent.width - 2 * parent.border-radius;
-                height: parent.height - 2 * parent.border-radius;
-                actions: root.printer_actions;
+            Clip {
+                HomePage {
+                    x: main_view.border-radius;
+                    width: main_view.width - 2 * main_view.border_radius;
+                    height: main_view.height - 2 * main_view.border_radius;
+                    y: active_page == 0 ? main_view.border_radius : active_page < 0 ? - height : parent.height;
+                    animate y { duration: 125ms; easing: ease; }
+                }
+                Rectangle {
+                    background: #efe;
+                    x: main_view.border-radius;
+                    width: main_view.width - 2 * main_view.border_radius;
+                    height: main_view.height - 2 * main_view.border_radius;
+                    y: active_page == 1 ? main_view.border_radius : active_page < 1 ? - height : parent.height;
+                    animate y { duration: 125ms; easing: ease; }
+                    Text { text: "Settings"; }
+                }
+                Rectangle {
+                    background: #eef;
+                    x: main_view.border-radius;
+                    width: main_view.width - 2 * main_view.border_radius;
+                    height: main_view.height - 2 * main_view.border_radius;
+                    y: active_page == 2 ? main_view.border_radius : active_page < 2 ? - height : parent.height;
+                    animate y { duration: 125ms; easing: ease; }
+                    Text { text: "Inks"; }
+                }
+
             }
         }
     }
