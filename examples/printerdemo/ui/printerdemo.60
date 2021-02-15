@@ -8,9 +8,6 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView } from "sixtyfps_widgets.60";
-import { Label, Page, Preview } from "common.60";
-
 struct InkLevel := {
     color: color,
     level: float,
