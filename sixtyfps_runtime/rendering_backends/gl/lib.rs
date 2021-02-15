@@ -1045,6 +1045,7 @@ impl GLItemRenderer {
         let brush_paint = self.brush_to_paint(colorize_brush, &mut image_rect).unwrap();
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
+            canvas.reset_transform();
             canvas.set_render_target(femtovg::RenderTarget::Image(colorized_image));
 
             canvas.global_composite_operation(femtovg::CompositeOperation::Copy);
