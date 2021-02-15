@@ -8,12 +8,68 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+import { DemoPalette } from "common.60";
+
 export struct InkLevel := {
     color: color,
     level: float,
 }
 
-
 export InkPage := Rectangle {
     property <[InkLevel]> ink_levels;
+    property <bool> page_visible;
+
+
+    Rectangle {
+        x: (parent.width - width) / 2;
+        y: (parent.height - height) / 2;
+        height: 75%;
+        width: 50%;
+
+        HorizontalLayout {
+            spacing: root.width * 5%;
+            for color_info in ink_levels : Rectangle {
+                ink := Rectangle {
+                    width: parent.width;
+                    height: parent.height * color_info.level;
+                    border-radius: width / 2;
+                    border-width: 2px;
+                    y: parent.height - self.height;
+                    background: color_info.color;
+                    states [
+                        innactive when !root.page_visible : {
+                            height: border-radius; // FIXME: should be 0, but ugly otherwise
+                        }
+                    ]
+                    transitions [
+                        out innactive : {
+                            animate height { duration: 750ms; easing: ease_in_out; }
+                        }
+                        in innactive : {
+                            animate height { duration: 200ms; easing: ease_in; }
+                        }
+                    ]
+                }
+                Rectangle {
+                    y: ink.y;
+                    height: min(parent.height - y - ink.border-radius, ink.border-radius);
+                    border-width: ink.border-width;
+                    background: ink.background;
+                }
+                Rectangle {
+                    y: ink.y;
+                    height: ink.border-width;
+                    background: DemoPalette.neutral_box;
+                }
+                Rectangle {
+                    border-radius: width / 2;
+                    border-color: DemoPalette.neutral_box;
+                    border-width: ink.border-width;
+                }
+
+            }
+        }
+
+    }
+
 }

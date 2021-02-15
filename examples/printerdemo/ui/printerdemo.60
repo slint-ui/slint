@@ -93,6 +93,7 @@ MainWindow := Window {
                     y: active_page == 2 ? main_view.border_radius : active_page < 2 ? - height : parent.height;
                     animate y { duration: 125ms; easing: ease; }
                     ink_levels <=> root.ink_levels;
+                    page_visible: active_page == 2;
                 }
 
             }
