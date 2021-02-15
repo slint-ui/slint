@@ -16,16 +16,32 @@ export struct PrinterAction := {
 }
 
 ActionButton := Rectangle {
-    border-radius: 25px;
-    border-width: 5px;
-    border-color: #FFBF63;
-    background: DemoPalette.printer_action_background_color;
-    property <resource> icon <=> img.source;
 
-    img := Image {
-        x: (parent.width / 2) - (self.width / 2);
-        y: (parent.height / 2) - (self.height / 2);
-        colorize: DemoPalette.text_foreground_color;
+    property <resource> icon <=> img.source;
+    property <string> text <=> label.text;
+
+    VerticalLayout {
+        spacing: 4px;
+
+        Rectangle {
+            border-radius: 25px;
+            border-width: 5px;
+            border-color: #FFBF63;
+            background: DemoPalette.printer_action_background_color;
+
+            img := Image {
+                x: (parent.width / 2) - (self.width / 2);
+                y: (parent.height / 2) - (self.height / 2);
+                colorize: DemoPalette.text_foreground_color;
+            }
+        }
+
+        label := Text {
+            font-size: 22px;
+            font-weight: 800;
+            horizontal-alignment: center;
+            color: DemoPalette.text_foreground_color;
+        }
     }
 }
 
@@ -43,14 +59,16 @@ export HomePage := Page {
     }
 
     property <length> button_spacing: root.width / 12;
-    property <length> button_size: root.width / 3 - 2 * button_spacing;
+    property <length> button_width: root.width / 3 - 2 * button_spacing;
+    property <length> button_height: button_width + /* spacing */ 4px + /* label size */ 22px;
 
     for action[idx] in actions: ActionButton {
-        x: mod(idx, 2) * (button_size + button_spacing);
-        y: floor(idx / 2) * (button_size + button_spacing) + header_row_height;
-        width: button_size;
-        height: self.width;
+        x: mod(idx, 2) * (button_width + button_spacing);
+        y: floor(idx / 2) * (button_height + button_spacing) + header_row_height;
+        width: button_width;
+        height: button_height;
         icon: action.icon;
+        text: action.name;
     }
 
     Rectangle {
