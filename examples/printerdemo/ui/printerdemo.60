@@ -108,6 +108,9 @@ MainWindow := Window {
 
             icon := Image {
                 colorize: (root.active_page == idx) ? DemoPalette.active_page_icon_color : DemoPalette.inactive_page_icon_color;
+                animate colorize {
+                    duration: 125ms;
+                }
                 source: page_icon;
                 image-fit: contain;
             }
