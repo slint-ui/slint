@@ -20,7 +20,7 @@ export global DemoPalette := {
 
     property <color> text_foreground_color: night_mode ? #F4F6FF : black;
 
-    property <color> printer_action_background_color: night_mode ? #0E133F : white;
+    property <color> printer_action_background_color: night_mode ? main_background : white;
 
     property <bool> night_mode: false;
 }
