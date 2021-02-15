@@ -778,22 +778,47 @@ impl ItemRenderer for GLItemRenderer {
         let (offset, path_events) = path.fitted_path_events();
 
         let mut fpath = femtovg::Path::new();
+
+        #[derive(Default)]
+        struct OrientationCalculator {
+            area: f32,
+            prev: Point,
+        }
+
+        impl OrientationCalculator {
+            fn add_point(&mut self, p: Point) {
+                self.area += (p.x - self.prev.x) * (p.y + self.prev.y);
+                self.prev = p;
+            }
+        }
+
+        use femtovg::Solidity;
+
+        let mut orient = OrientationCalculator::default();
+
         for x in path_events.iter() {
             match x {
                 lyon_path::Event::Begin { at } => {
+                    fpath.solidity(if orient.area < 0. { Solidity::Hole } else { Solidity::Solid });
                     fpath.move_to(at.x, at.y);
+                    orient.area = 0.;
+                    orient.prev = at;
                 }
                 lyon_path::Event::Line { from: _, to } => {
                     fpath.line_to(to.x, to.y);
+                    orient.add_point(to);
                 }
                 lyon_path::Event::Quadratic { from: _, ctrl, to } => {
                     fpath.quad_to(ctrl.x, ctrl.y, to.x, to.y);
+                    orient.add_point(to);
                 }
 
                 lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
                     fpath.bezier_to(ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y);
+                    orient.add_point(to);
                 }
                 lyon_path::Event::End { last: _, first: _, close } => {
+                    fpath.solidity(if orient.area < 0. { Solidity::Hole } else { Solidity::Solid });
                     if close {
                         fpath.close()
                     }
