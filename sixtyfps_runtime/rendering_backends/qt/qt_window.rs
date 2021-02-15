@@ -517,36 +517,99 @@ impl ItemRenderer for QtItemRenderer<'_> {
 fn load_image_from_resource(
     resource: Resource,
     source_size: Option<qttypes::QSize>,
+    image_fit: ImageFit,
 ) -> Option<qttypes::QPixmap> {
-    let (is_path, data) = match resource {
+    let (is_path, data) = match &resource {
         Resource::None => return None,
         Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
         Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
         Resource::EmbeddedRgbaImage { .. } => todo!(),
     };
-    let size_requested = source_size.is_some();
+    let size_requested = is_svg(&resource) && source_size.is_some();
     let source_size = source_size.unwrap_or_default();
-    Some(
-        cpp! { unsafe [data as "QByteArray", is_path as "bool", size_requested as "bool", source_size as "QSize"] -> qttypes::QPixmap as "QPixmap" {
-            if (size_requested) {
-                QImageReader reader;
-                QBuffer buffer;
-                if (is_path) {
-                    reader.setFileName(QString::fromUtf8(data));
-                } else {
-                    buffer.setBuffer(const_cast<QByteArray *>(&data));
-                    reader.setDevice(&buffer);
-                }
-                if (reader.supportsOption(QImageIOHandler::ScaledSize)) {
-                    reader.setScaledSize(source_size);
-                    return QPixmap::fromImageReader(&reader);
-                }
+    debug_assert_eq!(ImageFit::contain as i32, 1);
+    debug_assert_eq!(ImageFit::cover as i32, 2);
+    Some(cpp! { unsafe [
+            data as "QByteArray",
+            is_path as "bool",
+            size_requested as "bool",
+            source_size as "QSize",
+            image_fit as "int"] -> qttypes::QPixmap as "QPixmap" {
+        if (size_requested) {
+            QImageReader reader;
+            QBuffer buffer;
+            if (is_path) {
+                reader.setFileName(QString::fromUtf8(data));
+            } else {
+                buffer.setBuffer(const_cast<QByteArray *>(&data));
+                reader.setDevice(&buffer);
             }
-            QPixmap img;
-            is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
-            return img;
-        }},
-    )
+            if (reader.supportsOption(QImageIOHandler::ScaledSize)) {
+                auto target_size = source_size;
+                if (image_fit == 1) { //ImageFit::contain
+                    QSizeF s = reader.size();
+                    target_size = (s * qMin(source_size.width() / s.width(), source_size.height() / s.height())).toSize();
+                } else if (image_fit == 2) { //ImageFit::cover
+                    QSizeF s = reader.size();
+                    target_size = (s * qMax(source_size.width() / s.width(), source_size.height() / s.height())).toSize();
+                }
+                reader.setScaledSize(target_size);
+                return QPixmap::fromImageReader(&reader);
+            }
+        }
+        QPixmap img;
+        is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
+        return img;
+    }})
+}
+
+/// Changes the source or the destination rectangle to respect the image fit
+fn adjust_to_image_fit(
+    image_fit: ImageFit,
+    source_rect: &mut qttypes::QRectF,
+    dest_rect: &mut qttypes::QRectF,
+) {
+    match image_fit {
+        sixtyfps_corelib::items::ImageFit::fill => (),
+        sixtyfps_corelib::items::ImageFit::cover => {
+            let ratio = qttypes::qreal::max(
+                dest_rect.width / source_rect.width,
+                dest_rect.height / source_rect.height,
+            );
+            if source_rect.width > dest_rect.width / ratio {
+                source_rect.x += (source_rect.width - dest_rect.width / ratio) / 2.;
+                source_rect.width = dest_rect.width / ratio;
+            }
+            if source_rect.height > dest_rect.height / ratio {
+                source_rect.y += (source_rect.height - dest_rect.height / ratio) / 2.;
+                source_rect.height = dest_rect.height / ratio;
+            }
+        }
+        sixtyfps_corelib::items::ImageFit::contain => {
+            let ratio = qttypes::qreal::min(
+                dest_rect.width / source_rect.width,
+                dest_rect.height / source_rect.height,
+            );
+            if dest_rect.width > source_rect.width * ratio {
+                dest_rect.x += (dest_rect.width - source_rect.width * ratio) / 2.;
+                dest_rect.width = source_rect.width * ratio;
+            }
+            if dest_rect.height > source_rect.height * ratio {
+                dest_rect.y += (dest_rect.height - source_rect.height * ratio) / 2.;
+                dest_rect.height = source_rect.height * ratio;
+            }
+        }
+    };
+}
+
+/// Return true if this image is a SVG that is scalable
+fn is_svg(resource: &Resource) -> bool {
+    match resource {
+        Resource::None => false,
+        Resource::AbsoluteFilePath(path) => path.as_str().ends_with(".svg"),
+        Resource::EmbeddedData(data) => data.starts_with(b"<svg"),
+        Resource::EmbeddedRgbaImage { .. } => false,
+    }
 }
 
 impl QtItemRenderer<'_> {
@@ -584,7 +647,7 @@ impl QtItemRenderer<'_> {
                 None
             };
 
-            load_image_from_resource(source_property.get(), source_size).map_or(
+            load_image_from_resource(source_property.get(), source_size, image_fit).map_or(
                 QtRenderingCacheItem::Invalid,
                 |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
@@ -612,37 +675,7 @@ impl QtItemRenderer<'_> {
             height: image_size.height as _,
         });
         let mut dest_rect = dest_rect;
-        match image_fit {
-            sixtyfps_corelib::items::ImageFit::fill => (),
-            sixtyfps_corelib::items::ImageFit::cover => {
-                let ratio = qttypes::qreal::max(
-                    dest_rect.width / source_rect.width,
-                    dest_rect.height / source_rect.height,
-                );
-                if source_rect.width > dest_rect.width / ratio {
-                    source_rect.x += (source_rect.width - dest_rect.width / ratio) / 2.;
-                    source_rect.width = dest_rect.width / ratio;
-                }
-                if source_rect.height > dest_rect.height / ratio {
-                    source_rect.y += (source_rect.height - dest_rect.height / ratio) / 2.;
-                    source_rect.height = dest_rect.height / ratio;
-                }
-            }
-            sixtyfps_corelib::items::ImageFit::contain => {
-                let ratio = qttypes::qreal::min(
-                    dest_rect.width / source_rect.width,
-                    dest_rect.height / source_rect.height,
-                );
-                if dest_rect.width > source_rect.width * ratio {
-                    dest_rect.x += (dest_rect.width - source_rect.width * ratio) / 2.;
-                    dest_rect.width = source_rect.width * ratio;
-                }
-                if dest_rect.height > source_rect.height * ratio {
-                    dest_rect.y += (dest_rect.height - source_rect.height * ratio) / 2.;
-                    dest_rect.height = source_rect.height * ratio;
-                }
-            }
-        };
+        adjust_to_image_fit(image_fit, &mut source_rect, &mut dest_rect);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", pixmap as "QPixmap*", source_rect as "QRectF", dest_rect as "QRectF"] {
             painter->drawPixmap(dest_rect, *pixmap, source_rect);
@@ -930,7 +963,7 @@ impl PlatformWindow for QtWindow {
         &self,
         source: Pin<&sixtyfps_corelib::properties::Property<Resource>>,
     ) -> sixtyfps_corelib::graphics::Size {
-        load_image_from_resource(source.get(), None)
+        load_image_from_resource(source.get(), None, ImageFit::fill)
             .map(|img| {
                 let qsize = img.size();
                 euclid::size2(qsize.width as f32, qsize.height as f32)
