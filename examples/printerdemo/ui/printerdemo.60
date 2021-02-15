@@ -76,7 +76,7 @@ MainWindow := Window {
             for page_info[idx] in [
                 { icon: @image-url("images/home.svg") },
                 { icon: @image-url("images/settings.svg") },
-                { icon: @image-url("images/ink.svg") },
+                { icon: @image-url("images/ink.png") },
             ] : SideBarIcon {
                 width: GlobalSettings.sidebar_icon_width;
                 height: self.width;
@@ -84,6 +84,7 @@ MainWindow := Window {
                 icon := Image {
                     //colorize: active ? DemoPalette.active_page_icon_color : DemoPalette.inactive_page_icon_color;
                     source: page_info.icon;
+                    image-fit: contain;
                 }
             }
 
