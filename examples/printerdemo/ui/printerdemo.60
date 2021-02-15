@@ -87,6 +87,15 @@ MainWindow := Window {
             ;
         }
 
+        Image {
+            source: @image-url("images/page_selection.svg");
+            y: sidebar.icon_y(root.active_page) - self.width / 3;
+            animate y {
+                duration: 125ms;
+            }
+            height: 2 * self.width;
+        }
+
         for page_icon[idx] in [
             @image-url("images/home.svg"),
             @image-url("images/settings.svg"),
@@ -100,6 +109,10 @@ MainWindow := Window {
                 //colorize: active ? DemoPalette.active_page_icon_color : DemoPalette.inactive_page_icon_color;
                 source: page_icon;
                 image-fit: contain;
+            }
+
+            activate => {
+                root.active_page = idx;
             }
         }
 
