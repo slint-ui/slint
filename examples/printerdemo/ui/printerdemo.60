@@ -61,14 +61,15 @@ MainWindow := Window {
 
     property<int> active_page: 0;
 
-    // Need this rectangle to prevent the layout from becoming the window's main layout
-    sidebar := Rectangle {
-        width: 10%;
+    HorizontalLayout {
+        padding: 10px;
 
         VerticalLayout {
+            width: 10%;
+            height: 100%;
             padding-top: 50px;
             padding-bottom: 50px;
-            padding-left: 20px;
+            padding-left: 10px;
             spacing: 30px;
 
             for page_info[idx] in [
@@ -105,6 +106,12 @@ MainWindow := Window {
                     GlobalSettings.night_mode = !GlobalSettings.night_mode;
                 }
             }
+        }
+
+        Rectangle {
+            height: 100%;
+            border-radius: 30px;
+            background: white;
         }
     }
 }
