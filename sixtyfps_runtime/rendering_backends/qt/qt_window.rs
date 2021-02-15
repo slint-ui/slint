@@ -356,8 +356,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             QVector<QTextLayout::FormatRange> selections;
             if (anchor_position != cursor_position) {
                 QTextCharFormat fmt;
-                fmt.setBackground(QColor(selection_background_color));
-                fmt.setForeground(QColor(selection_foreground_color));
+                fmt.setBackground(QColor::fromRgba(selection_background_color));
+                fmt.setForeground(QColor::fromRgba(selection_foreground_color));
                 selections << QTextLayout::FormatRange{
                     std::min(anchor_position, cursor_position),
                     std::abs(anchor_position - cursor_position),
@@ -865,10 +865,14 @@ impl QtWindow {
             width: window_item.width().ceil() as _,
             height: window_item.height().ceil() as _,
         };
-        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize"] {
+        let background: u32 = window_item.background().as_argb_encoded();
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
             if (!size.isEmpty())
                 widget_ptr->resize(size);
             widget_ptr->setWindowTitle(title);
+            auto pal = widget_ptr->palette();
+            pal.setColor(QPalette::Window, QColor::fromRgba(background));
+            widget_ptr->setPalette(pal);
         }};
     }
 }

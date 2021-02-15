@@ -42,14 +42,28 @@ pub async fn apply_default_properties_from_style<'a>(
         &root_component,
         &(),
         &mut |elem, _| {
-            if elem.borrow().native_class().map_or(false, |nc| nc.class_name == "TextInput") {
-                elem.borrow_mut().bindings.entry("text_cursor_width".into()).or_insert_with(|| {
-                    Expression::PropertyReference(NamedReference {
-                        element: Rc::downgrade(&style_metrics.root_element),
-                        name: "text_cursor_width".into(),
-                    })
-                    .into()
-                });
+            let mut elem = elem.borrow_mut();
+            match elem.native_class().as_ref().map(|nc| nc.class_name.as_str()) {
+                Some("TextInput") => {
+                    elem.bindings.entry("text_cursor_width".into()).or_insert_with(|| {
+                        Expression::PropertyReference(NamedReference {
+                            element: Rc::downgrade(&style_metrics.root_element),
+                            name: "text_cursor_width".into(),
+                        })
+                        .into()
+                    });
+                }
+                Some("Window") => {
+                    elem.bindings.entry("background".into()).or_insert_with(|| {
+                        Expression::PropertyReference(NamedReference {
+                            element: Rc::downgrade(&style_metrics.root_element),
+                            name: "window_background".into(),
+                        })
+                        .into()
+                    });
+                }
+
+                _ => {}
             }
         },
     )

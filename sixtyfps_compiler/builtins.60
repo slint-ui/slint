@@ -142,7 +142,7 @@ export Flickable := _ {
 export Window := _ {
     property <length> width;
     property <length> height;
-    property <color> background : #fff;
+    property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
     property <color> color <=> background;
     property <string> title: "SixtyFPS Window";
 }
@@ -174,7 +174,7 @@ export TextInput := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <length> text_cursor_width /*: StyleMetrics.text_cursor_width */;
+    property <length> text_cursor_width; // StyleMetrics.text_cursor_width  set in apply_default_properties_from_style
     property <int> cursor_position;
     property <int> anchor_position;
     property <bool> has_focus;

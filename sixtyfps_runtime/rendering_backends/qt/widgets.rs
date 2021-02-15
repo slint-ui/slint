@@ -27,7 +27,7 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::graphics::{Rect, Size};
+use sixtyfps_corelib::graphics::{Color, Rect, Size};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
     MouseEventType,
@@ -1797,6 +1797,7 @@ pub struct NativeStyleMetrics {
     pub layout_spacing: Property<f32>,
     pub layout_padding: Property<f32>,
     pub text_cursor_width: Property<f32>,
+    pub window_background: Property<Color>,
 }
 
 impl Default for NativeStyleMetrics {
@@ -1805,6 +1806,7 @@ impl Default for NativeStyleMetrics {
             layout_spacing: Default::default(),
             layout_padding: Default::default(),
             text_cursor_width: Default::default(),
+            window_background: Default::default(),
         };
         sixtyfps_init_native_style_metrics(&s);
         s
@@ -1829,4 +1831,8 @@ pub extern "C" fn sixtyfps_init_native_style_metrics(self_: &NativeStyleMetrics)
         return qApp->style()->pixelMetric(QStyle::PM_TextCursorWidth);
     });
     self_.text_cursor_width.set(text_cursor_width.max(0.0));
+    let window_background = cpp!(unsafe[] -> u32 as "QRgb" {
+        return qApp->palette().color(QPalette::Window).rgba();
+    });
+    self_.window_background.set(Color::from_argb_encoded(window_background))
 }
