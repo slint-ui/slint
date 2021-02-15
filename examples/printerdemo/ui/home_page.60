@@ -1,0 +1,62 @@
+
+export struct PrinterAction := {
+    name: string,
+    icon: resource,
+}
+
+ActionButton := Rectangle {
+    border-radius: 25px;
+    border-width: 5px;
+    border-color: #FFBF63;
+    property <resource> icon <=> img.source;
+
+    img := Image {
+        x: (parent.width / 2) - (self.width / 2);
+        y: (parent.height / 2) - (self.height / 2);
+    }
+}
+
+export HomePage := Rectangle {
+    property <[PrinterAction]> actions;
+
+    property <length> header_row_height: 40px;
+
+    header := Text {
+        text: "Xerol 1347 hdp";
+        font-weight: 900;
+        font-size: 22px;
+        width: 50%;
+    }
+
+    property <length> button_spacing: root.width / 12;
+    property <length> button_size: root.width / 3 - 2 * button_spacing;
+
+    for action[idx] in actions: ActionButton {
+        x: mod(idx, 2) * (button_size + button_spacing);
+        y: floor(idx / 2) * (button_size + button_spacing) + header_row_height;
+        width: button_size;
+        height: self.width;
+        icon: action.icon;
+    }
+
+    Rectangle {
+        x: parent.width / 2;
+        width: 50%;
+
+        border-radius: 27px;
+        background: #F4F6FF;
+
+        VerticalLayout {
+            Text {
+                text: "Printing Queue";
+            }
+
+            Rectangle {
+                y: root.header_row_height;
+                border-color: #FFBF63;
+                border-radius: 14px;
+                border-width: 2px;
+            }
+        }
+    }
+}

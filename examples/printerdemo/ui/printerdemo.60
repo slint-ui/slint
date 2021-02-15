@@ -8,20 +8,14 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+import { DemoPalette, GlobalSettings } from "common.60";
+import { HomePage, PrinterAction } from "./home_page.60";
+
 struct InkLevel := {
     color: color,
     level: float,
 }
 
-global DemoPalette := {
-    // Color of the home/settings/ink buttons on the left side bar
-    property <color> active_page_icon_color: #122F7B;
-    property <color> inactive_page_icon_color: #BDC0D1;
-}
-
-global GlobalSettings := {
-    property <bool> night_mode: false;
-}
 
 SideBarIcon := Rectangle {
     property <bool> active;
@@ -44,6 +38,13 @@ MainWindow := Window {
     height: 600px;
     title: "SixtyFPS printer demo";
     background: #0E133F;
+
+    property <[PrinterAction]> printer_actions: [
+        { name: "Print", icon: @image-url("images/print.svg") },
+        { name: "Scan", icon: @image-url("images/scan.svg") },
+        { name: "Copy", icon: @image-url("images/copy.svg") },
+        { name: "USB", icon: @image-url("images/usb.svg") },
+    ];
 
     property <length> sidebar_icon_width: 7% * self.width;
     property <length> sidebar_padding_left: 1.25% * self.width;
@@ -70,6 +71,14 @@ MainWindow := Window {
             background: white;
             minimum-width: 800px;
             minimum-height: 600px;
+
+            if (active_page == 0) : HomePage {
+                x: parent.border-radius;
+                y: parent.border-radius;
+                width: parent.width - 2 * parent.border-radius;
+                height: parent.height - 2 * parent.border-radius;
+                actions: root.printer_actions;
+            }
         }
     }
 
