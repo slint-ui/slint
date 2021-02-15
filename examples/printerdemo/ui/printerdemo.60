@@ -64,7 +64,7 @@ MainWindow := Window {
         main_view := Rectangle {
             height: 100%;
             border-radius: 30px;
-            background: white;
+            background: DemoPalette.page_background_color;
             minimum-width: 800px;
             minimum-height: 600px;
 
@@ -118,6 +118,7 @@ MainWindow := Window {
             }
             width: main_view.x - sidebar.x + 1px;
             height: 1.5 * self.width;
+            colorize: DemoPalette.page_background_color;
         }
 
         for page_icon[idx] in [

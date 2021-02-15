@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+import { DemoPalette, Page } from "./common.60";
+
 export struct PrinterAction := {
     name: string,
     icon: resource,
@@ -17,15 +19,17 @@ ActionButton := Rectangle {
     border-radius: 25px;
     border-width: 5px;
     border-color: #FFBF63;
+    background: DemoPalette.printer_action_background_color;
     property <resource> icon <=> img.source;
 
     img := Image {
         x: (parent.width / 2) - (self.width / 2);
         y: (parent.height / 2) - (self.height / 2);
+        colorize: DemoPalette.text_foreground_color;
     }
 }
 
-export HomePage := Rectangle {
+export HomePage := Page {
     property <[PrinterAction]> actions;
 
     property <length> header_row_height: 40px;
@@ -35,6 +39,7 @@ export HomePage := Rectangle {
         font-weight: 900;
         font-size: 22px;
         width: 50%;
+        color: DemoPalette.text_foreground_color;
     }
 
     property <length> button_spacing: root.width / 12;
@@ -53,11 +58,12 @@ export HomePage := Rectangle {
         width: 50%;
 
         border-radius: 27px;
-        background: #F4F6FF;
+        background: DemoPalette.night_mode ? DemoPalette.printer_action_background_color : #F4F6FF;
 
         VerticalLayout {
             Text {
                 text: "Printing Queue";
+                color: DemoPalette.text_foreground_color;
             }
 
             Rectangle {

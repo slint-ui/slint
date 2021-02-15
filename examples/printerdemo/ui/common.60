@@ -10,11 +10,20 @@ LICENSE END */
 
 export global DemoPalette := {
     // Color of the home/settings/ink buttons on the left side bar
-    property <color> active_page_icon_color: #122F7B;
+    property <color> active_page_icon_color: night_mode ? #6284FF : #122F7B;
     property <color> inactive_page_icon_color: #BDC0D1;
 
     property <color> main_background: #0E133F;
 
+    property <color> page_background_color: night_mode ? #122F7B : white;
+
+    property <color> text_foreground_color: night_mode ? #F4F6FF : black;
+    
+    property <color> printer_action_background_color: night_mode ? #0E133F : white;
+
     property <bool> night_mode: false;
 }
 
+export Page := Rectangle {
+    background: DemoPalette.page_background_color;
+}
