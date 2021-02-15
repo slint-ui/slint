@@ -70,6 +70,7 @@ MainWindow := Window {
             padding-top: 50px;
             padding-bottom: 50px;
             padding-left: 10px;
+            padding-right: 10px;
             spacing: 30px;
 
             for page_info[idx] in [
