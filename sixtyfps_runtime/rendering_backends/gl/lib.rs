@@ -68,7 +68,7 @@ impl ImageCacheKey {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum ItemGraphicsCacheEntry {
     Image(Rc<CachedImage>),
     ScalableImage {

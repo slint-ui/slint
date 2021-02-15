@@ -57,6 +57,24 @@ enum ImageData {
     SVG(usvg::Tree),
 }
 
+impl std::fmt::Debug for ImageData {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use image::GenericImageView;
+        match self {
+            ImageData::Texture(t) => {
+                write!(f, "ImageData::Texture({:?})", t.id.0)
+            }
+            ImageData::DecodedImage(i) => {
+                write!(f, "ImageData::DecodedImage({}x{})", i.width(), i.height())
+            }
+            ImageData::SVG(_) => {
+                write!(f, "ImageData::SVG(...)")
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct CachedImage(RefCell<ImageData>);
 
 impl CachedImage {
