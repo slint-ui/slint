@@ -668,12 +668,13 @@ impl QtItemRenderer<'_> {
             _ => return,
         };
         let image_size = pixmap.size();
-        let mut source_rect = source_rect.unwrap_or_else(|| qttypes::QRectF {
-            x: 0.,
-            y: 0.,
-            width: image_size.width as _,
-            height: image_size.height as _,
-        });
+        let mut source_rect =
+            source_rect.filter(|r| r.is_valid()).unwrap_or_else(|| qttypes::QRectF {
+                x: 0.,
+                y: 0.,
+                width: image_size.width as _,
+                height: image_size.height as _,
+            });
         let mut dest_rect = dest_rect;
         adjust_to_image_fit(image_fit, &mut source_rect, &mut dest_rect);
         let painter: &mut QPainter = &mut *self.painter;
