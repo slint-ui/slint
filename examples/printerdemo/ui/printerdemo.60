@@ -124,7 +124,7 @@ MainWindow := Window {
         for page_icon[idx] in [
             @image-url("images/home.svg"),
             @image-url("images/settings.svg"),
-            @image-url("images/ink.png"),
+            @image-url("images/ink.svg"),
         ] : SideBarIcon {
             y: sidebar.icon_y(idx);
 
