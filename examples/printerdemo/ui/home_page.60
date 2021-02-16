@@ -64,6 +64,7 @@ PrinterQueue := Rectangle {
                 border-color: #FFBF63;
                 border-radius: 14px;
                 border-width: 2px;
+                background: DemoPalette.printer_queue_item_background_color;
 
                 VerticalLayout {
                     padding: parent.border_radius;

@@ -21,6 +21,7 @@ export global DemoPalette := {
     property <color> text_foreground_color: night_mode ? #F4F6FF : black;
 
     property <color> printer_action_background_color: night_mode ? main_background : white;
+    property <color> printer_queue_item_background_color: page_background_color;
 
     property <color> status_label_text_color: night_mode ? #F1FF98 : #6284FF;
 
