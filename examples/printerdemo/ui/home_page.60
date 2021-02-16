@@ -68,6 +68,7 @@ PrinterQueue := Rectangle {
 
                 VerticalLayout {
                     padding: parent.border_radius;
+                    spacing: 4px;
 
                     Text {
                         text: queue_item.status;
