@@ -16,12 +16,15 @@ export CopyPage := Page {
     header: "Copy";
 
     GridLayout {
-        padding-top: 40px;
+        padding-top: 46px /* header line height in design */
+                     + /* extra top-padding in design */ 27px;
         spacing: 24px;
         Row {
             Text {
                 text: "Choose Settings";
                 color: DemoPalette.secondary_foreground_color;
+                font-size: DemoPalette.base_font_size * 1.125;
+                font-weight: 800;
             }
         }
         Row {
