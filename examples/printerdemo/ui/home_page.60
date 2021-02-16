@@ -165,6 +165,7 @@ PrinterQueue := Rectangle {
             text: "Printing-Queue";
             color: DemoPalette.text_foreground_color;
             font-size: 24px;
+            font-weight: 700;
         }
 
         Flickable {
