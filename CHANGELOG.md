@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
  - Support power of unit in intermediate expression. (eg: `3px * width / height` is now supported but used to be an error)
  - Support for `else if`
  - The path fill rule can now be specified using `Path::fill-rule`.
+ - Support for `letter-spacing` in `Text`/`TextInput` elements.
 
 ### Fixed
  - `Image::image-fit`'s `cover` and `contains` varient are fixed to match the CSS spec

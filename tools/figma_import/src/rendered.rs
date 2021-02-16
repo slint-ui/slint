@@ -211,6 +211,7 @@ fn render_text(
     writeln!(rc, "font-weight: {};", font.fontWeight)?;
     writeln!(rc, "horizontal-alignment: {};", font.textAlignHorizontal.to_ascii_lowercase())?;
     writeln!(rc, "vertical-alignment: {};", font.textAlignVertical.to_ascii_lowercase())?;
+    writeln!(rc, "letter-spacing: {}px;", font.letterSpacing)?;
     for p in vector.fills.iter() {
         handle_paint(p, rc, "color")?;
     }

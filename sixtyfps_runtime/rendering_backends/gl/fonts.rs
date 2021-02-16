@@ -114,6 +114,7 @@ pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequ
                 family: fallback_descriptor.family_name().into(),
                 weight: _request.weight,
                 pixel_size: _request.pixel_size,
+                letter_spacing: _request.letter_spacing,
             })
             .filter(|fallback| !fallback.family.starts_with(".")) // font-kit asserts when loading `.Apple Fallback`
             .take(1) // Take only the top from the fallback list until we mmap the llaaarge font files

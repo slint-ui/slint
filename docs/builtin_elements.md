@@ -147,6 +147,8 @@ A text simply show the text on the screen
 * **`vertical_alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
 * **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text wraps (default: no-wrap).
 * **`overflow`** (*enum [`TextOverflow`](#textoverflow)*): What happens when the text overflows (default: clip).
+* **`letter_spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
+  and a negative value decreases the distance. The default value is 0.
 
 
 ### Example
@@ -507,6 +509,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`horizontal_alignment`** (enum *[`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
 * **`vertical_alignment`** (enum *[`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
 * **`has_focus`** (*bool*): Set to true when item is focused and receives keyboard events.
+* **`letter_spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
+  and a negative value decreases the distance. The default value is 0.
 
 ### Methods
 

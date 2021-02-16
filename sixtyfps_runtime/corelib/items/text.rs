@@ -109,6 +109,7 @@ pub struct Text {
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
     pub overflow: Property<TextOverflow>,
+    pub letter_spacing: Property<f32>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -204,6 +205,7 @@ impl Text {
                     Some(font_size)
                 }
             },
+            letter_spacing: self.letter_spacing(),
         }
     }
 }
@@ -222,6 +224,7 @@ pub struct TextInput {
     pub selection_background_color: Property<Color>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub letter_spacing: Property<f32>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -608,6 +611,7 @@ impl TextInput {
                     Some(font_size)
                 }
             },
+            letter_spacing: self.letter_spacing(),
         }
     }
 }

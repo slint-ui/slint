@@ -75,6 +75,7 @@ export Text := _ {
     property <TextVerticalAlignment> vertical_alignment;
     property <TextOverflow> overflow;
     property <TextWrap> wrap;
+    property <length> letter_spacing;
     property <length> x;
     property <length> y;
     property <length> width;
@@ -170,6 +171,7 @@ export TextInput := _ {
     property <color> selection_background_color: #808080;
     property <TextHorizontalAlignment> horizontal_alignment;
     property <TextVerticalAlignment> vertical_alignment;
+    property <length> letter_spacing;
     property <length> x;
     property <length> y;
     property <length> width;

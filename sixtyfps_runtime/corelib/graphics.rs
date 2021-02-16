@@ -106,6 +106,9 @@ pub struct FontRequest {
     pub weight: Option<i32>,
     /// If the pixel size is None, the system default font size should be used.
     pub pixel_size: Option<f32>,
+    /// The additional spacing (or shrinking if negative) between glyphs. This is usually not submitted to
+    /// the font-subsystem but collected here for API convenience
+    pub letter_spacing: f32,
 }
 
 /// The FontMetrics trait is constructed from a FontRequest by the graphics backend and supplied to text related

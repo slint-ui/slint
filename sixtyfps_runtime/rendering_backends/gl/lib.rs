@@ -588,10 +588,14 @@ impl ItemRenderer for GLItemRenderer {
             self.scale_factor,
         );
         let wrap = text.wrap() == TextWrap::word_wrap;
-        let text_size = font.text_size(string, if wrap { Some(max_width) } else { None });
+        let text_size = font.text_size(
+            text.letter_spacing(),
+            string,
+            if wrap { Some(max_width) } else { None },
+        );
 
         let paint = match self.brush_to_paint(text.color(), &mut rect_to_path(item_rect(text))) {
-            Some(paint) => font.init_paint(paint),
+            Some(paint) => font.init_paint(text.letter_spacing(), paint),
             None => return,
         };
 
@@ -688,6 +692,7 @@ impl ItemRenderer for GLItemRenderer {
             paint,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
+            text_input.letter_spacing(),
         );
 
         // This way of drawing selected text isn't quite 100% correct. Due to femtovg only being able to
@@ -737,6 +742,7 @@ impl ItemRenderer for GLItemRenderer {
                 femtovg::Paint::color(text_input.selection_foreground_color().into()),
                 text_input.horizontal_alignment(),
                 text_input.vertical_alignment(),
+                text_input.letter_spacing(),
             );
 
             self.shared_data.canvas.borrow_mut().restore();
@@ -1005,6 +1011,7 @@ impl GLItemRenderer {
         paint: femtovg::Paint,
         horizontal_alignment: TextHorizontalAlignment,
         vertical_alignment: TextVerticalAlignment,
+        letter_spacing: f32,
     ) -> femtovg::TextMetrics {
         let font = self.shared_data.loaded_fonts.borrow_mut().font(
             &self.shared_data.canvas,
@@ -1012,7 +1019,7 @@ impl GLItemRenderer {
             self.scale_factor,
         );
 
-        let paint = font.init_paint(paint);
+        let paint = font.init_paint(letter_spacing, paint);
 
         let mut canvas = self.shared_data.canvas.borrow_mut();
         let (text_width, text_height) = {
@@ -1276,30 +1283,34 @@ struct GLFont {
 }
 
 impl GLFont {
-    fn measure(&self, text: &str) -> femtovg::TextMetrics {
+    fn measure(&self, letter_spacing: f32, text: &str) -> femtovg::TextMetrics {
         self.canvas
             .borrow_mut()
-            .measure_text(0., 0., text, self.init_paint(femtovg::Paint::default()))
+            .measure_text(0., 0., text, self.init_paint(letter_spacing, femtovg::Paint::default()))
             .unwrap()
     }
 
     fn height(&self) -> f32 {
         self.canvas
             .borrow_mut()
-            .measure_font(self.init_paint(femtovg::Paint::default()))
+            .measure_font(self.init_paint(
+                /*letter spacing does not influence height*/ 0.,
+                femtovg::Paint::default(),
+            ))
             .unwrap()
             .height()
     }
 
-    fn init_paint(&self, mut paint: femtovg::Paint) -> femtovg::Paint {
+    fn init_paint(&self, letter_spacing: f32, mut paint: femtovg::Paint) -> femtovg::Paint {
         paint.set_font(&self.fonts);
         paint.set_font_size(self.pixel_size);
         paint.set_text_baseline(femtovg::Baseline::Top);
+        paint.set_letter_spacing(letter_spacing);
         paint
     }
 
-    fn text_size(&self, text: &str, max_width: Option<f32>) -> Size {
-        let paint = self.init_paint(femtovg::Paint::default());
+    fn text_size(&self, letter_spacing: f32, text: &str, max_width: Option<f32>) -> Size {
+        let paint = self.init_paint(letter_spacing, femtovg::Paint::default());
         let mut canvas = self.canvas.borrow_mut();
         let font_metrics = canvas.measure_font(paint).unwrap();
         let mut y = 0.;
@@ -1339,11 +1350,11 @@ struct GLFontMetrics {
 
 impl FontMetrics for GLFontMetrics {
     fn text_size(&self, text: &str) -> Size {
-        self.font().text_size(text, None)
+        self.font().text_size(self.request.letter_spacing, text, None)
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
-        let metrics = self.font().measure(text);
+        let metrics = self.font().measure(self.request.letter_spacing, text);
         let mut current_x = 0.;
         for glyph in metrics.glyphs {
             if current_x + glyph.advance_x / 2. >= x {
@@ -1358,7 +1369,9 @@ impl FontMetrics for GLFontMetrics {
         self.shared_data
             .canvas
             .borrow_mut()
-            .measure_font(self.font().init_paint(femtovg::Paint::default()))
+            .measure_font(
+                self.font().init_paint(self.request.letter_spacing, femtovg::Paint::default()),
+            )
             .unwrap()
             .height()
     }

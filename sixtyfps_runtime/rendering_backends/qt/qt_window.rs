@@ -981,7 +981,8 @@ fn get_font(request: FontRequest) -> QFont {
     let family: qttypes::QString = request.family.as_str().into();
     let pixel_size: f32 = request.pixel_size.unwrap_or(0.);
     let weight: i32 = request.weight.unwrap_or(0);
-    cpp!(unsafe [family as "QString", pixel_size as "float", weight as "int"] -> QFont as "QFont" {
+    let letter_spacing: f32 = request.letter_spacing;
+    cpp!(unsafe [family as "QString", pixel_size as "float", weight as "int", letter_spacing as "float"] -> QFont as "QFont" {
         QFont f;
         if (!family.isEmpty())
             f.setFamily(family);
@@ -989,6 +990,7 @@ fn get_font(request: FontRequest) -> QFont {
             f.setPixelSize(pixel_size);
         if (weight > 0)
             f.setWeight((weight-100)/8);
+        f.setLetterSpacing(QFont::AbsoluteSpacing, letter_spacing);
         return f;
     })
 }
