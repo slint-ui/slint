@@ -197,6 +197,7 @@ export PushButton := Rectangle {
         img := Image {
             horizontal-stretch: 0;
             colorize: DemoPalette.push_button_text_color;
+            image-fit: contain;
         }
 
         label := Text {
