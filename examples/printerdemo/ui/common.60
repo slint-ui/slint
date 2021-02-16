@@ -29,6 +29,8 @@ export global DemoPalette := {
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
     // as the combo box or spin box.
     property <color> control_outline_color: #FFBF63;
+    property <color> control_secoundary: #6284FF;
+    property <color> control_foreground: #122F7B;
 
     property <bool> night_mode: false;
 }
@@ -47,7 +49,7 @@ export Page := Rectangle {
             font-weight: 900;
             font-size: 22px;
             text: "< ";
-            color: #6284FF; // FIXME, what's for the night mode?
+            color: DemoPalette.control_secoundary;
             TouchArea { clicked => { back() } }
         }
 
@@ -66,4 +68,74 @@ export struct PrinterQueueItem := {
     pages: int,
     size: string, // number instead and format in .60?
     submission_date: string
+}
+
+
+SpinBoxButton := Rectangle {
+    callback clicked;
+    property<string> text;
+    border-radius: 3px;
+    border-width: 5px;
+    border-color: DemoPalette.control_outline_color;
+    width: height;
+    touch := TouchArea {
+        clicked => {
+            root.clicked();
+        }
+    }
+    Text {
+        height: 100%;
+        width: 100%;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        text <=> root.text;
+        font-size: height;
+        color: DemoPalette.control_secoundary;
+    }
+}
+
+export SpinBox := Rectangle {
+    property <bool> checked;
+    property <int> value;
+    property <int> minimum;
+    property <int> maximum: 100;
+
+    HorizontalLayout {
+        spacing: 12px;
+        padding: 0;
+        height: 32px;
+        SpinBoxButton {
+            text: "-";
+            clicked => {
+                if (root.value > root.minimum) {
+                    root.value -= 1;
+                }
+            }
+        }
+
+        Rectangle {
+            height: 72px;
+            border-radius: 3px;
+            border-width: 5px;
+            border-color: DemoPalette.control_outline_color;
+            Text {
+                width: 100%;
+                height: 100%;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                text: value;
+                font-size: 22px;
+                color: DemoPalette.control_foreground;
+            }
+        }
+
+        SpinBoxButton {
+            text: "+";
+            clicked => {
+                if (root.value < root.maximum) {
+                    root.value += 1;
+                }
+            }
+        }
+    }
 }

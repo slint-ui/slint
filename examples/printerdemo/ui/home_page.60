@@ -9,6 +9,7 @@
 LICENSE END */
 
 import { DemoPalette, Page, PrinterQueueItem } from "./common.60";
+import { CopyPage } from "./copy_page.60";
 
 ActionButton := Rectangle {
 
@@ -106,7 +107,7 @@ PrinterQueue := Rectangle {
                                 text: queue_item.owner;
                             }
                         }
-                        Row {                            
+                        Row {
                             PrintQueueSeparator {
                                 colspan: 2;
                             }
@@ -119,7 +120,7 @@ PrinterQueue := Rectangle {
                                 text: queue_item.pages;
                             }
                         }
-                        Row {                            
+                        Row {
                             PrintQueueSeparator {
                                 colspan: 2;
                             }
@@ -132,7 +133,7 @@ PrinterQueue := Rectangle {
                                 text: queue_item.pages;
                             }
                         }
-                        Row {                            
+                        Row {
                             PrintQueueSeparator {
                                 colspan: 2;
                             }
@@ -144,10 +145,10 @@ PrinterQueue := Rectangle {
                             Text {
                                 text: queue_item.submission_date;
                             }
-                        }                        
+                        }
                     }
                 }
-                     
+
                 TouchArea {
                     clicked => {
                         expanded = !expanded;
@@ -199,17 +200,15 @@ export HomePage := Page {
         back => { current_subpage = 0 }
     }
     Page {
-        header: "Copy";
+        header: "Scan";
         x: current_subpage == 2 ? 0 : parent.width + parent.x;
         animate x { duration: 125ms; easing: ease; }
         has_back_button: true;
         back => { current_subpage = 0 }
     }
-    Page {
-        header: "Scan";
+    CopyPage {
         x: current_subpage == 3 ? 0 : parent.width + parent.x;
         animate x { duration: 125ms; easing: ease; }
-        has_back_button: true;
         back => { current_subpage = 0 }
     }
     Page {

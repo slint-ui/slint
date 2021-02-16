@@ -1,0 +1,27 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { DemoPalette, Page, SpinBox } from "./common.60";
+
+
+export CopyPage := Page {
+    has_back_button: true;
+    header: "Copy";
+
+    GridLayout {
+        padding-top: 40px;
+        Row {
+            Text { text: "Copies"; }
+            SpinBox { value: 1; }
+            Rectangle {}
+        }
+        Row { Rectangle {} }
+    }
+}
