@@ -43,6 +43,17 @@ ActionButton := Rectangle {
     TouchArea { clicked => { root.clicked() } }
 }
 
+PrintQueueDetailsLabel := Text {
+    font-weight: 500;
+    color: #122F7B;
+}
+
+PrintQueueSeparator := Rectangle {
+    height: 1px;
+    border-width: 1px;
+    border-color: #BDC0D1;
+}
+
 PrinterQueue := Rectangle {
     property <[PrinterQueueItem]> printer_queue;
 
@@ -69,6 +80,8 @@ PrinterQueue := Rectangle {
                 border-width: 2px;
                 background: DemoPalette.printer_queue_item_background_color;
 
+                property <bool> expanded;
+
                 VerticalLayout {
                     padding: parent.border_radius;
                     spacing: 4px;
@@ -82,6 +95,62 @@ PrinterQueue := Rectangle {
                         text: queue_item.title;
                         overflow: elide;
                         font-weight: 800;
+                    }
+
+                    if (expanded) : GridLayout {
+                        Row {
+                            PrintQueueDetailsLabel {
+                                text: "Owner";
+                            }
+                            Text {
+                                text: queue_item.owner;
+                            }
+                        }
+                        Row {                            
+                            PrintQueueSeparator {
+                                colspan: 2;
+                            }
+                        }
+                        Row {
+                            PrintQueueDetailsLabel {
+                                text: "Pages";
+                            }
+                            Text {
+                                text: queue_item.pages;
+                            }
+                        }
+                        Row {                            
+                            PrintQueueSeparator {
+                                colspan: 2;
+                            }
+                        }
+                        Row {
+                            PrintQueueDetailsLabel {
+                                text: "Size";
+                            }
+                            Text {
+                                text: queue_item.pages;
+                            }
+                        }
+                        Row {                            
+                            PrintQueueSeparator {
+                                colspan: 2;
+                            }
+                        }
+                        Row {
+                            PrintQueueDetailsLabel {
+                                text: "Submitted";
+                            }
+                            Text {
+                                text: queue_item.submission_date;
+                            }
+                        }                        
+                    }
+                }
+                     
+                TouchArea {
+                    clicked => {
+                        expanded = !expanded;
                     }
                 }
             }
