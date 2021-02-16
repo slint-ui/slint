@@ -146,10 +146,18 @@ PrintQueueElement := Rectangle {
             }            
         }
 
-        // FIXME: this button should be centered. how?
-        if (expanded): PushButton {
-            text: "More";
-            width: 75%;
+        if (expanded): HorizontalLayout {
+            Rectangle {
+                horizontal-stretch: 0;
+                width: 10%;
+            }
+            PushButton {
+                text: "More";
+            }
+            Rectangle {
+                horizontal-stretch: 0;
+                width: 10%;
+            }
         }
     }
 
