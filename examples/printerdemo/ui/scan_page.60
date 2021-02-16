@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox } from "./common.60";
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "./common.60";
 
 
 export ScanPage := Page {
@@ -50,6 +50,28 @@ export ScanPage := Page {
 
             Label { text: "Save to"; }
             ComboBox { value: "Desktop"; }
+        }
+         Row {
+            Rectangle {
+                colspan: 3;
+            }
+            HorizontalLayout {
+                col: 3;
+                colspan: 2;
+
+                Rectangle {
+                    horizontal-stretch: 0;
+                    width: 10%;
+                }
+                PushButton {
+                    icon: @image-url("images/scan.svg");
+                    text: "Start scanning";
+                }
+                Rectangle {
+                    horizontal-stretch: 0;
+                    width: 10%;
+                }
+            }
         }
         Row { Rectangle {} }
     }

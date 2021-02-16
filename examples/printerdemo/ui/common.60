@@ -194,16 +194,21 @@ export PushButton := Rectangle {
     height: 23px; // line-height in the design
 
     HorizontalLayout {
+        padding-left: parent.border_radius;
+        padding-right: parent.border_radius;
+
         img := Image {
             horizontal-stretch: 0;
             colorize: DemoPalette.push_button_text_color;
             image-fit: contain;
+            width: height;
         }
 
         label := Text {
             font-size: DemoPalette.label_base_font_size;
             font-weight: 900;
             color: DemoPalette.push_button_text_color;
+            horizontal-alignment: center;
         }
     }
 }
