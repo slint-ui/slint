@@ -77,13 +77,18 @@ MainWindow := Window {
                     printer_queue: root.printer_queue;
                 }
                 Rectangle {
-                    background: #efe;
                     x: main_view.border-radius;
                     width: main_view.width - 2 * main_view.border_radius;
                     height: main_view.height - 2 * main_view.border_radius;
                     y: active_page == 1 ? main_view.border_radius : active_page < 1 ? - height : parent.height;
                     animate y { duration: 125ms; easing: ease; }
-                    Text { text: "Settings"; }
+                    Text {
+                        text: "Settings\n\n(TODO)";
+                        font-weight: 900;
+                        font-size: 22px;
+                        color: DemoPalette.text_foreground_color;
+                    }
+
                 }
                 InkPage {
                     x: main_view.border-radius;
