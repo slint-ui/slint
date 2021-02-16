@@ -25,6 +25,11 @@ export global DemoPalette := {
 
     property <color> status_label_text_color: night_mode ? #F1FF98 : #6284FF;
 
+    // Color used for the border / outline of items that can be clicked on, such as the
+    // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
+    // as the combo box or spin box.
+    property <color> control_outline_color: #FFBF63;
+
     property <bool> night_mode: false;
 }
 

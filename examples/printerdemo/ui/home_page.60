@@ -22,7 +22,7 @@ ActionButton := Rectangle {
         Rectangle {
             border-radius: 25px;
             border-width: 5px;
-            border-color: #FFBF63;
+            border-color: DemoPalette.control_outline_color;
             background: DemoPalette.printer_action_background_color;
 
             img := Image {
@@ -75,7 +75,7 @@ PrinterQueue := Rectangle {
             spacing: root.border_radius / 2;
 
             for queue_item[idx] in root.printer_queue: Rectangle {
-                border-color: #FFBF63;
+                border-color: DemoPalette.control_outline_color;
                 border-radius: 14px;
                 border-width: 2px;
                 background: DemoPalette.printer_queue_item_background_color;
