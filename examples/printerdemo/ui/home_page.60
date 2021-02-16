@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page } from "./common.60";
+import { DemoPalette, Page, PrinterQueueItem } from "./common.60";
 
 ActionButton := Rectangle {
 
@@ -40,8 +40,53 @@ ActionButton := Rectangle {
     }
 }
 
+PrinterQueue := Rectangle {
+    property <[PrinterQueueItem]> printer_queue;
+
+    border-radius: 27px;
+    background: DemoPalette.night_mode ? DemoPalette.printer_action_background_color : #F4F6FF;
+
+    VerticalLayout {
+        alignment: start;
+        padding: root.border_radius;
+
+        Text {
+            text: "Printing-Queue";
+            color: DemoPalette.text_foreground_color;
+            font-size: 24px;
+        }
+
+        VerticalLayout {
+            alignment: start;
+            spacing: root.border_radius / 2;
+
+            for queue_item[idx] in root.printer_queue: Rectangle {
+                border-color: #FFBF63;
+                border-radius: 14px;
+                border-width: 2px;
+
+                VerticalLayout {
+                    padding: parent.border_radius;
+
+                    Text {
+                        text: queue_item.status;
+                        color: DemoPalette.status_label_text_color;
+                    }
+
+                    Text {
+                        text: queue_item.title;
+                        overflow: elide;
+                        font-weight: 800;
+                    }
+                }
+            }
+        }
+    }
+}
+
 export HomePage := Page {
     property <length> header_row_height: 40px;
+    property <[PrinterQueueItem]> printer_queue <=> queue_view.printer_queue;
 
     header := Text {
         text: "Xerol 1347 hdp";
@@ -62,32 +107,15 @@ export HomePage := Page {
         { name: "USB", icon: @image-url("images/usb.svg") },
     ]: ActionButton {
         x: mod(idx, 2) * (button_width + button_spacing);
-        y: floor(idx / 2) * (button_height + button_spacing) + header_row_height;
+        y: floor(idx / 2) * (button_height + button_spacing) + /* header row height */ 40px;
         width: button_width;
         height: button_height;
         icon: action.icon;
         text: action.name;
     }
 
-    Rectangle {
+    queue_view := PrinterQueue {
         x: parent.width / 2;
-        width: 50%;
-
-        border-radius: 27px;
-        background: DemoPalette.night_mode ? DemoPalette.printer_action_background_color : #F4F6FF;
-
-        VerticalLayout {
-            Text {
-                text: "Printing Queue";
-                color: DemoPalette.text_foreground_color;
-            }
-
-            Rectangle {
-                y: root.header_row_height;
-                border-color: #FFBF63;
-                border-radius: 14px;
-                border-width: 2px;
-            }
-        }
+        width: 50%;        
     }
 }

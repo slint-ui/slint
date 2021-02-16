@@ -22,9 +22,20 @@ export global DemoPalette := {
 
     property <color> printer_action_background_color: night_mode ? main_background : white;
 
+    property <color> status_label_text_color: night_mode ? #F1FF98 : #6284FF;
+
     property <bool> night_mode: false;
 }
 
 export Page := Rectangle {
     background: DemoPalette.page_background_color;
+}
+
+export struct PrinterQueueItem := {
+    status: string,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .60?
+    submission_date: string
 }

@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette } from "common.60";
+import { DemoPalette, PrinterQueueItem } from "common.60";
 import { HomePage } from "./home_page.60";
 import { InkLevel, InkPage } from "./ink_page.60";
 
@@ -29,6 +29,12 @@ SideBarIcon := Rectangle {
 
 MainWindow := Window {
     callback quit();
+
+    property <[PrinterQueueItem]> printer_queue: [
+        { status: "PRINTING - 63%", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission_date: "11:41 25/01/21" },
+        { status: "WAITING...", title: "Adressliste.docx", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission_date: "11:41 25/01/21" },
+        { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission_date: "11:41 25/01/21" },
+    ];
 
     width: 800px;
     height: 600px;
@@ -62,12 +68,13 @@ MainWindow := Window {
             minimum-height: 600px;
 
             Clip {
-                HomePage {
+                home_page := HomePage {
                     x: main_view.border-radius;
                     width: main_view.width - 2 * main_view.border_radius;
                     height: main_view.height - 2 * main_view.border_radius;
                     y: active_page == 0 ? main_view.border_radius : active_page < 0 ? - height : parent.height;
                     animate y { duration: 125ms; easing: ease; }
+                    printer_queue: root.printer_queue;
                 }
                 Rectangle {
                     background: #efe;
