@@ -293,14 +293,14 @@ fn parse_property_binding(p: &mut impl Parser) {
 /// {expression }
 /// {object: 42};
 /// ```
-fn parse_binding_expression(p: &mut impl Parser) {
+fn parse_binding_expression(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::BindingExpression);
     if p.nth(0).kind() == SyntaxKind::LBrace && p.nth(2).kind() != SyntaxKind::Colon {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
+        true
     } else {
-        parse_expression(&mut *p);
-        p.expect(SyntaxKind::Semicolon);
+        parse_expression(&mut *p) && p.expect(SyntaxKind::Semicolon)
     }
 }
 
@@ -526,9 +526,12 @@ fn parse_state(p: &mut impl Parser) -> bool {
             SyntaxKind::Eof => return false,
             _ => {
                 let mut p = p.start_node(SyntaxKind::StatePropertyChange);
-                parse_qualified_name(&mut *p);
-                p.expect(SyntaxKind::Colon);
-                parse_binding_expression(&mut *p);
+                if !parse_qualified_name(&mut *p)
+                    || !p.expect(SyntaxKind::Colon)
+                    || !parse_binding_expression(&mut *p)
+                {
+                    return false;
+                }
             }
         }
     }
