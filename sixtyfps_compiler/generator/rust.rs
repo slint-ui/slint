@@ -148,14 +148,37 @@ fn handle_property_binding(
 ) {
     let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
     let prop_type = item_rc.borrow().lookup_property(prop_name).property_type;
+    let (downgrade, upgrade) = if item_rc
+        .borrow()
+        .enclosing_component
+        .upgrade()
+        .unwrap()
+        .is_global()
+    {
+        (
+            quote!(let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());),
+            quote!(
+                let self_pinned = self_weak.upgrade().unwrap();
+                let _self = self_pinned.as_ref();
+            ),
+        )
+    } else {
+        (
+            quote!(let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);),
+            quote!(
+                let self_pinned = self_weak.upgrade().unwrap();
+                let _self = self_pinned.as_pin_ref();
+            ),
+        )
+    };
+
     if matches!(prop_type, Type::Callback{..}) {
         let tokens_for_expression = compile_expression(binding_expression, &component);
         init.push(quote!(
             #rust_property.set_handler({
-                let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
+                #downgrade
                 move |args| {
-                    let self_pinned = self_weak.upgrade().unwrap();
-                    let _self = self_pinned.as_pin_ref();
+                    #upgrade
                     (#tokens_for_expression) as _
                 }
             });
@@ -181,10 +204,9 @@ fn handle_property_binding(
             quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
         } else {
             let binding_tokens = quote!({
-                let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
+                #downgrade
                 move || {
-                    let self_pinned = self_weak.upgrade().unwrap();
-                    let _self = self_pinned.as_pin_ref();
+                    #upgrade
                     (#tokens_for_expression) as _
                 }
             });
@@ -215,10 +237,9 @@ fn handle_property_binding(
                             quote!(if #cond { #a_tokens })
                         });
                         quote! {
-                            let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
+                            #downgrade
                             #rust_property.set_animated_binding_for_transition(#binding_tokens, move || {
-                                let self_pinned = self_weak.upgrade().unwrap();
-                                let _self = self_pinned.as_pin_ref();
+                                #upgrade
                                 let state = #state_tokens;
                                 ({ #(#anim_expr else)* { sixtyfps::re_exports::PropertyAnimation::default() }  }, state.change_time)
                             });

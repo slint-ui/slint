@@ -190,6 +190,7 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use once_cell::sync::Lazy;
     pub use once_cell::unsync::OnceCell;
+    pub use pin_weak::rc::PinWeak;
     pub use sixtyfps_corelib::animations::EasingCurve;
     pub use sixtyfps_corelib::callbacks::Callback;
     pub use sixtyfps_corelib::component::{
