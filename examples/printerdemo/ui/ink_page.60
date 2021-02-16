@@ -8,14 +8,16 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette } from "common.60";
+import { DemoPalette, Page } from "common.60";
 
 export struct InkLevel := {
     color: color,
     level: float,
 }
 
-export InkPage := Rectangle {
+export InkPage := Page {
+    header: "Ink Level";
+
     property <[InkLevel]> ink_levels;
     property <bool> page_visible;
 

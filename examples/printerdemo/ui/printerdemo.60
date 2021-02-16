@@ -144,7 +144,7 @@ MainWindow := Window {
         }
 
         Rectangle {
-            y: sidebar.icon_y(3);
+            y: sidebar.icon_y(3) + parent.width / 2;
             border-width: 1px;
             border-color: #6284FF;
             height: 2px;
