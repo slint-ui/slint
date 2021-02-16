@@ -14,6 +14,7 @@ ActionButton := Rectangle {
 
     property <resource> icon <=> img.source;
     property <string> text <=> label.text;
+    callback clicked;
 
     VerticalLayout {
         spacing: 4px;
@@ -38,6 +39,8 @@ ActionButton := Rectangle {
             color: DemoPalette.text_foreground_color;
         }
     }
+
+    TouchArea { clicked => { root.clicked() } }
 }
 
 PrinterQueue := Rectangle {
@@ -90,17 +93,14 @@ export HomePage := Page {
     property <length> header_row_height: 40px;
     property <[PrinterQueueItem]> printer_queue <=> queue_view.printer_queue;
 
-    header := Text {
-        text: "Xerol 1347 hdp";
-        font-weight: 900;
-        font-size: 22px;
-        width: 50%;
-        color: DemoPalette.text_foreground_color;
-    }
-
     property <length> button_spacing: root.width / 12;
     property <length> button_width: root.width / 3 - 2 * button_spacing;
     property <length> button_height: button_width + /* spacing */ 4px + /* label size */ 22px;
+
+    header: "Xerol 1347 hdp";
+
+    property <int> current_subpage: 0;
+
 
     for action[idx] in [
         { name: "Print", icon: @image-url("images/print.svg") },
@@ -114,10 +114,40 @@ export HomePage := Page {
         height: button_height;
         icon: action.icon;
         text: action.name;
+        clicked => { current_subpage = idx + 1; }
     }
 
     queue_view := PrinterQueue {
         x: parent.width / 2;
-        width: 50%;        
+        width: 50%;
+    }
+
+    Page {
+        header: "Print";
+        x: current_subpage == 1 ? 0 : parent.width + parent.x;
+        animate x { duration: 125ms; easing: ease; }
+        has_back_button: true;
+        back => { current_subpage = 0 }
+    }
+    Page {
+        header: "Copy";
+        x: current_subpage == 2 ? 0 : parent.width + parent.x;
+        animate x { duration: 125ms; easing: ease; }
+        has_back_button: true;
+        back => { current_subpage = 0 }
+    }
+    Page {
+        header: "Scan";
+        x: current_subpage == 3 ? 0 : parent.width + parent.x;
+        animate x { duration: 125ms; easing: ease; }
+        has_back_button: true;
+        back => { current_subpage = 0 }
+    }
+    Page {
+        header: "USB";
+        x: current_subpage == 4 ? 0 : parent.width + parent.x;
+        animate x { duration: 125ms; easing: ease; }
+        has_back_button: true;
+        back => { current_subpage = 0 }
     }
 }

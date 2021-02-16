@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, PrinterQueueItem } from "common.60";
+import { DemoPalette, PrinterQueueItem, Page } from "common.60";
 import { HomePage } from "./home_page.60";
 import { InkLevel, InkPage } from "./ink_page.60";
 
@@ -76,19 +76,13 @@ MainWindow := Window {
                     animate y { duration: 125ms; easing: ease; }
                     printer_queue: root.printer_queue;
                 }
-                Rectangle {
+                Page {
                     x: main_view.border-radius;
                     width: main_view.width - 2 * main_view.border_radius;
                     height: main_view.height - 2 * main_view.border_radius;
                     y: active_page == 1 ? main_view.border_radius : active_page < 1 ? - height : parent.height;
                     animate y { duration: 125ms; easing: ease; }
-                    Text {
-                        text: "Settings\n\n(TODO)";
-                        font-weight: 900;
-                        font-size: 22px;
-                        color: DemoPalette.text_foreground_color;
-                    }
-
+                    header: "Settings\n\n(TODO)";
                 }
                 InkPage {
                     x: main_view.border-radius;

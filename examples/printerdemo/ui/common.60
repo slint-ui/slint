@@ -29,7 +29,29 @@ export global DemoPalette := {
 }
 
 export Page := Rectangle {
+    property<string> header <=> h.text;
     background: DemoPalette.page_background_color;
+    property <bool> has_back_button: false;
+    callback back;
+
+    HorizontalLayout {
+        padding: 0;
+        spacing: 16px;
+        alignment: start;
+        if (has_back_button) : Text {
+            font-weight: 900;
+            font-size: 22px;
+            text: "< ";
+            color: #6284FF; // FIXME, what's for the night mode?
+            TouchArea { clicked => { back() } }
+        }
+
+        h := Text {
+            font-weight: 900;
+            font-size: 22px;
+            color: DemoPalette.text_foreground_color;
+        }
+    }
 }
 
 export struct PrinterQueueItem := {
