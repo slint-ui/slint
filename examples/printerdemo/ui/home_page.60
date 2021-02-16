@@ -56,6 +56,93 @@ PrintQueueSeparator := Rectangle {
     border-color: #BDC0D1;
 }
 
+PrintQueueElement := Rectangle {
+    property <PrinterQueueItem> queue_item;
+
+    border-color: DemoPalette.control_outline_color;
+    border-radius: 14px;
+    border-width: 2px;
+    background: DemoPalette.printer_queue_item_background_color;
+
+    property <bool> expanded;
+
+    VerticalLayout {
+        padding: parent.border_radius;
+        spacing: 4px;
+
+        Text {
+            text: queue_item.status;
+            color: DemoPalette.status_label_text_color;
+        }
+
+        Text {
+            text: queue_item.title;
+            overflow: elide;
+            font-weight: 800;
+        }
+
+        if (expanded) : GridLayout {
+            Row {
+                PrintQueueDetailsLabel {
+                    text: "Owner";
+                }
+                Text {
+                    text: queue_item.owner;
+                    color: DemoPalette.secondary_foreground_color;
+                }
+            }
+            Row {
+                PrintQueueSeparator {
+                    colspan: 2;
+                }
+            }
+            Row {
+                PrintQueueDetailsLabel {
+                    text: "Pages";
+                }
+                Text {
+                    text: queue_item.pages;
+                    color: DemoPalette.secondary_foreground_color;
+
+                }
+            }
+            Row {
+                PrintQueueSeparator {
+                    colspan: 2;
+                }
+            }
+            Row {
+                PrintQueueDetailsLabel {
+                    text: "Size";
+                }
+                Text {
+                    text: queue_item.pages;
+                }
+            }
+            Row {
+                PrintQueueSeparator {
+                    colspan: 2;
+                }
+            }
+            Row {
+                PrintQueueDetailsLabel {
+                    text: "Submitted";
+                }
+                Text {
+                    text: queue_item.submission_date;
+                    color: DemoPalette.secondary_foreground_color;
+                }
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            expanded = !expanded;
+        }
+    }
+}
+
 PrinterQueue := Rectangle {
     property <[PrinterQueueItem]> printer_queue;
 
@@ -64,7 +151,6 @@ PrinterQueue := Rectangle {
 
     VerticalLayout {
         alignment: start;
-        padding: root.border_radius;
 
         Text {
             text: "Printing-Queue";
@@ -72,91 +158,22 @@ PrinterQueue := Rectangle {
             font-size: 24px;
         }
 
-        VerticalLayout {
-            alignment: start;
-            spacing: root.border_radius / 2;
+        Flickable {
+            viewport_width: root.width - 2 * root.border_radius;
+            viewport_height: 2000px; /* FIXME: the flickable needs to learn its viewport height from the layout */
 
-            for queue_item[idx] in root.printer_queue: Rectangle {
-                border-color: DemoPalette.control_outline_color;
-                border-radius: 14px;
-                border-width: 2px;
-                background: DemoPalette.printer_queue_item_background_color;
+            VerticalLayout {
+                alignment: start;
+                padding-top: root.border_radius;
+                padding-bottom: root.border_radius;
 
-                property <bool> expanded;
 
                 VerticalLayout {
-                    padding: parent.border_radius;
-                    spacing: 4px;
+                    alignment: start;
+                    spacing: root.border_radius / 2;
 
-                    Text {
-                        text: queue_item.status;
-                        color: DemoPalette.status_label_text_color;
-                    }
-
-                    Text {
-                        text: queue_item.title;
-                        overflow: elide;
-                        font-weight: 800;
-                    }
-
-                    if (expanded) : GridLayout {
-                        Row {
-                            PrintQueueDetailsLabel {
-                                text: "Owner";
-                            }
-                            Text {
-                                text: queue_item.owner;
-                                color: DemoPalette.secondary_foreground_color;
-                            }
-                        }
-                        Row {
-                            PrintQueueSeparator {
-                                colspan: 2;
-                            }
-                        }
-                        Row {
-                            PrintQueueDetailsLabel {
-                                text: "Pages";
-                            }
-                            Text {
-                                text: queue_item.pages;
-                                color: DemoPalette.secondary_foreground_color;
-
-                            }
-                        }
-                        Row {
-                            PrintQueueSeparator {
-                                colspan: 2;
-                            }
-                        }
-                        Row {
-                            PrintQueueDetailsLabel {
-                                text: "Size";
-                            }
-                            Text {
-                                text: queue_item.pages;
-                            }
-                        }
-                        Row {
-                            PrintQueueSeparator {
-                                colspan: 2;
-                            }
-                        }
-                        Row {
-                            PrintQueueDetailsLabel {
-                                text: "Submitted";
-                            }
-                            Text {
-                                text: queue_item.submission_date;
-                                color: DemoPalette.secondary_foreground_color;
-                            }
-                        }
-                    }
-                }
-
-                TouchArea {
-                    clicked => {
-                        expanded = !expanded;
+                    for queue_item[idx] in root.printer_queue: PrintQueueElement {
+                        queue_item: queue_item;
                     }
                 }
             }
