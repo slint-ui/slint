@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, PrinterQueueItem } from "./common.60";
+import { DemoPalette, Page, PrinterQueueItem, PushButton } from "./common.60";
 import { CopyPage } from "./copy_page.60";
 import { ScanPage } from "./scan_page.60";
 
@@ -82,6 +82,9 @@ PrintQueueElement := Rectangle {
         }
 
         if (expanded) : GridLayout {
+            padding: 0px;
+            padding-bottom: root.border-radius / 2;
+
             Row {
                 PrintQueueDetailsLabel {
                     text: "Owner";
@@ -132,7 +135,12 @@ PrintQueueElement := Rectangle {
                     text: queue_item.submission_date;
                     color: DemoPalette.secondary_foreground_color;
                 }
-            }
+            }            
+        }
+
+        if (expanded): PushButton {
+            text: "More";
+            width: 75%;
         }
     }
 

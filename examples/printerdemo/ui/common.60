@@ -33,6 +33,10 @@ export global DemoPalette := {
     property <color> control_secoundary: #6284FF;
     property <color> control_foreground: #122F7B;
 
+    property <color> primary_push_button_color: #6284FF;
+    property <color> secondary_push_button_color: #FFBF63; // red in the "green" theme
+    property <color> push_button_text_color: white;
+
     property <bool> night_mode: false;
 }
 
@@ -171,6 +175,30 @@ export ComboBox := Rectangle {
             text: "▼ ";
             font-size: 22px;
             color: DemoPalette.control_secoundary;
+        }
+    }
+}
+
+export PushButton := Rectangle {
+    property <string> text <=> label.text;
+    property <resource> icon <=> img.source;
+    property <bool> primary: true;
+
+    border-radius: 13.5px;
+    background: primary ? DemoPalette.primary_push_button_color : DemoPalette.secondary_push_button_color;
+
+    height: 23px; // line-height in the design
+
+    HorizontalLayout {
+        img := Image {
+            horizontal-stretch: 0;
+            colorize: DemoPalette.push_button_text_color;
+        }
+
+        label := Text {
+            font-size: 15.6px;
+            font-weight: 900;
+            color: DemoPalette.push_button_text_color;
         }
     }
 }
