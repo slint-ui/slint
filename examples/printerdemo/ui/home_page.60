@@ -72,10 +72,11 @@ PrintQueueElement := Rectangle {
         spacing: 4px;
 
         Text {
-            // TODO: letter-spacing: 1.56px and text-transform: uppercase
+            // TODO: text-transform: uppercase
             text: queue_item.status;
             color: DemoPalette.status_label_text_color;
             font-size: DemoPalette.base_font_size * 0.75;
+            letter-spacing: 1.5px;
         }
 
         Text {
