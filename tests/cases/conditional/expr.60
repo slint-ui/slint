@@ -12,6 +12,8 @@ TestCase := Rectangle {
     property<int> test_value: condition ? 1 : 2;
     property<bool> condition2;
     property<int> test_value2: condition ? condition2 ? 1 : 2 : condition2 ? 3 : 4;
+
+    property<length> test_value3: false ? 0 : 12phx;
 }
 /*
 ```cpp
@@ -25,6 +27,7 @@ assert_eq(instance.get_test_value(), 2);
 assert_eq(instance.get_test_value2(), 4);
 instance.set_condition2(true);
 assert_eq(instance.get_test_value2(), 3);
+assert_eq(instance.get_test_value3(), 12.);
 ```
 
 
@@ -38,13 +41,19 @@ assert_eq!(instance.get_test_value(), 2);
 assert_eq!(instance.get_test_value2(), 4);
 instance.set_condition2(true);
 assert_eq!(instance.get_test_value2(), 3);
+assert_eq!(instance.get_test_value3(), 12.);
 ```
 
 ```js
 var instance = new sixtyfps.TestCase({});
 instance.condition = true;
 assert.equal(instance.test_value, 1);
+assert.equal(instance.test_value2, 2);
 instance.condition = false;
 assert.equal(instance.test_value, 2);
+assert.equal(instance.test_value2, 4);
+instance.condition2 = true;
+assert.equal(instance.test_value2, 3);
+assert.equal(instance.test_value3, 12);
 ```
 */

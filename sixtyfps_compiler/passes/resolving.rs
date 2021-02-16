@@ -1094,8 +1094,14 @@ impl Expression {
                             target_type
                         } else if target_type.can_convert(&expr_ty) {
                             expr_ty
+                        } else if expr_ty.default_unit().is_some()
+                            && matches!(target_type, Type::Float32 | Type::Int32)
+                        {
+                            // in case this is the '0' literal
+                            expr_ty
                         } else {
-                            Type::Invalid
+                            // otherwise, use the target type and let further conversion report an error
+                            target_type
                         }
                     }
                 }
