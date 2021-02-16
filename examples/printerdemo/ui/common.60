@@ -50,11 +50,12 @@ export Page := Rectangle {
 
     HorizontalLayout {
         padding: 0;
+        padding-top: /*line height*/ 46px - h.font-size;
         spacing: 16px;
         alignment: start;
         if (has_back_button) : Text {
             font-weight: 900;
-            font-size: 22px;
+            font-size: 32px;
             text: "< ";
             color: DemoPalette.control_secoundary;
             TouchArea { clicked => { back() } }
@@ -62,7 +63,7 @@ export Page := Rectangle {
 
         h := Text {
             font-weight: 900;
-            font-size: 22px;
+            font-size: 32px;
             color: DemoPalette.text_foreground_color;
         }
     }

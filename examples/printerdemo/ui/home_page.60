@@ -159,6 +159,7 @@ PrinterQueue := Rectangle {
 
     VerticalLayout {
         alignment: start;
+        padding: parent.border_radius;
 
         Text {
             text: "Printing-Queue";
@@ -174,15 +175,12 @@ PrinterQueue := Rectangle {
                 alignment: start;
                 padding-top: root.border_radius;
                 padding-bottom: root.border_radius;
+                padding-left: 0px;
+                padding-right: 0px;
+                spacing: root.border_radius / 2;
 
-
-                VerticalLayout {
-                    alignment: start;
-                    spacing: root.border_radius / 2;
-
-                    for queue_item[idx] in root.printer_queue: PrintQueueElement {
-                        queue_item: queue_item;
-                    }
+                for queue_item[idx] in root.printer_queue: PrintQueueElement {
+                    queue_item: queue_item;
                 }
             }
         }
@@ -209,7 +207,9 @@ export HomePage := Page {
         { name: "USB", icon: @image-url("images/usb.svg") },
     ]: ActionButton {
         x: mod(idx, 2) * (button_width + button_spacing);
-        y: floor(idx / 2) * (button_height + button_spacing) + /* header row height */ 40px;
+        y: floor(idx / 2) * (button_height + button_spacing)
+           + /* header row height */ 46px
+           + /* top-padding of printer queue */ 27px; // align with the first item of the printer queue
         width: button_width;
         height: button_height;
         icon: action.icon;
