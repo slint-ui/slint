@@ -46,7 +46,7 @@ ActionButton := Rectangle {
 
 PrintQueueDetailsLabel := Text {
     font-weight: 500;
-    color: #122F7B;
+    color: DemoPalette.control_foreground;
 }
 
 PrintQueueSeparator := Rectangle {

@@ -41,6 +41,8 @@ export Page := Rectangle {
     property <bool> has_back_button: false;
     callback back;
 
+    TouchArea {} // protect underneath controls
+
     HorizontalLayout {
         padding: 0;
         spacing: 16px;
@@ -70,12 +72,18 @@ export struct PrinterQueueItem := {
     submission_date: string
 }
 
+export Label := Text {
+    color: DemoPalette.text_foreground_color;
+    font-size: 15.6px;
+    vertical-alignment: center;
+    font-weight: 700;
+}
 
 SpinBoxButton := Rectangle {
     callback clicked;
     property<string> text;
     border-radius: 3px;
-    border-width: 5px;
+    border-width: 2px;
     border-color: DemoPalette.control_outline_color;
     width: height;
     touch := TouchArea {
@@ -89,7 +97,7 @@ SpinBoxButton := Rectangle {
         vertical-alignment: center;
         horizontal-alignment: center;
         text <=> root.text;
-        font-size: height;
+        font-size: 32px;
         color: DemoPalette.control_secoundary;
     }
 }
@@ -114,9 +122,8 @@ export SpinBox := Rectangle {
         }
 
         Rectangle {
-            height: 72px;
             border-radius: 3px;
-            border-width: 5px;
+            border-width: 2px;
             border-color: DemoPalette.control_outline_color;
             Text {
                 width: 100%;
@@ -124,7 +131,7 @@ export SpinBox := Rectangle {
                 vertical-alignment: center;
                 horizontal-alignment: center;
                 text: value;
-                font-size: 22px;
+                font-size: 15.6px;
                 color: DemoPalette.control_foreground;
             }
         }
@@ -136,6 +143,33 @@ export SpinBox := Rectangle {
                     root.value += 1;
                 }
             }
+        }
+    }
+}
+
+export ComboBox := Rectangle {
+    property<string> value;
+    border-radius: 3px;
+    border-width: 2px;
+    border-color: DemoPalette.control_outline_color;
+    height: 32px;
+    HorizontalLayout {
+        padding-left: 12px;
+        Text {
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            text <=> root.value;
+            font-size: 15.6px;
+            color: DemoPalette.control_foreground;
+        }
+        Text {
+            horizontal-stretch: 0;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            text: "▼ ";
+            font-size: 22px;
+            color: DemoPalette.control_secoundary;
         }
     }
 }

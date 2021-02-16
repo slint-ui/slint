@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox } from "./common.60";
+import { DemoPalette, Page, SpinBox, Label, ComboBox } from "./common.60";
 
 
 export CopyPage := Page {
@@ -17,10 +17,20 @@ export CopyPage := Page {
 
     GridLayout {
         padding-top: 40px;
+        spacing: 24px;
         Row {
-            Text { text: "Copies"; }
+            Label { text: "Copies"; }
             SpinBox { value: 1; }
+
             Rectangle {}
+
+            Label { text: "Size"; }
+            ComboBox { value: "DIN A4"; }
+        }
+        Row {
+            Label { text: "Layout"; }
+            ComboBox { value: "Portrait"; }
+
         }
         Row { Rectangle {} }
     }
