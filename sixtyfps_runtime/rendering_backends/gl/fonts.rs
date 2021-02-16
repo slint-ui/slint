@@ -131,6 +131,7 @@ pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequ
             family: "DejaVu Sans".into(),
             weight: _request.weight,
             pixel_size: _request.pixel_size,
+            letter_spacing: _request.letter_spacing,
         },
     ]
 }
