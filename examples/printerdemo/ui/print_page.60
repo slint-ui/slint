@@ -8,12 +8,15 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "./common.60";
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, PrinterQueueItem } from "./common.60";
+import { PrinterQueueList } from "./printer_queue.60";
 
 
 export PrintPage := Page {
     has_back_button: true;
     header: "Print";
+
+    property <[PrinterQueueItem]> printer_queue <=> queue.printer_queue;
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -25,6 +28,12 @@ export PrintPage := Page {
                 color: DemoPalette.secondary_foreground_color;
                 font-size: DemoPalette.base_font_size * 1.125;
                 font-weight: 800;
+            }
+        }
+
+        Row {
+            queue := PrinterQueueList {
+                viewport_width: root.width;
             }
         }
 

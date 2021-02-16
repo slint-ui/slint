@@ -1,0 +1,181 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { DemoPalette, PrinterQueueItem, PushButton } from "./common.60";
+
+PrintQueueDetailsLabel := Text {
+    font-weight: 500;
+    color: DemoPalette.control_foreground;
+    font-size: DemoPalette.base_font_size;
+}
+
+PrintQueueSeparator := Rectangle {
+    height: 1px;
+    border-width: 1px;
+    border-color: #BDC0D1;
+}
+
+PrintQueueElement := Rectangle {
+    property <PrinterQueueItem> queue_item;
+
+    border-color: DemoPalette.control_outline_color;
+    border-radius: 14px;
+    border-width: 2px;
+    background: DemoPalette.printer_queue_item_background_color;
+
+    property <bool> expanded;
+
+    VerticalLayout {
+        padding: parent.border_radius;
+        spacing: 4px;
+
+        Text {
+            // TODO: text-transform: uppercase
+            text: {
+                if (queue_item.status == "PRINTING") {
+                   "\{queue_item.progress}% - \{queue_item.status}"
+                } else {
+                    queue_item.status
+                }
+            }
+            color: DemoPalette.status_label_text_color;
+            font-size: DemoPalette.base_font_size * 0.75;
+            font-weight: 800;
+            letter-spacing: 1.56px;
+        }
+
+        Text {
+            text: queue_item.title;
+            overflow: elide;
+            font-weight: 800;
+            font-size: DemoPalette.base_font_size * 1.125;
+        }
+
+        if (expanded) : GridLayout {
+            padding: 0px;
+            padding-bottom: root.border-radius / 2;
+
+            Row {
+                PrintQueueDetailsLabel {
+                    text: "Owner";
+                }
+                Text {
+                    text: queue_item.owner;
+                    color: DemoPalette.secondary_foreground_color;
+                    font-size: DemoPalette.base_font_size;
+                }
+            }
+            Row {
+                PrintQueueSeparator {
+                    colspan: 2;
+                }
+            }
+            Row {
+                PrintQueueDetailsLabel {
+                    text: "Pages";
+                }
+                Text {
+                    text: queue_item.pages;
+                    color: DemoPalette.secondary_foreground_color;
+                    font-size: DemoPalette.base_font_size;
+                }
+            }
+            Row {
+                PrintQueueSeparator {
+                    colspan: 2;
+                }
+            }
+            Row {
+                PrintQueueDetailsLabel {
+                    text: "Size";
+                }
+                Text {
+                    text: queue_item.pages;
+                    color: DemoPalette.secondary_foreground_color;
+                    font-size: DemoPalette.base_font_size;
+                }
+            }
+            Row {
+                PrintQueueSeparator {
+                    colspan: 2;
+                }
+            }
+            Row {
+                PrintQueueDetailsLabel {
+                    text: "Submitted";
+                }
+                Text {
+                    text: queue_item.submission_date;
+                    color: DemoPalette.secondary_foreground_color;
+                    font-size: DemoPalette.base_font_size;
+                }
+            }            
+        }
+
+        if (expanded): HorizontalLayout {
+            Rectangle {
+                horizontal-stretch: 0;
+                width: 10%;
+            }
+            PushButton {
+                text: "More";
+            }
+            Rectangle {
+                horizontal-stretch: 0;
+                width: 10%;
+            }
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            expanded = !expanded;
+        }
+    }
+}
+
+export PrinterQueueList := Flickable {
+    property <[PrinterQueueItem]> printer_queue;
+    viewport_height: 2000px; /* FIXME: the flickable needs to learn its viewport height from the layout */        
+
+    VerticalLayout {
+        alignment: start;
+        padding: 0px;
+        spacing: 13.5px;
+
+        for queue_item[idx] in root.printer_queue: PrintQueueElement {
+            queue_item: queue_item;
+        }
+    }
+}
+
+export PrinterQueue := Rectangle {
+    property <[PrinterQueueItem]> printer_queue <=> queue_list.printer_queue;
+
+    border-radius: 27px;
+    background: DemoPalette.night_mode ? DemoPalette.printer_action_background_color : #F4F6FF;
+
+    VerticalLayout {
+        alignment: start;
+        padding: parent.border_radius;
+        spacing: root.border_radius;
+
+        Text {
+            text: "Printing-Queue";
+            color: DemoPalette.text_foreground_color;
+            font-size: DemoPalette.base_font_size * 1.5;
+            font-weight: 700;
+        }
+
+        queue_list := PrinterQueueList {
+            viewport_width: root.width - 2 * root.border_radius;
+        }
+    }
+}
