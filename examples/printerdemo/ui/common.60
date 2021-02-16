@@ -73,7 +73,8 @@ export Page := Rectangle {
 }
 
 export struct PrinterQueueItem := {
-    status: string,
+    status: string, // WAITING..., PRINTING
+    progress: int,
     title: string,
     owner: string,
     pages: int,
