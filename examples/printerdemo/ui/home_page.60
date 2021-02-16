@@ -35,7 +35,7 @@ ActionButton := Rectangle {
         }
 
         label := Text {
-            font-size: 22px;
+            font-size: DemoPalette.base_font_size * 1.375;
             font-weight: 800;
             horizontal-alignment: center;
             color: DemoPalette.text_foreground_color;
@@ -48,6 +48,7 @@ ActionButton := Rectangle {
 PrintQueueDetailsLabel := Text {
     font-weight: 500;
     color: DemoPalette.control_foreground;
+    font-size: DemoPalette.base_font_size;
 }
 
 PrintQueueSeparator := Rectangle {
@@ -71,14 +72,17 @@ PrintQueueElement := Rectangle {
         spacing: 4px;
 
         Text {
+            // TODO: letter-spacing: 1.56px and text-transform: uppercase
             text: queue_item.status;
             color: DemoPalette.status_label_text_color;
+            font-size: DemoPalette.base_font_size * 0.75;
         }
 
         Text {
             text: queue_item.title;
             overflow: elide;
             font-weight: 800;
+            font-size: DemoPalette.base_font_size * 1.125;
         }
 
         if (expanded) : GridLayout {
@@ -92,6 +96,7 @@ PrintQueueElement := Rectangle {
                 Text {
                     text: queue_item.owner;
                     color: DemoPalette.secondary_foreground_color;
+                    font-size: DemoPalette.base_font_size;
                 }
             }
             Row {
@@ -106,6 +111,7 @@ PrintQueueElement := Rectangle {
                 Text {
                     text: queue_item.pages;
                     color: DemoPalette.secondary_foreground_color;
+                    font-size: DemoPalette.base_font_size;
                 }
             }
             Row {
@@ -120,6 +126,7 @@ PrintQueueElement := Rectangle {
                 Text {
                     text: queue_item.pages;
                     color: DemoPalette.secondary_foreground_color;
+                    font-size: DemoPalette.base_font_size;
                 }
             }
             Row {
@@ -134,6 +141,7 @@ PrintQueueElement := Rectangle {
                 Text {
                     text: queue_item.submission_date;
                     color: DemoPalette.secondary_foreground_color;
+                    font-size: DemoPalette.base_font_size;
                 }
             }            
         }
@@ -165,7 +173,7 @@ PrinterQueue := Rectangle {
         Text {
             text: "Printing-Queue";
             color: DemoPalette.text_foreground_color;
-            font-size: 24px;
+            font-size: DemoPalette.base_font_size * 1.5;
             font-weight: 700;
         }
 

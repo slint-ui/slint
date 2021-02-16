@@ -37,6 +37,9 @@ export global DemoPalette := {
     property <color> secondary_push_button_color: #FFBF63; // red in the "green" theme
     property <color> push_button_text_color: white;
 
+    property <logical_length> base_font_size: 16px;
+    property <logical_length> label_base_font_size: 15.6px; // FIXME: Check if this shouldn't be 16 instead
+
     property <bool> night_mode: false;
 }
 
@@ -55,7 +58,7 @@ export Page := Rectangle {
         alignment: start;
         if (has_back_button) : Text {
             font-weight: 900;
-            font-size: 32px;
+            font-size: h.font-size;
             text: "< ";
             color: DemoPalette.control_secoundary;
             TouchArea { clicked => { back() } }
@@ -63,7 +66,7 @@ export Page := Rectangle {
 
         h := Text {
             font-weight: 900;
-            font-size: 32px;
+            font-size: DemoPalette.base_font_size * 2;
             color: DemoPalette.text_foreground_color;
         }
     }
@@ -80,7 +83,7 @@ export struct PrinterQueueItem := {
 
 export Label := Text {
     color: DemoPalette.text_foreground_color;
-    font-size: 15.6px;
+    font-size: DemoPalette.label_base_font_size;
     vertical-alignment: center;
     font-weight: 700;
 }
@@ -103,7 +106,7 @@ SpinBoxButton := Rectangle {
         vertical-alignment: center;
         horizontal-alignment: center;
         text <=> root.text;
-        font-size: 32px;
+        font-size: 2 * DemoPalette.base_font_size;
         color: DemoPalette.control_secoundary;
     }
 }
@@ -137,7 +140,7 @@ export SpinBox := Rectangle {
                 vertical-alignment: center;
                 horizontal-alignment: center;
                 text: value;
-                font-size: 15.6px;
+                font-size: DemoPalette.label_base_font_size;
                 color: DemoPalette.control_foreground;
             }
         }
@@ -166,7 +169,7 @@ export ComboBox := Rectangle {
             vertical-alignment: center;
             horizontal-alignment: left;
             text <=> root.value;
-            font-size: 15.6px;
+            font-size: DemoPalette.label_base_font_size;
             color: DemoPalette.control_foreground;
         }
         Text {
@@ -197,7 +200,7 @@ export PushButton := Rectangle {
         }
 
         label := Text {
-            font-size: 15.6px;
+            font-size: DemoPalette.label_base_font_size;
             font-weight: 900;
             color: DemoPalette.push_button_text_color;
         }
