@@ -11,9 +11,9 @@ LICENSE END */
 import { DemoPalette, Page, SpinBox, Label, ComboBox } from "./common.60";
 
 
-export CopyPage := Page {
+export ScanPage := Page {
     has_back_button: true;
-    header: "Copy";
+    header: "Scan";
 
     GridLayout {
         padding-top: 40px;
@@ -31,16 +31,7 @@ export CopyPage := Page {
             Rectangle {}
 
             Label { text: "Size"; }
-            ComboBox { value: "DIN A4"; }
-        }
-        Row {
-            Label { text: "Layout"; }
-            ComboBox { value: "Portrait"; }
-
-            Rectangle {}
-
-            Label { text: "Papertray"; }
-            ComboBox { value: "Special Tray"; }
+            ComboBox { value: "Original"; }
         }
         Row {
             Label { text: "Quality"; }
@@ -48,8 +39,8 @@ export CopyPage := Page {
 
             Rectangle {}
 
-            Label { text: "Papertyp"; }
-            ComboBox { value: "Strndard"; }
+            Label { text: "Format"; }
+            ComboBox { value: "PDF"; }
         }
         Row {
             Label { text: "Color"; }
@@ -57,11 +48,8 @@ export CopyPage := Page {
 
             Rectangle {}
 
-            Label { text: "PaperGandling"; }
-            /*CheckBox {
-                value: true;
-                text: "sort page";
-            }*/
+            Label { text: "Save to"; }
+            ComboBox { value: "Desktop"; }
         }
         Row { Rectangle {} }
     }

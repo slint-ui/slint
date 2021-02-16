@@ -10,6 +10,7 @@ LICENSE END */
 
 import { DemoPalette, Page, PrinterQueueItem } from "./common.60";
 import { CopyPage } from "./copy_page.60";
+import { ScanPage } from "./scan_page.60";
 
 ActionButton := Rectangle {
 
@@ -105,6 +106,7 @@ PrinterQueue := Rectangle {
                             }
                             Text {
                                 text: queue_item.owner;
+                                color: DemoPalette.secondary_foreground_color;
                             }
                         }
                         Row {
@@ -118,6 +120,8 @@ PrinterQueue := Rectangle {
                             }
                             Text {
                                 text: queue_item.pages;
+                                color: DemoPalette.secondary_foreground_color;
+
                             }
                         }
                         Row {
@@ -144,6 +148,7 @@ PrinterQueue := Rectangle {
                             }
                             Text {
                                 text: queue_item.submission_date;
+                                color: DemoPalette.secondary_foreground_color;
                             }
                         }
                     }
@@ -199,11 +204,9 @@ export HomePage := Page {
         has_back_button: true;
         back => { current_subpage = 0 }
     }
-    Page {
-        header: "Scan";
+    ScanPage {
         x: current_subpage == 2 ? 0 : parent.width + parent.x;
         animate x { duration: 125ms; easing: ease; }
-        has_back_button: true;
         back => { current_subpage = 0 }
     }
     CopyPage {
