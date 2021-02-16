@@ -103,7 +103,6 @@ PrintQueueElement := Rectangle {
                 Text {
                     text: queue_item.pages;
                     color: DemoPalette.secondary_foreground_color;
-
                 }
             }
             Row {
@@ -117,6 +116,7 @@ PrintQueueElement := Rectangle {
                 }
                 Text {
                     text: queue_item.pages;
+                    color: DemoPalette.secondary_foreground_color;
                 }
             }
             Row {
