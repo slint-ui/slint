@@ -1,0 +1,33 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "./common.60";
+
+
+export PrintPage := Page {
+    has_back_button: true;
+    header: "Print";
+
+    GridLayout {
+        padding-top: 46px /* header line height in design */
+                     + /* extra top-padding in design */ 27px;
+        spacing: 24px;
+        Row {
+            Text {
+                text: "Printing-Queue";
+                color: DemoPalette.secondary_foreground_color;
+                font-size: DemoPalette.base_font_size * 1.125;
+                font-weight: 800;
+            }
+        }
+
+        Row { Rectangle {} }
+    }
+}

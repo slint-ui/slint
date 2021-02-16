@@ -11,6 +11,7 @@ LICENSE END */
 import { DemoPalette, Page, PrinterQueueItem, PushButton } from "./common.60";
 import { CopyPage } from "./copy_page.60";
 import { ScanPage } from "./scan_page.60";
+import { PrintPage } from "./print_page.60";
 
 ActionButton := Rectangle {
 
@@ -248,11 +249,9 @@ export HomePage := Page {
         width: 50%;
     }
 
-    Page {
-        header: "Print";
+    PrintPage {
         x: current_subpage == 1 ? 0 : parent.width + parent.x;
         animate x { duration: 125ms; easing: ease; }
-        has_back_button: true;
         back => { current_subpage = 0 }
     }
     ScanPage {
