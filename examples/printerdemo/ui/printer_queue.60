@@ -22,6 +22,66 @@ PrintQueueSeparator := Rectangle {
     border-color: #BDC0D1;
 }
 
+PrintDetails := GridLayout {
+    property <PrinterQueueItem> queue_item;
+
+    Row {
+        PrintQueueDetailsLabel {
+            text: "Owner";
+        }
+        Text {
+            text: queue_item.owner;
+            color: DemoPalette.secondary_foreground_color;
+            font-size: DemoPalette.base_font_size;
+        }
+    }
+    Row {
+        PrintQueueSeparator {
+            colspan: 2;
+        }
+    }
+    Row {
+        PrintQueueDetailsLabel {
+            text: "Pages";
+        }
+        Text {
+            text: queue_item.pages;
+            color: DemoPalette.secondary_foreground_color;
+            font-size: DemoPalette.base_font_size;
+        }
+    }
+    Row {
+        PrintQueueSeparator {
+            colspan: 2;
+        }
+    }
+    Row {
+        PrintQueueDetailsLabel {
+            text: "Size";
+        }
+        Text {
+            text: queue_item.pages;
+            color: DemoPalette.secondary_foreground_color;
+            font-size: DemoPalette.base_font_size;
+        }
+    }
+    Row {
+        PrintQueueSeparator {
+            colspan: 2;
+        }
+    }
+    Row {
+        PrintQueueDetailsLabel {
+            text: "Submitted";
+        }
+        Text {
+            text: queue_item.submission_date;
+            color: DemoPalette.secondary_foreground_color;
+            font-size: DemoPalette.base_font_size;
+        }
+    }            
+}
+
 PrintQueueElement := Rectangle {
     property <PrinterQueueItem> queue_item;
 
@@ -58,66 +118,11 @@ PrintQueueElement := Rectangle {
             font-size: DemoPalette.base_font_size * 1.125;
         }
 
-        if (expanded) : GridLayout {
+        if (expanded): PrintDetails {
             padding: 0px;
             padding-bottom: root.border-radius / 2;
-
-            Row {
-                PrintQueueDetailsLabel {
-                    text: "Owner";
-                }
-                Text {
-                    text: queue_item.owner;
-                    color: DemoPalette.secondary_foreground_color;
-                    font-size: DemoPalette.base_font_size;
-                }
-            }
-            Row {
-                PrintQueueSeparator {
-                    colspan: 2;
-                }
-            }
-            Row {
-                PrintQueueDetailsLabel {
-                    text: "Pages";
-                }
-                Text {
-                    text: queue_item.pages;
-                    color: DemoPalette.secondary_foreground_color;
-                    font-size: DemoPalette.base_font_size;
-                }
-            }
-            Row {
-                PrintQueueSeparator {
-                    colspan: 2;
-                }
-            }
-            Row {
-                PrintQueueDetailsLabel {
-                    text: "Size";
-                }
-                Text {
-                    text: queue_item.pages;
-                    color: DemoPalette.secondary_foreground_color;
-                    font-size: DemoPalette.base_font_size;
-                }
-            }
-            Row {
-                PrintQueueSeparator {
-                    colspan: 2;
-                }
-            }
-            Row {
-                PrintQueueDetailsLabel {
-                    text: "Submitted";
-                }
-                Text {
-                    text: queue_item.submission_date;
-                    color: DemoPalette.secondary_foreground_color;
-                    font-size: DemoPalette.base_font_size;
-                }
-            }            
-        }
+            queue_item: root.queue_item;
+        }     
 
         if (expanded): HorizontalLayout {
             Rectangle {
