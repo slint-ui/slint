@@ -260,8 +260,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) {
 
     for cell in data.cells.iter() {
         let cnstr = &cell.constraint;
-        let row_max = cnstr.max_height.min(data.height * cnstr.max_height_percent / 100.)
-            / (cell.rowspan as f32);
+        let row_max = cnstr.max_height.min(data.height * cnstr.max_height_percent / 100.);
         let row_min = cnstr.min_height.max(data.height * cnstr.min_height_percent / 100.)
             / (cell.rowspan as f32);
         let row_pref = row_min;
@@ -274,8 +273,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) {
             rdata.stretch = rdata.stretch.min(cnstr.vertical_stretch);
         }
 
-        let col_max = cnstr.max_width.min(data.width * cnstr.max_width_percent / 100.)
-            / (cell.colspan as f32);
+        let col_max = cnstr.max_width.min(data.width * cnstr.max_width_percent / 100.);
         let col_min = cnstr.min_width.max(data.width * cnstr.min_width_percent / 100.)
             / (cell.colspan as f32);
         let col_pref = col_min;
