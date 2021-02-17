@@ -26,7 +26,7 @@ thread_local! {
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
-pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
+pub fn register_font_from_memory(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
     APPLICATION_FONTS.with(|fontdb| fontdb.borrow_mut().load_font_data(data.into()));
     Ok(())
 }

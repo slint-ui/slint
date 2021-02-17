@@ -219,3 +219,7 @@ pub fn register_font_from_path<P: AsRef<std::path::Path>>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     sixtyfps_rendering_backend_default::backend().register_font_from_path(path.as_ref())
 }
+
+pub fn register_font_from_memory(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    sixtyfps_rendering_backend_default::backend().register_font_from_memory(data)
+}
