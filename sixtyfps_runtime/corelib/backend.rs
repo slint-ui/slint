@@ -27,7 +27,7 @@ pub trait Backend: Send + Sync {
     /// This function can be used to register a custom TrueType font with SixtyFPS,
     /// for use with the `font-family` property. The provided slice must be a valid TrueType
     /// font.
-    fn register_application_font_from_memory(
+    fn register_font_from_memory(
         &'static self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>>;
@@ -35,7 +35,7 @@ pub trait Backend: Send + Sync {
     /// This function can be used to register a custom TrueType font with SixtyFPS,
     /// for use with the `font-family` property. The provided path must refer to a valid TrueType
     /// font.
-    fn register_application_font_from_path(
+    fn register_font_from_path(
         &'static self,
         path: &Path,
     ) -> Result<(), Box<dyn std::error::Error>>;

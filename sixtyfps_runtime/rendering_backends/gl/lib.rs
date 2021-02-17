@@ -108,7 +108,7 @@ impl Default for FontCache {
 }
 
 mod fonts;
-pub use fonts::register_application_font_from_memory;
+pub use fonts::register_font_from_memory;
 use fonts::*;
 
 impl FontCache {
@@ -1431,18 +1431,18 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         crate::eventloop::run();
     }
 
-    fn register_application_font_from_memory(
+    fn register_font_from_memory(
         &'static self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::register_application_font_from_memory(data)
+        self::register_font_from_memory(data)
     }
 
-    fn register_application_font_from_path(
+    fn register_font_from_path(
         &'static self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::register_application_font_from_path(path)
+        self::register_font_from_path(path)
     }
 
     fn set_clipboard_text(&'static self, text: String) {

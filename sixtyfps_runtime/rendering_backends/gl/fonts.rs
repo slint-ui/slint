@@ -26,16 +26,12 @@ thread_local! {
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
-pub fn register_application_font_from_memory(
-    data: &'static [u8],
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
     APPLICATION_FONTS.with(|fontdb| fontdb.borrow_mut().load_font_data(data.into()));
     Ok(())
 }
 
-pub fn register_application_font_from_path(
-    path: &std::path::Path,
-) -> Result<(), Box<dyn std::error::Error>> {
+pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     // Should use FontDb::load_font_file but that requires the `fs` feature, for which I can't figure
     // out how to exclude it from the wasm build. It's inclusion implies mmap, which doesn't compile
     // with wasm.
@@ -103,7 +99,7 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
     WASM_FONT_REGISTERED.with(|registered| {
         if !registered.get() {
             registered.set(true);
-            register_application_font_from_memory(include_bytes!("fonts/DejaVuSans.ttf")).unwrap();
+            register_font_from_memory(include_bytes!("fonts/DejaVuSans.ttf")).unwrap();
         }
     });
     let mut fallback_request = request.clone();

@@ -176,9 +176,7 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    match sixtyfps::register_application_font_from_memory(include_bytes!(
-        "plaster-font/Plaster-Regular.ttf"
-    )) {
+    match sixtyfps::register_font_from_memory(include_bytes!("plaster-font/Plaster-Regular.ttf")) {
         Ok(()) => {}
         Err(err) => {
             eprintln!("Error registering Plaster font: {}", err);

@@ -214,8 +214,8 @@ pub fn run_event_loop() {
     sixtyfps_rendering_backend_default::backend().run_event_loop();
 }
 
-pub fn register_application_font_from_path<P: AsRef<std::path::Path>>(
+pub fn register_font_from_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    sixtyfps_rendering_backend_default::backend().register_application_font_from_path(path.as_ref())
+    sixtyfps_rendering_backend_default::backend().register_font_from_path(path.as_ref())
 }

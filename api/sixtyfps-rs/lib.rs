@@ -172,19 +172,17 @@ pub use sixtyfps_corelib::{Brush, Color, RgbaColor};
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
-pub fn register_application_font_from_memory(
-    data: &'static [u8],
-) -> Result<(), Box<dyn std::error::Error>> {
-    sixtyfps_rendering_backend_default::backend().register_application_font_from_memory(data)
+pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
+    sixtyfps_rendering_backend_default::backend().register_font_from_memory(data)
 }
 
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided path must refer to a valid TrueType
 /// font.
-pub fn register_application_font_from_path<P: AsRef<std::path::Path>>(
+pub fn register_font_from_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    sixtyfps_rendering_backend_default::backend().register_application_font_from_path(path.as_ref())
+    sixtyfps_rendering_backend_default::backend().register_font_from_path(path.as_ref())
 }
 
 // FIXME: this should not be in this namespace

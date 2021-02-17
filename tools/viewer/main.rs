@@ -21,20 +21,18 @@ struct Cli {
     #[structopt(long, name = "style name", default_value)]
     style: String,
 
-    /// An optional application font
-    #[structopt(long, name = "application font")]
-    app_font: Option<Vec<String>>,
+    /// An optionally registered font
+    #[structopt(long, name = "font")]
+    font: Option<Vec<String>>,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
 
-    args.app_font.map(|fonts| {
+    args.font.map(|fonts| {
         fonts.iter().for_each(|font_path| {
-            if let Err(app_font_err) =
-                sixtyfps_interpreter::register_application_font_from_path(&font_path)
-            {
+            if let Err(app_font_err) = sixtyfps_interpreter::register_font_from_path(&font_path) {
                 eprintln!("Error loading app font {}: {}", font_path, app_font_err);
             }
         });

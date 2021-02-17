@@ -122,7 +122,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         };
     }
 
-    fn register_application_font_from_memory(
+    fn register_font_from_memory(
         &'static self,
         _data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -138,7 +138,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         Ok(())
     }
 
-    fn register_application_font_from_path(
+    fn register_font_from_path(
         &'static self,
         _path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
