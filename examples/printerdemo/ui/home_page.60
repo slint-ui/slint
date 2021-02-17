@@ -84,24 +84,24 @@ export HomePage := Page {
     }
 
     PrintPage {
-        x: current_subpage == 1 ? 0 : parent.width + parent.x;
+        x: current_subpage == 1 ? 0 : parent.width + parent.x + 1px;
         animate x { duration: 125ms; easing: ease; }
         back => { current_subpage = 0 }
         printer_queue: root.printer_queue;
     }
     ScanPage {
-        x: current_subpage == 2 ? 0 : parent.width + parent.x;
+        x: current_subpage == 2 ? 0 : parent.width + parent.x + 1px;
         animate x { duration: 125ms; easing: ease; }
         back => { current_subpage = 0 }
     }
     CopyPage {
-        x: current_subpage == 3 ? 0 : parent.width + parent.x;
+        x: current_subpage == 3 ? 0 : parent.width + parent.x + 1px;
         animate x { duration: 125ms; easing: ease; }
         back => { current_subpage = 0 }
     }
     Page {
         header: "USB";
-        x: current_subpage == 4 ? 0 : parent.width + parent.x;
+        x: current_subpage == 4 ? 0 : parent.width + parent.x + 1px;
         animate x { duration: 125ms; easing: ease; }
         has_back_button: true;
         back => { current_subpage = 0 }

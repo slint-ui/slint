@@ -71,7 +71,7 @@ MainWindow := Window {
                     x: main_view.page_x;
                     width: main_view.page_width;
                     height: main_view.page_height;
-                    y: active_page == 0 ? main_view.page_active_y : active_page < 0 ? - height : parent.height;
+                    y: active_page == 0 ? main_view.page_active_y : active_page < 0 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                     printer_queue: root.printer_queue;
                 }
@@ -79,7 +79,7 @@ MainWindow := Window {
                     x: main_view.page_x;
                     width: main_view.page_width;
                     height: main_view.page_height;
-                    y: active_page == 1 ? main_view.page_active_y : active_page < 1 ? - height : parent.height;
+                    y: active_page == 1 ? main_view.page_active_y : active_page < 1 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                     header: "Settings\n\n(TODO)";
                 }
@@ -87,7 +87,7 @@ MainWindow := Window {
                     x: main_view.page_x;
                     width: main_view.page_width;
                     height: main_view.page_height;
-                    y: active_page == 2 ? main_view.page_active_y : active_page < 2 ? - height : parent.height;
+                    y: active_page == 2 ? main_view.page_active_y : active_page < 2 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                     ink_levels <=> root.ink_levels;
                     page_visible: active_page == 2;
