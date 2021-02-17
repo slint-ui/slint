@@ -1,0 +1,114 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+export TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    property<int> value: -10;
+    property <bool> cond: true;
+
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
+
+        Rectangle { background: orange; }
+
+        if (true) : Rectangle {
+            background: blue;
+            TouchArea {
+                clicked => {
+                    root.value = 1;
+                }
+            }
+        }
+        if (cond) : Rectangle {
+            background: red;
+            TouchArea {
+                clicked => {
+                    root.value = 2;
+                }
+            }
+        }
+        if (false) : Rectangle {
+            background: green;
+            TouchArea {
+                clicked => {
+                    root.value = 3;
+                }
+            }
+        }
+
+        Rectangle {
+            background: pink;
+            TouchArea {
+                clicked => {
+                    root.value = 2;
+                }
+            }
+        }
+    }
+}
+
+// There should be 4 rectangle: so 100 devided by 5 is 25.
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_value(), -10);
+
+sixtyfps::testing::send_mouse_click(&instance, 5., 52.);
+assert_eq(instance.get_value(), 2);
+
+sixtyfps::testing::send_mouse_click(&instance, 5., 30.);
+assert_eq(instance.get_value(), 1);
+
+sixtyfps::testing::send_mouse_click(&instance, 5., 80.);
+assert_eq(instance.get_value(), 2); // did not change
+```
+
+
+```rust
+let instance = TestCase::new();
+
+sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_value(), -10);
+
+sixtyfps::testing::send_mouse_click(&instance, 5., 52.);
+assert_eq!(instance.get_value(), 2);
+
+sixtyfps::testing::send_mouse_click(&instance, 5., 30.);
+assert_eq!(instance.get_value(), 1);
+
+sixtyfps::testing::send_mouse_click(&instance, 5., 80.);
+assert_eq!(instance.get_value(), 2); // did not change
+
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.value, -10);
+
+instance.send_mouse_click(5., 52.);
+assert.equal(instance.value, 2);
+
+instance.send_mouse_click(5., 30.);
+assert.equal(instance.value, 1);
+
+instance.send_mouse_click(5., 80);
+assert.equal(instance.value, 2); // did not change
+```
+*/
+
+

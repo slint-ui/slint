@@ -431,64 +431,83 @@ fn generate_component(
                         Default::default()
                     },
                 ));
+
+                let extra_fn = if repeated.is_listview.is_some() {
+                    let am = |prop| {
+                        access_member(
+                            &base_component.root_element,
+                            prop,
+                            base_component,
+                            quote!(self),
+                            false,
+                        )
+                    };
+                    let p_y = am("y");
+                    let p_height = am("height");
+                    let p_width = am("width");
+                    quote! {
+                        fn listview_layout(
+                            self: core::pin::Pin<&Self>,
+                            offset_y: &mut f32,
+                            viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
+                        ) {
+                            use sixtyfps::re_exports::*;
+                            let vp_w = viewport_width.get();
+                            self.apply_layout(Rect::new(Point::new(0., *offset_y), Size::new(vp_w, 0.)));
+                            #p_y.set(*offset_y);
+                            *offset_y += #p_height.get();
+                            let w = #p_width.get();
+                            if vp_w < w {
+                                viewport_width.set(w);
+                            }
+                        }
+                    }
+                } else {
+                    // TODO: we could generate this code only if we know that this component is in a box layout
+                    let root_id = format_ident!("{}", base_component.root_element.borrow().id);
+                    let root_c = &base_component.layouts.borrow().root_constraints;
+                    let width = if root_c.fixed_width {
+                        quote!(None)
+                    } else {
+                        quote!(Some(&self.get_ref().#root_id.width))
+                    };
+                    let height = if root_c.fixed_height {
+                        quote!(None)
+                    } else {
+                        quote!(Some(&self.get_ref().#root_id.height))
+                    };
+                    quote! {
+                        fn box_layout_data<'a>(self: ::core::pin::Pin<&'a Self>) -> sixtyfps::re_exports::BoxLayoutCellData<'a> {
+                            use sixtyfps::re_exports::*;
+                            BoxLayoutCellData {
+                                constraint: self.layout_info(),
+                                x: Some(&self.get_ref().#root_id.x),
+                                y: Some(&self.get_ref().#root_id.y),
+                                width: #width,
+                                height: #height,
+                            }
+                        }
+                    }
+                };
+
                 extra_components.push(if repeated.is_conditional_element {
                     quote! {
                         impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
                             type Data = ();
                             fn update(&self, _: usize, _: Self::Data) { }
+                            #extra_fn
                         }
                     }
                 } else {
                     let data_type = rust_type(
-                        &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }.ty(),
+                        &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }
+                            .ty(),
                         &item.node.as_ref().map_or_else(Default::default, |n| n.span()),
                     )
                     .unwrap_or_else(|err| {
                         diag.push_internal_error(err.into());
                         quote!()
                     });
-
-                    let extra_fn = if repeated.is_listview.is_some() {
-                        let am = |prop| access_member(&base_component.root_element, prop, base_component, quote!(self), false);
-                        let p_y = am("y");
-                        let p_height = am("height");
-                        let p_width = am("width");
-                        quote! {
-                            fn listview_layout(
-                                self: core::pin::Pin<&Self>,
-                                offset_y: &mut f32,
-                                viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
-                            ) {
-                                use sixtyfps::re_exports::*;
-                                let vp_w = viewport_width.get();
-                                self.apply_layout(Rect::new(Point::new(0., *offset_y), Size::new(vp_w, 0.)));
-                                #p_y.set(*offset_y);
-                                *offset_y += #p_height.get();
-                                let w = #p_width.get();
-                                if vp_w < w {
-                                    viewport_width.set(w);
-                                }
-                            }
-                        }
-                    } else {
-                        // TODO: we could generate this code only if we know that this component is in a box layout
-                        let root_id = format_ident!("{}", base_component.root_element.borrow().id);
-                        let root_c = &base_component.layouts.borrow().root_constraints;
-                        let width = if root_c.fixed_width { quote!(None) } else { quote!(Some(&self.get_ref().#root_id.width)) };
-                        let height = if root_c.fixed_height { quote!(None) } else { quote!(Some(&self.get_ref().#root_id.height)) };
-                        quote! {
-                            fn box_layout_data<'a>(self: ::core::pin::Pin<&'a Self>) -> sixtyfps::re_exports::BoxLayoutCellData<'a> {
-                                use sixtyfps::re_exports::*;
-                                BoxLayoutCellData {
-                                    constraint: self.layout_info(),
-                                    x: Some(&self.get_ref().#root_id.x),
-                                    y: Some(&self.get_ref().#root_id.y),
-                                    width: #width,
-                                    height: #height,
-                                }
-                            }
-                        }
-                    };
 
                     quote! {
                         impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
