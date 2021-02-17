@@ -18,7 +18,7 @@ SideBarIcon := Rectangle {
     callback activate;
 
     GridLayout {
-        padding: 15px;
+        padding: 0px;
         @children
     }
 
@@ -36,13 +36,10 @@ MainWindow := Window {
         { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission_date: "11:41 25/01/21" },
     ];
 
-    width: 800px;
-    height: 600px;
+    width: 772px;
+    height: 504px;
     title: "SixtyFPS printer demo";
     background: DemoPalette.main_background;
-
-    property <length> sidebar_icon_width: 7% * self.width;
-    property <length> sidebar_padding_left: 1.25% * self.width;
 
     /// Note that this property is overwriten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
@@ -56,9 +53,8 @@ MainWindow := Window {
     property<int> active_page: 0;
 
     HorizontalLayout {
-        // The sidebar is placed manually in the 10%
         padding: 10px;
-        padding-left: 10px + 8% * parent.width;
+        padding-left: 67px;
 
         main_view := Rectangle {
             height: 100%;
@@ -103,24 +99,24 @@ MainWindow := Window {
     }
 
     sidebar := Rectangle {
-        width: 6% * root.width;
-        x: 1.25% * root.width;
+        width: 57px;
+        x: 10px;
 
         callback icon_y(int) -> logical_length;
         icon_y(index) => {
-            50px // top padding
-            + index * (self.width + /* spacing */30px)
+            100px // top padding
+            + index * 72px;
             ;
         }
 
         Image {
             source: @image-url("images/page_selection.svg");
-            y: sidebar.icon_y(root.active_page) - self.width / 2.8;
+            y: sidebar.icon_y(root.active_page) - self.width / 2;
             animate y {
                 duration: 125ms;
             }
             width: main_view.x - sidebar.x + 1px;
-            height: 1.5 * self.width;
+            height: 1.77 * self.width;
             colorize: DemoPalette.page_background_color;
         }
 
@@ -130,8 +126,9 @@ MainWindow := Window {
             @image-url("images/ink.svg"),
         ] : SideBarIcon {
             y: sidebar.icon_y(idx);
-
-            height: self.width;
+            x: 16px;
+            height: 35px;
+            width: 30px;
 
             icon := Image {
                 colorize: (root.active_page == idx) ? DemoPalette.active_page_icon_color : DemoPalette.inactive_page_icon_color;
@@ -148,15 +145,19 @@ MainWindow := Window {
         }
 
         Rectangle {
-            y: sidebar.icon_y(3) + parent.width / 2;
-            border-width: 1px;
-            border-color: #6284FF;
+            y: sidebar.icon_y(3) + 17px;
+            x: 12px;
+            background: #6284FF;
             height: 2px;
+            width: 37px;
         }
 
         SideBarIcon {
             y: sidebar.icon_y(4);
-            height: self.width;
+            x: 16px;
+            height: 35px;
+            width: 30px;
+
             Path {
                 commands: "M0.00287444 13.4812C-0.0696142 16.985 1.23143 20.3752 3.62219 22.9088C6.01311 25.4435 9.2988 26.9138 12.7597 27C15.0419 26.9734 17.274 26.3255 19.2238 25.1246C21.1735 23.9225 22.7669 22.2116 23.8369 20.1704C24.0706 19.7377 24.0518 19.21 23.7894 18.7949C23.5256 18.3798 23.0607 18.1432 22.5745 18.1774L22.4283 18.1888C22.2533 18.2027 22.0771 18.2153 21.8946 18.2153C19.1413 18.1293 16.5341 16.9436 14.6419 14.9149C12.7509 12.8877 11.7311 10.1846 11.8036 7.39569C11.8036 5.51019 12.2685 3.65372 13.1584 1.99736C13.3908 1.56459 13.3733 1.03817 13.1109 0.623091C12.8484 0.208013 12.3835 -0.029865 11.8986 0.0030161C8.60399 0.319374 5.54811 1.88346 3.34235 4.38284C1.13768 6.8808 -0.0558723 10.1304 0.00267916 13.4813L0.00287444 13.4812ZM9.79281 3.15264C9.36161 4.52438 9.14164 5.95556 9.14164 7.39575C9.08915 10.5986 10.1753 13.7128 12.2024 16.1716C14.2296 18.6316 17.0619 20.2702 20.1824 20.7905C18.3277 22.9949 15.6192 24.2743 12.7598 24.2995C10.0064 24.2148 7.3993 23.0278 5.50838 21.0004C3.61614 18.9732 2.59629 16.2691 2.66879 13.4812C2.63755 11.2211 3.3087 9.00774 4.58726 7.15538C5.86458 5.30151 7.68557 3.90194 9.79291 3.15296L9.79281 3.15264Z";
                 fill: DemoPalette.night_mode ? #F1FF98 : #BDC0D1;
