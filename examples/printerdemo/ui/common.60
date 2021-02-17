@@ -14,7 +14,7 @@ export global DemoPalette := {
     property <color> inactive_page_icon_color: #BDC0D1;
 
     property <color> main_background: #0E133F;
-    property <color> neutral_box: #BDC0D1; // Black / Tertiary
+    property <color> neutral_box: #BDC0D1;
 
     property <color> page_background_color: night_mode ? #122F7B : white;
 
@@ -31,7 +31,7 @@ export global DemoPalette := {
     // as the combo box or spin box.
     property <color> control_outline_color: #FFBF63;
     property <color> control_secondary: #6284FF;
-    property <color> control_foreground: #122F7B;
+    property <color> control_foreground: night_mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
 
     property <color> primary_push_button_color: #6284FF;
     property <color> secondary_push_button_color: #FFBF63; // red in the "green" theme
