@@ -51,9 +51,9 @@ export HomePage := Page {
     property <length> header_row_height: 40px;
     property <[PrinterQueueItem]> printer_queue;
 
-    property <length> button_spacing: root.width / 12;
-    property <length> button_width: root.width / 3 - 2 * button_spacing;
-    property <length> button_height: button_width + /* spacing */ 4px + /* label size */ 22px;
+    property <length> button_spacing: 42px;
+    property <length> button_width: 127px;
+    property <length> button_height: button_width + 37px;
 
     header: "Xerol 1347 hdp";
 
@@ -78,8 +78,8 @@ export HomePage := Page {
     }
 
     queue_view := PrinterQueue {
-        x: parent.width / 2;
-        width: 50%;
+        x: parent.width - width - 16px;
+        width: parent.width / 2 - 16px * 2;
         printer_queue: root.printer_queue;
     }
 
