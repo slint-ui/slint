@@ -19,6 +19,11 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
+    sixtyfps::register_font_from_memory(include_bytes!("../ui/fonts/NotoSans-Regular.ttf"))
+        .expect("error registering noto sans regular");
+    sixtyfps::register_font_from_memory(include_bytes!("../ui/fonts/NotoSans-Bold.ttf"))
+        .expect("error registering noto sans bold");
+
     let main_window = MainWindow::new();
     main_window.set_ink_levels(sixtyfps::VecModel::from_slice(&[
         InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
