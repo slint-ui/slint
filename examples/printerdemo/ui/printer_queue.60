@@ -161,6 +161,28 @@ NarrowPrinterQueueList := Flickable {
     }
 }
 
+ProgressBar := Rectangle {
+    property <int> progress;
+
+    // FIXME: The intermediate rectangle is needed to allow the surrounding
+    // layout to freely resize the progress bar without affecting the design-intended
+    // height of 6px. The alternative of specifying a `maximum-height: 6px` will unfortunately
+    // also affect the width calculation and make it vanish altogether.
+    Rectangle {        
+        y: parent.height / 2 - 3px;
+        height: 6px;
+
+        border-radius: 3px;
+        background: DemoPalette.neutral_box;
+
+        Rectangle {
+            width: progress * parent.width / 100;
+            border-radius: parent.border-radius;
+            background: DemoPalette.control_foreground;
+        }
+    }
+}
+
 WidePrintQueueElement := Rectangle {
     property <PrinterQueueItem> queue_item;
 
@@ -180,19 +202,24 @@ WidePrintQueueElement := Rectangle {
                 padding: 0px;
                 spacing: 0px;
 
-                DemoText {
-                    // TODO: text-transform: uppercase
-                    text: {
-                        if (queue_item.status == "PRINTING") {
-                        "\{queue_item.progress}% - \{queue_item.status}"
-                        } else {
-                            queue_item.status
+                HorizontalLayout {
+                    DemoText {
+                        // TODO: text-transform: uppercase
+                        text: {
+                            if (queue_item.status == "PRINTING") {
+                            "\{queue_item.progress}% - \{queue_item.status}"
+                            } else {
+                                queue_item.status
+                            }
                         }
+                        color: DemoPalette.status_label_text_color;
+                        font-size: DemoPalette.base_font_size * 0.75;
+                        font-weight: 800;
+                        letter-spacing: 1.56px;
                     }
-                    color: DemoPalette.status_label_text_color;
-                    font-size: DemoPalette.base_font_size * 0.75;
-                    font-weight: 800;
-                    letter-spacing: 1.56px;
+                    if (queue_item.progress > 0) : ProgressBar {
+                        progress: queue_item.progress;
+                    }
                 }
 
                 DemoText {
