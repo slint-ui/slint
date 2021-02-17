@@ -30,7 +30,7 @@ export global DemoPalette := {
     // "Print"/"Scan" buttons, the printer queue items (for expansion) or controls such
     // as the combo box or spin box.
     property <color> control_outline_color: #FFBF63;
-    property <color> control_secoundary: #6284FF;
+    property <color> control_secondary: #6284FF;
     property <color> control_foreground: #122F7B;
 
     property <color> primary_push_button_color: #6284FF;
@@ -58,7 +58,7 @@ export Page := Rectangle {
     if (has_back_button) : Image {
         source: @image-url("images/back.svg");
         image-fit: contain;
-        colorize: DemoPalette.control_secoundary;
+        colorize: DemoPalette.control_secondary;
         y: h.y + (h.height - height) / 2;
         width: 14px;
         height: 24px;
@@ -113,7 +113,7 @@ SquareButton := Rectangle {
         y: (parent.height - height)/2;
         source <=> root.img;
         image-fit: contain;
-        colorize: DemoPalette.control_secoundary;
+        colorize: DemoPalette.control_secondary;
     }
 }
 
@@ -179,7 +179,7 @@ export ComboBox := Rectangle {
     }
     i := Image {
         source: @image-url("images/down.svg");
-        colorize: DemoPalette.control_secoundary;
+        colorize: DemoPalette.control_secondary;
         height: 40%;
         width: height;
         image-fit: contain;
