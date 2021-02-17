@@ -14,16 +14,21 @@ PrintQueueDetailsLabel := DemoText {
     font-weight: 500;
     color: DemoPalette.control_foreground;
     font-size: DemoPalette.base_font_size;
+    horizontal-stretch: 0;
 }
 
 PrintQueueSeparator := Rectangle {
     height: 1px;
     border-width: 1px;
     border-color: #BDC0D1;
+    horizontal-stretch: 2;
 }
 
 PrintDetails := GridLayout {
     property <PrinterQueueItem> queue_item;
+    spacing: 0px;
+
+    // FIXME (why does the grid layout think there are 3 column)
 
     Row {
         PrintQueueDetailsLabel {
@@ -35,11 +40,13 @@ PrintDetails := GridLayout {
             font-size: DemoPalette.base_font_size;
             overflow: elide;
             minimum-width: 0; //FIXME: currently the minimum size is the size of the text by default, even when one wants to elide. (#179)
+            horizontal-stretch: 1;
+            colspan: 2;
         }
     }
     Row {
         PrintQueueSeparator {
-            colspan: 2;
+            colspan: 3;
         }
     }
     Row {
@@ -51,11 +58,13 @@ PrintDetails := GridLayout {
             color: DemoPalette.secondary_foreground_color;
             font-size: DemoPalette.base_font_size;
             overflow: elide;
+            horizontal-stretch: 1;
+            colspan: 2;
         }
     }
     Row {
         PrintQueueSeparator {
-            colspan: 2;
+            colspan: 3;
         }
     }
     Row {
@@ -67,11 +76,13 @@ PrintDetails := GridLayout {
             color: DemoPalette.secondary_foreground_color;
             font-size: DemoPalette.base_font_size;
             overflow: elide;
+            horizontal-stretch: 1;
+            colspan: 2;
         }
     }
     Row {
         PrintQueueSeparator {
-            colspan: 2;
+            colspan: 3;
         }
     }
     Row {
@@ -83,6 +94,8 @@ PrintDetails := GridLayout {
             color: DemoPalette.secondary_foreground_color;
             font-size: DemoPalette.base_font_size;
             overflow: elide;
+            horizontal-stretch: 1;
+            colspan: 2;
         }
     }
 }
@@ -309,7 +322,7 @@ export PrinterQueue := Rectangle {
 
     VerticalLayout {
         alignment: start;
-        padding: 24px;
+        padding: 16px;
         spacing: 16px;
 
         DemoText {
