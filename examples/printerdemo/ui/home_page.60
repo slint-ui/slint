@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, PrinterQueueItem, PushButton } from "./common.60";
+import { DemoPalette, Page, PrinterQueueItem, PushButton, DemoText } from "./common.60";
 import { CopyPage } from "./copy_page.60";
 import { ScanPage } from "./scan_page.60";
 import { PrintPage } from "./print_page.60";
@@ -36,7 +36,7 @@ ActionButton := Rectangle {
             }
         }
 
-        label := Text {
+        label := DemoText {
             font-size: DemoPalette.base_font_size * 1.375;
             font-weight: 800;
             horizontal-alignment: center;

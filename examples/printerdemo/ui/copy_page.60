@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.60";
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox, DemoText } from "./common.60";
 
 
 export CopyPage := Page {
@@ -20,7 +20,7 @@ export CopyPage := Page {
                      + /* extra top-padding in design */ 27px;
         spacing: 24px;
         Row {
-            Text {
+            DemoText {
                 text: "Choose Settings";
                 color: DemoPalette.secondary_foreground_color;
                 font-size: DemoPalette.base_font_size * 1.125;

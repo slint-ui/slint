@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, PrinterQueueItem } from "./common.60";
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, PrinterQueueItem, DemoText } from "./common.60";
 import { WidePrinterQueueList } from "./printer_queue.60";
 
 
@@ -23,7 +23,7 @@ export PrintPage := Page {
                      + /* extra top-padding in design */ 27px;
         spacing: 24px;
         Row {
-            Text {
+            DemoText {
                 text: "Printing-Queue";
                 color: DemoPalette.secondary_foreground_color;
                 font-size: DemoPalette.base_font_size * 1.125;
