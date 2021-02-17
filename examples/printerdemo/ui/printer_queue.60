@@ -28,8 +28,6 @@ PrintDetails := GridLayout {
     property <PrinterQueueItem> queue_item;
     spacing: 0px;
 
-    // FIXME (why does the grid layout think there are 3 column)
-
     Row {
         PrintQueueDetailsLabel {
             text: "Owner";
@@ -41,12 +39,11 @@ PrintDetails := GridLayout {
             overflow: elide;
             minimum-width: 0; //FIXME: currently the minimum size is the size of the text by default, even when one wants to elide. (#179)
             horizontal-stretch: 1;
-            colspan: 2;
         }
     }
     Row {
         PrintQueueSeparator {
-            colspan: 3;
+            colspan: 2;
         }
     }
     Row {
@@ -59,12 +56,11 @@ PrintDetails := GridLayout {
             font-size: DemoPalette.base_font_size;
             overflow: elide;
             horizontal-stretch: 1;
-            colspan: 2;
         }
     }
     Row {
         PrintQueueSeparator {
-            colspan: 3;
+            colspan: 2;
         }
     }
     Row {
@@ -77,12 +73,11 @@ PrintDetails := GridLayout {
             font-size: DemoPalette.base_font_size;
             overflow: elide;
             horizontal-stretch: 1;
-            colspan: 2;
         }
     }
     Row {
         PrintQueueSeparator {
-            colspan: 3;
+            colspan: 2;
         }
     }
     Row {
@@ -95,7 +90,6 @@ PrintDetails := GridLayout {
             font-size: DemoPalette.base_font_size;
             overflow: elide;
             horizontal-stretch: 1;
-            colspan: 2;
         }
     }
 }
