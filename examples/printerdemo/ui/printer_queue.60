@@ -176,6 +176,9 @@ WidePrintQueueElement := Rectangle {
         Row {
             VerticalLayout {
                 colspan: 2;
+                horizontal-stretch: 1;
+                padding: 0px;
+                spacing: 0px;
 
                 Text {
                     // TODO: text-transform: uppercase
@@ -200,7 +203,13 @@ WidePrintQueueElement := Rectangle {
                 }
             }
 
-            Rectangle {}
+            Rectangle {
+                width: 0%;
+            }
+
+            Rectangle {
+                width: 12.5%;
+            }
 
             PrintDetails {
                 colspan: 2;
@@ -212,15 +221,29 @@ WidePrintQueueElement := Rectangle {
             }     
         }
 
-        Row {}
+        Row {
+            Rectangle {
+                colspan: 2;
+                height: 0%;
+            }
+        }
 
         Row {
-            PushButton {
-                text: "Pause";
-            }
-            PushButton {
-                primary: false;
-                text: "Delete";
+            HorizontalLayout {
+                colspan: 2;
+                spacing: 14px;
+                padding: 0px;
+                horizontal-stretch: 1;
+
+                PushButton {
+                    text: "Pause";
+                    icon: @image-url("images/pause.svg");
+                }
+                PushButton {
+                    primary: false;
+                    text: "Delete";
+                    icon: @image-url("images/delete.svg");
+                }
             }
         }       
     }    
