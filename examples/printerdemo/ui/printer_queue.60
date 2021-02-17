@@ -176,7 +176,7 @@ ProgressBar := Rectangle {
         background: DemoPalette.neutral_box;
 
         Rectangle {
-            width: progress * parent.width / 100;
+            width: max(6px, progress * parent.width / 100);
             border-radius: parent.border-radius;
             background: DemoPalette.control_foreground;
         }
@@ -217,7 +217,7 @@ WidePrintQueueElement := Rectangle {
                         font-weight: 800;
                         letter-spacing: 1.56px;
                     }
-                    if (queue_item.progress > 0) : ProgressBar {
+                    ProgressBar {
                         progress: queue_item.progress;
                     }
                 }
