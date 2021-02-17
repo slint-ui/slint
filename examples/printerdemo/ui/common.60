@@ -51,24 +51,25 @@ export Page := Rectangle {
 
     TouchArea {} // protect underneath controls
 
-    HorizontalLayout {
-        padding: 0;
-        padding-top: /*line height*/ 46px - h.font-size;
-        spacing: 16px;
-        alignment: start;
-        if (has_back_button) : Text {
-            font-weight: 900;
-            font-size: h.font-size;
-            text: "< ";
-            color: DemoPalette.control_secoundary;
-            TouchArea { clicked => { back() } }
+    if (has_back_button) : Image {
+        source: @image-url("images/back.svg");
+        image-fit: contain;
+        colorize: DemoPalette.control_secoundary;
+        y: h.y + (h.height - height) / 2;
+        width: 14px;
+        height: 24px;
+        TouchArea {
+            clicked => { back() }
+            width: 150%;
         }
+    }
 
-        h := Text {
-            font-weight: 900;
-            font-size: DemoPalette.base_font_size * 2;
-            color: DemoPalette.text_foreground_color;
-        }
+    h := Text {
+        font-weight: 900;
+        font-size: DemoPalette.base_font_size * 2;
+        color: DemoPalette.text_foreground_color;
+        y: 46px - font-size;
+        x: has_back_button ? 24px + 16px : 0px;
     }
 }
 
@@ -91,7 +92,7 @@ export Label := Text {
 
 SpinBoxButton := Rectangle {
     callback clicked;
-    property<string> text;
+    property<resource> img;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control_outline_color;
@@ -101,14 +102,14 @@ SpinBoxButton := Rectangle {
             root.clicked();
         }
     }
-    Text {
-        height: 100%;
-        width: 100%;
-        vertical-alignment: center;
-        horizontal-alignment: center;
-        text <=> root.text;
-        font-size: 2 * DemoPalette.base_font_size;
-        color: DemoPalette.control_secoundary;
+    Image {
+        height: 40%;
+        width: 40%;
+        x: (parent.width - width)/2;
+        y: (parent.height - height)/2;
+        source <=> root.img;
+        image-fit: contain;
+        colorize: DemoPalette.control_secoundary;
     }
 }
 
@@ -123,7 +124,7 @@ export SpinBox := Rectangle {
         padding: 0;
         height: 32px;
         SpinBoxButton {
-            text: "-";
+            img: @image-url("images/minus.svg");
             clicked => {
                 if (root.value > root.minimum) {
                     root.value -= 1;
@@ -147,7 +148,7 @@ export SpinBox := Rectangle {
         }
 
         SpinBoxButton {
-            text: "+";
+            img: @image-url("images/plus.svg");
             clicked => {
                 if (root.value < root.maximum) {
                     root.value += 1;
@@ -163,24 +164,24 @@ export ComboBox := Rectangle {
     border-width: 2px;
     border-color: DemoPalette.control_outline_color;
     height: 32px;
-    HorizontalLayout {
-        padding-left: 12px;
-        Text {
-            horizontal-stretch: 1;
-            vertical-alignment: center;
-            horizontal-alignment: left;
-            text <=> root.value;
-            font-size: DemoPalette.label_base_font_size;
-            color: DemoPalette.control_foreground;
-        }
-        Text {
-            horizontal-stretch: 0;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-            text: "▼ ";
-            font-size: 22px;
-            color: DemoPalette.control_secoundary;
-        }
+    padding-left: 12px;
+    Text {
+        vertical-alignment: center;
+        horizontal-alignment: left;
+        text <=> root.value;
+        font-size: DemoPalette.label_base_font_size;
+        color: DemoPalette.control_foreground;
+        height: 100%;
+        width: parent.width - i.width;
+    }
+    i := Image {
+        source: @image-url("images/down.svg");
+        colorize: DemoPalette.control_secoundary;
+        height: 40%;
+        width: height;
+        image-fit: contain;
+        x: parent.width - width - y;
+        y: (parent.height - height)/2;
     }
 }
 
