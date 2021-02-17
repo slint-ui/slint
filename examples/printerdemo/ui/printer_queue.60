@@ -164,7 +164,7 @@ NarrowPrinterQueueList := Flickable {
 WidePrintQueueElement := Rectangle {
     property <PrinterQueueItem> queue_item;
 
-    border-color: DemoPalette.control_outline_color;
+    border-color: DemoPalette.neutral_box;
     border-radius: 14px;
     border-width: 2px;
     background: DemoPalette.printer_queue_item_background_color;
