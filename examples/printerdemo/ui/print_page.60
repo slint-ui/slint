@@ -9,7 +9,7 @@
 LICENSE END */
 
 import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, PrinterQueueItem } from "./common.60";
-import { PrinterQueueList } from "./printer_queue.60";
+import { WidePrinterQueueList } from "./printer_queue.60";
 
 
 export PrintPage := Page {
@@ -32,7 +32,7 @@ export PrintPage := Page {
         }
 
         Row {
-            queue := PrinterQueueList {
+            queue := WidePrinterQueueList {
                 viewport_width: root.width;
             }
         }

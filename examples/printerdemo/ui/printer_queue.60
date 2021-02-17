@@ -82,7 +82,7 @@ PrintDetails := GridLayout {
     }            
 }
 
-PrintQueueElement := Rectangle {
+NarrowPrintQueueElement := Rectangle {
     property <PrinterQueueItem> queue_item;
 
     border-color: DemoPalette.control_outline_color;
@@ -146,7 +146,7 @@ PrintQueueElement := Rectangle {
     }
 }
 
-export PrinterQueueList := Flickable {
+NarrowPrinterQueueList := Flickable {
     property <[PrinterQueueItem]> printer_queue;
     viewport_height: 2000px; /* FIXME: the flickable needs to learn its viewport height from the layout */        
 
@@ -155,7 +155,87 @@ export PrinterQueueList := Flickable {
         padding: 0px;
         spacing: 13.5px;
 
-        for queue_item[idx] in root.printer_queue: PrintQueueElement {
+        for queue_item[idx] in root.printer_queue: NarrowPrintQueueElement {
+            queue_item: queue_item;
+        }
+    }
+}
+
+WidePrintQueueElement := Rectangle {
+    property <PrinterQueueItem> queue_item;
+
+    border-color: DemoPalette.control_outline_color;
+    border-radius: 14px;
+    border-width: 2px;
+    background: DemoPalette.printer_queue_item_background_color;
+
+    GridLayout {
+        padding: parent.border_radius;
+        spacing: 0px;
+
+        Row {
+            VerticalLayout {
+                colspan: 2;
+
+                Text {
+                    // TODO: text-transform: uppercase
+                    text: {
+                        if (queue_item.status == "PRINTING") {
+                        "\{queue_item.progress}% - \{queue_item.status}"
+                        } else {
+                            queue_item.status
+                        }
+                    }
+                    color: DemoPalette.status_label_text_color;
+                    font-size: DemoPalette.base_font_size * 0.75;
+                    font-weight: 800;
+                    letter-spacing: 1.56px;
+                }
+
+                Text {
+                    text: queue_item.title;
+                    overflow: elide;
+                    font-weight: 800;
+                    font-size: DemoPalette.base_font_size * 1.125;
+                }
+            }
+
+            Rectangle {}
+
+            PrintDetails {
+                colspan: 2;
+                rowspan: 3;
+
+                padding: 0px;
+                padding-bottom: root.border-radius / 2;
+                queue_item: root.queue_item;
+            }     
+        }
+
+        Row {}
+
+        Row {
+            PushButton {
+                text: "Pause";
+            }
+            PushButton {
+                primary: false;
+                text: "Delete";
+            }
+        }       
+    }    
+}
+
+export WidePrinterQueueList := Flickable {
+    property <[PrinterQueueItem]> printer_queue;
+    viewport_height: 2000px; /* FIXME: the flickable needs to learn its viewport height from the layout */        
+
+    VerticalLayout {
+        alignment: start;
+        padding: 0px;
+        spacing: 13.5px;
+
+        for queue_item[idx] in root.printer_queue: WidePrintQueueElement {
             queue_item: queue_item;
         }
     }
@@ -179,7 +259,7 @@ export PrinterQueue := Rectangle {
             font-weight: 700;
         }
 
-        queue_list := PrinterQueueList {
+        queue_list := NarrowPrinterQueueList {
             viewport_width: root.width - 2 * root.border_radius;
         }
     }
