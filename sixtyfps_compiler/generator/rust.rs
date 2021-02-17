@@ -172,7 +172,7 @@ fn handle_property_binding(
         )
     };
 
-    if matches!(prop_type, Type::Callback{..}) {
+    if matches!(prop_type, Type::Callback { .. }) {
         let tokens_for_expression = compile_expression(binding_expression, &component);
         init.push(quote!(
             #rust_property.set_handler({
@@ -1315,6 +1315,9 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         }
         Expression::ResourceReference(resource_ref) => {
             match resource_ref {
+                crate::expression_tree::ResourceReference::None => {
+                    quote!(sixtyfps::re_exports::Resource::None)
+                }
                 crate::expression_tree::ResourceReference::AbsolutePath(path) => {
                      quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#path)))
                 },

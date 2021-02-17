@@ -621,6 +621,9 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         }
         Expression::ResourceReference(resource_ref) => {
             match resource_ref {
+                sixtyfps_compilerlib::expression_tree::ResourceReference::None => {
+                    Value::Resource(Resource::None)
+                }
                 sixtyfps_compilerlib::expression_tree::ResourceReference::AbsolutePath(path) => {
                     Value::Resource(Resource::AbsoluteFilePath(path.into()))
                 }

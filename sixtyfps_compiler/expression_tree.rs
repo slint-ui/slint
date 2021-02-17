@@ -1060,6 +1060,7 @@ impl Default for EasingCurve {
 // and the resource lowering path may change this to EmbeddedData if configured.
 #[derive(Clone, Debug)]
 pub enum ResourceReference {
+    None,
     AbsolutePath(String),
     EmbeddedData(usize),
 }

@@ -28,6 +28,7 @@ fn embed_resources_from_expression(
 ) {
     if let Expression::ResourceReference(ref mut resource_ref) = e {
         match resource_ref {
+            ResourceReference::None => {}
             ResourceReference::AbsolutePath(path) => {
                 let mut resources = global_embedded_resources.borrow_mut();
                 let maybe_id = resources.len();

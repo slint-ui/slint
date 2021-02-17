@@ -398,6 +398,10 @@ impl Expression {
             }
         };
 
+        if s.is_empty() {
+            return Expression::ResourceReference(ResourceReference::None);
+        }
+
         let absolute_source_path = {
             let path = std::path::Path::new(&s);
 
@@ -608,7 +612,7 @@ impl Expression {
                     name: resolved_name.to_string(),
                 });
                 return maybe_lookup_object(prop, it, ctx);
-            } else if matches!(property_type, Type::Callback{..}) {
+            } else if matches!(property_type, Type::Callback { .. }) {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error("Cannot access fields of callback".into(), &x)
                 }
@@ -1188,7 +1192,7 @@ fn continue_lookup_within_element(
             name: resolved_name.to_string(),
         });
         maybe_lookup_object(prop, it, ctx)
-    } else if matches!(property_type, Type::Callback{..}) {
+    } else if matches!(property_type, Type::Callback { .. }) {
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
@@ -1196,7 +1200,7 @@ fn continue_lookup_within_element(
             element: Rc::downgrade(elem),
             name: resolved_name.to_string(),
         })
-    } else if matches!(property_type, Type::Function{..}) {
+    } else if matches!(property_type, Type::Function { .. }) {
         let member = elem.borrow().base_type.lookup_member_function(&resolved_name);
         Expression::MemberFunction {
             base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
