@@ -220,9 +220,12 @@ export PushButton := Rectangle {
     border-radius: 13.5px;
     background: primary ? DemoPalette.primary_push_button_color : DemoPalette.secondary_push_button_color;
 
-    height: 23px; // line-height in the design
+    height: 27px; // line-height in the design
+    horizontal-stretch: 1;
 
     HorizontalLayout {
+        padding-top: 5px;
+        padding-bottom: 5px;
         padding-left: parent.border_radius;
         padding-right: parent.border_radius;
 
@@ -230,7 +233,7 @@ export PushButton := Rectangle {
             horizontal-stretch: 0;
             colorize: DemoPalette.push_button_text_color;
             image-fit: contain;
-            width: height;
+            width: height * 1.333;
         }
 
         label := DemoText {
@@ -238,6 +241,7 @@ export PushButton := Rectangle {
             font-weight: 900;
             color: DemoPalette.push_button_text_color;
             horizontal-alignment: center;
+            vertical-alignment: center;
         }
     }
 }

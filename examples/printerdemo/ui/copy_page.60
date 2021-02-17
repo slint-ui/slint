@@ -67,9 +67,6 @@ export CopyPage := Page {
             }
         }
         Row {
-            Rectangle {
-                colspan: 3;
-            }
             HorizontalLayout {
                 col: 3;
                 colspan: 2;
