@@ -145,8 +145,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         #[cfg(not(no_qt))]
         {
             use cpp::cpp;
-            let encoded_path: qttypes::QByteArray =
-                _path.to_string_lossy().to_string().as_bytes().into();
+            let encoded_path: qttypes::QByteArray = _path.to_string_lossy().as_bytes().into();
             cpp! {unsafe [encoded_path as "QByteArray"] {
                 ensure_initialized();
                 QFontDatabase::addApplicationFont(QFile::decodeName(encoded_path));
