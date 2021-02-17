@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "./common.60";
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.60";
 
 
 export CopyPage := Page {
@@ -61,10 +61,10 @@ export CopyPage := Page {
             Rectangle {}
 
             Label { text: "PaperGandling"; }
-            /*CheckBox {
-                value: true;
+            CheckBox {
+                checked: true;
                 text: "sort page";
-            }*/
+            }
         }
         Row {
             Rectangle {

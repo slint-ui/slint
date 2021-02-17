@@ -90,7 +90,7 @@ export Label := Text {
     font-weight: 700;
 }
 
-SpinBoxButton := Rectangle {
+SquareButton := Rectangle {
     callback clicked;
     property<resource> img;
     border-radius: 3px;
@@ -114,7 +114,6 @@ SpinBoxButton := Rectangle {
 }
 
 export SpinBox := Rectangle {
-    property <bool> checked;
     property <int> value;
     property <int> minimum;
     property <int> maximum: 100;
@@ -123,7 +122,7 @@ export SpinBox := Rectangle {
         spacing: 12px;
         padding: 0;
         height: 32px;
-        SpinBoxButton {
+        SquareButton {
             img: @image-url("images/minus.svg");
             clicked => {
                 if (root.value > root.minimum) {
@@ -147,7 +146,7 @@ export SpinBox := Rectangle {
             }
         }
 
-        SpinBoxButton {
+        SquareButton {
             img: @image-url("images/plus.svg");
             clicked => {
                 if (root.value < root.maximum) {
@@ -164,7 +163,6 @@ export ComboBox := Rectangle {
     border-width: 2px;
     border-color: DemoPalette.control_outline_color;
     height: 32px;
-    padding-left: 12px;
     Text {
         vertical-alignment: center;
         horizontal-alignment: left;
@@ -172,7 +170,8 @@ export ComboBox := Rectangle {
         font-size: DemoPalette.label_base_font_size;
         color: DemoPalette.control_foreground;
         height: 100%;
-        width: parent.width - i.width;
+        width: parent.width - i.width - x;
+        x: 12px;
     }
     i := Image {
         source: @image-url("images/down.svg");
@@ -182,6 +181,30 @@ export ComboBox := Rectangle {
         image-fit: contain;
         x: parent.width - width - y;
         y: (parent.height - height)/2;
+    }
+}
+
+export CheckBox := Rectangle {
+    property <bool> checked;
+    property <string> text;
+
+    HorizontalLayout {
+        spacing: 12px;
+        padding: 0;
+        height: 32px;
+        SquareButton {
+            img: checked ? @image-url("images/check.svg") : @image-url("");
+            clicked => { checked = !checked; }
+        }
+
+        Text {
+            text <=> root.text;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            font-size: DemoPalette.label_base_font_size;
+            color: DemoPalette.control_foreground;
+            horizontal-stretch: 1;
+        }
     }
 }
 
