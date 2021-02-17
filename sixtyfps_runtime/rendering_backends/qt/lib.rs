@@ -98,6 +98,17 @@ pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 /// False if the backend was compiled without Qt so it wouldn't do anything
 pub const IS_AVAILABLE: bool = cfg!(not(no_qt));
 
+#[cfg(unix)]
+fn path_to_bytes<'a>(path: &'a std::path::Path) -> &'a [u8] {
+    use std::os::unix::ffi::OsStrExt;
+    path.as_os_str().as_bytes()
+}
+
+#[cfg(not(unix))]
+fn path_to_bytes<'a>(path: &'a std::path::Path) -> &'a [u8] {
+    path.to_string_lossy().to_string().as_bytes()
+}
+
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> ComponentWindow {
@@ -133,6 +144,22 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             cpp! {unsafe [data as "QByteArray"] {
                 ensure_initialized();
                 QFontDatabase::addApplicationFontFromData(data);
+            } }
+        };
+        Ok(())
+    }
+
+    fn register_application_font_from_path(
+        &'static self,
+        _path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(not(no_qt))]
+        {
+            use cpp::cpp;
+            let encoded_path: qttypes::QByteArray = path_to_bytes(_path).into();
+            cpp! {unsafe [encoded_path as "QByteArray"] {
+                ensure_initialized();
+                QFontDatabase::addApplicationFont(QFile::decodeName(encoded_path));
             } }
         };
         Ok(())

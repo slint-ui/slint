@@ -1438,6 +1438,13 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         self::register_application_font_from_memory(data)
     }
 
+    fn register_application_font_from_path(
+        &'static self,
+        path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        self::register_application_font_from_path(path)
+    }
+
     fn set_clipboard_text(&'static self, text: String) {
         use copypasta::ClipboardProvider;
         CLIPBOARD.with(|clipboard| clipboard.borrow_mut().set_contents(text).ok());

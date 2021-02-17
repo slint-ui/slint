@@ -33,6 +33,17 @@ pub fn register_application_font_from_memory(
     Ok(())
 }
 
+pub fn register_application_font_from_path(
+    path: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // Should use FontDb::load_font_file but that requires the `fs` feature, for which I can't figure
+    // out how to exclude it from the wasm build. It's inclusion implies mmap, which doesn't compile
+    // with wasm.
+    let data = std::fs::read(path)?;
+    APPLICATION_FONTS.with(|fontdb| fontdb.borrow_mut().load_font_data(data));
+    Ok(())
+}
+
 pub(crate) fn try_load_app_font(
     canvas: &CanvasRc,
     request: &FontRequest,

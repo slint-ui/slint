@@ -20,11 +20,25 @@ struct Cli {
     /// The style name (empty, or 'qt')
     #[structopt(long, name = "style name", default_value)]
     style: String,
+
+    /// An optional application font
+    #[structopt(long, name = "application font")]
+    app_font: Option<Vec<String>>,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let source = std::fs::read_to_string(&args.path)?;
+
+    args.app_font.map(|fonts| {
+        fonts.iter().for_each(|font_path| {
+            if let Err(app_font_err) =
+                sixtyfps_interpreter::register_application_font_from_path(&font_path)
+            {
+                eprintln!("Error loading app font {}: {}", font_path, app_font_err);
+            }
+        });
+    });
 
     let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
         sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
