@@ -18,7 +18,14 @@ export TestCase := Window {
         padding: 0px;
         spacing: 0px;
 
-        Rectangle { background: orange; }
+        Rectangle {
+            background: orange;
+            TouchArea {
+                clicked => {
+                    root.value = 0;
+                }
+            }
+        }
 
         if (true) : Rectangle {
             background: blue;
@@ -49,14 +56,15 @@ export TestCase := Window {
             background: pink;
             TouchArea {
                 clicked => {
-                    root.value = 2;
+                    root.value = 4;
                 }
             }
         }
     }
 }
 
-// There should be 4 rectangle: so 100 devided by 5 is 25.
+// There should be 4 rectangle: so 100 devided by 4 is 25.
+// when cond is false, there is 3, so 33.3 pixel per rectangle
 
 /*
 ```cpp
@@ -64,7 +72,7 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
-assert_eq(instance.get_value(), -10);
+assert_eq(instance.get_value(), 0);
 
 sixtyfps::testing::send_mouse_click(&instance, 5., 52.);
 assert_eq(instance.get_value(), 2);
@@ -73,7 +81,20 @@ sixtyfps::testing::send_mouse_click(&instance, 5., 30.);
 assert_eq(instance.get_value(), 1);
 
 sixtyfps::testing::send_mouse_click(&instance, 5., 80.);
-assert_eq(instance.get_value(), 2); // did not change
+assert_eq(instance.get_value(), 4);
+
+instance.set_cond(false);
+sixtyfps::testing::send_mouse_click(&instance, 5., 35.);
+assert_eq(instance.get_value(), 1);
+sixtyfps::testing::send_mouse_click(&instance, 5., 30.);
+assert_eq(instance.get_value(), 0);
+sixtyfps::testing::send_mouse_click(&instance, 5., 67.);
+assert_eq(instance.get_value(), 4);
+
+instance.set_cond(true);
+sixtyfps::testing::send_mouse_click(&instance, 5., 70.);
+assert_eq(instance.get_value(), 2);
+
 ```
 
 
@@ -81,7 +102,7 @@ assert_eq(instance.get_value(), 2); // did not change
 let instance = TestCase::new();
 
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
-assert_eq!(instance.get_value(), -10);
+assert_eq!(instance.get_value(), 0);
 
 sixtyfps::testing::send_mouse_click(&instance, 5., 52.);
 assert_eq!(instance.get_value(), 2);
@@ -90,7 +111,20 @@ sixtyfps::testing::send_mouse_click(&instance, 5., 30.);
 assert_eq!(instance.get_value(), 1);
 
 sixtyfps::testing::send_mouse_click(&instance, 5., 80.);
-assert_eq!(instance.get_value(), 2); // did not change
+assert_eq!(instance.get_value(), 4);
+
+instance.set_cond(false);
+sixtyfps::testing::send_mouse_click(&instance, 5., 35.);
+assert_eq!(instance.get_value(), 1);
+sixtyfps::testing::send_mouse_click(&instance, 5., 30.);
+assert_eq!(instance.get_value(), 0);
+sixtyfps::testing::send_mouse_click(&instance, 5., 67.);
+assert_eq!(instance.get_value(), 4);
+
+instance.set_cond(true);
+sixtyfps::testing::send_mouse_click(&instance, 5., 70.);
+assert_eq!(instance.get_value(), 2);
+
 
 ```
 
@@ -98,7 +132,7 @@ assert_eq!(instance.get_value(), 2); // did not change
 var instance = new sixtyfps.TestCase();
 
 instance.send_mouse_click(5., 5.);
-assert.equal(instance.value, -10);
+assert.equal(instance.value, 0);
 
 instance.send_mouse_click(5., 52.);
 assert.equal(instance.value, 2);
@@ -107,7 +141,19 @@ instance.send_mouse_click(5., 30.);
 assert.equal(instance.value, 1);
 
 instance.send_mouse_click(5., 80);
-assert.equal(instance.value, 2); // did not change
+assert.equal(instance.value, 4);
+
+instance.cond = false;
+instance.send_mouse_click(5., 35.);
+assert.equal(instance.value, 1);
+instance.send_mouse_click(5., 30.);
+assert.equal(instance.value, 0);
+instance.send_mouse_click(5., 67.);
+assert.equal(instance.value, 4);
+
+instance.cond = true;
+instance.send_mouse_click(5., 70.);
+assert.equal(instance.value, 2);
 ```
 */
 

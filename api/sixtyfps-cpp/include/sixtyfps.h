@@ -552,6 +552,10 @@ public:
             } else {
                 inner->data.clear();
             }
+        } else {
+            // just do a get() on the model to register dependencies so that, for example, the
+            // layout property tracker becomes dirty.
+            model.get();
         }
     }
 
