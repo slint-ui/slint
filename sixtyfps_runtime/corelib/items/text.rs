@@ -129,13 +129,19 @@ impl Item for Text {
             // FIXME: one should limit to the size of the smaler word
             LayoutInfo::default()
         } else if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
-            let size = font_metrics.text_size(&self.text());
+            let mut min_size = font_metrics.text_size(&self.text());
+            match self.overflow() {
+                TextOverflow::elide => {
+                    min_size.width = font_metrics.text_size("…").width;
+                }
+                TextOverflow::clip => {}
+            }
             // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
             // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
             // letters will be cut off, apply the ceiling here.
             LayoutInfo {
-                min_width: size.width.ceil(),
-                min_height: size.height.ceil(),
+                min_width: min_size.width.ceil(),
+                min_height: min_size.height.ceil(),
                 ..LayoutInfo::default()
             }
         } else {
