@@ -232,6 +232,7 @@ lazy_static! {
         ("LICENSE\\..*", LicenseLocation::NoLicense),
         ("LICENSE-DejaVu", LicenseLocation::NoLicense),
         ("^examples/slide_puzzle/plaster-font/OFL.txt$", LicenseLocation::NoLicense),
+        ("^examples/printerdemo/ui/fonts/LICENSE_OFL.txt$", LicenseLocation::NoLicense),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
