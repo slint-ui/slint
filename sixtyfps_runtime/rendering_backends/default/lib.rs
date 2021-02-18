@@ -94,4 +94,18 @@ pub mod ffi {
     pub unsafe extern "C" fn sixtyfps_run_event_loop() {
         crate::backend().run_event_loop();
     }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_register_font_from_path(
+        path: &sixtyfps_corelib::SharedString,
+        error_str: *mut sixtyfps_corelib::SharedString,
+    ) {
+        core::ptr::write(
+            error_str,
+            match crate::backend().register_font_from_path(std::path::Path::new(path.as_str())) {
+                Ok(()) => Default::default(),
+                Err(err) => err.to_string().into(),
+            },
+        )
+    }
 }

@@ -22,6 +22,12 @@ struct InkLevelModel : sixtyfps::Model<InkLevel>
 
 int main()
 {
+    if (auto error = sixtyfps::register_font_from_path(FONTS_DIR "/NotoSans-Regular.ttf")) {
+        fprintf(stderr, "Error registering Noto Sans Regular font: %s\n", error->data());
+    }
+    if (auto error = sixtyfps::register_font_from_path(FONTS_DIR "/NotoSans-Bold.ttf")) {
+        fprintf(stderr, "Error registering Noto Sans Bold font: %s\n", error->data());
+    }
     auto printer_demo = MainWindow::create();
     printer_demo->set_ink_levels(std::make_shared<InkLevelModel>());
     printer_demo->on_quit([] { std::exit(0); });

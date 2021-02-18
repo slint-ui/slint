@@ -19,6 +19,7 @@ LICENSE END */
 #include <algorithm>
 #include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
 #include <chrono>
+#include <optional>
 
 namespace sixtyfps::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
@@ -667,6 +668,20 @@ struct VersionCheckHelper
 void run_event_loop()
 {
     cbindgen_private::sixtyfps_run_event_loop();
+}
+
+/// Registers a font by the specified path. The path must refer to an existing
+/// TrueType font font.
+/// \returns an empty optional on success, otherwise an error string
+std::optional<SharedString> register_font_from_path(const SharedString &path)
+{
+    SharedString maybe_err;
+    cbindgen_private::sixtyfps_register_font_from_path(&path, &maybe_err);
+    if (!maybe_err.empty()) {
+        return maybe_err;
+    } else {
+        return {};
+    }
 }
 
 } // namespace sixtyfps
