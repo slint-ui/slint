@@ -74,7 +74,7 @@ impl GlobalComponentInstance {
             component: component.clone(),
         };
         for (name, decl) in &component.root_element.borrow().property_declarations {
-            if matches!(decl.property_type, Type::Callback{..}) {
+            if matches!(decl.property_type, Type::Callback { .. }) {
                 instance.callbacks.insert(name.clone(), Box::pin(Default::default()));
             } else {
                 instance.properties.insert(name.clone(), Box::pin(Default::default()));

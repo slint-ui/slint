@@ -198,24 +198,27 @@ impl Type {
 
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
-        matches!(self, Self::Float32
-            | Self::Int32
-            | Self::String
-            | Self::Color
-            | Self::Duration
-            | Self::Angle
-            | Self::Length
-            | Self::LogicalLength
-            | Self::Percent
-            | Self::Resource
-            | Self::Bool
-            | Self::Model
-            | Self::Easing
-            | Self::Enumeration(_)
-            | Self::ElementReference
-            | Self::Object { .. }
-            | Self::Array(_)
-            | Self::Brush)
+        matches!(
+            self,
+            Self::Float32
+                | Self::Int32
+                | Self::String
+                | Self::Color
+                | Self::Duration
+                | Self::Angle
+                | Self::Length
+                | Self::LogicalLength
+                | Self::Percent
+                | Self::Resource
+                | Self::Bool
+                | Self::Model
+                | Self::Easing
+                | Self::Enumeration(_)
+                | Self::ElementReference
+                | Self::Object { .. }
+                | Self::Array(_)
+                | Self::Brush
+        )
     }
 
     pub fn ok_for_public_api(&self) -> bool {

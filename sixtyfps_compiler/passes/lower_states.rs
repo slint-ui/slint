@@ -22,7 +22,7 @@ pub fn lower_states(
     diag: &mut BuildDiagnostics,
 ) {
     let state_info_type = tr.lookup("StateInfo");
-    assert!(matches!(state_info_type, Type::Object{ name: Some(_), .. }));
+    assert!(matches!(state_info_type, Type::Object { name: Some(_), .. }));
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         lower_state_in_element(elem, &state_info_type, diag)
     });
