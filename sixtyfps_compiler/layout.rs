@@ -33,6 +33,14 @@ impl Layout {
             Layout::PathLayout(p) => &p.rect,
         }
     }
+
+    pub fn geometry_mut(&mut self) -> Option<&mut LayoutGeometry> {
+        match self {
+            Layout::GridLayout(g) => Some(&mut g.geometry),
+            Layout::BoxLayout(g) => Some(&mut g.geometry),
+            Layout::PathLayout(_) => None,
+        }
+    }
 }
 
 impl Layout {
@@ -278,6 +286,10 @@ pub struct LayoutGeometry {
     pub spacing: Option<NamedReference>,
     pub alignment: Option<NamedReference>,
     pub padding: Padding,
+    /// When true, sets the parent element width to the layout prefered size
+    pub set_parent_width: bool,
+    /// When true, sets the parent element height to the layout prefered size
+    pub set_parent_height: bool,
 }
 
 impl LayoutGeometry {
@@ -362,7 +374,14 @@ impl LayoutGeometry {
             bottom: binding_reference(layout_element, "padding_bottom").or_else(padding),
         };
 
-        Self { rect, spacing, padding, alignment }
+        Self {
+            rect,
+            spacing,
+            padding,
+            alignment,
+            set_parent_height: false,
+            set_parent_width: false,
+        }
     }
 }
 
@@ -371,7 +390,6 @@ impl LayoutGeometry {
 pub struct GridLayout {
     /// All the elements will be layout within that element.
     pub elems: Vec<GridLayoutElement>,
-
     pub geometry: LayoutGeometry,
 }
 
@@ -392,6 +410,10 @@ pub struct BoxLayout {
     pub is_horizontal: bool,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
+    /// When true, sets the parent element width to the layout prefered size
+    pub set_parent_width: bool,
+    /// When true, sets the parent element height to the layout prefered size
+    pub set_parent_height: bool,
 }
 
 impl BoxLayout {

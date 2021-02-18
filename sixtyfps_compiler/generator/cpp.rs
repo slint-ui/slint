@@ -2199,7 +2199,7 @@ fn compute_layout(
         "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
         ty = component_id(component)
     );
-    let mut res = vec![intro.clone()];
+    let mut apply_layout = vec![intro.clone()];
     let mut layout_info = vec![
         intro.clone(),
         "auto layout_info = self->root_item().vtable->layouting_info(self->root_item(), &self->window);".into(),
@@ -2208,7 +2208,7 @@ fn compute_layout(
     component_layouts.iter().enumerate().for_each(|(idx, layout)| {
         let mut inverse_layout_tree = Vec::new();
 
-        res.push("    {".into());
+        apply_layout.push("    {".into());
         let layout_item = crate::layout::gen::collect_layouts_recursively(
             &mut inverse_layout_tree,
             layout,
@@ -2239,13 +2239,13 @@ fn compute_layout(
             layout_info.splice(1..1, creation_code.iter().cloned());
         }
 
-        res.append(&mut creation_code);
+        apply_layout.append(&mut creation_code);
 
         inverse_layout_tree
             .iter()
             .rev()
-            .for_each(|layout| layout.emit_solve_calls(component, &mut res));
-        res.push("    }".into());
+            .for_each(|layout| layout.emit_solve_calls(component, &mut apply_layout));
+        apply_layout.push("    }".into());
     });
 
     let root_constraints = &component.layouts.borrow().root_constraints;
@@ -2263,9 +2263,9 @@ fn compute_layout(
         layout_info.push("return layout_info;".into());
     }
 
-    res.append(repeater_layout_code);
+    apply_layout.append(repeater_layout_code);
 
-    (res, layout_info)
+    (apply_layout, layout_info)
 }
 
 fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) -> String {

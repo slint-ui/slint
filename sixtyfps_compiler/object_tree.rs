@@ -1383,8 +1383,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
 
     elements_with_enclosing_component_reference.push(new_root.clone());
 
-    new_root.borrow_mut().child_of_layout =
-        std::mem::replace(&mut old_root.borrow_mut().child_of_layout, false);
+    new_root.borrow_mut().child_of_layout = old_root.borrow().child_of_layout;
 
     // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
     // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.

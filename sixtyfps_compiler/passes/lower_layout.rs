@@ -96,6 +96,8 @@ fn lower_box_layout(
         is_horizontal,
         elems: Default::default(),
         geometry: LayoutGeometry::new(rect, &layout_element, style_metrics),
+        set_parent_width: false,
+        set_parent_height: false,
     };
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
     for layout_child in layout_children {
@@ -215,7 +217,7 @@ fn lower_element_layout(
     for child in old_children {
         if let Some(layout_parser) = layout_parse_function(&child) {
             let mut children = std::mem::take(&mut elem.borrow_mut().children);
-            if let Some(layout) = layout_parser(
+            if let Some(mut layout) = layout_parser(
                 component,
                 rect_to_layout.clone(),
                 &child,
@@ -224,9 +226,21 @@ fn lower_element_layout(
                 style_metrics,
                 diag,
             ) {
-                if Rc::ptr_eq(elem, &component.root_element) {
+                let is_root = Rc::ptr_eq(elem, &component.root_element);
+                if is_root {
                     found_layouts.main_layout = Some(found_layouts.len());
                 }
+                // Anything else than the Window get its width/height set
+                if (component.parent_element.upgrade().is_some() || !is_root)
+                    && !elem.borrow().child_of_layout
+                {
+                    if let Some(mut g) = layout.geometry_mut() {
+                        g.set_parent_width = !elem.borrow().bindings.contains_key("width");
+                        g.set_parent_height = !elem.borrow().bindings.contains_key("height");
+                        elem.borrow_mut().child_of_layout = true;
+                    }
+                }
+
                 found_layouts.push(layout);
             }
             elem.borrow_mut().children = children;

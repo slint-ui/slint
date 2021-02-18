@@ -1376,7 +1376,39 @@ impl<'a> LayoutTreeItem<'a> {
                     .unwrap_or(0.)
             })
         };
+        let assume_property_f32 = |nr: &Option<NamedReference>| {
+            nr.as_ref().map(|nr| {
+                let p = get_property_ptr(nr, instance_ref);
+                unsafe { &*(p as *const Property<f32>) }
+            })
+        };
 
+        // First, set the parent property if they should be set
+        match self {
+            Self::GridLayout(LayoutWithCells { geometry, .. })
+            | Self::BoxLayout(LayoutWithCells { geometry, .. }, _, _) => {
+                if geometry.set_parent_width || geometry.set_parent_height {
+                    let info = self.layout_info();
+                    eprintln!(
+                        "GONNA SET {} {} => {:?}",
+                        geometry.set_parent_width, geometry.set_parent_height, info
+                    );
+                    /*if geometry.set_parent_width {
+                        assume_property_f32(&geometry.rect.width_reference)
+                            .unwrap()
+                            .set(info.min_width);
+                    }
+                    if geometry.set_parent_height {
+                        assume_property_f32(&geometry.rect.height_reference)
+                            .unwrap()
+                            .set(info.min_height);
+                    }*/
+                }
+            }
+            LayoutTreeItem::PathLayout(_) => {}
+        }
+
+        // Solve the layout
         match self {
             Self::GridLayout(grid_layout) => {
                 solve_grid_layout(&GridLayoutData {

@@ -30,6 +30,7 @@ MainWindow := Window {
         { title: "Ship to customer", checked: false },
         { title: "???", checked: false },
         { title: "Profit", checked: false },
+        { title: "Lorem ipsum dolor sit amet lorem ipsum dolor sit amet", checked: false },
     ];
 
     VerticalLayout {
