@@ -507,13 +507,23 @@ impl<T, F: Fn() -> T> Binding<T> for F {
 /// a dependency will be registered, such that when the property
 /// change, the binding will automatically be updated
 #[repr(C)]
-#[derive(Debug)]
 pub struct Property<T> {
     /// This is usually a pointer, but the least significant bit tells what it is
     handle: PropertyHandle,
     /// This is only safe to access when the lock flag is not set on the handle.
     value: UnsafeCell<T>,
     pinned: PhantomPinned,
+}
+
+impl<T: std::fmt::Debug + Clone> std::fmt::Debug for Property<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Property({:?}{})",
+            self.get_internal(),
+            if self.is_dirty() { " (dirty)" } else { "" }
+        )
+    }
 }
 
 impl<T: Default> Default for Property<T> {
