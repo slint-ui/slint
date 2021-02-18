@@ -61,33 +61,24 @@ MainWindow := Window {
             border-radius: 30px;
             background: DemoPalette.page_background_color;
 
-            property <length> page_x: 24px;
-            property <length> page_width: main_view.width - main_view.border_radius;
-            property <length> page_height: main_view.height - main_view.border_radius;
-            property <length> page_active_y: page_x;
-
             Clip {
+                x: main_view.border_radius / 2;
+                y: main_view.border_radius / 2;
+                width: main_view.width - main_view.border_radius;
+                height: main_view.height - main_view.border_radius;
+
                 home_page := HomePage {
-                    x: main_view.page_x;
-                    width: main_view.page_width;
-                    height: main_view.page_height;
-                    y: active_page == 0 ? main_view.page_active_y : active_page < 0 ? - height - 1px : parent.height + 1px;
+                    y: active_page == 0 ? 0 : active_page < 0 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                     printer_queue: root.printer_queue;
                 }
                 Page {
-                    x: main_view.page_x;
-                    width: main_view.page_width;
-                    height: main_view.page_height;
-                    y: active_page == 1 ? main_view.page_active_y : active_page < 1 ? - height - 1px : parent.height + 1px;
+                    y: active_page == 1 ? 0 : active_page < 1 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                     header: "Settings\n\n(TODO)";
                 }
                 InkPage {
-                    x: main_view.page_x;
-                    width: main_view.page_width;
-                    height: main_view.page_height;
-                    y: active_page == 2 ? main_view.page_active_y : active_page < 2 ? - height - 1px : parent.height + 1px;
+                    y: active_page == 2 ? 0 : active_page < 2 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                     ink_levels <=> root.ink_levels;
                     page_visible: active_page == 2;

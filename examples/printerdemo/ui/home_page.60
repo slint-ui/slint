@@ -78,7 +78,7 @@ export HomePage := Page {
     }
 
     queue_view := PrinterQueue {
-        x: parent.width - width - 16px;
+        x: parent.width - width;
         width: 313px;
         printer_queue: root.printer_queue;
     }
