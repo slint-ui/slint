@@ -33,7 +33,7 @@ export PrintPage := Page {
 
         Row {
             queue := WidePrinterQueueList {
-                viewport_width: root.width;
+                viewport_width: width;
             }
         }
 
