@@ -125,11 +125,11 @@ NarrowPrintQueueElement := Rectangle {
 
         DemoText {
             text: queue_item.title;
+            minimum-width: 0px;
             overflow: elide;
             color: DemoPalette.text_foreground_color;
             font-weight: 800;
             font-size: DemoPalette.base_font_size * 1.125;
-            width: root.width - 2*parent.padding; // FIXME
         }
 
         if (expanded): PrintDetails {

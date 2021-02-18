@@ -9,6 +9,6 @@
 cp NotoSans-unhinted/LICENSE_OFL.txt .
 
 for weight in Light Regular Bold; do
-    pyftsubset NotoSans-unhinted/NotoSans-$weight.ttf --unicodes="U+0020-007F" --output-file=NotoSans-$weight.ttf
+    pyftsubset NotoSans-unhinted/NotoSans-$weight.ttf --unicodes="U+0020-007F,U+2026" --output-file=NotoSans-$weight.ttf
 done
 
