@@ -566,10 +566,22 @@ fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
     Ok(JsUndefined::new().upcast())
 }
 
+fn register_font_from_path(mut cx: FunctionContext) -> JsResult<JsValue> {
+    let path = cx.argument::<JsString>(0)?.value();
+
+    match sixtyfps_interpreter::register_font_from_path(&path) {
+        Ok(_) => Ok(JsUndefined::new().upcast()),
+        Err(load_err) => {
+            return cx.throw_error(format!("error loading font {}: {}", path, load_err));
+        }
+    }
+}
+
 register_module!(mut m, {
     m.export_function("load", load)?;
     m.export_function("mock_elapsed_time", mock_elapsed_time)?;
     m.export_function("singleshot_timer", singleshot_timer)?;
+    m.export_function("register_font_from_path", register_font_from_path)?;
     Ok(())
 });
 

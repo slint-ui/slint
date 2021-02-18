@@ -9,9 +9,17 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-// import "sixtyfps";
-require("sixtyfps");
-// import * as demo from "../ui/printerdemo.60";
+const path = require("path");
+let sixtyfps = require("sixtyfps");
+
+try {
+    for (font_file of ["NotoSans-Regular.ttf", "NotoSans-Bold.ttf"]) {
+        sixtyfps.register_font_from_path(path.resolve(__dirname, "../ui/fonts", font_file));
+    }
+} catch (load_exception) {
+    console.error(load_exception);
+}
+
 let demo = require("../ui/printerdemo.60");
 let window = new demo.MainWindow();
 
