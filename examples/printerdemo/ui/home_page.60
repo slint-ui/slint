@@ -13,6 +13,7 @@ import { CopyPage } from "./copy_page.60";
 import { ScanPage } from "./scan_page.60";
 import { PrintPage } from "./print_page.60";
 import { PrinterQueue } from "./printer_queue.60";
+import { UsbPage } from "./usb_page.60";
 
 ActionButton := Rectangle {
 
@@ -99,11 +100,9 @@ export HomePage := Page {
         animate x { duration: 125ms; easing: ease; }
         back => { current_subpage = 0 }
     }
-    Page {
-        header: "USB";
+    UsbPage {
         x: current_subpage == 4 ? 0 : parent.width + parent.x + 1px;
         animate x { duration: 125ms; easing: ease; }
-        has_back_button: true;
         back => { current_subpage = 0 }
     }
 }

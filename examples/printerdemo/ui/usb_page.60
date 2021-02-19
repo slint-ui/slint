@@ -1,0 +1,81 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox, DemoText } from "./common.60";
+import { StandardListView } from "sixtyfps_widgets.60";
+
+
+export UsbPage := Page {
+    has_back_button: true;
+    header: "USB";
+
+    GridLayout {
+        padding-top: 46px /* header line height in design */
+                     + /* extra top-padding in design */ 27px;
+        spacing: 24px;
+
+        Image {
+            width: 50%;
+            source: @image-url("images/cat_preview_round.png");
+            image-fit: contain;
+            rowspan: 5;
+        }
+
+        Label {
+            col: 1;
+            row: 0;
+            text: "Select File:";
+            vertical-stretch: 0;
+            maximum-height: 32px;
+        }
+
+        StandardListView {
+            col: 1;
+            row: 1;
+            colspan: 2;
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            model: [
+                { text: ".." },
+                { text: "cat.png" },
+                { text: "dog.png" },
+                { text: "elephant.png" },
+                { text: "snake.png" },
+            ];
+        }
+
+        Row {
+            Label { col: 1; text: "Copies"; }
+            SpinBox { value: 1; }
+        }
+        Row {
+            Label { col: 1; text: "Color"; }
+            ComboBox { value: "Grayscale"; }
+        }
+        HorizontalLayout {
+            row: 4;
+            col: 1;
+            colspan: 2;
+
+            Rectangle {
+                horizontal-stretch: 0;
+                width: 10%;
+            }
+            PushButton {
+                icon: @image-url("images/copy.svg");
+                text: "Start copying";
+            }
+            Rectangle {
+                horizontal-stretch: 0;
+                width: 10%;
+            }
+        }
+    }
+}

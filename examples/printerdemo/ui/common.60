@@ -92,6 +92,7 @@ export Label := DemoText {
     font-size: DemoPalette.label_base_font_size;
     vertical-alignment: center;
     font-weight: 700;
+    vertical-stretch: 0;
 }
 
 SquareButton := Rectangle {
@@ -121,11 +122,11 @@ export SpinBox := Rectangle {
     property <int> value;
     property <int> minimum;
     property <int> maximum: 100;
+    height: 32px;
 
     HorizontalLayout {
         spacing: 12px;
         padding: 0;
-        height: 32px;
         SquareButton {
             img: @image-url("images/minus.svg");
             clicked => {
