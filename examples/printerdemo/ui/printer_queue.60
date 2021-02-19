@@ -13,7 +13,6 @@ import { DemoPalette, PrinterQueueItem, PushButton, DemoText } from "./common.60
 PrintQueueDetailsLabel := DemoText {
     font-weight: 500;
     color: DemoPalette.control_foreground;
-    font-size: DemoPalette.base_font_size;
     horizontal-stretch: 0;
 }
 
@@ -35,7 +34,6 @@ PrintDetails := GridLayout {
         DemoText {
             text: queue_item.owner;
             color: DemoPalette.secondary_foreground_color;
-            font-size: DemoPalette.base_font_size;
             overflow: elide;
             horizontal-stretch: 1;
         }
@@ -52,7 +50,6 @@ PrintDetails := GridLayout {
         DemoText {
             text: queue_item.pages;
             color: DemoPalette.secondary_foreground_color;
-            font-size: DemoPalette.base_font_size;
             overflow: elide;
             horizontal-stretch: 1;
         }
@@ -69,7 +66,6 @@ PrintDetails := GridLayout {
         DemoText {
             text: queue_item.pages;
             color: DemoPalette.secondary_foreground_color;
-            font-size: DemoPalette.base_font_size;
             overflow: elide;
             horizontal-stretch: 1;
         }
@@ -86,7 +82,6 @@ PrintDetails := GridLayout {
         DemoText {
             text: queue_item.submission_date;
             color: DemoPalette.secondary_foreground_color;
-            font-size: DemoPalette.base_font_size;
             overflow: elide;
             horizontal-stretch: 1;
         }

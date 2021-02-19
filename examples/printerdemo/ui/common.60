@@ -38,13 +38,13 @@ export global DemoPalette := {
     property <color> push_button_text_color: white;
 
     property <logical_length> base_font_size: 16px;
-    property <logical_length> label_base_font_size: 15.6px; // FIXME: Check if this shouldn't be 16 instead
 
     property <bool> night_mode: false;
 }
 
 export DemoText := Text {
     font-family: "Noto Sans";
+    font-size: DemoPalette.base_font_size;
 }
 
 export Page := Rectangle {
@@ -89,7 +89,6 @@ export struct PrinterQueueItem := {
 
 export Label := DemoText {
     color: DemoPalette.text_foreground_color;
-    font-size: DemoPalette.label_base_font_size;
     vertical-alignment: center;
     font-weight: 700;
     vertical-stretch: 0;
@@ -146,7 +145,6 @@ export SpinBox := Rectangle {
                 vertical-alignment: center;
                 horizontal-alignment: center;
                 text: value;
-                font-size: DemoPalette.label_base_font_size;
                 color: DemoPalette.control_foreground;
             }
         }
@@ -173,7 +171,6 @@ export ComboBox := Rectangle {
         vertical-alignment: center;
         horizontal-alignment: left;
         text <=> root.value;
-        font-size: DemoPalette.label_base_font_size;
         color: DemoPalette.control_foreground;
         height: 100%;
         x: 12px;
@@ -206,7 +203,6 @@ export CheckBox := Rectangle {
             text <=> root.text;
             vertical-alignment: center;
             horizontal-alignment: center;
-            font-size: DemoPalette.label_base_font_size;
             color: DemoPalette.control_foreground;
             horizontal-stretch: 1;
         }
@@ -239,7 +235,6 @@ export PushButton := Rectangle {
         }
 
         label := DemoText {
-            font-size: DemoPalette.label_base_font_size;
             font-weight: 900;
             color: DemoPalette.push_button_text_color;
             horizontal-alignment: center;
