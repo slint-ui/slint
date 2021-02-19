@@ -17,6 +17,7 @@ sixtyfps::include_modules!();
 
 struct PrinterQueue {
     data: Rc<sixtyfps::VecModel<PrinterQueueItem>>,
+    print_progress_timer: sixtyfps::Timer,
 }
 
 impl PrinterQueue {
@@ -54,8 +55,10 @@ pub fn main() {
     ]));
 
     let default_queue: Vec<PrinterQueueItem> = main_window.get_printer_queue().iter().collect();
-    let printer_queue =
-        Rc::new(PrinterQueue { data: Rc::new(sixtyfps::VecModel::from(default_queue)) });
+    let printer_queue = Rc::new(PrinterQueue {
+        data: Rc::new(sixtyfps::VecModel::from(default_queue)),
+        print_progress_timer: Default::default(),
+    });
     main_window.set_printer_queue(sixtyfps::ModelHandle::new(printer_queue.data.clone()));
 
     main_window.on_quit(move || {
@@ -63,9 +66,40 @@ pub fn main() {
         std::process::exit(0);
     });
 
+    let printer_queue_copy = printer_queue.clone();
     main_window.on_start_job(move |title| {
-        printer_queue.push_job(title);
+        printer_queue_copy.push_job(title);
     });
+
+    let printer_queue_copy = printer_queue.clone();
+    main_window.on_cancel_job(move |idx| {
+        printer_queue_copy.data.remove(idx as usize);
+    });
+
+    let printer_queue_weak = Rc::downgrade(&printer_queue);
+    printer_queue.print_progress_timer.start(
+        sixtyfps::TimerMode::Repeated,
+        std::time::Duration::from_secs(1),
+        move || {
+            printer_queue_weak.upgrade().map(|printer_queue| {
+                if printer_queue.data.row_count() > 0 {
+                    let mut top_item = printer_queue.data.row_data(0);
+                    top_item.progress += 1;
+                    top_item.status = "PRINTING".into();
+                    if top_item.progress > 100 {
+                        printer_queue.data.remove(0);
+                        if printer_queue.data.row_count() == 0 {
+                            return;
+                        }
+                        top_item = printer_queue.data.row_data(0);
+                    }
+                    printer_queue.data.set_row_data(0, top_item);
+                } else {
+                    // FIXME: sop this timer?
+                }
+            });
+        },
+    );
 
     main_window.run();
 }

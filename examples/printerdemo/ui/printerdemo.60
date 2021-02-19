@@ -31,6 +31,8 @@ SideBarIcon := Rectangle {
 MainWindow := Window {
     callback quit();
     callback start_job(string);
+    callback cancel_job(int);
+    callback pause_job(int);
 
     property <[PrinterQueueItem]> printer_queue: [
         { status: "PRINTING", progress: 63, title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission_date: "11:41 25/01/21" },
@@ -74,6 +76,8 @@ MainWindow := Window {
                     animate y { duration: 125ms; easing: ease; }
                     printer_queue: root.printer_queue;
                     start_job(title) => { root.start_job(title); }
+                    cancel_job(title) => { root.cancel_job(title); }
+                    pause_job(title) => { root.pause_job(title); }
                 }
                 SettingsPage {
                     y: active_page == 1 ? 0 : active_page < 1 ? - height - 1px : parent.height + 1px;

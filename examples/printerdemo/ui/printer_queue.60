@@ -198,6 +198,9 @@ ProgressBar := Rectangle {
 }
 
 WidePrintQueueElement := Rectangle {
+    callback cancel_job();
+    callback pause_job();
+
     property <PrinterQueueItem> queue_item;
 
     border-color: DemoPalette.neutral_box;
@@ -280,11 +283,13 @@ WidePrintQueueElement := Rectangle {
                 PushButton {
                     text: "Pause";
                     icon: @image-url("images/pause.svg");
+                    clicked => { pause_job(); }
                 }
                 PushButton {
                     primary: false;
                     text: "Delete";
                     icon: @image-url("images/delete.svg");
+                    clicked => { cancel_job(); }
                 }
             }
         }
@@ -292,6 +297,8 @@ WidePrintQueueElement := Rectangle {
 }
 
 export WidePrinterQueueList := Flickable {
+    callback cancel_job(int);
+    callback pause_job(int);
     property <[PrinterQueueItem]> printer_queue;
     viewport_height: 2000px; /* FIXME: the flickable needs to learn its viewport height from the layout */
 
@@ -302,6 +309,8 @@ export WidePrinterQueueList := Flickable {
 
         for queue_item[idx] in root.printer_queue: WidePrintQueueElement {
             queue_item: queue_item;
+            cancel_job => { root.cancel_job(idx) }
+            pause_job => { root.pause_job(idx) }
         }
     }
 }

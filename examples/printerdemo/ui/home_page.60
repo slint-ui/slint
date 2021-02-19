@@ -51,6 +51,7 @@ ActionButton := Rectangle {
 export HomePage := Page {
     callback start_job(string);
     callback cancel_job(int);
+    callback pause_job(int);
     property <length> header_row_height: 40px;
     property <[PrinterQueueItem]> printer_queue;
 
@@ -92,6 +93,7 @@ export HomePage := Page {
         back => { current_subpage = 0 }
         printer_queue: root.printer_queue;
         cancel_job(id) => { root.cancel_job(id); }
+        pause_job(id) => { root.pause_job(id); }
     }
     ScanPage {
         x: current_subpage == 2 ? 0 : parent.width + parent.x + 2px;

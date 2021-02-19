@@ -35,6 +35,8 @@ export PrintPage := Page {
 
         Row {
             queue := WidePrinterQueueList {
+                cancel_job(id) => { root.cancel_job(id); }
+                pause_job(id) => { root.pause_job(id); }
                 viewport_width: width;
             }
         }
