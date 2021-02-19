@@ -70,8 +70,8 @@ export UsbPage := Page {
                 width: 10%;
             }
             PushButton {
-                icon: @image-url("images/copy.svg");
-                text: "Start copying";
+                icon: @image-url("images/print.svg");
+                text: "Start printing";
                 clicked => {
                     //FIXME!
                     if (list_view.current_item == 2) {
