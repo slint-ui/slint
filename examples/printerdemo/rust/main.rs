@@ -10,7 +10,28 @@ LICENSE END */
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+use sixtyfps::Model;
+use std::rc::Rc;
+
 sixtyfps::include_modules!();
+
+struct PrinterQueue {
+    data: Rc<sixtyfps::VecModel<PrinterQueueItem>>,
+}
+
+impl PrinterQueue {
+    fn push_job(&self, title: sixtyfps::SharedString) {
+        self.data.push(PrinterQueueItem {
+            status: "WAITING...".into(),
+            progress: 0,
+            title,
+            owner: env!("CARGO_PKG_AUTHORS").into(),
+            pages: 1,
+            size: "100kB".into(),
+            submission_date: chrono::Local::now().format("%H:%M:%S %d/%m/%Y").to_string().into(),
+        })
+    }
+}
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
@@ -32,9 +53,18 @@ pub fn main() {
         InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
     ]));
 
+    let default_queue: Vec<PrinterQueueItem> = main_window.get_printer_queue().iter().collect();
+    let printer_queue =
+        Rc::new(PrinterQueue { data: Rc::new(sixtyfps::VecModel::from(default_queue)) });
+    main_window.set_printer_queue(sixtyfps::ModelHandle::new(printer_queue.data.clone()));
+
     main_window.on_quit(move || {
         #[cfg(not(target_arch = "wasm32"))]
         std::process::exit(0);
+    });
+
+    main_window.on_start_job(move |title| {
+        printer_queue.push_job(title);
     });
 
     main_window.run();

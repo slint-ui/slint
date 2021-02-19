@@ -15,6 +15,8 @@ import { WidePrinterQueueList } from "./printer_queue.60";
 export PrintPage := Page {
     has_back_button: true;
     header: "Print";
+    callback cancel_job(int);
+    callback pause_job(int);
 
     property <[PrinterQueueItem]> printer_queue <=> queue.printer_queue;
 

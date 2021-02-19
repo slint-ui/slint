@@ -13,6 +13,7 @@ name = "printerdemo"
 
 [dependencies]
 sixtyfps = { path = "../../../api/sixtyfps-rs" }
+chrono = "0.4"
 
 [build-dependencies]
 sixtyfps-build = { path = "../../../api/sixtyfps-rs/sixtyfps-build" }

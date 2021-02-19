@@ -12,6 +12,7 @@ import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, DemoText } fro
 
 
 export ScanPage := Page {
+    callback start_job(string);
     has_back_button: true;
     header: "Scan";
 
@@ -69,6 +70,9 @@ export ScanPage := Page {
                 PushButton {
                     icon: @image-url("images/scan.svg");
                     text: "Start scanning";
+                    clicked => {
+                        root.start_job("Scan");
+                    }
                 }
                 Rectangle {
                     horizontal-stretch: 0;

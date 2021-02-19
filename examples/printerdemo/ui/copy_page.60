@@ -12,6 +12,7 @@ import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox, Demo
 
 
 export CopyPage := Page {
+    callback start_job(string);
     has_back_button: true;
     header: "Copy";
 
@@ -78,6 +79,9 @@ export CopyPage := Page {
                 PushButton {
                     icon: @image-url("images/copy.svg");
                     text: "Start copying";
+                    clicked => {
+                        root.start_job("Copy");
+                    }
                 }
                 Rectangle {
                     horizontal-stretch: 0;

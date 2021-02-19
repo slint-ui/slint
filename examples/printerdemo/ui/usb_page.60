@@ -13,6 +13,7 @@ import { StandardListView } from "sixtyfps_widgets.60";
 
 
 export UsbPage := Page {
+    callback start_job(string);
     has_back_button: true;
     header: "USB";
 
@@ -36,7 +37,7 @@ export UsbPage := Page {
             maximum-height: 32px;
         }
 
-        StandardListView {
+        list_view := StandardListView {
             col: 1;
             row: 1;
             colspan: 2;
@@ -71,6 +72,18 @@ export UsbPage := Page {
             PushButton {
                 icon: @image-url("images/copy.svg");
                 text: "Start copying";
+                clicked => {
+                    //FIXME!
+                    if (list_view.current_item == 2) {
+                        root.start_job("dog.png");
+                    } else if (list_view.current_item == 3) {
+                        root.start_job("elephant.png");
+                    } else if (list_view.current_item == 4) {
+                        root.start_job("snake.png");
+                    } else {
+                        root.start_job("cat.png");
+                    }
+                }
             }
             Rectangle {
                 horizontal-stretch: 0;

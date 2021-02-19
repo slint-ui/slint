@@ -49,6 +49,8 @@ ActionButton := Rectangle {
 }
 
 export HomePage := Page {
+    callback start_job(string);
+    callback cancel_job(int);
     property <length> header_row_height: 40px;
     property <[PrinterQueueItem]> printer_queue;
 
@@ -89,20 +91,24 @@ export HomePage := Page {
         animate x { duration: 125ms; easing: ease; }
         back => { current_subpage = 0 }
         printer_queue: root.printer_queue;
+        cancel_job(id) => { root.cancel_job(id); }
     }
     ScanPage {
         x: current_subpage == 2 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current_subpage = 0 }
+        start_job(title) => { root.start_job(title); }
     }
     CopyPage {
         x: current_subpage == 3 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current_subpage = 0 }
+        start_job(title) => { root.start_job(title); }
     }
     UsbPage {
         x: current_subpage == 4 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current_subpage = 0 }
+        start_job(title) => { root.start_job(title); }
     }
 }
