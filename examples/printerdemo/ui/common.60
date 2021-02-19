@@ -8,6 +8,12 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+struct ButtonColors := {
+    default: color,
+    pressed: color,
+    hovered: color,
+}
+
 export global DemoPalette := {
     // Color of the home/settings/ink buttons on the left side bar
     property <color> active_page_icon_color: night_mode ? #6284FF : #122F7B;
@@ -33,8 +39,19 @@ export global DemoPalette := {
     property <color> control_secondary: #6284FF;
     property <color> control_foreground: night_mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
 
-    property <color> primary_push_button_color: #6284FF;
-    property <color> secondary_push_button_color: #FFBF63; // red in the "green" theme
+    property <ButtonColors> primary_push_button_colors: {
+        default: #6284FF,
+        pressed: #0031e0,
+        hovered: #1a4bff,
+    };
+
+    property <ButtonColors> secondary_push_button_colors: {
+        default: #FFBF63,
+        pressed: #eb8a00,
+        hovered: #ffa729,
+    };
+
+
     property <color> push_button_text_color: white;
 
     property <logical_length> base_font_size: 16px;
@@ -214,9 +231,13 @@ export PushButton := Rectangle {
     property <string> text <=> label.text;
     property <resource> icon <=> img.source;
     property <bool> primary: true;
+    property <bool> pressed: touch_area.pressed;
+
+    property <ButtonColors> colors: primary ? DemoPalette.primary_push_button_colors : DemoPalette.secondary_push_button_colors;
 
     border-radius: 13.5px;
-    background: primary ? DemoPalette.primary_push_button_color : DemoPalette.secondary_push_button_color;
+
+    background: pressed ? colors.pressed : (touch_area.has_hover ? colors.hovered : colors.default);
 
     height: 27px; // line-height in the design
     horizontal-stretch: 1;
@@ -242,5 +263,5 @@ export PushButton := Rectangle {
         }
     }
 
-    TouchArea { clicked => { root.clicked() } }
+    touch_area := TouchArea { clicked => { root.clicked() } }
 }
