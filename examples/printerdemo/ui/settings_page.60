@@ -8,12 +8,10 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox, DemoText } from "./common.60";
+import { DemoPalette, Page, SpinBox, ComboBox, CheckBox, Label, DemoText } from "common.60";
 
-
-export CopyPage := Page {
-    has_back_button: true;
-    header: "Copy";
+export SettingsPage := Page {
+    header: "Settings";
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -21,20 +19,32 @@ export CopyPage := Page {
         spacing: 24px;
         Row {
             DemoText {
-                text: "Choose Settings";
+                text: "General";
                 color: DemoPalette.secondary_foreground_color;
                 font-size: DemoPalette.base_font_size * 1.125;
                 font-weight: 800;
             }
         }
         Row {
-            Label { text: "Copies"; }
-            SpinBox { value: 1; }
+            Label { text: "TURBO mode"; }
+            CheckBox { checked: true; }
 
             Rectangle {}
 
-            Label { text: "Size"; }
-            ComboBox { value: "DIN A4"; }
+            Label { text: "Power Management"; }
+            CheckBox {
+                checked: false;
+                text: "Eco Mode";
+            }
+        }
+
+        Row {
+            DemoText {
+                text: "Defaults";
+                color: DemoPalette.secondary_foreground_color;
+                font-size: DemoPalette.base_font_size * 1.125;
+                font-weight: 800;
+            }
         }
         Row {
             Label { text: "Layout"; }
@@ -55,7 +65,7 @@ export CopyPage := Page {
             ComboBox { value: "Standard"; }
         }
         Row {
-            Label { text: "Color"; }
+            Label { text: "Color Mode"; }
             ComboBox { value: "Grayscale"; }
 
             Rectangle {}
@@ -65,26 +75,8 @@ export CopyPage := Page {
                 checked: true;
                 text: "sort page";
             }
-        }
-        Row {
-            HorizontalLayout {
-                col: 3;
-                colspan: 2;
-
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
-                PushButton {
-                    icon: @image-url("images/copy.svg");
-                    text: "Start copying";
-                }
-                Rectangle {
-                    horizontal-stretch: 0;
-                    width: 10%;
-                }
-            }
-        }
+        }    
         Row { Rectangle {} }
     }
+
 }

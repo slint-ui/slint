@@ -168,14 +168,14 @@ export ComboBox := Rectangle {
     border-width: 2px;
     border-color: DemoPalette.control_outline_color;
     height: 32px;
-    DemoText {
+    minimum-width: label.x + label.width + i.width;
+    label := DemoText {
         vertical-alignment: center;
         horizontal-alignment: left;
         text <=> root.value;
         font-size: DemoPalette.label_base_font_size;
         color: DemoPalette.control_foreground;
         height: 100%;
-        width: parent.width - i.width - x;
         x: 12px;
     }
     i := Image {

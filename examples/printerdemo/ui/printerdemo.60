@@ -11,6 +11,7 @@ LICENSE END */
 import { DemoPalette, PrinterQueueItem, Page } from "common.60";
 import { HomePage } from "./home_page.60";
 import { InkLevel, InkPage } from "./ink_page.60";
+import { SettingsPage } from "./settings_page.60";
 
 
 SideBarIcon := Rectangle {
@@ -72,10 +73,9 @@ MainWindow := Window {
                     animate y { duration: 125ms; easing: ease; }
                     printer_queue: root.printer_queue;
                 }
-                Page {
+                SettingsPage {
                     y: active_page == 1 ? 0 : active_page < 1 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
-                    header: "Settings\n\n(TODO)";
                 }
                 InkPage {
                     y: active_page == 2 ? 0 : active_page < 2 ? - height - 1px : parent.height + 1px;
