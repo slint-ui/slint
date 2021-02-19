@@ -25,7 +25,7 @@ PrintQueueSeparator := Rectangle {
 
 PrintDetails := GridLayout {
     property <PrinterQueueItem> queue_item;
-    spacing: 0.5px;
+    spacing: 3px;
 
     Row {
         PrintQueueDetailsLabel {
