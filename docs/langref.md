@@ -795,4 +795,6 @@ Return the value rounded to the nearest integer
 The trigonometry funtion. Note that the should be typed with `deg` or `rad` unit
 (for example `cos(90deg)` or `sin(slider.value * 1deg)`).
 
+  * **`sqrt(float) -> float`**
 
+Square root

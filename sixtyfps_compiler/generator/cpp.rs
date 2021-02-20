@@ -1400,6 +1400,7 @@ fn compile_expression(
             BuiltinFunction::Round => "[](float a){ return std::round(a); }".into(),
             BuiltinFunction::Ceil => "[](float a){ return std::ceil(a); }".into(),
             BuiltinFunction::Floor => "[](float a){ return std::floor(a); }".into(),
+            BuiltinFunction::Sqrt => "[](float a){ return std::sqrt(a); }".into(),
             BuiltinFunction::Sin => format!("[](float a){{ return std::sin(a * {}); }}", std::f32::consts::PI / 180.),
             BuiltinFunction::Cos => format!("[](float a){{ return std::cos(a * {}); }}", std::f32::consts::PI / 180.),
             BuiltinFunction::Tan => format!("[](float a){{ return std::tan(a * {}); }}", std::f32::consts::PI / 180.),

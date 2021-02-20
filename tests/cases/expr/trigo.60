@@ -17,6 +17,7 @@ LICENSE END */
         round(atan(tan(45deg))/0.1deg) == 450 &&
         round(asin(sin(45deg))/0.1deg) == 450 &&
         round(acos(cos(45deg))/0.1deg) == 450 &&
+        sqrt(100) == 10 && sqrt(1) == 1 && sqrt(6.25) == 2.5 &&
         true;
 }
 /*

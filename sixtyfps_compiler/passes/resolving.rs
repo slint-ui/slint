@@ -701,6 +701,7 @@ impl Expression {
             "round" => return Expression::BuiltinFunctionReference(BuiltinFunction::Round),
             "ceil" => return Expression::BuiltinFunctionReference(BuiltinFunction::Ceil),
             "floor" => return Expression::BuiltinFunctionReference(BuiltinFunction::Floor),
+            "sqrt" => return Expression::BuiltinFunctionReference(BuiltinFunction::Sqrt),
             "max" => {
                 return Expression::BuiltinMacroReference(BuiltinMacroFunction::Max, first.into())
             }

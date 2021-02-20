@@ -453,6 +453,10 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.floor())
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Sqrt) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                Value::Number(x.sqrt())
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::Sin) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.to_radians().sin())

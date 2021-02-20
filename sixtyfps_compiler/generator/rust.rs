@@ -1121,6 +1121,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::Round => quote!((|a| (a as f64).round())),
             BuiltinFunction::Ceil => quote!((|a| (a as f64).ceil())),
             BuiltinFunction::Floor => quote!((|a| (a as f64).floor())),
+            BuiltinFunction::Sqrt => quote!((|a| (a as f64).sqrt())),
             BuiltinFunction::Sin => quote!((|a| (a as f64).to_radians().sin())),
             BuiltinFunction::Cos => quote!((|a| (a as f64).to_radians().cos())),
             BuiltinFunction::Tan => quote!((|a| (a as f64).to_radians().tan())),
