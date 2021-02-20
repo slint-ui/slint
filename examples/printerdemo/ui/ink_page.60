@@ -31,16 +31,20 @@ export InkPage := Page {
         HorizontalLayout {
             spacing: root.width * 5%;
             for color_info in ink_levels : Rectangle {
-                ink := Rectangle {
+                ink := Clip {
                     width: parent.width;
                     height: parent.height * color_info.level;
-                    border-radius: width / 2;
-                    border-width: 2px;
                     y: parent.height - self.height;
-                    background: color_info.color;
+                    Rectangle {
+                        background: color_info.color;
+                        border-radius: width / 2;
+                        border-width: 2px;
+                        height: parent.height + parent.y;
+                        y: -parent.y;
+                    }
                     states [
                         innactive when !root.page_visible : {
-                            height: border-radius; // FIXME: should be 0, but ugly otherwise
+                            height: 0;
                         }
                     ]
                     transitions [
@@ -52,23 +56,23 @@ export InkPage := Page {
                         }
                     ]
                 }
+
                 Rectangle {
-                    y: ink.y;
-                    height: min(parent.height - y - ink.border-radius, ink.border-radius);
-                    border-width: ink.border-width;
-                    background: ink.background;
-                }
-                Rectangle {
-                    y: ink.y;
-                    height: ink.border-width;
+                    y: max(ink.y - height, 0phx);
+                    height: 2px;
+                    // w = 2*sqrt(r² - (max(0, min(r-y , y-h+r)))²)
+                    property <length> r: (parent.width - height) / 2;
+                    property <length> y2: max(0phx, max(r - y, y - parent.height + r));
+                    width: 2*sqrt((r*r - y2*y2)/(1phx * 1phx))*1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
+                    x: (parent.width - width) / 2;
                     background: DemoPalette.neutral_box;
                 }
+
                 Rectangle {
                     border-radius: width / 2;
                     border-color: DemoPalette.neutral_box;
-                    border-width: ink.border-width;
+                    border-width: 2px;
                 }
-
             }
         }
 
