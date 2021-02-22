@@ -1,0 +1,286 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView } from "sixtyfps_widgets.60";
+import { Label, Page, Preview } from "common.60";
+import { CopyPage } from "copy_page.60";
+import { FaxPage } from "fax_page.60";
+import { PrintPage } from "print_page.60";
+import { SettingsPage } from "settings_page.60";
+
+TopPanel := Rectangle {
+   property<int> active_page: 0;
+   callback quit();
+
+   background: white;
+
+    HorizontalLayout {
+        alignment: center;
+        Text {
+            text: "PrintMachine";
+            color: active_page == 0 ? black : #0000;
+            animate color { duration: 200ms; }
+            font-size: root.width * 5%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        Text {
+            text: "2000";
+            color: active_page == 0 ? #918e8c : #0000;
+            animate color { duration: 200ms; }
+            font-size: root.width * 5%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+
+        }
+    }
+    power_button := Image {
+        x: parent.width - self.width - 20px;
+        y: (parent.height - height) / 2;
+        source: @image-url("images/power.svg");
+        width: 5%;
+        height: self.width;
+
+        TouchArea {
+            clicked => {
+                root.quit();
+            }
+        }
+    }
+}
+
+struct InkLevel := {
+    color: color,
+    level: float,
+}
+
+MainWindow := Window {
+    callback quit();
+
+    width: 800px;
+    height: 600px;
+    title: "SixtyFPS printer demo";
+
+    /// Note that this property is overwriten in the .cpp and .rs code.
+    /// The data is only in this file so it looks good in the viewer
+    property <[InkLevel]> ink_levels: [
+                {color: #0ff, level: 60%},
+                {color: #ff0, level: 80%},
+                {color: #f0f, level: 70%},
+                {color: #000, level: 30%},
+            ];
+    /// Aliased to the fax number in the fax page
+    property <string> fax_number;
+    callback fax_number_erase;
+    /// That's just a default implementation for the viewer, but the .cpp and .rs code
+    /// overwrite that to erase only the last character
+    fax_number_erase => { fax_number = ""; }
+    callback fax_send;
+
+    property<int> active_page: 0;
+
+    panel := TopPanel {
+        active_page: root.active_page;
+        width: 100%;
+        height: 12.5%;
+        quit => { root.quit(); }
+    }
+
+    for page_info[idx] in [
+        { color: #1ac80a, text: "Copy", img_small: @image-url("images/replicate.svg") },
+        { color: #00c889, text: "Fax", img_small: @image-url("images/laptop.svg") },
+        { color: #00bbc8, text: "Print", img_small: @image-url("images/printer.svg") },
+        { color: #009dc8, text: "Settings", img_small: @image-url("images/list.svg") },
+    ] : Rectangle {
+        property <length> w: root.width / 5;
+        width: w;
+        height: root.height / 3;
+        y: root.height / 4;
+        x: idx * (w + (root.width - w*4) / 5) + (root.width - w*4)/5;
+        border_radius: 25px;
+        background: page_info.color;
+        img := Image {
+            y: 5px;
+            x: (w - (root.width / 6.25)) / 2;
+            width: root.width / 6.25;
+            height: root.height / 4.68;
+            source: page_info.img_small;
+            animate width, height, x, y {
+                duration: 300ms;
+                easing: ease_in_out;
+            }
+        }
+        text := Text {
+            y: root.height / 10;
+            x: 5px;
+            width: 100%;
+            height: 100%;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            text: page_info.text;
+            font-size: 28px;
+            animate x, y {
+                duration: 300ms;
+                easing: ease_in_out;
+            }
+        }
+        touch := TouchArea {
+            clicked => {
+                if (root.active_page == 0) {
+                    root.active_page = idx + 1;
+                }
+            }
+        }
+
+        animate x, y, height, width, background, border_radius {
+            duration: 300ms;
+            easing: ease_in_out;
+        }
+
+        states [
+            active when root.active_page == idx + 1: {
+                x: 0phx;
+                y: 0phx;
+                height: root.height * 12.5%;
+                width: root.width;
+                border_radius: 0px;
+                img.x: root.height * 12.5%;
+                img.width: root.height * 10%;
+                img.height: root.height * 10%;
+                text.y: 0phx;
+            }
+            pressed when root.active_page == 0 && touch.pressed : {
+                w: root.width / 5 + 6px;
+                height: root.height / 3 + 6px ;
+                y: root.height / 4 - 3px;
+            }
+            invisible when root.active_page > 0 && root.active_page != idx + 1 : {
+                color: transparent;
+                // FIXME: should probaby hide the entire item under with z-ordering
+                img.y: 1000000000px;
+                text.color: #0000;
+            }
+        ]
+    }
+
+    if (root.active_page != 0) : Rectangle {
+        width: height;
+        height: 12.5%;
+        Text {
+            width: 100%;
+            height: 100%;
+            text: "←";
+            color: white;
+            font-size: root.height / 10;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+        TouchArea {
+            clicked => { root.active_page = 0; }
+        }
+    }
+
+
+    Rectangle {
+        width: root.width / 5;
+        height: root.height / 5;
+        x: root.width - self.width - 20px;
+        y: root.height - self.height - 20px;
+        background: #eee;
+
+        HorizontalLayout {
+            spacing: 10px;
+            padding: 10px;
+            for color_info[idx] in ink_levels : Rectangle {
+                background: white;
+                Rectangle {
+                    width: parent.width;
+                    height: parent.height * color_info.level;
+                    y: parent.height - self.height;
+                    background: color_info.color;
+                    states [
+                        innactive when root.active_page != 0 : {
+                            height: 0phx;
+                        }
+                    ]
+                    transitions [
+                        out innactive : {
+                            animate height { duration: 750ms; easing: ease_in_out; }
+                        }
+                    ]
+                }
+            }
+        }
+
+        property <bool> full_screen;
+        states [
+            full_screen when full_screen : {
+                width: root.width - 35px;
+                height: 7/8 * root.height - 40px ;
+            }
+        ]
+        animate width, height { duration: 200ms; easing: ease;  }
+        TouchArea {
+            clicked => {
+                if (active_page == 0) {
+                    parent.full_screen = !parent.full_screen;
+                }
+            }
+        }
+    }
+
+    CopyPage {
+        height: root.height - root.height / 8;
+        width: 100%;
+        y: root.height;
+        states [
+            active when root.active_page == 1: {
+                y: root.height / 8;
+            }
+        ]
+    }
+
+    FaxPage {
+        height: root.height - root.height / 8;
+        width: 100%;
+        y: root.height;
+        states [
+            active when root.active_page == 2: {
+                y: root.height / 8;
+            }
+        ]
+        fax_number <=> root.fax_number;
+        fax_number_erase => { root.fax_number_erase(); }
+        fax_send => { root.fax_send(); }
+    }
+
+    PrintPage {
+        height: root.height - root.height / 8;
+        width: 100%;
+        y: root.height;
+        states [
+            active when root.active_page == 3: {
+                y: root.height / 8;
+            }
+        ]
+    }
+
+    SettingsPage {
+        height: root.height - root.height / 8;
+        width: 100%;
+        y: root.height;
+        states [
+            active when root.active_page == 4: {
+                y: root.height / 8;
+            }
+        ]
+    }
+}
+
