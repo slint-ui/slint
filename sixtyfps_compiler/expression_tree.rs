@@ -86,6 +86,8 @@ pub enum BuiltinFunction {
     StringToFloat,
     /// the "42".is_float()
     StringIsFloat,
+    ColorBrighter,
+    ColorDarker,
     ImplicitItemSize,
 }
 
@@ -148,6 +150,14 @@ impl BuiltinFunction {
                     name: Some("Size".to_string()),
                 }),
                 args: vec![Type::ElementReference],
+            },
+            BuiltinFunction::ColorBrighter => Type::Function {
+                return_type: Box::new(Type::Color),
+                args: vec![Type::Color, Type::Float32],
+            },
+            BuiltinFunction::ColorDarker => Type::Function {
+                return_type: Box::new(Type::Color),
+                args: vec![Type::Color, Type::Float32],
             },
         }
     }

@@ -166,6 +166,33 @@ impl Color {
     pub fn alpha(self) -> u8 {
         self.alpha
     }
+
+    /// Returns a new version of this color that has the brightness increased
+    /// by the specified factor. This is done by converting the color to the HSV
+    /// color space and multiplying the brightness (value) with (1 + factor).
+    /// The result is converted back to RGB and the alpha channel is unchanged.
+    /// So for example `brighter(0.2)` will increase the brightness by 20%, and
+    /// calling `brighter(-0.5)` will return a color that's 50% darker.
+    pub fn brighter(&self, factor: f32) -> Self {
+        let rgbaf: RgbaColor<f32> = self.clone().into();
+        let mut hsva: HsvaColor = rgbaf.into();
+        hsva.v *= 1. + factor;
+        let rgbaf: RgbaColor<f32> = hsva.into();
+        rgbaf.into()
+    }
+
+    /// Returns a new version of this color that has the brightness decreased
+    /// by the specified factor. This is done by converting the color to the HSV
+    /// color space and dividing the brightness (value) by (1 + factor). The
+    /// result is converted back to RGB and the alpha channel is unchanged.
+    /// So for example `darker(0.3)` will decrease the brightness by 30%.
+    pub fn darker(&self, factor: f32) -> Self {
+        let rgbaf: RgbaColor<f32> = self.clone().into();
+        let mut hsva: HsvaColor = rgbaf.into();
+        hsva.v /= 1. + factor;
+        let rgbaf: RgbaColor<f32> = hsva.into();
+        rgbaf.into()
+    }
 }
 
 impl InterpolatedPropertyValue for Color {
@@ -196,5 +223,111 @@ impl From<&Color> for femtovg::Color {
 impl From<Color> for femtovg::Color {
     fn from(col: Color) -> Self {
         Self::rgba(col.red, col.green, col.blue, col.alpha)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct HsvaColor {
+    h: f32,
+    s: f32,
+    v: f32,
+    alpha: f32,
+}
+
+impl From<RgbaColor<f32>> for HsvaColor {
+    fn from(col: RgbaColor<f32>) -> Self {
+        // RGB to HSL conversion from https://en.wikipedia.org/wiki/HSL_and_HSV#Color_conversion_formulae
+
+        let red = col.red;
+        let green = col.green;
+        let blue = col.blue;
+
+        let min = red.min(green).min(blue);
+        let max = red.max(green).max(blue);
+        let chroma = max - min;
+
+        let hue = 60.
+            * if chroma == 0. {
+                0.0
+            } else if max == red {
+                ((green - blue) / chroma) % 6.0
+            } else if max == green {
+                2. + (blue - red) / chroma
+            } else {
+                4. + (red - green) / chroma
+            };
+
+        let saturation = if max == 0. { 0. } else { chroma / max };
+
+        Self { h: hue, s: saturation, v: max, alpha: col.alpha }
+    }
+}
+
+impl From<HsvaColor> for RgbaColor<f32> {
+    fn from(col: HsvaColor) -> Self {
+        // RGB to HSL conversion from https://en.wikipedia.org/wiki/HSL_and_HSV#Color_conversion_formulae
+
+        let chroma = col.s * col.v;
+
+        let x = chroma * (1. - ((col.h / 60.) % 2. - 1.).abs());
+
+        let (red, green, blue) = match (col.h / 60.0) as usize {
+            0 => (chroma, x, 0.),
+            1 => (x, chroma, 0.),
+            2 => (0., chroma, x),
+            3 => (0., x, chroma),
+            4 => (x, 0., chroma),
+            5 => (chroma, 0., x),
+            _ => (0., 0., 0.),
+        };
+
+        let m = col.v - chroma;
+
+        Self { red: red + m, green: green + m, blue: blue + m, alpha: col.alpha }
+    }
+}
+
+#[test]
+fn test_rgb_to_hsv() {
+    // White
+    assert_eq!(
+        HsvaColor::from(RgbaColor::<f32> { red: 1., green: 1., blue: 1., alpha: 0.5 }),
+        HsvaColor { h: 0., s: 0., v: 1., alpha: 0.5 }
+    );
+    assert_eq!(
+        RgbaColor::<f32>::from(HsvaColor { h: 0., s: 0., v: 1., alpha: 0.3 }),
+        RgbaColor::<f32> { red: 1., green: 1., blue: 1., alpha: 0.3 }
+    );
+
+    // Bright greenish, verified via colorizer.org
+    assert_eq!(
+        HsvaColor::from(RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 }),
+        HsvaColor { h: 120., s: 1., v: 0.9, alpha: 1.0 }
+    );
+    assert_eq!(
+        RgbaColor::<f32>::from(HsvaColor { h: 120., s: 1., v: 0.9, alpha: 1.0 }),
+        RgbaColor::<f32> { red: 0., green: 0.9, blue: 0., alpha: 1.0 }
+    );
+}
+
+#[test]
+fn test_brighter_darker() {
+    let blue = Color::from_rgb_u8(0, 0, 128);
+    assert_eq!(blue.brighter(0.5), Color::from_rgb_u8(0, 0, 192));
+    assert_eq!(blue.darker(0.5), Color::from_rgb_u8(0, 0, 85));
+}
+
+pub(crate) mod ffi {
+    #![allow(unsafe_code)]
+    use super::*;
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_color_brighter(col: &Color, factor: f32, out: *mut Color) {
+        core::ptr::write(out, col.brighter(factor))
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_color_darker(col: &Color, factor: f32, out: *mut Color) {
+        core::ptr::write(out, col.darker(factor))
     }
 }

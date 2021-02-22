@@ -1137,6 +1137,12 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::StringIsFloat => {
                 quote!((|x: SharedString| { <f64 as ::core::str::FromStr>::from_str(x.as_str()).is_ok() } ))
             }
+            BuiltinFunction::ColorBrighter => {
+                quote!((|x: Color, factor| -> Color { x.brighter(factor as f32) }))
+            }
+            BuiltinFunction::ColorDarker => {
+                quote!((|x: Color, factor| -> Color { x.darker(factor as f32) }))
+            }
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction{ .. } => panic!("member function expressions must not appear in the code generator anymore"),

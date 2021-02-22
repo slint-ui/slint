@@ -33,7 +33,7 @@ pub type Size = euclid::default::Size2D<f32>;
 /// 2D Transform
 pub type Transform = euclid::default::Transform2D<f32>;
 
-mod color;
+pub(crate) mod color;
 pub use color::*;
 
 mod path;

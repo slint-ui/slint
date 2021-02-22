@@ -133,6 +133,9 @@ public:
     /// Returns the alpha channel of the color as u8 in the range 0..255.
     uint8_t alpha() const { return inner.alpha; }
 
+    inline Color brighter(float factor) const;
+    inline Color darker(float factor) const;
+
     /// Returns true if \a lhs has the same values for the individual color channels as \rhs; false
     /// otherwise.
     friend bool operator==(const Color &lhs, const Color &rhs)
@@ -156,13 +159,27 @@ public:
     }
 
     // FIXME: we need this to create GradientStop
-    operator const cbindgen_private::types::Color&() { return inner; }
+    operator const cbindgen_private::types::Color &() { return inner; }
 
 private:
     cbindgen_private::types::Color inner;
     friend class LinearGradientBrush;
     friend class Brush;
 };
+
+inline Color Color::brighter(float factor) const
+{
+    Color result;
+    cbindgen_private::types::sixtyfps_color_brighter(&inner, factor, &result.inner);
+    return result;
+}
+
+inline Color Color::darker(float factor) const
+{
+    Color result;
+    cbindgen_private::types::sixtyfps_color_darker(&inner, factor, &result.inner);
+    return result;
+}
 
 template<>
 RgbaColor<uint8_t>::RgbaColor(const Color &color)

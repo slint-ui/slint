@@ -1304,6 +1304,24 @@ fn maybe_lookup_object(
                     }),
                 };
             }
+            Type::Color => {
+                return Expression::MemberFunction {
+                    base: Box::new(base),
+                    base_node: next.clone().into(), // Note that this is not the base_node, but the function's node
+                    member: Box::new(match next_str.as_str() {
+                        "lighter" => {
+                            Expression::BuiltinFunctionReference(BuiltinFunction::ColorBrighter)
+                        }
+                        "darker" => {
+                            Expression::BuiltinFunctionReference(BuiltinFunction::ColorDarker)
+                        }
+                        _ => {
+                            ctx.diag.push_error("Cannot access fields of color".into(), &next);
+                            return Expression::Invalid;
+                        }
+                    }),
+                };
+            }
             _ => {
                 ctx.diag.push_error("Cannot access fields of property".into(), &next);
                 return Expression::Invalid;

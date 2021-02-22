@@ -91,6 +91,8 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "ComponentWindow",
         "VoidArg",
         "KeyEventArg",
+        "sixtyfps_color_brighter",
+        "sixtyfps_color_darker",
     ]
     .iter()
     .map(|x| x.to_string())
@@ -138,7 +140,11 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 
     for (rust_types, extra_excluded_types, internal_header) in [
         (vec!["Resource"], vec![], "sixtyfps_resource_internal.h"),
-        (vec!["Color"], vec![], "sixtyfps_color_internal.h"),
+        (
+            vec!["Color", "sixtyfps_color_brighter", "sixtyfps_color_darker"],
+            vec![],
+            "sixtyfps_color_internal.h",
+        ),
         (
             vec![
                 "PathData",
@@ -173,6 +179,8 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
             "sixtyfps_component_window_show_popup",
             "sixtyfps_new_path_elements",
             "sixtyfps_new_path_events",
+            "sixtyfps_color_brighter",
+            "sixtyfps_color_darker",
         ]
         .iter()
         .filter(|exclusion| rust_types.iter().find(|inclusion| inclusion == exclusion).is_none())

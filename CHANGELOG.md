@@ -43,6 +43,7 @@ All notable changes to this project will be documented in this file.
  - `return` statements
  - `Text` word wrap and elide
  - `drop-shadow-*` properties (limited to `Rectangle` at the moment)
+ - `Color.brighter` / `Color.darker`
 
 
 ## [0.0.4] - 2020-12-14

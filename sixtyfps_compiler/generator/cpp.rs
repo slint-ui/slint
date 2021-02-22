@@ -1434,6 +1434,12 @@ fn compile_expression(
             BuiltinFunction::ImplicitItemSize => {
                 unreachable!()
             }
+            BuiltinFunction::ColorBrighter => {
+                "[](const auto &color, float factor) {{ return color.brighter(factor); }}".into()
+            }
+            BuiltinFunction::ColorDarker => {
+                "[](const auto &color, float factor) {{ return color.darker(factor); }}".into()
+            }
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),

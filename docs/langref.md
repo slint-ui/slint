@@ -437,6 +437,21 @@ In addition to plain colors, many elements have properties that are of type `bru
 A brush is a type that can be either a color or gradient. The brush is then used to fill an element or
 draw the outline.
 
+#### Methods
+
+All colors have methods that can be called on them:
+
+* **`brighter(factor: float) -> Color`**
+
+    Returns a new color that is derived from this color but has its brightness increased by the specified factor.
+    For example if the factor is 0.5 (or for example 50%) the returned color is 50% brighter. Negative factors
+    decrease the brightness.
+
+* **`darker(factor: float) -> Color`**
+
+    Returns a new color that is derived from this color but has its brightness decreased by the specified factor.
+    For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
+    increase the brightness.
 #### Gradients
 
 Gradients allow creating smooth colorful surfaces. They are specified using an angle and a series of

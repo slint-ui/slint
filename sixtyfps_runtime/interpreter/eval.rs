@@ -549,6 +549,34 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("Argument not a string");
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ColorBrighter) => {
+                if arguments.len() != 2 {
+                    panic!("internal error: incorrect argument count to ColorBrighter")
+                }
+                if let Value::Color(col) = eval_expression(&arguments[0], local_context) {
+                    if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
+                        Value::Color(col.brighter(factor as _))
+                    } else {
+                        panic!("Second argument not a number");
+                    }
+                } else {
+                    panic!("First argument not a color");
+                }
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ColorDarker) => {
+                if arguments.len() != 2 {
+                    panic!("internal error: incorrect argument count to ColorDarker")
+                }
+                if let Value::Color(col) = eval_expression(&arguments[0], local_context) {
+                    if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
+                        Value::Color(col.darker(factor as _))
+                    } else {
+                        panic!("Second argument not a number");
+                    }
+                } else {
+                    panic!("First argument not a color");
+                }
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitItemSize) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to ImplicitItemSize")
