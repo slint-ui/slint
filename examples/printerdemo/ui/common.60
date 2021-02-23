@@ -9,7 +9,7 @@
 LICENSE END */
 
 struct ButtonColors := {
-    default: color,
+    base: color,
     pressed: color,
     hovered: color,
 }
@@ -40,13 +40,13 @@ export global DemoPalette := {
     property <color> control_foreground: night_mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
 
     property <ButtonColors> primary_push_button_colors: {
-        default: #6284FF,
+        base: #6284FF,
         pressed: #0031e0,
         hovered: #1a4bff,
     };
 
     property <ButtonColors> secondary_push_button_colors: {
-        default: #FFBF63,
+        base: #FFBF63,
         pressed: #eb8a00,
         hovered: #ffa729,
     };
@@ -237,7 +237,7 @@ export PushButton := Rectangle {
 
     border-radius: 13.5px;
 
-    background: pressed ? colors.pressed : (touch_area.has_hover ? colors.hovered : colors.default);
+    background: pressed ? colors.pressed : (touch_area.has_hover ? colors.hovered : colors.base);
 
     height: 27px; // line-height in the design
     horizontal-stretch: 1;
