@@ -19,7 +19,7 @@ target_compile_definitions(printerdemo PRIVATE
    FONTS_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/../ui/fonts\"
 )
 if (MSVC)
-    target_compile_options(/bigobj)
+    target_compile_options(printerdemo PRIVATE /bigobj)
 endif()
 target_link_libraries(printerdemo PRIVATE SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(printerdemo ../ui/printerdemo.60)
