@@ -91,6 +91,11 @@ export Page := Rectangle {
         color: DemoPalette.text_foreground_color;
         y: 46px - font-size;
         x: has_back_button ? 24px + 16px : 0px;
+        // Allow clicking on the title as well to get back easier when just
+        // using fingers on a small screen.
+        if (has_back_button) : TouchArea {
+            clicked => { back() }
+        }
     }
 }
 
