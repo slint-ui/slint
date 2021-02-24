@@ -1309,7 +1309,7 @@ fn maybe_lookup_object(
                     base: Box::new(base),
                     base_node: next.clone().into(), // Note that this is not the base_node, but the function's node
                     member: Box::new(match next_str.as_str() {
-                        "lighter" => {
+                        "brighter" => {
                             Expression::BuiltinFunctionReference(BuiltinFunction::ColorBrighter)
                         }
                         "darker" => {

@@ -15,7 +15,7 @@ Win := Window {
             background: base;
         }
         Rectangle {
-            background: base.lighter(50%);
+            background: base.brighter(50%);
         }
         Rectangle {
             background: base.darker(50%);
