@@ -39,16 +39,18 @@ export global DemoPalette := {
     property <color> control_secondary: #6284FF;
     property <color> control_foreground: night_mode ? white : #122F7B;  // FIXME: the night mode color was not part of the design
 
+    property <color> primary_push_button_base: #6284FF;
     property <ButtonColors> primary_push_button_colors: {
-        base: #6284FF,
-        pressed: #0031e0,
-        hovered: #1a4bff,
+        base: primary_push_button_base,
+        pressed: primary_push_button_base.darker(40%),
+        hovered: primary_push_button_base.darker(20%),
     };
 
+    property <color> secondary_push_button_base: #FFBF63;
     property <ButtonColors> secondary_push_button_colors: {
-        base: #FFBF63,
-        pressed: #eb8a00,
-        hovered: #ffa729,
+        base: secondary_push_button_base,
+        pressed: secondary_push_button_base.darker(40%),
+        hovered: secondary_push_button_base.darker(20%),
     };
 
 
