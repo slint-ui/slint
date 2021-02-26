@@ -778,6 +778,7 @@ pub fn solve_path_layout(data: &PathLayoutData) {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 

@@ -97,7 +97,6 @@ use core::cell::{Cell, RefCell, UnsafeCell};
 use core::{marker::PhantomPinned, pin::Pin};
 use std::rc::Rc;
 
-use crate::graphics::{Brush, Color};
 use crate::items::PropertyAnimation;
 
 /// The return value of a binding
@@ -1352,8 +1351,10 @@ fn test_property_listener_scope() {
     assert!(ok);
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ffi {
     use super::*;
+    use crate::graphics::{Brush, Color};
     use core::pin::Pin;
 
     #[allow(non_camel_case_types)]

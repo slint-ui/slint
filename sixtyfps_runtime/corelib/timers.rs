@@ -303,6 +303,7 @@ fn lower_bound<T>(vec: &Vec<T>, mut less_than: impl FnMut(&T) -> bool) -> usize 
     left
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 

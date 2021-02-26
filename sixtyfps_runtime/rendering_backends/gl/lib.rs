@@ -1399,6 +1399,7 @@ pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
 
 #[doc(hidden)]
 #[cold]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() {
     sixtyfps_corelib::use_modules();
 }

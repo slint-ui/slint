@@ -31,6 +31,7 @@ mod key_generated;
 
 #[doc(hidden)]
 #[cold]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() -> usize {
     sixtyfps_corelib::use_modules() + {
         #[cfg(no_qt)]

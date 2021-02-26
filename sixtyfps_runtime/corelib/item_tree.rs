@@ -278,6 +278,7 @@ pub fn visit_item_tree<Base>(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 

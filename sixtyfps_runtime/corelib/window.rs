@@ -271,6 +271,7 @@ impl ComponentWindow {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
 pub mod ffi {

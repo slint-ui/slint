@@ -74,6 +74,7 @@ pub use graphics::PathData;
 /// This only use functions from modules which are not otherwise used.
 #[doc(hidden)]
 #[cold]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() -> usize {
     tests::sixtyfps_mock_elapsed_time as usize
         + callbacks::ffi::sixtyfps_callback_init as usize

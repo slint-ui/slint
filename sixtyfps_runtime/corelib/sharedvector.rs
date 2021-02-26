@@ -459,6 +459,7 @@ fn invalid_capacity_test() {
     let _: SharedVector<u8> = SharedVector::with_capacity(usize::MAX / 2 - 1000);
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ffi {
     use super::*;
 

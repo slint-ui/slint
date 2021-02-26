@@ -82,6 +82,7 @@ pub fn init_component_items<Base>(
     })
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 

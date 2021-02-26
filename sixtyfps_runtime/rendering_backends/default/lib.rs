@@ -69,6 +69,7 @@ pub use default_backend::{
 
 #[doc(hidden)]
 #[cold]
+#[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() {
     default_backend::use_modules();
     #[cfg(feature = "sixtyfps-rendering-backend-qt")]
@@ -77,6 +78,7 @@ pub fn use_modules() {
     sixtyfps_rendering_backend_gl::use_modules();
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod ffi {
     use sixtyfps_corelib::window::ffi::ComponentWindowOpaque;
     use sixtyfps_corelib::window::ComponentWindow;
