@@ -56,7 +56,7 @@ pub trait PlatformWindow {
     /// With some backends this may return none unless the window is mapped.
     fn font_metrics(
         &self,
-        request: crate::graphics::FontRequest,
+        unresolved_font_request: crate::graphics::FontRequest,
     ) -> Option<Box<dyn crate::graphics::FontMetrics>>;
 
     /// Return the size of the image referenced by the specified resource, multiplied by the window
@@ -108,6 +108,11 @@ impl Window {
     /// Panics if it wasn't set.
     pub fn component(&self) -> ComponentRc {
         self.component.borrow().upgrade().unwrap()
+    }
+
+    /// returns the component or None if it isn't set.
+    pub fn try_component(&self) -> Option<ComponentRc> {
+        self.component.borrow().upgrade()
     }
 
     /// Receive a mouse event and pass it to the items of the component to

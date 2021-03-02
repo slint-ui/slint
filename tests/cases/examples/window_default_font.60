@@ -1,0 +1,27 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// Test for manual visual verification of default font properties of Window
+//
+
+TestCase := Window {
+    width: 800px;
+    height: 600px;
+
+    default-font-family: "Courier New";
+
+    GridLayout {
+        Text {
+            text: "This text should be shown in Courier New\nIt's a fixed width font so the characters should align";
+            font-size: 48px;
+        }
+    }
+}
+

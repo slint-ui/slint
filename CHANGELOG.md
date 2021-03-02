@@ -44,6 +44,7 @@ All notable changes to this project will be documented in this file.
  - `Text` word wrap and elide
  - `drop-shadow-*` properties (limited to `Rectangle` at the moment)
  - `Color.brighter` / `Color.darker`
+ - `Window.default-font-family`
 
 
 ## [0.0.4] - 2020-12-14

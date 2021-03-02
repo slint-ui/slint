@@ -248,6 +248,23 @@ impl GraphicsWindow {
     fn component(&self) -> ComponentRc {
         self.self_weak.get().unwrap().upgrade().unwrap().component()
     }
+
+    fn default_font_properties(&self) -> FontRequest {
+        self.self_weak
+            .get()
+            .unwrap()
+            .upgrade()
+            .unwrap()
+            .try_component()
+            .and_then(|component_rc| {
+                let component = ComponentRc::borrow_pin(&component_rc);
+                let root_item = component.as_ref().get_item_ref(0);
+                ItemRef::downcast_pin(root_item).map(|window_item: Pin<&corelib::items::Window>| {
+                    window_item.default_font_properties()
+                })
+            })
+            .unwrap_or_default()
+    }
 }
 
 impl Drop for GraphicsWindow {
@@ -319,8 +336,11 @@ impl GraphicsWindow {
                 RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
             };
 
-        let mut renderer =
-            window.backend.borrow_mut().new_renderer(&background_color, self.scale_factor());
+        let mut renderer = window.backend.borrow_mut().new_renderer(
+            &background_color,
+            self.scale_factor(),
+            self.default_font_properties(),
+        );
         corelib::item_rendering::render_component_items(
             &component_rc,
             &mut renderer,
@@ -458,12 +478,15 @@ impl PlatformWindow for GraphicsWindow {
 
     fn font_metrics(
         &self,
-        request: corelib::graphics::FontRequest,
+        unresolved_font_request: corelib::graphics::FontRequest,
     ) -> Option<Box<dyn corelib::graphics::FontMetrics>> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => None,
             GraphicsWindowBackendState::Mapped(window) => {
-                Some(window.backend.borrow_mut().font_metrics(request, self.scale_factor()))
+                Some(window.backend.borrow_mut().font_metrics(
+                    unresolved_font_request.merge(&self.default_font_properties()),
+                    self.scale_factor(),
+                ))
             }
         }
     }

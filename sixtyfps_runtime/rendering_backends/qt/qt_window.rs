@@ -10,7 +10,6 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::graphics::{Brush, FontRequest, Point, Rect, RenderingCache};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
@@ -18,6 +17,10 @@ use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
+use sixtyfps_corelib::{
+    graphics::{Brush, FontRequest, Point, Rect, RenderingCache},
+    items::Window,
+};
 use sixtyfps_corelib::{PathData, Property, Resource};
 
 use std::cell::RefCell;
@@ -222,6 +225,7 @@ type QtRenderingCache = Rc<RefCell<RenderingCache<QtRenderingCacheItem>>>;
 struct QtItemRenderer<'a> {
     painter: &'a mut QPainter,
     cache: QtRenderingCache,
+    default_font_properties: FontRequest,
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
@@ -282,7 +286,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
         let fill_brush: qttypes::QBrush = text.color().into();
         let string: qttypes::QString = text.text().as_str().into();
-        let font: QFont = get_font(text.font_request());
+        let font: QFont =
+            get_font(text.unresolved_font_request().merge(&self.default_font_properties));
         let flags = match text.horizontal_alignment() {
             TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -319,7 +324,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             text_input.selection_background_color().as_argb_encoded();
 
         let string: qttypes::QString = text_input.text().as_str().into();
-        let font: QFont = get_font(text_input.font_request());
+        let font: QFont =
+            get_font(text_input.unresolved_font_request().merge(&self.default_font_properties));
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -779,7 +785,11 @@ impl QtWindow {
 
         let cache = self.cache.clone();
         self.redraw_listener.as_ref().evaluate(|| {
-            let mut renderer = QtItemRenderer { painter, cache };
+            let mut renderer = QtItemRenderer {
+                painter,
+                cache,
+                default_font_properties: self.default_font_properties(),
+            };
             sixtyfps_corelib::item_rendering::render_component_items(
                 &component_rc,
                 &mut renderer,
@@ -876,6 +886,22 @@ impl QtWindow {
             widget_ptr->setPalette(pal);
         }};
     }
+
+    fn default_font_properties(&self) -> FontRequest {
+        self.self_weak
+            .get()
+            .unwrap()
+            .upgrade()
+            .unwrap()
+            .try_component()
+            .and_then(|component_rc| {
+                let component = ComponentRc::borrow_pin(&component_rc);
+                let root_item = component.as_ref().get_item_ref(0);
+                ItemRef::downcast_pin(root_item)
+                    .map(|window_item: Pin<&Window>| window_item.default_font_properties())
+            })
+            .unwrap_or_default()
+    }
 }
 
 #[allow(unused)]
@@ -959,9 +985,9 @@ impl PlatformWindow for QtWindow {
 
     fn font_metrics(
         &self,
-        request: FontRequest,
+        unresolved_font_request: FontRequest,
     ) -> Option<Box<dyn sixtyfps_corelib::graphics::FontMetrics>> {
-        Some(Box::new(get_font(request)))
+        Some(Box::new(get_font(unresolved_font_request.merge(&self.default_font_properties()))))
     }
 
     fn image_size(
@@ -978,10 +1004,10 @@ impl PlatformWindow for QtWindow {
 }
 
 fn get_font(request: FontRequest) -> QFont {
-    let family: qttypes::QString = request.family.as_str().into();
+    let family: qttypes::QString = request.family.unwrap_or_default().as_str().into();
     let pixel_size: f32 = request.pixel_size.unwrap_or(0.);
     let weight: i32 = request.weight.unwrap_or(0);
-    let letter_spacing: f32 = request.letter_spacing;
+    let letter_spacing: f32 = request.letter_spacing.unwrap_or_default();
     cpp!(unsafe [family as "QString", pixel_size as "float", weight as "int", letter_spacing as "float"] -> QFont as "QFont" {
         QFont f;
         if (!family.isEmpty())

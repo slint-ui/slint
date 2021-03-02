@@ -935,6 +935,7 @@ pub struct Window {
     pub height: Property<f32>,
     pub background: Property<Color>,
     pub title: Property<SharedString>,
+    pub default_font_family: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -978,6 +979,23 @@ impl Item for Window {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
+}
+
+impl Window {
+    /// Returns the font properties that can be used as defaults for child items
+    pub fn default_font_properties(self: Pin<&Self>) -> crate::graphics::FontRequest {
+        crate::graphics::FontRequest {
+            family: {
+                let maybe_family = self.default_font_family();
+                if !maybe_family.is_empty() {
+                    Some(maybe_family)
+                } else {
+                    None
+                }
+            },
+            ..Default::default()
+        }
+    }
 }
 
 impl ItemConsts for Window {

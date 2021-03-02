@@ -62,7 +62,6 @@ export global DemoPalette := {
 }
 
 export DemoText := Text {
-    font-family: "Noto Sans";
     font-size: DemoPalette.base_font_size;
 }
 

@@ -114,7 +114,10 @@ use fonts::*;
 impl FontCache {
     fn load_single_font(&mut self, canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
         self.0
-            .entry(FontCacheKey { family: request.family.clone(), weight: request.weight.unwrap() })
+            .entry(FontCacheKey {
+                family: request.family.clone().unwrap_or_default(),
+                weight: request.weight.unwrap(),
+            })
             .or_insert_with(|| {
                 try_load_app_font(canvas, &request)
                     .unwrap_or_else(|| load_system_font(canvas, &request))
@@ -389,7 +392,12 @@ impl GLRenderer {
 
     /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
     /// window background was cleared with the specified clear_color.
-    fn new_renderer(&mut self, clear_color: &Color, scale_factor: f32) -> GLItemRenderer {
+    fn new_renderer(
+        &mut self,
+        clear_color: &Color,
+        scale_factor: f32,
+        default_font_properties: FontRequest,
+    ) -> GLItemRenderer {
         let size = self.window().inner_size();
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -407,7 +415,11 @@ impl GLRenderer {
             canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
         }
 
-        GLItemRenderer { shared_data: self.shared_data.clone(), scale_factor }
+        GLItemRenderer {
+            shared_data: self.shared_data.clone(),
+            scale_factor,
+            default_font_properties,
+        }
     }
 
     /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
@@ -463,6 +475,7 @@ impl GLRenderer {
 pub struct GLItemRenderer {
     shared_data: Rc<GLRendererData>,
     scale_factor: f32,
+    default_font_properties: FontRequest,
 }
 
 fn rect_to_path(r: Rect) -> femtovg::Path {
@@ -584,7 +597,7 @@ impl ItemRenderer for GLItemRenderer {
         let horizontal_alignment = text.horizontal_alignment();
         let font = self.shared_data.loaded_fonts.borrow_mut().font(
             &self.shared_data.canvas,
-            text.font_request(),
+            text.unresolved_font_request().merge(&self.default_font_properties),
             self.scale_factor,
         );
         let wrap = text.wrap() == TextWrap::word_wrap;
@@ -673,7 +686,7 @@ impl ItemRenderer for GLItemRenderer {
 
         let font = self.shared_data.loaded_fonts.borrow_mut().font(
             &self.shared_data.canvas,
-            text_input.font_request(),
+            text_input.unresolved_font_request().merge(&self.default_font_properties),
             self.scale_factor,
         );
 
@@ -688,7 +701,7 @@ impl ItemRenderer for GLItemRenderer {
             width,
             height,
             &text_input.text(),
-            text_input.font_request(),
+            text_input.unresolved_font_request().merge(&self.default_font_properties),
             paint,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
@@ -738,7 +751,7 @@ impl ItemRenderer for GLItemRenderer {
                 text_input.width(),
                 text_input.height(),
                 &text_input.text(),
-                text_input.font_request(),
+                text_input.unresolved_font_request().merge(&self.default_font_properties),
                 femtovg::Paint::color(text_input.selection_foreground_color().into()),
                 text_input.horizontal_alignment(),
                 text_input.vertical_alignment(),
@@ -1350,11 +1363,11 @@ struct GLFontMetrics {
 
 impl FontMetrics for GLFontMetrics {
     fn text_size(&self, text: &str) -> Size {
-        self.font().text_size(self.request.letter_spacing, text, None)
+        self.font().text_size(self.request.letter_spacing.unwrap_or_default(), text, None)
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
-        let metrics = self.font().measure(self.request.letter_spacing, text);
+        let metrics = self.font().measure(self.request.letter_spacing.unwrap_or_default(), text);
         let mut current_x = 0.;
         for glyph in metrics.glyphs {
             if current_x + glyph.advance_x / 2. >= x {
@@ -1369,9 +1382,10 @@ impl FontMetrics for GLFontMetrics {
         self.shared_data
             .canvas
             .borrow_mut()
-            .measure_font(
-                self.font().init_paint(self.request.letter_spacing, femtovg::Paint::default()),
-            )
+            .measure_font(self.font().init_paint(
+                self.request.letter_spacing.unwrap_or_default(),
+                femtovg::Paint::default(),
+            ))
             .unwrap()
             .height()
     }

@@ -44,11 +44,10 @@ pub(crate) fn try_load_app_font(
     canvas: &CanvasRc,
     request: &FontRequest,
 ) -> Option<femtovg::FontId> {
-    let family = if request.family.is_empty() {
-        fontdb::Family::SansSerif
-    } else {
-        fontdb::Family::Name(&request.family)
-    };
+    let family = request
+        .family
+        .as_ref()
+        .map_or(fontdb::Family::SansSerif, |family| fontdb::Family::Name(&family));
 
     let query = fontdb::Query {
         families: &[family],
@@ -68,11 +67,10 @@ pub(crate) fn try_load_app_font(
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
-    let family_name = if request.family.len() == 0 {
-        font_kit::family_name::FamilyName::SansSerif
-    } else {
-        font_kit::family_name::FamilyName::Title(request.family.to_string())
-    };
+    let family_name =
+        request.family.as_ref().map_or(font_kit::family_name::FamilyName::SansSerif, |family| {
+            font_kit::family_name::FamilyName::Title(family.to_string())
+        });
 
     let handle = font_kit::source::SystemSource::new()
         .select_best_match(
@@ -109,8 +107,13 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
 
 #[cfg(target_os = "macos")]
 pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequest> {
-    core_text::font::new_from_name(&_request.family, _request.pixel_size.unwrap_or_default() as f64)
-        .ok()
+    _request
+        .family
+        .as_ref()
+        .and_then(|family| {
+            core_text::font::new_from_name(&family, _request.pixel_size.unwrap_or_default() as f64)
+                .ok()
+        })
         .map(|requested_font| {
             core_text::font::cascade_list_for_languages(
                 &requested_font,
@@ -118,12 +121,12 @@ pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequ
             )
             .iter()
             .map(|fallback_descriptor| FontRequest {
-                family: fallback_descriptor.family_name().into(),
+                family: Some(fallback_descriptor.family_name().into()),
                 weight: _request.weight,
                 pixel_size: _request.pixel_size,
                 letter_spacing: _request.letter_spacing,
             })
-            .filter(|fallback| !fallback.family.starts_with(".")) // font-kit asserts when loading `.Apple Fallback`
+            .filter(|fallback| !fallback.family.as_ref().unwrap().starts_with(".")) // font-kit asserts when loading `.Apple Fallback`
             .take(1) // Take only the top from the fallback list until we mmap the llaaarge font files
             .collect::<Vec<_>>()
         })

@@ -33,6 +33,8 @@ Window is the root of what is on the screen
 
 * **`title`** (*string*): The window title that is shown in the title bar.
 * **`background`** (*color*): The background color of the Window. (default value: depends on the style)
+* **`default-font-family`** (*string*): The font family to use as default in text elements inside this window, that don't
+  have their family set.
 
 ## `Rectangle`
 

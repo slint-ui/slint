@@ -21,7 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 
 use super::{Item, ItemConsts, ItemRc, VoidArg};
-use crate::graphics::{Brush, Color, Rect, Size};
+use crate::graphics::{Brush, Color, FontRequest, Rect, Size};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
     MouseEvent, MouseEventType,
@@ -128,7 +128,7 @@ impl Item for Text {
         if self.wrap() == TextWrap::word_wrap {
             // FIXME: one should limit to the size of the smaler word
             LayoutInfo::default()
-        } else if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
+        } else if let Some(font_metrics) = window.0.font_metrics(self.unresolved_font_request()) {
             let mut min_size = font_metrics.text_size(&self.text());
             match self.overflow() {
                 TextOverflow::elide => {
@@ -152,7 +152,7 @@ impl Item for Text {
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
         window
             .0
-            .font_metrics(self.font_request())
+            .font_metrics(self.unresolved_font_request())
             .map(|metrics| metrics.text_size(&self.text()))
             .unwrap_or_default()
     }
@@ -192,9 +192,16 @@ impl ItemConsts for Text {
 }
 
 impl Text {
-    pub fn font_request(self: Pin<&Self>) -> crate::graphics::FontRequest {
-        crate::graphics::FontRequest {
-            family: self.font_family(),
+    pub fn unresolved_font_request(self: Pin<&Self>) -> FontRequest {
+        FontRequest {
+            family: {
+                let maybe_family = self.font_family();
+                if !maybe_family.is_empty() {
+                    Some(maybe_family)
+                } else {
+                    None
+                }
+            },
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
@@ -211,7 +218,7 @@ impl Text {
                     Some(font_size)
                 }
             },
-            letter_spacing: self.letter_spacing(),
+            letter_spacing: Some(self.letter_spacing()),
         }
     }
 }
@@ -256,7 +263,7 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        if let Some(font_metrics) = window.0.font_metrics(self.font_request()) {
+        if let Some(font_metrics) = window.0.font_metrics(self.unresolved_font_request()) {
             let size = font_metrics.text_size("********************");
 
             LayoutInfo {
@@ -273,7 +280,7 @@ impl Item for TextInput {
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
         window
             .0
-            .font_metrics(self.font_request())
+            .font_metrics(self.unresolved_font_request())
             .map(|metrics| metrics.text_size(&self.text()))
             .unwrap_or_default()
     }
@@ -298,7 +305,7 @@ impl Item for TextInput {
         }
 
         let text = self.text();
-        let font_metrics = match window.0.font_metrics(self.font_request()) {
+        let font_metrics = match window.0.font_metrics(self.unresolved_font_request()) {
             Some(font) => font,
             None => return InputEventResult::EventIgnored,
         };
@@ -598,9 +605,16 @@ impl TextInput {
         }
     }
 
-    pub fn font_request(self: Pin<&Self>) -> crate::graphics::FontRequest {
-        crate::graphics::FontRequest {
-            family: self.font_family(),
+    pub fn unresolved_font_request(self: Pin<&Self>) -> FontRequest {
+        FontRequest {
+            family: {
+                let maybe_family = self.font_family();
+                if !maybe_family.is_empty() {
+                    Some(maybe_family)
+                } else {
+                    None
+                }
+            },
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
@@ -617,7 +631,7 @@ impl TextInput {
                     Some(font_size)
                 }
             },
-            letter_spacing: self.letter_spacing(),
+            letter_spacing: Some(self.letter_spacing()),
         }
     }
 }
