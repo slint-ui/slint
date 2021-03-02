@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox, DemoText } from "./common.60";
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.60";
 import { StandardListView } from "sixtyfps_widgets.60";
 
 

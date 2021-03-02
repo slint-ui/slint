@@ -8,9 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, PrinterQueueItem, PushButton, DemoText } from "./common.60";
+import { DemoPalette, PrinterQueueItem, PushButton } from "./common.60";
 
-PrintQueueDetailsLabel := DemoText {
+PrintQueueDetailsLabel := Text {
     font-weight: 500;
     color: DemoPalette.control_foreground;
     horizontal-stretch: 0;
@@ -31,7 +31,7 @@ PrintDetails := GridLayout {
         PrintQueueDetailsLabel {
             text: "Owner";
         }
-        DemoText {
+        Text {
             text: queue_item.owner;
             color: DemoPalette.secondary_foreground_color;
             overflow: elide;
@@ -47,7 +47,7 @@ PrintDetails := GridLayout {
         PrintQueueDetailsLabel {
             text: "Pages";
         }
-        DemoText {
+        Text {
             text: queue_item.pages;
             color: DemoPalette.secondary_foreground_color;
             overflow: elide;
@@ -63,7 +63,7 @@ PrintDetails := GridLayout {
         PrintQueueDetailsLabel {
             text: "Size";
         }
-        DemoText {
+        Text {
             text: queue_item.pages;
             color: DemoPalette.secondary_foreground_color;
             overflow: elide;
@@ -79,7 +79,7 @@ PrintDetails := GridLayout {
         PrintQueueDetailsLabel {
             text: "Submitted";
         }
-        DemoText {
+        Text {
             text: queue_item.submission_date;
             color: DemoPalette.secondary_foreground_color;
             overflow: elide;
@@ -102,7 +102,7 @@ NarrowPrintQueueElement := Rectangle {
         padding: root.border_radius;
         spacing: 4px;
 
-        DemoText {
+        Text {
             // TODO: text-transform: uppercase
             text: {
                 if (queue_item.status == "PRINTING") {
@@ -117,7 +117,7 @@ NarrowPrintQueueElement := Rectangle {
             letter-spacing: 1.56px;
         }
 
-        DemoText {
+        Text {
             text: queue_item.title;
             overflow: elide;
             color: DemoPalette.text_foreground_color;
@@ -215,7 +215,7 @@ WidePrintQueueElement := Rectangle {
                 spacing: 0px;
 
                 HorizontalLayout {
-                    DemoText {
+                    Text {
                         // TODO: text-transform: uppercase
                         text: {
                             if (queue_item.status == "PRINTING") {
@@ -234,7 +234,7 @@ WidePrintQueueElement := Rectangle {
                     }
                 }
 
-                DemoText {
+                Text {
                     text: queue_item.title;
                     color: DemoPalette.text_foreground_color;
                     overflow: elide;
@@ -321,7 +321,7 @@ export PrinterQueue := Rectangle {
         padding: 16px;
         spacing: 16px;
 
-        DemoText {
+        Text {
             text: "Printing-Queue";
             color: DemoPalette.text_foreground_color;
             font-size: DemoPalette.base_font_size * 1.5;

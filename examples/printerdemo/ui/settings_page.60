@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, ComboBox, CheckBox, Label, DemoText } from "common.60";
+import { DemoPalette, Page, SpinBox, ComboBox, CheckBox, Label } from "common.60";
 
 export SettingsPage := Page {
     header: "Settings";
@@ -18,7 +18,7 @@ export SettingsPage := Page {
                      + /* extra top-padding in design */ 27px;
         spacing: 24px;
         Row {
-            DemoText {
+            Text {
                 text: "General";
                 color: DemoPalette.secondary_foreground_color;
                 font-size: DemoPalette.base_font_size * 1.125;
@@ -39,7 +39,7 @@ export SettingsPage := Page {
         }
 
         Row {
-            DemoText {
+            Text {
                 text: "Defaults";
                 color: DemoPalette.secondary_foreground_color;
                 font-size: DemoPalette.base_font_size * 1.125;

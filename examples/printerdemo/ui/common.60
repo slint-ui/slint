@@ -61,10 +61,6 @@ export global DemoPalette := {
     property <bool> night_mode: false;
 }
 
-export DemoText := Text {
-    font-size: DemoPalette.base_font_size;
-}
-
 export Page := Rectangle {
     property<string> header <=> h.text;
     background: DemoPalette.page_background_color;
@@ -86,7 +82,7 @@ export Page := Rectangle {
         }
     }
 
-    h := DemoText {
+    h := Text {
         font-weight: 900;
         font-size: DemoPalette.base_font_size * 2;
         color: DemoPalette.text_foreground_color;
@@ -110,7 +106,7 @@ export struct PrinterQueueItem := {
     submission_date: string
 }
 
-export Label := DemoText {
+export Label := Text {
     color: DemoPalette.text_foreground_color;
     vertical-alignment: center;
     font-weight: 700;
@@ -162,7 +158,7 @@ export SpinBox := Rectangle {
             border-radius: 3px;
             border-width: 2px;
             border-color: DemoPalette.control_outline_color;
-            DemoText {
+            Text {
                 width: 100%;
                 height: 100%;
                 vertical-alignment: center;
@@ -190,7 +186,7 @@ export ComboBox := Rectangle {
     border-color: DemoPalette.control_outline_color;
     height: 32px;
     minimum-width: label.x + label.width + i.width;
-    label := DemoText {
+    label := Text {
         vertical-alignment: center;
         horizontal-alignment: left;
         text <=> root.value;
@@ -222,7 +218,7 @@ export CheckBox := Rectangle {
             clicked => { checked = !checked; }
         }
 
-        DemoText {
+        Text {
             text <=> root.text;
             vertical-alignment: center;
             horizontal-alignment: center;
@@ -261,7 +257,7 @@ export PushButton := Rectangle {
             width: height * 1.333;
         }
 
-        label := DemoText {
+        label := Text {
             font-weight: 900;
             color: DemoPalette.push_button_text_color;
             horizontal-alignment: center;

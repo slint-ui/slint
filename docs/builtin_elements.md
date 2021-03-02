@@ -35,6 +35,8 @@ Window is the root of what is on the screen
 * **`background`** (*color*): The background color of the Window. (default value: depends on the style)
 * **`default-font-family`** (*string*): The font family to use as default in text elements inside this window, that don't
   have their family set.
+* **`default-font-size`** (*length*): The font size to use as default in text elements inside this window, that don't
+  have their size set.
 
 ## `Rectangle`
 

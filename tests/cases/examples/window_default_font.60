@@ -16,11 +16,11 @@ TestCase := Window {
     height: 600px;
 
     default-font-family: "Courier New";
+    default-font-size: 48px;
 
     GridLayout {
         Text {
-            text: "This text should be shown in Courier New\nIt's a fixed width font so the characters should align";
-            font-size: 48px;
+            text: "This text should be shown in 48px Courier New\nIt's a fixed width font so the characters should align";
         }
     }
 }

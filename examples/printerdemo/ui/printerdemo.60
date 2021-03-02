@@ -45,6 +45,7 @@ MainWindow := Window {
     title: "SixtyFPS printer demo";
     background: DemoPalette.main_background;
     default-font-family: "Noto Sans";
+    default-font-size: DemoPalette.base_font_size;
 
     /// Note that this property is overwriten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer

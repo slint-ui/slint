@@ -147,6 +147,7 @@ export Window := _ {
     property <color> color <=> background;
     property <string> title: "SixtyFPS Window";
     property <string> default_font_family;
+    property <length> default_font_size;
 }
 
 export BoxShadow := _ {
