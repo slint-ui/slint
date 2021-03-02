@@ -101,7 +101,7 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
         }
     });
     let mut fallback_request = request.clone();
-    fallback_request.family = "DejaVu Sans".into();
+    fallback_request.family = Some("DejaVu Sans".into());
     try_load_app_font(canvas, &fallback_request).unwrap()
 }
 
@@ -138,7 +138,7 @@ pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequ
     vec![
         #[cfg(target_arch = "wasm32")]
         FontRequest {
-            family: "DejaVu Sans".into(),
+            family: Some("DejaVu Sans".into()),
             weight: _request.weight,
             pixel_size: _request.pixel_size,
             letter_spacing: _request.letter_spacing,
