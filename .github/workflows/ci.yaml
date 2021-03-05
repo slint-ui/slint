@@ -106,6 +106,7 @@ jobs:
           command: build
           args: --verbose --all-features
     - name: Run tests
+      if: matrix.os != 'macos-latest'
       uses: actions-rs/cargo@v1
       with:
           command: test
