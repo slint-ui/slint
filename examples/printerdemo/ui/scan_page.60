@@ -30,7 +30,10 @@ export ScanPage := Page {
         }
         Row {
             Label { text: "Copies"; }
-            SpinBox { value: 1; }
+            SpinBox {
+                value: 1;
+                minimum: 1;
+            }
 
             Rectangle {}
 
