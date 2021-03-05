@@ -85,7 +85,13 @@ pub fn render_component_items(
         |_, item, _, _| {
             renderer.borrow_mut().save_state();
 
-            let item_origin = item.as_ref().geometry().origin;
+            let item_geometry = item.as_ref().geometry();
+            let item_origin = item_geometry.origin;
+
+            if !renderer.borrow().get_current_clip().intersects(&item_geometry) {
+                renderer.borrow_mut().translate(item_origin.x, item_origin.y);
+                return (ItemVisitorResult::Continue(()), ());
+            }
 
             renderer.borrow_mut().translate(item_origin.x, item_origin.y);
 
@@ -118,6 +124,9 @@ pub trait ItemRenderer {
     fn draw_path(&mut self, path: Pin<&Path>);
     fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
     fn combine_clip(&mut self, rect: Rect);
+    /// Get the current clip rect in the current transformed coordinate.
+    /// If there is a rotation, this might only be the bounding box of the clip
+    fn get_current_clip(&self) -> Rect;
 
     fn translate(&mut self, x: f32, y: f32);
     fn rotate(&mut self, angle_in_degrees: f32);

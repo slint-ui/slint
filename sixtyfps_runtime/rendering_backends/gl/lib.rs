@@ -419,6 +419,10 @@ impl GLRenderer {
             shared_data: self.shared_data.clone(),
             scale_factor,
             default_font_properties,
+            clip_state: vec![Rect::new(
+                Point::default(),
+                Size::new(size.width as _, size.height as _),
+            )],
         }
     }
 
@@ -476,6 +480,7 @@ pub struct GLItemRenderer {
     shared_data: Rc<GLRendererData>,
     scale_factor: f32,
     default_font_properties: FontRequest,
+    clip_state: Vec<Rect>,
 }
 
 fn rect_to_path(r: Rect) -> femtovg::Path {
@@ -948,14 +953,25 @@ impl ItemRenderer for GLItemRenderer {
             clip_rect.width(),
             clip_rect.height(),
         );
+        let clip = self.clip_state.last_mut().unwrap();
+        match clip.intersection(&clip_rect) {
+            Some(r) => *clip = r,
+            None => *clip = Rect::default(),
+        }
+    }
+
+    fn get_current_clip(&self) -> Rect {
+        self.clip_state.last().unwrap().clone()
     }
 
     fn save_state(&mut self) {
         self.shared_data.canvas.borrow_mut().save();
+        self.clip_state.push(self.clip_state.last().unwrap().clone());
     }
 
     fn restore_state(&mut self) {
         self.shared_data.canvas.borrow_mut().restore();
+        self.clip_state.pop();
     }
 
     fn scale_factor(&self) -> f32 {
@@ -1007,10 +1023,34 @@ impl ItemRenderer for GLItemRenderer {
 
     fn translate(&mut self, x: f32, y: f32) {
         self.shared_data.canvas.borrow_mut().translate(x, y);
+        let clip = self.clip_state.last_mut().unwrap();
+        *clip = clip.translate((-x, -y).into())
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
-        self.shared_data.canvas.borrow_mut().rotate(angle_in_degrees.to_radians());
+        let angle_in_radians = angle_in_degrees.to_radians();
+        self.shared_data.canvas.borrow_mut().rotate(angle_in_radians);
+        let clip = self.clip_state.last_mut().unwrap();
+        // Compute the bounding box of the rotated rectangle
+        let (sin, cos) = angle_in_radians.sin_cos();
+        let rotate_point = |p: Point| (p.x * cos - p.y * sin, p.x * sin + p.y * cos);
+        let corners = [
+            rotate_point(clip.origin),
+            rotate_point(clip.origin + euclid::vec2(clip.width(), 0.)),
+            rotate_point(clip.origin + euclid::vec2(0., clip.height())),
+            rotate_point(clip.origin + clip.size),
+        ];
+        let origin: Point = (
+            corners.iter().fold(f32::MAX, |a, b| b.0.min(a)),
+            corners.iter().fold(f32::MAX, |a, b| b.1.min(a)),
+        )
+            .into();
+        let end: Point = (
+            corners.iter().fold(f32::MIN, |a, b| b.0.max(a)),
+            corners.iter().fold(f32::MIN, |a, b| b.1.max(a)),
+        )
+            .into();
+        *clip = Rect::new(origin, (end - origin).into());
     }
 }
 

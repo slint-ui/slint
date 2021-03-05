@@ -18,7 +18,7 @@ use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
 use sixtyfps_corelib::{
-    graphics::{Brush, FontRequest, Point, Rect, RenderingCache},
+    graphics::{Brush, FontRequest, Point, Rect, RenderingCache, Size},
     items::Window,
 };
 use sixtyfps_corelib::{PathData, Property, Resource};
@@ -75,6 +75,7 @@ cpp! {{
 
         void paintEvent(QPaintEvent *) override {
             QPainter painter(this);
+            painter.setClipRect(rect());
             painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
             auto painter_ptr = &painter;
             rust!(SFPS_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainter as "QPainter*"] {
@@ -469,6 +470,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
         cpp! { unsafe [painter as "QPainter*", clip_rect as "QRectF"] {
             painter->setClipRect(clip_rect, Qt::IntersectClip);
         }}
+    }
+
+    fn get_current_clip(&self) -> Rect {
+        let painter: &QPainter = self.painter;
+        let res = cpp! { unsafe [painter as "const QPainter*" ] -> qttypes::QRectF as "QRectF" {
+            return painter->clipBoundingRect();
+        }};
+        Rect::new(Point::new(res.x as _, res.y as _), Size::new(res.width as _, res.height as _))
     }
 
     fn save_state(&mut self) {
