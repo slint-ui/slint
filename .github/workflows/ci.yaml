@@ -20,6 +20,7 @@ jobs:
   build_and_test:
     env:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
+      SIXTYFPS_BACKEND: GL
       QT_QPA_PLATFORM: offscreen
       RUSTFLAGS: -D warnings
     strategy:
