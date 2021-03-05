@@ -54,7 +54,10 @@ export UsbPage := Page {
 
         Row {
             Label { col: 1; text: "Copies"; }
-            SpinBox { value: 1; }
+            SpinBox {
+                value: 1;
+                minimum: 1;
+            }
         }
         Row {
             Label { col: 1; text: "Color"; }
