@@ -99,9 +99,9 @@ This documentation contains a documented generated component: [`docs::generated_
 The following associated function are added to the component:
 
   - [`fn new() -> Self`](docs::generated_code::SampleComponent::new): to instantiate the component.
-  - [`fn show(&self)`]()docs::generated_code::SampleComponent::show): to show the window of the component.
-  - [`fn hide(&self)`]()docs::generated_code::SampleComponent::hide): to hide the window of the component.
-  - [`fn run(&self)`]()docs::generated_code::SampleComponent::run): a convenience function that first calls `show()`,
+  - [`fn show(&self)`](docs::generated_code::SampleComponent::show): to show the window of the component.
+  - [`fn hide(&self)`](docs::generated_code::SampleComponent::hide): to hide the window of the component.
+  - [`fn run(&self)`](docs::generated_code::SampleComponent::run): a convenience function that first calls `show()`,
     followed by spinning the event loop, and `hide()` when returning from the event loop.
 
 For each top-level property
