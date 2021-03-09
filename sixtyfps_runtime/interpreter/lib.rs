@@ -22,6 +22,9 @@ mod eval;
 mod global_component;
 mod value_model;
 
+/// FIXME: re-export everything from abi, but and everything else should be private
+pub mod api;
+
 pub use eval::{ModelPtr, Value};
 
 use dynamic_component::InstanceRef;

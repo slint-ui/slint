@@ -263,7 +263,7 @@ jobs:
       with:
           command: doc
           toolchain: nightly
-          args: -p sixtyfps -p sixtyfps-build --no-deps
+          args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps
     - name: "Node docs"
       run: |
           npm install --ignore-scripts
