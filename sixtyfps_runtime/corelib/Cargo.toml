@@ -53,7 +53,3 @@ pathfinder_geometry = "0.5.1"
 
 [dev-dependencies]
 pin-weak = "1"
-
-[package.metadata.docs.rs]
-# The x11 is needed otherwise winit does not build
-features = ["x11"]
