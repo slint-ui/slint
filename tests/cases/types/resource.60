@@ -11,5 +11,5 @@ LICENSE END */
 // Test that @image-url("") compiles
 
 TestCase := Rectangle {
-    property <resource> test: @image-url("");
+    property <image> test: @image-url("");
 }

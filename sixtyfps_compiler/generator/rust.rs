@@ -39,7 +39,7 @@ fn rust_type(
         Type::LogicalLength => Ok(quote!(f32)),
         Type::Percent => Ok(quote!(f32)),
         Type::Bool => Ok(quote!(bool)),
-        Type::Resource => Ok(quote!(sixtyfps::re_exports::Resource)),
+        Type::Image => Ok(quote!(sixtyfps::re_exports::Resource)),
         Type::Object { fields, name: None } => {
             let elem =
                 fields.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;

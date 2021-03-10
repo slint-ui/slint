@@ -252,7 +252,7 @@ impl CppType for Type {
                 }
             }
             Type::Array(i) => Some(format!("std::shared_ptr<sixtyfps::Model<{}>>", i.cpp_type()?)),
-            Type::Resource => Some("sixtyfps::Resource".to_owned()),
+            Type::Image => Some("sixtyfps::Resource".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),
             Type::Brush => Some("sixtyfps::Brush".to_owned()),

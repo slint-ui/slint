@@ -17,7 +17,7 @@ import { UsbPage } from "./usb_page.60";
 
 ActionButton := Rectangle {
 
-    property <resource> icon <=> img.source;
+    property <image> icon <=> img.source;
     property <string> text <=> label.text;
     callback clicked;
 

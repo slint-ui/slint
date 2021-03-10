@@ -9,7 +9,7 @@
 LICENSE END */
 
 struct TileData := {
-    image: resource,
+    image: image,
     image_visible: bool,
     solved: bool,
 }
@@ -19,7 +19,7 @@ MemoryTile := Rectangle {
     callback clicked;
     property <bool> open_curtain;
     property <bool> solved;
-    property <resource> icon;
+    property <image> icon;
 
     background: solved ? #34CE57 : #3960D5;
     animate background { duration: 800ms; }

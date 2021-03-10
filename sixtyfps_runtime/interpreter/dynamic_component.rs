@@ -785,7 +785,7 @@ fn generate_component<'id>(
             Type::Angle => animated_property_info::<f32>(),
             Type::Length => animated_property_info::<f32>(),
             Type::LogicalLength => animated_property_info::<f32>(),
-            Type::Resource => property_info::<Resource>(),
+            Type::Image => property_info::<Resource>(),
             Type::Bool => property_info::<bool>(),
             Type::Callback { .. } => {
                 custom_callbacks.insert(name.clone(), builder.add_field_type::<Callback>());

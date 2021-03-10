@@ -116,7 +116,7 @@ impl TypeRegister {
         register.insert_type(Type::LogicalLength);
         register.insert_type(Type::Color);
         register.insert_type(Type::Duration);
-        register.insert_type(Type::Resource);
+        register.insert_type(Type::Image);
         register.insert_type(Type::Bool);
         register.insert_type(Type::Model);
         register.insert_type(Type::Percent);

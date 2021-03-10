@@ -209,7 +209,7 @@ fn to_eval_value<'cx>(
                 Ok(Value::Model(sixtyfps_interpreter::ModelPtr(m)))
             }
         },
-        Type::Resource => {
+        Type::Image => {
             Ok(Value::Resource(Resource::AbsoluteFilePath(val.to_string(cx)?.value().into())))
         }
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),

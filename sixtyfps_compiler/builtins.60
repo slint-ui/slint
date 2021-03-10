@@ -37,7 +37,7 @@ BorderRectangle := Rectangle {
 export { BorderRectangle as Rectangle }
 
 Image := _ {
-    property <resource> source;
+    property <image> source;
     property <length> x;
     property <length> y;
     property <length> width;

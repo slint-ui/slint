@@ -493,7 +493,7 @@ impl Expression {
                 _ => Type::Invalid,
             },
             Expression::SelfAssignment { .. } => Type::Void,
-            Expression::ResourceReference { .. } => Type::Resource,
+            Expression::ResourceReference { .. } => Type::Image,
             Expression::Condition { condition: _, true_expr, false_expr } => {
                 let true_type = true_expr.ty();
                 let false_type = false_expr.ty();
@@ -959,7 +959,7 @@ impl Expression {
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
             Type::Percent => Expression::NumberLiteral(100., Unit::Percent),
             // FIXME: Is that correct?
-            Type::Resource => {
+            Type::Image => {
                 Expression::ResourceReference(ResourceReference::AbsolutePath(String::new()))
             }
             Type::Bool => Expression::BoolLiteral(false),

@@ -47,7 +47,7 @@ pub enum Type {
     LogicalLength,
     Angle,
     Percent,
-    Resource,
+    Image,
     Bool,
     Model,
     PathElements,
@@ -92,7 +92,7 @@ impl core::cmp::PartialEq for Type {
             Type::Length => matches!(other, Type::Length),
             Type::LogicalLength => matches!(other, Type::LogicalLength),
             Type::Percent => matches!(other, Type::Percent),
-            Type::Resource => matches!(other, Type::Resource),
+            Type::Image => matches!(other, Type::Image),
             Type::Bool => matches!(other, Type::Bool),
             Type::Model => matches!(other, Type::Model),
             Type::PathElements => matches!(other, Type::PathElements),
@@ -153,7 +153,7 @@ impl Display for Type {
             Type::LogicalLength => write!(f, "logical_length"),
             Type::Percent => write!(f, "percent"),
             Type::Color => write!(f, "color"),
-            Type::Resource => write!(f, "resource"),
+            Type::Image => write!(f, "image"),
             Type::Bool => write!(f, "bool"),
             Type::Model => write!(f, "model"),
             Type::Array(t) => write!(f, "[{}]", t),
@@ -209,7 +209,7 @@ impl Type {
                 | Self::Length
                 | Self::LogicalLength
                 | Self::Percent
-                | Self::Resource
+                | Self::Image
                 | Self::Bool
                 | Self::Model
                 | Self::Easing
@@ -424,7 +424,7 @@ impl Type {
             Type::Int32 => None,
             Type::String => None,
             Type::Color => None,
-            Type::Resource => None,
+            Type::Image => None,
             Type::Bool => None,
             Type::Model => None,
             Type::PathElements => None,

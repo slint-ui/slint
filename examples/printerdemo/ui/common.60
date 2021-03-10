@@ -115,7 +115,7 @@ export Label := Text {
 
 SquareButton := Rectangle {
     callback clicked;
-    property<resource> img;
+    property<image> img;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control_outline_color;
@@ -231,7 +231,7 @@ export CheckBox := Rectangle {
 export PushButton := Rectangle {
     callback clicked;
     property <string> text <=> label.text;
-    property <resource> icon <=> img.source;
+    property <image> icon <=> img.source;
     property <bool> primary: true;
     property <bool> pressed: touch_area.pressed;
 
