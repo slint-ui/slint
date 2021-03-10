@@ -55,7 +55,7 @@ private:
 class Brush
 {
 public:
-    Brush() : data(Inner::NoBrush()) { }
+    Brush() : Brush(Color{}) { }
     Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
     Brush(const LinearGradientBrush &gradient) : data(Inner::LinearGradient(gradient.inner)) { }
 
@@ -74,8 +74,6 @@ Color Brush::color() const
 {
     Color result;
     switch (data.tag) {
-    case Tag::NoBrush:
-        break;
     case Tag::SolidColor: {
         result.inner = data.solid_color._0;
         break;
