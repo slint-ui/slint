@@ -18,7 +18,7 @@ use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{expression_tree::Expression, langtype::PropertyLookupResult};
-use sixtyfps_corelib::component::{Component, ComponentRefPin, ComponentVTable};
+use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::{Rect, Resource};
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
@@ -300,6 +300,159 @@ pub struct ComponentDescription<'id> {
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
     pub(crate) original: Rc<object_tree::Component>,
+}
+
+impl<'id> ComponentDescription<'id> {
+    /// The name of this Component as written in the .60 file
+    pub fn id(&self) -> &str {
+        self.original.id.as_str()
+    }
+
+    /// List of publicly declared properties or callback
+    pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::langtype::Type> {
+        self.original
+            .root_element
+            .borrow()
+            .property_declarations
+            .iter()
+            .map(|(s, v)| (s.clone(), v.property_type.clone()))
+            .collect()
+    }
+
+    /// Instantiate a runtime component from this ComponentDescription
+    pub fn create(
+        self: Rc<Self>,
+        #[cfg(target_arch = "wasm32")] canvas_id: String,
+    ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
+        let component_ref = instantiate(
+            self,
+            None,
+            #[cfg(target_arch = "wasm32")]
+            canvas_id,
+        );
+        component_ref
+            .as_pin_ref()
+            .window()
+            .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
+        component_ref
+    }
+
+    /// Set a value to property.
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if the property with this name does not exist in this component
+    pub fn set_property(
+        &self,
+        component: ComponentRefPin,
+        name: &str,
+        value: eval::Value,
+    ) -> Result<(), ()> {
+        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+            return Err(());
+        }
+        generativity::make_guard!(guard);
+        let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
+        if let Some(alias) = self
+            .original
+            .root_element
+            .borrow()
+            .property_declarations
+            .get(name)
+            .and_then(|d| d.is_alias.as_ref())
+        {
+            eval::store_property(c, &alias.element.upgrade().unwrap(), &alias.name, value)
+        } else {
+            eval::store_property(c, &self.original.root_element, name, value)
+        }
+    }
+
+    /// Set a binding to a property
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if the property with this name does not exist in this component
+    pub fn set_binding(
+        &self,
+        component: ComponentRef,
+        name: &str,
+        binding: Box<dyn Fn() -> eval::Value>,
+    ) -> Result<(), ()> {
+        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+            return Err(());
+        }
+        let x = self.custom_properties.get(name).ok_or(())?;
+        unsafe {
+            x.prop
+                .set_binding(
+                    Pin::new_unchecked(&*component.as_ptr().add(x.offset)),
+                    binding,
+                    sixtyfps_corelib::rtti::AnimatedBindingKind::NotAnimated,
+                )
+                .unwrap()
+        };
+        Ok(())
+    }
+
+    /// Return the value of a property
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if a callback with this name does not exist in this component
+    pub fn get_property(&self, component: ComponentRefPin, name: &str) -> Result<eval::Value, ()> {
+        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+            return Err(());
+        }
+        generativity::make_guard!(guard);
+        // Safety: we just verified that the component has the right vtable
+        let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
+        if let Some(alias) = self
+            .original
+            .root_element
+            .borrow()
+            .property_declarations
+            .get(name)
+            .and_then(|d| d.is_alias.as_ref())
+        {
+            eval::load_property(c, &alias.element.upgrade().unwrap(), &alias.name)
+        } else {
+            eval::load_property(c, &self.original.root_element, name)
+        }
+    }
+
+    /// Sets an handler for a callback
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if the property with this name does not exist in this component
+    pub fn set_callback_handler(
+        &self,
+        component: Pin<ComponentRef>,
+        name: &str,
+        handler: Box<dyn Fn(&[eval::Value]) -> eval::Value>,
+    ) -> Result<(), ()> {
+        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+            return Err(());
+        }
+        let x = self.custom_callbacks.get(name).ok_or(())?;
+        let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
+        sig.set_handler(handler);
+        Ok(())
+    }
+
+    /// Emits the specified callback
+    ///
+    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
+    /// or if the callback with this name does not exist in this component
+    pub fn call_callback(
+        &self,
+        component: ComponentRefPin,
+        name: &str,
+        args: &[eval::Value],
+    ) -> Result<eval::Value, ()> {
+        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+            return Err(());
+        }
+        let x = self.custom_callbacks.get(name).ok_or(())?;
+        let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
+        Ok(sig.call(args))
+    }
 }
 
 extern "C" fn visit_children_item(

@@ -114,12 +114,12 @@ impl GlobalComponent for GlobalComponentInstance {
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
-    fn set_property(self: Pin<&Self>, prop_name: &str, value: crate::Value) {
+    fn set_property(self: Pin<&Self>, prop_name: &str, value: eval::Value) {
         let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
         prop.set(self, value, None).unwrap()
     }
 
-    fn get_property(self: Pin<&Self>, prop_name: &str) -> crate::Value {
+    fn get_property(self: Pin<&Self>, prop_name: &str) -> eval::Value {
         let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
         prop.get(self).unwrap()
     }

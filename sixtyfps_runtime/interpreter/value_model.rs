@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-use crate::Value;
+use crate::eval::Value;
 use sixtyfps_corelib::model::Model;
 use std::cell::RefCell;
 
