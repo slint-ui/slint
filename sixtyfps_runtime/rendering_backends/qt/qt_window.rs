@@ -666,7 +666,7 @@ impl QtItemRenderer<'_> {
                 QtRenderingCacheItem::Invalid,
                 |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
-                    if colorize != Brush::NoBrush {
+                    if !colorize.is_transparent() {
                         let brush: qttypes::QBrush = colorize.into();
                         cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
                             QPainter p(&pixmap);

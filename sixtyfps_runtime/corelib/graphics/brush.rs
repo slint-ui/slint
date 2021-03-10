@@ -21,9 +21,8 @@ use crate::SharedVector;
 /// the fill of the outline itself.
 #[derive(Clone, PartialEq, Debug)]
 #[repr(C)]
+#[non_exhaustive]
 pub enum Brush {
-    /// The brush will not produce any fill.
-    NoBrush,
     /// The color variant of brush is a plain color that is to be used for the fill.
     SolidColor(Color),
     /// The linear gradient variant of a brush describes the gradient stops for a fill
@@ -31,33 +30,37 @@ pub enum Brush {
     LinearGradient(LinearGradientBrush),
 }
 
+/// Construct a brush with transparent color
 impl Default for Brush {
     fn default() -> Self {
-        Self::NoBrush
-    }
-}
-
-impl std::fmt::Display for Brush {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Brush::NoBrush => write!(f, "Brush::NoBrush()"),
-            Brush::SolidColor(col) => write!(f, "Brush::SolidColor({})", col),
-            Brush::LinearGradient(_) => write!(f, "Brush::LinearGradient(todo)"),
-        }
+        Self::SolidColor(Color::default())
     }
 }
 
 impl Brush {
-    /// If the brush is NoBrush, the default constructed color is returned.
     /// If the brush is SolidColor, the contained color is returned.
     /// If the brush is a LinearGradient, the color of the first stop is returned.
     pub fn color(&self) -> Color {
         match self {
-            Brush::NoBrush => Default::default(),
             Brush::SolidColor(col) => *col,
             Brush::LinearGradient(gradient) => {
                 gradient.stops().next().map(|stop| stop.color).unwrap_or_default()
             }
+        }
+    }
+
+    /// Returns true if this brush contains a fully transparent color (alpha value is zero)
+    ///
+    /// ```
+    /// # use sixtyfps_corelib::graphics::*;
+    /// assert!(Brush::default().is_transparent());
+    /// assert!(Brush::SolidColor(Color::from_argb_u8(0, 255, 128, 140)).is_transparent());
+    /// assert!(!Brush::SolidColor(Color::from_argb_u8(25, 128, 140, 210)).is_transparent());
+    /// ```
+    pub fn is_transparent(&self) -> bool {
+        match self {
+            Brush::SolidColor(c) => c.alpha() == 0,
+            Brush::LinearGradient(_) => false,
         }
     }
 }
@@ -71,6 +74,9 @@ pub struct LinearGradientBrush(SharedVector<GradientStop>);
 
 impl LinearGradientBrush {
     /// Creates a new linear gradient, described by the specified angle and the provided color stops.
+    ///
+    /// The angle need to be specified in degrees.
+    /// The stops don't need to be sorted as this function will sort them.
     pub fn new(angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let stop_iter = stops.into_iter();
         let mut encoded_angle_and_stops = SharedVector::with_capacity(stop_iter.size_hint().0 + 1);
@@ -84,27 +90,17 @@ impl LinearGradientBrush {
         self.0[0].position
     }
     /// Returns the color stops of the linear gradient.
+    /// The stops are sorted by positions.
     pub fn stops<'a>(&'a self) -> impl Iterator<Item = &'a GradientStop> + 'a {
         // skip the first fake stop that just contains the angle
         self.0.iter().skip(1)
-    }
-
-    /// Returns the start / end points of the gradient within the [-0.5; 0.5] unit square, based on the angle.
-    pub fn start_end_points(&self) -> (Point, Point) {
-        let angle = self.angle().to_radians();
-        let r = (angle.sin().abs() + angle.cos().abs()) / 2.;
-        let (y, x) = (angle - std::f32::consts::PI / 2.).sin_cos();
-        let (y, x) = (y * r, x * r);
-        let start = Point::new(0.5 - x, 0.5 - y);
-        let end = Point::new(0.5 + x, 0.5 + y);
-        (start, end)
     }
 }
 
 /// GradientStop describes a single color stop in a gradient. The colors between multiple
 /// stops are interpolated.
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct GradientStop {
     /// The color to draw at this stop.
     pub color: Color,
@@ -112,20 +108,23 @@ pub struct GradientStop {
     pub position: f32,
 }
 
+/// Returns the start / end points of a gradiant within the [-0.5; 0.5] unit square, based on the angle (in degree).
+pub fn line_for_angle(angle: f32) -> (Point, Point) {
+    let r = (angle.sin().abs() + angle.cos().abs()) / 2.;
+    let (y, x) = (angle - std::f32::consts::PI / 2.).sin_cos();
+    let (y, x) = (y * r, x * r);
+    let start = Point::new(0.5 - x, 0.5 - y);
+    let end = Point::new(0.5 + x, 0.5 + y);
+    (start, end)
+}
+
 impl InterpolatedPropertyValue for Brush {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         match (self, target_value) {
-            (Brush::NoBrush, Brush::NoBrush) => Brush::NoBrush,
-            (Brush::NoBrush, Brush::SolidColor(col)) => {
-                Brush::SolidColor(Color::default().interpolate(col, t))
-            }
-            (Brush::NoBrush, Brush::LinearGradient(_)) => unimplemented!(),
-            (Brush::SolidColor(_), Brush::NoBrush) => unimplemented!(),
             (Brush::SolidColor(source_col), Brush::SolidColor(target_col)) => {
                 Brush::SolidColor(source_col.interpolate(target_col, t))
             }
             (Brush::SolidColor(_), Brush::LinearGradient(_)) => unimplemented!(),
-            (Brush::LinearGradient(_), Brush::NoBrush) => unimplemented!(),
             (Brush::LinearGradient(_), Brush::SolidColor(_)) => unimplemented!(),
             (Brush::LinearGradient(_), Brush::LinearGradient(_)) => unimplemented!(),
         }

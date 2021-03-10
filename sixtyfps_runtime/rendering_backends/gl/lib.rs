@@ -1101,9 +1101,9 @@ impl GLItemRenderer {
         original_cache_entry: ItemGraphicsCacheEntry,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) -> ItemGraphicsCacheEntry {
-        let colorize_brush = match colorize_property.map_or(Brush::default(), |prop| prop.get()) {
-            Brush::NoBrush => return original_cache_entry,
-            brush => brush,
+        let colorize_brush = colorize_property.map_or(Brush::default(), |prop| prop.get());
+        if colorize_brush.is_transparent() {
+            return original_cache_entry;
         };
         let original_image = original_cache_entry.as_image();
 
@@ -1205,7 +1205,7 @@ impl GLItemRenderer {
             // It's possible that our item cache contains an image but it's not colorized yet because it was only
             // placed there via the `image_size` function (which doesn't colorize). So we may have to invalidate our
             // item cache and try again.
-            if colorize_property.map_or(false, |prop| !matches!(prop.get(), Brush::NoBrush))
+            if colorize_property.map_or(false, |prop| !prop.get().is_transparent())
                 && !cached_image.is_colorized_image()
             {
                 let mut cache = self.shared_data.item_graphics_cache.borrow_mut();
@@ -1286,8 +1286,10 @@ impl GLItemRenderer {
     }
 
     fn brush_to_paint(&self, brush: Brush, path: &mut femtovg::Path) -> Option<femtovg::Paint> {
+        if brush.is_transparent() {
+            return None;
+        }
         Some(match brush {
-            Brush::NoBrush => return None,
             Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
             Brush::LinearGradient(gradient) => {
                 // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
@@ -1308,7 +1310,7 @@ impl GLItemRenderer {
                 let transform = euclid::Transform2D::scale(path_width, path_height)
                     .then_translate(euclid::Vector2D::new(path_bounds.minx, path_bounds.miny));
 
-                let (start, end) = gradient.start_end_points();
+                let (start, end) = sixtyfps_corelib::graphics::line_for_angle(gradient.angle());
 
                 let start: Point = transform.transform_point(start);
                 let end: Point = transform.transform_point(end);
@@ -1319,6 +1321,7 @@ impl GLItemRenderer {
                     .collect::<Vec<_>>();
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, &stops)
             }
+            _ => return None,
         })
     }
 }

@@ -998,7 +998,7 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
 /// InterpolatedPropertyValue is a trait used to enable properties to be used with
 /// animations that interpolate values. The basic requirement is the ability to apply
 /// a progress that's typically between 0 and 1 to a range.
-pub trait InterpolatedPropertyValue: PartialEq + std::fmt::Display + Default + 'static {
+pub trait InterpolatedPropertyValue: PartialEq + Default + 'static {
     /// Returns the interpolated value between self and target_value according to the
     /// progress parameter t that's usually between 0 and 1. With certain animation
     /// easing curves it may over- or undershoot though.

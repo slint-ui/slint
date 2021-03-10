@@ -242,7 +242,6 @@ cpp_class!(
 impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
     fn from(brush: sixtyfps_corelib::Brush) -> Self {
         match brush {
-            sixtyfps_corelib::Brush::NoBrush => QBrush::default(),
             sixtyfps_corelib::Brush::SolidColor(color) => {
                 let color: u32 = color.as_argb_encoded();
                 cpp!(unsafe [color as "QRgb"] -> QBrush as "QBrush" {
@@ -250,7 +249,7 @@ impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
                 })
             }
             sixtyfps_corelib::Brush::LinearGradient(g) => {
-                let (start, end) = g.start_end_points();
+                let (start, end) = sixtyfps_corelib::graphics::line_for_angle(g.angle());
                 let p1 = QPointF { x: start.x as _, y: start.y as _ };
                 let p2 = QPointF { x: end.x as _, y: end.y as _ };
                 cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
@@ -272,6 +271,7 @@ impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
                     return QBrush(qlg);
                 }}
             }
+            _ => QBrush::default(),
         }
     }
 }

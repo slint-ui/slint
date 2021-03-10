@@ -98,7 +98,7 @@ pub enum CompileError {
     #[error("{0:?}")]
     CompileError(Vec<String>),
     /// Cannot write the generated file
-    #[error("Cannot load the .60 file: {0}")]
+    #[error("Cannot write the generated file: {0}")]
     SaveError(std::io::Error),
 }
 
