@@ -15,7 +15,8 @@ use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::path::Path;
 use std::rc::Rc;
-use std::todo;
+
+use crate::eval;
 
 /// This is a dynamically typed value used in the SixtyFPS interpreter.
 /// It can hold a value of different types, and you should use the
@@ -29,7 +30,7 @@ use std::todo;
 /// assert_eq!(v.try_into(), Ok(100u32));
 /// ```
 #[derive(Clone, PartialEq, Debug, Default)]
-pub struct Value(pub(crate) crate::eval::Value);
+pub struct Value(pub(crate) eval::Value);
 
 /// A dummy structure that can be converted to and from [`Value`].
 ///
@@ -45,17 +46,16 @@ pub struct VoidValue;
 
 impl From<VoidValue> for Value {
     fn from(_: VoidValue) -> Self {
-        Self(crate::eval::Value::Void)
+        Self(eval::Value::Void)
     }
 }
 impl TryInto<VoidValue> for Value {
-    /// FIXME: better error?
-    type Error = ();
-    fn try_into(self) -> Result<VoidValue, ()> {
-        if self.0 == crate::eval::Value::Void {
+    type Error = Value;
+    fn try_into(self) -> Result<VoidValue, Value> {
+        if self.0 == eval::Value::Void {
             Ok(VoidValue)
         } else {
-            Err(())
+            Err(self)
         }
     }
 }
@@ -69,10 +69,9 @@ macro_rules! pub_value_conversion {
                 }
             }
             impl TryInto<$ty> for Value {
-                /// FIXME: better error?
-                type Error = ();
-                fn try_into(self) -> Result<$ty, ()> {
-                    self.0.try_into()
+                type Error = Value;
+                fn try_into(self) -> Result<$ty, Value> {
+                    self.0.try_into().map_err(Value)
                 }
             }
         )*
@@ -115,7 +114,7 @@ pub_value_conversion!(
 /// ```
 /// FIXME: the documentation of langref.md uses "Object" and we probably should make that uniform.
 ///        also, is "property" the right term here?
-pub struct Struct(HashMap<String, crate::eval::Value>);
+pub struct Struct(HashMap<String, eval::Value>);
 impl Struct {
     /// Get the value for a given struct property
     pub fn get_property(&self, name: &str) -> Option<Value> {
@@ -134,17 +133,16 @@ impl Struct {
 
 impl From<Struct> for Value {
     fn from(s: Struct) -> Self {
-        Self(crate::eval::Value::Object(s.0))
+        Self(eval::Value::Object(s.0))
     }
 }
 impl TryInto<Struct> for Value {
-    /// FIXME: better error?
-    type Error = ();
-    fn try_into(self) -> Result<Struct, ()> {
-        if let crate::eval::Value::Object(o) = self.0 {
+    type Error = Value;
+    fn try_into(self) -> Result<Struct, Value> {
+        if let eval::Value::Object(o) = self.0 {
             Ok(Struct(o))
         } else {
-            Err(())
+            Err(self)
         }
     }
 }
@@ -152,6 +150,23 @@ impl TryInto<Struct> for Value {
 impl FromIterator<(String, Value)> for Struct {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
         Self(iter.into_iter().map(|(a, b)| (a, b.0)).collect())
+    }
+}
+
+/// FIXME: use SharedArray instead?
+impl From<Vec<Value>> for Value {
+    fn from(a: Vec<Value>) -> Self {
+        Self(eval::Value::Array(a.into_iter().map(|v| v.0).collect()))
+    }
+}
+impl TryInto<Vec<Value>> for Value {
+    type Error = Value;
+    fn try_into(self) -> Result<Vec<Value>, Value> {
+        if let eval::Value::Array(a) = self.0 {
+            Ok(a.into_iter().map(Value).collect())
+        } else {
+            Err(self)
+        }
     }
 }
 
@@ -168,14 +183,13 @@ impl ComponentDefinition {
     pub async fn from_path<P: AsRef<Path>>(
         path: P,
     ) -> Result<ComponentDefinition, ComponentLoadError> {
-        let inner = crate::load(
+        let (c, diag) = crate::load(
             std::fs::read_to_string(&path).map_err(|_| todo!())?,
             path.as_ref().into(),
             crate::new_compiler_configuration(),
         )
-        .await
-        .0
-        .map_err(|_| todo!())?;
+        .await;
+        let inner = c.map_err(|_| ComponentLoadError(diag))?;
         Ok(Self { inner })
     }
     /// Compile some .60 code into a ComponentDefinition
@@ -200,14 +214,27 @@ impl ComponentDefinition {
             ),
         }
     }
+
+    /// List of publicly declared properties or callback.
+    /// FIXME: this expose `sixtyfps_compilerlib::Type`  (should it perhaps return an iterator instead?)
+    pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::langtype::Type> {
+        self.inner.properties()
+    }
+
+    /// The name of this Component as written in the .60 file
+    pub fn id(&self) -> &str {
+        self.inner.id()
+    }
 }
 
 /// Error returned if constructing a [`ComponentDefinition`] fails
-pub enum ComponentLoadError {
-    // TODO
-}
+/// FIXME: wrap that instead of being pub
+#[derive(derive_more::Deref)]
+pub struct ComponentLoadError(pub sixtyfps_compilerlib::diagnostics::BuildDiagnostics);
 
 /// This represent an instance of a dynamic component
+/// FIXME: Clone?  (same problem as for the generated component that can be cloned but maybe not such a good idea)
+#[derive(Clone)]
 pub struct ComponentInstance {
     inner: vtable::VRc<
         sixtyfps_corelib::component::ComponentVTable,
@@ -237,8 +264,8 @@ impl ComponentInstance {
 
     /// FIXME: error type.
     /// FIXME: what to do if the returned value is not the right type (currently! panic in the eval)
-    /// FIXME: name: should it be called set_callback_handler?
-    pub fn on_callback(
+    /// FIXME: name: should it be called on_callback?
+    pub fn set_callback_handler(
         &self,
         name: &str,
         callback: impl Fn(&[Value]) -> Value + 'static,
@@ -267,6 +294,31 @@ impl ComponentInstance {
         Ok(Value(
             comp.description().call_callback(comp.borrow(), name, &args).map_err(|()| todo!())?,
         ))
+    }
+
+    /// Marks the window of this component to be shown on the screen. This registers
+    /// the window with the windowing system. In order to react to events from the windowing system,
+    /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
+    /// using [`crate::run_event_loop`].
+    pub fn show(&self) {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        comp.window().show();
+    }
+
+    /// Marks the window of this component to be hidden on the screen. This de-registers
+    /// the window from the windowing system and it will not receive any further events.
+    pub fn hide(&self) {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        comp.window().hide();
+    }
+    /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
+    /// and [`Self::hide`].
+    pub fn run(&self) {
+        self.show();
+        crate::run_event_loop();
+        self.hide();
     }
 }
 

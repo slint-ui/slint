@@ -161,12 +161,12 @@ macro_rules! declare_value_conversion {
                 }
             }
             impl TryInto<$ty> for Value {
-                type Error = ();
-                fn try_into(self) -> Result<$ty, ()> {
+                type Error = Value;
+                fn try_into(self) -> Result<$ty, Value> {
                     match self {
                         //Self::$value(x) => x.try_into().map_err(|_|()),
                         Self::$value(x) => Ok(x as _),
-                        _ => Err(())
+                        _ => Err(self)
                     }
                 }
             }
@@ -200,7 +200,9 @@ macro_rules! declare_value_struct_conversion {
                 match self {
                     Self::Object(x) => {
                         type Ty = $name;
-                        Ok(Ty { $($field: x.get(stringify!($field)).ok_or(())?.clone().try_into()?),* })
+                        Ok(Ty {
+                            $($field: x.get(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?),*
+                        })
                     }
                     _ => Err(()),
                 }
