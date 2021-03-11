@@ -159,3 +159,5 @@ Rust developers all the way to UI/UX designers.
 Feel free to join [Github discussions](https://github.com/sixtyfpsui/sixtyfps/discussions) for general chat or questions. Use [Github issues](https://github.com/sixtyfpsui/sixtyfps/issues) to report public suggestions or bugs.
 
 To contact us privately send an email to info@sixtyfps.io
+
+For chat, we also have [our Mattermost instance](https://chat.sixtyfps.io)
