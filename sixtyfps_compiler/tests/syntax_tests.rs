@@ -158,10 +158,10 @@ fn process_file_source(
     let mut success = true;
 
     for diagnostics in compile_diagnostics.into_iter() {
-        let source = if *diagnostics.current_path == path {
+        let source = if diagnostics.current_path.path() == path {
             source.clone()
         } else {
-            std::fs::read_to_string(diagnostics.current_path.as_ref())?
+            std::fs::read_to_string(diagnostics.current_path.path())?
         };
         success &= process_diagnostics(diagnostics, source, silent)?;
     }

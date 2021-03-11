@@ -328,8 +328,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let source_file = if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
         let mut path: std::path::PathBuf = cargo_manifest.into();
         path.push("Cargo.toml");
-        diag.current_path = std::rc::Rc::new(path);
-        Some(diag.current_path.clone())
+        Some(diagnostics::SourceFileInner::from_path(path))
     } else {
         None
     };
@@ -371,7 +370,7 @@ fn report_diagnostics(
     let mut result = TokenStream::new();
     let mut needs_error = diag.has_error();
     for mut file_diag in diag.into_iter() {
-        if file_diag.source.is_none() {
+        if file_diag.current_path.path() == std::path::PathBuf::default() {
             file_diag.map_offsets_to_span(span_map);
             needs_error &= !file_diag.has_error();
             result.extend(TokenStream::from(file_diag.into_token_stream()))

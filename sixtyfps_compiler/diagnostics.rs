@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[derive(Debug, Clone)]
@@ -65,7 +65,32 @@ pub trait Spanned {
     }
 }
 
-pub type SourceFile = Rc<PathBuf>;
+#[derive(Debug, Default)]
+pub struct SourceFileInner {
+    path: PathBuf,
+
+    /// Complete source code of the path, used to map from offset to line number
+    source: Option<String>,
+
+    /// The offset of each linebreak
+    line_offsets: once_cell::unsync::OnceCell<Vec<usize>>,
+}
+
+impl SourceFileInner {
+    pub fn new(path: PathBuf, source: String) -> Self {
+        Self { path, source: Some(source), line_offsets: Default::default() }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn from_path(path: PathBuf) -> Rc<Self> {
+        Rc::new(Self { path, ..Default::default() })
+    }
+}
+
+pub type SourceFile = Rc<SourceFileInner>;
 
 #[derive(Debug, Clone)]
 pub struct SourceLocation {
@@ -179,11 +204,6 @@ pub struct FileDiagnostics {
     pub inner: Vec<Diagnostic>,
     /// file path
     pub current_path: SourceFile,
-    /// Complete source code of the path, used to map from offset to line number
-    pub source: Option<String>,
-
-    /// The offset of each linebreak
-    pub line_offsets: once_cell::unsync::OnceCell<Vec<usize>>,
 }
 
 impl IntoIterator for FileDiagnostics {
@@ -251,10 +271,10 @@ impl FileDiagnostics {
         }
 
         let mut codemap = codemap::CodeMap::new();
-        let internal_errors = self.source.is_none();
+        let internal_errors = self.current_path.source.is_none();
         let file = codemap.add_file(
-            self.current_path.to_string_lossy().to_string(),
-            self.source.unwrap_or_default(),
+            self.current_path.path.to_string_lossy().to_string(),
+            self.current_path.source.clone().unwrap_or_default(),
         );
         let file_span = file.span;
 
@@ -342,17 +362,13 @@ impl FileDiagnostics {
     }
 
     pub fn new_from_error(path: std::path::PathBuf, err: std::io::Error) -> Self {
-        Self {
-            inner: vec![err.into()],
-            current_path: Rc::new(path),
-            source: None,
-            line_offsets: Default::default(),
-        }
+        Self { inner: vec![err.into()], current_path: SourceFileInner::from_path(path) }
     }
 
     fn line_offsets(&self) -> &[usize] {
-        self.line_offsets.get_or_init(|| {
-            self.source
+        self.current_path.line_offsets.get_or_init(|| {
+            self.current_path
+                .source
                 .as_ref()
                 .map(|s| {
                     s.bytes()
@@ -403,34 +419,33 @@ impl quote::ToTokens for FileDiagnostics {
 
 #[derive(Default)]
 pub struct BuildDiagnostics {
-    per_input_file_diagnostics: HashMap<SourceFile, FileDiagnostics>,
+    per_input_file_diagnostics: HashMap<PathBuf, FileDiagnostics>,
     internal_errors: Option<FileDiagnostics>,
 }
 
 impl BuildDiagnostics {
     pub fn add(&mut self, diagnostics: FileDiagnostics) {
-        match self.per_input_file_diagnostics.get_mut(&diagnostics.current_path) {
+        match self.per_input_file_diagnostics.get_mut(&diagnostics.current_path.path) {
             Some(existing_diags) => existing_diags.inner.extend(diagnostics.inner),
             None => {
                 self.per_input_file_diagnostics
-                    .insert(diagnostics.current_path.clone(), diagnostics);
+                    .insert(diagnostics.current_path.path.clone(), diagnostics);
             }
         }
     }
 
-    fn file_diagnostics(&mut self, source_file: &Rc<PathBuf>) -> &mut FileDiagnostics {
-        self.per_input_file_diagnostics.entry(source_file.clone()).or_insert_with(|| {
-            FileDiagnostics { current_path: source_file.clone(), ..Default::default() }
+    fn file_diagnostics(&mut self, path: &Path) -> &mut FileDiagnostics {
+        self.per_input_file_diagnostics.entry(path.into()).or_insert_with(|| FileDiagnostics {
+            current_path: Rc::new(SourceFileInner { path: path.into(), ..Default::default() }),
+            ..Default::default()
         })
     }
 
     pub fn push_diagnostic(&mut self, message: String, source: &dyn Spanned, level: Level) {
         match source.source_file() {
-            Some(source_file) => self.file_diagnostics(source_file).push_diagnostic_with_span(
-                message,
-                source.span(),
-                level,
-            ),
+            Some(source_file) => self
+                .file_diagnostics(source_file.path())
+                .push_diagnostic_with_span(message, source.span(), level),
             None => self.push_internal_error(
                 CompilerDiagnostic { message, span: source.span(), level }.into(),
             ),
@@ -444,7 +459,10 @@ impl BuildDiagnostics {
     pub fn push_internal_error(&mut self, err: Diagnostic) {
         self.internal_errors
             .get_or_insert_with(|| FileDiagnostics {
-                current_path: Rc::new("[internal error]".into()),
+                current_path: Rc::new(SourceFileInner {
+                    path: "[internal error]".into(),
+                    ..Default::default()
+                }),
                 ..Default::default()
             })
             .inner
@@ -458,7 +476,7 @@ impl BuildDiagnostics {
         source: &impl Spanned,
     ) {
         self.file_diagnostics(
-            source.source_file().expect("deprecations cannot be created as internal errors"),
+            source.source_file().expect("deprecations cannot be created as internal errors").path(),
         )
         .push_property_deprecation_warning(old_property, new_property, source);
     }
@@ -488,7 +506,7 @@ impl BuildDiagnostics {
             .flat_map(|diag| {
                 diag.to_string_vec()
                     .iter()
-                    .map(|err| format!("{}: {}", diag.current_path.to_string_lossy(), err))
+                    .map(|err| format!("{}: {}", diag.current_path.path().to_string_lossy(), err))
                     .collect::<Vec<_>>()
             })
             .collect()

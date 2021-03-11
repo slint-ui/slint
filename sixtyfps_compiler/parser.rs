@@ -521,10 +521,8 @@ impl From<Vec<Token>> for DefaultParser {
 
 impl DefaultParser {
     /// Constructor that create a parser from the source code
-    pub fn new(source: String) -> Self {
-        let mut parser = Self::from(crate::lexer::lex(&source));
-        parser.diags.source = Some(source);
-        parser
+    pub fn new(source: &str) -> Self {
+        Self::from(crate::lexer::lex(&source))
     }
 
     fn current_token(&self) -> Token {
@@ -811,10 +809,11 @@ pub fn parse(
     source: String,
     path: Option<&std::path::Path>,
 ) -> (SyntaxNodeWithSourceFile, FileDiagnostics) {
-    let mut p = DefaultParser::new(source);
+    let mut p = DefaultParser::new(&source);
     document::parse_document(&mut p);
     let source_file = if let Some(path) = path {
-        p.diags.current_path = std::rc::Rc::new(path.to_path_buf());
+        p.diags.current_path =
+            std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(path.to_path_buf(), source));
         Some(p.diags.current_path.clone())
     } else {
         None

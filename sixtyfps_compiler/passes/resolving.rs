@@ -411,10 +411,7 @@ impl Expression {
                 ctx.type_loader
                     .and_then(|loader| {
                         loader
-                            .import_file(
-                                node.source_file.as_ref().map(|path_rc| path_rc.as_path()),
-                                &s,
-                            )
+                            .import_file(node.source_file.as_ref().map(|sf| sf.path()), &s)
                             .map(|resolved_file| resolved_file.path)
                     })
                     .unwrap_or_else(|| {

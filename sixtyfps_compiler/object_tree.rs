@@ -297,7 +297,7 @@ impl Spanned for Element {
         self.node.as_ref().map(|n| n.span()).unwrap_or_default()
     }
 
-    fn source_file(&self) -> Option<&Rc<std::path::PathBuf>> {
+    fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
         self.node.as_ref().map(|n| n.0.source_file.as_ref()).flatten()
     }
 }

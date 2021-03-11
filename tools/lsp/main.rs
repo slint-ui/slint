@@ -194,22 +194,17 @@ fn reload_document(
     let path = Path::new(uri.path());
     let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
     let mut diag = BuildDiagnostics::default();
-    spin_on::spin_on(document_cache.documents.load_file(
-        &path_canon,
-        sixtyfps_compilerlib::diagnostics::SourceFile::new(path.to_owned()),
-        content,
-        &mut diag,
-    ));
+    spin_on::spin_on(document_cache.documents.load_file(&path_canon, path, content, &mut diag));
 
     for file_diag in diag.into_iter() {
-        if file_diag.current_path.is_relative() {
+        if file_diag.current_path.path().is_relative() {
             continue;
         }
         let diagnostics = file_diag.inner.iter().map(|d| to_lsp_diag(d, &file_diag)).collect();
         connection.sender.send(Message::Notification(lsp_server::Notification::new(
             "textDocument/publishDiagnostics".into(),
             PublishDiagnosticsParams {
-                uri: Url::from_file_path(file_diag.current_path.as_path()).unwrap(),
+                uri: Url::from_file_path(file_diag.current_path.path()).unwrap(),
                 diagnostics,
                 version: None,
             },
@@ -272,7 +267,7 @@ fn goto_definition(
                 sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(token.into());
             match parent.kind() {
                 SyntaxKind::Element => {
-                    let doc = document_cache.documents.get_document(source_file.as_path())?;
+                    let doc = document_cache.documents.get_document(source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
                         sixtyfps_compilerlib::langtype::Type::Component(c) => {
                             goto_node(document_cache, &c.root_element.borrow().node.as_ref()?.0)
@@ -291,7 +286,7 @@ fn goto_node(
     document_cache: &mut DocumentCache,
     node: &SyntaxNodeWithSourceFile,
 ) -> Option<GotoDefinitionResponse> {
-    let path = node.source_file.as_ref()?.as_path();
+    let path = node.source_file.as_ref()?.path();
     let target_uri = Url::from_file_path(path).ok()?;
     let newline_offsets = match document_cache.newline_offsets.entry(target_uri.clone()) {
         std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
