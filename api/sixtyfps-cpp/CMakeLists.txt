@@ -37,7 +37,7 @@ set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_string_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_sharedvector_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_properties_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_resource_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_image_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_color_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_pathdata_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_qt_internal.h
