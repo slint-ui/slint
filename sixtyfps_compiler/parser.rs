@@ -18,7 +18,7 @@ This module has different sub modules with the actual parser functions
 
 */
 
-use crate::diagnostics::{FileDiagnostics, SourceFile, Spanned, SpannedWithSourceFile};
+use crate::diagnostics::{FileDiagnostics, SourceFile, Spanned};
 pub use smol_str::SmolStr;
 use std::convert::TryFrom;
 
@@ -215,9 +215,7 @@ macro_rules! declare_syntax {
                     fn span(&self) -> crate::diagnostics::Span {
                         self.0.span()
                     }
-                }
 
-                impl SpannedWithSourceFile for $nodekind {
                     fn source_file(&self) -> Option<&SourceFile> {
                         self.0.source_file()
                     }
@@ -636,24 +634,6 @@ impl SyntaxNodeEx for SyntaxNode {
     }
 }
 
-impl Spanned for SyntaxNode {
-    fn span(&self) -> crate::diagnostics::Span {
-        crate::diagnostics::Span::new(self.text_range().start().into())
-    }
-}
-
-impl Spanned for SyntaxToken {
-    fn span(&self) -> crate::diagnostics::Span {
-        crate::diagnostics::Span::new(self.text_range().start().into())
-    }
-}
-
-impl Spanned for rowan::NodeOrToken<SyntaxNode, SyntaxToken> {
-    fn span(&self) -> crate::diagnostics::Span {
-        crate::diagnostics::Span::new(self.text_range().start().into())
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct SyntaxNodeWithSourceFile {
     pub node: SyntaxNode,
@@ -770,11 +750,9 @@ impl NodeOrTokenWithSourceFile {
 
 impl Spanned for SyntaxNodeWithSourceFile {
     fn span(&self) -> crate::diagnostics::Span {
-        self.node.span()
+        crate::diagnostics::Span::new(self.node.text_range().start().into())
     }
-}
 
-impl SpannedWithSourceFile for SyntaxNodeWithSourceFile {
     fn source_file(&self) -> Option<&SourceFile> {
         self.source_file.as_ref()
     }
@@ -784,9 +762,7 @@ impl Spanned for Option<SyntaxNodeWithSourceFile> {
     fn span(&self) -> crate::diagnostics::Span {
         self.as_ref().map(|n| n.span()).unwrap_or_default()
     }
-}
 
-impl SpannedWithSourceFile for Option<SyntaxNodeWithSourceFile> {
     fn source_file(&self) -> Option<&SourceFile> {
         self.as_ref().map(|n| n.source_file.as_ref()).unwrap_or_default()
     }
@@ -794,11 +770,9 @@ impl SpannedWithSourceFile for Option<SyntaxNodeWithSourceFile> {
 
 impl Spanned for SyntaxTokenWithSourceFile {
     fn span(&self) -> crate::diagnostics::Span {
-        self.token.span()
+        crate::diagnostics::Span::new(self.token.text_range().start().into())
     }
-}
 
-impl SpannedWithSourceFile for SyntaxTokenWithSourceFile {
     fn source_file(&self) -> Option<&SourceFile> {
         self.source_file.as_ref()
     }
@@ -806,11 +780,9 @@ impl SpannedWithSourceFile for SyntaxTokenWithSourceFile {
 
 impl Spanned for NodeOrTokenWithSourceFile {
     fn span(&self) -> crate::diagnostics::Span {
-        self.node_or_token.span()
+        crate::diagnostics::Span::new(self.node_or_token.text_range().start().into())
     }
-}
 
-impl SpannedWithSourceFile for NodeOrTokenWithSourceFile {
     fn source_file(&self) -> Option<&SourceFile> {
         self.source_file.as_ref()
     }
@@ -819,6 +791,9 @@ impl SpannedWithSourceFile for NodeOrTokenWithSourceFile {
 impl Spanned for Option<SyntaxTokenWithSourceFile> {
     fn span(&self) -> crate::diagnostics::Span {
         self.as_ref().map(|t| t.span()).unwrap_or_default()
+    }
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.as_ref().and_then(|t| t.source_file())
     }
 }
 

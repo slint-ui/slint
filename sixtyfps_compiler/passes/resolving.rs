@@ -22,7 +22,7 @@ use crate::parser::{
 };
 use crate::typeregister::TypeRegister;
 use crate::{
-    diagnostics::{BuildDiagnostics, SpannedWithSourceFile},
+    diagnostics::{BuildDiagnostics, Spanned},
     langtype::PropertyLookupResult,
 };
 use std::{collections::HashMap, rc::Rc};

@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned, SpannedWithSourceFile};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{BuiltinElement, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::parser::{NodeOrTokenWithSourceFile, SyntaxNodeWithSourceFile};
@@ -796,7 +796,7 @@ impl Expression {
     pub fn maybe_convert_to(
         self,
         target_type: Type,
-        node: &impl SpannedWithSourceFile,
+        node: &impl Spanned,
         diag: &mut BuildDiagnostics,
     ) -> Expression {
         let ty = self.ty();
@@ -1028,15 +1028,12 @@ impl BindingExpression {
     }
 }
 
-impl SpannedWithSourceFile for BindingExpression {
-    fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
-        self.span.as_ref().and_then(|x| x.source_file())
-    }
-}
-
 impl Spanned for BindingExpression {
     fn span(&self) -> crate::diagnostics::Span {
         self.span.as_ref().map(|x| x.span()).unwrap_or_default()
+    }
+    fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
+        self.span.as_ref().and_then(|x| x.source_file())
     }
 }
 

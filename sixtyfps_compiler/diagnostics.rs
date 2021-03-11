@@ -59,6 +59,10 @@ impl From<proc_macro::Span> for Span {
 /// Returns a span.  This is implemented for tokens and nodes
 pub trait Spanned {
     fn span(&self) -> Span;
+    fn source_file(&self) -> Option<&SourceFile>;
+    fn to_source_location(&self) -> SourceLocation {
+        SourceLocation { source_file: self.source_file().cloned(), span: self.span() }
+    }
 }
 
 pub type SourceFile = Rc<PathBuf>;
@@ -71,14 +75,7 @@ pub struct SourceLocation {
 
 impl From<SyntaxNodeWithSourceFile> for SourceLocation {
     fn from(node: SyntaxNodeWithSourceFile) -> Self {
-        SourceLocation { source_file: node.source_file, span: node.node.span() }
-    }
-}
-
-pub trait SpannedWithSourceFile: Spanned {
-    fn source_file(&self) -> Option<&SourceFile>;
-    fn to_source_location(&self) -> SourceLocation {
-        SourceLocation { source_file: self.source_file().cloned(), span: self.span() }
+        SourceLocation { span: node.span(), source_file: node.source_file }
     }
 }
 
@@ -86,9 +83,7 @@ impl Spanned for SourceLocation {
     fn span(&self) -> Span {
         self.span.clone()
     }
-}
 
-impl SpannedWithSourceFile for SourceLocation {
     fn source_file(&self) -> Option<&SourceFile> {
         self.source_file.as_ref()
     }
@@ -98,9 +93,7 @@ impl Spanned for Option<SourceLocation> {
     fn span(&self) -> crate::diagnostics::Span {
         self.as_ref().map(|n| n.span()).unwrap_or_default()
     }
-}
 
-impl SpannedWithSourceFile for Option<SourceLocation> {
     fn source_file(&self) -> Option<&SourceFile> {
         self.as_ref().map(|n| n.source_file.as_ref()).unwrap_or_default()
     }
@@ -431,12 +424,7 @@ impl BuildDiagnostics {
         })
     }
 
-    pub fn push_diagnostic(
-        &mut self,
-        message: String,
-        source: &dyn SpannedWithSourceFile,
-        level: Level,
-    ) {
+    pub fn push_diagnostic(&mut self, message: String, source: &dyn Spanned, level: Level) {
         match source.source_file() {
             Some(source_file) => self.file_diagnostics(source_file).push_diagnostic_with_span(
                 message,
@@ -449,7 +437,7 @@ impl BuildDiagnostics {
         }
     }
 
-    pub fn push_error(&mut self, message: String, source: &dyn SpannedWithSourceFile) {
+    pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
         self.push_diagnostic(message, source, Level::Error)
     }
 
@@ -467,7 +455,7 @@ impl BuildDiagnostics {
         &mut self,
         old_property: &str,
         new_property: &str,
-        source: &impl SpannedWithSourceFile,
+        source: &impl Spanned,
     ) {
         self.file_diagnostics(
             source.source_file().expect("deprecations cannot be created as internal errors"),

@@ -12,7 +12,7 @@ LICENSE END */
 
 use std::rc::Rc;
 
-use crate::diagnostics::{BuildDiagnostics, SourceLocation, SpannedWithSourceFile};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::Type;
 use crate::object_tree::*;

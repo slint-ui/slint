@@ -419,7 +419,7 @@ impl GridLayout {
 fn eval_const_expr(
     expression: &Expression,
     name: &str,
-    span: &dyn crate::diagnostics::SpannedWithSourceFile,
+    span: &dyn crate::diagnostics::Spanned,
     diag: &mut BuildDiagnostics,
 ) -> Option<u16> {
     match expression {
