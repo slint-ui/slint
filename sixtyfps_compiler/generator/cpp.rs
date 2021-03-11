@@ -216,7 +216,7 @@ mod cpp_ast {
     }
 }
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, DiagnosticLevel, Spanned};
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference,
 };
@@ -266,7 +266,7 @@ fn get_cpp_type(ty: &Type, type_node: &dyn Spanned, diag: &mut BuildDiagnostics)
         let err = CompilerDiagnostic {
             message: "Cannot map property type to C++".into(),
             span: type_node.span(),
-            level: Level::Error,
+            level: DiagnosticLevel::Error,
         };
         diag.push_internal_error(err.into());
         "".into()
@@ -1303,7 +1303,7 @@ fn model_data_type(parent_element: &ElementRc, diag: &mut BuildDiagnostics) -> S
             CompilerDiagnostic {
                 message: format!("Cannot map property type {} to C++", model_data_type),
                 span: parent_element.borrow().node.as_ref().map(|n| n.span()).unwrap_or_default(),
-                level: Level::Error,
+                level: DiagnosticLevel::Error,
             }
             .into(),
         );

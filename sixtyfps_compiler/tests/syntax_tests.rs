@@ -93,8 +93,8 @@ fn process_diagnostics(
         } + column;
 
         let expected_diag_level = match warning_or_error {
-            "warning" => sixtyfps_compilerlib::diagnostics::Level::Warning,
-            "error" => sixtyfps_compilerlib::diagnostics::Level::Error,
+            "warning" => sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Warning,
+            "error" => sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Error,
             _ => panic!("Unsupported diagnostic level {}", warning_or_error),
         };
 

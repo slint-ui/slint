@@ -134,7 +134,7 @@ impl<'a> TypeLoader<'a> {
                 diag.push_internal_error(CompilerDiagnostic {
                     message: "SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
                     span: Default::default(),
-                    level: crate::diagnostics::Level::Warning
+                    level: crate::diagnostics::DiagnosticLevel::Warning
                 }.into());
             }
             Cow::from("ugly")

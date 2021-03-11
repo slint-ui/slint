@@ -126,24 +126,23 @@ impl Spanned for Option<SourceLocation> {
 
 /// Diagnostics level (error or warning)
 #[derive(Debug, PartialEq, Copy, Clone)]
-#[repr(i8)]
-pub enum Level {
-    Error = 0,
-    Warning = 1,
+pub enum DiagnosticLevel {
+    Error,
+    Warning,
 }
 
-impl Default for Level {
+impl Default for DiagnosticLevel {
     fn default() -> Self {
         Self::Error
     }
 }
 
 #[cfg(feature = "display-diagnostics")]
-impl From<Level> for codemap_diagnostic::Level {
-    fn from(l: Level) -> Self {
+impl From<DiagnosticLevel> for codemap_diagnostic::Level {
+    fn from(l: DiagnosticLevel) -> Self {
         match l {
-            Level::Error => codemap_diagnostic::Level::Error,
-            Level::Warning => codemap_diagnostic::Level::Warning,
+            DiagnosticLevel::Error => codemap_diagnostic::Level::Error,
+            DiagnosticLevel::Warning => codemap_diagnostic::Level::Warning,
         }
     }
 }
@@ -153,7 +152,7 @@ impl From<Level> for codemap_diagnostic::Level {
 pub struct CompilerDiagnostic {
     pub message: String,
     pub span: Span,
-    pub level: Level,
+    pub level: DiagnosticLevel,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -173,10 +172,10 @@ impl Diagnostic {
     }
 
     /// Return the level for this diagnostic
-    pub fn level(&self) -> Level {
+    pub fn level(&self) -> DiagnosticLevel {
         match self {
             Diagnostic::CompilerDiagnostic(e) => e.level,
-            _ => Level::Error,
+            _ => DiagnosticLevel::Error,
         }
     }
 
@@ -215,11 +214,16 @@ impl IntoIterator for FileDiagnostics {
 }
 
 impl FileDiagnostics {
-    pub fn push_diagnostic_with_span(&mut self, message: String, span: Span, level: Level) {
+    pub fn push_diagnostic_with_span(
+        &mut self,
+        message: String,
+        span: Span,
+        level: DiagnosticLevel,
+    ) {
         self.inner.push(CompilerDiagnostic { message, span, level }.into());
     }
     pub fn push_error_with_span(&mut self, message: String, span: Span) {
-        self.push_diagnostic_with_span(message, span, Level::Error)
+        self.push_diagnostic_with_span(message, span, DiagnosticLevel::Error)
     }
     pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
         self.push_error_with_span(message, source.span());
@@ -240,7 +244,7 @@ impl FileDiagnostics {
                 old_property, new_property
             ),
             source.span(),
-            crate::diagnostics::Level::Warning,
+            crate::diagnostics::DiagnosticLevel::Warning,
         )
     }
 
@@ -248,7 +252,7 @@ impl FileDiagnostics {
     pub fn has_error(&self) -> bool {
         self.inner.iter().any(|diag| match diag {
             Diagnostic::FileLoadError(_) => true,
-            Diagnostic::CompilerDiagnostic(diag) => matches!(diag.level, Level::Error),
+            Diagnostic::CompilerDiagnostic(diag) => matches!(diag.level, DiagnosticLevel::Error),
         })
     }
 
@@ -399,7 +403,7 @@ impl quote::ToTokens for FileDiagnostics {
                     span,
                 }) => {
                     match level {
-                        Level::Error => {
+                        DiagnosticLevel::Error => {
                             if let Some(span) = span.span {
                                 Some(quote::quote_spanned!(span.into() => compile_error!{ #message }))
                             } else {
@@ -407,7 +411,7 @@ impl quote::ToTokens for FileDiagnostics {
                             }
                         }
                         // FIXME: find a way to report warnings.
-                        Level::Warning => None
+                        DiagnosticLevel::Warning => None
                     }
                 },
                 _ => None,
@@ -441,7 +445,12 @@ impl BuildDiagnostics {
         })
     }
 
-    pub fn push_diagnostic(&mut self, message: String, source: &dyn Spanned, level: Level) {
+    pub fn push_diagnostic(
+        &mut self,
+        message: String,
+        source: &dyn Spanned,
+        level: DiagnosticLevel,
+    ) {
         match source.source_file() {
             Some(source_file) => self
                 .file_diagnostics(source_file.path())
@@ -453,7 +462,7 @@ impl BuildDiagnostics {
     }
 
     pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
-        self.push_diagnostic(message, source, Level::Error)
+        self.push_diagnostic(message, source, DiagnosticLevel::Error)
     }
 
     pub fn push_internal_error(&mut self, err: Diagnostic) {

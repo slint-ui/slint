@@ -13,7 +13,7 @@ Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component
 */
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, Level, Spanned};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, DiagnosticLevel, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
@@ -59,7 +59,7 @@ fn rust_type(
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
             span: span.clone(),
-            level: Level::Error,
+            level: DiagnosticLevel::Error,
         }),
     }
 }

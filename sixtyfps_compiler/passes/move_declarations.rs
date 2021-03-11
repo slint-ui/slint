@@ -9,7 +9,7 @@
 LICENSE END */
 //! This pass moves all declaration of properties or callback to the root
 
-use crate::diagnostics::{BuildDiagnostics, Level};
+use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 use crate::expression_tree::NamedReference;
 use crate::langtype::Type;
 use crate::object_tree::*;
@@ -37,7 +37,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
             diag.push_diagnostic(
                  format!("Properties of type {} are not supported yet for public API. The property will not be exposed.", d.property_type),
                  &d.type_node,
-                 Level::Warning
+                 DiagnosticLevel::Warning
             );
         }
     });
