@@ -108,17 +108,17 @@ pub enum Value {
     /// There is nothing in this value. That's the default.
     /// For example, a function that do not return a result would return a Value::Void
     Void,
-    /// An i32 or a float
+    /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
     Number(f64),
-    /// String
+    /// Correspond to the `string` type in .60
     String(SharedString),
-    /// Bool
+    /// Correspond to the `bool` type in .60
     Bool(bool),
-    /// A resource (typically an image)
-    Resource(ImageReference),
-    /// An Array
+    /// Correspond to the `image` type in .60
+    Image(ImageReference),
+    /// An Array in the .60 language.
     Array(Vec<Value>),
-    /// A more complex model which is not created by the interpreter itself
+    /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
     Model(ModelPtr),
     /// An object
     Object(HashMap<String, Value>),
@@ -176,7 +176,7 @@ macro_rules! declare_value_conversion {
 declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize] );
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
-declare_value_conversion!(Resource => [ImageReference] );
+declare_value_conversion!(Image => [ImageReference] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(Brush => [Brush] );
@@ -656,10 +656,10 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::ResourceReference(resource_ref) => {
             match resource_ref {
                 sixtyfps_compilerlib::expression_tree::ResourceReference::None => {
-                    Value::Resource(ImageReference::None)
+                    Value::Image(ImageReference::None)
                 }
                 sixtyfps_compilerlib::expression_tree::ResourceReference::AbsolutePath(path) => {
-                    Value::Resource(ImageReference::AbsoluteFilePath(path.into()))
+                    Value::Image(ImageReference::AbsoluteFilePath(path.into()))
                 }
                 sixtyfps_compilerlib::expression_tree::ResourceReference::EmbeddedData(_) => panic!("Resource embedding is not supported by the interpreter")
             }

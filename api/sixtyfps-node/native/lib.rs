@@ -210,7 +210,7 @@ fn to_eval_value<'cx>(
             }
         },
         Type::Image => {
-            Ok(Value::Resource(ImageReference::AbsoluteFilePath(val.to_string(cx)?.value().into())))
+            Ok(Value::Image(ImageReference::AbsoluteFilePath(val.to_string(cx)?.value().into())))
         }
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
         Type::Object { fields, .. } => {
@@ -258,7 +258,7 @@ fn to_js_value<'cx>(
         Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
         Value::String(s) => JsString::new(cx, s.as_str()).as_value(cx),
         Value::Bool(b) => JsBoolean::new(cx, b).as_value(cx),
-        Value::Resource(r) => match r {
+        Value::Image(r) => match r {
             ImageReference::None => JsUndefined::new().as_value(cx),
             ImageReference::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
             ImageReference::EmbeddedData { .. } | ImageReference::EmbeddedRgbaImage { .. } => {
