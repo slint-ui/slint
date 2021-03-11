@@ -1320,15 +1320,15 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( #op #sub )
         }
-        Expression::ResourceReference(resource_ref) => {
+        Expression::ImageReference(resource_ref) => {
             match resource_ref {
-                crate::expression_tree::ResourceReference::None => {
+                crate::expression_tree::ImageReference::None => {
                     quote!(sixtyfps::re_exports::ImageReference::None)
                 }
-                crate::expression_tree::ResourceReference::AbsolutePath(path) => {
+                crate::expression_tree::ImageReference::AbsolutePath(path) => {
                      quote!(sixtyfps::re_exports::ImageReference::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#path)))
                 },
-                crate::expression_tree::ResourceReference::EmbeddedData(resource_id) => {
+                crate::expression_tree::ImageReference::EmbeddedData(resource_id) => {
                     let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
                     quote!(sixtyfps::re_exports::ImageReference::EmbeddedData(#symbol.into()))
                 }

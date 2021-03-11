@@ -399,7 +399,7 @@ impl Expression {
         };
 
         if s.is_empty() {
-            return Expression::ResourceReference(ResourceReference::None);
+            return Expression::ImageReference(ImageReference::None);
         }
 
         let absolute_source_path = {
@@ -427,7 +427,7 @@ impl Expression {
             }
         };
 
-        Expression::ResourceReference(ResourceReference::AbsolutePath(absolute_source_path))
+        Expression::ImageReference(ImageReference::AbsolutePath(absolute_source_path))
     }
 
     fn from_at_linear_gradient(node: syntax_nodes::AtLinearGradient, ctx: &mut LookupCtx) -> Self {

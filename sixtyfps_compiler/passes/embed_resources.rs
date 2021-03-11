@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::expression_tree::{Expression, ResourceReference};
+use crate::expression_tree::{Expression, ImageReference};
 use crate::object_tree::*;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -26,16 +26,16 @@ fn embed_resources_from_expression(
     component: &Rc<Component>,
     global_embedded_resources: &RefCell<HashMap<String, usize>>,
 ) {
-    if let Expression::ResourceReference(ref mut resource_ref) = e {
+    if let Expression::ImageReference(ref mut resource_ref) = e {
         match resource_ref {
-            ResourceReference::None => {}
-            ResourceReference::AbsolutePath(path) => {
+            ImageReference::None => {}
+            ImageReference::AbsolutePath(path) => {
                 let mut resources = global_embedded_resources.borrow_mut();
                 let maybe_id = resources.len();
                 let resource_id = *resources.entry(path.clone()).or_insert(maybe_id);
-                *resource_ref = ResourceReference::EmbeddedData(resource_id)
+                *resource_ref = ImageReference::EmbeddedData(resource_id)
             }
-            ResourceReference::EmbeddedData(_) => {}
+            ImageReference::EmbeddedData(_) => {}
         }
     };
 

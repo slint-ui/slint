@@ -1606,11 +1606,11 @@ fn compile_expression(
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(&*sub, component), op = op,)
         }
-        Expression::ResourceReference(resource_ref)  => {
+        Expression::ImageReference(resource_ref)  => {
             match resource_ref {
-                crate::expression_tree::ResourceReference::None => format!(r#"sixtyfps::ImageReference()"#),
-                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::ImageReference(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
-                crate::expression_tree::ResourceReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
+                crate::expression_tree::ImageReference::None => format!(r#"sixtyfps::ImageReference()"#),
+                crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"sixtyfps::ImageReference(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
+                crate::expression_tree::ImageReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {

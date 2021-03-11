@@ -396,7 +396,7 @@ pub enum Expression {
         op: char,
     },
 
-    ResourceReference(ResourceReference),
+    ImageReference(ImageReference),
 
     Condition {
         condition: Box<Expression>,
@@ -493,7 +493,7 @@ impl Expression {
                 _ => Type::Invalid,
             },
             Expression::SelfAssignment { .. } => Type::Void,
-            Expression::ResourceReference { .. } => Type::Image,
+            Expression::ImageReference { .. } => Type::Image,
             Expression::Condition { condition: _, true_expr, false_expr } => {
                 let true_type = true_expr.ty();
                 let false_type = false_expr.ty();
@@ -607,7 +607,7 @@ impl Expression {
                 visitor(&**lhs);
                 visitor(&**rhs);
             }
-            Expression::ResourceReference { .. } => {}
+            Expression::ImageReference { .. } => {}
             Expression::Condition { condition, true_expr, false_expr } => {
                 visitor(&**condition);
                 visitor(&**true_expr);
@@ -689,7 +689,7 @@ impl Expression {
                 visitor(&mut **lhs);
                 visitor(&mut **rhs);
             }
-            Expression::ResourceReference { .. } => {}
+            Expression::ImageReference { .. } => {}
             Expression::Condition { condition, true_expr, false_expr } => {
                 visitor(&mut **condition);
                 visitor(&mut **true_expr);
@@ -764,7 +764,7 @@ impl Expression {
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { .. } => false,
             Expression::SelfAssignment { .. } => false,
-            Expression::ResourceReference { .. } => true,
+            Expression::ImageReference { .. } => true,
             Expression::Condition { .. } => false,
             Expression::BinaryExpression { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
@@ -959,9 +959,7 @@ impl Expression {
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
             Type::Percent => Expression::NumberLiteral(100., Unit::Percent),
             // FIXME: Is that correct?
-            Type::Image => {
-                Expression::ResourceReference(ResourceReference::AbsolutePath(String::new()))
-            }
+            Type::Image => Expression::ImageReference(ImageReference::AbsolutePath(String::new())),
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => Expression::Invalid,
             Type::PathElements => Expression::PathElements { elements: Path::Elements(vec![]) },
@@ -1073,7 +1071,7 @@ impl Default for EasingCurve {
 // The compiler generates ResourceReference::AbsolutePath for all references likg @image-url("foo.png")
 // and the resource lowering path may change this to EmbeddedData if configured.
 #[derive(Clone, Debug)]
-pub enum ResourceReference {
+pub enum ImageReference {
     None,
     AbsolutePath(String),
     EmbeddedData(usize),
@@ -1161,7 +1159,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "{}", op)?;
             pretty_print(f, sub)
         }
-        Expression::ResourceReference(a) => write!(f, "{:?}", a),
+        Expression::ImageReference(a) => write!(f, "{:?}", a),
         Expression::Condition { condition, true_expr, false_expr } => {
             write!(f, "if (")?;
             pretty_print(f, condition)?;
