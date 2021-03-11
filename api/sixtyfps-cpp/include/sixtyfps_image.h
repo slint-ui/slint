@@ -9,28 +9,28 @@
 LICENSE END */
 #pragma once
 #include <string_view>
-#include "sixtyfps_resource_internal.h"
+#include "sixtyfps_image_internal.h"
 #include "sixtyfps_string.h"
 
 namespace sixtyfps {
 
-struct Resource
+struct ImageReference
 {
 public:
-    Resource() : data(Data::None()) { }
-    Resource(const SharedString &file_path) : data(Data::AbsoluteFilePath(file_path)) { }
+    ImageReference() : data(Data::None()) { }
+    ImageReference(const SharedString &file_path) : data(Data::AbsoluteFilePath(file_path)) { }
 
-    friend bool operator==(const Resource &a, const Resource &b) {
+    friend bool operator==(const ImageReference &a, const ImageReference &b) {
         return a.data == b.data;
     }
-    friend bool operator!=(const Resource &a, const Resource &b) {
+    friend bool operator!=(const ImageReference &a, const ImageReference &b) {
         return a.data != b.data;
     }
 
 
 private:
-    using Tag = cbindgen_private::types::Resource::Tag;
-    using Data = cbindgen_private::types::Resource;
+    using Tag = cbindgen_private::types::ImageReference::Tag;
+    using Data = cbindgen_private::types::ImageReference;
     Data data;
 };
 

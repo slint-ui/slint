@@ -73,7 +73,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     config.export.exclude = [
         "SharedString",
         "SharedVector",
-        "Resource",
+        "ImageReference",
         "Color",
         "PathData",
         "PathElement",
@@ -139,7 +139,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
     for (rust_types, extra_excluded_types, internal_header) in [
-        (vec!["Resource"], vec![], "sixtyfps_resource_internal.h"),
+        (vec!["ImageReference"], vec![], "sixtyfps_image_internal.h"),
         (
             vec!["Color", "sixtyfps_color_brighter", "sixtyfps_color_darker"],
             vec![],
@@ -250,7 +250,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .with_include("sixtyfps_sharedvector.h")
         .with_include("sixtyfps_properties.h")
         .with_include("sixtyfps_callbacks.h")
-        .with_include("sixtyfps_resource.h")
+        .with_include("sixtyfps_image.h")
         .with_include("sixtyfps_color.h")
         .with_include("sixtyfps_pathdata.h")
         .with_include("sixtyfps_brush.h")

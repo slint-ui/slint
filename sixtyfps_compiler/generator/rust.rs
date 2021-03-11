@@ -39,7 +39,7 @@ fn rust_type(
         Type::LogicalLength => Ok(quote!(f32)),
         Type::Percent => Ok(quote!(f32)),
         Type::Bool => Ok(quote!(bool)),
-        Type::Image => Ok(quote!(sixtyfps::re_exports::Resource)),
+        Type::Image => Ok(quote!(sixtyfps::re_exports::ImageReference)),
         Type::Object { fields, name: None } => {
             let elem =
                 fields.values().map(|v| rust_type(v, span)).collect::<Result<Vec<_>, _>>()?;
@@ -1323,14 +1323,14 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         Expression::ResourceReference(resource_ref) => {
             match resource_ref {
                 crate::expression_tree::ResourceReference::None => {
-                    quote!(sixtyfps::re_exports::Resource::None)
+                    quote!(sixtyfps::re_exports::ImageReference::None)
                 }
                 crate::expression_tree::ResourceReference::AbsolutePath(path) => {
-                     quote!(sixtyfps::re_exports::Resource::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#path)))
+                     quote!(sixtyfps::re_exports::ImageReference::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#path)))
                 },
                 crate::expression_tree::ResourceReference::EmbeddedData(resource_id) => {
                     let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
-                    quote!(sixtyfps::re_exports::Resource::EmbeddedData(#symbol.into()))
+                    quote!(sixtyfps::re_exports::ImageReference::EmbeddedData(#symbol.into()))
                 }
             }
         }

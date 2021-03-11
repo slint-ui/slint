@@ -222,7 +222,7 @@ pub mod re_exports {
     pub use sixtyfps_corelib::window::ComponentWindow;
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
-    pub use sixtyfps_corelib::Resource;
+    pub use sixtyfps_corelib::ImageReference;
     pub use sixtyfps_corelib::SharedString;
     pub use sixtyfps_corelib::SharedVector;
     pub use sixtyfps_rendering_backend_default::native_widgets::*;

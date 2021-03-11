@@ -15,7 +15,7 @@ use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::ComponentWindow;
-use corelib::{Brush, Color, PathData, Resource, SharedString, SharedVector};
+use corelib::{Brush, Color, ImageReference, PathData, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
     BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference, Path as ExprPath,
     PathElement as ExprPathElement,
@@ -115,7 +115,7 @@ pub enum Value {
     /// Bool
     Bool(bool),
     /// A resource (typically an image)
-    Resource(Resource),
+    Resource(ImageReference),
     /// An Array
     Array(Vec<Value>),
     /// A more complex model which is not created by the interpreter itself
@@ -176,7 +176,7 @@ macro_rules! declare_value_conversion {
 declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize] );
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
-declare_value_conversion!(Resource => [Resource] );
+declare_value_conversion!(Resource => [ImageReference] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
 declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(Brush => [Brush] );
@@ -656,10 +656,10 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::ResourceReference(resource_ref) => {
             match resource_ref {
                 sixtyfps_compilerlib::expression_tree::ResourceReference::None => {
-                    Value::Resource(Resource::None)
+                    Value::Resource(ImageReference::None)
                 }
                 sixtyfps_compilerlib::expression_tree::ResourceReference::AbsolutePath(path) => {
-                    Value::Resource(Resource::AbsoluteFilePath(path.into()))
+                    Value::Resource(ImageReference::AbsoluteFilePath(path.into()))
                 }
                 sixtyfps_compilerlib::expression_tree::ResourceReference::EmbeddedData(_) => panic!("Resource embedding is not supported by the interpreter")
             }

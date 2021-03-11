@@ -49,7 +49,7 @@ pub use string::SharedString;
 pub use sharedvector::SharedVector;
 
 #[doc(inline)]
-pub use graphics::Resource;
+pub use graphics::ImageReference;
 
 #[doc(inline)]
 pub use properties::Property;

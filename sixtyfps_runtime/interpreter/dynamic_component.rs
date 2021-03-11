@@ -19,7 +19,7 @@ use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLa
 use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{expression_tree::Expression, langtype::PropertyLookupResult};
 use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
-use sixtyfps_corelib::graphics::{Rect, Resource};
+use sixtyfps_corelib::graphics::{ImageReference, Rect};
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
@@ -785,7 +785,7 @@ fn generate_component<'id>(
             Type::Angle => animated_property_info::<f32>(),
             Type::Length => animated_property_info::<f32>(),
             Type::LogicalLength => animated_property_info::<f32>(),
-            Type::Image => property_info::<Resource>(),
+            Type::Image => property_info::<ImageReference>(),
             Type::Bool => property_info::<bool>(),
             Type::Callback { .. } => {
                 custom_callbacks.insert(name.clone(), builder.add_field_type::<Callback>());

@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 use super::{Item, ItemConsts, ItemRc};
-use crate::graphics::{Rect, Resource, Size};
+use crate::graphics::{ImageReference, Rect, Size};
 use crate::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
@@ -55,7 +55,7 @@ impl Default for ImageFit {
 #[pin]
 /// The implementation of the `Image` element
 pub struct Image {
-    pub source: Property<Resource>,
+    pub source: Property<ImageReference>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -121,7 +121,7 @@ impl ItemConsts for Image {
 #[pin]
 /// The implementation of the `ClippedImage` element
 pub struct ClippedImage {
-    pub source: Property<Resource>,
+    pub source: Property<ImageReference>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,

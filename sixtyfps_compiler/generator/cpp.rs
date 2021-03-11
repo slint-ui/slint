@@ -252,7 +252,7 @@ impl CppType for Type {
                 }
             }
             Type::Array(i) => Some(format!("std::shared_ptr<sixtyfps::Model<{}>>", i.cpp_type()?)),
-            Type::Image => Some("sixtyfps::Resource".to_owned()),
+            Type::Image => Some("sixtyfps::ImageReference".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),
             Type::Brush => Some("sixtyfps::Brush".to_owned()),
@@ -1608,8 +1608,8 @@ fn compile_expression(
         }
         Expression::ResourceReference(resource_ref)  => {
             match resource_ref {
-                crate::expression_tree::ResourceReference::None => format!(r#"sixtyfps::Resource()"#),
-                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::Resource(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
+                crate::expression_tree::ResourceReference::None => format!(r#"sixtyfps::ImageReference()"#),
+                crate::expression_tree::ResourceReference::AbsolutePath(path) => format!(r#"sixtyfps::ImageReference(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
                 crate::expression_tree::ResourceReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
             }
         }

@@ -45,9 +45,11 @@ pub use brush::*;
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
+///
+/// TODO! If we want to make this type public API, we should not make it an enum, but an opaque type instead
 #[derive(Clone, PartialEq, Debug)]
 #[repr(u8)]
-pub enum Resource {
+pub enum ImageReference {
     /// A resource that does not represent any data.
     None,
     /// A resource that points to a file in the file system
@@ -60,9 +62,9 @@ pub enum Resource {
     EmbeddedRgbaImage { width: u32, height: u32, data: super::sharedvector::SharedVector<u32> },
 }
 
-impl Default for Resource {
+impl Default for ImageReference {
     fn default() -> Self {
-        Resource::None
+        ImageReference::None
     }
 }
 

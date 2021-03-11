@@ -15,7 +15,7 @@ use crate::graphics::Point;
 use crate::input::{KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::slice::Slice;
-use crate::Resource;
+use crate::ImageReference;
 use core::cell::Cell;
 use core::pin::Pin;
 use std::cell::RefCell;
@@ -63,7 +63,7 @@ pub trait PlatformWindow {
     /// scale factor.
     fn image_size(
         &self,
-        source: Pin<&crate::properties::Property<Resource>>,
+        source: Pin<&crate::properties::Property<ImageReference>>,
     ) -> crate::graphics::Size;
 }
 

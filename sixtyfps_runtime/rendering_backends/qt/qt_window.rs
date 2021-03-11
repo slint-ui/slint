@@ -21,7 +21,7 @@ use sixtyfps_corelib::{
     graphics::{Brush, FontRequest, Point, Rect, RenderingCache, Size},
     items::Window,
 };
-use sixtyfps_corelib::{PathData, Property, Resource};
+use sixtyfps_corelib::{ImageReference, PathData, Property};
 
 use std::cell::RefCell;
 use std::pin::Pin;
@@ -530,15 +530,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
 }
 
 fn load_image_from_resource(
-    resource: Resource,
+    resource: ImageReference,
     source_size: Option<qttypes::QSize>,
     image_fit: ImageFit,
 ) -> Option<qttypes::QPixmap> {
     let (is_path, data) = match &resource {
-        Resource::None => return None,
-        Resource::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
-        Resource::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
-        Resource::EmbeddedRgbaImage { .. } => todo!(),
+        ImageReference::None => return None,
+        ImageReference::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
+        ImageReference::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
+        ImageReference::EmbeddedRgbaImage { .. } => todo!(),
     };
     let size_requested = is_svg(&resource) && source_size.is_some();
     let source_size = source_size.unwrap_or_default();
@@ -618,12 +618,12 @@ fn adjust_to_image_fit(
 }
 
 /// Return true if this image is a SVG that is scalable
-fn is_svg(resource: &Resource) -> bool {
+fn is_svg(resource: &ImageReference) -> bool {
     match resource {
-        Resource::None => false,
-        Resource::AbsoluteFilePath(path) => path.as_str().ends_with(".svg"),
-        Resource::EmbeddedData(data) => data.starts_with(b"<svg"),
-        Resource::EmbeddedRgbaImage { .. } => false,
+        ImageReference::None => false,
+        ImageReference::AbsoluteFilePath(path) => path.as_str().ends_with(".svg"),
+        ImageReference::EmbeddedData(data) => data.starts_with(b"<svg"),
+        ImageReference::EmbeddedRgbaImage { .. } => false,
     }
 }
 
@@ -631,7 +631,7 @@ impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
         item_cache: &CachedRenderingData,
-        source_property: Pin<&Property<Resource>>,
+        source_property: Pin<&Property<ImageReference>>,
         dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
         target_width: std::pin::Pin<&Property<f32>>,
@@ -1001,7 +1001,7 @@ impl PlatformWindow for QtWindow {
 
     fn image_size(
         &self,
-        source: Pin<&sixtyfps_corelib::properties::Property<Resource>>,
+        source: Pin<&sixtyfps_corelib::properties::Property<ImageReference>>,
     ) -> sixtyfps_corelib::graphics::Size {
         load_image_from_resource(source.get(), None, ImageFit::fill)
             .map(|img| {

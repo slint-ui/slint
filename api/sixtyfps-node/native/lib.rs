@@ -11,7 +11,7 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::Resource;
+use sixtyfps_corelib::ImageReference;
 
 use std::rc::Rc;
 
@@ -210,7 +210,7 @@ fn to_eval_value<'cx>(
             }
         },
         Type::Image => {
-            Ok(Value::Resource(Resource::AbsoluteFilePath(val.to_string(cx)?.value().into())))
+            Ok(Value::Resource(ImageReference::AbsoluteFilePath(val.to_string(cx)?.value().into())))
         }
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
         Type::Object { fields, .. } => {
@@ -259,9 +259,9 @@ fn to_js_value<'cx>(
         Value::String(s) => JsString::new(cx, s.as_str()).as_value(cx),
         Value::Bool(b) => JsBoolean::new(cx, b).as_value(cx),
         Value::Resource(r) => match r {
-            Resource::None => JsUndefined::new().as_value(cx),
-            Resource::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
-            Resource::EmbeddedData { .. } | Resource::EmbeddedRgbaImage { .. } => {
+            ImageReference::None => JsUndefined::new().as_value(cx),
+            ImageReference::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
+            ImageReference::EmbeddedData { .. } | ImageReference::EmbeddedRgbaImage { .. } => {
                 JsNull::new().as_value(cx)
             } // TODO: maybe pass around node buffers?
         },

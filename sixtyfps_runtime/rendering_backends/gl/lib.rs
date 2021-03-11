@@ -22,7 +22,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use sixtyfps_corelib::graphics::{
-    Brush, Color, FontMetrics, FontRequest, Point, Rect, RenderingCache, Resource, Size,
+    Brush, Color, FontMetrics, FontRequest, ImageReference, Point, Rect, RenderingCache, Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
@@ -51,19 +51,19 @@ enum ImageCacheKey {
 }
 
 impl ImageCacheKey {
-    fn new(resource: &Resource) -> Option<Self> {
+    fn new(resource: &ImageReference) -> Option<Self> {
         Some(match resource {
-            Resource::None => return None,
-            Resource::AbsoluteFilePath(path) => {
+            ImageReference::None => return None,
+            ImageReference::AbsoluteFilePath(path) => {
                 if path.is_empty() {
                     return None;
                 }
                 Self::Path(path.to_string())
             }
-            Resource::EmbeddedData(data) => {
+            ImageReference::EmbeddedData(data) => {
                 Self::EmbeddedData(by_address::ByAddress(data.as_slice()))
             }
-            Resource::EmbeddedRgbaImage { .. } => return None,
+            ImageReference::EmbeddedRgbaImage { .. } => return None,
         })
     }
 }
@@ -229,7 +229,7 @@ impl GLRendererData {
     }
 
     // Try to load the image the given resource points to
-    fn load_image_resource(&self, resource: Resource) -> Option<Rc<CachedImage>> {
+    fn load_image_resource(&self, resource: ImageReference) -> Option<Rc<CachedImage>> {
         let cache_key = ImageCacheKey::new(&resource)?;
 
         self.lookup_image_in_cache_or_create(cache_key, || {
@@ -467,7 +467,7 @@ impl GLRenderer {
     /// to the window scale factor.
     fn image_size(
         &self,
-        source: core::pin::Pin<&sixtyfps_corelib::properties::Property<Resource>>,
+        source: core::pin::Pin<&sixtyfps_corelib::properties::Property<ImageReference>>,
     ) -> sixtyfps_corelib::graphics::Size {
         self.shared_data
             .load_image_resource(source.get())
@@ -1168,7 +1168,7 @@ impl GLItemRenderer {
     fn draw_image_impl(
         &mut self,
         item_cache: &CachedRenderingData,
-        source_property: std::pin::Pin<&Property<Resource>>,
+        source_property: std::pin::Pin<&Property<ImageReference>>,
         source_clip_rect: Rect,
         target_width: std::pin::Pin<&Property<f32>>,
         target_height: std::pin::Pin<&Property<f32>>,
