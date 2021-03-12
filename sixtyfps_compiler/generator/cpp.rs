@@ -265,7 +265,7 @@ fn get_cpp_type(ty: &Type, type_node: &dyn Spanned, diag: &mut BuildDiagnostics)
     ty.cpp_type().unwrap_or_else(|| {
         let err = CompilerDiagnostic {
             message: "Cannot map property type to C++".into(),
-            span: type_node.span(),
+            span: type_node.to_source_location(),
             level: DiagnosticLevel::Error,
         };
         diag.push_internal_error(err.into());
@@ -1302,7 +1302,12 @@ fn model_data_type(parent_element: &ElementRc, diag: &mut BuildDiagnostics) -> S
         diag.push_internal_error(
             CompilerDiagnostic {
                 message: format!("Cannot map property type {} to C++", model_data_type),
-                span: parent_element.borrow().node.as_ref().map(|n| n.span()).unwrap_or_default(),
+                span: parent_element
+                    .borrow()
+                    .node
+                    .as_ref()
+                    .map(|n| n.to_source_location())
+                    .unwrap_or_default(),
                 level: DiagnosticLevel::Error,
             }
             .into(),

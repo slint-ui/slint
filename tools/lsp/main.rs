@@ -200,7 +200,7 @@ fn reload_document(
         if file_diag.current_path.path().is_relative() {
             continue;
         }
-        let diagnostics = file_diag.inner.iter().map(|d| to_lsp_diag(d, &file_diag)).collect();
+        let diagnostics = file_diag.inner.iter().map(|d| to_lsp_diag(d)).collect();
         connection.sender.send(Message::Notification(lsp_server::Notification::new(
             "textDocument/publishDiagnostics".into(),
             PublishDiagnosticsParams {
@@ -214,12 +214,9 @@ fn reload_document(
     Ok(())
 }
 
-fn to_lsp_diag(
-    d: &sixtyfps_compilerlib::diagnostics::Diagnostic,
-    file_diag: &sixtyfps_compilerlib::diagnostics::FileDiagnostics,
-) -> lsp_types::Diagnostic {
+fn to_lsp_diag(d: &sixtyfps_compilerlib::diagnostics::Diagnostic) -> lsp_types::Diagnostic {
     lsp_types::Diagnostic::new(
-        to_range(d.line_column(file_diag)),
+        to_range(d.line_column()),
         Some(lsp_types::DiagnosticSeverity::Error),
         None,
         None,

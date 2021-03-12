@@ -13,7 +13,7 @@ Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component
 */
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, DiagnosticLevel, Spanned};
+use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, DiagnosticLevel};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
@@ -26,7 +26,7 @@ use std::{collections::BTreeMap, rc::Rc};
 
 fn rust_type(
     ty: &Type,
-    span: &crate::diagnostics::Span,
+    span: Option<&dyn crate::diagnostics::Spanned>,
 ) -> Result<proc_macro2::TokenStream, CompilerDiagnostic> {
     match ty {
         Type::Int32 => Ok(quote!(i32)),
@@ -58,7 +58,7 @@ fn rust_type(
         Type::Brush => Ok(quote!(sixtyfps::Brush)),
         _ => Err(CompilerDiagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
-            span: span.clone(),
+            span: span.map(|s| s.to_source_location()).unwrap_or_default(),
             level: DiagnosticLevel::Error,
         }),
     }
@@ -123,7 +123,7 @@ fn generate_struct(
         .map(|(name, ty)| {
             (
                 format_ident!("{}", name),
-                rust_type(ty, &Default::default()).unwrap_or_else(|err| {
+                rust_type(ty, None).unwrap_or_else(|err| {
                     diag.push_internal_error(err.into());
                     quote!(())
                 }),
@@ -200,7 +200,7 @@ fn handle_property_binding(
     } else {
         let tokens_for_expression = compile_expression(binding_expression, &component);
         init.push(if binding_expression.is_constant() {
-            let t = rust_type(&prop_type, &Default::default()).unwrap_or(quote!(_));
+            let t = rust_type(&prop_type, None).unwrap_or(quote!(_));
             quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
         } else {
             let binding_tokens = quote!({
@@ -281,14 +281,14 @@ fn generate_component(
             declared_callbacks.push(prop_ident.clone());
             let callback_args = args
                 .iter()
-                .map(|a| rust_type(a, &property_decl.type_node.span()))
+                .map(|a| rust_type(a, Some(&property_decl.type_node)))
                 .collect::<Result<Vec<_>, _>>()
                 .unwrap_or_else(|err| {
                     diag.push_internal_error(err.into());
                     vec![]
                 });
             let return_type = return_type.as_ref().map_or(quote!(()), |a| {
-                rust_type(&a, &property_decl.type_node.span()).unwrap_or_else(|err| {
+                rust_type(&a, Some(&property_decl.type_node)).unwrap_or_else(|err| {
                     diag.push_internal_error(err.into());
                     quote!()
                 })
@@ -332,7 +332,7 @@ fn generate_component(
             declared_callbacks_ret.push(return_type);
         } else {
             let rust_property_type =
-                rust_type(&property_decl.property_type, &property_decl.type_node.span())
+                rust_type(&property_decl.property_type, Some(&property_decl.type_node))
                     .unwrap_or_else(|err| {
                         diag.push_internal_error(err.into());
                         quote!()
@@ -502,7 +502,7 @@ fn generate_component(
                     let data_type = rust_type(
                         &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }
                             .ty(),
-                        &item.node.as_ref().map_or_else(Default::default, |n| n.span()),
+                        item.node.as_ref().map(|x| x as _),
                     )
                     .unwrap_or_else(|err| {
                         diag.push_internal_error(err.into());
@@ -648,11 +648,7 @@ fn generate_component(
                         element: component.parent_element.clone(),
                     }
                     .ty(),
-                    &parent_element
-                        .borrow()
-                        .node
-                        .as_ref()
-                        .map_or_else(Default::default, |n| n.span()),
+                    parent_element.borrow().node.as_ref().map(|x| x as _),
                 )
                 .unwrap_or_else(|err| {
                     diag.push_internal_error(err.into());
@@ -1351,7 +1347,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             quote!(compile_error! {#error})
         }
         Expression::Array { values, element_ty } => {
-            let rust_element_ty = rust_type(&element_ty, &Default::default()).unwrap();
+            let rust_element_ty = rust_type(&element_ty, None).unwrap();
             let val = values.iter().map(|e| compile_expression(e, component));
             quote!(sixtyfps::re_exports::ModelHandle::new(
                 std::rc::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(vec![#(#val as _),*]))
@@ -1362,7 +1358,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 let elem = fields.iter().map(|(k, t)| {
                     values.get(k).map(|e| {
                         let ce = compile_expression(e, component);
-                        let t = rust_type(t, &Default::default()).unwrap_or_default();
+                        let t = rust_type(t, None).unwrap_or_default();
                         quote!(#ce as #t)
                     })
                 });
@@ -1464,7 +1460,7 @@ fn compile_assignment(
                     quote!(.as_str())
                 }
             } else {
-                let member_ty = rust_type(&member_ty, &Default::default()).unwrap_or_default();
+                let member_ty = rust_type(&member_ty, None).unwrap_or_default();
                 quote!(as #member_ty)
             };
 

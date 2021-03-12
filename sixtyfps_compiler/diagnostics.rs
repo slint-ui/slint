@@ -88,11 +88,25 @@ impl SourceFileInner {
     pub fn from_path(path: PathBuf) -> Rc<Self> {
         Rc::new(Self { path, ..Default::default() })
     }
+
+    fn line_offsets(&self) -> &[usize] {
+        self.line_offsets.get_or_init(|| {
+            self.source
+                .as_ref()
+                .map(|s| {
+                    s.bytes()
+                        .enumerate()
+                        .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
+                        .collect()
+                })
+                .unwrap_or_default()
+        })
+    }
 }
 
 pub type SourceFile = Rc<SourceFileInner>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SourceLocation {
     source_file: Option<SourceFile>,
     span: Span,
@@ -151,7 +165,7 @@ impl From<DiagnosticLevel> for codemap_diagnostic::Level {
 #[error("{message}")]
 pub struct CompilerDiagnostic {
     pub message: String,
-    pub span: Span,
+    pub span: SourceLocation,
     pub level: DiagnosticLevel,
 }
 
@@ -164,13 +178,6 @@ pub enum Diagnostic {
 }
 
 impl Diagnostic {
-    fn span(&self) -> Span {
-        match self {
-            Diagnostic::CompilerDiagnostic(e) => e.span.clone(),
-            _ => Span::default(),
-        }
-    }
-
     /// Return the level for this diagnostic
     pub fn level(&self) -> DiagnosticLevel {
         match self {
@@ -180,9 +187,16 @@ impl Diagnostic {
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 0)
-    pub fn line_column(&self, file: &FileDiagnostics) -> (usize, usize) {
-        let offset = self.span().offset;
-        let line_offsets = file.line_offsets();
+    pub fn line_column(&self) -> (usize, usize) {
+        let source_location = match self {
+            Diagnostic::CompilerDiagnostic(e) => &e.span,
+            _ => return (0, 0),
+        };
+        let offset = source_location.span.offset;
+        let line_offsets = match &source_location.source_file {
+            None => return (0, 0),
+            Some(sl) => sl.line_offsets(),
+        };
         line_offsets.binary_search(&offset).map_or_else(
             |line| {
                 if line == 0 {
@@ -220,6 +234,7 @@ impl FileDiagnostics {
         span: Span,
         level: DiagnosticLevel,
     ) {
+        let span = SourceLocation { source_file: Some(self.current_path.clone()), span };
         self.inner.push(CompilerDiagnostic { message, span, level }.into());
     }
     pub fn push_error_with_span(&mut self, message: String, span: Span) {
@@ -287,9 +302,10 @@ impl FileDiagnostics {
             .into_iter()
             .map(|diagnostic| match diagnostic {
                 Diagnostic::CompilerDiagnostic(CompilerDiagnostic { message, span, level }) => {
-                    let spans = if !internal_errors && span.is_valid() {
+                    let spans = if !internal_errors && span.span.is_valid() {
                         let s = codemap_diagnostic::SpanLabel {
-                            span: file_span.subspan(span.offset as u64, span.offset as u64),
+                            span: file_span
+                                .subspan(span.span.offset as u64, span.span.offset as u64),
                             style: codemap_diagnostic::SpanStyle::Primary,
                             label: None,
                         };
@@ -343,13 +359,13 @@ impl FileDiagnostics {
     pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
         for d in &mut self.inner {
             if let Diagnostic::CompilerDiagnostic(d) = d {
-                if d.span.span.is_none() {
+                if d.span.span.span.is_none() {
                     //let pos =
                     //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
                     //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);
                     let mut offset = 0;
-                    d.span.span = span_map.iter().find_map(|t| {
-                        if d.span.offset <= offset {
+                    d.span.span.span = span_map.iter().find_map(|t| {
+                        if d.span.span.offset <= offset {
                             t.span
                         } else {
                             offset += t.text.len();
@@ -367,21 +383,6 @@ impl FileDiagnostics {
 
     pub fn new_from_error(path: std::path::PathBuf, err: std::io::Error) -> Self {
         Self { inner: vec![err.into()], current_path: SourceFileInner::from_path(path) }
-    }
-
-    fn line_offsets(&self) -> &[usize] {
-        self.current_path.line_offsets.get_or_init(|| {
-            self.current_path
-                .source
-                .as_ref()
-                .map(|s| {
-                    s.bytes()
-                        .enumerate()
-                        .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
-                        .collect()
-                })
-                .unwrap_or_default()
-        })
     }
 }
 
@@ -404,7 +405,7 @@ impl quote::ToTokens for FileDiagnostics {
                 }) => {
                     match level {
                         DiagnosticLevel::Error => {
-                            if let Some(span) = span.span {
+                            if let Some(span) = span.span.span {
                                 Some(quote::quote_spanned!(span.into() => compile_error!{ #message }))
                             } else {
                                 Some(quote!(compile_error! { #message }))
@@ -456,7 +457,7 @@ impl BuildDiagnostics {
                 .file_diagnostics(source_file.path())
                 .push_diagnostic_with_span(message, source.span(), level),
             None => self.push_internal_error(
-                CompilerDiagnostic { message, span: source.span(), level }.into(),
+                CompilerDiagnostic { message, span: source.to_source_location(), level }.into(),
             ),
         }
     }
