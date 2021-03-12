@@ -14,7 +14,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, FileDiagnostics};
+use crate::diagnostics::{BuildDiagnostics, Diagnostic};
 use crate::object_tree::{self, Document};
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxTokenWithSourceFile};
 use crate::typeregister::TypeRegister;
@@ -131,7 +131,7 @@ impl<'a> TypeLoader<'a> {
             let is_wasm = cfg!(target_arch = "wasm32")
                 || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
             if !is_wasm {
-                diag.push_internal_error(CompilerDiagnostic {
+                diag.push_internal_error(Diagnostic {
                     message: "SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
                     span: Default::default(),
                     level: crate::diagnostics::DiagnosticLevel::Warning
@@ -154,14 +154,12 @@ impl<'a> TypeLoader<'a> {
     pub async fn load_dependencies_recursively(
         &mut self,
         doc: &syntax_nodes::Document,
-        mut diagnostics: &mut FileDiagnostics,
-        build_diagnostics: &mut BuildDiagnostics,
+        diagnostics: &mut BuildDiagnostics,
         registry_to_populate: &Rc<RefCell<TypeRegister>>,
     ) {
-        let dependencies = self.collect_dependencies(&doc, &mut diagnostics).await;
+        let dependencies = self.collect_dependencies(&doc, diagnostics).await;
         for import in dependencies.into_iter() {
-            self.load_dependency(import, registry_to_populate, diagnostics, build_diagnostics)
-                .await;
+            self.load_dependency(import, registry_to_populate, diagnostics).await;
         }
     }
 
@@ -169,8 +167,7 @@ impl<'a> TypeLoader<'a> {
         &mut self,
         file_to_import: &str,
         type_name: &str,
-        diagnostics: &mut FileDiagnostics,
-        build_diagnostics: &mut BuildDiagnostics,
+        diagnostics: &mut BuildDiagnostics,
     ) -> Option<crate::langtype::Type> {
         let file = match self.import_file(None, file_to_import) {
             Some(file) => file,
@@ -178,13 +175,7 @@ impl<'a> TypeLoader<'a> {
         };
 
         let doc_path = match self
-            .ensure_document_loaded(
-                &file.path,
-                file.source_code_future,
-                None,
-                Some(diagnostics),
-                build_diagnostics,
-            )
+            .ensure_document_loaded(&file.path, file.source_code_future, None, diagnostics)
             .await
         {
             Some(doc_path) => doc_path,
@@ -207,8 +198,7 @@ impl<'a> TypeLoader<'a> {
         path: &'b Path,
         source_code_future: impl std::future::Future<Output = std::io::Result<String>>,
         import_token: Option<SyntaxTokenWithSourceFile>,
-        importer_diagnostics: Option<&'b mut FileDiagnostics>,
-        build_diagnostics: &'b mut BuildDiagnostics,
+        diagnostics: &'b mut BuildDiagnostics,
     ) -> Option<PathBuf> {
         let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
 
@@ -217,8 +207,7 @@ impl<'a> TypeLoader<'a> {
         }
 
         if !self.all_documents.currently_loading.insert(path_canon.clone()) {
-            importer_diagnostics
-                .unwrap()
+            diagnostics
                 .push_error(format!("Recursive import of {}", path.display()), &import_token);
             return None;
         }
@@ -226,7 +215,7 @@ impl<'a> TypeLoader<'a> {
         let source_code = match source_code_future.await {
             Ok(source) => source,
             Err(err) => {
-                importer_diagnostics.unwrap().push_error(
+                diagnostics.push_error(
                     format!("Error reading requested import {}: {}", path.display(), err),
                     &import_token,
                 );
@@ -234,7 +223,7 @@ impl<'a> TypeLoader<'a> {
             }
         };
 
-        self.load_file(&path_canon, path, source_code, build_diagnostics).await;
+        self.load_file(&path_canon, path, source_code, diagnostics).await;
         let _ok = self.all_documents.currently_loading.remove(path_canon.as_path());
         assert!(_ok);
         Some(path_canon)
@@ -248,13 +237,11 @@ impl<'a> TypeLoader<'a> {
         path: &Path,
         source_path: &Path,
         source_code: String,
-        build_diagnostics: &mut BuildDiagnostics,
+        diagnostics: &mut BuildDiagnostics,
     ) {
-        let (dependency_doc, mut dependency_diagnostics) =
-            crate::parser::parse(source_code, Some(&source_path));
+        let dependency_doc = crate::parser::parse(source_code, Some(&source_path), diagnostics);
 
-        if dependency_diagnostics.has_error() {
-            build_diagnostics.add(dependency_diagnostics);
+        if diagnostics.has_error() {
             let mut d = Document::default();
             d.node = Some(dependency_doc.into());
             self.all_documents.docs.insert(path.to_owned(), d);
@@ -265,25 +252,15 @@ impl<'a> TypeLoader<'a> {
 
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
-        self.load_dependencies_recursively(
-            &dependency_doc,
-            &mut dependency_diagnostics,
-            build_diagnostics,
-            &dependency_registry,
-        )
-        .await;
+        self.load_dependencies_recursively(&dependency_doc, diagnostics, &dependency_registry)
+            .await;
 
         let doc = crate::object_tree::Document::from_node(
             dependency_doc,
-            &mut dependency_diagnostics,
+            diagnostics,
             &dependency_registry,
         );
-        crate::passes::resolving::resolve_expressions(&doc, &self, build_diagnostics);
-
-        // Add diagnostics regardless whether they're empty or not. This is used by the syntax_tests to
-        // also verify that imported files have no errors.
-        build_diagnostics.add(dependency_diagnostics);
-
+        crate::passes::resolving::resolve_expressions(&doc, &self, diagnostics);
         self.all_documents.docs.insert(path.to_owned(), doc);
     }
 
@@ -291,7 +268,6 @@ impl<'a> TypeLoader<'a> {
         &'b mut self,
         import: ImportedTypes,
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
-        importer_diagnostics: &'b mut FileDiagnostics,
         build_diagnostics: &'b mut BuildDiagnostics,
     ) -> core::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'b>> {
         Box::pin(async move {
@@ -300,7 +276,6 @@ impl<'a> TypeLoader<'a> {
                     &import.file.path,
                     import.file.source_code_future,
                     Some(import.import_token.clone()),
-                    Some(importer_diagnostics),
                     build_diagnostics,
                 )
                 .await
@@ -324,7 +299,7 @@ impl<'a> TypeLoader<'a> {
                 let imported_type = match imported_type {
                     Some(ty) => ty,
                     None => {
-                        importer_diagnostics.push_error(
+                        build_diagnostics.push_error(
                             format!(
                                 "No exported type called {} found in {}",
                                 import_name.external_name,
@@ -391,7 +366,7 @@ impl<'a> TypeLoader<'a> {
     async fn collect_dependencies(
         &mut self,
         doc: &syntax_nodes::Document,
-        doc_diagnostics: &mut FileDiagnostics,
+        doc_diagnostics: &mut BuildDiagnostics,
     ) -> impl Iterator<Item = ImportedTypes> {
         let referencing_file = doc.source_file.as_ref().unwrap().path().clone();
 
@@ -444,6 +419,11 @@ impl<'a> TypeLoader<'a> {
             |_| self.all_documents.docs.get(path),
             |path| self.all_documents.docs.get(&path),
         )
+    }
+
+    /// Return an iterator over all the loaded file path
+    pub fn all_files<'b>(&'b self) -> impl Iterator<Item = &PathBuf> + 'b {
+        self.all_documents.docs.keys()
     }
 }
 
@@ -535,7 +515,6 @@ fn test_manual_import() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("ugly".into());
-    let mut test_diags = FileDiagnostics::default();
     let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
@@ -543,11 +522,9 @@ fn test_manual_import() {
     let maybe_button_type = spin_on::spin_on(loader.import_type(
         "sixtyfps_widgets.60",
         "Button",
-        &mut test_diags,
         &mut build_diagnostics,
     ));
 
-    assert!(!test_diags.has_error());
     assert!(!build_diagnostics.has_error());
     assert!(maybe_button_type.is_some());
 }

@@ -15,6 +15,8 @@ LICENSE END */
 //!  // ^error{some_regexp}
 //! ```
 
+use std::path::{Path, PathBuf};
+
 #[test]
 fn syntax_tests() -> std::io::Result<()> {
     if let Some(specific_test) = std::env::args()
@@ -57,12 +59,17 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
 }
 
 fn process_diagnostics(
-    mut compile_diagnostics: sixtyfps_compilerlib::diagnostics::FileDiagnostics,
-    source: String,
+    compile_diagnostics: &sixtyfps_compilerlib::diagnostics::BuildDiagnostics,
+    path: &Path,
+    source: &str,
     silent: bool,
 ) -> std::io::Result<bool> {
     let mut success = true;
-    let path = compile_diagnostics.current_path.as_ref();
+
+    let mut diags = compile_diagnostics
+        .iter()
+        .filter(|d| &cannonical(d.span.source_file.as_ref().unwrap().path()) == path)
+        .collect::<Vec<_>>();
 
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
@@ -98,14 +105,11 @@ fn process_diagnostics(
             _ => panic!("Unsupported diagnostic level {}", warning_or_error),
         };
 
-        match compile_diagnostics.inner.iter().position(|e| match e {
-            sixtyfps_compilerlib::diagnostics::Diagnostic::FileLoadError(_) => false,
-            sixtyfps_compilerlib::diagnostics::Diagnostic::CompilerDiagnostic(e) => {
-                e.span.offset == offset && r.is_match(&e.message) && e.level == expected_diag_level
-            }
+        match diags.iter().position(|e| {
+            e.span.span.offset == offset && r.is_match(&e.message) && e.level == expected_diag_level
         }) {
             Some(idx) => {
-                compile_diagnostics.inner.remove(idx);
+                diags.remove(idx);
             }
             None => {
                 success = false;
@@ -116,19 +120,25 @@ fn process_diagnostics(
             }
         }
     }
+    if !diags.is_empty() {
+        println!("{:?}: Unexptected errors/warnings: {:#?}", path, diags);
 
-    if !compile_diagnostics.inner.is_empty() {
-        println!("{:?}: Unexptected errors/warnings: {:#?}", path, compile_diagnostics.inner);
-
+        #[cfg(feature = "display-diagnostics")]
         if !silent {
-            #[cfg(feature = "display-diagnostics")]
-            compile_diagnostics.print();
+            let mut to_report = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
+            for d in diags {
+                to_report.push_compiler_error(d.clone());
+            }
+            to_report.print();
         }
 
         success = false;
     }
-
     Ok(success)
+}
+
+fn cannonical(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_owned())
 }
 
 fn process_file_source(
@@ -136,8 +146,9 @@ fn process_file_source(
     source: String,
     silent: bool,
 ) -> std::io::Result<bool> {
-    let (syntax_node, parse_diagnostics) =
-        sixtyfps_compilerlib::parser::parse(source.clone(), Some(path));
+    let mut parse_diagnostics = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
+    let syntax_node =
+        sixtyfps_compilerlib::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
     let compile_diagnostics = if !parse_diagnostics.has_error() {
         let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
             sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
@@ -148,22 +159,22 @@ fn process_file_source(
             parse_diagnostics,
             compiler_config,
         ));
-        build_diags.into_iter().collect()
+        build_diags
     } else {
-        vec![parse_diagnostics]
+        parse_diagnostics
     };
 
-    assert!(compile_diagnostics.len() >= 1);
-
     let mut success = true;
+    success &= process_diagnostics(&compile_diagnostics, &path, &source, silent)?;
 
-    for diagnostics in compile_diagnostics.into_iter() {
-        let source = if diagnostics.current_path.path() == path {
-            source.clone()
+    for p in &compile_diagnostics.all_loaded_files {
+        let source = if p.is_absolute() {
+            std::fs::read_to_string(&p)?
         } else {
-            std::fs::read_to_string(diagnostics.current_path.path())?
+            // probably sixtyfps_widgets.60
+            String::new()
         };
-        success &= process_diagnostics(diagnostics, source, silent)?;
+        success &= process_diagnostics(&compile_diagnostics, &p, &source, silent)?;
     }
 
     Ok(success)

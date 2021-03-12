@@ -1022,7 +1022,7 @@ impl BindingExpression {
     pub fn new_uncompiled(node: SyntaxNodeWithSourceFile) -> Self {
         Self {
             expression: Expression::Uncompiled(node.clone()),
-            span: Some(node.into()),
+            span: Some(node.to_source_location()),
             priority: 0,
         }
     }

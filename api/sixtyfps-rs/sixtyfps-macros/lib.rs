@@ -19,7 +19,8 @@ You should use the `sixtyfps` crate instead.
 
 extern crate proc_macro;
 use proc_macro::{Spacing, TokenStream, TokenTree};
-use quote::{quote, ToTokens};
+use quote::quote;
+use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::parser::SyntaxKind;
 use sixtyfps_compilerlib::*;
 
@@ -319,10 +320,10 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut tokens = vec![];
     fill_token_vec(token_iter, &mut tokens);
 
-    let (syntax_node, mut diag) = parser::parse_tokens(tokens.clone());
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse_tokens(tokens.clone(), &mut diag);
     if diag.has_error() {
-        diag.map_offsets_to_span(&tokens);
-        return diag.into_token_stream().into();
+        return diag.report_macro_diagnostic(&tokens);
     }
 
     let source_file = if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
@@ -343,14 +344,15 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
     if diag.has_error() {
-        return report_diagnostics(diag, &tokens);
+        return diag.report_macro_diagnostic(&tokens);
     }
 
     let mut result = generator::rust::generate(&root_component, &mut diag);
 
     // Make sure to recompile if any of the external files changes
     let reload = diag
-        .files()
+        .all_loaded_files
+        .iter()
         .filter(|path| path.is_absolute() && !path.ends_with("Cargo.toml"))
         .filter_map(|p| p.to_str())
         .map(|p| quote! {const _ : &'static [u8] = ::core::include_bytes!(#p);});
@@ -359,27 +361,6 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         x.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SIXTYFPS_STYLE");});
     });
 
-    let diags = report_diagnostics(diag, &tokens);
+    let diags = diag.report_macro_diagnostic(&tokens);
     result.map_or(diags, |r| r.into())
-}
-
-fn report_diagnostics(
-    diag: diagnostics::BuildDiagnostics,
-    span_map: &[parser::Token],
-) -> TokenStream {
-    let mut result = TokenStream::new();
-    let mut needs_error = diag.has_error();
-    for mut file_diag in diag.into_iter() {
-        if file_diag.current_path.path() == std::path::PathBuf::default() {
-            file_diag.map_offsets_to_span(span_map);
-            needs_error &= !file_diag.has_error();
-            result.extend(TokenStream::from(file_diag.into_token_stream()))
-        } else {
-            file_diag.print();
-        }
-    }
-    if needs_error {
-        result.extend(TokenStream::from(quote!(compile_error! { "Error occured" })))
-    }
-    result
 }

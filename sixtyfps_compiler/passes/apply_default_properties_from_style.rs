@@ -26,15 +26,9 @@ pub async fn apply_default_properties_from_style<'a>(
     _diag: &mut BuildDiagnostics,
 ) {
     // Ignore import errors
-    let mut file_diags_to_ignore = crate::diagnostics::FileDiagnostics::default();
     let mut build_diags_to_ignore = BuildDiagnostics::default();
     let style_metrics = type_loader
-        .import_type(
-            "sixtyfps_widgets.60",
-            "StyleMetrics",
-            &mut file_diags_to_ignore,
-            &mut build_diags_to_ignore,
-        )
+        .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
         .await;
     let style_metrics = if let Some(Type::Component(c)) = style_metrics { c } else { return };
 

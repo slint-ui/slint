@@ -54,6 +54,8 @@ use std::env;
 use std::io::Write;
 use std::path::Path;
 
+use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
+
 /// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
 pub struct CompilerConfiguration {
     config: sixtyfps_compilerlib::CompilerConfiguration,
@@ -180,8 +182,9 @@ pub fn compile_with_config(
     let path = Path::new(&env::var_os("CARGO_MANIFEST_DIR").ok_or(CompileError::NotRunViaCargo)?)
         .join(path.as_ref());
 
-    let (syntax_node, diag) =
-        sixtyfps_compilerlib::parser::parse_file(&path).map_err(CompileError::LoadError)?;
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = sixtyfps_compilerlib::parser::parse_file(&path, &mut diag)
+        .map_err(CompileError::LoadError)?;
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -222,7 +225,7 @@ pub fn compile_with_config(
     let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
     let generated = match sixtyfps_compilerlib::generator::rust::generate(&doc, &mut diag) {
         Some(code) => {
-            for x in diag.files() {
+            for x in &diag.all_loaded_files {
                 if x.is_absolute() {
                     println!("cargo:rerun-if-changed={}", x.display());
                 }

@@ -11,7 +11,7 @@ LICENSE END */
  This module contains the intermediate representation of the code in the form of an object tree
 */
 
-use crate::diagnostics::{FileDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{self, Unit};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::PropertyLookupResult;
@@ -36,7 +36,7 @@ pub struct Document {
 impl Document {
     pub fn from_node(
         node: syntax_nodes::Document,
-        diag: &mut FileDiagnostics,
+        diag: &mut BuildDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
@@ -47,7 +47,7 @@ impl Document {
 
         let mut process_component =
             |n: syntax_nodes::Component,
-             diag: &mut FileDiagnostics,
+             diag: &mut BuildDiagnostics,
              local_registry: &mut TypeRegister| {
                 let compo = Component::from_node(n, diag, local_registry);
                 local_registry.add(compo.clone());
@@ -55,7 +55,7 @@ impl Document {
             };
         let mut process_struct =
             |n: syntax_nodes::StructDeclaration,
-             diag: &mut FileDiagnostics,
+             diag: &mut BuildDiagnostics,
              local_registry: &mut TypeRegister| {
                 let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry);
                 if let Type::Object { name, .. } = &mut ty {
@@ -172,7 +172,7 @@ pub struct Component {
 impl Component {
     pub fn from_node(
         node: syntax_nodes::Component,
-        diag: &mut FileDiagnostics,
+        diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> Rc<Self> {
         let mut child_insertion_point = None;
@@ -373,7 +373,7 @@ impl Element {
         id: String,
         parent_type: Type,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
-        diag: &mut FileDiagnostics,
+        diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
         let (base_type, name_for_looup_errors) = if let Some(base_node) = node.QualifiedName() {
@@ -711,7 +711,7 @@ impl Element {
         node: syntax_nodes::RepeatedElement,
         parent: &ElementRc,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
-        diag: &mut FileDiagnostics,
+        diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
         let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
@@ -751,7 +751,7 @@ impl Element {
         node: syntax_nodes::ConditionalElement,
         parent_type: Type,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
-        diag: &mut FileDiagnostics,
+        diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
         let rei = RepeatedElementInfo {
@@ -794,7 +794,7 @@ impl Element {
         bindings: impl Iterator<
             Item = (crate::parser::SyntaxTokenWithSourceFile, SyntaxNodeWithSourceFile),
         >,
-        diag: &mut FileDiagnostics,
+        diag: &mut BuildDiagnostics,
     ) {
         for (name_token, b) in bindings {
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
@@ -854,7 +854,7 @@ impl Element {
 /// Create a Type for this node
 pub fn type_from_node(
     node: syntax_nodes::Type,
-    diag: &mut FileDiagnostics,
+    diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
 ) -> Type {
     if let Some(qualified_type_node) = node.QualifiedName() {
@@ -882,7 +882,7 @@ pub fn type_from_node(
 /// Create a Type::Object from a syntax_nodes::ObjectType
 pub fn type_struct_from_node(
     object_node: syntax_nodes::ObjectType,
-    diag: &mut FileDiagnostics,
+    diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
 ) -> Type {
     let fields = object_node
@@ -898,7 +898,7 @@ fn animation_element_from_node(
     anim: &syntax_nodes::PropertyAnimation,
     prop_name: &syntax_nodes::QualifiedName,
     prop_type: Type,
-    diag: &mut FileDiagnostics,
+    diag: &mut BuildDiagnostics,
     tr: &TypeRegister,
 ) -> Option<ElementRc> {
     let anim_type = tr.property_animation_type_for_property(prop_type);
@@ -951,7 +951,7 @@ impl std::fmt::Display for QualifiedTypeName {
 fn lookup_property_from_qualified_name(
     node: syntax_nodes::QualifiedName,
     r: &Rc<RefCell<Element>>,
-    diag: &mut FileDiagnostics,
+    diag: &mut BuildDiagnostics,
 ) -> (NamedReference, Type) {
     let qualname = QualifiedTypeName::from_node(node.clone());
     match qualname.members.as_slice() {
@@ -1261,7 +1261,7 @@ impl Exports {
         doc: &syntax_nodes::Document,
         inner_components: &[Rc<Component>],
         type_registry: &TypeRegister,
-        diag: &mut FileDiagnostics,
+        diag: &mut BuildDiagnostics,
     ) -> Self {
         #[derive(Debug, Clone)]
         struct NamedExport {

@@ -119,11 +119,9 @@ impl CompilerConfiguration {
 
 pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNodeWithSourceFile,
-    mut diagnostics: diagnostics::FileDiagnostics,
+    mut diagnostics: diagnostics::BuildDiagnostics,
     compiler_config: CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
-    let mut build_diagnostics = diagnostics::BuildDiagnostics::default();
-
     let global_type_registry = typeregister::TypeRegister::builtin();
     let type_registry =
         Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
@@ -131,33 +129,26 @@ pub async fn compile_syntax_node(
     let doc_node: parser::syntax_nodes::Document = doc_node.into();
 
     let mut loader =
-        typeloader::TypeLoader::new(global_type_registry, &compiler_config, &mut build_diagnostics);
+        typeloader::TypeLoader::new(global_type_registry, &compiler_config, &mut diagnostics);
     if doc_node.source_file.is_some() {
-        loader
-            .load_dependencies_recursively(
-                &doc_node,
-                &mut diagnostics,
-                &mut build_diagnostics,
-                &type_registry,
-            )
-            .await;
+        loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
     }
 
     let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
 
-    build_diagnostics.add(diagnostics);
-
     if let Some((_, node)) = &*doc.root_component.child_insertion_point.borrow() {
-        build_diagnostics
+        diagnostics
             .push_error("@children placeholder not allowed in the final component".into(), node)
     }
 
-    if !build_diagnostics.has_error() {
+    if !diagnostics.has_error() {
         // FIXME: ideally we would be able to run more passes, but currently we panic because invariant are not met.
-        run_passes(&doc, &mut build_diagnostics, &mut loader, &compiler_config).await;
+        run_passes(&doc, &mut diagnostics, &mut loader, &compiler_config).await;
     }
 
-    (doc, build_diagnostics)
+    diagnostics.all_loaded_files = loader.all_files().cloned().collect();
+
+    (doc, diagnostics)
 }
 
 pub async fn run_passes(

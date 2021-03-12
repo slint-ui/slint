@@ -13,7 +13,7 @@ Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component
 */
 
-use crate::diagnostics::{BuildDiagnostics, CompilerDiagnostic, DiagnosticLevel};
+use crate::diagnostics::{BuildDiagnostics, Diagnostic, DiagnosticLevel};
 use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
@@ -27,7 +27,7 @@ use std::{collections::BTreeMap, rc::Rc};
 fn rust_type(
     ty: &Type,
     span: Option<&dyn crate::diagnostics::Spanned>,
-) -> Result<proc_macro2::TokenStream, CompilerDiagnostic> {
+) -> Result<proc_macro2::TokenStream, Diagnostic> {
     match ty {
         Type::Int32 => Ok(quote!(i32)),
         Type::Float32 => Ok(quote!(f32)),
@@ -56,7 +56,7 @@ fn rust_type(
             Ok(quote!(sixtyfps::re_exports::#e))
         }
         Type::Brush => Ok(quote!(sixtyfps::Brush)),
-        _ => Err(CompilerDiagnostic {
+        _ => Err(Diagnostic {
             message: format!("Cannot map property type {} to Rust", ty),
             span: span.map(|s| s.to_source_location()).unwrap_or_default(),
             level: DiagnosticLevel::Error,

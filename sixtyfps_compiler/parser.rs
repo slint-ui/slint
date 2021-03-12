@@ -18,7 +18,7 @@ This module has different sub modules with the actual parser functions
 
 */
 
-use crate::diagnostics::{FileDiagnostics, SourceFile, Spanned};
+use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
 pub use smol_str::SmolStr;
 use std::convert::TryFrom;
 
@@ -506,23 +506,28 @@ mod parser_trait {
 #[doc(inline)]
 pub use parser_trait::*;
 
-pub struct DefaultParser {
+pub struct DefaultParser<'a> {
     builder: rowan::GreenNodeBuilder<'static>,
     tokens: Vec<Token>,
     cursor: usize,
-    diags: FileDiagnostics,
+    diags: &'a mut BuildDiagnostics,
+    source_file: SourceFile,
 }
 
-impl From<Vec<Token>> for DefaultParser {
-    fn from(tokens: Vec<Token>) -> Self {
-        Self { builder: Default::default(), tokens, cursor: 0, diags: Default::default() }
+impl<'a> DefaultParser<'a> {
+    fn from_tokens(tokens: Vec<Token>, diags: &'a mut BuildDiagnostics) -> Self {
+        Self {
+            builder: Default::default(),
+            tokens,
+            cursor: 0,
+            diags,
+            source_file: Default::default(),
+        }
     }
-}
 
-impl DefaultParser {
     /// Constructor that create a parser from the source code
-    pub fn new(source: &str) -> Self {
-        Self::from(crate::lexer::lex(&source))
+    pub fn new(source: &str, diags: &'a mut BuildDiagnostics) -> Self {
+        Self::from_tokens(crate::lexer::lex(&source), diags)
     }
 
     fn current_token(&self) -> Token {
@@ -537,7 +542,7 @@ impl DefaultParser {
     }
 }
 
-impl Parser for DefaultParser {
+impl Parser for DefaultParser<'_> {
     fn start_node_impl(
         &mut self,
         kind: SyntaxKind,
@@ -586,7 +591,14 @@ impl Parser for DefaultParser {
         {
             span.span = current_token.span;
         }
-        self.diags.push_error_with_span(e.into(), span);
+
+        self.diags.push_error_with_span(
+            e.into(),
+            crate::diagnostics::SourceLocation {
+                source_file: Some(self.source_file.clone()),
+                span,
+            },
+        );
     }
 
     type Checkpoint = rowan::Checkpoint;
@@ -808,33 +820,30 @@ pub fn normalize_identifier(ident: &str) -> String {
 pub fn parse(
     source: String,
     path: Option<&std::path::Path>,
-) -> (SyntaxNodeWithSourceFile, FileDiagnostics) {
-    let mut p = DefaultParser::new(&source);
-    document::parse_document(&mut p);
+    build_diagnostics: &mut BuildDiagnostics,
+) -> SyntaxNodeWithSourceFile {
+    let mut p = DefaultParser::new(&source, build_diagnostics);
     let source_file = if let Some(path) = path {
-        p.diags.current_path =
+        p.source_file =
             std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(path.to_path_buf(), source));
-        Some(p.diags.current_path.clone())
+        Some(p.source_file.clone())
     } else {
         None
     };
-    (
-        SyntaxNodeWithSourceFile { node: SyntaxNode::new_root(p.builder.finish()), source_file },
-        p.diags,
-    )
+    document::parse_document(&mut p);
+    SyntaxNodeWithSourceFile { node: SyntaxNode::new_root(p.builder.finish()), source_file }
 }
 
 pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
-) -> std::io::Result<(SyntaxNodeWithSourceFile, FileDiagnostics)> {
+    build_diagnostics: &mut BuildDiagnostics,
+) -> std::io::Result<SyntaxNodeWithSourceFile> {
     let source = std::fs::read_to_string(&path)?;
-
-    Ok(parse(source, Some(path.as_ref())))
+    Ok(parse(source, Some(path.as_ref()), build_diagnostics))
 }
 
-#[allow(dead_code)]
-pub fn parse_tokens(tokens: Vec<Token>) -> (SyntaxNode, FileDiagnostics) {
-    let mut p = DefaultParser::from(tokens);
+pub fn parse_tokens(tokens: Vec<Token>, diags: &mut BuildDiagnostics) -> SyntaxNode {
+    let mut p = DefaultParser::from_tokens(tokens, diags);
     document::parse_document(&mut p);
-    (SyntaxNode::new_root(p.builder.finish()), p.diags)
+    SyntaxNode::new_root(p.builder.finish())
 }

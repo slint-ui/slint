@@ -196,18 +196,20 @@ fn reload_document(
     let mut diag = BuildDiagnostics::default();
     spin_on::spin_on(document_cache.documents.load_file(&path_canon, path, content, &mut diag));
 
-    for file_diag in diag.into_iter() {
-        if file_diag.current_path.path().is_relative() {
+    let mut lsp_diags = HashMap::<Url, Vec<lsp_types::Diagnostic>>::new();
+
+    for d in diag.into_iter() {
+        if d.span.source_file.as_ref().unwrap().path().is_relative() {
             continue;
         }
-        let diagnostics = file_diag.inner.iter().map(|d| to_lsp_diag(d)).collect();
+        let uri = Url::from_file_path(d.span.source_file.as_ref().unwrap().path()).unwrap();
+        lsp_diags.entry(uri).or_default().push(to_lsp_diag(&d));
+    }
+
+    for (uri, diagnostics) in lsp_diags {
         connection.sender.send(Message::Notification(lsp_server::Notification::new(
             "textDocument/publishDiagnostics".into(),
-            PublishDiagnosticsParams {
-                uri: Url::from_file_path(file_diag.current_path.path()).unwrap(),
-                diagnostics,
-                version: None,
-            },
+            PublishDiagnosticsParams { uri, diagnostics, version: None },
         )))?;
     }
 

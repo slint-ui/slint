@@ -14,6 +14,7 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use expression_tree::NamedReference;
 use object_tree::{Element, ElementRc};
+use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::*;
@@ -620,11 +621,10 @@ pub async fn load<'id>(
     guard: generativity::Guard<'id>,
 ) -> (Result<Rc<ComponentDescription<'id>>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics)
 {
-    let (syntax_node, diag) = parser::parse(source, Some(path.as_path()));
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse(source, Some(path.as_path()), &mut diag);
     if diag.has_error() {
-        let mut d = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
-        d.add(diag);
-        return (Err(()), d);
+        return (Err(()), diag);
     }
     let (doc, diag) = compile_syntax_node(syntax_node, diag, compiler_config).await;
     if diag.has_error() {

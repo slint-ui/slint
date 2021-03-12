@@ -11,12 +11,12 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-#[derive(Debug, Clone)]
 /// Span represent an error location within a file.
 ///
 /// Currently, it is just an offset in byte within the file.
 ///
 /// When the `proc_macro_span` feature is enabled, it may also hold a proc_maco span.
+#[derive(Debug, Clone)]
 pub struct Span {
     pub offset: usize,
     #[cfg(feature = "proc_macro_span")]
@@ -108,14 +108,8 @@ pub type SourceFile = Rc<SourceFileInner>;
 
 #[derive(Debug, Clone, Default)]
 pub struct SourceLocation {
-    source_file: Option<SourceFile>,
-    span: Span,
-}
-
-impl From<SyntaxNodeWithSourceFile> for SourceLocation {
-    fn from(node: SyntaxNodeWithSourceFile) -> Self {
-        SourceLocation { span: node.span(), source_file: node.source_file }
-    }
+    pub source_file: Option<SourceFile>,
+    pub span: Span,
 }
 
 impl Spanned for SourceLocation {
@@ -161,39 +155,23 @@ impl From<DiagnosticLevel> for codemap_diagnostic::Level {
     }
 }
 
-#[derive(thiserror::Error, Default, Debug)]
-#[error("{message}")]
-pub struct CompilerDiagnostic {
+#[derive(Debug, Clone)]
+pub struct Diagnostic {
     pub message: String,
     pub span: SourceLocation,
     pub level: DiagnosticLevel,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum Diagnostic {
-    #[error(transparent)]
-    FileLoadError(#[from] std::io::Error),
-    #[error(transparent)]
-    CompilerDiagnostic(#[from] CompilerDiagnostic),
-}
-
 impl Diagnostic {
     /// Return the level for this diagnostic
     pub fn level(&self) -> DiagnosticLevel {
-        match self {
-            Diagnostic::CompilerDiagnostic(e) => e.level,
-            _ => DiagnosticLevel::Error,
-        }
+        self.level
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 0)
     pub fn line_column(&self) -> (usize, usize) {
-        let source_location = match self {
-            Diagnostic::CompilerDiagnostic(e) => &e.span,
-            _ => return (0, 0),
-        };
-        let offset = source_location.span.offset;
-        let line_offsets = match &source_location.source_file {
+        let offset = self.span.span.offset;
+        let line_offsets = match &self.span.source_file {
             None => return (0, 0),
             Some(sl) => sl.line_offsets(),
         };
@@ -210,16 +188,29 @@ impl Diagnostic {
     }
 }
 
-/// This structure holds all the diagnostics for a given files
-#[derive(Default, Debug)]
-pub struct FileDiagnostics {
-    /// List of diagnostics related to this file
-    pub inner: Vec<Diagnostic>,
-    /// file path
-    pub current_path: SourceFile,
+impl std::fmt::Display for Diagnostic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(sf) = self.span.source_file() {
+            let (line, _) = self.line_column();
+            write!(f, "{}:{}: {}", sf.path.display(), line, self.message)
+        } else {
+            write!(f, "{}", self.message)
+        }
+    }
 }
 
-impl IntoIterator for FileDiagnostics {
+#[derive(Default)]
+pub struct BuildDiagnostics {
+    inner: Vec<Diagnostic>,
+
+    /// This is the list of all loaded files (with or without diagnostic)
+    /// does not include the main file.
+    /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
+    /// (maybe in a compilation state that include the diagnostics?)
+    pub all_loaded_files: Vec<PathBuf>,
+}
+
+impl IntoIterator for BuildDiagnostics {
     type Item = Diagnostic;
     type IntoIter = <Vec<Diagnostic> as IntoIterator>::IntoIter;
     fn into_iter(self) -> Self::IntoIter {
@@ -227,23 +218,22 @@ impl IntoIterator for FileDiagnostics {
     }
 }
 
-impl FileDiagnostics {
+impl BuildDiagnostics {
     pub fn push_diagnostic_with_span(
         &mut self,
         message: String,
-        span: Span,
+        span: SourceLocation,
         level: DiagnosticLevel,
     ) {
-        let span = SourceLocation { source_file: Some(self.current_path.clone()), span };
-        self.inner.push(CompilerDiagnostic { message, span, level }.into());
+        self.inner.push(Diagnostic { message, span, level }.into());
     }
-    pub fn push_error_with_span(&mut self, message: String, span: Span) {
+    pub fn push_error_with_span(&mut self, message: String, span: SourceLocation) {
         self.push_diagnostic_with_span(message, span, DiagnosticLevel::Error)
     }
     pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
-        self.push_error_with_span(message, source.span());
+        self.push_error_with_span(message, source.to_source_location());
     }
-    pub fn push_compiler_error(&mut self, error: CompilerDiagnostic) {
+    pub fn push_compiler_error(&mut self, error: Diagnostic) {
         self.inner.push(error.into());
     }
 
@@ -258,17 +248,14 @@ impl FileDiagnostics {
                 "The property '{}' has been deprecated. Please use '{}' instead",
                 old_property, new_property
             ),
-            source.span(),
+            source.to_source_location(),
             crate::diagnostics::DiagnosticLevel::Warning,
         )
     }
 
     /// Return true if there is at least one compilation error for this file
     pub fn has_error(&self) -> bool {
-        self.inner.iter().any(|diag| match diag {
-            Diagnostic::FileLoadError(_) => true,
-            Diagnostic::CompilerDiagnostic(diag) => matches!(diag.level, DiagnosticLevel::Error),
-        })
+        self.inner.iter().any(|diag| diag.level == DiagnosticLevel::Error)
     }
 
     /// Return true if there are no diagnostics (warnings or errors); false otherwise.
@@ -280,6 +267,7 @@ impl FileDiagnostics {
     fn call_diagnostics<'a, Output>(
         self,
         output: &'a mut Output,
+        mut handle_no_source: Option<&mut dyn FnMut(Diagnostic)>,
         emitter_factory: impl for<'b> FnOnce(
             &'b mut Output,
             Option<&'b codemap::CodeMap>,
@@ -290,42 +278,43 @@ impl FileDiagnostics {
         }
 
         let mut codemap = codemap::CodeMap::new();
-        let internal_errors = self.current_path.source.is_none();
-        let file = codemap.add_file(
-            self.current_path.path.to_string_lossy().to_string(),
-            self.current_path.source.clone().unwrap_or_default(),
-        );
-        let file_span = file.span;
+        let mut codemap_files = HashMap::new();
 
         let diags: Vec<_> = self
             .inner
             .into_iter()
-            .map(|diagnostic| match diagnostic {
-                Diagnostic::CompilerDiagnostic(CompilerDiagnostic { message, span, level }) => {
-                    let spans = if !internal_errors && span.span.is_valid() {
-                        let s = codemap_diagnostic::SpanLabel {
-                            span: file_span
-                                .subspan(span.span.offset as u64, span.span.offset as u64),
-                            style: codemap_diagnostic::SpanStyle::Primary,
-                            label: None,
-                        };
-                        vec![s]
-                    } else {
-                        vec![]
-                    };
-                    codemap_diagnostic::Diagnostic {
-                        level: level.into(),
-                        message,
-                        code: None,
-                        spans,
+            .filter_map(|d| {
+                let spans = if let Some(sf) = &d.span.source_file {
+                    if let Some(ref mut handle_no_source) = handle_no_source {
+                        if sf.source.is_none() {
+                            handle_no_source(d);
+                            return None;
+                        }
                     }
-                }
-                Diagnostic::FileLoadError(err) => codemap_diagnostic::Diagnostic {
-                    level: codemap_diagnostic::Level::Error,
-                    message: err.to_string(),
+                    let path: String = sf.path.to_string_lossy().into();
+                    let file = codemap_files.entry(path).or_insert_with(|| {
+                        codemap.add_file(
+                            sf.path.to_string_lossy().into(),
+                            sf.source.clone().unwrap_or_default(),
+                        )
+                    });
+                    let file_span = file.span;
+                    let s = codemap_diagnostic::SpanLabel {
+                        span: file_span
+                            .subspan(d.span.span.offset as u64, d.span.span.offset as u64),
+                        style: codemap_diagnostic::SpanStyle::Primary,
+                        label: None,
+                    };
+                    vec![s]
+                } else {
+                    vec![]
+                };
+                Some(codemap_diagnostic::Diagnostic {
+                    level: d.level.into(),
+                    message: d.message,
                     code: None,
-                    spans: vec![],
-                },
+                    spans,
+                })
             })
             .collect();
 
@@ -336,7 +325,7 @@ impl FileDiagnostics {
     #[cfg(feature = "display-diagnostics")]
     /// Print the diagnostics on the console
     pub fn print(self) {
-        self.call_diagnostics(&mut (), |_, codemap| {
+        self.call_diagnostics(&mut (), None, |_, codemap| {
             codemap_diagnostic::Emitter::stderr(codemap_diagnostic::ColorConfig::Always, codemap)
         });
     }
@@ -345,7 +334,7 @@ impl FileDiagnostics {
     /// Print into a string
     pub fn diagnostics_as_string(self) -> String {
         let mut output = Vec::new();
-        self.call_diagnostics(&mut output, |output, codemap| {
+        self.call_diagnostics(&mut output, None, |output, codemap| {
             codemap_diagnostic::Emitter::vec(output, codemap)
         });
 
@@ -354,96 +343,62 @@ impl FileDiagnostics {
         )
     }
 
-    #[cfg(feature = "proc_macro_span")]
+    #[cfg(all(feature = "proc_macro_span", feature = "display-diagnostics"))]
     /// Will convert the diagnostics that only have offsets to the actual proc_macro::Span
-    pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
-        for d in &mut self.inner {
-            if let Diagnostic::CompilerDiagnostic(d) = d {
-                if d.span.span.span.is_none() {
+    pub fn report_macro_diagnostic(
+        self,
+        span_map: &[crate::parser::Token],
+    ) -> proc_macro::TokenStream {
+        let mut result = proc_macro::TokenStream::default();
+        let mut needs_error = self.has_error();
+        self.call_diagnostics(
+            &mut (),
+            Some(&mut |diag| {
+                let span = diag.span.span.span.clone().or_else(|| {
                     //let pos =
                     //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
                     //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);
                     let mut offset = 0;
-                    d.span.span.span = span_map.iter().find_map(|t| {
-                        if d.span.span.offset <= offset {
+                    span_map.iter().find_map(|t| {
+                        if diag.span.span.offset <= offset {
                             t.span
                         } else {
                             offset += t.text.len();
                             None
                         }
-                    });
+                    })
+                });
+                let message = &diag.message;
+                match diag.level {
+                    DiagnosticLevel::Error => {
+                        needs_error = false;
+                        result.extend(proc_macro::TokenStream::from(if let Some(span) = span {
+                            quote::quote_spanned!(span.into() => compile_error!{ #message })
+                        } else {
+                            quote::quote!(compile_error! { #message })
+                        }));
+                    }
+                    // FIXME: find a way to report warnings.
+                    DiagnosticLevel::Warning => (),
                 }
-            }
+            }),
+            |_, codemap| {
+                codemap_diagnostic::Emitter::stderr(
+                    codemap_diagnostic::ColorConfig::Always,
+                    codemap,
+                )
+            },
+        );
+        if needs_error {
+            result.extend(proc_macro::TokenStream::from(quote::quote!(
+                compile_error! { "Error occured" }
+            )))
         }
+        result
     }
 
     pub fn to_string_vec(&self) -> Vec<String> {
         self.inner.iter().map(|d| d.to_string()).collect()
-    }
-
-    pub fn new_from_error(path: std::path::PathBuf, err: std::io::Error) -> Self {
-        Self { inner: vec![err.into()], current_path: SourceFileInner::from_path(path) }
-    }
-}
-
-#[cfg(feature = "proc_macro_span")]
-use quote::quote;
-
-use crate::parser::SyntaxNodeWithSourceFile;
-
-#[cfg(feature = "proc_macro_span")]
-impl quote::ToTokens for FileDiagnostics {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let diags: Vec<_> = self
-            .inner
-            .iter()
-            .filter_map(|diag| match diag {
-                Diagnostic::CompilerDiagnostic(CompilerDiagnostic {
-                    level,
-                    message,
-                    span,
-                }) => {
-                    match level {
-                        DiagnosticLevel::Error => {
-                            if let Some(span) = span.span.span {
-                                Some(quote::quote_spanned!(span.into() => compile_error!{ #message }))
-                            } else {
-                                Some(quote!(compile_error! { #message }))
-                            }
-                        }
-                        // FIXME: find a way to report warnings.
-                        DiagnosticLevel::Warning => None
-                    }
-                },
-                _ => None,
-            })
-            .collect();
-        quote!(#(#diags)*).to_tokens(tokens);
-    }
-}
-
-#[derive(Default)]
-pub struct BuildDiagnostics {
-    per_input_file_diagnostics: HashMap<PathBuf, FileDiagnostics>,
-    internal_errors: Option<FileDiagnostics>,
-}
-
-impl BuildDiagnostics {
-    pub fn add(&mut self, diagnostics: FileDiagnostics) {
-        match self.per_input_file_diagnostics.get_mut(&diagnostics.current_path.path) {
-            Some(existing_diags) => existing_diags.inner.extend(diagnostics.inner),
-            None => {
-                self.per_input_file_diagnostics
-                    .insert(diagnostics.current_path.path.clone(), diagnostics);
-            }
-        }
-    }
-
-    fn file_diagnostics(&mut self, path: &Path) -> &mut FileDiagnostics {
-        self.per_input_file_diagnostics.entry(path.into()).or_insert_with(|| FileDiagnostics {
-            current_path: Rc::new(SourceFileInner { path: path.into(), ..Default::default() }),
-            ..Default::default()
-        })
     }
 
     pub fn push_diagnostic(
@@ -452,84 +407,15 @@ impl BuildDiagnostics {
         source: &dyn Spanned,
         level: DiagnosticLevel,
     ) {
-        match source.source_file() {
-            Some(source_file) => self
-                .file_diagnostics(source_file.path())
-                .push_diagnostic_with_span(message, source.span(), level),
-            None => self.push_internal_error(
-                CompilerDiagnostic { message, span: source.to_source_location(), level }.into(),
-            ),
-        }
-    }
-
-    pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
-        self.push_diagnostic(message, source, DiagnosticLevel::Error)
+        self.push_diagnostic_with_span(message, source.to_source_location(), level)
     }
 
     pub fn push_internal_error(&mut self, err: Diagnostic) {
-        self.internal_errors
-            .get_or_insert_with(|| FileDiagnostics {
-                current_path: Rc::new(SourceFileInner {
-                    path: "[internal error]".into(),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            })
-            .inner
-            .push(err)
+        self.inner.push(err)
     }
 
-    pub fn push_property_deprecation_warning(
-        &mut self,
-        old_property: &str,
-        new_property: &str,
-        source: &impl Spanned,
-    ) {
-        self.file_diagnostics(
-            source.source_file().expect("deprecations cannot be created as internal errors").path(),
-        )
-        .push_property_deprecation_warning(old_property, new_property, source);
-    }
-
-    fn iter(&self) -> impl Iterator<Item = &FileDiagnostics> {
-        self.per_input_file_diagnostics.values().chain(self.internal_errors.iter())
-    }
-
-    pub fn into_iter(self) -> impl Iterator<Item = FileDiagnostics> {
-        self.per_input_file_diagnostics
-            .into_iter()
-            .map(|(_, diag)| diag)
-            .chain(self.internal_errors.into_iter())
-    }
-
-    #[cfg(feature = "proc_macro_span")]
-    fn iter_mut(&mut self) -> impl Iterator<Item = &mut FileDiagnostics> {
-        self.per_input_file_diagnostics.values_mut().chain(self.internal_errors.iter_mut())
-    }
-
-    pub fn has_error(&self) -> bool {
-        self.iter().any(|diag| diag.has_error())
-    }
-
-    pub fn to_string_vec(&self) -> Vec<String> {
-        self.iter()
-            .flat_map(|diag| {
-                diag.to_string_vec()
-                    .iter()
-                    .map(|err| format!("{}: {}", diag.current_path.path().to_string_lossy(), err))
-                    .collect::<Vec<_>>()
-            })
-            .collect()
-    }
-
-    #[cfg(feature = "display-diagnostics")]
-    pub fn print(self) {
-        self.into_iter().for_each(|diag| diag.print());
-    }
-
-    #[cfg(feature = "display-diagnostics")]
-    pub fn diagnostics_as_string(self) -> String {
-        self.into_iter().map(|diag| diag.diagnostics_as_string()).collect::<Vec<_>>().join("\n")
+    pub fn iter(&self) -> impl Iterator<Item = &Diagnostic> {
+        self.inner.iter()
     }
 
     #[cfg(feature = "display-diagnostics")]
@@ -547,24 +433,6 @@ impl BuildDiagnostics {
         self.print();
         if has_error {
             std::process::exit(-1);
-        }
-    }
-
-    #[cfg(feature = "proc_macro_span")]
-    pub fn map_offsets_to_span(&mut self, span_map: &[crate::parser::Token]) {
-        self.iter_mut().for_each(|diag| diag.map_offsets_to_span(span_map))
-    }
-
-    /// Return an iterator containing all the files
-    pub fn files(&self) -> impl Iterator<Item = &'_ std::path::Path> + '_ {
-        self.per_input_file_diagnostics.keys().map(|x| x.as_path())
-    }
-}
-
-impl Extend<FileDiagnostics> for BuildDiagnostics {
-    fn extend<T: IntoIterator<Item = FileDiagnostics>>(&mut self, iter: T) {
-        for diag in iter {
-            self.add(diag)
         }
     }
 }

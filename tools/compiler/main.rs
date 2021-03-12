@@ -7,6 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::*;
 use std::io::Write;
 use structopt::StructOpt;
@@ -41,7 +42,8 @@ struct Cli {
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
-    let (syntax_node, diag) = parser::parse_file(&args.path)?;
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse_file(&args.path, &mut diag)?;
     //println!("{:#?}", syntax_node);
     if diag.has_error() {
         diag.print();
@@ -67,7 +69,7 @@ fn main() -> std::io::Result<()> {
     if let Some(depfile) = args.depfile {
         let mut f = std::fs::File::create(depfile)?;
         write!(f, "{}:", args.output.display())?;
-        for x in diag.files() {
+        for x in &diag.all_loaded_files {
             if x.is_absolute() {
                 write!(f, " {}", x.display())?;
             }

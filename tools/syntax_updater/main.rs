@@ -20,6 +20,7 @@ LICENSE END */
 //! cargo run --bin syntax_updater -- -i  **/*.md
 //! ````
 
+use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::parser::{SyntaxKind, SyntaxNode, SyntaxNodeEx};
 use std::io::Write;
 use structopt::StructOpt;
@@ -92,7 +93,8 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
         let code = &source_slice[..idx - 1];
         source_slice = &source_slice[idx - 1..];
 
-        let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(code.to_owned(), None);
+        let mut diag = BuildDiagnostics::default();
+        let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.node.text_range().end().into();
         visit_node(syntax_node.node, &mut file, &mut State::default())?;
         if diag.has_error() {
@@ -120,7 +122,8 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
         let code = &source_slice[..code_end];
         source_slice = &source_slice[code_end..];
 
-        let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(code.to_owned(), None);
+        let mut diag = BuildDiagnostics::default();
+        let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.node.text_range().end().into();
         visit_node(syntax_node.node, &mut file, &mut State::default())?;
         if diag.has_error() {
@@ -142,7 +145,8 @@ fn process_file(
         _ => {}
     }
 
-    let (syntax_node, diag) = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path));
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     visit_node(syntax_node.node, &mut file, &mut State::default())?;
     if diag.has_error() {
