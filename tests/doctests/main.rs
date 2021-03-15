@@ -10,28 +10,27 @@ LICENSE END */
 
 #[cfg(test)]
 fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let config = sixtyfps_compilerlib::CompilerConfiguration::new(
-        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-    );
+    let config = sixtyfps_interpreter::CompilerConfiguration::new();
+    let (component, diagnostics) =
+        spin_on::spin_on(sixtyfps_interpreter::ComponentDefinition::from_source(
+            snippet.into(),
+            Default::default(),
+            config,
+        ));
 
-    let (component, warnings) = match spin_on::spin_on(sixtyfps_interpreter::load(
-        snippet.into(),
-        Default::default(),
-        config,
-    )) {
-        (Ok(c), diagnostics) => (c, diagnostics),
-        (Err(()), errors) => {
-            let vec = errors.to_string_vec();
-            errors.print();
-            return Err(vec.join("\n").into());
+    sixtyfps_interpreter::print_diagnostics(&diagnostics);
+
+    for d in diagnostics {
+        if d.level() == sixtyfps_interpreter::DiagnosticLevel::Error {
+            return Err(d.message().to_owned().into());
         }
-    };
+    }
 
-    warnings.print();
-
-    component.create();
-
-    Ok(())
+    if component.is_none() {
+        Err(String::from("Failure").into())
+    } else {
+        Ok(())
+    }
 }
 
 include!(env!("TEST_FUNCTIONS"));
