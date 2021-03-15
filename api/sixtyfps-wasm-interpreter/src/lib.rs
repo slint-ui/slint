@@ -79,10 +79,9 @@ pub async fn compile_from_string(
             let array = js_sys::Array::new();
             for d in errors.into_iter() {
                 let filename = d
-                    .span
-                    .source_file
+                    .source_file()
                     .as_ref()
-                    .map_or(String::new(), |sf| sf.path().to_string_lossy().into());
+                    .map_or(String::new(), |sf| sf.to_string_lossy().into());
 
                 let filename_js = JsValue::from_str(&filename);
 
@@ -94,7 +93,7 @@ pub async fn compile_from_string(
                 let (line, column) = d.line_column();
                 write!(&mut error_as_string, "{}:{}:{}", filename, line, d).unwrap();
                 let error_obj = js_sys::Object::new();
-                js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message))?;
+                js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message()))?;
                 js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64))?;
                 js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64))?;
                 js_sys::Reflect::set(&error_obj, &file_key, &filename_js)?;
