@@ -18,6 +18,9 @@ use std::rc::Rc;
 
 use crate::eval;
 
+#[doc(inline)]
+pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
+
 /// This is a dynamically typed value used in the SixtyFPS interpreter.
 /// It can hold a value of different types, and you should use the
 /// [`From`] or [`TryInto`] traits to access the value.
@@ -183,26 +186,23 @@ impl ComponentDefinition {
     pub async fn from_path<P: AsRef<Path>>(
         path: P,
         config: CompilerConfiguration,
-    ) -> Result<ComponentDefinition, ComponentLoadError> {
-        let (c, diag) = crate::load(
-            std::fs::read_to_string(&path).map_err(|_| todo!())?,
-            path.as_ref().into(),
-            config.config,
-        )
-        .await;
-        let inner = c.map_err(|_| ComponentLoadError(diag))?;
-        Ok(Self { inner })
+    ) -> (Option<Self>, Vec<Diagnostic>) {
+        let path = path.as_ref();
+        let source = match sixtyfps_compilerlib::diagnostics::load_from_path(path) {
+            Ok(s) => s,
+            Err(d) => return (None, vec![d]),
+        };
+
+        let (c, diag) = crate::load(source, path.into(), config.config).await;
+        (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
     }
     /// Compile some .60 code into a ComponentDefinition
     pub async fn from_string(
         source_code: &str,
         config: CompilerConfiguration,
-    ) -> Result<ComponentDefinition, ComponentLoadError> {
-        let inner = crate::load(source_code.into(), Default::default(), config.config)
-            .await
-            .0
-            .map_err(|_| todo!())?;
-        Ok(Self { inner })
+    ) -> (Option<Self>, Vec<Diagnostic>) {
+        let (c, diag) = crate::load(source_code.into(), Default::default(), config.config).await;
+        (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
     }
 
     /// Instantiate the component
@@ -226,11 +226,6 @@ impl ComponentDefinition {
         self.inner.id()
     }
 }
-
-/// Error returned if constructing a [`ComponentDefinition`] fails
-/// FIXME: wrap that instead of being pub
-#[derive(derive_more::Deref)]
-pub struct ComponentLoadError(pub sixtyfps_compilerlib::diagnostics::BuildDiagnostics);
 
 /// This represent an instance of a dynamic component
 /// FIXME: Clone?  (same problem as for the generated component that can be cloned but maybe not such a good idea)
