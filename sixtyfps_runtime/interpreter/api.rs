@@ -177,12 +177,17 @@ impl TryInto<Vec<Value>> for Value {
 ///
 /// It can be constructed from a .60 file using the [`Self::from_path`] or [`Self::from_string`] functions.
 /// And then it can be instentiated with the [`Self::create`] function
+#[derive(Clone)]
 pub struct ComponentDefinition {
     inner: Rc<crate::dynamic_component::ComponentDescription<'static>>,
 }
 
 impl ComponentDefinition {
     /// Compile a .60 file into a ComponentDefinition
+    ///
+    /// The first element of the returned tuple is going to be the compiled
+    /// ComponentDefinition if there was no errors. This function also return
+    /// a vector if diagnostics with errors and/or warnings
     pub async fn from_path<P: AsRef<Path>>(
         path: P,
         config: CompilerConfiguration,
@@ -197,6 +202,10 @@ impl ComponentDefinition {
         (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
     }
     /// Compile some .60 code into a ComponentDefinition
+    ///
+    /// The first element of the returned tuple is going to be the compiled
+    /// ComponentDefinition if there was no errors. This function also return
+    /// a vector if diagnostics with errors and/or warnings
     pub async fn from_string(
         source_code: &str,
         config: CompilerConfiguration,
@@ -206,6 +215,8 @@ impl ComponentDefinition {
     }
 
     /// Instantiate the component
+    ///
+    /// FIXME! wasm canvas id?
     pub fn create(&self) -> ComponentInstance {
         ComponentInstance {
             inner: self.inner.clone().create(
@@ -332,7 +343,7 @@ pub enum SetPropertyError {
 
 /// Error returned by [`ComponentInstance::call_callback`]
 pub enum CallCallbackError {
-    //todo
+    //TODO
 }
 
 /// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
