@@ -75,12 +75,6 @@ pub struct CompilerConfiguration {
     /// the name of the style. (eg: "native")
     pub style: Option<String>,
 
-    /// Fallback callback to resolve a relative path to an absolute path for file imports.
-    ///
-    /// The callback should return the absolute path for the file specified or None if no
-    /// resolution is possible.
-    pub resolve_import_fallback: Option<Box<dyn Fn(String) -> Option<String>>>,
-
     /// Callback to load import files which is called if the file could not be found
     ///
     /// The callback should open the file specified by the given file name and
@@ -111,7 +105,6 @@ impl CompilerConfiguration {
             embed_resources,
             include_paths: Default::default(),
             style: Default::default(),
-            resolve_import_fallback: Default::default(),
             open_import_fallback: Default::default(),
         }
     }

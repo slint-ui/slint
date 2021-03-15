@@ -619,13 +619,10 @@ impl CompilerConfiguration {
             )
                 -> core::pin::Pin<Box<dyn core::future::Future<Output = std::io::Result<String>>>>
             + 'static,
-        // FIXME: remove that argument
-        resolve: impl Fn(String) -> Option<String> + 'static,
     ) -> Self {
         let mut config = self.config;
         config.open_import_fallback =
             Some(Box::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
-        config.resolve_import_fallback = Some(Box::new(resolve));
         Self { config }
     }
 }

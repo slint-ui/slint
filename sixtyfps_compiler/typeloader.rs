@@ -341,23 +341,12 @@ impl<'a> TypeLoader<'a> {
             .or_else(|| self.builtin_library.and_then(|lib| lib.try_open(file_to_import)))
             .or_else(|| {
                 self.compiler_config
-                    .resolve_import_fallback
+                    .open_import_fallback
                     .as_ref()
-                    .map_or_else(
-                        || Some(file_to_import.to_owned()),
-                        |resolve_import_callback| {
-                            resolve_import_callback(file_to_import.to_owned())
-                        },
-                    )
-                    .and_then(|resolved_absolute_path| {
-                        self.compiler_config
-                            .open_import_fallback
-                            .as_ref()
-                            .map(|cb| cb(resolved_absolute_path.clone()))
-                            .map(|future| OpenFile {
-                                path: resolved_absolute_path.into(),
-                                source_code_future: future,
-                            })
+                    .map(|cb| cb(file_to_import.to_owned()))
+                    .map(|future| OpenFile {
+                        path: file_to_import.into(),
+                        source_code_future: future,
                     })
             })
     }
