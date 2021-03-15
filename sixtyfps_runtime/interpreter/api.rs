@@ -216,32 +216,37 @@ impl ComponentDefinition {
     }
 
     /// Instantiate the component
-    ///
-    /// FIXME! wasm canvas id?
     pub fn create(&self) -> ComponentInstance {
         ComponentInstance {
             inner: self.inner.clone().create(
                 #[cfg(target_arch = "wasm32")]
-                todo!(),
+                "canvas",
             ),
         }
     }
 
+    /// Instantiate the component for wasm using the given canvas id
+    #[cfg(target_arch = "wasm32")]
+    pub fn create_with_canvas_id(&self, canvas_id: &str) -> ComponentInstance {
+        ComponentInstance { inner: self.inner.clone().create(canvas_id) }
+    }
+
     /// List of publicly declared properties or callback.
-    /// FIXME: this expose `sixtyfps_compilerlib::Type`  (should it perhaps return an iterator instead?)
+    ///
+    /// This is internal because it exposes the `Type` from compilerlib.
+    /// In the future this should probably return an iterator instead.
+    #[doc(hidden)]
     pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::langtype::Type> {
         self.inner.properties()
     }
 
     /// The name of this Component as written in the .60 file
-    pub fn id(&self) -> &str {
+    pub fn name(&self) -> &str {
         self.inner.id()
     }
 }
 
 /// This represent an instance of a dynamic component
-/// FIXME: Clone?  (same problem as for the generated component that can be cloned but maybe not such a good idea)
-#[derive(Clone)]
 pub struct ComponentInstance {
     inner: vtable::VRc<
         sixtyfps_corelib::component::ComponentVTable,
@@ -251,13 +256,13 @@ pub struct ComponentInstance {
 
 impl ComponentInstance {
     /// Return the value for a public property of this component
-    pub fn get_property(&self, name: &str) -> Result<Value, NoSuchPropertyError> {
+    pub fn get_property(&self, name: &str) -> Result<Value, GetPropertyError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
             .get_property(comp.borrow(), name)
             .map(|v| Value(v))
-            .map_err(|()| NoSuchPropertyError)
+            .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
     /// Return the value for a public property of this component
@@ -269,14 +274,13 @@ impl ComponentInstance {
             .map_err(|()| todo!("set_property don't return the right error type"))
     }
 
-    /// FIXME: error type.
-    /// FIXME: what to do if the returned value is not the right type (currently! panic in the eval)
-    /// FIXME: name: should it be called on_callback?
-    pub fn set_callback_handler(
+    /// Set a handler for the callback with the given name. A callback with that
+    /// name must be defined in the document otherwise an error will be returned.
+    pub fn set_callback(
         &self,
         name: &str,
         callback: impl Fn(&[Value]) -> Value + 'static,
-    ) -> Result<(), NoSuchPropertyError> {
+    ) -> Result<(), SetCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
@@ -289,7 +293,7 @@ impl ComponentInstance {
                     callback(&args).0
                 }),
             )
-            .map_err(|()| NoSuchPropertyError)
+            .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
     /// Call the given callback with the arguments
@@ -327,11 +331,54 @@ impl ComponentInstance {
         crate::run_event_loop();
         self.hide();
     }
+
+    /// Clone this `ComponentInstance`.
+    ///
+    /// A `ComponentInstance` is in fact a handle to a reference counted instance.
+    /// This function is semanticallt the same as the one from `Clone::clone`, but
+    /// Clone is not implemented because of the danger of circular reference:
+    /// If you want to use this instance in a callback, you should capture a weak
+    /// reference given by [`Self::as_weak`].
+    pub fn clone_strong(&self) -> Self {
+        Self { inner: self.inner.clone() }
+    }
+
+    /// Create a weak pointer to this component
+    pub fn as_weak(&self) -> WeakComponentInstance {
+        WeakComponentInstance { inner: vtable::VRc::downgrade(&self.inner) }
+    }
 }
 
-/// Error returned by [`ComponentInstance::get_property`] if the component does not have that property
+/// A Weak references to a dynamic SixtyFPS components.
+#[derive(Clone)]
+pub struct WeakComponentInstance {
+    inner: vtable::VWeak<
+        sixtyfps_corelib::component::ComponentVTable,
+        crate::dynamic_component::ErasedComponentBox,
+    >,
+}
+
+impl WeakComponentInstance {
+    /// Returns a new strongly referenced component if some other instance still
+    /// holds a strong reference. Otherwise, returns None.
+    pub fn upgrade(&self) -> Option<ComponentInstance> {
+        self.inner.upgrade().map(|inner| ComponentInstance { inner })
+    }
+
+    /// Convenience function that returns a new stronlyg referenced component if
+    /// some other instance still holds a strong reference. Otherwise, this function
+    /// panics.
+    pub fn unwrap(&self) -> ComponentInstance {
+        self.upgrade().unwrap()
+    }
+}
+
+/// Error returned by [`ComponentInstance::get_property`]
 #[derive(Debug)]
-pub struct NoSuchPropertyError;
+pub enum GetPropertyError {
+    /// There is no property with the given name
+    NoSuchProperty,
+}
 
 /// Error returned by [`ComponentInstance::set_property`]
 #[derive(Debug)]
@@ -342,9 +389,17 @@ pub enum SetPropertyError {
     WrongType,
 }
 
+/// Error returned by [`ComponentInstance::set_callback`]
+#[derive(Debug)]
+pub enum SetCallbackError {
+    /// There is no callback with the given name
+    NoSuchCallback,
+}
+
 /// Error returned by [`ComponentInstance::call_callback`]
 pub enum CallCallbackError {
-    //TODO
+    /// There is no callback with the given name
+    NoSuchCallback,
 }
 
 /// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
@@ -375,5 +430,18 @@ impl CompilerConfiguration {
         let mut config = self.config;
         config.style = Some(style);
         Self { config }
+    }
+
+    /// Create a new configuration that will use the provided callback for loading.
+    pub fn with_file_loader(
+        _file_loader_fallback: Box<
+            dyn Fn(
+                &Path,
+            ) -> core::pin::Pin<
+                Box<dyn core::future::Future<Output = std::io::Result<String>>>,
+            >,
+        >,
+    ) -> Self {
+        todo!();
     }
 }
