@@ -7,6 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use crate::api::Struct;
 use crate::dynamic_component::InstanceRef;
 use core::convert::TryInto;
 use core::iter::FromIterator;
@@ -122,7 +123,7 @@ pub enum Value {
     /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
     Model(ModelPtr),
     /// An object
-    Object(HashMap<String, Value>),
+    Struct(Struct),
     /// Corresespond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
     Brush(Brush),
     /// The elements of a path
@@ -174,7 +175,7 @@ declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize]
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Image => [ImageReference] );
-declare_value_conversion!(Object => [HashMap<String, Value>] );
+declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
@@ -184,19 +185,19 @@ macro_rules! declare_value_struct_conversion {
     (struct $name:path { $($field:ident),* $(,)? }) => {
         impl From<$name> for Value {
             fn from($name { $($field),* }: $name) -> Self {
-                let mut hm = HashMap::new();
-                $(hm.insert(stringify!($field).into(), $field.into());)*
-                Value::Object(hm)
+                let mut struct_ = Struct::default();
+                $(struct_.set_property(stringify!($field).into(), crate::api::Value($field.into()));)*
+                Value::Struct(struct_)
             }
         }
         impl TryInto<$name> for Value {
             type Error = ();
             fn try_into(self) -> Result<$name, ()> {
                 match self {
-                    Self::Object(x) => {
+                    Self::Struct(x) => {
                         type Ty = $name;
                         Ok(Ty {
-                            $($field: x.get(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?),*
+                            $($field: x.get_property(stringify!($field)).ok_or(())?.0.clone().try_into().map_err(|_|())?),*
                         })
                     }
                     _ => Err(()),
@@ -381,8 +382,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             local_context.function_arguments[*index].clone()
         }
         Expression::ObjectAccess { base, name } => {
-            if let Value::Object(mut o) = eval_expression(base, local_context) {
-                o.remove(name).unwrap_or(Value::Void)
+            if let Value::Struct(o) = eval_expression(base, local_context) {
+                o.get_property(name).map_or(Value::Void, |public_value| public_value.0)
             } else {
                 Value::Void
             }
@@ -613,9 +614,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                         ("height".to_string(), Value::Number(size.height as f64)),
                     ]
                     .iter()
-                    .cloned()
-                    .collect();
-                    Value::Object(values)
+                    .map(|(name, value)| (name.clone(), crate::api::Value(value.clone()))).collect();
+                    Value::Struct(values)
                 } else {
                     panic!("internal error: argument to ImplicitItemWidth must be an element")
                 }
@@ -684,10 +684,10 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::Array { values, .. } => Value::Array(
             values.iter().map(|e| eval_expression(e, local_context)).collect(),
         ),
-        Expression::Object { values, .. } => Value::Object(
+        Expression::Object { values, .. } => Value::Struct(
             values
                 .iter()
-                .map(|(k, v)| (k.clone(), eval_expression(v, local_context)))
+                .map(|(k, v)| (k.clone(), crate::api::Value(eval_expression(v, local_context))))
                 .collect(),
         ),
         Expression::PathElements { elements } => {
@@ -789,10 +789,11 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
             }
         }
         Expression::ObjectAccess { base, name } => {
-            if let Value::Object(mut o) = eval_expression(base, local_context) {
-                let r = o.get_mut(name).unwrap();
-                *r = if op == '=' { rhs } else { eval(std::mem::take(r)) };
-                eval_assignement(base, '=', Value::Object(o), local_context)
+            if let Value::Struct(mut o) = eval_expression(base, local_context) {
+                let mut r = o.get_property(name).unwrap().0;
+                r = if op == '=' { rhs } else { eval(std::mem::take(&mut r)) };
+                o.set_property(name.to_owned(), crate::api::Value(r));
+                eval_assignement(base, '=', Value::Struct(o), local_context)
             }
         }
         Expression::RepeaterModelReference { element } => {

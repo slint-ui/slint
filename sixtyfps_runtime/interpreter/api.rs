@@ -33,7 +33,7 @@ pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 /// assert_eq!(v.try_into(), Ok(100u32));
 /// ```
 #[derive(Clone, PartialEq, Debug, Default)]
-pub struct Value(pub(crate) eval::Value);
+pub struct Value(pub eval::Value); // FIXME: Make inner pub(crate) once everything is ported
 
 /// A dummy structure that can be converted to and from [`Value`].
 ///
@@ -94,6 +94,7 @@ pub_value_conversion!(
 
 // TODO! model
 
+#[derive(Clone, PartialEq, Debug, Default)]
 /// This type represent a runtime instance of structure in `.60`.
 ///
 /// This can either be an instance of a name structure introduced
@@ -136,14 +137,14 @@ impl Struct {
 
 impl From<Struct> for Value {
     fn from(s: Struct) -> Self {
-        Self(eval::Value::Object(s.0))
+        Self(eval::Value::Struct(s))
     }
 }
 impl TryInto<Struct> for Value {
     type Error = Value;
     fn try_into(self) -> Result<Struct, Value> {
-        if let eval::Value::Object(o) = self.0 {
-            Ok(Struct(o))
+        if let eval::Value::Struct(o) = self.0 {
+            Ok(o)
         } else {
             Err(self)
         }

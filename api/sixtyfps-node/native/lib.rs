@@ -210,18 +210,18 @@ fn to_eval_value<'cx>(
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
         Type::Object { fields, .. } => {
             let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
-            Ok(Value::Object(
+            Ok(Value::Struct(
                 fields
                     .iter()
                     .map(|(pro_name, pro_ty)| {
                         Ok((
                             pro_name.clone(),
-                            to_eval_value(
+                            sixtyfps_interpreter::api::Value(to_eval_value(
                                 obj.get(cx, pro_name.as_str())?,
                                 pro_ty.clone(),
                                 cx,
                                 persistent_context,
-                            )?,
+                            )?),
                         ))
                     })
                     .collect::<Result<_, _>>()?,
@@ -268,11 +268,11 @@ fn to_js_value<'cx>(
             }
             js_array.as_value(cx)
         }
-        Value::Object(o) => {
+        Value::Struct(o) => {
             let js_object = JsObject::new(cx);
-            for (k, e) in o.into_iter() {
-                let v = to_js_value(e, cx)?;
-                js_object.set(cx, k.as_str(), v)?;
+            for (k, e) in o.iter() {
+                let v = to_js_value(e.0, cx)?;
+                js_object.set(cx, k, v)?;
             }
             js_object.as_value(cx)
         }
