@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use std::collections::HashMap;
+
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -300,7 +300,7 @@ impl BuildDiagnostics {
         }
 
         let mut codemap = codemap::CodeMap::new();
-        let mut codemap_files = HashMap::new();
+        let mut codemap_files = std::collections::HashMap::new();
 
         let diags: Vec<_> = self
             .inner

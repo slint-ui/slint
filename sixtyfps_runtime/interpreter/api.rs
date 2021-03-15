@@ -411,7 +411,7 @@ impl ComponentDefinition {
         ComponentInstance {
             inner: self.inner.clone().create(
                 #[cfg(target_arch = "wasm32")]
-                "canvas",
+                "canvas".into(),
             ),
         }
     }
@@ -419,7 +419,7 @@ impl ComponentDefinition {
     /// Instantiate the component for wasm using the given canvas id
     #[cfg(target_arch = "wasm32")]
     pub fn create_with_canvas_id(&self, canvas_id: &str) -> ComponentInstance {
-        ComponentInstance { inner: self.inner.clone().create(canvas_id) }
+        ComponentInstance { inner: self.inner.clone().create(canvas_id.into()) }
     }
 
     /// List of publicly declared properties or callback.
