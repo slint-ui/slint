@@ -66,6 +66,8 @@ fn process_diagnostics(
 ) -> std::io::Result<bool> {
     let mut success = true;
 
+    let path = cannonical(path);
+
     let mut diags = compile_diagnostics
         .iter()
         .filter(|d| &cannonical(d.source_file().unwrap()) == path)
