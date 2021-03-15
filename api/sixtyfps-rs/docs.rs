@@ -55,7 +55,7 @@ pub mod layouting {
 pub mod generated_code {
 
     use crate::re_exports;
-    use crate::IntoWeak;
+    use crate::ComponentHandle;
     use crate::Weak;
 
     /// This an example of the API that is generated for a component in `.60` design markup. This may help you understand
@@ -76,23 +76,7 @@ pub mod generated_code {
         pub fn new() -> Self {
             unimplemented!()
         }
-        /// Marks the window of this component to be shown on the screen. This registers
-        /// the window with the windowing system. In order to react to events from the windowing system,
-        /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
-        /// using [`crate::run_event_loop`].
-        pub fn show(&self) {
-            unimplemented!()
-        }
-        /// Marks the window of this component to be hidden on the screen. This de-registers
-        /// the window from the windowing system and it will not receive any further events.
-        pub fn hide(&self) {
-            unimplemented!()
-        }
-        /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
-        /// and [`Self::hide`].
-        pub fn run(&self) {
-            unimplemented!()
-        }
+
         /// A getter is generated for each property declared at the root of the component.
         /// In this case, this is the getter that returns the value of the `counter`
         /// property declared in the `.60` design markup.
@@ -117,7 +101,7 @@ pub mod generated_code {
         /// is generated. This is the function that registers the function f as callback when the
         /// callback `hello` is emitted. In order to access
         /// the component in the callback, you'd typically capture a weak reference obtained using
-        /// [`IntoWeak::as_weak`]
+        /// [`ComponentHandle::as_weak`]
         /// and then upgrade it to a strong reference when the callback is run:
         /// ```ignore
         ///     let sample = SampleComponent::new();
@@ -130,14 +114,42 @@ pub mod generated_code {
         pub fn on_hello(&self, f: impl Fn() + 'static) {}
     }
 
-    impl IntoWeak for SampleComponent {
+    impl ComponentHandle for SampleComponent {
         #[doc(hidden)]
         type Inner = SampleComponent;
+
+        /// Returns a new weak pointer.
         fn as_weak(&self) -> Weak<Self> {
             unimplemented!()
         }
+
+        /// Returns a clone of this handle that's a strong reference.
+        fn clone_strong(&self) -> Self {
+            unimplemented!();
+        }
+
         #[doc(hidden)]
         fn from_inner(_: vtable::VRc<re_exports::ComponentVTable, Self::Inner>) -> Self {
+            unimplemented!();
+        }
+
+        /// Marks the window of this component to be shown on the screen. This registers
+        /// the window with the windowing system. In order to react to events from the windowing system,
+        /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
+        /// using [`crate::run_event_loop`].
+        fn show(&self) {
+            unimplemented!();
+        }
+
+        /// Marks the window of this component to be hidden on the screen. This de-registers
+        /// the window from the windowing system and it will not receive any further events.
+        fn hide(&self) {
+            unimplemented!();
+        }
+
+        /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
+        /// and [`Self::hide`].    
+        fn run(&self) {
             unimplemented!();
         }
     }

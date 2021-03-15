@@ -111,7 +111,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
         pub use #compo_module::{#compo_id #(,#structs_ids)* };
-        pub use sixtyfps::IntoWeak;
+        pub use sixtyfps::ComponentHandle;
     })
 }
 
@@ -795,20 +795,35 @@ fn generate_component(
             if !parent_component_type.is_empty() { Some(quote!(parent)) } else { None };
         let window_parent_name = window_parent_param.as_ref().map(|_| quote!(, parent_window));
 
-        let run_fun = if component.parent_element.upgrade().is_none() {
+        let component_handle_impl = if component.parent_element.upgrade().is_none() {
             Some(quote!(
-                pub fn run(&self) {
-                    self.show();
-                    sixtyfps::run_event_loop();
-                    self.hide();
-                }
+                impl sixtyfps::ComponentHandle for #public_component_id {
+                    type Inner = #inner_component_id;
+                    fn as_weak(&self) -> sixtyfps::Weak<Self> {
+                        sixtyfps::Weak::new(&self.0)
+                    }
 
-                pub fn show(&self) {
-                    vtable::VRc::as_pin_ref(&self.0).window.show();
-                }
+                    fn clone_strong(&self) -> Self {
+                        Self(self.0.clone())
+                    }
 
-                pub fn hide(&self) {
-                    vtable::VRc::as_pin_ref(&self.0).window.hide();
+                    fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>) -> Self {
+                        Self(inner)
+                    }
+
+                    fn run(&self) {
+                        self.show();
+                        sixtyfps::run_event_loop();
+                        self.hide();
+                    }
+
+                    fn show(&self) {
+                        vtable::VRc::as_pin_ref(&self.0).window.show();
+                    }
+
+                    fn hide(&self) {
+                        vtable::VRc::as_pin_ref(&self.0).window.hide();
+                    }
                 }
             ))
         } else {
@@ -816,7 +831,6 @@ fn generate_component(
         };
 
         Some(quote!(
-            #[derive(Clone)]
             #visibility struct #public_component_id(vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>);
 
             impl #public_component_id {
@@ -824,20 +838,9 @@ fn generate_component(
                     Self(#inner_component_id::new(#parent_name #window_parent_name))
                 }
                 #(#property_and_callback_accessors)*
-
-                #run_fun
             }
 
-            impl sixtyfps::IntoWeak for #public_component_id {
-                type Inner = #inner_component_id;
-                fn as_weak(&self) -> sixtyfps::Weak<Self> {
-                    sixtyfps::Weak::new(&self.0)
-                }
-
-                fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>) -> Self {
-                    Self(inner)
-                }
-            }
+            #component_handle_impl
 
             impl From<#public_component_id> for vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id> {
                 fn from(value: #public_component_id) -> Self {

@@ -35,7 +35,7 @@ pub fn main() {
         main_window.set_fax_number(fax_number.into());
     });
 
-    let main_weak = main_window.clone().as_weak();
+    let main_weak = main_window.as_weak();
     main_window.on_fax_send(move || {
         let main_window = main_weak.upgrade().unwrap();
         let fax_number = main_window.get_fax_number().to_string();

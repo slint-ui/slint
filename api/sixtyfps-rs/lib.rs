@@ -96,9 +96,11 @@ it consist of a struct of the same name of the component.
 For example, if you have `export MyComponent := Window { /*...*/ }` in the .60 file, it will create a `struct MyComponent{ /*...*/ }`.
 This documentation contains a documented generated component: [`docs::generated_code::SampleComponent`].
 
-The following associated function are added to the component:
+The component is created using the [`fn new() -> Self`](docs::generated_code::SampleComponent::new) function. In addition
+the following convenience functions are available through the [ComponentHandle] implementation:
 
-  - [`fn new() -> Self`](docs::generated_code::SampleComponent::new): to instantiate the component.
+  - [`fn clone_strong(&self)`](docs::generated_code::SampleComponent::clone_strong): to create a strongly referenced clone.
+  - [`fn as_weak(&self)`](docs::generated_code::SampleComponent::as_weak): to create a weak reference.
   - [`fn show(&self)`](docs::generated_code::SampleComponent::show): to show the window of the component.
   - [`fn hide(&self)`](docs::generated_code::SampleComponent::hide): to hide the window of the component.
   - [`fn run(&self)`](docs::generated_code::SampleComponent::run): a convenience function that first calls `show()`,
@@ -242,9 +244,10 @@ pub fn run_event_loop() {
     sixtyfps_rendering_backend_default::backend().run_event_loop();
 }
 
-/// This trait describes the conversion of a strongly referenced SixtyFPS component,
-/// held by a [vtable::VRc] into a weak reference.
-pub trait IntoWeak {
+/// This trait describes the common public API of a strongly referenced SixtyFPS component,
+/// held by a [vtable::VRc]. It allows creating strongly-referenced clones, a conversion into
+/// a weak pointer as well as other convenience functions.
+pub trait ComponentHandle {
     /// The type of the generated component.
     #[doc(hidden)]
     type Inner;
@@ -253,23 +256,40 @@ pub trait IntoWeak {
     where
         Self: Sized;
 
+    /// Returns a clone of this handle that's a strong reference.
+    fn clone_strong(&self) -> Self;
+
     /// Internal function used when upgrading a weak reference to a strong one.
     #[doc(hidden)]
     fn from_inner(_: vtable::VRc<re_exports::ComponentVTable, Self::Inner>) -> Self;
+
+    /// Marks the window of this component to be shown on the screen. This registers
+    /// the window with the windowing system. In order to react to events from the windowing system,
+    /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
+    /// using [`crate::run_event_loop`].
+    fn show(&self);
+
+    /// Marks the window of this component to be hidden on the screen. This de-registers
+    /// the window from the windowing system and it will not receive any further events.
+    fn hide(&self);
+
+    /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
+    /// and [`Self::hide`].    
+    fn run(&self);
 }
 
 /// Struct that's used to hold weak references for SixtyFPS components.
-pub struct Weak<T: IntoWeak> {
+pub struct Weak<T: ComponentHandle> {
     inner: vtable::VWeak<re_exports::ComponentVTable, T::Inner>,
 }
 
-impl<T: IntoWeak> Clone for Weak<T> {
+impl<T: ComponentHandle> Clone for Weak<T> {
     fn clone(&self) -> Self {
         Self { inner: self.inner.clone() }
     }
 }
 
-impl<T: IntoWeak> Weak<T> {
+impl<T: ComponentHandle> Weak<T> {
     #[doc(hidden)]
     pub fn new(rc: &vtable::VRc<re_exports::ComponentVTable, T::Inner>) -> Self {
         Self { inner: vtable::VRc::downgrade(&rc) }
@@ -279,7 +299,7 @@ impl<T: IntoWeak> Weak<T> {
     /// holds a strong reference. Otherwise, returns None.
     pub fn upgrade(&self) -> Option<T>
     where
-        T: IntoWeak,
+        T: ComponentHandle,
     {
         self.inner.upgrade().map(|inner| T::from_inner(inner))
     }
@@ -297,6 +317,8 @@ pub mod testing {
     use core::cell::Cell;
     thread_local!(static KEYBOARD_MODIFIERS : Cell<crate::re_exports::KeyboardModifiers> = Default::default());
 
+    use super::ComponentHandle;
+
     /// This trait gives access to the underyling Window of a component for the
     /// purposes of testing.
     pub trait HasWindow {
@@ -305,16 +327,17 @@ pub mod testing {
     }
 
     pub use sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
+
     /// Simulate a mouse click
     pub fn send_mouse_click<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow + 'static,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         x: f32,
         y: f32,
     ) {
-        let rc = component.clone().into();
+        let rc = component.clone_strong().into();
         let dyn_rc = vtable::VRc::into_dyn(rc.clone());
         sixtyfps_corelib::tests::sixtyfps_send_mouse_click(&dyn_rc, x, y, rc.component_window());
     }
@@ -322,7 +345,7 @@ pub mod testing {
     /// Simulate a change in keyboard modifiers being pressed
     pub fn set_current_keyboard_modifiers<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         _component: &Component,
         modifiers: crate::re_exports::KeyboardModifiers,
@@ -333,12 +356,12 @@ pub mod testing {
     /// Simulate entering a sequence of ascii characters key by key.
     pub fn send_keyboard_string_sequence<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         sequence: &str,
     ) {
-        let component = component.clone().into();
+        let component = component.clone_strong().into();
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             KEYBOARD_MODIFIERS.with(|x| x.get()),
@@ -349,12 +372,12 @@ pub mod testing {
     /// Applies the specified rectangular constraints to the component's layout.
     pub fn apply_layout<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         rect: sixtyfps_corelib::graphics::Rect,
     ) {
-        let rc = component.clone().into();
+        let rc = component.clone_strong().into();
         vtable::VRc::borrow_pin(&rc).as_ref().apply_layout(rect);
     }
 
@@ -362,12 +385,12 @@ pub mod testing {
     /// This overrides the value provided by the windowing system.
     pub fn set_window_scale_factor<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + Clone,
+        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         factor: f32,
     ) {
-        let component = component.clone().into();
+        let component = component.clone_strong().into();
         component.component_window().set_scale_factor(factor)
     }
 }
