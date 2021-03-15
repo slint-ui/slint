@@ -157,15 +157,20 @@ impl From<DiagnosticLevel> for codemap_diagnostic::Level {
 
 #[derive(Debug, Clone)]
 pub struct Diagnostic {
-    pub message: String,
-    pub span: SourceLocation,
-    pub level: DiagnosticLevel,
+    message: String,
+    span: SourceLocation,
+    level: DiagnosticLevel,
 }
 
 impl Diagnostic {
     /// Return the level for this diagnostic
     pub fn level(&self) -> DiagnosticLevel {
         self.level
+    }
+
+    /// Return a message for this diagnostic
+    pub fn message(&self) -> &str {
+        &self.message
     }
 
     /// Returns a tuple with the line (starting at 1) and column number (starting at 0)
@@ -185,6 +190,11 @@ impl Diagnostic {
             },
             |line| (line + 1, 0),
         )
+    }
+
+    /// return the path of the source file where this error is attached
+    pub fn source_file(&self) -> Option<&Path> {
+        self.span.source_file().map(|sf| sf.path())
     }
 }
 

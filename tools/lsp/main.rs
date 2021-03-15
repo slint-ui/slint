@@ -199,10 +199,10 @@ fn reload_document(
     let mut lsp_diags = HashMap::<Url, Vec<lsp_types::Diagnostic>>::new();
 
     for d in diag.into_iter() {
-        if d.span.source_file.as_ref().unwrap().path().is_relative() {
+        if d.source_file().unwrap().is_relative() {
             continue;
         }
-        let uri = Url::from_file_path(d.span.source_file.as_ref().unwrap().path()).unwrap();
+        let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
         lsp_diags.entry(uri).or_default().push(to_lsp_diag(&d));
     }
 

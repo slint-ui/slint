@@ -14,7 +14,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::diagnostics::{BuildDiagnostics, Diagnostic};
+use crate::diagnostics::BuildDiagnostics;
 use crate::object_tree::{self, Document};
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxTokenWithSourceFile};
 use crate::typeregister::TypeRegister;
@@ -131,11 +131,10 @@ impl<'a> TypeLoader<'a> {
             let is_wasm = cfg!(target_arch = "wasm32")
                 || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
             if !is_wasm {
-                diag.push_internal_error(Diagnostic {
-                    message: "SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
-                    span: Default::default(),
-                    level: crate::diagnostics::DiagnosticLevel::Warning
-                }.into());
+                diag.push_diagnostic_with_span("SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
+                    Default::default(),
+                    crate::diagnostics::DiagnosticLevel::Warning
+                );
             }
             Cow::from("ugly")
         });

@@ -68,8 +68,14 @@ fn process_diagnostics(
 
     let mut diags = compile_diagnostics
         .iter()
-        .filter(|d| &cannonical(d.span.source_file.as_ref().unwrap().path()) == path)
+        .filter(|d| &cannonical(d.source_file().unwrap()) == path)
         .collect::<Vec<_>>();
+
+    let lines = source
+        .bytes()
+        .enumerate()
+        .filter_map(|(i, c)| if c == b'\n' { Some(i) } else { None })
+        .collect::<Vec<usize>>();
 
     // Find expected errors in the file. The first caret (^) points to the expected column. The number of
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
@@ -106,7 +112,9 @@ fn process_diagnostics(
         };
 
         match diags.iter().position(|e| {
-            e.span.span.offset == offset && r.is_match(&e.message) && e.level == expected_diag_level
+            let (l, c) = e.line_column();
+            let o = lines.get(l.wrapping_sub(2)).unwrap_or(&0) + c;
+            o == offset && r.is_match(e.message()) && e.level() == expected_diag_level
         }) {
             Some(idx) => {
                 diags.remove(idx);

@@ -216,7 +216,7 @@ mod cpp_ast {
     }
 }
 
-use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
     BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference,
 };
@@ -263,12 +263,7 @@ impl CppType for Type {
 
 fn get_cpp_type(ty: &Type, type_node: &dyn Spanned, diag: &mut BuildDiagnostics) -> String {
     ty.cpp_type().unwrap_or_else(|| {
-        let err = crate::diagnostics::Diagnostic {
-            message: "Cannot map property type to C++".into(),
-            span: type_node.to_source_location(),
-            level: DiagnosticLevel::Error,
-        };
-        diag.push_internal_error(err.into());
+        diag.push_error("Cannot map property type to C++".into(), type_node);
         "".into()
     })
 }
@@ -1299,19 +1294,16 @@ fn model_data_type(parent_element: &ElementRc, diag: &mut BuildDiagnostics) -> S
     }
     .ty();
     model_data_type.cpp_type().unwrap_or_else(|| {
-        diag.push_internal_error(
-            crate::diagnostics::Diagnostic {
-                message: format!("Cannot map property type {} to C++", model_data_type),
-                span: parent_element
-                    .borrow()
-                    .node
-                    .as_ref()
-                    .map(|n| n.to_source_location())
-                    .unwrap_or_default(),
-                level: DiagnosticLevel::Error,
-            }
-            .into(),
+        diag.push_error_with_span(
+            format!("Cannot map property type {} to C++", model_data_type),
+            parent_element
+                .borrow()
+                .node
+                .as_ref()
+                .map(|n| n.to_source_location())
+                .unwrap_or_default(),
         );
+
         String::default()
     })
 }
