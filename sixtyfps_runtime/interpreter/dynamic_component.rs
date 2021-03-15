@@ -441,7 +441,7 @@ impl<'id> ComponentDescription<'id> {
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if the callback with this name does not exist in this component
-    pub fn call_callback(
+    pub fn invoke_callback(
         &self,
         component: ComponentRefPin,
         name: &str,

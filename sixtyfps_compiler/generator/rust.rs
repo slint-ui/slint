@@ -291,7 +291,7 @@ fn generate_component(
                 let args_name = (0..callback_args.len())
                     .map(|i| format_ident!("arg_{}", i))
                     .collect::<Vec<_>>();
-                let caller_ident = format_ident!("call_{}", prop_name);
+                let caller_ident = format_ident!("invoke_{}", prop_name);
                 property_and_callback_accessors.push(
                     quote!(
                         #[allow(dead_code)]

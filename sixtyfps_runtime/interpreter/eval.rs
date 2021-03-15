@@ -223,7 +223,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     }
                     ComponentInstance::GlobalComponent(global) => {
                         let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                        global.as_ref().call_callback(name.as_ref(), args.collect::<Vec<_>>().as_slice())
+                        global.as_ref().invoke_callback(name.as_ref(), args.collect::<Vec<_>>().as_slice())
                     }
                 }
             }

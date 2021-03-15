@@ -31,10 +31,10 @@ instance.on_test_callback3([&](int a, auto b) {
 });
 instance.set_callback_emission_count(0);
 assert_eq(instance.get_callback_emission_count(), 0);
-instance.call_test_callback(42);
+instance.invoke_test_callback(42);
 assert_eq(instance.get_callback_emission_count(), 1);
 assert_eq(callback_3_emited, 0);
-instance.call_test_callback2("hello");
+instance.invoke_test_callback2("hello");
 assert_eq(instance.get_callback_emission_count(), 88);
 assert_eq(callback_3_emited, 1);
 assert_eq(callback_3_int_value, 55);
@@ -50,10 +50,10 @@ instance.on_test_callback3({
 });
 instance.set_callback_emission_count(0);
 assert_eq!(instance.get_callback_emission_count(), 0);
-instance.call_test_callback(42);
+instance.invoke_test_callback(42);
 assert_eq!(instance.get_callback_emission_count(), 1);
 assert_eq!(*callback_3_emited.borrow(), (0, "".into()));
-instance.call_test_callback2("hello".into());
+instance.invoke_test_callback2("hello".into());
 assert_eq!(instance.get_callback_emission_count(), 88);
 assert_eq!(*callback_3_emited.borrow(), (55, "hello".into()));
 ```

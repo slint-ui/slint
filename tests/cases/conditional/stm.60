@@ -52,37 +52,37 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-instance.call_action();
+instance.invoke_action();
 assert_eq(instance.get_result(), 3);
 instance.set_value(5);
-instance.call_action();
+instance.invoke_action();
 assert_eq(instance.get_result(), 5);
 instance.set_value(8);
-instance.call_action();
+instance.invoke_action();
 assert_eq(instance.get_result(), 5+33);
-instance.call_xxx();
+instance.invoke_xxx();
 assert_eq(instance.get_result(), 5+33-1);
-assert_eq(instance.call_elseif(1), 41);
-assert_eq(instance.call_elseif(2), 42);
-assert_eq(instance.call_elseif(3), 43);
+assert_eq(instance.invoke_elseif(1), 41);
+assert_eq(instance.invoke_elseif(2), 42);
+assert_eq(instance.invoke_elseif(3), 43);
 ```
 
 
 ```rust
 let instance = TestCase::new();
-instance.call_action();
+instance.invoke_action();
 assert_eq!(instance.get_result(), 3);
 instance.set_value(5);
-instance.call_action();
+instance.invoke_action();
 assert_eq!(instance.get_result(), 5);
 instance.set_value(8);
-instance.call_action();
+instance.invoke_action();
 assert_eq!(instance.get_result(), 5+33);
-instance.call_xxx();
+instance.invoke_xxx();
 assert_eq!(instance.get_result(), 5+33-1);
-assert_eq!(instance.call_elseif(1), 41);
-assert_eq!(instance.call_elseif(2), 42);
-assert_eq!(instance.call_elseif(3), 43);
+assert_eq!(instance.invoke_elseif(1), 41);
+assert_eq!(instance.invoke_elseif(2), 42);
+assert_eq!(instance.invoke_elseif(3), 43);
 ```
 
 ```js

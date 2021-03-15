@@ -96,7 +96,7 @@ pub mod generated_code {
         /// For each callback declared at the root of the component, a function to call that
         /// callback is generated. This is the function that calls the `hello` callback declared
         /// in the `.60` design markup.
-        pub fn call_hello(&self) {}
+        pub fn invoke_hello(&self) {}
         /// For each callback declared at the root of the component, a function connect to that callback
         /// is generated. This is the function that registers the function f as callback when the
         /// callback `hello` is emitted. In order to access

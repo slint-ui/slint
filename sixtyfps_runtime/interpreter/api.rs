@@ -450,10 +450,10 @@ impl ComponentInstance {
     }
 
     /// Call the given callback with the arguments
-    pub fn call_callback(&self, name: &str, args: &[Value]) -> Result<Value, CallCallbackError> {
+    pub fn invoke_callback(&self, name: &str, args: &[Value]) -> Result<Value, CallCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        Ok(comp.description().call_callback(comp.borrow(), name, &args).map_err(|()| todo!())?)
+        Ok(comp.description().invoke_callback(comp.borrow(), name, &args).map_err(|()| todo!())?)
     }
 
     /// Marks the window of this component to be shown on the screen. This registers
@@ -545,7 +545,7 @@ pub enum SetCallbackError {
     NoSuchCallback,
 }
 
-/// Error returned by [`ComponentInstance::call_callback`]
+/// Error returned by [`ComponentInstance::invoke_callback`]
 pub enum CallCallbackError {
     /// There is no callback with the given name
     NoSuchCallback,

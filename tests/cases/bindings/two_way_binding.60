@@ -81,8 +81,8 @@ assert_eq!(instance.get_ti1_text(), sixtyfps::SharedString::from("Text1New"));
 assert_eq!(instance.get_ti2_text(), sixtyfps::SharedString::from("Text2New"));
 assert_eq!(instance.get_text_item_text(), sixtyfps::SharedString::from("Text2New"));
 
-instance.call_set_ti1(sixtyfps::SharedString::from("Hallo"));
-instance.call_set_ti2(sixtyfps::SharedString::from("Bonjour"));
+instance.invoke_set_ti1(sixtyfps::SharedString::from("Hallo"));
+instance.invoke_set_ti2(sixtyfps::SharedString::from("Bonjour"));
 assert_eq!(instance.get_text1(), sixtyfps::SharedString::from("Hallo"));
 assert_eq!(instance.get_text2(), sixtyfps::SharedString::from("Text2New"));
 assert_eq!(instance.get_ti1_text(), sixtyfps::SharedString::from("Hallo"));
@@ -130,8 +130,8 @@ assert_eq(instance.get_ti1_text(), sixtyfps::SharedString("Text1New"));
 assert_eq(instance.get_ti2_text(), sixtyfps::SharedString("Text2New"));
 assert_eq(instance.get_text_item_text(), sixtyfps::SharedString("Text2New"));
 
-instance.call_set_ti1(sixtyfps::SharedString("Hallo"));
-instance.call_set_ti2(sixtyfps::SharedString("Bonjour"));
+instance.invoke_set_ti1(sixtyfps::SharedString("Hallo"));
+instance.invoke_set_ti2(sixtyfps::SharedString("Bonjour"));
 assert_eq(instance.get_text1(), sixtyfps::SharedString("Hallo"));
 assert_eq(instance.get_text2(), sixtyfps::SharedString("Text2New"));
 assert_eq(instance.get_ti1_text(), sixtyfps::SharedString("Hallo"));

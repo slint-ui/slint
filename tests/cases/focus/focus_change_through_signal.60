@@ -40,11 +40,11 @@ let instance = TestCase::new();
 assert!(!instance.get_input1_focused());
 assert!(!instance.get_input2_focused());
 
-instance.call_focus_input1();
+instance.invoke_focus_input1();
 assert!(instance.get_input1_focused());
 assert!(!instance.get_input2_focused());
 
-instance.call_focus_input2();
+instance.invoke_focus_input2();
 assert!(!instance.get_input1_focused());
 assert!(instance.get_input2_focused());
 ```
@@ -55,11 +55,11 @@ const TestCase &instance = *handle;
 assert(!instance.get_input1_focused());
 assert(!instance.get_input2_focused());
 
-instance.call_focus_input1();
+instance.invoke_focus_input1();
 assert(instance.get_input1_focused());
 assert(!instance.get_input2_focused());
 
-instance.call_focus_input2();
+instance.invoke_focus_input2();
 assert(!instance.get_input1_focused());
 assert(instance.get_input2_focused());
 ```

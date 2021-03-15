@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
  - `Path::fill-color` was renamed to `fill`, and `Path::stroke-color` was renamed to `stroke`, which are now brushes instead of color
  - Many other color property became brush in order to support gradients
  - the `resource` type was renamed to `image`
+ - Calling a callback is done from C++/Rust with `invoke_<name>` instead of `call_<name>`
 
 ### Added
  - `@linear-gradient` can be used to have gradients on rectangle and paths

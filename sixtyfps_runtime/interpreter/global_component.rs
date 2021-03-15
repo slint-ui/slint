@@ -18,7 +18,7 @@ use sixtyfps_corelib::{rtti, Callback, Property};
 use crate::{api::Value, eval};
 
 pub trait GlobalComponent {
-    fn call_callback(self: Pin<&Self>, _callback_name: &str, _args: &[Value]) -> Value {
+    fn invoke_callback(self: Pin<&Self>, _callback_name: &str, _args: &[Value]) -> Value {
         todo!("call callback")
     }
 

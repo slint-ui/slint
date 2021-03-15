@@ -81,7 +81,7 @@ require.extensions['.60'] =
             c.callbacks().forEach((x: string) => {
                 Object.defineProperty(ret, x, {
                     get() {
-                        let callback = function () { return comp.call_callback(x, [...arguments]); } as Callback;
+                        let callback = function () { return comp.invoke_callback(x, [...arguments]); } as Callback;
                         callback.setHandler = function (callback) { comp.connect_callback(x, callback) };
                         return callback;
                     },

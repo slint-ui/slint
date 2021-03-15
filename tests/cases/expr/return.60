@@ -34,12 +34,12 @@ assert_eq(instance.get_value(), 100);
 instance.set_toggle(true);
 assert_eq(instance.get_value(), 42);
 
-instance.call_test_signal();
+instance.invoke_test_signal();
 assert(instance.get_signal_handled());
 
 instance.set_signal_handled(false);
 instance.set_block_signal(true);
-instance.call_test_signal();
+instance.invoke_test_signal();
 assert(!instance.get_signal_handled());
 ```
 
@@ -49,12 +49,12 @@ assert_eq!(instance.get_value(), 100);
 instance.set_toggle(true);
 assert_eq!(instance.get_value(), 42);
 
-instance.call_test_signal();
+instance.invoke_test_signal();
 assert!(instance.get_signal_handled());
 
 instance.set_signal_handled(false);
 instance.set_block_signal(true);
-instance.call_test_signal();
+instance.invoke_test_signal();
 assert!(!instance.get_signal_handled());
 ```
 

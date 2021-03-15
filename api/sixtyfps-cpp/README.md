@@ -161,7 +161,7 @@ struct MainWindow {
     inline auto get_todo_model () const -> std::shared_ptr<sixtyfps::Model<TodoItem>>;
     inline void set_todo_model (const std::shared_ptr<sixtyfps::Model<TodoItem>> &value) const;
 
-    inline void call_todo_added (sixtyfps::SharedString arg_0) const;
+    inline void invoke_todo_added (sixtyfps::SharedString arg_0) const;
     template<typename Functor> inline void on_todo_added (Functor && callback_handler) const;
 
     //...

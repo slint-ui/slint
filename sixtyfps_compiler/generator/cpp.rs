@@ -684,7 +684,7 @@ fn generate_component(
                 component_struct.members.push((
                     Access::Public,
                     Declaration::Function(Function {
-                        name: format!("call_{}", cpp_name),
+                        name: format!("invoke_{}", cpp_name),
                         signature: format!(
                             "({}) const -> {}",
                             param_types
