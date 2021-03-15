@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use crate::dynamic_component::InstanceRef;
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryInto;
 use core::iter::FromIterator;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
@@ -141,7 +141,7 @@ impl Default for Value {
 
 impl corelib::rtti::ValueType for Value {}
 
-/// Helper macro to implement the TryFrom / TryInto for Value
+/// Helper macro to implement the From / TryInto for Value
 ///
 /// For example
 /// `declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );`
@@ -152,11 +152,9 @@ impl corelib::rtti::ValueType for Value {}
 macro_rules! declare_value_conversion {
     ( $value:ident => [$($ty:ty),*] ) => {
         $(
-            impl TryFrom<$ty> for Value {
-                type Error = ();
-                fn try_from(v: $ty) -> Result<Self, ()> {
-                    //Ok(Value::$value(v.try_into().map_err(|_|())?))
-                    Ok(Value::$value(v as _))
+            impl From<$ty> for Value {
+                fn from(v: $ty) -> Self {
+                    Value::$value(v as _)
                 }
             }
             impl TryInto<$ty> for Value {
@@ -181,15 +179,14 @@ declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
 
-/// Implement TryFrom / TryInto for Value that convert a `struct` to/from `Value::Object`
+/// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
 macro_rules! declare_value_struct_conversion {
     (struct $name:path { $($field:ident),* $(,)? }) => {
-        impl TryFrom<$name> for Value {
-            type Error = ();
-            fn try_from($name { $($field),* }: $name) -> Result<Self, ()> {
+        impl From<$name> for Value {
+            fn from($name { $($field),* }: $name) -> Self {
                 let mut hm = HashMap::new();
-                $(hm.insert(stringify!($field).into(), $field.try_into()?);)*
-                Ok(Value::Object(hm))
+                $(hm.insert(stringify!($field).into(), $field.into());)*
+                Value::Object(hm)
             }
         }
         impl TryInto<$name> for Value {
@@ -214,16 +211,15 @@ declare_value_struct_conversion!(struct corelib::properties::StateInfo { current
 declare_value_struct_conversion!(struct corelib::input::KeyboardModifiers { control, alt, shift, meta });
 declare_value_struct_conversion!(struct corelib::input::KeyEvent { event_type, text, modifiers });
 
-/// Implement TryFrom / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
+/// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///
 /// The `enum` must derive `Display` and `FromStr`
 /// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
 macro_rules! declare_value_enum_conversion {
     ($ty:ty, $n:ident) => {
-        impl TryFrom<$ty> for Value {
-            type Error = ();
-            fn try_from(v: $ty) -> Result<Self, ()> {
-                Ok(Value::EnumerationValue(stringify!($n).to_owned(), v.to_string()))
+        impl From<$ty> for Value {
+            fn from(v: $ty) -> Self {
+                Value::EnumerationValue(stringify!($n).to_owned(), v.to_string())
             }
         }
         impl TryInto<$ty> for Value {
@@ -255,10 +251,9 @@ declare_value_enum_conversion!(corelib::input::KeyEventType, KeyEventType);
 declare_value_enum_conversion!(corelib::items::EventResult, EventResult);
 declare_value_enum_conversion!(corelib::items::FillRule, FillRule);
 
-impl TryFrom<corelib::animations::Instant> for Value {
-    type Error = ();
-    fn try_from(value: corelib::animations::Instant) -> Result<Self, ()> {
-        Ok(Value::Number(value.0 as _))
+impl From<corelib::animations::Instant> for Value {
+    fn from(value: corelib::animations::Instant) -> Self {
+        Value::Number(value.0 as _)
     }
 }
 impl TryInto<corelib::animations::Instant> for Value {
@@ -271,11 +266,10 @@ impl TryInto<corelib::animations::Instant> for Value {
     }
 }
 
-impl TryFrom<()> for Value {
-    type Error = ();
+impl From<()> for Value {
     #[inline]
-    fn try_from(_: ()) -> Result<Self, ()> {
-        Ok(Value::Void)
+    fn from(_: ()) -> Self {
+        Value::Void
     }
 }
 impl TryInto<()> for Value {
