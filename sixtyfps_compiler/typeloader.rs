@@ -442,7 +442,8 @@ fn test_dependency_loading() {
     let mut main_test_path = test_source_path.clone();
     main_test_path.push("dependency_test_main.60");
 
-    let (doc_node, mut test_diags) = crate::parser::parse_file(main_test_path.clone()).unwrap();
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse_file(main_test_path.clone(), &mut test_diags).unwrap();
 
     let doc_node: syntax_nodes::Document = doc_node.into();
 
@@ -456,7 +457,6 @@ fn test_dependency_loading() {
 
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
-        &mut test_diags,
         &mut build_diagnostics,
         &registry,
     ));
@@ -483,7 +483,8 @@ fn test_load_from_callback_ok() {
         })
     }));
 
-    let (doc_node, mut test_diags) = crate::parser::parse(
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
         r#"
 /* ... */
 import { XX } from "../FooBar.60";
@@ -491,6 +492,7 @@ X := XX {}
 "#
         .into(),
         Some(&std::path::Path::new("HELLO")),
+        &mut test_diags,
     );
 
     let doc_node: syntax_nodes::Document = doc_node.into();
@@ -500,7 +502,6 @@ X := XX {}
     let mut loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
     spin_on::spin_on(loader.load_dependencies_recursively(
         &doc_node,
-        &mut test_diags,
         &mut build_diagnostics,
         &registry,
     ));

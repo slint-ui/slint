@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use sixtyfps_compilerlib::*;
+use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
 use std::io::Write;
 use std::ops::Deref;
@@ -19,7 +19,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
 
-    let (syntax_node, diag) = parser::parse(source.clone(), Some(&testcase.absolute_path));
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Cpp);
     compiler_config.include_paths = include_paths;
     let (root_component, mut diag) =
