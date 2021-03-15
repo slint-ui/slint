@@ -272,36 +272,6 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
     }
 }
 
-/// A dummy structure that can be converted to and from [`Value`].
-///
-/// A default constructed Value holds this value.
-/// ```
-/// # use sixtyfps_interpreter::api::*;
-/// let value = Value::default();
-/// assert_eq!(Value::default(), VoidValue.into());
-/// ```
-
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct VoidValue;
-
-impl From<VoidValue> for Value {
-    fn from(_: VoidValue) -> Self {
-        Self::Void
-    }
-}
-
-impl TryInto<VoidValue> for Value {
-    type Error = Value;
-    fn try_into(self) -> Result<VoidValue, Value> {
-        if self == Value::Void {
-            Ok(VoidValue)
-        } else {
-            Err(self)
-        }
-    }
-}
-
-#[derive(Clone, PartialEq, Debug, Default)]
 /// This type represent a runtime instance of structure in `.60`.
 ///
 /// This can either be an instance of a name structure introduced
@@ -325,6 +295,7 @@ impl TryInto<VoidValue> for Value {
 /// ```
 /// FIXME: the documentation of langref.md uses "Object" and we probably should make that uniform.
 ///        also, is "property" the right term here?
+#[derive(Clone, PartialEq, Debug, Default)]
 pub struct Struct(HashMap<String, Value>);
 impl Struct {
     /// Get the value for a given struct property
@@ -474,7 +445,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .set_callback_handler(comp.borrow(), name, Box::new(move |args| callback(&args)))
+            .set_callback_handler(comp.borrow(), name, Box::new(callback))
             .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
