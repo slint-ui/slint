@@ -216,12 +216,12 @@ fn to_eval_value<'cx>(
                     .map(|(pro_name, pro_ty)| {
                         Ok((
                             pro_name.clone(),
-                            sixtyfps_interpreter::api::Value(to_eval_value(
+                            to_eval_value(
                                 obj.get(cx, pro_name.as_str())?,
                                 pro_ty.clone(),
                                 cx,
                                 persistent_context,
-                            )?),
+                            )?,
                         ))
                     })
                     .collect::<Result<_, _>>()?,
@@ -271,7 +271,7 @@ fn to_js_value<'cx>(
         Value::Struct(o) => {
             let js_object = JsObject::new(cx);
             for (k, e) in o.iter() {
-                let v = to_js_value(e.0, cx)?;
+                let v = to_js_value(e, cx)?;
                 js_object.set(cx, k, v)?;
             }
             js_object.as_value(cx)

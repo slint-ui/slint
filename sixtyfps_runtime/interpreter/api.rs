@@ -11,12 +11,11 @@ LICENSE END */
 #![warn(missing_docs)]
 
 use core::convert::TryInto;
+use sixtyfps_corelib::{Brush, ImageReference, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::path::Path;
 use std::rc::Rc;
-
-use crate::eval;
 
 #[doc(inline)]
 pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
@@ -32,8 +31,246 @@ pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 /// let v = Value::from(100u32);
 /// assert_eq!(v.try_into(), Ok(100u32));
 /// ```
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct Value(pub eval::Value); // FIXME: Make inner pub(crate) once everything is ported
+#[derive(Clone)]
+#[non_exhaustive]
+pub enum Value {
+    /// There is nothing in this value. That's the default.
+    /// For example, a function that do not return a result would return a Value::Void
+    Void,
+    /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
+    Number(f64),
+    /// Correspond to the `string` type in .60
+    String(SharedString),
+    /// Correspond to the `bool` type in .60
+    Bool(bool),
+    /// Correspond to the `image` type in .60
+    Image(ImageReference),
+    /// An Array in the .60 language.
+    Array(SharedVector<Value>),
+    /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
+    Model(Rc<dyn sixtyfps_corelib::model::Model<Data = Value>>),
+    /// An object
+    Struct(Struct),
+    /// Corresespond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
+    Brush(Brush),
+    #[doc(hidden)]
+    /// The elements of a path
+    PathElements(PathData),
+    #[doc(hidden)]
+    /// An easing curve
+    EasingCurve(sixtyfps_corelib::animations::EasingCurve),
+    #[doc(hidden)]
+    /// An enumation, like TextHorizontalAlignment::align_center
+    EnumerationValue(String, String),
+}
+
+impl Default for Value {
+    fn default() -> Self {
+        Value::Void
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Value::Void => matches!(other, Value::Void),
+            Value::Number(lhs) => matches!(other, Value::Number(rhs) if lhs == rhs),
+            Value::String(lhs) => matches!(other, Value::String(rhs) if lhs == rhs),
+            Value::Bool(lhs) => matches!(other, Value::Bool(rhs) if lhs == rhs),
+            Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
+            Value::Array(lhs) => matches!(other, Value::Array(rhs) if lhs == rhs),
+            Value::Model(lhs) => matches!(other, Value::Model(rhs) if Rc::ptr_eq(lhs, rhs)),
+            Value::Struct(lhs) => matches!(other, Value::Struct(rhs) if lhs == rhs),
+            Value::Brush(lhs) => matches!(other, Value::Brush(rhs) if lhs == rhs),
+            Value::PathElements(lhs) => matches!(other, Value::PathElements(rhs) if lhs == rhs),
+            Value::EasingCurve(lhs) => matches!(other, Value::EasingCurve(rhs) if lhs == rhs),
+            Value::EnumerationValue(lhs_name, lhs_value) => {
+                matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
+            }
+        }
+    }
+}
+
+impl std::fmt::Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Void => write!(f, "Value::Void"),
+            Value::Number(n) => write!(f, "Value::Number({:?})", n),
+            Value::String(s) => write!(f, "Value::String({:?})", s),
+            Value::Bool(b) => write!(f, "Value::Bool({:?})", b),
+            Value::Image(i) => write!(f, "Value::Image({:?})", i),
+            Value::Array(a) => write!(f, "Value::Array({:?})", a),
+            Value::Model(_) => write!(f, "Value::Model(<model object>)"),
+            Value::Struct(s) => write!(f, "Value::Struct({:?})", s),
+            Value::Brush(b) => write!(f, "Value::Brush({:?})", b),
+            Value::PathElements(e) => write!(f, "Value::PathElements({:?})", e),
+            Value::EasingCurve(c) => write!(f, "Value::EasingCurve({:?})", c),
+            Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
+        }
+    }
+}
+
+/// Helper macro to implement the From / TryInto for Value
+///
+/// For example
+/// `declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );`
+/// means that `Value::Number` can be converted to / from each of the said rust types
+///
+/// For `Value::Object` mapping to a rust `struct`, one can use [`declare_value_struct_conversion!`]
+/// And for `Value::EnumerationValue` which maps to a rust `enum`, one can use [`declare_value_struct_conversion!`]
+macro_rules! declare_value_conversion {
+    ( $value:ident => [$($ty:ty),*] ) => {
+        $(
+            impl From<$ty> for Value {
+                fn from(v: $ty) -> Self {
+                    Value::$value(v as _)
+                }
+            }
+            impl TryInto<$ty> for Value {
+                type Error = Value;
+                fn try_into(self) -> Result<$ty, Value> {
+                    match self {
+                        //Self::$value(x) => x.try_into().map_err(|_|()),
+                        Self::$value(x) => Ok(x as _),
+                        _ => Err(self)
+                    }
+                }
+            }
+        )*
+    };
+}
+declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize] );
+declare_value_conversion!(String => [SharedString] );
+declare_value_conversion!(Bool => [bool] );
+declare_value_conversion!(Image => [ImageReference] );
+declare_value_conversion!(Struct => [Struct] );
+declare_value_conversion!(Brush => [Brush] );
+declare_value_conversion!(PathElements => [PathData]);
+declare_value_conversion!(EasingCurve => [sixtyfps_corelib::animations::EasingCurve]);
+
+/// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
+macro_rules! declare_value_struct_conversion {
+    (struct $name:path { $($field:ident),* $(,)? }) => {
+        impl From<$name> for Value {
+            fn from($name { $($field),* }: $name) -> Self {
+                let mut struct_ = Struct::default();
+                $(struct_.set_property(stringify!($field).into(), $field.into());)*
+                Value::Struct(struct_)
+            }
+        }
+        impl TryInto<$name> for Value {
+            type Error = ();
+            fn try_into(self) -> Result<$name, ()> {
+                match self {
+                    Self::Struct(x) => {
+                        type Ty = $name;
+                        Ok(Ty {
+                            $($field: x.get_property(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?),*
+                        })
+                    }
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
+declare_value_struct_conversion!(struct sixtyfps_corelib::model::StandardListViewItem { text });
+declare_value_struct_conversion!(struct sixtyfps_corelib::properties::StateInfo { current_state, previous_state, change_time });
+declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyboardModifiers { control, alt, shift, meta });
+declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyEvent { event_type, text, modifiers });
+
+/// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
+///
+/// The `enum` must derive `Display` and `FromStr`
+/// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
+macro_rules! declare_value_enum_conversion {
+    ($ty:ty, $n:ident) => {
+        impl From<$ty> for Value {
+            fn from(v: $ty) -> Self {
+                Value::EnumerationValue(stringify!($n).to_owned(), v.to_string())
+            }
+        }
+        impl TryInto<$ty> for Value {
+            type Error = ();
+            fn try_into(self) -> Result<$ty, ()> {
+                use std::str::FromStr;
+                match self {
+                    Self::EnumerationValue(enumeration, value) => {
+                        if enumeration != stringify!($n) {
+                            return Err(());
+                        }
+
+                        <$ty>::from_str(value.as_str()).map_err(|_| ())
+                    }
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
+declare_value_enum_conversion!(
+    sixtyfps_corelib::items::TextHorizontalAlignment,
+    TextHorizontalAlignment
+);
+declare_value_enum_conversion!(
+    sixtyfps_corelib::items::TextVerticalAlignment,
+    TextVerticalAlignment
+);
+declare_value_enum_conversion!(sixtyfps_corelib::items::TextOverflow, TextOverflow);
+declare_value_enum_conversion!(sixtyfps_corelib::items::TextWrap, TextWrap);
+declare_value_enum_conversion!(sixtyfps_corelib::layout::LayoutAlignment, LayoutAlignment);
+declare_value_enum_conversion!(sixtyfps_corelib::items::ImageFit, ImageFit);
+declare_value_enum_conversion!(sixtyfps_corelib::input::KeyEventType, KeyEventType);
+declare_value_enum_conversion!(sixtyfps_corelib::items::EventResult, EventResult);
+declare_value_enum_conversion!(sixtyfps_corelib::items::FillRule, FillRule);
+
+impl From<sixtyfps_corelib::animations::Instant> for Value {
+    fn from(value: sixtyfps_corelib::animations::Instant) -> Self {
+        Value::Number(value.0 as _)
+    }
+}
+impl TryInto<sixtyfps_corelib::animations::Instant> for Value {
+    type Error = ();
+    fn try_into(self) -> Result<sixtyfps_corelib::animations::Instant, ()> {
+        match self {
+            Value::Number(x) => Ok(sixtyfps_corelib::animations::Instant(x as _)),
+            _ => Err(()),
+        }
+    }
+}
+
+impl From<()> for Value {
+    #[inline]
+    fn from(_: ()) -> Self {
+        Value::Void
+    }
+}
+impl TryInto<()> for Value {
+    type Error = ();
+    #[inline]
+    fn try_into(self) -> Result<(), ()> {
+        Ok(())
+    }
+}
+
+impl From<sixtyfps_corelib::Color> for Value {
+    #[inline]
+    fn from(c: sixtyfps_corelib::Color) -> Self {
+        Value::Brush(Brush::SolidColor(c))
+    }
+}
+impl TryInto<sixtyfps_corelib::Color> for Value {
+    type Error = Value;
+    #[inline]
+    fn try_into(self) -> Result<sixtyfps_corelib::Color, Value> {
+        match self {
+            Value::Brush(Brush::SolidColor(c)) => Ok(c),
+            _ => Err(self),
+        }
+    }
+}
 
 /// A dummy structure that can be converted to and from [`Value`].
 ///
@@ -49,50 +286,20 @@ pub struct VoidValue;
 
 impl From<VoidValue> for Value {
     fn from(_: VoidValue) -> Self {
-        Self(eval::Value::Void)
+        Self::Void
     }
 }
+
 impl TryInto<VoidValue> for Value {
     type Error = Value;
     fn try_into(self) -> Result<VoidValue, Value> {
-        if self.0 == eval::Value::Void {
+        if self == Value::Void {
             Ok(VoidValue)
         } else {
             Err(self)
         }
     }
 }
-
-macro_rules! pub_value_conversion {
-    ($($ty:ty,)*) => {
-        $(
-            impl From<$ty> for Value {
-                fn from(v: $ty) -> Self {
-                    Self(v.try_into().unwrap())
-                }
-            }
-            impl TryInto<$ty> for Value {
-                type Error = Value;
-                fn try_into(self) -> Result<$ty, Value> {
-                    self.0.try_into().map_err(Value)
-                }
-            }
-        )*
-    };
-}
-
-pub_value_conversion!(
-    f32,
-    f64,
-    i32,
-    u32,
-    bool,
-    sixtyfps_corelib::SharedString,
-    sixtyfps_corelib::Color,
-    //sixtyfps_corelib::Brush,
-);
-
-// TODO! model
 
 #[derive(Clone, PartialEq, Debug, Default)]
 /// This type represent a runtime instance of structure in `.60`.
@@ -118,56 +325,40 @@ pub_value_conversion!(
 /// ```
 /// FIXME: the documentation of langref.md uses "Object" and we probably should make that uniform.
 ///        also, is "property" the right term here?
-pub struct Struct(HashMap<String, eval::Value>);
+pub struct Struct(HashMap<String, Value>);
 impl Struct {
     /// Get the value for a given struct property
     pub fn get_property(&self, name: &str) -> Option<Value> {
-        self.0.get(name).cloned().map(Value)
+        self.0.get(name).cloned()
     }
     /// Set the value of a given struct property
     pub fn set_property(&mut self, name: String, value: Value) {
-        self.0.insert(name, value.0);
+        self.0.insert(name, value);
     }
 
     /// Iterate over all the property in this struct
     pub fn iter(&self) -> impl Iterator<Item = (&str, Value)> {
-        self.0.iter().map(|(a, b)| (a.as_str(), Value(b.clone())))
-    }
-}
-
-impl From<Struct> for Value {
-    fn from(s: Struct) -> Self {
-        Self(eval::Value::Struct(s))
-    }
-}
-impl TryInto<Struct> for Value {
-    type Error = Value;
-    fn try_into(self) -> Result<Struct, Value> {
-        if let eval::Value::Struct(o) = self.0 {
-            Ok(o)
-        } else {
-            Err(self)
-        }
+        self.0.iter().map(|(a, b)| (a.as_str(), b.clone()))
     }
 }
 
 impl FromIterator<(String, Value)> for Struct {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
-        Self(iter.into_iter().map(|(a, b)| (a, b.0)).collect())
+        Self(iter.into_iter().collect())
     }
 }
 
 /// FIXME: use SharedArray instead?
 impl From<Vec<Value>> for Value {
     fn from(a: Vec<Value>) -> Self {
-        Self(eval::Value::Array(a.into_iter().map(|v| v.0).collect()))
+        Value::Array(a.into_iter().collect())
     }
 }
 impl TryInto<Vec<Value>> for Value {
     type Error = Value;
     fn try_into(self) -> Result<Vec<Value>, Value> {
-        if let eval::Value::Array(a) = self.0 {
-            Ok(a.into_iter().map(Value).collect())
+        if let Value::Array(a) = self {
+            Ok(a.into_iter().collect())
         } else {
             Err(self)
         }
@@ -261,7 +452,6 @@ impl ComponentInstance {
         let comp = self.inner.unerase(guard);
         comp.description()
             .get_property(comp.borrow(), name)
-            .map(|v| Value(v))
             .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
@@ -270,7 +460,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .set_property(comp.borrow(), name, value.0)
+            .set_property(comp.borrow(), name, value)
             .map_err(|()| todo!("set_property don't return the right error type"))
     }
 
@@ -284,15 +474,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .set_callback_handler(
-                comp.borrow(),
-                name,
-                Box::new(move |args| {
-                    // TODO: avoid allocation in common case by puting that on the stack or find a way (transmute?)
-                    let args = args.iter().map(|v| Value(v.clone())).collect::<Vec<_>>();
-                    callback(&args).0
-                }),
-            )
+            .set_callback_handler(comp.borrow(), name, Box::new(move |args| callback(&args)))
             .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
@@ -300,11 +482,7 @@ impl ComponentInstance {
     pub fn call_callback(&self, name: &str, args: &[Value]) -> Result<Value, CallCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        // TODO: avoid allocation in common case by puting that on the stack or find a way (transmute?)
-        let args = args.iter().map(|v| v.0.clone()).collect::<Vec<_>>();
-        Ok(Value(
-            comp.description().call_callback(comp.borrow(), name, &args).map_err(|()| todo!())?,
-        ))
+        Ok(comp.description().call_callback(comp.borrow(), name, &args).map_err(|()| todo!())?)
     }
 
     /// Marks the window of this component to be shown on the screen. This registers

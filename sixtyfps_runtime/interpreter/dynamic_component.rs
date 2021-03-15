@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::{dynamic_type, eval};
+use crate::{api::Value, dynamic_type, eval};
 
 use core::convert::TryInto;
 use core::ptr::NonNull;
@@ -114,7 +114,7 @@ impl ItemWithinComponent {
 
 pub(crate) struct PropertiesWithinComponent {
     pub(crate) offset: usize,
-    pub(crate) prop: Box<dyn PropertyInfo<u8, eval::Value>>,
+    pub(crate) prop: Box<dyn PropertyInfo<u8, Value>>,
 }
 
 pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
@@ -127,7 +127,7 @@ pub(crate) struct RepeaterWithinComponent<'par_id, 'sub_id> {
 }
 
 impl RepeatedComponent for ErasedComponentBox {
-    type Data = eval::Value;
+    type Data = Value;
 
     fn update(&self, index: usize, data: Self::Data) {
         generativity::make_guard!(guard);
@@ -142,7 +142,7 @@ impl RepeatedComponent for ErasedComponentBox {
 
         self.borrow().as_ref().apply_layout(Default::default());
         s.component_type
-            .set_property(s.borrow(), "y", eval::Value::Number(*offset_y as f64))
+            .set_property(s.borrow(), "y", Value::Number(*offset_y as f64))
             .expect("cannot set y");
         let h: f32 = s
             .component_type
@@ -271,7 +271,7 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
     }
 }
 
-type Callback = sixtyfps_corelib::Callback<[eval::Value], eval::Value>;
+type Callback = sixtyfps_corelib::Callback<[Value], Value>;
 
 /// ComponentDescription is a representation of a component suitable for interpretation
 ///
@@ -346,7 +346,7 @@ impl<'id> ComponentDescription<'id> {
         &self,
         component: ComponentRefPin,
         name: &str,
-        value: eval::Value,
+        value: Value,
     ) -> Result<(), ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -375,7 +375,7 @@ impl<'id> ComponentDescription<'id> {
         &self,
         component: ComponentRef,
         name: &str,
-        binding: Box<dyn Fn() -> eval::Value>,
+        binding: Box<dyn Fn() -> Value>,
     ) -> Result<(), ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -397,7 +397,7 @@ impl<'id> ComponentDescription<'id> {
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if a callback with this name does not exist in this component
-    pub fn get_property(&self, component: ComponentRefPin, name: &str) -> Result<eval::Value, ()> {
+    pub fn get_property(&self, component: ComponentRefPin, name: &str) -> Result<Value, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
@@ -426,7 +426,7 @@ impl<'id> ComponentDescription<'id> {
         &self,
         component: Pin<ComponentRef>,
         name: &str,
-        handler: Box<dyn Fn(&[eval::Value]) -> eval::Value>,
+        handler: Box<dyn Fn(&[Value]) -> Value>,
     ) -> Result<(), ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
@@ -445,8 +445,8 @@ impl<'id> ComponentDescription<'id> {
         &self,
         component: ComponentRefPin,
         name: &str,
-        args: &[eval::Value],
-    ) -> Result<eval::Value, ()> {
+        args: &[Value],
+    ) -> Result<Value, ()> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
@@ -563,7 +563,7 @@ fn rtti_for_flickable() -> (&'static str, Rc<ItemRTTI>) {
     use rtti::BuiltinItem;
     let rect_prop = &["viewport_x", "viewport_y", "viewport_width", "viewport_height"];
 
-    struct FlickableViewPortPropertyInfo(&'static dyn rtti::PropertyInfo<Rectangle, eval::Value>);
+    struct FlickableViewPortPropertyInfo(&'static dyn rtti::PropertyInfo<Rectangle, Value>);
     fn viewport(flick: Pin<ItemRef>) -> Pin<&Rectangle> {
         Flickable::FIELD_OFFSETS
             .viewport
@@ -571,21 +571,16 @@ fn rtti_for_flickable() -> (&'static str, Rc<ItemRTTI>) {
     }
 
     impl eval::ErasedPropertyInfo for FlickableViewPortPropertyInfo {
-        fn get(&self, item: Pin<ItemRef>) -> eval::Value {
+        fn get(&self, item: Pin<ItemRef>) -> Value {
             (*self.0).get(viewport(item)).unwrap()
         }
-        fn set(
-            &self,
-            item: Pin<ItemRef>,
-            value: eval::Value,
-            animation: Option<PropertyAnimation>,
-        ) {
+        fn set(&self, item: Pin<ItemRef>, value: Value, animation: Option<PropertyAnimation>) {
             (*self.0).set(viewport(item), value, animation).unwrap()
         }
         fn set_binding(
             &self,
             item: Pin<ItemRef>,
-            binding: Box<dyn Fn() -> eval::Value>,
+            binding: Box<dyn Fn() -> Value>,
             animation: AnimatedBindingKind,
         ) {
             (*self.0).set_binding(viewport(item), binding, animation).unwrap();
@@ -742,10 +737,10 @@ fn generate_component<'id>(
     let mut custom_properties = HashMap::new();
     let mut custom_callbacks = HashMap::new();
     fn property_info<T: PartialEq + Clone + Default + 'static>(
-    ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
+    ) -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
     where
-        T: std::convert::TryInto<eval::Value>,
-        eval::Value: std::convert::TryInto<T>,
+        T: std::convert::TryInto<Value>,
+        Value: std::convert::TryInto<T>,
     {
         // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
         (
@@ -756,10 +751,10 @@ fn generate_component<'id>(
         )
     }
     fn animated_property_info<T: Clone + Default + InterpolatedPropertyValue + 'static>(
-    ) -> (Box<dyn PropertyInfo<u8, eval::Value>>, dynamic_type::StaticTypeInfo)
+    ) -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
     where
-        T: std::convert::TryInto<eval::Value>,
-        eval::Value: std::convert::TryInto<T>,
+        T: std::convert::TryInto<Value>,
+        Value: std::convert::TryInto<T>,
     {
         // Fixme: using u8 in PropertyInfo<> is not sound, we would need to materialize a type for out component
         (
@@ -794,8 +789,8 @@ fn generate_component<'id>(
             Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => {
                 property_info::<sixtyfps_corelib::properties::StateInfo>()
             }
-            Type::Object { .. } => property_info::<eval::Value>(),
-            Type::Array(_) => property_info::<eval::Value>(),
+            Type::Object { .. } => property_info::<Value>(),
+            Type::Array(_) => property_info::<Value>(),
             Type::Percent => property_info::<f32>(),
             Type::Enumeration(e) => match e.name.as_ref() {
                 "LayoutAlignment" => property_info::<sixtyfps_corelib::layout::LayoutAlignment>(),
@@ -825,7 +820,7 @@ fn generate_component<'id>(
             PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
         );
         // FIXME: make it a property for the correct type instead of being generic
-        let (prop, type_info) = property_info::<eval::Value>();
+        let (prop, type_info) = property_info::<Value>();
         custom_properties.insert(
             "model_data".into(),
             PropertiesWithinComponent { offset: builder.add_field(type_info), prop },

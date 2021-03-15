@@ -15,15 +15,15 @@ use std::rc::Rc;
 use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
 use sixtyfps_corelib::{rtti, Callback, Property};
 
-use crate::eval;
+use crate::{api::Value, eval};
 
 pub trait GlobalComponent {
-    fn call_callback(self: Pin<&Self>, _callback_name: &str, _args: &[eval::Value]) -> eval::Value {
+    fn call_callback(self: Pin<&Self>, _callback_name: &str, _args: &[Value]) -> Value {
         todo!("call callback")
     }
 
-    fn set_property(self: Pin<&Self>, prop_name: &str, value: eval::Value);
-    fn get_property(self: Pin<&Self>, prop_name: &str) -> eval::Value;
+    fn set_property(self: Pin<&Self>, prop_name: &str, value: Value);
+    fn get_property(self: Pin<&Self>, prop_name: &str) -> Value;
 }
 
 pub fn instantiate(component: &Rc<Component>) -> Pin<Rc<dyn GlobalComponent>> {
@@ -57,8 +57,8 @@ pub fn instantiate(component: &Rc<Component>) -> Pin<Rc<dyn GlobalComponent>> {
 /// For the global components, we don't use the dynamic_type optimisation,
 /// and we don't try to to optimize the property to their real type
 pub struct GlobalComponentInstance {
-    properties: HashMap<String, Pin<Box<Property<eval::Value>>>>,
-    callbacks: HashMap<String, Pin<Box<Callback<[eval::Value]>>>>,
+    properties: HashMap<String, Pin<Box<Property<Value>>>>,
+    callbacks: HashMap<String, Pin<Box<Callback<[Value]>>>>,
     pub component: Rc<Component>,
 }
 impl Unpin for GlobalComponentInstance {}
@@ -104,22 +104,22 @@ impl GlobalComponentInstance {
     }
 }
 impl GlobalComponent for GlobalComponentInstance {
-    fn set_property(self: Pin<&Self>, prop_name: &str, value: eval::Value) {
+    fn set_property(self: Pin<&Self>, prop_name: &str, value: Value) {
         self.properties[prop_name].as_ref().set(value);
     }
 
-    fn get_property(self: Pin<&Self>, prop_name: &str) -> eval::Value {
+    fn get_property(self: Pin<&Self>, prop_name: &str) -> Value {
         self.properties[prop_name].as_ref().get()
     }
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
-    fn set_property(self: Pin<&Self>, prop_name: &str, value: eval::Value) {
+    fn set_property(self: Pin<&Self>, prop_name: &str, value: Value) {
         let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
         prop.set(self, value, None).unwrap()
     }
 
-    fn get_property(self: Pin<&Self>, prop_name: &str) -> eval::Value {
+    fn get_property(self: Pin<&Self>, prop_name: &str) -> Value {
         let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
         prop.get(self).unwrap()
     }

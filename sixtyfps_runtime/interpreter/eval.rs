@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::api::Struct;
+use crate::api::Value;
 use crate::dynamic_component::InstanceRef;
 use core::convert::TryInto;
 use core::iter::FromIterator;
@@ -86,244 +86,7 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackIn
     }
 }
 
-/// This is a dynamically typed Value used in the interpreter, it need to be able
-/// to be converted from and to anything that can be stored in a Property
-#[derive(Clone)]
-#[non_exhaustive]
-pub enum Value {
-    /// There is nothing in this value. That's the default.
-    /// For example, a function that do not return a result would return a Value::Void
-    Void,
-    /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
-    Number(f64),
-    /// Correspond to the `string` type in .60
-    String(SharedString),
-    /// Correspond to the `bool` type in .60
-    Bool(bool),
-    /// Correspond to the `image` type in .60
-    Image(ImageReference),
-    /// An Array in the .60 language.
-    Array(SharedVector<Value>),
-    /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
-    Model(Rc<dyn corelib::model::Model<Data = Value>>),
-    /// An object
-    Struct(Struct),
-    /// Corresespond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
-    Brush(Brush),
-    #[doc(hidden)]
-    /// The elements of a path
-    PathElements(PathData),
-    #[doc(hidden)]
-    /// An easing curve
-    EasingCurve(corelib::animations::EasingCurve),
-    #[doc(hidden)]
-    /// An enumation, like TextHorizontalAlignment::align_center
-    EnumerationValue(String, String),
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::Void
-    }
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            Value::Void => matches!(other, Value::Void),
-            Value::Number(lhs) => matches!(other, Value::Number(rhs) if lhs == rhs),
-            Value::String(lhs) => matches!(other, Value::String(rhs) if lhs == rhs),
-            Value::Bool(lhs) => matches!(other, Value::Bool(rhs) if lhs == rhs),
-            Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
-            Value::Array(lhs) => matches!(other, Value::Array(rhs) if lhs == rhs),
-            Value::Model(lhs) => matches!(other, Value::Model(rhs) if Rc::ptr_eq(lhs, rhs)),
-            Value::Struct(lhs) => matches!(other, Value::Struct(rhs) if lhs == rhs),
-            Value::Brush(lhs) => matches!(other, Value::Brush(rhs) if lhs == rhs),
-            Value::PathElements(lhs) => matches!(other, Value::PathElements(rhs) if lhs == rhs),
-            Value::EasingCurve(lhs) => matches!(other, Value::EasingCurve(rhs) if lhs == rhs),
-            Value::EnumerationValue(lhs_name, lhs_value) => {
-                matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
-            }
-        }
-    }
-}
-
-impl std::fmt::Debug for Value {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Value::Void => write!(f, "Value::Void"),
-            Value::Number(n) => write!(f, "Value::Number({:?})", n),
-            Value::String(s) => write!(f, "Value::String({:?})", s),
-            Value::Bool(b) => write!(f, "Value::Bool({:?})", b),
-            Value::Image(i) => write!(f, "Value::Image({:?})", i),
-            Value::Array(a) => write!(f, "Value::Array({:?})", a),
-            Value::Model(_) => write!(f, "Value::Model(<model object>)"),
-            Value::Struct(s) => write!(f, "Value::Struct({:?})", s),
-            Value::Brush(b) => write!(f, "Value::Brush({:?})", b),
-            Value::PathElements(e) => write!(f, "Value::PathElements({:?})", e),
-            Value::EasingCurve(c) => write!(f, "Value::EasingCurve({:?})", c),
-            Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
-        }
-    }
-}
-
 impl corelib::rtti::ValueType for Value {}
-
-/// Helper macro to implement the From / TryInto for Value
-///
-/// For example
-/// `declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );`
-/// means that `Value::Number` can be converted to / from each of the said rust types
-///
-/// For `Value::Object` mapping to a rust `struct`, one can use [`declare_value_struct_conversion!`]
-/// And for `Value::EnumerationValue` which maps to a rust `enum`, one can use [`declare_value_struct_conversion!`]
-macro_rules! declare_value_conversion {
-    ( $value:ident => [$($ty:ty),*] ) => {
-        $(
-            impl From<$ty> for Value {
-                fn from(v: $ty) -> Self {
-                    Value::$value(v as _)
-                }
-            }
-            impl TryInto<$ty> for Value {
-                type Error = Value;
-                fn try_into(self) -> Result<$ty, Value> {
-                    match self {
-                        //Self::$value(x) => x.try_into().map_err(|_|()),
-                        Self::$value(x) => Ok(x as _),
-                        _ => Err(self)
-                    }
-                }
-            }
-        )*
-    };
-}
-declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize] );
-declare_value_conversion!(String => [SharedString] );
-declare_value_conversion!(Bool => [bool] );
-declare_value_conversion!(Image => [ImageReference] );
-declare_value_conversion!(Struct => [Struct] );
-declare_value_conversion!(Brush => [Brush] );
-declare_value_conversion!(PathElements => [PathData]);
-declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
-
-/// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
-macro_rules! declare_value_struct_conversion {
-    (struct $name:path { $($field:ident),* $(,)? }) => {
-        impl From<$name> for Value {
-            fn from($name { $($field),* }: $name) -> Self {
-                let mut struct_ = Struct::default();
-                $(struct_.set_property(stringify!($field).into(), crate::api::Value($field.into()));)*
-                Value::Struct(struct_)
-            }
-        }
-        impl TryInto<$name> for Value {
-            type Error = ();
-            fn try_into(self) -> Result<$name, ()> {
-                match self {
-                    Self::Struct(x) => {
-                        type Ty = $name;
-                        Ok(Ty {
-                            $($field: x.get_property(stringify!($field)).ok_or(())?.0.clone().try_into().map_err(|_|())?),*
-                        })
-                    }
-                    _ => Err(()),
-                }
-            }
-        }
-    };
-}
-
-declare_value_struct_conversion!(struct corelib::model::StandardListViewItem { text });
-declare_value_struct_conversion!(struct corelib::properties::StateInfo { current_state, previous_state, change_time });
-declare_value_struct_conversion!(struct corelib::input::KeyboardModifiers { control, alt, shift, meta });
-declare_value_struct_conversion!(struct corelib::input::KeyEvent { event_type, text, modifiers });
-
-/// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
-///
-/// The `enum` must derive `Display` and `FromStr`
-/// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
-macro_rules! declare_value_enum_conversion {
-    ($ty:ty, $n:ident) => {
-        impl From<$ty> for Value {
-            fn from(v: $ty) -> Self {
-                Value::EnumerationValue(stringify!($n).to_owned(), v.to_string())
-            }
-        }
-        impl TryInto<$ty> for Value {
-            type Error = ();
-            fn try_into(self) -> Result<$ty, ()> {
-                use std::str::FromStr;
-                match self {
-                    Self::EnumerationValue(enumeration, value) => {
-                        if enumeration != stringify!($n) {
-                            return Err(());
-                        }
-
-                        <$ty>::from_str(value.as_str()).map_err(|_| ())
-                    }
-                    _ => Err(()),
-                }
-            }
-        }
-    };
-}
-
-declare_value_enum_conversion!(corelib::items::TextHorizontalAlignment, TextHorizontalAlignment);
-declare_value_enum_conversion!(corelib::items::TextVerticalAlignment, TextVerticalAlignment);
-declare_value_enum_conversion!(corelib::items::TextOverflow, TextOverflow);
-declare_value_enum_conversion!(corelib::items::TextWrap, TextWrap);
-declare_value_enum_conversion!(corelib::layout::LayoutAlignment, LayoutAlignment);
-declare_value_enum_conversion!(corelib::items::ImageFit, ImageFit);
-declare_value_enum_conversion!(corelib::input::KeyEventType, KeyEventType);
-declare_value_enum_conversion!(corelib::items::EventResult, EventResult);
-declare_value_enum_conversion!(corelib::items::FillRule, FillRule);
-
-impl From<corelib::animations::Instant> for Value {
-    fn from(value: corelib::animations::Instant) -> Self {
-        Value::Number(value.0 as _)
-    }
-}
-impl TryInto<corelib::animations::Instant> for Value {
-    type Error = ();
-    fn try_into(self) -> Result<corelib::animations::Instant, ()> {
-        match self {
-            Value::Number(x) => Ok(corelib::animations::Instant(x as _)),
-            _ => Err(()),
-        }
-    }
-}
-
-impl From<()> for Value {
-    #[inline]
-    fn from(_: ()) -> Self {
-        Value::Void
-    }
-}
-impl TryInto<()> for Value {
-    type Error = ();
-    #[inline]
-    fn try_into(self) -> Result<(), ()> {
-        Ok(())
-    }
-}
-
-impl From<Color> for Value {
-    #[inline]
-    fn from(c: Color) -> Self {
-        Value::Brush(Brush::SolidColor(c))
-    }
-}
-impl TryInto<Color> for Value {
-    type Error = Value;
-    #[inline]
-    fn try_into(self) -> Result<Color, Value> {
-        match self {
-            Value::Brush(Brush::SolidColor(c)) => Ok(c),
-            _ => Err(self),
-        }
-    }
-}
 
 #[derive(Copy, Clone)]
 enum ComponentInstance<'a, 'id> {
@@ -410,7 +173,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         }
         Expression::ObjectAccess { base, name } => {
             if let Value::Struct(o) = eval_expression(base, local_context) {
-                o.get_property(name).map_or(Value::Void, |public_value| public_value.0)
+                o.get_property(name).unwrap_or(Value::Void)
             } else {
                 Value::Void
             }
@@ -641,7 +404,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                         ("height".to_string(), Value::Number(size.height as f64)),
                     ]
                     .iter()
-                    .map(|(name, value)| (name.clone(), crate::api::Value(value.clone()))).collect();
+                    .map(|(name, value)| (name.clone(), value.clone())).collect();
                     Value::Struct(values)
                 } else {
                     panic!("internal error: argument to ImplicitItemWidth must be an element")
@@ -714,7 +477,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::Object { values, .. } => Value::Struct(
             values
                 .iter()
-                .map(|(k, v)| (k.clone(), crate::api::Value(eval_expression(v, local_context))))
+                .map(|(k, v)| (k.clone(), eval_expression(v, local_context)))
                 .collect(),
         ),
         Expression::PathElements { elements } => {
@@ -817,9 +580,9 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
         }
         Expression::ObjectAccess { base, name } => {
             if let Value::Struct(mut o) = eval_expression(base, local_context) {
-                let mut r = o.get_property(name).unwrap().0;
+                let mut r = o.get_property(name).unwrap();
                 r = if op == '=' { rhs } else { eval(std::mem::take(&mut r)) };
-                o.set_property(name.to_owned(), crate::api::Value(r));
+                o.set_property(name.to_owned(), r);
                 eval_assignement(base, '=', Value::Struct(o), local_context)
             }
         }
