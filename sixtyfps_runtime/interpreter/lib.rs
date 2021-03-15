@@ -31,12 +31,6 @@ pub use sixtyfps_compilerlib::CompilerConfiguration;
 use sixtyfps_corelib::component::ComponentVTable;
 use std::rc::Rc;
 
-pub fn new_compiler_configuration() -> CompilerConfiguration {
-    sixtyfps_compilerlib::CompilerConfiguration::new(
-        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-    )
-}
-
 pub type ComponentDescription = dynamic_component::ComponentDescription<'static>;
 pub type ComponentBox = dynamic_component::ComponentBox<'static>;
 pub type ComponentRc = vtable::VRc<ComponentVTable, dynamic_component::ErasedComponentBox>;

@@ -182,26 +182,26 @@ impl ComponentDefinition {
     /// Compile a .60 file into a ComponentDefinition
     pub async fn from_path<P: AsRef<Path>>(
         path: P,
+        config: CompilerConfiguration,
     ) -> Result<ComponentDefinition, ComponentLoadError> {
         let (c, diag) = crate::load(
             std::fs::read_to_string(&path).map_err(|_| todo!())?,
             path.as_ref().into(),
-            crate::new_compiler_configuration(),
+            config.config,
         )
         .await;
         let inner = c.map_err(|_| ComponentLoadError(diag))?;
         Ok(Self { inner })
     }
     /// Compile some .60 code into a ComponentDefinition
-    pub async fn from_string(source_code: &str) -> Result<ComponentDefinition, ComponentLoadError> {
-        let inner = crate::load(
-            source_code.into(),
-            Default::default(),
-            crate::new_compiler_configuration(),
-        )
-        .await
-        .0
-        .map_err(|_| todo!())?;
+    pub async fn from_string(
+        source_code: &str,
+        config: CompilerConfiguration,
+    ) -> Result<ComponentDefinition, ComponentLoadError> {
+        let inner = crate::load(source_code.into(), Default::default(), config.config)
+            .await
+            .0
+            .map_err(|_| todo!())?;
         Ok(Self { inner })
     }
 
@@ -338,4 +338,35 @@ pub enum SetPropertyError {
 /// Error returned by [`ComponentInstance::call_callback`]
 pub enum CallCallbackError {
     //todo
+}
+
+/// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
+pub struct CompilerConfiguration {
+    config: sixtyfps_compilerlib::CompilerConfiguration,
+}
+
+impl CompilerConfiguration {
+    /// Creates a new default configuration.
+    pub fn new() -> Self {
+        Self {
+            config: sixtyfps_compilerlib::CompilerConfiguration::new(
+                sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+            ),
+        }
+    }
+
+    /// Create a new configuration that includes sets the include paths used for looking up
+    /// `.60` imports to the specified vector of paths.
+    pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
+        let mut config = self.config;
+        config.include_paths = include_paths;
+        Self { config }
+    }
+
+    /// Create a new configuration that selects the style to be used for widgets.
+    pub fn with_style(self, style: String) -> Self {
+        let mut config = self.config;
+        config.style = Some(style);
+        Self { config }
+    }
 }
