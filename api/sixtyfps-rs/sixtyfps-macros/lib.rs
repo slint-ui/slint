@@ -329,7 +329,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let source_file = if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
         let mut path: std::path::PathBuf = cargo_manifest.into();
         path.push("Cargo.toml");
-        Some(diagnostics::SourceFileInner::from_path(path))
+        Some(diagnostics::SourceFileInner::from_path_only(path))
     } else {
         None
     };

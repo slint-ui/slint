@@ -93,9 +93,6 @@ pub enum CompileError {
     /// Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.
     #[error("Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.")]
     NotRunViaCargo,
-    /// Cannot load the input .60 file
-    #[error("Cannot load the .60 file: {0}")]
-    LoadError(std::io::Error),
     /// Parse error. The error are printed in the stderr, and also are in the vector
     #[error("{0:?}")]
     CompileError(Vec<String>),
@@ -183,8 +180,7 @@ pub fn compile_with_config(
         .join(path.as_ref());
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = sixtyfps_compilerlib::parser::parse_file(&path, &mut diag)
-        .map_err(CompileError::LoadError)?;
+    let syntax_node = sixtyfps_compilerlib::parser::parse_file(&path, &mut diag);
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -199,6 +195,8 @@ pub fn compile_with_config(
             compiler_config.embed_resources = true;
         }
     };
+
+    let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
     let (doc, mut diag) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(

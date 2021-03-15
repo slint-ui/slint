@@ -85,7 +85,8 @@ impl SourceFileInner {
         &self.path
     }
 
-    pub fn from_path(path: PathBuf) -> Rc<Self> {
+    /// Create a SourceFile that has just a path, but no contents
+    pub fn from_path_only(path: PathBuf) -> Rc<Self> {
         Rc::new(Self { path, ..Default::default() })
     }
 
@@ -105,6 +106,17 @@ impl SourceFileInner {
 }
 
 pub type SourceFile = Rc<SourceFileInner>;
+
+pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
+    std::fs::read_to_string(path).map_err(|err| Diagnostic {
+        message: format!("Could not load {}: {}", path.display(), err),
+        span: SourceLocation {
+            source_file: Some(SourceFileInner::from_path_only(path.to_owned())),
+            span: Default::default(),
+        },
+        level: DiagnosticLevel::Error,
+    })
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct SourceLocation {

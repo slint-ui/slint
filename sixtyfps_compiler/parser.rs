@@ -837,9 +837,11 @@ pub fn parse(
 pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
     build_diagnostics: &mut BuildDiagnostics,
-) -> std::io::Result<SyntaxNodeWithSourceFile> {
-    let source = std::fs::read_to_string(&path)?;
-    Ok(parse(source, Some(path.as_ref()), build_diagnostics))
+) -> Option<SyntaxNodeWithSourceFile> {
+    let source = crate::diagnostics::load_from_path(path.as_ref())
+        .map_err(|d| build_diagnostics.push_internal_error(d))
+        .ok()?;
+    Some(parse(source, Some(path.as_ref()), build_diagnostics))
 }
 
 pub fn parse_tokens(tokens: Vec<Token>, diags: &mut BuildDiagnostics) -> SyntaxNode {

@@ -43,7 +43,7 @@ struct Cli {
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_file(&args.path, &mut diag)?;
+    let syntax_node = parser::parse_file(&args.path, &mut diag);
     //println!("{:#?}", syntax_node);
     if diag.has_error() {
         diag.print();
@@ -51,6 +51,7 @@ fn main() -> std::io::Result<()> {
     }
     let mut compiler_config = CompilerConfiguration::new(args.format);
     compiler_config.include_paths = args.include_paths;
+    let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     let mut diag = diag.check_and_exit_on_error();
