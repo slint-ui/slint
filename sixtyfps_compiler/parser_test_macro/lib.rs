@@ -71,7 +71,8 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
         tests += &format!(r#"
         #[test] fn parser_test_{fn}_{i}()
         {{
-            let mut p = DefaultParser::new("{source}".to_owned());
+            let mut diag = Default::default();
+            let mut p = DefaultParser::new("{source}", &mut diag);
             {fn}(&mut p);
             let has_error = p.diags.has_error();
             //#[cfg(feature = "display-diagnostics")]
