@@ -123,9 +123,7 @@ pub enum Value {
     Model(ModelPtr),
     /// An object
     Object(HashMap<String, Value>),
-    /// A color
-    Color(Color),
-    /// A brush
+    /// Corresespond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
     Brush(Brush),
     /// The elements of a path
     PathElements(PathData),
@@ -179,7 +177,6 @@ declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Image => [ImageReference] );
 declare_value_conversion!(Object => [HashMap<String, Value>] );
-declare_value_conversion!(Color => [Color] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [corelib::animations::EasingCurve]);
@@ -289,6 +286,23 @@ impl TryInto<()> for Value {
     }
 }
 
+impl From<Color> for Value {
+    #[inline]
+    fn from(c: Color) -> Self {
+        Value::Brush(Brush::SolidColor(c))
+    }
+}
+impl TryInto<Color> for Value {
+    type Error = Value;
+    #[inline]
+    fn try_into(self) -> Result<Color, Value> {
+        match self {
+            Value::Brush(Brush::SolidColor(c)) => Ok(c),
+            _ => Err(self),
+        }
+    }
+}
+
 #[derive(Copy, Clone)]
 enum ComponentInstance<'a, 'id> {
     InstanceRef(InstanceRef<'a, 'id>),
@@ -386,9 +400,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 (Value::Number(n), Type::String) => {
                     Value::String(SharedString::from(format!("{}", n).as_str()))
                 }
-                (Value::Number(n), Type::Color) => Value::Color(Color::from_argb_encoded(n as u32)),
-                (Value::Color(col), Type::Brush) => Value::Brush(Brush::SolidColor(col)),
-                (Value::Brush(brush), Type::Color) => Value::Color(brush.color()),
+                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+                (Value::Brush(brush), Type::Color) => brush.color().into(),
                 (v, _) => v,
             }
         }
@@ -556,9 +569,9 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 if arguments.len() != 2 {
                     panic!("internal error: incorrect argument count to ColorBrighter")
                 }
-                if let Value::Color(col) = eval_expression(&arguments[0], local_context) {
+                if let Value::Brush(Brush::SolidColor(col)) = eval_expression(&arguments[0], local_context) {
                     if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                        Value::Color(col.brighter(factor as _))
+                        col.brighter(factor as _).into()
                     } else {
                         panic!("Second argument not a number");
                     }
@@ -570,9 +583,9 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 if arguments.len() != 2 {
                     panic!("internal error: incorrect argument count to ColorDarker")
                 }
-                if let Value::Color(col) = eval_expression(&arguments[0], local_context) {
+                if let Value::Brush(Brush::SolidColor(col)) = eval_expression(&arguments[0], local_context) {
                     if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                        Value::Color(col.darker(factor as _))
+                        col.darker(factor as _).into()
                     } else {
                         panic!("Second argument not a number");
                     }

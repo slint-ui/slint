@@ -185,12 +185,7 @@ fn to_eval_value<'cx>(
                 .value()
                 .parse::<css_color_parser2::Color>()
                 .or_else(|e| cx.throw_error(&e.to_string()))?;
-            Ok(Value::Color(sixtyfps_corelib::Color::from_argb_u8(
-                (c.a * 255.) as u8,
-                c.r,
-                c.g,
-                c.b,
-            )))
+            Ok((sixtyfps_corelib::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into())
         }
         Type::Array(a) => match val.downcast::<JsArray>() {
             Ok(arr) => {
@@ -281,7 +276,7 @@ fn to_js_value<'cx>(
             }
             js_object.as_value(cx)
         }
-        Value::Color(c) | Value::Brush(sixtyfps_corelib::Brush::SolidColor(c)) => JsString::new(
+        Value::Brush(sixtyfps_corelib::Brush::SolidColor(c)) => JsString::new(
             cx,
             &format!("#{:02x}{:02x}{:02x}{:02x}", c.red(), c.green(), c.blue(), c.alpha()),
         )
