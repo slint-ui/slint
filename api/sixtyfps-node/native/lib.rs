@@ -11,7 +11,7 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::ImageReference;
+use sixtyfps_corelib::{ImageReference, SharedVector};
 
 use std::rc::Rc;
 
@@ -198,7 +198,7 @@ fn to_eval_value<'cx>(
                 Ok(Value::Array(
                     vec.into_iter()
                         .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
-                        .collect::<Result<Vec<_>, _>>()?,
+                        .collect::<Result<SharedVector<_>, _>>()?,
                 ))
             }
             Err(_) => {

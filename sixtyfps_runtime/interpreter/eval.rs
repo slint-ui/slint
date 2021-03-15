@@ -117,7 +117,7 @@ pub enum Value {
     /// Correspond to the `image` type in .60
     Image(ImageReference),
     /// An Array in the .60 language.
-    Array(Vec<Value>),
+    Array(SharedVector<Value>),
     /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
     Model(ModelPtr),
     /// An object
