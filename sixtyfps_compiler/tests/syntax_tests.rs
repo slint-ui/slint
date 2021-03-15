@@ -70,7 +70,7 @@ fn process_diagnostics(
 
     let mut diags = compile_diagnostics
         .iter()
-        .filter(|d| &cannonical(d.source_file().unwrap()) == path)
+        .filter(|d| cannonical(d.source_file().unwrap()) == path)
         .collect::<Vec<_>>();
 
     let lines = source
