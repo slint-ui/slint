@@ -12,7 +12,7 @@ use core::convert::TryInto;
 use sixtyfps_corelib::{Brush, ImageReference, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
 use std::iter::FromIterator;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[doc(inline)]
@@ -369,24 +369,23 @@ impl ComponentDefinition {
     }
     /// Compile some .60 code into a ComponentDefinition
     ///
+    /// The `path` argument will be used for diagnostics and to compute relative
+    /// path while importing
+    ///
     /// The first element of the returned tuple is going to be the compiled
     /// ComponentDefinition if there was no errors. This function also return
     /// a vector if diagnostics with errors and/or warnings
-    pub async fn from_string(
-        source_code: &str,
+    pub async fn from_source(
+        source_code: String,
+        path: PathBuf,
         config: CompilerConfiguration,
     ) -> (Option<Self>, Vec<Diagnostic>) {
         // We create here a 'static guard. That's alright because we make sure
         // in this module that we only use erased component
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
 
-        let (c, diag) = crate::dynamic_component::load(
-            source_code.into(),
-            Default::default(),
-            config.config,
-            guard,
-        )
-        .await;
+        let (c, diag) =
+            crate::dynamic_component::load(source_code, path, config.config, guard).await;
         (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
     }
 
@@ -614,15 +613,20 @@ impl CompilerConfiguration {
 
     /// Create a new configuration that will use the provided callback for loading.
     pub fn with_file_loader(
-        _file_loader_fallback: Box<
-            dyn Fn(
+        self,
+        file_loader_fallback: impl Fn(
                 &Path,
-            ) -> core::pin::Pin<
-                Box<dyn core::future::Future<Output = std::io::Result<String>>>,
-            >,
-        >,
+            )
+                -> core::pin::Pin<Box<dyn core::future::Future<Output = std::io::Result<String>>>>
+            + 'static,
+        // FIXME: remove that argument
+        resolve: impl Fn(String) -> Option<String> + 'static,
     ) -> Self {
-        todo!();
+        let mut config = self.config;
+        config.open_import_fallback =
+            Some(Box::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+        config.resolve_import_fallback = Some(Box::new(resolve));
+        Self { config }
     }
 }
 

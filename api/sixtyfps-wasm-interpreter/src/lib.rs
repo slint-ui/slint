@@ -10,7 +10,7 @@ LICENSE END */
 //! This wasm library can be loaded from JS to load and display the content of .60 files
 #![cfg(target_arch = "wasm32")]
 
-use std::rc::Rc;
+use std::path::Path;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::JsFuture;
@@ -33,21 +33,24 @@ pub async fn compile_from_string(
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
-    let mut config = sixtyfps_interpreter::new_compiler_configuration();
+    let mut config = sixtyfps_interpreter::CompilerConfiguration::new();
 
     if let (Some(resolver_callback), Some(load_callback)) =
         (optional_resolve_import_callback, optional_import_callback)
     {
-        config.resolve_import_fallback = Some(Box::new(move |file_name| {
+        let resolve_import_fallback = move |file_name: String| -> Option<String> {
             resolver_callback
                 .clone()
                 .call1(&JsValue::UNDEFINED, &file_name.into())
                 .ok()
                 .and_then(|path_value| path_value.as_string())
-        }));
-        config.open_import_fallback = Some(Box::new(move |file_name| {
+        };
+        let open_import_fallback = move |file_name: &Path| -> core::pin::Pin<
+            Box<dyn core::future::Future<Output = std::io::Result<String>>>,
+        > {
             Box::pin({
                 let load_callback = load_callback.clone();
+                let file_name: String = file_name.to_string_lossy().into();
                 async move {
                     let result = load_callback.call1(&JsValue::UNDEFINED, &file_name.into());
                     let promise: js_sys::Promise = result.unwrap().into();
@@ -61,15 +64,17 @@ pub async fn compile_from_string(
                     }
                 }
             })
-        }));
+        };
+        config = config.with_file_loader(open_import_fallback, resolve_import_fallback);
     }
 
-    let c = match sixtyfps_interpreter::load(source, base_url.into(), config).await {
-        (Ok(c), ..) => {
-            //TODO: warnings.print();
-            c
-        }
-        (Err(()), errors) => {
+    let (c, diags) =
+        sixtyfps_interpreter::ComponentDefinition::from_source(source, base_url.into(), config)
+            .await;
+
+    match c {
+        Some(c) => Ok(WrappedCompiledComp(c)),
+        None => {
             let line_key = JsValue::from_str("lineNumber");
             let column_key = JsValue::from_str("columnNumber");
             let message_key = JsValue::from_str("message");
@@ -77,7 +82,7 @@ pub async fn compile_from_string(
             let level_key = JsValue::from_str("level");
             let mut error_as_string = String::new();
             let array = js_sys::Array::new();
-            for d in errors.into_iter() {
+            for d in diags.into_iter() {
                 let filename = d
                     .source_file()
                     .as_ref()
@@ -107,15 +112,13 @@ pub async fn compile_from_string(
 
             let error = js_sys::Error::new(&error_as_string);
             js_sys::Reflect::set(&error, &JsValue::from_str("errors"), &array)?;
-            return Err((**error).clone());
+            Err((**error).clone())
         }
-    };
-
-    Ok(WrappedCompiledComp(c))
+    }
 }
 
 #[wasm_bindgen]
-pub struct WrappedCompiledComp(Rc<sixtyfps_interpreter::ComponentDescription>);
+pub struct WrappedCompiledComp(sixtyfps_interpreter::ComponentDefinition);
 
 #[wasm_bindgen]
 impl WrappedCompiledComp {
@@ -124,9 +127,8 @@ impl WrappedCompiledComp {
     /// where the result is gonna be rendered
     #[wasm_bindgen]
     pub fn run(&self, canvas_id: String) {
-        let component = self.0.clone().create(canvas_id);
-        component.window().show();
-        sixtyfps_interpreter::run_event_loop();
+        let component = self.0.create_with_canvas_id(&canvas_id);
+        component.run();
     }
 }
 

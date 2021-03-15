@@ -18,10 +18,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let mut config =
         sixtyfps_interpreter::CompilerConfiguration::new().with_include_paths(include_paths);
 
-    // FIXME: use from_source instead of from_path
-    let (component, diags) = spin_on::spin_on(
-        sixtyfps_interpreter::ComponentDefinition::from_path(&testcase.absolute_path, config),
-    );
+    let (component, diags) =
+        spin_on::spin_on(sixtyfps_interpreter::ComponentDefinition::from_source(
+            source,
+            testcase.absolute_path,
+            config,
+        ));
 
     let component = match component {
         None => {
