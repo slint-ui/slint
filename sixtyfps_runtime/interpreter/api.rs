@@ -8,8 +8,6 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-#![warn(missing_docs)]
-
 use core::convert::TryInto;
 use sixtyfps_corelib::{Brush, ImageReference, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
@@ -361,7 +359,12 @@ impl ComponentDefinition {
             Err(d) => return (None, vec![d]),
         };
 
-        let (c, diag) = crate::load(source, path.into(), config.config).await;
+        // We create here a 'static guard. That's alright because we make sure
+        // in this module that we only use erased component
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+
+        let (c, diag) =
+            crate::dynamic_component::load(source, path.into(), config.config, guard).await;
         (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
     }
     /// Compile some .60 code into a ComponentDefinition
@@ -373,7 +376,17 @@ impl ComponentDefinition {
         source_code: &str,
         config: CompilerConfiguration,
     ) -> (Option<Self>, Vec<Diagnostic>) {
-        let (c, diag) = crate::load(source_code.into(), Default::default(), config.config).await;
+        // We create here a 'static guard. That's alright because we make sure
+        // in this module that we only use erased component
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+
+        let (c, diag) = crate::dynamic_component::load(
+            source_code.into(),
+            Default::default(),
+            config.config,
+            guard,
+        )
+        .await;
         (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
     }
 
@@ -408,6 +421,16 @@ impl ComponentDefinition {
     }
 }
 
+/// Print the diagnostics to stderr
+#[cfg(feature = "display-diagnostics")]
+pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
+    let mut build_diagnostics = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
+    for d in diagnostics {
+        build_diagnostics.push_compiler_error(d.clone())
+    }
+    build_diagnostics.print();
+}
+
 /// This represent an instance of a dynamic component
 pub struct ComponentInstance {
     inner: vtable::VRc<
@@ -417,6 +440,14 @@ pub struct ComponentInstance {
 }
 
 impl ComponentInstance {
+    /// Return the definition for this instance
+    pub fn definition(&self) -> ComponentDefinition {
+        // We create here a 'static guard. That's alright because we make sure
+        // in this module that we only use erased component
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        ComponentDefinition { inner: self.inner.unerase(guard).description() }
+    }
+
     /// Return the value for a public property of this component
     pub fn get_property(&self, name: &str) -> Result<Value, GetPropertyError> {
         generativity::make_guard!(guard);
@@ -426,7 +457,7 @@ impl ComponentInstance {
             .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
-    /// Return the value for a public property of this component
+    /// Set the value for a public property of this component
     pub fn set_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
@@ -477,7 +508,7 @@ impl ComponentInstance {
     /// and [`Self::hide`].
     pub fn run(&self) {
         self.show();
-        crate::run_event_loop();
+        sixtyfps_rendering_backend_default::backend().run_event_loop();
         self.hide();
     }
 
@@ -592,5 +623,29 @@ impl CompilerConfiguration {
         >,
     ) -> Self {
         todo!();
+    }
+}
+
+/// A few helper function usefull for tests
+pub mod testing {
+    /// Wrapper around [`sixtyfps_corelib::tests::sixtyfps_send_mouse_click`]
+    pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
+        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
+            &vtable::VRc::into_dyn(comp.inner.clone()),
+            x,
+            y,
+            &comp.inner.window(),
+        );
+    }
+    /// Wrapper around [`sixtyfps_corelib::tests::send_keyboard_string_sequence`]
+    pub fn send_keyboard_string_sequence(
+        comp: &super::ComponentInstance,
+        string: sixtyfps_corelib::SharedString,
+    ) {
+        sixtyfps_corelib::tests::send_keyboard_string_sequence(
+            &string,
+            Default::default(),
+            &comp.inner.window(),
+        );
     }
 }

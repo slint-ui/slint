@@ -13,13 +13,11 @@ use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_corelib::{ImageReference, SharedVector};
 
-use std::rc::Rc;
-
 mod js_model;
 mod persistent_context;
 
-struct WrappedComponentType(Option<Rc<sixtyfps_interpreter::ComponentDescription>>);
-struct WrappedComponentRc(Option<sixtyfps_interpreter::ComponentRc>);
+struct WrappedComponentType(Option<sixtyfps_interpreter::ComponentDefinition>);
+struct WrappedComponentRc(Option<sixtyfps_interpreter::ComponentInstance>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =
@@ -64,21 +62,16 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         }
         None => vec![],
     };
-    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
-        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-    );
-    compiler_config.include_paths = include_paths;
-    let source = std::fs::read_to_string(&path).or_else(|e| cx.throw_error(e.to_string()))?;
-    let (c, warnings) =
-        match spin_on::spin_on(sixtyfps_interpreter::load(source, path.into(), compiler_config)) {
-            (Ok(c), warnings) => (c, warnings),
-            (Err(()), errors) => {
-                errors.print();
-                return cx.throw_error("Compilation error");
-            }
-        };
+    let compiler_config =
+        sixtyfps_interpreter::CompilerConfiguration::new().with_include_paths(include_paths);
+    let (c, diags) = spin_on::spin_on(sixtyfps_interpreter::ComponentDefinition::from_path(
+        path,
+        compiler_config,
+    ));
 
-    warnings.print();
+    sixtyfps_interpreter::print_diagnostics(&diags);
+
+    let c = if let Some(c) = c { c } else { return cx.throw_error("Compilation error") };
 
     let mut obj = SixtyFpsComponentType::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
     cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(c));
@@ -119,7 +112,7 @@ fn make_callback_handler<'cx>(
 
 fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
-    component_type: Rc<sixtyfps_interpreter::ComponentDescription>,
+    component_type: sixtyfps_interpreter::ComponentDefinition,
 ) -> JsResult<'cx, JsValue> {
     let component = component_type.clone().create();
     let persistent_context = persistent_context::PersistentContext::new(cx);
@@ -138,17 +131,16 @@ fn create<'cx>(
                 .clone();
             if let Type::Callback { return_type, .. } = ty {
                 let fun = value.downcast_or_throw::<JsFunction, _>(cx)?;
-                component_type
-                    .set_callback_handler(
-                        component.borrow(),
+                component
+                    .set_callback(
                         prop_name.as_str(),
                         make_callback_handler(cx, &persistent_context, fun, return_type),
                     )
                     .or_else(|_| cx.throw_error(format!("Cannot set callback")))?;
             } else {
                 let value = to_eval_value(value, ty, cx, &persistent_context)?;
-                component_type
-                    .set_property(component.borrow(), prop_name.as_str(), value)
+                component
+                    .set_property(prop_name.as_str(), value)
                     .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
             }
         }
@@ -300,7 +292,7 @@ declare_types! {
             let this = cx.this();
             let ct = cx.borrow(&this, |x| x.0.clone());
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            Ok(cx.string(ct.id()).as_value(&mut cx))
+            Ok(cx.string(ct.name()).as_value(&mut cx))
         }
         method properties(mut cx) {
             let this = cx.this();
@@ -337,33 +329,31 @@ declare_types! {
             Ok(WrappedComponentRc(None))
         }
         method run(mut cx) {
-            let mut this = cx.this();
-            let component = cx.borrow(&mut this, |x| x.0.clone());
+            let this = cx.this();
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.window().show();
-                sixtyfps_interpreter::run_event_loop();
-                component.window().hide();
+                component.run();
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
         method show(mut cx) {
-            let mut this = cx.this();
-            let component = cx.borrow(&mut this, |x| x.0.clone());
+            let this = cx.this();
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.window().show();
+                component.show();
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
         method hide(mut cx) {
-            let mut this = cx.this();
-            let component = cx.borrow(&mut this, |x| x.0.clone());
+            let this = cx.this();
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.window().hide();
+                component.hide();
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
@@ -371,14 +361,10 @@ declare_types! {
         method get_property(mut cx) {
             let prop_name = cx.argument::<JsString>(0)?.value();
             let this = cx.this();
-            let lock = cx.lock();
-            let x = this.borrow(&lock).0.clone();
-            let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            generativity::make_guard!(guard);
-            let component = component.unerase(guard);
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let value = run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.description()
-                    .get_property(component.borrow(), prop_name.as_str())
+                component.get_property(prop_name.as_str())
                     .map_err(|_| format!("Cannot read property"))
             })?;
             to_js_value(value, &mut cx)
@@ -386,12 +372,9 @@ declare_types! {
         method set_property(mut cx) {
             let prop_name = cx.argument::<JsString>(0)?.value();
             let this = cx.this();
-            let lock = cx.lock();
-            let x = this.borrow(&lock).0.clone();
-            let component  = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            generativity::make_guard!(guard);
-            let component = component.unerase(guard);
-            let ty = component.description().properties()
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let ty = component.definition().properties()
                 .get(&prop_name)
                 .ok_or(())
                 .or_else(|()| {
@@ -403,8 +386,7 @@ declare_types! {
                 persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
 
             let value = to_eval_value(cx.argument::<JsValue>(1)?, ty, &mut cx, &persistent_context)?;
-            component.description()
-                .set_property(component.borrow(), prop_name.as_str(), value)
+            component.set_property(prop_name.as_str(), value)
                 .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
 
             Ok(JsUndefined::new().as_value(&mut cx))
@@ -413,12 +395,9 @@ declare_types! {
             let callback_name = cx.argument::<JsString>(0)?.value();
             let arguments = cx.argument::<JsArray>(1)?.to_vec(&mut cx)?;
             let this = cx.this();
-            let lock = cx.lock();
-            let x = this.borrow(&lock).0.clone();
-            let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            generativity::make_guard!(guard);
-            let component = component.unerase(guard);
-            let ty = component.description().properties().get(&callback_name)
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let ty = component.definition().properties().get(&callback_name)
                 .ok_or(())
                 .or_else(|()| {
                     cx.throw_error(format!("Callback {} not found in the component", callback_name))
@@ -443,9 +422,8 @@ declare_types! {
             };
 
             let res = run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.description()
-                    .invoke_callback(component.borrow(), callback_name.as_str(), args.as_slice())
-                    .map_err(|()| "Cannot emit callback".to_string())
+                component.invoke_callback(callback_name.as_str(), args.as_slice())
+                    .map_err(|_| "Cannot emit callback".to_string())
             })?;
             to_js_value(res, &mut cx)
         }
@@ -456,21 +434,17 @@ declare_types! {
             let this = cx.this();
             let persistent_context =
                 persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
-            let lock = cx.lock();
-            let x = this.borrow(&lock).0.clone();
-            let component = x.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            generativity::make_guard!(guard);
-            let component = component.unerase(guard);
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
 
-            let ty = component.description().properties().get(&callback_name)
+            let ty = component.definition().properties().get(&callback_name)
                 .ok_or(())
                 .or_else(|()| {
                     cx.throw_error(format!("Callback {} not found in the component", callback_name))
                 })?
                 .clone();
             if let Type::Callback {return_type, ..} = ty {
-                component.description().set_callback_handler(
-                    component.borrow(),
+                component.set_callback(
                     callback_name.as_str(),
                     make_callback_handler(&mut cx, &persistent_context, handler, return_type)
                 ).or_else(|_| cx.throw_error(format!("Cannot set callback")))?;
@@ -485,12 +459,10 @@ declare_types! {
             let x = cx.argument::<JsNumber>(0)?.value() as f32;
             let y = cx.argument::<JsNumber>(1)?.value() as f32;
             let this = cx.this();
-            let lock = cx.lock();
-            let comp = this.borrow(&lock).0.clone();
-            let component = comp.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let win = component.window();
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                sixtyfps_corelib::tests::sixtyfps_send_mouse_click(&vtable::VRc::into_dyn(component), x, y, &win);
+                sixtyfps_interpreter::testing::send_mouse_click(&component, x, y);
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
@@ -499,11 +471,10 @@ declare_types! {
         method send_keyboard_string_sequence(mut cx) {
             let sequence = cx.argument::<JsString>(0)?.value();
             let this = cx.this();
-            let lock = cx.lock();
-            let comp = this.borrow(&lock).0.clone();
-            let component = comp.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                sixtyfps_corelib::tests::send_keyboard_string_sequence(&sequence.into(), Default::default(), &component.window());
+                sixtyfps_interpreter::testing::send_keyboard_string_sequence(&component, sequence.into());
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))

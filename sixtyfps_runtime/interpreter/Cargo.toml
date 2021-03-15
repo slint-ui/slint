@@ -11,6 +11,9 @@ homepage = "https://sixtyfps.io"
 [lib]
 path = "lib.rs"
 
+[features]
+display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
+
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.5", path = "../corelib", features = ["rtti"] }
 sixtyfps-rendering-backend-default = { version = "=0.0.5", path = "../../sixtyfps_runtime/rendering_backends/default", features = ["sixtyfps-rendering-backend-gl"] }

@@ -16,6 +16,7 @@ sixtyfps-compilerlib = { path = "../../../sixtyfps_compiler", features = ["displ
 test_driver_lib = { path = "../driverlib" }
 lazy_static = "1.4.0"
 spin_on = "0.1"
+itertools = "0.10"
 
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }

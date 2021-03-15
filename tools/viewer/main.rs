@@ -28,7 +28,6 @@ struct Cli {
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
-    let source = std::fs::read_to_string(&args.path)?;
 
     args.load_font.map(|fonts| {
         fonts.iter().for_each(|font_path| {
@@ -38,26 +37,24 @@ fn main() -> std::io::Result<()> {
         });
     });
 
-    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
-        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-    );
-    compiler_config.include_paths = args.include_paths;
-    compiler_config.style = if args.style.is_empty() { None } else { Some(args.style) };
+    let mut compiler_config =
+        sixtyfps_interpreter::CompilerConfiguration::new().with_include_paths(args.include_paths);
+    if !args.style.is_empty() {
+        compiler_config = compiler_config.with_style(args.style);
+    }
 
-    let c = match spin_on::spin_on(sixtyfps_interpreter::load(source, args.path, compiler_config)) {
-        (Ok(c), warnings) => {
-            warnings.print();
-            c
-        }
-        (Err(()), errors) => {
-            errors.print();
-            std::process::exit(-1);
-        }
+    let (c, diags) = spin_on::spin_on(sixtyfps_interpreter::ComponentDefinition::from_path(
+        args.path,
+        compiler_config,
+    ));
+    sixtyfps_interpreter::print_diagnostics(&diags);
+
+    let c = match c {
+        Some(c) => c,
+        None => std::process::exit(-1),
     };
 
     let component = c.create();
-    component.window().show();
-    sixtyfps_interpreter::run_event_loop();
-    component.window().hide();
+    component.run();
     Ok(())
 }

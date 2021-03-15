@@ -371,6 +371,7 @@ impl<'id> ComponentDescription<'id> {
     ///
     /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
     /// or if the property with this name does not exist in this component
+    #[allow(unused)]
     pub fn set_binding(
         &self,
         component: ComponentRef,
@@ -612,10 +613,19 @@ fn rtti_for_flickable() -> (&'static str, Rc<ItemRTTI>) {
 pub async fn load<'id>(
     source: String,
     path: std::path::PathBuf,
-    compiler_config: CompilerConfiguration,
+    mut compiler_config: CompilerConfiguration,
     guard: generativity::Guard<'id>,
 ) -> (Result<Rc<ComponentDescription<'id>>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics)
 {
+    if compiler_config.style.is_none() && std::env::var("SIXTYFPS_STYLE").is_err() {
+        // Defaults to native if it exists:
+        compiler_config.style = Some(if sixtyfps_rendering_backend_default::HAS_NATIVE_STYLE {
+            "native".to_owned()
+        } else {
+            "ugly".to_owned()
+        });
+    }
+
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse(source, Some(path.as_path()), &mut diag);
     if diag.has_error() {

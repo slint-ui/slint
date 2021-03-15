@@ -7,30 +7,28 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+use itertools::Itertools;
 use std::error::Error;
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
-
     let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
-    let mut config = sixtyfps_compilerlib::CompilerConfiguration::new(
-        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-    );
-    config.include_paths = include_paths;
+    let mut config =
+        sixtyfps_interpreter::CompilerConfiguration::new().with_include_paths(include_paths);
 
-    let (component, _warnings) = match spin_on::spin_on(sixtyfps_interpreter::load(
-        source,
-        testcase.absolute_path.clone(),
-        config,
-    )) {
-        (Ok(c), diagnostics) => (c, diagnostics),
-        (Err(()), errors) => {
-            let vec = errors.to_string_vec();
-            errors.print();
-            return Err(vec.join("\n").into());
+    // FIXME: use from_source instead of from_path
+    let (component, diags) = spin_on::spin_on(
+        sixtyfps_interpreter::ComponentDefinition::from_path(&testcase.absolute_path, config),
+    );
+
+    let component = match component {
+        None => {
+            sixtyfps_interpreter::print_diagnostics(&diags);
+            return Err(diags.into_iter().map(|d| d.to_string()).join("\n").into());
         }
+        Some(c) => c,
     };
 
     component.create();
