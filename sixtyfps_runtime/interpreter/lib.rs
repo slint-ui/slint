@@ -25,7 +25,7 @@ mod value_model;
 /// FIXME: re-export everything from abi, but and everything else should be private
 pub mod api;
 
-pub use eval::{ModelPtr, Value};
+pub use eval::Value;
 
 pub use sixtyfps_compilerlib::CompilerConfiguration;
 use sixtyfps_corelib::component::ComponentVTable;

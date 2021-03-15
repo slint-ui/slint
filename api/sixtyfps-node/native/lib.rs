@@ -201,7 +201,7 @@ fn to_eval_value<'cx>(
                 obj.get(cx, "rowCount")?.downcast_or_throw::<JsFunction, _>(cx)?;
                 obj.get(cx, "rowData")?.downcast_or_throw::<JsFunction, _>(cx)?;
                 let m = js_model::JsModel::new(obj, *a, cx, persistent_context)?;
-                Ok(Value::Model(sixtyfps_interpreter::ModelPtr(m)))
+                Ok(Value::Model(m))
             }
         },
         Type::Image => {

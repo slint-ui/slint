@@ -86,25 +86,9 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackIn
     }
 }
 
-/// A Pointer to a model
-#[derive(Clone, derive_more::Deref, derive_more::From)]
-pub struct ModelPtr(pub Rc<dyn corelib::model::Model<Data = Value>>);
-
-impl core::fmt::Debug for ModelPtr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<model object>")
-    }
-}
-
-impl PartialEq for ModelPtr {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
-    }
-}
-
 /// This is a dynamically typed Value used in the interpreter, it need to be able
 /// to be converted from and to anything that can be stored in a Property
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone)]
 #[non_exhaustive]
 pub enum Value {
     /// There is nothing in this value. That's the default.
@@ -121,7 +105,7 @@ pub enum Value {
     /// An Array in the .60 language.
     Array(SharedVector<Value>),
     /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
-    Model(ModelPtr),
+    Model(Rc<dyn corelib::model::Model<Data = Value>>),
     /// An object
     Struct(Struct),
     /// Corresespond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
@@ -140,6 +124,46 @@ pub enum Value {
 impl Default for Value {
     fn default() -> Self {
         Value::Void
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Value::Void => matches!(other, Value::Void),
+            Value::Number(lhs) => matches!(other, Value::Number(rhs) if lhs == rhs),
+            Value::String(lhs) => matches!(other, Value::String(rhs) if lhs == rhs),
+            Value::Bool(lhs) => matches!(other, Value::Bool(rhs) if lhs == rhs),
+            Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
+            Value::Array(lhs) => matches!(other, Value::Array(rhs) if lhs == rhs),
+            Value::Model(lhs) => matches!(other, Value::Model(rhs) if Rc::ptr_eq(lhs, rhs)),
+            Value::Struct(lhs) => matches!(other, Value::Struct(rhs) if lhs == rhs),
+            Value::Brush(lhs) => matches!(other, Value::Brush(rhs) if lhs == rhs),
+            Value::PathElements(lhs) => matches!(other, Value::PathElements(rhs) if lhs == rhs),
+            Value::EasingCurve(lhs) => matches!(other, Value::EasingCurve(rhs) if lhs == rhs),
+            Value::EnumerationValue(lhs_name, lhs_value) => {
+                matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
+            }
+        }
+    }
+}
+
+impl std::fmt::Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Void => write!(f, "Value::Void"),
+            Value::Number(n) => write!(f, "Value::Number({:?})", n),
+            Value::String(s) => write!(f, "Value::String({:?})", s),
+            Value::Bool(b) => write!(f, "Value::Bool({:?})", b),
+            Value::Image(i) => write!(f, "Value::Image({:?})", i),
+            Value::Array(a) => write!(f, "Value::Array({:?})", a),
+            Value::Model(_) => write!(f, "Value::Model(<model object>)"),
+            Value::Struct(s) => write!(f, "Value::Struct({:?})", s),
+            Value::Brush(b) => write!(f, "Value::Brush({:?})", b),
+            Value::PathElements(e) => write!(f, "Value::PathElements({:?})", e),
+            Value::EasingCurve(c) => write!(f, "Value::EasingCurve({:?})", c),
+            Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
+        }
     }
 }
 
