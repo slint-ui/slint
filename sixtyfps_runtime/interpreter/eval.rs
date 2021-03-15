@@ -101,9 +101,10 @@ impl PartialEq for ModelPtr {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
 /// This is a dynamically typed Value used in the interpreter, it need to be able
 /// to be converted from and to anything that can be stored in a Property
+#[derive(Clone, PartialEq, Debug)]
+#[non_exhaustive]
 pub enum Value {
     /// There is nothing in this value. That's the default.
     /// For example, a function that do not return a result would return a Value::Void

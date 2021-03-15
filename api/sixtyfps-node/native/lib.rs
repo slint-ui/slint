@@ -286,11 +286,7 @@ fn to_js_value<'cx>(
             &format!("#{:02x}{:02x}{:02x}{:02x}", c.red(), c.green(), c.blue(), c.alpha()),
         )
         .as_value(cx),
-        Value::Brush(_)
-        | Value::PathElements(_)
-        | Value::EasingCurve(_)
-        | Value::EnumerationValue(..)
-        | Value::Model(_) => todo!("converting {:?} to js has not been implemented", val),
+        _ => todo!("converting {:?} to js has not been implemented", val),
     })
 }
 
