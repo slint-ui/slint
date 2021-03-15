@@ -126,10 +126,13 @@ pub enum Value {
     Struct(Struct),
     /// Corresespond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
     Brush(Brush),
+    #[doc(hidden)]
     /// The elements of a path
     PathElements(PathData),
+    #[doc(hidden)]
     /// An easing curve
     EasingCurve(corelib::animations::EasingCurve),
+    #[doc(hidden)]
     /// An enumation, like TextHorizontalAlignment::align_center
     EnumerationValue(String, String),
 }
