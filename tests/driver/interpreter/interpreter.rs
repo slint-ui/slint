@@ -15,13 +15,13 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
-    let mut config =
+    let config =
         sixtyfps_interpreter::CompilerConfiguration::new().with_include_paths(include_paths);
 
     let (component, diags) =
         spin_on::spin_on(sixtyfps_interpreter::ComponentDefinition::from_source(
             source,
-            testcase.absolute_path,
+            testcase.absolute_path.clone(),
             config,
         ));
 

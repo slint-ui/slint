@@ -18,6 +18,7 @@ fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
             config,
         ));
 
+    #[cfg(feature = "display-diagnostics")]
     sixtyfps_interpreter::print_diagnostics(&diagnostics);
 
     for d in diagnostics {

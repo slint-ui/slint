@@ -23,7 +23,7 @@ pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 /// [`From`] or [`TryInto`] traits to access the value.
 ///
 /// ```
-/// # use sixtyfps_interpreter::api::*;
+/// # use sixtyfps_interpreter::*;
 /// use core::convert::TryInto;
 /// // create a value containing an integer
 /// let v = Value::from(100u32);
@@ -281,7 +281,7 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
 ///
 ///
 /// ```
-/// # use sixtyfps_interpreter::api::*;
+/// # use sixtyfps_interpreter::*;
 /// use core::convert::TryInto;
 /// // Construct a value from a key/value iterator
 /// let value : Value = [("foo".into(), 45u32.into()), ("bar".into(), true.into())]
