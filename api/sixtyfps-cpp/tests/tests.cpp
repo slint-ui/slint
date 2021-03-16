@@ -11,12 +11,19 @@ LICENSE END */
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
-SCENARIO("SixtyFPS can be shipped")
-{
-    GIVEN("a boolean")
-    {
-        bool okay = true;
+#include <sixtyfps.h>
 
-        REQUIRE(okay);
+SCENARIO("SharedString API")
+{
+    sixtyfps::SharedString str;
+
+    REQUIRE(str.empty());
+
+    SECTION("Construct from string_view")
+    {
+        std::string foo("Foo");
+        std::string_view foo_view(foo);
+        str = foo_view;
+        REQUIRE(str == "Foo");
     }
 }

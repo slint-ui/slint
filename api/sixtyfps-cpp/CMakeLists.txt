@@ -135,6 +135,6 @@ if(BUILD_TESTING)
     FetchContent_MakeAvailable(Catch2)
 
     add_executable(api_tests tests/tests.cpp)
-    target_link_libraries(api_tests PRIVATE Catch2::Catch2)
+    target_link_libraries(api_tests PRIVATE SixtyFPS Catch2::Catch2)
     add_test(api_tests api_tests)
 endif()
