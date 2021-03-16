@@ -286,7 +286,7 @@ jobs:
         buildDirectory: ${{ runner.workspace }}/cppbuild
     - name: ctest
       working-directory: ${{ runner.workspace }}/cppbuild
-      run: ctest
+      run: ctest --verbose
     - name: cpack
       working-directory: ${{ runner.workspace }}/cppbuild
       run: cmake --build . --target package
