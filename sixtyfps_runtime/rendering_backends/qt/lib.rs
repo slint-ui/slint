@@ -33,15 +33,13 @@ mod key_generated;
 #[cold]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() -> usize {
-    sixtyfps_corelib::use_modules() + {
-        #[cfg(no_qt)]
-        {
-            0
-        }
-        #[cfg(not(no_qt))]
-        {
-            (&widgets::NativeButtonVTable) as *const _ as usize
-        }
+    #[cfg(no_qt)]
+    {
+        0
+    }
+    #[cfg(not(no_qt))]
+    {
+        (&widgets::NativeButtonVTable) as *const _ as usize
     }
 }
 

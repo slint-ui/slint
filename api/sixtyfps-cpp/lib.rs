@@ -11,13 +11,13 @@ LICENSE END */
 
 #[doc(hidden)]
 #[cold]
-pub fn use_modules() {
+pub extern "C" fn use_modules() -> usize {
     sixtyfps_rendering_backend_default::use_modules();
+    sixtyfps_corelib::use_modules()
 }
 
 use sixtyfps_rendering_backend_default::backend;
 
-#[cfg(not(target_arch = "wasm32"))]
 use sixtyfps_corelib::window::ffi::ComponentWindowOpaque;
 use sixtyfps_corelib::window::ComponentWindow;
 

@@ -1351,7 +1351,7 @@ fn test_property_listener_scope() {
     assert!(ok);
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     use super::*;
     use crate::graphics::{Brush, Color};

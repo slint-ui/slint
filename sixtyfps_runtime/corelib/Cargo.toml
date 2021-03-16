@@ -16,6 +16,7 @@ path = "lib.rs"
 # Allow the vewer to query at runtime information about item types
 rtti = []
 femtovg_backend = ["femtovg"]
+ffi = []
 
 [dependencies]
 image = { version = "0.23.12", default-features = false, features = [ "png", "jpeg" ] }

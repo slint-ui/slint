@@ -69,7 +69,7 @@ fn callback_simple_test() {
     assert_eq!(c.pressed.get(), true);
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 

@@ -317,7 +317,7 @@ fn test_brighter_darker() {
     assert_eq!(blue.darker(0.5), Color::from_rgb_u8(0, 0, 85));
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
     use super::*;

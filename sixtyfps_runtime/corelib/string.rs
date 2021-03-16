@@ -316,7 +316,7 @@ fn simple_test() {
     );
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     use super::*;
 

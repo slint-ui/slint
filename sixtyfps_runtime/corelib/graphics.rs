@@ -141,7 +141,7 @@ pub trait FontMetrics {
     fn height(&self) -> f32;
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 

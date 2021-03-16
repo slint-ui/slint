@@ -71,6 +71,7 @@ pub use default_backend::{
 #[cold]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() {
+    sixtyfps_corelib::use_modules();
     default_backend::use_modules();
     #[cfg(feature = "sixtyfps-rendering-backend-qt")]
     sixtyfps_rendering_backend_qt::use_modules();

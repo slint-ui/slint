@@ -76,16 +76,23 @@ pub use graphics::PathData;
 #[cold]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() -> usize {
-    tests::sixtyfps_mock_elapsed_time as usize
-        + callbacks::ffi::sixtyfps_callback_init as usize
-        + sharedvector::ffi::sixtyfps_shared_vector_empty as usize
-        + layout::ffi::sixtyfps_solve_grid_layout as usize
-        + item_tree::ffi::sixtyfps_visit_item_tree as usize
-        + graphics::ffi::sixtyfps_new_path_elements as usize
-        + properties::ffi::sixtyfps_property_init as usize
-        + string::ffi::sixtyfps_shared_string_bytes as usize
-        + window::ffi::sixtyfps_component_window_drop as usize
-        + component::ffi::sixtyfps_component_init_items as usize
-        + timers::ffi::sixtyfps_timer_start as usize
-        + graphics::color::ffi::sixtyfps_color_brighter as usize
+    #[cfg(feature = "ffi")]
+    {
+        tests::sixtyfps_mock_elapsed_time as usize
+            + callbacks::ffi::sixtyfps_callback_init as usize
+            + sharedvector::ffi::sixtyfps_shared_vector_empty as usize
+            + layout::ffi::sixtyfps_solve_grid_layout as usize
+            + item_tree::ffi::sixtyfps_visit_item_tree as usize
+            + graphics::ffi::sixtyfps_new_path_elements as usize
+            + properties::ffi::sixtyfps_property_init as usize
+            + string::ffi::sixtyfps_shared_string_bytes as usize
+            + window::ffi::sixtyfps_component_window_drop as usize
+            + component::ffi::sixtyfps_component_init_items as usize
+            + timers::ffi::sixtyfps_timer_start as usize
+            + graphics::color::ffi::sixtyfps_color_brighter as usize
+    }
+    #[cfg(not(feature = "ffi"))]
+    {
+        0
+    }
 }
