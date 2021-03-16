@@ -38,6 +38,15 @@ cargo test
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
 C++ tests or the nodejs tests will not find the required dynamic library otherwise
 
+### C++ test
+
+The C++ crate are not included in the workspace's default members, so it need to be build explicitly
+
+```sh
+cargo build --lib -p sixtyfps-cpp
+cargo test --bin test-driver-cpp
+```
+
 ## C++ Build
 
 This is just a normal cmake build.

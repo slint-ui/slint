@@ -46,7 +46,6 @@ default-members = [
     'sixtyfps_compiler',
     'api/sixtyfps-rs',
     'api/sixtyfps-rs/sixtyfps-build',
-    'api/sixtyfps-cpp',
     'api/sixtyfps-node/native',
     'tools/compiler',
     'tools/viewer',
@@ -60,7 +59,6 @@ default-members = [
     'examples/memory',
     'tests/doctests',
     'tests/driver/rust',
-    'tests/driver/cpp',
     'tests/driver/nodejs',
     'tests/driver/interpreter',
 ]
