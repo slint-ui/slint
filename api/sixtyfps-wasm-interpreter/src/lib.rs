@@ -27,6 +27,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 pub async fn compile_from_string(
     source: String,
     base_url: String,
+    optional_resolve_import_callback: Option<js_sys::Function>,
     optional_import_callback: Option<js_sys::Function>,
 ) -> Result<WrappedCompiledComp, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
@@ -34,7 +35,16 @@ pub async fn compile_from_string(
 
     let mut config = sixtyfps_interpreter::CompilerConfiguration::new();
 
-    if let Some(load_callback) = optional_import_callback {
+    if let (Some(resolver_callback), Some(load_callback)) =
+        (optional_resolve_import_callback, optional_import_callback)
+    {
+        let resolve_import_fallback = move |file_name: String| -> Option<String> {
+            resolver_callback
+                .clone()
+                .call1(&JsValue::UNDEFINED, &file_name.into())
+                .ok()
+                .and_then(|path_value| path_value.as_string())
+        };
         let open_import_fallback = move |file_name: &Path| -> core::pin::Pin<
             Box<dyn core::future::Future<Output = std::io::Result<String>>>,
         > {
@@ -55,7 +65,7 @@ pub async fn compile_from_string(
                 }
             })
         };
-        config = config.with_file_loader(open_import_fallback);
+        config = config.with_file_loader(open_import_fallback, resolve_import_fallback);
     }
 
     let (c, diags) =

@@ -188,8 +188,10 @@ export Demo := Window {
         div.appendChild(canvas);
         var markers = [];
         try {
-            var compiled_component = await sixtyfps.compile_from_string(source, base_url, async (file_name: string): Promise<string> => {
-                let url = (new URL(file_name, base_url || undefined)).toString();
+            var compiled_component = await sixtyfps.compile_from_string(source, base_url, (file_name: string) => {
+                let u = new URL(file_name, base_url || undefined);
+                return u.toString();
+            }, async (url: string): Promise<string> => {
                 let model_and_state = editor_documents.get(url);
                 if (model_and_state === undefined) {
                     const response = await fetch(url);
