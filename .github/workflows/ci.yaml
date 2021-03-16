@@ -144,7 +144,7 @@ jobs:
           rm -Recurse -Force target/*/memory
           rm -Recurse -Force target/*/*test*
           du -hs target
-  cpp-test-driver:
+  cpp_test_driver:
     env:
       QT_QPA_PLATFORM: offscreen
       RUSTFLAGS: -D warnings
@@ -215,7 +215,7 @@ jobs:
           rm -Recurse -Force target/*/*test*
           du -hs target
 
-  cpp-cmake:
+  cpp_cmake:
     env:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
     strategy:
@@ -493,7 +493,7 @@ jobs:
 
   publish:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    needs: [build_and_test, cpp, docs, wasm, wasm_demo] # also depends on build_and_test and cpp to only publish if tests are green
+    needs: [build_and_test, cpp_cmake, cpp_test_driver, docs, wasm, wasm_demo] # also depends on build_and_test and cpp to only publish if tests are green
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/download-artifact@v2
