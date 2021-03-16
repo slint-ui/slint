@@ -160,10 +160,6 @@ jobs:
     - name: Install Linux Dependencies
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
-    - name: Set default style
-      if: matrix.os != 'windows-latest'
-      run: |
-          echo "SIXTYFPS_STYLE=native" >> $GITHUB_ENV
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
