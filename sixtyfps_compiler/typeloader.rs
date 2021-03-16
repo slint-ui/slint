@@ -340,25 +340,13 @@ impl<'a> TypeLoader<'a> {
             .find_map(|include_dir| include_dir.try_open(file_to_import))
             .or_else(|| self.builtin_library.and_then(|lib| lib.try_open(file_to_import)))
             .or_else(|| {
-                self.compiler_config
-                    .resolve_import_fallback
-                    .as_ref()
-                    .map_or_else(
-                        || Some(file_to_import.to_owned()),
-                        |resolve_import_callback| {
-                            resolve_import_callback(file_to_import.to_owned())
-                        },
-                    )
-                    .and_then(|resolved_absolute_path| {
-                        self.compiler_config
-                            .open_import_fallback
-                            .as_ref()
-                            .map(|cb| cb(resolved_absolute_path.clone()))
-                            .map(|future| OpenFile {
-                                path: resolved_absolute_path.into(),
-                                source_code_future: future,
-                            })
-                    })
+                let resolved_absolute_path = resolve_import_path(referencing_file, file_to_import);
+
+                self.compiler_config.open_import_fallback.as_ref().map(|import_callback| {
+                    let source_code_future =
+                        import_callback(resolved_absolute_path.to_string_lossy().to_string());
+                    OpenFile { path: resolved_absolute_path, source_code_future }
+                })
             })
     }
 
@@ -424,6 +412,26 @@ impl<'a> TypeLoader<'a> {
     pub fn all_files<'b>(&'b self) -> impl Iterator<Item = &PathBuf> + 'b {
         self.all_documents.docs.keys()
     }
+}
+
+pub fn resolve_import_path(
+    base_path_or_url: Option<&std::path::Path>,
+    maybe_relative_path_or_url: &str,
+) -> std::path::PathBuf {
+    base_path_or_url
+        .and_then(|base_path_or_url| {
+            let base_path_or_url_str = base_path_or_url.to_string_lossy();
+            if base_path_or_url_str.contains("://") {
+                url::Url::parse(&base_path_or_url_str).ok().and_then(|base_url| {
+                    base_url.join(maybe_relative_path_or_url).ok().map(|url| url.to_string().into())
+                })
+            } else {
+                base_path_or_url.parent().and_then(|base_dir| {
+                    base_dir.join(maybe_relative_path_or_url).canonicalize().ok()
+                })
+            }
+        })
+        .unwrap_or_else(|| maybe_relative_path_or_url.into())
 }
 
 #[test]
