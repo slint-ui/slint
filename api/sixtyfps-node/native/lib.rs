@@ -263,7 +263,7 @@ fn to_js_value<'cx>(
         Value::Struct(o) => {
             let js_object = JsObject::new(cx);
             for (k, e) in o.iter() {
-                let v = to_js_value(e, cx)?;
+                let v = to_js_value(e.clone(), cx)?;
                 js_object.set(cx, k, v)?;
             }
             js_object.as_value(cx)

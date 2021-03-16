@@ -152,7 +152,7 @@ macro_rules! declare_value_struct_conversion {
         impl From<$name> for Value {
             fn from($name { $($field),* }: $name) -> Self {
                 let mut struct_ = Struct::default();
-                $(struct_.set_property(stringify!($field).into(), $field.into());)*
+                $(struct_.set_field(stringify!($field).into(), $field.into());)*
                 Value::Struct(struct_)
             }
         }
@@ -163,7 +163,7 @@ macro_rules! declare_value_struct_conversion {
                     Self::Struct(x) => {
                         type Ty = $name;
                         Ok(Ty {
-                            $($field: x.get_property(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?),*
+                            $($field: x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?),*
                         })
                     }
                     _ => Err(()),
@@ -289,25 +289,23 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
 ///
 /// // get the properties of a `{ foo: 45, bar: true }`
 /// let s : Struct = value.try_into().unwrap();
-/// assert_eq!(s.get_property("foo").unwrap().try_into(), Ok(45u32));
+/// assert_eq!(s.get_field("foo").unwrap().try_into(), Ok(45u32));
 /// ```
-/// FIXME: the documentation of langref.md uses "Object" and we probably should make that uniform.
-///        also, is "property" the right term here?
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Struct(HashMap<String, Value>);
 impl Struct {
-    /// Get the value for a given struct property
-    pub fn get_property(&self, name: &str) -> Option<Value> {
+    /// Get the value for a given struct field
+    pub fn get_field(&self, name: &str) -> Option<Value> {
         self.0.get(name).cloned()
     }
-    /// Set the value of a given struct property
-    pub fn set_property(&mut self, name: String, value: Value) {
+    /// Set the value of a given struct field
+    pub fn set_field(&mut self, name: String, value: Value) {
         self.0.insert(name, value);
     }
 
-    /// Iterate over all the property in this struct
-    pub fn iter(&self) -> impl Iterator<Item = (&str, Value)> {
-        self.0.iter().map(|(a, b)| (a.as_str(), b.clone()))
+    /// Iterate over all the fields in this struct
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Value)> {
+        self.0.iter().map(|(a, b)| (a.as_str(), b))
     }
 }
 
