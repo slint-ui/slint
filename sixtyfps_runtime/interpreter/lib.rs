@@ -98,6 +98,6 @@ pub fn register_font_from_memory(data: &[u8]) -> Result<(), Box<dyn std::error::
     sixtyfps_rendering_backend_default::backend().register_font_from_memory(data)
 }
 
-/// Re-export from corelib
+/// (Re-export from corelib.)
 #[doc(inline)]
 pub use sixtyfps_corelib::{Brush, Color, SharedString, SharedVector};

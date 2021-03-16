@@ -31,3 +31,7 @@ sixtyfps-rendering-backend-gl = { version = "=0.0.5", path = "../../sixtyfps_run
 [dev-dependencies]
 spin_on = "0.1"
 
+[package.metadata.docs.rs]
+features = ["display-diagnostics"]
+
+

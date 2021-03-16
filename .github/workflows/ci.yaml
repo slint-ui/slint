@@ -213,7 +213,7 @@ jobs:
       # allow deprecated warning because we are using nightly and some things might be deprecated in nightly
       # for which the stable alternative is not yet available
       RUSTFLAGS: -A deprecated -D warnings
-      RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html -A deprecated
+      RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html -D warnings -A deprecated
       SIXTYFPS_NO_QT: 1
     steps:
     - uses: actions/checkout@v2
@@ -263,7 +263,7 @@ jobs:
       with:
           command: doc
           toolchain: nightly
-          args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps
+          args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps --all-features
     - name: "Node docs"
       run: |
           npm install --ignore-scripts
