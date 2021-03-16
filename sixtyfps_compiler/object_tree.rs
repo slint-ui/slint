@@ -58,7 +58,7 @@ impl Document {
              diag: &mut BuildDiagnostics,
              local_registry: &mut TypeRegister| {
                 let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry);
-                if let Type::Object { name, .. } = &mut ty {
+                if let Type::Struct { name, .. } = &mut ty {
                     *name = identifier_text(&n.DeclaredIdentifier());
                 } else {
                     assert!(diag.has_error());
@@ -238,7 +238,7 @@ impl TransitionPropertyAnimation {
     /// The state argument is an expresison referencing the state property of type StateInfo
     pub fn condition(&self, state: Expression) -> Expression {
         Expression::BinaryExpression {
-            lhs: Box::new(Expression::ObjectAccess {
+            lhs: Box::new(Expression::StructFieldAccess {
                 base: Box::new(state),
                 name: (if self.is_out { "previous_state" } else { "current_state" }).into(),
             }),
@@ -891,7 +891,7 @@ pub fn type_struct_from_node(
             (identifier_text(&member).unwrap_or_default(), type_from_node(member.Type(), diag, tr))
         })
         .collect();
-    Type::Object { fields, name: None }
+    Type::Struct { fields, name: None }
 }
 
 fn animation_element_from_node(
@@ -1324,7 +1324,7 @@ impl Exports {
 
         let mut resolve_export_to_inner_component_or_import =
             |export: &NamedExport| match type_registry.lookup(export.internal_name.as_str()) {
-                ty @ Type::Component(_) | ty @ Type::Object { .. } => Some(ty),
+                ty @ Type::Component(_) | ty @ Type::Struct { .. } => Some(ty),
                 Type::Invalid => {
                     diag.push_error(
                         format!("'{}' not found", export.internal_name),

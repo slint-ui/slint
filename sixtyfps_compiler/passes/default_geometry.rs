@@ -95,7 +95,7 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
 
 fn make_default_implicit(elem: &ElementRc, property: &str, function: BuiltinFunction) {
     elem.borrow_mut().bindings.entry(property.into()).or_insert_with(|| {
-        Expression::ObjectAccess {
+        Expression::StructFieldAccess {
             base: Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(function)),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],

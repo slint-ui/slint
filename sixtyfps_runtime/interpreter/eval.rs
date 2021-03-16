@@ -171,7 +171,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::FunctionParameterReference { index, .. } => {
             local_context.function_arguments[*index].clone()
         }
-        Expression::ObjectAccess { base, name } => {
+        Expression::StructFieldAccess { base, name } => {
             if let Value::Struct(o) = eval_expression(base, local_context) {
                 o.get_property(name).unwrap_or(Value::Void)
             } else {
@@ -474,7 +474,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::Array { values, .. } => Value::Array(
             values.iter().map(|e| eval_expression(e, local_context)).collect(),
         ),
-        Expression::Object { values, .. } => Value::Struct(
+        Expression::Struct { values, .. } => Value::Struct(
             values
                 .iter()
                 .map(|(k, v)| (k.clone(), eval_expression(v, local_context)))
@@ -578,7 +578,7 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
                 }
             }
         }
-        Expression::ObjectAccess { base, name } => {
+        Expression::StructFieldAccess { base, name } => {
             if let Value::Struct(mut o) = eval_expression(base, local_context) {
                 let mut r = o.get_property(name).unwrap();
                 r = if op == '=' { rhs } else { eval(std::mem::take(&mut r)) };

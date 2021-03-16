@@ -200,7 +200,7 @@ fn to_eval_value<'cx>(
             Ok(Value::Image(ImageReference::AbsoluteFilePath(val.to_string(cx)?.value().into())))
         }
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
-        Type::Object { fields, .. } => {
+        Type::Struct { fields, .. } => {
             let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
             Ok(Value::Struct(
                 fields

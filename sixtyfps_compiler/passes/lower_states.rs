@@ -22,7 +22,7 @@ pub fn lower_states(
     diag: &mut BuildDiagnostics,
 ) {
     let state_info_type = tr.lookup("StateInfo");
-    assert!(matches!(state_info_type, Type::Object { name: Some(_), .. }));
+    assert!(matches!(state_info_type, Type::Struct { name: Some(_), .. }));
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         lower_state_in_element(elem, &state_info_type, diag)
     });
@@ -43,7 +43,7 @@ fn lower_state_in_element(
         name: state_property_name.clone(),
     });
     let state_property_ref = if has_transitions {
-        Expression::ObjectAccess {
+        Expression::StructFieldAccess {
             base: Box::new(state_property.clone()),
             name: "current_state".into(),
         }

@@ -37,12 +37,12 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(sixtyfps::re_exports::ImageReference)),
-        Type::Object { fields, name: None } => {
+        Type::Struct { fields, name: None } => {
             let elem = fields.values().map(|v| rust_type(v)).collect::<Option<Vec<_>>>()?;
             // This will produce a tuple
             Some(quote!((#(#elem,)*)))
         }
-        Type::Object { name: Some(name), .. } => Some(name.parse().unwrap()),
+        Type::Struct { name: Some(name), .. } => Some(name.parse().unwrap()),
         Type::Array(o) => {
             let inner = rust_type(&o)?;
             Some(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
@@ -77,7 +77,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .borrow()
         .iter()
         .filter_map(|ty| {
-            if let Type::Object { fields, name: Some(name) } = ty {
+            if let Type::Struct { fields, name: Some(name) } = ty {
                 Some((format_ident!("{}", name), generate_struct(name, fields, diag)))
             } else {
                 None
@@ -211,7 +211,7 @@ fn handle_property_binding(
                 }
             });
 
-            let is_state_info = matches!(prop_type, Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo"));
+            let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
                 quote! { sixtyfps::re_exports::set_state_binding(#rust_property, #binding_tokens); }
             } else {
@@ -1065,7 +1065,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
                 }
-                (Type::Object { ref fields, .. }, Type::Component(c)) => {
+                (Type::Struct { ref fields, .. }, Type::Component(c)) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
                         let name = format_ident!("{}", name);
@@ -1074,7 +1074,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     let id : TokenStream = c.id.parse().unwrap();
                     quote!({ let obj = #f; #id { #(#fields),*} })
                 }
-                (Type::Object { ref fields, .. }, Type::Object{  name: Some(n), .. }) => {
+                (Type::Struct { ref fields, .. }, Type::Struct{  name: Some(n), .. }) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
                         let name = format_ident!("{}", name);
@@ -1149,8 +1149,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let i = proc_macro2::Literal::usize_unsuffixed(*index);
             quote! {args.#i.clone()}
         }
-        Expression::ObjectAccess { base, name } => match base.ty() {
-            Type::Object { fields, name: None } => {
+        Expression::StructFieldAccess { base, name } => match base.ty() {
+            Type::Struct { fields, name: None } => {
                 let index = fields
                     .keys()
                     .position(|k| k == name)
@@ -1159,7 +1159,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 let base_e = compile_expression(base, component);
                 quote!((#base_e).#index )
             }
-            Type::Object { .. } => {
+            Type::Struct { .. } => {
                 let name = format_ident!("{}", name);
                 let base_e = compile_expression(base, component);
                 quote!((#base_e).#name)
@@ -1335,8 +1335,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 std::rc::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(vec![#(#val as _),*]))
             ))
         }
-        Expression::Object { ty, values } => {
-            if let Type::Object { fields, name } = ty {
+        Expression::Struct { ty, values } => {
+            if let Type::Struct { fields, name } = ty {
                 let elem = fields.iter().map(|(k, t)| {
                     values.get(k).map(|e| {
                         let ce = compile_expression(e, component);
@@ -1415,12 +1415,12 @@ fn compile_assignment(
                 }
             }
         }
-        Expression::ObjectAccess { base, name } => {
+        Expression::StructFieldAccess { base, name } => {
             let tmpobj = quote!(tmpobj);
             let get_obj = compile_expression(base, component);
             let ty = base.ty();
             let (member, member_ty) = match &ty {
-                Type::Object { fields, name: None } => {
+                Type::Struct { fields, name: None } => {
                     let index = fields
                         .keys()
                         .position(|k| k == name)
@@ -1428,7 +1428,7 @@ fn compile_assignment(
                     let index = proc_macro2::Literal::usize_unsuffixed(index);
                     (quote!(#index), fields[name].clone())
                 }
-                Type::Object { fields, name: Some(_) } => {
+                Type::Struct { fields, name: Some(_) } => {
                     let n = format_ident!("{}", name);
                     (quote!(#n), fields[name].clone())
                 }

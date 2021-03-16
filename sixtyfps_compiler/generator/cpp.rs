@@ -242,7 +242,7 @@ impl CppType for Type {
             Type::LogicalLength => Some("float".to_owned()),
             Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
-            Type::Object { fields, name } => {
+            Type::Struct { fields, name } => {
                 if let Some(name) = name {
                     Some(name.clone())
                 } else {
@@ -392,7 +392,7 @@ fn handle_property_binding(
                 init = init_expr
             );
 
-            let is_state_info = matches!(prop_type, Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo"));
+            let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
                 format!("sixtyfps::set_state_binding({}, {});", cpp_prop, binding_code)
             } else {
@@ -554,7 +554,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<sixtyfps.h>".into());
 
     for ty in doc.root_component.used_structs.borrow().iter() {
-        if let Type::Object { fields, name: Some(name) } = ty {
+        if let Type::Struct { fields, name: Some(name) } = ty {
             generate_struct(&mut file, name, fields, diag);
         }
     }
@@ -1464,15 +1464,15 @@ fn compile_expression(
             format!("auto {} = {};", name, compile_expression(value, component))
         }
         Expression::ReadLocalVariable { name, .. } => name.clone(),
-        Expression::ObjectAccess { base, name } => match base.ty() {
-            Type::Object { fields, name : None } => {
+        Expression::StructFieldAccess { base, name } => match base.ty() {
+            Type::Struct { fields, name : None } => {
                 let index = fields
                     .keys()
                     .position(|k| k == name)
                     .expect("Expression::ObjectAccess: Cannot find a key in an object");
                 format!("std::get<{}>({})", index, compile_expression(base, component))
             }
-            Type::Object{..} => {
+            Type::Struct{..} => {
                 format!("{}.{}", compile_expression(base, component), name)
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
@@ -1496,7 +1496,7 @@ fn compile_expression(
                 (Type::Brush, Type::Color) => {
                     format!("{}.color()", f)
                 }
-                (Type::Object { .. }, Type::Object{ fields, name: Some(n)}) => {
+                (Type::Struct { .. }, Type::Struct{ fields, name: Some(n)}) => {
                     format!(
                         "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
                         struct_name = n,
@@ -1641,8 +1641,8 @@ fn compile_expression(
                     .join(", ")
             )
         }
-        Expression::Object { ty, values } => {
-            if let Type::Object{fields, name} = ty {
+        Expression::Struct { ty, values } => {
+            if let Type::Struct{fields, name} = ty {
                 let mut elem = fields.keys().map(|k| {
                     values
                         .get(k)
@@ -1704,19 +1704,19 @@ fn compile_assignment(
                 format!(r#"{lhs}.set({lhs}.get() {op} {rhs})"#, lhs = access, rhs = rhs, op = op,)
             }
         }
-        Expression::ObjectAccess { base, name } => {
+        Expression::StructFieldAccess { base, name } => {
             let tmpobj = "tmpobj";
             let get_obj = compile_expression(base, component);
             let ty = base.ty();
             let member = match &ty {
-                Type::Object { fields, name: None } => {
+                Type::Struct { fields, name: None } => {
                     let index = fields
                         .keys()
                         .position(|k| k == name)
                         .expect("Expression::ObjectAccess: Cannot find a key in an object");
                     format!("std::get<{}>({})", index, tmpobj)
                 }
-                Type::Object { .. } => format!("{}.{}", tmpobj, name),
+                Type::Struct { .. } => format!("{}.{}", tmpobj, name),
                 _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
             };
             let op = if op == '=' { ' ' } else { op };

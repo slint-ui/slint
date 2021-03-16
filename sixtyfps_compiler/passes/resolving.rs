@@ -1011,11 +1011,11 @@ impl Expression {
                 )
             })
             .collect();
-        let ty = Type::Object {
+        let ty = Type::Struct {
             fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             name: None,
         };
-        Expression::Object { ty, values }
+        Expression::Struct { ty, values }
     }
 
     fn from_array_node(node: syntax_nodes::Array, ctx: &mut LookupCtx) -> Expression {
@@ -1071,8 +1071,8 @@ impl Expression {
             } else {
                 match (target_type, expr_ty) {
                     (
-                        Type::Object { fields: mut result_fields, name: result_name },
-                        Type::Object { fields: elem_fields, name: elem_name },
+                        Type::Struct { fields: mut result_fields, name: result_name },
+                        Type::Struct { fields: elem_fields, name: elem_name },
                     ) => {
                         for (elem_name, elem_ty) in elem_fields.into_iter() {
                             match result_fields.entry(elem_name) {
@@ -1089,7 +1089,7 @@ impl Expression {
                                 }
                             }
                         }
-                        Type::Object { name: result_name.or(elem_name), fields: result_fields }
+                        Type::Struct { name: result_name.or(elem_name), fields: result_fields }
                     }
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {
@@ -1259,9 +1259,9 @@ fn maybe_lookup_object(
     for next in it {
         let next_str = crate::parser::normalize_identifier(next.text());
         match base.ty() {
-            Type::Object { fields, .. } => {
+            Type::Struct { fields, .. } => {
                 if fields.get(next_str.as_str()).is_some() {
-                    base = Expression::ObjectAccess {
+                    base = Expression::StructFieldAccess {
                         base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
                         name: next_str,
                     }
@@ -1273,7 +1273,7 @@ fn maybe_lookup_object(
                 let PropertyLookupResult { resolved_name, property_type } =
                     c.root_element.borrow().lookup_property(next_str.as_str());
                 if property_type != Type::Invalid {
-                    base = Expression::ObjectAccess {
+                    base = Expression::StructFieldAccess {
                         base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
                         name: resolved_name.to_string(),
                     }

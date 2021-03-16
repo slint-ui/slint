@@ -55,7 +55,7 @@ pub enum Type {
     Brush,
 
     Array(Box<Type>),
-    Object {
+    Struct {
         fields: BTreeMap<String, Type>,
         name: Option<String>,
     },
@@ -99,8 +99,8 @@ impl core::cmp::PartialEq for Type {
             Type::Easing => matches!(other, Type::Easing),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
-            Type::Object { fields, name } => {
-                matches!(other, Type::Object{fields: f, name: n} if fields == f && name == n)
+            Type::Struct { fields, name } => {
+                matches!(other, Type::Struct{fields: f, name: n} if fields == f && name == n)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
@@ -157,8 +157,8 @@ impl Display for Type {
             Type::Bool => write!(f, "bool"),
             Type::Model => write!(f, "model"),
             Type::Array(t) => write!(f, "[{}]", t),
-            Type::Object { name: Some(name), .. } => write!(f, "{}", name),
-            Type::Object { fields, name: None } => {
+            Type::Struct { name: Some(name), .. } => write!(f, "{}", name),
+            Type::Struct { fields, name: None } => {
                 write!(f, "{{ ")?;
                 for (k, v) in fields {
                     write!(f, "{}: {},", k, v)?;
@@ -215,7 +215,7 @@ impl Type {
                 | Self::Easing
                 | Self::Enumeration(_)
                 | Self::ElementReference
-                | Self::Object { .. }
+                | Self::Struct { .. }
                 | Self::Array(_)
                 | Self::Brush
         )
@@ -341,8 +341,8 @@ impl Type {
 
     /// Return true if the type can be converted to the other type
     pub fn can_convert(&self, other: &Self) -> bool {
-        let can_convert_object = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {
-            // the object `b` has property that the object `a` doesn't
+        let can_convert_struct = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {
+            // the struct `b` has property that the struct `a` doesn't
             let mut has_more_property = false;
             for (k, v) in b {
                 match a.get(k) {
@@ -376,8 +376,8 @@ impl Type {
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
-            (Type::Object { fields: a, .. }, Type::Object { fields: b, .. }) => {
-                can_convert_object(a, b)
+            (Type::Struct { fields: a, .. }, Type::Struct { fields: b, .. }) => {
+                can_convert_struct(a, b)
             }
             _ => false,
         }
@@ -431,7 +431,7 @@ impl Type {
             Type::Easing => None,
             Type::Brush => None,
             Type::Array(_) => None,
-            Type::Object { .. } => None,
+            Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,

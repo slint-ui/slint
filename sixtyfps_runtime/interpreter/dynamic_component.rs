@@ -796,10 +796,10 @@ fn generate_component<'id>(
                 custom_callbacks.insert(name.clone(), builder.add_field_type::<Callback>());
                 continue;
             }
-            Type::Object { name: Some(name), .. } if name.ends_with("::StateInfo") => {
+            Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => {
                 property_info::<sixtyfps_corelib::properties::StateInfo>()
             }
-            Type::Object { .. } => property_info::<Value>(),
+            Type::Struct { .. } => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Percent => property_info::<f32>(),
             Type::Enumeration(e) => match e.name.as_ref() {
@@ -1090,7 +1090,7 @@ pub fn instantiate<'id>(
                         ));
 
                         let is_state_info = match property_type {
-                            Type::Object { name: Some(name), .. }
+                            Type::Struct { name: Some(name), .. }
                                 if name.ends_with("::StateInfo") =>
                             {
                                 true

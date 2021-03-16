@@ -139,7 +139,7 @@ impl BuiltinFunction {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![Type::String] }
             }
             BuiltinFunction::ImplicitItemSize => Type::Function {
-                return_type: Box::new(Type::Object {
+                return_type: Box::new(Type::Struct {
                     fields: [
                         ("width".to_string(), Type::Length),
                         ("height".to_string(), Type::Length),
@@ -352,9 +352,9 @@ pub enum Expression {
         ty: Type,
     },
 
-    /// Access to a field of the given name within a object.
-    ObjectAccess {
-        /// This expression should have Type::Object type
+    /// Access to a field of the given name within a struct.
+    StructFieldAccess {
+        /// This expression should have [`Type::Struct`] type
         base: Box<Expression>,
         name: String,
     },
@@ -408,7 +408,7 @@ pub enum Expression {
         element_ty: Type,
         values: Vec<Expression>,
     },
-    Object {
+    Struct {
         ty: Type,
         values: HashMap<String, Expression>,
     },
@@ -478,8 +478,8 @@ impl Expression {
                 }
             }
             Expression::FunctionParameterReference { ty, .. } => ty.clone(),
-            Expression::ObjectAccess { base, name } => match base.ty() {
-                Type::Object { fields, .. } => {
+            Expression::StructFieldAccess { base, name } => match base.ty() {
+                Type::Struct { fields, .. } => {
                     fields.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
                 }
                 Type::Component(c) => c.root_element.borrow().lookup_property(name).property_type,
@@ -557,7 +557,7 @@ impl Expression {
             }
             Expression::UnaryOp { sub, .. } => sub.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
-            Expression::Object { ty, .. } => ty.clone(),
+            Expression::Struct { ty, .. } => ty.clone(),
             Expression::PathElements { .. } => Type::PathElements,
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
@@ -592,7 +592,7 @@ impl Expression {
             }
             Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
-            Expression::ObjectAccess { base, .. } => visitor(&**base),
+            Expression::StructFieldAccess { base, .. } => visitor(&**base),
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&**from),
@@ -623,7 +623,7 @@ impl Expression {
                     visitor(x);
                 }
             }
-            Expression::Object { values, .. } => {
+            Expression::Struct { values, .. } => {
                 for x in values.values() {
                     visitor(x);
                 }
@@ -674,7 +674,7 @@ impl Expression {
             }
             Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
-            Expression::ObjectAccess { base, .. } => visitor(&mut **base),
+            Expression::StructFieldAccess { base, .. } => visitor(&mut **base),
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&mut **from),
@@ -705,7 +705,7 @@ impl Expression {
                     visitor(x);
                 }
             }
-            Expression::Object { values, .. } => {
+            Expression::Struct { values, .. } => {
                 for x in values.values_mut() {
                     visitor(x);
                 }
@@ -757,7 +757,7 @@ impl Expression {
             Expression::RepeaterModelReference { .. } => false,
             Expression::FunctionParameterReference { .. } => false,
             Expression::BuiltinMacroReference { .. } => false,
-            Expression::ObjectAccess { base, .. } => base.is_constant(),
+            Expression::StructFieldAccess { base, .. } => base.is_constant(),
             Expression::Cast { from, to } => {
                 from.is_constant() && !matches!(to, Type::Length | Type::LogicalLength)
             }
@@ -769,7 +769,7 @@ impl Expression {
             Expression::BinaryExpression { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
-            Expression::Object { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
+            Expression::Struct { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
             Expression::PathElements { elements } => {
                 if let Path::Elements(elements) = elements {
                     elements
@@ -835,10 +835,10 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
-                (Type::Object { fields: ref a, .. }, Type::Object { fields: b, name })
+                (Type::Struct { fields: ref a, .. }, Type::Struct { fields: b, name })
                     if a != b =>
                 {
-                    if let Expression::Object { mut values, .. } = self {
+                    if let Expression::Struct { mut values, .. } = self {
                         let mut new_values = HashMap::new();
                         for (k, ty) in b {
                             let (k, e) = values.remove_entry(k).map_or_else(
@@ -847,16 +847,16 @@ impl Expression {
                             );
                             new_values.insert(k, e);
                         }
-                        return Expression::Object { values: new_values, ty: target_type };
+                        return Expression::Struct { values: new_values, ty: target_type };
                     }
                     let var_name = "tmpobj";
                     let mut new_values = HashMap::new();
                     for (k, ty) in b {
                         let e = if a.contains_key(k) {
-                            Expression::ObjectAccess {
+                            Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.into(),
-                                    ty: Type::Object { fields: a.clone(), name: name.clone() },
+                                    ty: Type::Struct { fields: a.clone(), name: name.clone() },
                                 }),
                                 name: k.clone(),
                             }
@@ -871,11 +871,11 @@ impl Expression {
                             name: var_name.into(),
                             value: Box::new(self),
                         },
-                        Expression::Object { values: new_values, ty: target_type },
+                        Expression::Struct { values: new_values, ty: target_type },
                     ]);
                 }
-                (Type::Object { .. }, Type::Component(c)) => {
-                    let object_type_for_component = Type::Object {
+                (Type::Struct { .. }, Type::Component(c)) => {
+                    let struct_type_for_component = Type::Struct {
                         fields: c
                             .root_element
                             .borrow()
@@ -887,7 +887,7 @@ impl Expression {
                             .collect(),
                         name: None,
                     };
-                    self.maybe_convert_to(object_type_for_component, node, diag)
+                    self.maybe_convert_to(struct_type_for_component, node, diag)
                 }
                 _ => self,
             };
@@ -966,7 +966,7 @@ impl Expression {
             Type::Array(element_ty) => {
                 Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
             }
-            Type::Object { fields, .. } => Expression::Object {
+            Type::Struct { fields, .. } => Expression::Struct {
                 ty: ty.clone(),
                 values: fields
                     .iter()
@@ -992,7 +992,7 @@ impl Expression {
     pub fn is_rw(&self) -> bool {
         match self {
             Expression::PropertyReference(_) => true,
-            Expression::ObjectAccess { base, .. } => base.is_rw(),
+            Expression::StructFieldAccess { base, .. } => base.is_rw(),
             Expression::RepeaterModelReference { .. } => true,
             _ => false,
         }
@@ -1111,7 +1111,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             pretty_print(f, value)
         }
         Expression::ReadLocalVariable { name, ty: _ } => write!(f, "{}", name),
-        Expression::ObjectAccess { base, name } => {
+        Expression::StructFieldAccess { base, name } => {
             pretty_print(f, base)?;
             write!(f, ".{}", name)
         }
@@ -1174,7 +1174,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, "]")
         }
-        Expression::Object { ty: _, values } => {
+        Expression::Struct { ty: _, values } => {
             write!(f, "{{ ")?;
             for (name, e) in values {
                 write!(f, "{}: ", name)?;
