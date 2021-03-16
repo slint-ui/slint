@@ -125,3 +125,16 @@ set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)
 include(CPack)
 
+if(BUILD_TESTING)
+    FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG        v2.13.1
+    )
+
+    FetchContent_MakeAvailable(Catch2)
+
+    add_executable(api_tests tests/tests.cpp)
+    target_link_libraries(api_tests PRIVATE Catch2::Catch2)
+    add_test(api_tests api_tests)
+endif()

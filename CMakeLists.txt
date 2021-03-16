@@ -10,6 +10,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(SixtyFPS LANGUAGES CXX)
+include(CTest)
 
 add_subdirectory(api/sixtyfps-cpp/)
 add_subdirectory(examples/printerdemo/cpp/)
