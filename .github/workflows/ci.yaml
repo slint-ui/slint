@@ -146,6 +146,7 @@ jobs:
           du -hs target
   cpp_test_driver:
     env:
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       RUSTFLAGS: -D warnings
     strategy:
