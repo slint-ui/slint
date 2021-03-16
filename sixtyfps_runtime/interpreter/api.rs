@@ -336,7 +336,7 @@ impl TryInto<Vec<Value>> for Value {
 
 /// ComponentDescription is a representation of a compiled component from .60
 ///
-/// It can be constructed from a .60 file using the [`Self::from_path`] or [`Self::from_string`] functions.
+/// It can be constructed from a .60 file using the [`Self::from_path`] or [`Self::from_source`] functions.
 /// And then it can be instentiated with the [`Self::create`] function
 #[derive(Clone)]
 pub struct ComponentDefinition {
@@ -347,8 +347,15 @@ impl ComponentDefinition {
     /// Compile a .60 file into a ComponentDefinition
     ///
     /// The first element of the returned tuple is going to be the compiled
-    /// ComponentDefinition if there was no errors. This function also return
-    /// a vector if diagnostics with errors and/or warnings
+    /// `ComponentDefinition` if there was no errors. This function also return
+    /// a vector if diagnostics with errors and/or warnings.
+    /// The [`print_diagnostics`] function can be used to display the diagnostics
+    /// to the users.
+    ///
+    /// This function is `async` but in practice, this is only asynchronious if
+    /// [`CompilerConfiguration::with_file_loader`] is set and its future is actually asynchronious.
+    /// If that is not used, then it is fine to use a very simple executor, such as the one
+    /// provided by the `spin_on` crate
     pub async fn from_path<P: AsRef<Path>>(
         path: P,
         config: CompilerConfiguration,
@@ -367,14 +374,22 @@ impl ComponentDefinition {
             crate::dynamic_component::load(source, path.into(), config.config, guard).await;
         (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
     }
+
     /// Compile some .60 code into a ComponentDefinition
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
     /// path while importing
     ///
     /// The first element of the returned tuple is going to be the compiled
-    /// ComponentDefinition if there was no errors. This function also return
-    /// a vector if diagnostics with errors and/or warnings
+    /// `ComponentDefinition` if there was no errors. This function also return
+    /// a vector if diagnostics with errors and/or warnings.
+    /// The [`print_diagnostics`] function can be used to display the diagnostics
+    /// to the users.
+    ///
+    /// This function is `async` but in practice, this is only asynchronious if
+    /// [`CompilerConfiguration::with_file_loader`] is set and its future is actually asynchronious.
+    /// If that is not used, then it is fine to use a very simple executor, such as the one
+    /// provided by the `spin_on` crate
     pub async fn from_source(
         source_code: String,
         path: PathBuf,
@@ -421,6 +436,10 @@ impl ComponentDefinition {
 }
 
 /// Print the diagnostics to stderr
+///
+/// The diagnostics are printed in the same style as rustc errors
+///
+/// This function is available when the `display-diagnostics` is enabled.
 #[cfg(feature = "display-diagnostics")]
 pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
     let mut build_diagnostics = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
@@ -431,6 +450,12 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 }
 
 /// This represent an instance of a dynamic component
+///
+/// You can create an instance with the [`ComponentDefinition::create`] function.
+///
+/// Properties and callback can be accessed using the associated functions.
+///
+/// An instance can be put on screen with the [`ComponentInstance::run`] function.
 pub struct ComponentInstance {
     inner: vtable::VRc<
         sixtyfps_corelib::component::ComponentVTable,
@@ -439,7 +464,7 @@ pub struct ComponentInstance {
 }
 
 impl ComponentInstance {
-    /// Return the definition for this instance
+    /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
         // We create here a 'static guard. That's alright because we make sure
         // in this module that we only use erased component
@@ -447,7 +472,23 @@ impl ComponentInstance {
         ComponentDefinition { inner: self.inner.unerase(guard).description() }
     }
 
-    /// Return the value for a public property of this component
+    /// Return the value for a public property of this component.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use sixtyfps_interpreter::{ComponentDefinition, CompilerConfiguration, Value, SharedString};
+    /// let code = r#"
+    ///     MyWin := Window {
+    ///         property <int> my_property: 42;
+    ///     }
+    /// "#;
+    /// let (definition, diagnostics) = spin_on::spin_on(
+    ///     ComponentDefinition::from_source(code.into(), Default::default(), CompilerConfiguration::new()));
+    /// assert!(diagnostics.is_empty(), "{:?}", diagnostics);
+    /// let instance = definition.unwrap().create();
+    /// assert_eq!(instance.get_property("my_property").unwrap(), Value::from(42));
+    /// ```
     pub fn get_property(&self, name: &str) -> Result<Value, GetPropertyError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
@@ -467,6 +508,37 @@ impl ComponentInstance {
 
     /// Set a handler for the callback with the given name. A callback with that
     /// name must be defined in the document otherwise an error will be returned.
+    ///
+    /// Note: Since the [`ComponentInstance`] holds the handler, the handler itself should not
+    /// contain a strong reference to the instance. So if you need to capture the instance,
+    /// you should use [`Self::as_weak`] to create a weak reference.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use sixtyfps_interpreter::{ComponentDefinition, CompilerConfiguration, Value, SharedString};
+    /// use core::convert::TryInto;
+    /// let code = r#"
+    ///     MyWin := Window {
+    ///         callback foo(int) -> int;
+    ///         property <int> my_prop: 12;
+    ///     }
+    /// "#;
+    /// let (definition, _) = spin_on::spin_on(
+    ///     ComponentDefinition::from_source(code.into(), Default::default(), CompilerConfiguration::new()));
+    /// let instance = definition.unwrap().create();
+    ///
+    /// let instance_weak = instance.as_weak();
+    /// instance.set_callback("foo", move |args: &[Value]| -> Value {
+    ///     let arg: u32 = args[0].clone().try_into().unwrap();
+    ///     let my_prop = instance_weak.unwrap().get_property("my_prop").unwrap();
+    ///     let my_prop : u32 = my_prop.try_into().unwrap();
+    ///     Value::from(arg + my_prop)
+    /// }).unwrap();
+    ///
+    /// let res = instance.invoke_callback("foo", &[Value::from(500)]).unwrap();
+    /// assert_eq!(res, Value::from(500+12));
+    /// ```
     pub fn set_callback(
         &self,
         name: &str,
@@ -480,6 +552,9 @@ impl ComponentInstance {
     }
 
     /// Call the given callback with the arguments
+    ///
+    /// ## Examples
+    /// See the documentation of [`Self::set_callback`] for an example
     pub fn invoke_callback(&self, name: &str, args: &[Value]) -> Result<Value, CallCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
@@ -553,31 +628,37 @@ impl WeakComponentInstance {
 }
 
 /// Error returned by [`ComponentInstance::get_property`]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum GetPropertyError {
     /// There is no property with the given name
+    #[error("no such property")]
     NoSuchProperty,
 }
 
 /// Error returned by [`ComponentInstance::set_property`]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum SetPropertyError {
     /// There is no property with the given name
+    #[error("no such property")]
     NoSuchProperty,
     /// The property exist but does not have a type matching the dynamic value
+    #[error("wrong type")]
     WrongType,
 }
 
 /// Error returned by [`ComponentInstance::set_callback`]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum SetCallbackError {
     /// There is no callback with the given name
+    #[error("no such callback")]
     NoSuchCallback,
 }
 
 /// Error returned by [`ComponentInstance::invoke_callback`]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum CallCallbackError {
     /// There is no callback with the given name
+    #[error("no such callback")]
     NoSuchCallback,
 }
 
@@ -627,7 +708,14 @@ impl CompilerConfiguration {
     }
 }
 
-/// A few helper function usefull for tests
+/// Enters the main event loop. This is necessary in order to receive
+/// events from the windowing system in order to render to the screen
+/// and react to user input.
+pub fn run_event_loop() {
+    sixtyfps_rendering_backend_default::backend().run_event_loop();
+}
+
+/// This module constains a few function use by tests
 pub mod testing {
     /// Wrapper around [`sixtyfps_corelib::tests::sixtyfps_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {

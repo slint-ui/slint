@@ -23,8 +23,11 @@ lyon_path = { version = "0.17.1" }
 derive_more = "0.99.5"
 generativity = "1"
 once_cell = "1.5"
+thiserror = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 sixtyfps-rendering-backend-gl = { version = "=0.0.5", path = "../../sixtyfps_runtime/rendering_backends/gl" }
 
+[dev-dependencies]
+spin_on = "0.1"
 
