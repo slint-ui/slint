@@ -27,7 +27,7 @@ struct ComponentVTable;
 struct ItemVTable;
 }
 #include "sixtyfps_internal.h"
-#include "sixtyfps_default_backend_internal.h"
+#include "sixtyfps_backend_internal.h"
 #include "sixtyfps_qt_internal.h"
 
 namespace sixtyfps {

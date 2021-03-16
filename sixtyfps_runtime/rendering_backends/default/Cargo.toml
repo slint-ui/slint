@@ -10,7 +10,6 @@ homepage = "https://sixtyfps.io"
 
 [lib]
 path = "lib.rs"
-crate-type = [ "lib", "cdylib" ]
 
 [features]
 x11 = ["sixtyfps-rendering-backend-gl/x11"]

@@ -18,11 +18,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Corrosion)
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
-    CRATES sixtyfps-compiler sixtyfps-rendering-backend-default xtask)
+    CRATES sixtyfps-compiler sixtyfps-cpp xtask)
 
 add_library(SixtyFPS INTERFACE)
 add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
-target_link_libraries(SixtyFPS INTERFACE sixtyfps-rendering-backend-default)
+target_link_libraries(SixtyFPS INTERFACE sixtyfps-cpp)
 target_compile_features(SixtyFPS INTERFACE cxx_std_17)
 
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
@@ -69,18 +69,18 @@ target_include_directories(SixtyFPS INTERFACE
 add_executable(SixtyFPS::sixtyfps_compiler ALIAS sixtyfps_compiler)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/SixtyFPSMacro.cmake)
 
-export(TARGETS SixtyFPS sixtyfps-rendering-backend-default
+export(TARGETS SixtyFPS sixtyfps-cpp
     NAMESPACE SixtyFPS:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSTargets.cmake")
 install(EXPORT SixtyFPSTargets NAMESPACE SixtyFPS:: DESTINATION lib/cmake/SixtyFPS)
-install(TARGETS SixtyFPS sixtyfps-rendering-backend-default
+install(TARGETS SixtyFPS sixtyfps-cpp
     EXPORT SixtyFPSTargets  LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/sixtyfps)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
-install(FILES $<TARGET_FILE:sixtyfps-rendering-backend-default-shared> TYPE LIB)
+install(FILES $<TARGET_FILE:sixtyfps-cpp-shared> TYPE LIB)
 if(WIN32)
-    install(FILES $<TARGET_LINKER_FILE:sixtyfps-rendering-backend-default-shared> TYPE LIB)
+    install(FILES $<TARGET_LINKER_FILE:sixtyfps-cpp-shared> TYPE LIB)
 endif()
 
 install(PROGRAMS $<TARGET_FILE:sixtyfps_compiler> TYPE BIN)
@@ -89,7 +89,7 @@ set(SIXTYFPS_LIB_PROPERTIES "")
 foreach(prop
         IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
         IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE)
-  get_target_property(value sixtyfps-rendering-backend-default-shared ${prop})
+  get_target_property(value sixtyfps-cpp-shared ${prop})
   if(value)
     get_filename_component(value ${value} NAME)
     list(APPEND SIXTYFPS_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")

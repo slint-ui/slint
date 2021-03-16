@@ -304,17 +304,17 @@ fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn gen_backend_default(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
+fn gen_backend(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     let config = default_config();
     let mut crate_dir = root_dir.to_owned();
-    crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "default"].iter());
+    crate_dir.extend(["api", "sixtyfps-cpp"].iter());
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
         .with_header("#include <sixtyfps_internal.h>")
         .generate()
-        .context("Unable to generate bindings for sixtyfps_default_backend_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_default_backend_internal.h"));
+        .context("Unable to generate bindings for sixtyfps_backend_internal.h")?
+        .write_to_file(include_dir.join("sixtyfps_backend_internal.h"));
 
     Ok(())
 }
@@ -326,6 +326,6 @@ pub fn gen_all(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     gen_corelib(root_dir, include_dir)?;
     gen_backend_qt(root_dir, include_dir)?;
-    gen_backend_default(root_dir, include_dir)?;
+    gen_backend(root_dir, include_dir)?;
     Ok(())
 }

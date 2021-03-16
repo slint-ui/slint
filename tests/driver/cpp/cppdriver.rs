@@ -97,13 +97,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_command.arg("-g");
         compiler_command.arg("-Werror").arg("-Wall").arg("-Wextra");
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
-        compiler_command.arg("-lsixtyfps_rendering_backend_default");
+        compiler_command.arg("-lsixtyfps_cpp");
         compiler_command.arg("-o").arg(&*binary_path);
     } else if compiler.is_like_msvc() {
         compiler_command.arg("/std:c++17");
-        compiler_command
-            .arg("/link")
-            .arg(concat!(env!("CPP_LIB_PATH"), "\\sixtyfps_rendering_backend_default.dll.lib"));
+        compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\sixtyfps_cpp.dll.lib"));
         let mut out_arg = std::ffi::OsString::from("/OUT:");
         out_arg.push(&*binary_path);
         compiler_command.arg(out_arg);
