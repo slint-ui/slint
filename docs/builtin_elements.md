@@ -384,8 +384,8 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 ### Callbacks
 
-* **`key_pressed(KeyEvent) -> EventResult`**: Emited when a key is pressed, the argument is a `KeyEvent` object
-* **`key_released(KeyEvent) -> EventResult`**: Emited when a key is released, the argument is a `KeyEvent` object
+* **`key_pressed(KeyEvent) -> EventResult`**: Emited when a key is pressed, the argument is a `KeyEvent` struct
+* **`key_released(KeyEvent) -> EventResult`**: Emited when a key is released, the argument is a `KeyEvent` struct
 
 ### Example
 

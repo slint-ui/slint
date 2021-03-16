@@ -202,11 +202,11 @@ All properties in elements have a type. The following types are supported:
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
-### Objects
+### Structs
 
-It is basically an anonymous structures, it can be declared with curly braces: `{ identifier1: type2, identifier1: type2, }`
+Anonymous structs type can be declared with curly braces: `{ identifier1: type2, identifier1: type2, }`
 The trailing semicolon is optional.
-
+They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
 
 ```60
 Example := Window {
@@ -217,7 +217,7 @@ Example := Window {
 
 ### Custom named structures
 
-It is possible to define a struct using the struct keyword, and defined as an object type
+It is possible to define a named struct using the `struct` keyword,
 
 ```60
 export struct Player := {
@@ -238,7 +238,7 @@ basically used as models for the `for` expression.
 ```60
 Example := Window {
     property<[int]> list_of_int: [1,2,3];
-    property<[{a: int, b: string}]> list_of_object: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+    property<[{a: int, b: string}]> list_of_structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
 }
 ```
 
@@ -252,8 +252,8 @@ Example := Window {
    but they can be devided with themself to result in a number. Similarily, a number can be multiplied by one of
    these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
  * The literal `0` can be converted to any of these types that have associated unit.
- * Object types convert with another object type if they have the same property names and their types can be converted.
-    The source object can have either missing properties, or extra properties. But not both.
+ * Struct types convert with another struct type if they have the same property names and their types can be converted.
+    The source struct can have either missing properties, or extra properties. But not both.
  * Array generaly do not convert between eachother. But array literal can be converted if the type does convert.
  * String can be converted to float by using the `to_float` function. That function returns 0 if the string is not
    a valid number. you can check with `is_float` if the string contains a valid number
@@ -479,11 +479,11 @@ Example := Rectangle {
     background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
 }
 ```
-### Arrays/Objects
+### Arrays/Structs
 
 Arrays are currently only supported in `for` expressions. `[1, 2, 3]` is an array of integers.
 All the types in the array have to be of the same type.
-It is useful to have arrays of objects. An Object is between curly braces: `{ a: 12, b: "hello"}`.
+It is useful to have arrays of struct. An struct is between curly braces: `{ a: 12, b: "hello"}`.
 
 
 ## Statements
