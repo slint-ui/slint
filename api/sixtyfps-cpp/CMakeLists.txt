@@ -41,7 +41,7 @@ set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_color_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_pathdata_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_qt_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_default_backend_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_backend_internal.h
 )
 
 file(GLOB generated_headers_dependencies
