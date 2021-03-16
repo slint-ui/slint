@@ -197,6 +197,9 @@ jobs:
       with:
         cmakeListsTxtPath: CMakeLists.txt
         buildDirectory: ${{ runner.workspace }}/cppbuild
+    - name: ctest
+      working-directory: ${{ runner.workspace }}/cppbuild
+      run: ctest
     - name: cpack
       working-directory: ${{ runner.workspace }}/cppbuild
       run: cmake --build . --target package
