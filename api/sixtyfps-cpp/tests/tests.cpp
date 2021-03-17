@@ -59,4 +59,15 @@ SCENARIO("Value API")
         REQUIRE(number_opt.has_value());
         REQUIRE(number_opt.value() == number);
     }
+
+    SECTION("Construct a bool")
+    {
+        REQUIRE(!value.to_bool().has_value());
+        value = Value(true);
+        REQUIRE(value.type() == Value::Type::Bool);
+
+        auto bool_opt = value.to_bool();
+        REQUIRE(bool_opt.has_value());
+        REQUIRE(bool_opt.value() == true);
+    }
 }

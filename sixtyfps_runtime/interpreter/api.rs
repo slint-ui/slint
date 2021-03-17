@@ -794,6 +794,12 @@ pub(crate) mod ffi {
         std::ptr::write(val as *mut Value, Value::Number(double))
     }
 
+    /// Construct a new Value in the given memory location as string
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_new_bool(b: bool, val: *mut ValueOpaque) {
+        std::ptr::write(val as *mut Value, Value::Bool(b))
+    }
+
     #[repr(i8)]
     pub enum ValueType {
         Void,

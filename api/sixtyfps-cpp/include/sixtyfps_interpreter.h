@@ -69,7 +69,14 @@ public:
             return {};
         }
     }
-    std::optional<bool> to_bool() const;
+    std::optional<bool> to_bool() const
+    {
+        if (auto *b = cbindgen_private::sixtyfps_interpreter_value_to_bool(&inner)) {
+            return *b;
+        } else {
+            return {};
+        }
+    }
     std::optional<sixtyfps::SharedVector<Value>> to_array() const;
     std::optional<std::shared_ptr<sixtyfps::Model<Value>>> to_model() const;
     std::optional<sixtyfps::Brush> to_brush() const;
@@ -81,7 +88,7 @@ public:
     {
         cbindgen_private::sixtyfps_interpreter_value_new_string(&str, &inner);
     }
-    Value(bool);
+    Value(bool b) { cbindgen_private::sixtyfps_interpreter_value_new_bool(b, &inner); }
     Value(const SharedVector<Value> &);
     Value(const std::shared_ptr<sixtyfps::Model<Value>> &);
     Value(const sixtyfps::Brush &);
