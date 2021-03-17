@@ -30,6 +30,9 @@ public:
     }
     Value &operator=(Value &&other)
     {
+        if (this == &other)
+            return *this;
+        cbindgen_private::sixtyfps_interpreter_value_destructor(&inner);
         inner = other.inner;
         cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
         return *this;
