@@ -748,8 +748,8 @@ pub(crate) mod ffi {
 
     #[repr(C)]
     pub struct ValueOpaque([usize; 7]);
-    /// Asserts that ValueOpaque is at least as large as Value, otherwise this would overflow
-    const _: usize = std::mem::size_of::<ValueOpaque>() - std::mem::size_of::<Value>();
+    /// Asserts that ValueOpaque is as large as Value and has the same alignment, to make transmute safe.
+    const _: [(); std::mem::size_of::<ValueOpaque>()] = [(); std::mem::size_of::<Value>()];
     const _: [(); std::mem::align_of::<ValueOpaque>()] = [(); std::mem::align_of::<Value>()];
 
     impl ValueOpaque {
