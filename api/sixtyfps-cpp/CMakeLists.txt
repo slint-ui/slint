@@ -137,5 +137,9 @@ if(BUILD_TESTING)
     add_executable(api_tests tests/tests.cpp)
     target_link_libraries(api_tests PRIVATE SixtyFPS Catch2::Catch2)
     add_test(api_tests ${CMAKE_CURRENT_BINARY_DIR}/api_tests)
-    set_property(TEST api_tests PROPERTY WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    # Somehow the wrong relative rpath ends up in the binary, requiring us to change the
+    # working directory.
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set_property(TEST api_tests PROPERTY WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+    endif()
 endif()
