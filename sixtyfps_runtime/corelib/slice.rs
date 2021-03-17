@@ -88,3 +88,9 @@ impl<'a, T> core::ops::Deref for Slice<'a, T> {
         self.as_slice()
     }
 }
+
+impl<'a, T> Default for Slice<'a, T> {
+    fn default() -> Self {
+        Self::from_slice(&[])
+    }
+}

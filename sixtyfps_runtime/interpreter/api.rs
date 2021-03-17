@@ -877,7 +877,7 @@ pub(crate) mod ffi {
             // Safety: there should be no way to construct a StructOpaque without it holding an actual Struct
             unsafe { std::mem::transmute::<&StructOpaque, &Struct>(self) }
         }
-        fn as_mut_struct(&mut self) -> &mut Struct {
+        fn as_struct_mut(&mut self) -> &mut Struct {
             // Safety: there should be no way to construct a StructOpaque without it holding an actual Struct
             unsafe { std::mem::transmute::<&mut StructOpaque, &mut Struct>(self) }
         }
@@ -920,7 +920,54 @@ pub(crate) mod ffi {
         name: &Slice<u8>,
         value: &ValueOpaque,
     ) {
-        stru.as_mut_struct()
+        stru.as_struct_mut()
             .set_field(std::str::from_utf8(&name).unwrap().into(), value.as_value().clone())
+    }
+
+    type StructIterator<'a> = std::collections::hash_map::Iter<'a, String, Value>;
+    #[repr(C)]
+    pub struct StructIteratorOpaque<'a>([usize; 5], std::marker::PhantomData<StructIterator<'a>>);
+    const _: usize =
+        std::mem::size_of::<StructIteratorOpaque>() - std::mem::size_of::<StructIterator>();
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_struct_iterator_destructor(
+        val: *mut StructIteratorOpaque,
+    ) {
+        drop(std::ptr::read(val as *mut StructIterator))
+    }
+
+    /// The result of the sixtyfps_interpreter_struct_iterator_next function
+    /// If the iterator was at the end, the key will be empty, and the value will be None
+    #[repr(C)]
+    pub struct StructIteratorResult<'a> {
+        k: Slice<'a, u8>,
+        v: Option<&'a Value>,
+    }
+
+    /// Advance the iterator and return the next value, or an
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_struct_iterator_next<'a>(
+        iter: &'a mut StructIteratorOpaque,
+    ) -> StructIteratorResult<'a> {
+        if let Some((str, val)) =
+            (*(iter as *mut StructIteratorOpaque as *mut StructIterator)).next()
+        {
+            StructIteratorResult { k: Slice::from_slice(str.as_bytes()), v: Some(val) }
+        } else {
+            StructIteratorResult { k: Slice::default(), v: None }
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_struct_make_iter<'a>(
+        stru: &'a StructOpaque,
+    ) -> StructIteratorOpaque<'a> {
+        let ret_it: StructIterator = stru.as_struct().0.iter();
+        unsafe {
+            let mut r = std::mem::MaybeUninit::<StructIteratorOpaque>::uninit();
+            std::ptr::write(r.as_mut_ptr() as *mut StructIterator, ret_it);
+            r.assume_init()
+        }
     }
 }
