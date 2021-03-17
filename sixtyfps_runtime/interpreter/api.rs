@@ -877,6 +877,10 @@ pub(crate) mod ffi {
             // Safety: there should be no way to construct a StructOpaque without it holding an actual Struct
             unsafe { std::mem::transmute::<&StructOpaque, &Struct>(self) }
         }
+        fn as_mut_struct(&mut self) -> &mut Struct {
+            // Safety: there should be no way to construct a StructOpaque without it holding an actual Struct
+            unsafe { std::mem::transmute::<&mut StructOpaque, &mut Struct>(self) }
+        }
     }
 
     /// Construct a new Struct in the given memory location
@@ -916,7 +920,7 @@ pub(crate) mod ffi {
         name: &Slice<u8>,
         value: &ValueOpaque,
     ) {
-        stru.as_struct()
+        stru.as_mut_struct()
             .set_field(std::str::from_utf8(&name).unwrap().into(), value.as_value().clone())
     }
 }
