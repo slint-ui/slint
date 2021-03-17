@@ -48,6 +48,9 @@ fn main() {
     let macos_lib_search = if cfg!(target_os = "macos") { "=framework" } else { "" };
     let macos_lib_framework = if cfg!(target_os = "macos") { "" } else { "5" };
 
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-cdylib-link-arg=-Wl,-rpath,{}", qt_library_path.trim());
+    }
     println!("cargo:rustc-link-search{}={}", macos_lib_search, qt_library_path.trim());
     println!("cargo:rustc-link-lib{}=Qt{}Widgets", macos_lib_search, macos_lib_framework);
     println!("cargo:rustc-link-lib{}=Qt{}Gui", macos_lib_search, macos_lib_framework);
