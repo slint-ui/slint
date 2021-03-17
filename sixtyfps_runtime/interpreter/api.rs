@@ -738,12 +738,11 @@ pub mod testing {
     }
 }
 
-/// For the C++ integration
 #[cfg(feature = "ffi")]
+#[allow(missing_docs)]
 pub mod ffi {
     use super::*;
 
-    /// This is casted to a Value
     #[repr(C)]
     pub struct ValueOpaque([usize; 7]);
 
@@ -760,5 +759,33 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_value_destructor(val: *mut ValueOpaque) {
         drop(std::ptr::read(val as *mut Value))
+    }
+
+    #[repr(i8)]
+    pub enum ValueType {
+        Void,
+        Number,
+        String,
+        Bool,
+        Array,
+        Model,
+        Struct,
+        Brush,
+        Other = -1,
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_type(val: *const ValueOpaque) -> ValueType {
+        match &*(val as *const Value) {
+            Value::Void => ValueType::Void,
+            Value::Number(_) => ValueType::Number,
+            Value::String(_) => ValueType::String,
+            Value::Bool(_) => ValueType::Bool,
+            Value::Array(_) => ValueType::Array,
+            Value::Model(_) => ValueType::Model,
+            Value::Struct(_) => ValueType::Struct,
+            Value::Brush(_) => ValueType::Brush,
+            _ => ValueType::Other,
+        }
     }
 }
