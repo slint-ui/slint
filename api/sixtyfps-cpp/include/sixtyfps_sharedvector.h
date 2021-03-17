@@ -18,24 +18,23 @@ template<typename T>
 struct SharedVector
 {
     SharedVector()
-        : inner(const_cast<SharedVectorHeader*>(reinterpret_cast<const SharedVectorHeader*>(
-            cbindgen_private::sixtyfps_shared_vector_empty())))
-    { }
+        : inner(const_cast<SharedVectorHeader *>(reinterpret_cast<const SharedVectorHeader *>(
+                cbindgen_private::sixtyfps_shared_vector_empty())))
+    {
+    }
 
-    SharedVector(const SharedVector &other)
-        : inner(other.inner)
+    SharedVector(const SharedVector &other) : inner(other.inner)
     {
         if (inner->refcount > 0) {
             ++inner->refcount;
         }
     }
-    ~SharedVector()
-    {
-        drop();
-    }
+    ~SharedVector() { drop(); }
     SharedVector &operator=(const SharedVector &other)
     {
-        if (other.inner == inner) { return *this; }
+        if (other.inner == inner) {
+            return *this;
+        }
         drop();
         inner = other.inner;
         if (inner->refcount > 0) {
@@ -49,65 +48,56 @@ struct SharedVector
         return *this;
     }
 
-    const T *cbegin() const {
-        return reinterpret_cast<const T *>(inner + 1);
-    }
+    const T *cbegin() const { return reinterpret_cast<const T *>(inner + 1); }
 
-    const T *cend() const {
-        return cbegin() + inner->size;
-    }
+    const T *cend() const { return cbegin() + inner->size; }
 
     const T *begin() const { return cbegin(); }
     const T *end() const { return cend(); }
 
-    T *begin()  {
+    T *begin()
+    {
         detach(inner->size);
         return reinterpret_cast<T *>(inner + 1);
     }
 
-    T *end() {
+    T *end()
+    {
         detach(inner->size);
         return begin() + inner->size;
     }
 
-    std::size_t size() const {
-        return inner->size;
-    }
+    std::size_t size() const { return inner->size; }
 
-    T &operator[](std::size_t index) {
-        return begin()[index];
-    }
-    const T &operator[](std::size_t index) const {
-        return begin()[index];
-    }
+    T &operator[](std::size_t index) { return begin()[index]; }
+    const T &operator[](std::size_t index) const { return begin()[index]; }
 
-    const T &at(std::size_t index) const {
-        return begin()[index];
-    }
+    const T &at(std::size_t index) const { return begin()[index]; }
 
-    void push_back(const T &value) {
+    void push_back(const T &value)
+    {
         detach(inner->size + 1);
         new (end()) T(value);
         inner->size++;
     }
-    void push_back(T &&value) {
+    void push_back(T &&value)
+    {
         detach(inner->size + 1);
         new (end()) T(std::move(value));
         inner->size++;
     }
 
-    friend bool operator==(const SharedVector &a, const SharedVector &b) {
+    friend bool operator==(const SharedVector &a, const SharedVector &b)
+    {
         if (a.size() != a.size())
             return false;
         return std::equal(a.cbegin(), a.cend(), b.cbegin());
     }
-    friend bool operator!=(const SharedVector &a, const SharedVector &b) {
-        return !(a == b);
-    }
-
+    friend bool operator!=(const SharedVector &a, const SharedVector &b) { return !(a == b); }
 
 private:
-    void detach(std::size_t expected_capacity) {
+    void detach(std::size_t expected_capacity)
+    {
         if (inner->refcount == 1 && expected_capacity <= inner->capacity) {
             return;
         }
@@ -115,52 +105,58 @@ private:
         auto old_data = reinterpret_cast<const T *>(inner + 1);
         auto new_data = reinterpret_cast<T *>(new_array.inner + 1);
         for (std::size_t i = 0; i < inner->size; ++i) {
-            new (new_data+i) T(old_data[i]);
+            new (new_data + i) T(old_data[i]);
             new_array.inner->size++;
         }
         *this = std::move(new_array);
     }
 
-    void drop() {
+    void drop()
+    {
         if (inner->refcount > 0 && (--inner->refcount) == 0) {
             auto b = begin(), e = end();
             for (auto it = b; it < e; ++it) {
                 it->~T();
             }
-            cbindgen_private::sixtyfps_shared_vector_free(
-                reinterpret_cast<uint8_t *>(inner),
-                sizeof(SharedVectorHeader) + inner->capacity * sizeof(T),
-                alignof(SharedVectorHeader));
+            cbindgen_private::sixtyfps_shared_vector_free(reinterpret_cast<uint8_t *>(inner),
+                                                          sizeof(SharedVectorHeader)
+                                                                  + inner->capacity * sizeof(T),
+                                                          alignof(SharedVectorHeader));
         }
     }
 
-    static SharedVector with_capacity(std::size_t capacity) {
+    static SharedVector with_capacity(std::size_t capacity)
+    {
         auto mem = cbindgen_private::sixtyfps_shared_vector_allocate(
-                sizeof(SharedVectorHeader) + capacity * sizeof(T),
-                alignof(SharedVectorHeader));
-        return SharedVector(new (mem) SharedVectorHeader{ {1}, 0, capacity });
+                sizeof(SharedVectorHeader) + capacity * sizeof(T), alignof(SharedVectorHeader));
+        return SharedVector(new (mem) SharedVectorHeader { { 1 }, 0, capacity });
     }
 
 #if !defined(DOXYGEN)
     // Unfortunately, this cannot be generated by cbindgen because std::atomic is not understood
-    struct SharedVectorHeader {
+    struct SharedVectorHeader
+    {
         std::atomic<std::intptr_t> refcount;
         std::size_t size;
         std::size_t capacity;
     };
-    static_assert(alignof(T) <= alignof(SharedVectorHeader), "Not yet supported because we would need to add padding");
+    static_assert(alignof(T) <= alignof(SharedVectorHeader),
+                  "Not yet supported because we would need to add padding");
     SharedVectorHeader *inner;
-    explicit SharedVector(SharedVectorHeader *inner) : inner(inner) {}
+    explicit SharedVector(SharedVectorHeader *inner) : inner(inner) { }
 #endif
 };
 
 template<typename T>
-bool operator==(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b) {
-    if (a.len != b.len) return false;
+bool operator==(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b)
+{
+    if (a.len != b.len)
+        return false;
     return std::equal(a.ptr, a.ptr + a.len, b.ptr);
 }
 template<typename T>
-bool operator!=(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b) {
+bool operator!=(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b)
+{
     return !(a != b);
 }
 
