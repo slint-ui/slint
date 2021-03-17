@@ -745,9 +745,15 @@ pub mod ffi {
 
     #[repr(C)]
     pub struct ValueOpaque([usize; 7]);
-
     /// Asserts that ValueOpaque is at least as large as Value, otherwise this would overflow
     const _: usize = std::mem::size_of::<ValueOpaque>() - std::mem::size_of::<Value>();
+
+    impl ValueOpaque {
+        fn as_value(&self) -> &Value {
+            // Safety: there should be no way to construct a ValueOpaque without it holding an actual Value
+            unsafe { std::mem::transmute::<&ValueOpaque, &Value>(self) }
+        }
+    }
 
     /// Construct a new Value in the given memory location
     #[no_mangle]
@@ -786,6 +792,42 @@ pub mod ffi {
             Value::Struct(_) => ValueType::Struct,
             Value::Brush(_) => ValueType::Brush,
             _ => ValueType::Other,
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_value_to_string(
+        val: &ValueOpaque,
+    ) -> Option<&SharedString> {
+        match val.as_value() {
+            Value::String(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_value_to_number(val: &ValueOpaque) -> Option<&f64> {
+        match val.as_value() {
+            Value::Number(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_value_to_bool(val: &ValueOpaque) -> Option<&bool> {
+        match val.as_value() {
+            Value::Bool(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_value_to_array(
+        val: &ValueOpaque,
+    ) -> Option<&SharedVector<Value>> {
+        match val.as_value() {
+            Value::Array(v) => Some(v),
+            _ => None,
         }
     }
 }
