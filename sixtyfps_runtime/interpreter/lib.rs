@@ -101,3 +101,20 @@ pub fn register_font_from_memory(data: &[u8]) -> Result<(), Box<dyn std::error::
 /// (Re-export from corelib.)
 #[doc(inline)]
 pub use sixtyfps_corelib::{Brush, Color, SharedString, SharedVector};
+
+/// One need to use at least one function in each module in order to get them
+/// exported in the final binary.
+/// This only use functions from modules which are not otherwise used.
+#[doc(hidden)]
+#[cold]
+#[cfg(not(target_arch = "wasm32"))]
+pub fn use_modules() -> usize {
+    #[cfg(feature = "ffi")]
+    {
+        crate::api::ffi::sixtyfps_interpreter_value_new as usize
+    }
+    #[cfg(not(feature = "ffi"))]
+    {
+        0
+    }
+}

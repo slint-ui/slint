@@ -12,6 +12,8 @@ LICENSE END */
 #[doc(hidden)]
 #[cold]
 pub extern "C" fn use_modules() -> usize {
+    #[cfg(feature = "sixtyfps-interpreter")]
+    sixtyfps_interpreter::use_modules();
     sixtyfps_rendering_backend_default::use_modules();
     sixtyfps_corelib::use_modules()
 }
