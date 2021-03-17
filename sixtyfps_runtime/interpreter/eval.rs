@@ -173,7 +173,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         }
         Expression::StructFieldAccess { base, name } => {
             if let Value::Struct(o) = eval_expression(base, local_context) {
-                o.get_field(name).unwrap_or(Value::Void)
+                o.get_field(name).cloned().unwrap_or(Value::Void)
             } else {
                 Value::Void
             }
@@ -580,7 +580,7 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
         }
         Expression::StructFieldAccess { base, name } => {
             if let Value::Struct(mut o) = eval_expression(base, local_context) {
-                let mut r = o.get_field(name).unwrap();
+                let mut r = o.get_field(name).unwrap().clone();
                 r = if op == '=' { rhs } else { eval(std::mem::take(&mut r)) };
                 o.set_field(name.to_owned(), r);
                 eval_assignement(base, '=', Value::Struct(o), local_context)

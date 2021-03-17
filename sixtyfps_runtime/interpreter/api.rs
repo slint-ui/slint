@@ -59,7 +59,8 @@ pub enum Value {
     /// An easing curve
     EasingCurve(sixtyfps_corelib::animations::EasingCurve),
     #[doc(hidden)]
-    /// An enumation, like TextHorizontalAlignment::align_center
+    /// An enumation, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
+    /// FIXME: consider representing that with a number?
     EnumerationValue(String, String),
 }
 
@@ -296,8 +297,8 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
 pub struct Struct(HashMap<String, Value>);
 impl Struct {
     /// Get the value for a given struct field
-    pub fn get_field(&self, name: &str) -> Option<Value> {
-        self.0.get(name).cloned()
+    pub fn get_field(&self, name: &str) -> Option<&Value> {
+        self.0.get(name)
     }
     /// Set the value of a given struct field
     pub fn set_field(&mut self, name: String, value: Value) {
@@ -741,6 +742,8 @@ pub mod testing {
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
 pub(crate) mod ffi {
+    use sixtyfps_corelib::slice::Slice;
+
     use super::*;
 
     #[repr(C)]
@@ -862,5 +865,58 @@ pub(crate) mod ffi {
             Value::Array(v) => Some(v),
             _ => None,
         }
+    }
+
+    #[repr(C)]
+    pub struct StructOpaque([usize; 6]);
+    /// Asserts that StructOpaque is at least as large as Struct, otherwise this would overflow
+    const _: usize = std::mem::size_of::<StructOpaque>() - std::mem::size_of::<Struct>();
+
+    impl StructOpaque {
+        fn as_struct(&self) -> &Struct {
+            // Safety: there should be no way to construct a StructOpaque without it holding an actual Struct
+            unsafe { std::mem::transmute::<&StructOpaque, &Struct>(self) }
+        }
+    }
+
+    /// Construct a new Struct in the given memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_struct_new(val: *mut StructOpaque) {
+        std::ptr::write(val as *mut Struct, Struct::default())
+    }
+
+    /// Construct a new Struct in the given memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_struct_clone(
+        other: &StructOpaque,
+        val: *mut StructOpaque,
+    ) {
+        std::ptr::write(val as *mut Struct, other.as_struct().clone())
+    }
+
+    /// Destruct the struct in that memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_struct_destructor(val: *mut StructOpaque) {
+        drop(std::ptr::read(val as *mut Struct))
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_struct_get_field<'a>(
+        stru: &'a StructOpaque,
+        name: &Slice<u8>,
+    ) -> Option<&'a ValueOpaque> {
+        stru.as_struct()
+            .get_field(std::str::from_utf8(&name).unwrap())
+            .and_then(|v| unsafe { (v as *const Value as *const ValueOpaque).as_ref() })
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_struct_set_field<'a>(
+        stru: &'a mut StructOpaque,
+        name: &Slice<u8>,
+        value: &ValueOpaque,
+    ) {
+        stru.as_struct()
+            .set_field(std::str::from_utf8(&name).unwrap().into(), value.as_value().clone())
     }
 }
