@@ -106,7 +106,6 @@ public:
         cbindgen_private::sixtyfps_interpreter_value_new_brush(&brush, &inner);
     }
     // Value(const Struct &);
-    explicit Value(Type);
 
     Type type() const { return cbindgen_private::sixtyfps_interpreter_value_type(&inner); }
 
