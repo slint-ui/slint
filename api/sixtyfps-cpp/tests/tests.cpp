@@ -32,7 +32,19 @@ SCENARIO("SharedString API")
 SCENARIO("Value API")
 {
     using namespace sixtyfps::interpreter;
-    Value str;
+    Value value;
 
-    REQUIRE(str.type() == Value::Type::Void);
+    REQUIRE(value.type() == Value::Type::Void);
+
+    SECTION("Construct a string")
+    {
+        REQUIRE(!value.to_string().has_value());
+        sixtyfps::SharedString cpp_str("Hello World");
+        value = Value(cpp_str);
+        REQUIRE(value.type() == Value::Type::String);
+
+        auto string_opt = value.to_string();
+        REQUIRE(string_opt.has_value());
+        REQUIRE(string_opt.value() == "Hello World");
+    }
 }

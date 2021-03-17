@@ -22,10 +22,26 @@ class Value
 public:
     Value() { cbindgen_private::sixtyfps_interpreter_value_new(&inner); }
 
-    Value(const Value &);
-    Value(Value &&);
-    Value &operator=(Value &&);
-    Value &operator=(const Value &);
+    Value(const Value &other) { sixtyfps_interpreter_value_clone(&other.inner, &inner); }
+    Value(Value &&other)
+    {
+        inner = other.inner;
+        cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
+    }
+    Value &operator=(Value &&other)
+    {
+        inner = other.inner;
+        cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
+        return *this;
+    }
+    Value &operator=(const Value &other)
+    {
+        if (this == &other)
+            return *this;
+        cbindgen_private::sixtyfps_interpreter_value_destructor(&inner);
+        sixtyfps_interpreter_value_clone(&other.inner, &inner);
+        return *this;
+    }
     ~Value() { cbindgen_private::sixtyfps_interpreter_value_destructor(&inner); }
 
     using Type = cbindgen_private::ValueType;
@@ -38,7 +54,14 @@ public:
     // optional<int> to_int() const;
     // optional<float> to_float() const;
     std::optional<double> to_number() const;
-    std::optional<sixtyfps::SharedString> to_string() const;
+    std::optional<sixtyfps::SharedString> to_string() const
+    {
+        if (auto *str = cbindgen_private::sixtyfps_interpreter_value_to_string(&inner)) {
+            return *str;
+        } else {
+            return {};
+        }
+    }
     std::optional<bool> to_bool() const;
     std::optional<sixtyfps::SharedVector<Value>> to_array() const;
     std::optional<std::shared_ptr<sixtyfps::Model<Value>>> to_model() const;
@@ -47,7 +70,10 @@ public:
 
     // template<typename T> std::optional<T> get() const;
     Value(double);
-    Value(const SharedString &);
+    Value(const SharedString &str)
+    {
+        cbindgen_private::sixtyfps_interpreter_value_new_string(&str, &inner);
+    }
     Value(bool);
     Value(const SharedVector<Value> &);
     Value(const std::shared_ptr<sixtyfps::Model<Value>> &);

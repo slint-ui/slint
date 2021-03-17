@@ -761,10 +761,28 @@ pub(crate) mod ffi {
         std::ptr::write(val as *mut Value, Value::default())
     }
 
+    /// Construct a new Value in the given memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_clone(
+        other: &ValueOpaque,
+        val: *mut ValueOpaque,
+    ) {
+        std::ptr::write(val as *mut Value, other.as_value().clone())
+    }
+
     /// Destruct the value in that memory location
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_value_destructor(val: *mut ValueOpaque) {
         drop(std::ptr::read(val as *mut Value))
+    }
+
+    /// Construct a new Value in the given memory location as string
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_new_string(
+        str: &SharedString,
+        val: *mut ValueOpaque,
+    ) {
+        std::ptr::write(val as *mut Value, Value::String(str.clone()))
     }
 
     #[repr(i8)]
