@@ -31,6 +31,7 @@ pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 /// ```
 #[derive(Clone)]
 #[non_exhaustive]
+#[repr(C)]
 pub enum Value {
     /// There is nothing in this value. That's the default.
     /// For example, a function that do not return a result would return a Value::Void
@@ -734,5 +735,29 @@ pub mod testing {
             Default::default(),
             &comp.inner.window(),
         );
+    }
+}
+
+#[cfg(feature = "ffi")]
+pub mod ffi {
+    use super::*;
+
+    /// This is casted to a Value
+    #[repr(C)]
+    pub struct ValueOpaque([usize; 7]);
+
+    /// Asserts that ValueOpaque is at least as large as Value, otherwise this would overflow
+    const _: usize = std::mem::size_of::<ValueOpaque>() - std::mem::size_of::<Value>();
+
+    /// Construct a new Value in the given memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_new(val: *mut ValueOpaque) {
+        std::ptr::write(val as *mut Value, Value::default())
+    }
+
+    /// Destruct the value in that memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_destructor(val: *mut ValueOpaque) {
+        drop(std::ptr::read(val as *mut Value))
     }
 }

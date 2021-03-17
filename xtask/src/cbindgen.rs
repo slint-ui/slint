@@ -296,7 +296,7 @@ fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_header("#include <sixtyfps_internal.h>")
+        .with_include("sixtyfps_internal.h")
         .generate()
         .context("Unable to generate bindings for sixtyfps_qt_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_qt_internal.h"));
@@ -319,6 +319,22 @@ fn gen_backend(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn gen_interpreter(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
+    let mut config = default_config();
+    config.export.include.push("ValueOpaque".into());
+    let mut crate_dir = root_dir.to_owned();
+    crate_dir.extend(["sixtyfps_runtime", "interpreter"].iter());
+    cbindgen::Builder::new()
+        .with_config(config)
+        .with_crate(crate_dir)
+        .with_include("sixtyfps_internal.h")
+        .generate()
+        .context("Unable to generate bindings for sixtyfps_interpreter_internal.h")?
+        .write_to_file(include_dir.join("sixtyfps_interpreter_internal.h"));
+
+    Ok(())
+}
+
 /// Generate the headers.
 /// `root_dir` is the root directory of the sixtyfps git repo
 /// `include_dir` is the output directory
@@ -327,5 +343,6 @@ pub fn gen_all(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     gen_corelib(root_dir, include_dir)?;
     gen_backend_qt(root_dir, include_dir)?;
     gen_backend(root_dir, include_dir)?;
+    gen_interpreter(root_dir, include_dir)?;
     Ok(())
 }
