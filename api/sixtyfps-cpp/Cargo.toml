@@ -11,7 +11,7 @@ publish = false
 
 [lib]
 path = "lib.rs"
-crate-type = ["cdylib"]
+crate-type = ["lib", "cdylib"]
 
 [features]
 # In the future, this shouldn't be a default feature, but should be enabled by cmake

@@ -740,7 +740,7 @@ pub mod testing {
 
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
-pub mod ffi {
+pub(crate) mod ffi {
     use super::*;
 
     #[repr(C)]

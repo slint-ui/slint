@@ -107,14 +107,7 @@ pub use sixtyfps_corelib::{Brush, Color, SharedString, SharedVector};
 /// This only use functions from modules which are not otherwise used.
 #[doc(hidden)]
 #[cold]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "ffi")]
 pub fn use_modules() -> usize {
-    #[cfg(feature = "ffi")]
-    {
-        crate::api::ffi::sixtyfps_interpreter_value_new as usize
-    }
-    #[cfg(not(feature = "ffi"))]
-    {
-        0
-    }
+    crate::api::ffi::sixtyfps_interpreter_value_new as usize
 }
