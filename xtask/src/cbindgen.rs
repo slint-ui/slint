@@ -320,8 +320,7 @@ fn gen_backend(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 }
 
 fn gen_interpreter(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
-    let mut config = default_config();
-    config.export.include.push("ValueOpaque".into());
+    let config = default_config();
     let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["sixtyfps_runtime", "interpreter"].iter());
     cbindgen::Builder::new()

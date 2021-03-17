@@ -13,6 +13,7 @@ path = "lib.rs"
 
 [features]
 display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
+ffi = []
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.5", path = "../corelib", features = ["rtti"] }

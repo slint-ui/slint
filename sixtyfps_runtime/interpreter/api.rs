@@ -738,6 +738,7 @@ pub mod testing {
     }
 }
 
+/// For the C++ integration
 #[cfg(feature = "ffi")]
 pub mod ffi {
     use super::*;

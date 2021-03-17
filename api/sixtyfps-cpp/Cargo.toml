@@ -13,7 +13,12 @@ publish = false
 path = "lib.rs"
 crate-type = ["cdylib"]
 
+[features]
+# In the future, this shouldn't be a default feature, but should be enabled by cmake
+default = ["sixtyfps-interpreter"]
+
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.5", path="../../sixtyfps_runtime/corelib", features = ["ffi"] }
 sixtyfps-rendering-backend-default = { version = "=0.0.5", path="../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-interpreter = { version = "=0.0.5", path="../../sixtyfps_runtime/interpreter", features = ["ffi"], optional = true }
 
