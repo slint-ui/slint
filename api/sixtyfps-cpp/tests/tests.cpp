@@ -85,4 +85,20 @@ SCENARIO("Value API")
         REQUIRE(bool_opt.has_value());
         REQUIRE(bool_opt.value() == true);
     }
+
+    SECTION("Construct an array")
+    {
+        REQUIRE(!value.to_array().has_value());
+        sixtyfps::SharedVector<Value> array { Value(42.0), Value(true) };
+        value = Value(array);
+        REQUIRE(value.type() == Value::Type::Array);
+
+        auto array_opt = value.to_array();
+        REQUIRE(array_opt.has_value());
+
+        auto extracted_array = array_opt.value();
+        REQUIRE(extracted_array.size() == 2);
+        REQUIRE(extracted_array[0].to_number().value() == 42);
+        REQUIRE(extracted_array[1].to_bool().value());
+    }
 }

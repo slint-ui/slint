@@ -77,7 +77,7 @@ public:
             return {};
         }
     }
-    std::optional<sixtyfps::SharedVector<Value>> to_array() const;
+    inline std::optional<sixtyfps::SharedVector<Value>> to_array() const;
     std::optional<std::shared_ptr<sixtyfps::Model<Value>>> to_model() const;
     std::optional<sixtyfps::Brush> to_brush() const;
     // std::optional<Struct> to_struct() const;
@@ -89,7 +89,7 @@ public:
         cbindgen_private::sixtyfps_interpreter_value_new_string(&str, &inner);
     }
     Value(bool b) { cbindgen_private::sixtyfps_interpreter_value_new_bool(b, &inner); }
-    Value(const SharedVector<Value> &);
+    inline Value(const SharedVector<Value> &);
     Value(const std::shared_ptr<sixtyfps::Model<Value>> &);
     Value(const sixtyfps::Brush &);
     // Value(const Struct &);
@@ -98,7 +98,23 @@ public:
     Type type() const { return cbindgen_private::sixtyfps_interpreter_value_type(&inner); }
 
 private:
-    sixtyfps::cbindgen_private::ValueOpaque inner;
+    using ValueOpaque = sixtyfps::cbindgen_private::ValueOpaque;
+    ValueOpaque inner;
 };
+
+inline Value::Value(const sixtyfps::SharedVector<Value> &array)
+{
+    cbindgen_private::sixtyfps_interpreter_value_new_array(
+            &reinterpret_cast<const sixtyfps::SharedVector<ValueOpaque> &>(array), &inner);
+}
+
+inline std::optional<sixtyfps::SharedVector<Value>> Value::to_array() const
+{
+    if (auto *array = cbindgen_private::sixtyfps_interpreter_value_to_array(&inner)) {
+        return *reinterpret_cast<const sixtyfps::SharedVector<Value> *>(array);
+    } else {
+        return {};
+    }
+}
 
 }

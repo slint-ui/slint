@@ -750,6 +750,7 @@ pub(crate) mod ffi {
     pub struct ValueOpaque([usize; 7]);
     /// Asserts that ValueOpaque is at least as large as Value, otherwise this would overflow
     const _: usize = std::mem::size_of::<ValueOpaque>() - std::mem::size_of::<Value>();
+    const _: [(); std::mem::align_of::<ValueOpaque>()] = [(); std::mem::align_of::<Value>()];
 
     impl ValueOpaque {
         fn as_value(&self) -> &Value {
@@ -788,7 +789,7 @@ pub(crate) mod ffi {
         std::ptr::write(val as *mut Value, Value::String(str.clone()))
     }
 
-    /// Construct a new Value in the given memory location as string
+    /// Construct a new Value in the given memory location as double
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_value_new_double(
         double: f64,
@@ -797,10 +798,28 @@ pub(crate) mod ffi {
         std::ptr::write(val as *mut Value, Value::Number(double))
     }
 
-    /// Construct a new Value in the given memory location as string
+    /// Construct a new Value in the given memory location as bool
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_value_new_bool(b: bool, val: *mut ValueOpaque) {
         std::ptr::write(val as *mut Value, Value::Bool(b))
+    }
+
+    /// Construct a new Value in the given memory location as array
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_new_array(
+        a: &SharedVector<ValueOpaque>,
+        val: *mut ValueOpaque,
+    ) {
+        std::ptr::write(
+            val as *mut Value,
+            Value::Array(
+                {
+                    // Safety: We assert that Value and ValueOpaque have the same size and alignment
+                    std::mem::transmute::<&SharedVector<ValueOpaque>, &SharedVector<Value>>(a)
+                }
+                .clone(),
+            ),
+        )
     }
 
     #[repr(i8)]
@@ -860,9 +879,12 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub extern "C" fn sixtyfps_interpreter_value_to_array(
         val: &ValueOpaque,
-    ) -> Option<&SharedVector<Value>> {
+    ) -> Option<&SharedVector<ValueOpaque>> {
         match val.as_value() {
-            Value::Array(v) => Some(v),
+            Value::Array(v) => Some(unsafe {
+                // Safety: We assert that Value and ValueOpaque have the same size and alignment
+                std::mem::transmute::<&SharedVector<Value>, &SharedVector<ValueOpaque>>(v)
+            }),
             _ => None,
         }
     }
