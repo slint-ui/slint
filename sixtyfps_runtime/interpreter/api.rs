@@ -456,6 +456,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 /// Properties and callback can be accessed using the associated functions.
 ///
 /// An instance can be put on screen with the [`ComponentInstance::run`] function.
+#[repr(C)]
 pub struct ComponentInstance {
     inner: vtable::VRc<
         sixtyfps_corelib::component::ComponentVTable,
@@ -742,9 +743,9 @@ pub mod testing {
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
 pub(crate) mod ffi {
-    use sixtyfps_corelib::slice::Slice;
-
     use super::*;
+    use sixtyfps_corelib::slice::Slice;
+    use std::ffi::c_void;
 
     #[repr(C)]
     pub struct ValueOpaque([usize; 7]);
@@ -929,7 +930,7 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub extern "C" fn sixtyfps_interpreter_struct_get_field<'a>(
         stru: &'a StructOpaque,
-        name: &Slice<u8>,
+        name: Slice<u8>,
     ) -> Option<&'a ValueOpaque> {
         stru.as_struct()
             .get_field(std::str::from_utf8(&name).unwrap())
@@ -939,7 +940,7 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub extern "C" fn sixtyfps_interpreter_struct_set_field<'a>(
         stru: &'a mut StructOpaque,
-        name: &Slice<u8>,
+        name: Slice<u8>,
         value: &ValueOpaque,
     ) {
         stru.as_struct_mut()
@@ -991,5 +992,90 @@ pub(crate) mod ffi {
             std::ptr::write(r.as_mut_ptr() as *mut StructIterator, ret_it);
             r.assume_init()
         }
+    }
+
+    /// Get a property.
+    /// The `out` parameter must be uninitiaized. If this function returns true, the out will be initialized
+    /// to the resulting value. If this function returns false, out is unchanged
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_get_property(
+        inst: &ComponentInstance,
+        name: Slice<u8>,
+        out: *mut ValueOpaque,
+    ) -> bool {
+        match inst.get_property(std::str::from_utf8(&name).unwrap()) {
+            Ok(val) => {
+                std::ptr::write(out as *mut Value, val);
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_component_instance_set_property(
+        inst: &ComponentInstance,
+        name: Slice<u8>,
+        val: &ValueOpaque,
+    ) -> bool {
+        inst.set_property(std::str::from_utf8(&name).unwrap(), val.as_value().clone()).is_ok()
+    }
+
+    /// Invoke a callback.
+    /// The `out` parameter must be uninitiaized. If this function returns true, the out will be initialized
+    /// to the resulting value. If this function returns false, out is unchanged
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_invoke_callback(
+        inst: &ComponentInstance,
+        name: Slice<u8>,
+        args: Slice<ValueOpaque>,
+        out: *mut ValueOpaque,
+    ) -> bool {
+        let args = std::mem::transmute::<Slice<ValueOpaque>, Slice<Value>>(args);
+        match inst.invoke_callback(std::str::from_utf8(&name).unwrap(), args.as_slice()) {
+            Ok(val) => {
+                std::ptr::write(out as *mut Value, val);
+                true
+            }
+            Err(_) => false,
+        }
+    }
+
+    /// Set a handler for the callback.
+    /// The `callback` function must initialize the `ret` (the `ret` passed to the callback is initialized and is assumed initialized after the function)
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_callback(
+        inst: &ComponentInstance,
+        name: Slice<u8>,
+        callback: extern "C" fn(
+            user_data: *mut c_void,
+            arg: Slice<ValueOpaque>,
+            ret: *mut ValueOpaque,
+        ),
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    ) -> bool {
+        struct UserData {
+            user_data: *mut c_void,
+            drop_user_data: Option<extern "C" fn(*mut c_void)>,
+        }
+
+        impl Drop for UserData {
+            fn drop(&mut self) {
+                if let Some(x) = self.drop_user_data {
+                    x(self.user_data)
+                }
+            }
+        }
+        let ud = UserData { user_data, drop_user_data };
+
+        let callback = move |args: &[Value]| -> Value {
+            let args = std::mem::transmute::<&[Value], &[ValueOpaque]>(args);
+            let mut ret = std::mem::MaybeUninit::<Value>::uninit();
+            callback(ud.user_data, Slice::from_slice(args), ret.as_mut_ptr() as *mut ValueOpaque);
+            ret.assume_init()
+        };
+
+        inst.set_callback(std::str::from_utf8(&name).unwrap(), callback).is_ok()
     }
 }
