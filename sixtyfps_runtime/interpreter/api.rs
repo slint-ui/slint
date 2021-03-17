@@ -291,7 +291,7 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
 ///
 /// // get the properties of a `{ foo: 45, bar: true }`
 /// let s : Struct = value.try_into().unwrap();
-/// assert_eq!(s.get_field("foo").unwrap().try_into(), Ok(45u32));
+/// assert_eq!(s.get_field("foo").cloned().unwrap().try_into(), Ok(45u32));
 /// ```
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct Struct(HashMap<String, Value>);
