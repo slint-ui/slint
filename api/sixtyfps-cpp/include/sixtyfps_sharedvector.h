@@ -11,6 +11,7 @@ LICENSE END */
 #include "sixtyfps_sharedvector_internal.h"
 #include <atomic>
 #include <algorithm>
+#include <initializer_list>
 
 namespace sixtyfps {
 
@@ -21,6 +22,17 @@ struct SharedVector
         : inner(const_cast<SharedVectorHeader *>(reinterpret_cast<const SharedVectorHeader *>(
                 cbindgen_private::sixtyfps_shared_vector_empty())))
     {
+    }
+    SharedVector(std::initializer_list<T> args) : SharedVector()
+    {
+        auto new_array = SharedVector::with_capacity(args.size());
+        auto new_data = reinterpret_cast<T *>(new_array.inner + 1);
+        auto input_it = args.begin();
+        for (std::size_t i = 0; i < args.size(); ++i, ++input_it) {
+            new (new_data + i) T(*input_it);
+            new_array.inner->size++;
+        }
+        *this = std::move(new_array);
     }
 
     SharedVector(const SharedVector &other) : inner(other.inner)
@@ -68,6 +80,8 @@ struct SharedVector
     }
 
     std::size_t size() const { return inner->size; }
+
+    bool empty() const { return inner->size == 0; }
 
     T &operator[](std::size_t index) { return begin()[index]; }
     const T &operator[](std::size_t index) const { return begin()[index]; }

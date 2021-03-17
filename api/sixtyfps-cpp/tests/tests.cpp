@@ -29,6 +29,21 @@ SCENARIO("SharedString API")
     }
 }
 
+TEST_CASE("Basic SharedVector API", "[vector]")
+{
+    sixtyfps::SharedVector<int> vec;
+    REQUIRE(vec.empty());
+
+    SECTION("Initializer list")
+    {
+        sixtyfps::SharedVector<int> vec({ 1, 4, 10 });
+        REQUIRE(vec.size() == 3);
+        REQUIRE(vec[0] == 1);
+        REQUIRE(vec[1] == 4);
+        REQUIRE(vec[2] == 10);
+    }
+}
+
 SCENARIO("Value API")
 {
     using namespace sixtyfps::interpreter;
