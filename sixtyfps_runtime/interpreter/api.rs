@@ -823,6 +823,15 @@ pub(crate) mod ffi {
         )
     }
 
+    /// Construct a new Value in the given memory location as Brush
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_new_brush(
+        brush: &Brush,
+        val: *mut ValueOpaque,
+    ) {
+        std::ptr::write(val as *mut Value, Value::Brush(brush.clone()))
+    }
+
     #[repr(i8)]
     pub enum ValueType {
         Void,
@@ -886,6 +895,14 @@ pub(crate) mod ffi {
                 // Safety: We assert that Value and ValueOpaque have the same size and alignment
                 std::mem::transmute::<&SharedVector<Value>, &SharedVector<ValueOpaque>>(v)
             }),
+            _ => None,
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_value_to_brush(val: &ValueOpaque) -> Option<&Brush> {
+        match val.as_value() {
+            Value::Brush(b) => Some(b),
             _ => None,
         }
     }

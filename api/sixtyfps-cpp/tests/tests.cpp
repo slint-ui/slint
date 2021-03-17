@@ -101,4 +101,16 @@ SCENARIO("Value API")
         REQUIRE(extracted_array[0].to_number().value() == 42);
         REQUIRE(extracted_array[1].to_bool().value());
     }
+
+    SECTION("Construct a brush")
+    {
+        REQUIRE(!value.to_brush().has_value());
+        sixtyfps::Brush brush(sixtyfps::Color::from_rgb_uint8(255, 0, 255));
+        value = Value(brush);
+        REQUIRE(value.type() == Value::Type::Brush);
+
+        auto brush_opt = value.to_brush();
+        REQUIRE(brush_opt.has_value());
+        REQUIRE(brush_opt.value() == brush);
+    }
 }

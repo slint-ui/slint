@@ -82,7 +82,14 @@ public:
     }
     inline std::optional<sixtyfps::SharedVector<Value>> to_array() const;
     std::optional<std::shared_ptr<sixtyfps::Model<Value>>> to_model() const;
-    std::optional<sixtyfps::Brush> to_brush() const;
+    std::optional<sixtyfps::Brush> to_brush() const
+    {
+        if (auto *brush = cbindgen_private::sixtyfps_interpreter_value_to_brush(&inner)) {
+            return *brush;
+        } else {
+            return {};
+        }
+    }
     // std::optional<Struct> to_struct() const;
 
     // template<typename T> std::optional<T> get() const;
@@ -94,7 +101,10 @@ public:
     Value(bool b) { cbindgen_private::sixtyfps_interpreter_value_new_bool(b, &inner); }
     inline Value(const SharedVector<Value> &);
     Value(const std::shared_ptr<sixtyfps::Model<Value>> &);
-    Value(const sixtyfps::Brush &);
+    Value(const sixtyfps::Brush &brush)
+    {
+        cbindgen_private::sixtyfps_interpreter_value_new_brush(&brush, &inner);
+    }
     // Value(const Struct &);
     explicit Value(Type);
 
