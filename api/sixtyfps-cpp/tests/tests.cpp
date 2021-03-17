@@ -47,4 +47,16 @@ SCENARIO("Value API")
         REQUIRE(string_opt.has_value());
         REQUIRE(string_opt.value() == "Hello World");
     }
+
+    SECTION("Construct a number")
+    {
+        REQUIRE(!value.to_number().has_value());
+        const double number = 42.0;
+        value = Value(number);
+        REQUIRE(value.type() == Value::Type::Number);
+
+        auto number_opt = value.to_number();
+        REQUIRE(number_opt.has_value());
+        REQUIRE(number_opt.value() == number);
+    }
 }

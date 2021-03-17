@@ -53,7 +53,14 @@ public:
 
     // optional<int> to_int() const;
     // optional<float> to_float() const;
-    std::optional<double> to_number() const;
+    std::optional<double> to_number() const
+    {
+        if (auto *number = cbindgen_private::sixtyfps_interpreter_value_to_number(&inner)) {
+            return *number;
+        } else {
+            return {};
+        }
+    }
     std::optional<sixtyfps::SharedString> to_string() const
     {
         if (auto *str = cbindgen_private::sixtyfps_interpreter_value_to_string(&inner)) {
@@ -69,7 +76,7 @@ public:
     // std::optional<Struct> to_struct() const;
 
     // template<typename T> std::optional<T> get() const;
-    Value(double);
+    Value(double value) { cbindgen_private::sixtyfps_interpreter_value_new_double(value, &inner); }
     Value(const SharedString &str)
     {
         cbindgen_private::sixtyfps_interpreter_value_new_string(&str, &inner);
