@@ -192,6 +192,7 @@ jobs:
         path: ~/.cargo/git
         key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
     - name: Cache cargo build
+      if: matrix.os != 'macos-latest'
       uses: actions/cache@v2
       with:
         path: target
