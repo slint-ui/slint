@@ -1131,6 +1131,19 @@ pub(crate) mod ffi {
         inst.set_callback(std::str::from_utf8(&name).unwrap(), callback).is_ok()
     }
 
+    /// Show or hide
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_component_instance_show(
+        inst: &ComponentInstance,
+        is_visible: bool,
+    ) {
+        if is_visible {
+            inst.show();
+        } else {
+            inst.hide();
+        }
+    }
+
     #[vtable::vtable]
     #[repr(C)]
     pub struct ModelAdaptorVTable {

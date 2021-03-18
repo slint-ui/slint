@@ -355,9 +355,17 @@ class ComponentInstance {
     ComponentInstance(ComponentInstance &) = delete;
     ComponentInstance &operator=(ComponentInstance &) = delete;
 public:
-    void show() const;
-    void hide() const;
-    void run() const;
+    void show() const {
+        cbindgen_private::sixtyfps_interpreter_component_instance_show(&inner, true);
+    }
+    void hide() const {
+        cbindgen_private::sixtyfps_interpreter_component_instance_show(&inner, false);
+    }
+    void run() const {
+        show();
+        cbindgen_private::sixtyfps_run_event_loop();
+        hide();
+    }
 
     bool set_property(std::string_view name, const Value &value) const {
         cbindgen_private::Slice<uint8_t> name_view {
