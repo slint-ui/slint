@@ -185,13 +185,10 @@ public:
 
     Type type() const { return cbindgen_private::sixtyfps_interpreter_value_type(&inner); }
 
-    // internal
-    Value(const sixtyfps::cbindgen_private::ValueOpaque &inner) : inner(inner) { }
-
 private:
     using ValueOpaque = sixtyfps::cbindgen_private::ValueOpaque;
     ValueOpaque inner;
-    friend class Struct;
+    friend struct Struct;
 };
 
 inline Value::Value(const sixtyfps::SharedVector<Value> &array)
@@ -273,7 +270,7 @@ inline std::optional<Value> Struct::get_field(std::string_view name) const
         name.size()
     };
     if (auto *value = cbindgen_private::sixtyfps_interpreter_struct_get_field(&inner, name_view)) {
-        return *value;
+        return *reinterpret_cast<const Value *>(value);
     } else {
         return {};
     }

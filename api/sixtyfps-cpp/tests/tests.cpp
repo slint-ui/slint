@@ -164,11 +164,12 @@ SCENARIO("Struct API")
 
     REQUIRE(!struc.get_field("not_there"));
 
-    struc.set_field("field_a", Value(true));
+    struc.set_field("field_a", Value(sixtyfps::SharedString("Hallo")));
 
     auto value_opt = struc.get_field("field_a");
     REQUIRE(value_opt.has_value());
     auto value = value_opt.value();
-    REQUIRE(value.to_bool().has_value());
-    REQUIRE(value.to_bool().value() == true);
+    REQUIRE(value.to_string().has_value());
+    REQUIRE(value.to_string().value() == "Hallo");
+
 }
