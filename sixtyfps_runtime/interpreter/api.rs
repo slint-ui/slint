@@ -744,8 +744,10 @@ pub mod testing {
 #[allow(missing_docs)]
 pub(crate) mod ffi {
     use super::*;
+    use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer};
     use sixtyfps_corelib::slice::Slice;
     use std::ffi::c_void;
+    use vtable::VRef;
 
     #[repr(C)]
     pub struct ValueOpaque([usize; 7]);
@@ -839,6 +841,15 @@ pub(crate) mod ffi {
         val: *mut ValueOpaque,
     ) {
         std::ptr::write(val as *mut Value, Value::Struct(struc.as_struct().clone()))
+    }
+
+    /// Construct a new Value containing a model in the given memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_new_model(
+        model: vtable::VBox<ModelAdaptorVTable>,
+        val: *mut ValueOpaque,
+    ) {
+        std::ptr::write(val as *mut Value, Value::Model(Rc::new(ModelAdaptorWrapper(model))))
     }
 
     #[repr(i8)]
@@ -1113,5 +1124,94 @@ pub(crate) mod ffi {
         };
 
         inst.set_callback(std::str::from_utf8(&name).unwrap(), callback).is_ok()
+    }
+
+    #[vtable::vtable]
+    #[repr(C)]
+    pub struct ModelAdaptorVTable {
+        pub row_count: extern "C" fn(VRef<ModelAdaptorVTable>) -> usize,
+        pub row_data:
+            unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, out: *mut ValueOpaque),
+        pub set_row_data: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: &ValueOpaque),
+        pub get_notify: extern "C" fn(VRef<ModelAdaptorVTable>) -> &ModelNotifyOpaque,
+        pub drop: extern "C" fn(VRefMut<ModelAdaptorVTable>),
+    }
+
+    struct ModelAdaptorWrapper(vtable::VBox<ModelAdaptorVTable>);
+    impl Model for ModelAdaptorWrapper {
+        type Data = Value;
+
+        fn row_count(&self) -> usize {
+            self.0.row_count()
+        }
+
+        fn row_data(&self, row: usize) -> Value {
+            unsafe {
+                let mut v = std::mem::MaybeUninit::<Value>::uninit();
+                self.0.row_data(row, v.as_mut_ptr() as *mut ValueOpaque);
+                v.assume_init()
+            }
+        }
+
+        fn attach_peer(&self, peer: ModelPeer) {
+            self.0.get_notify().as_model_notify().attach(peer);
+        }
+
+        fn set_row_data(&self, row: usize, data: Value) {
+            let val: &ValueOpaque = unsafe { std::mem::transmute::<&Value, &ValueOpaque>(&data) };
+            self.0.set_row_data(row, val);
+        }
+    }
+
+    #[repr(C)]
+    pub struct ModelNotifyOpaque([usize; 6]);
+    /// Asserts that ModelNotifyOpaque is at least as large as ModelNotify, otherwise this would overflow
+    const _: usize = std::mem::size_of::<ModelNotifyOpaque>() - std::mem::size_of::<ModelNotify>();
+
+    impl ModelNotifyOpaque {
+        fn as_model_notify(&self) -> &ModelNotify {
+            // Safety: there should be no way to construct a ModelNotifyOpaque without it holding an actual ModelNotify
+            unsafe { std::mem::transmute::<&ModelNotifyOpaque, &ModelNotify>(self) }
+        }
+    }
+
+    /// Construct a new ModelNotifyNotify in the given memory region
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_model_notify_new(val: *mut ModelNotifyOpaque) {
+        std::ptr::write(val as *mut ModelNotify, ModelNotify::default());
+    }
+
+    /// Destruct the value in that memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_model_notify_destructor(
+        val: *mut ModelNotifyOpaque,
+    ) {
+        drop(std::ptr::read(val as *mut ModelNotify))
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_model_notify_row_changed(
+        notify: &ModelNotifyOpaque,
+        row: usize,
+    ) {
+        notify.as_model_notify().row_changed(row);
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_model_notify_row_added(
+        notify: &ModelNotifyOpaque,
+        row: usize,
+        count: usize,
+    ) {
+        notify.as_model_notify().row_added(row, count);
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_model_notify_row_removed(
+        notify: &ModelNotifyOpaque,
+        row: usize,
+        count: usize,
+    ) {
+        notify.as_model_notify().row_removed(row, count);
     }
 }

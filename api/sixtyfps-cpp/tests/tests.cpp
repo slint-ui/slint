@@ -124,4 +124,34 @@ SCENARIO("Value API")
         auto struct_opt = value.to_struct();
         REQUIRE(struct_opt.has_value());
     }
+
+    SECTION("Construct a model")
+    {
+        // And test that it is properly destroyed when the value is destroyed
+        struct M : sixtyfps::VectorModel<Value> {
+            bool *destroyed;
+            explicit M(bool *destroyed) : destroyed(destroyed) {}
+            void play() {
+                this->push_back(Value(4.));
+                this->set_row_data(0, Value(9.));
+            }
+            ~M() { *destroyed = true; }
+        };
+        bool destroyed = false;
+        auto m = std::make_shared<M>(&destroyed);
+        {
+            Value value(m);
+            REQUIRE(value.type() == Value::Type::Model);
+            REQUIRE(!destroyed);
+            m->play();
+            m = nullptr;
+            REQUIRE(!destroyed);
+            // play a bit with the value to test the copy and move
+            Value v2 = value;
+            Value v3 = std::move(v2);
+            REQUIRE(!destroyed);
+        }
+        REQUIRE(destroyed);
+    }
 }
+

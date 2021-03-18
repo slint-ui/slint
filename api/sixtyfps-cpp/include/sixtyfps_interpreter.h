@@ -206,4 +206,60 @@ inline std::optional<sixtyfps::SharedVector<Value>> Value::to_array() const
         return {};
     }
 }
+inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model) {
+    using cbindgen_private::ModelAdaptorVTable;
+    using vtable::VRef;
+    struct ModelWrapper : AbstractRepeaterView {
+        std::shared_ptr<sixtyfps::Model<Value>> model;
+        cbindgen_private::ModelNotifyOpaque notify;
+        // This kind of mean that the rust code has ownership of "this" until the drop funciton is called
+        std::shared_ptr<AbstractRepeaterView> self;
+        ~ModelWrapper() {
+            cbindgen_private::sixtyfps_interpreter_model_notify_destructor(&notify);
+        }
+
+        void row_added(int index, int count) override
+        {
+            cbindgen_private::sixtyfps_interpreter_model_notify_row_added(&notify, index, count);
+        }
+        void row_changed(int index) override
+        {
+            cbindgen_private::sixtyfps_interpreter_model_notify_row_changed(&notify, index);
+        }
+        void row_removed(int index, int count) override
+        {
+            cbindgen_private::sixtyfps_interpreter_model_notify_row_removed(&notify, index, count);
+        }
+    };
+
+    auto wrapper = std::make_shared<ModelWrapper>();
+    wrapper->model = model;
+    wrapper->self = wrapper;
+    cbindgen_private::sixtyfps_interpreter_model_notify_new(&wrapper->notify);
+    model->attach_peer(wrapper);
+
+    auto row_count = [](VRef<ModelAdaptorVTable> self) -> uintptr_t {
+        return reinterpret_cast<ModelWrapper*>(self.instance)->model->row_count();
+    };
+    auto row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row, ValueOpaque *out) {
+        Value v = reinterpret_cast<ModelWrapper*>(self.instance)->model->row_data(row);
+        *out = v.inner;
+        cbindgen_private::sixtyfps_interpreter_value_new(&v.inner);
+    };
+    auto set_row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row, const ValueOpaque *value) {
+        Value v = *reinterpret_cast<const Value*>(value);
+        reinterpret_cast<ModelWrapper*>(self.instance)->model->set_row_data(row, v);
+    };
+    auto get_notify = [](VRef<ModelAdaptorVTable> self) -> const cbindgen_private::ModelNotifyOpaque* {
+        return &reinterpret_cast<ModelWrapper*>(self.instance)->notify;
+    };
+    auto drop = [](vtable::VRefMut<ModelAdaptorVTable> self) {
+        reinterpret_cast<ModelWrapper*>(self.instance)->self = nullptr;
+    };
+
+    static const ModelAdaptorVTable vt { row_count, row_data, set_row_data, get_notify, drop };
+    vtable::VBox<ModelAdaptorVTable> wrap{ &vt, wrapper.get() };
+    cbindgen_private::sixtyfps_interpreter_value_new_model(wrap, &inner);
+}
+
 }

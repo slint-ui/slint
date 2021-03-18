@@ -152,7 +152,7 @@ impl Inner {
 ///
 /// The VBox implements Deref so one can access all the members of the vtable.
 ///
-/// This is only valid if the VTable has a `drop` type (so that the `#[vtable]` macro
+/// This is only valid if the VTable has a `drop` function (so that the `#[vtable]` macro
 /// implements the `VTableMetaDrop` trait for it)
 #[repr(transparent)]
 pub struct VBox<T: ?Sized + VTableMetaDrop> {
