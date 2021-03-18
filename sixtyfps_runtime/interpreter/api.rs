@@ -783,6 +783,11 @@ pub(crate) mod ffi {
         drop(std::ptr::read(val as *mut Value))
     }
 
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_value_eq(a: &ValueOpaque, b: &ValueOpaque) -> bool {
+        a.as_value() == b.as_value()
+    }
+
     /// Construct a new Value in the given memory location as string
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_value_new_string(

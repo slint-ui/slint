@@ -155,6 +155,29 @@ SCENARIO("Value API")
         }
         REQUIRE(destroyed);
     }
+
+
+    SECTION("Compare Values")
+    {
+        Value str1{sixtyfps::SharedString("Hello1")};
+        Value str2{sixtyfps::SharedString("Hello2")};
+        Value fl1{10.};
+        Value fl2{12.};
+
+        REQUIRE(str1 == str1);
+        REQUIRE(str1 != str2);
+        REQUIRE(str1 != fl2);
+        REQUIRE(fl1 == fl1);
+        REQUIRE(fl1 != fl2);
+        REQUIRE(Value() == Value());
+        REQUIRE(Value() != str1);
+        REQUIRE(str1 == sixtyfps::SharedString("Hello1"));
+        REQUIRE(str1 != sixtyfps::SharedString("Hello2"));
+        REQUIRE(sixtyfps::SharedString("Hello2") == str2);
+        REQUIRE(fl1 != sixtyfps::SharedString("Hello2"));
+        REQUIRE(fl2 == 12.);
+    }
+
 }
 
 SCENARIO("Struct API")

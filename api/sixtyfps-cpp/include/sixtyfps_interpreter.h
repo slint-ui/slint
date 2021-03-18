@@ -232,6 +232,13 @@ public:
 
     Type type() const { return cbindgen_private::sixtyfps_interpreter_value_type(&inner); }
 
+    friend bool operator==(const Value &a, const Value &b) {
+        return cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
+    }
+    friend bool operator!=(const Value &a, const Value &b) {
+        return !cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
+    }
+
 private:
     using ValueOpaque = sixtyfps::cbindgen_private::ValueOpaque;
     ValueOpaque inner;
