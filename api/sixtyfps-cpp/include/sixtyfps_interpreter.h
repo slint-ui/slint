@@ -54,8 +54,21 @@ public:
 
     inline Struct(std::initializer_list<std::pair<std::string_view, Value>> args);
 
-    template<typename InputIterator>
-    inline Struct(InputIterator begin, InputIterator end);
+    template<typename InputIterator,
+             typename std::enable_if_t<
+                     std::is_convertible<decltype(std::get<0>(*std::declval<InputIterator>())),
+                                         std::string_view>::value
+                     && std::is_convertible<decltype(std::get<1>(*std::declval<InputIterator>())),
+                                            Value>::value
+
+                     > * = nullptr>
+    Struct(InputIterator it, InputIterator end) : Struct()
+    {
+        for (; it != end; ++it) {
+            auto [key, value] = *it;
+            set_field(key, value);
+        }
+    }
 
     // FIXME: this probably miss a lot of iterator api
     struct iterator
@@ -123,16 +136,6 @@ private:
     StructOpaque inner;
     friend class Value;
 };
-
-template<typename InputIterator>
-inline Struct::Struct(InputIterator it, InputIterator end) : Struct()
-{
-    for (; it != end; ++it) {
-        auto [key, value] = *it;
-        set_field(key, value);
-    }
-}
-
 class Value
 {
 public:
@@ -230,10 +233,12 @@ public:
 
     Type type() const { return cbindgen_private::sixtyfps_interpreter_value_type(&inner); }
 
-    friend bool operator==(const Value &a, const Value &b) {
+    friend bool operator==(const Value &a, const Value &b)
+    {
         return cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
     }
-    friend bool operator!=(const Value &a, const Value &b) {
+    friend bool operator!=(const Value &a, const Value &b)
+    {
         return !cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
     }
 
