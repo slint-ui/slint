@@ -68,4 +68,4 @@ lto = true
 
 # Needed to pull in fix for https://github.com/femtovg/femtovg/pull/29
 [patch.crates-io]
-femtovg = { git = "https://github.com/femtovg/femtovg", branch = "master" }
+femtovg = { git = "https://github.com/femtovg/femtovg", rev = "f7cc11068e06a01ad7db6e66f10becca661d045f" }
