@@ -198,16 +198,45 @@ SCENARIO("Struct API")
     int count = 0;
     for (auto [k, value] : struc) {
         REQUIRE(count == 0);
-        count ++;
+        count++;
         REQUIRE(k == "field_a");
         REQUIRE(value.to_string().value() == "Hallo");
     }
 
     struc.set_field("field_b", Value(sixtyfps::SharedString("World")));
     std::map<std::string, sixtyfps::SharedString> map;
-    for (auto [k, value] : struc) map[std::string(k)] = *value.to_string();
+    for (auto [k, value] : struc)
+        map[std::string(k)] = *value.to_string();
 
-    REQUIRE(map == std::map<std::string, sixtyfps::SharedString>{ {"field_a", sixtyfps::SharedString("Hallo") },  {"field_b", sixtyfps::SharedString("World") } });
+    REQUIRE(map
+            == std::map<std::string, sixtyfps::SharedString> {
+                    { "field_a", sixtyfps::SharedString("Hallo") },
+                    { "field_b", sixtyfps::SharedString("World") } });
+}
 
+SCENARIO("Struct Iterator Constructor")
+{
+    using namespace sixtyfps::interpreter;
 
+    std::vector<std::pair<std::string_view, Value>> values = { { "field_a", Value(true) },
+                                                               { "field_b", Value(42.0) } };
+
+    Struct struc(values.begin(), values.end());
+
+    REQUIRE(!struc.get_field("foo").has_value());
+    REQUIRE(struc.get_field("field_a").has_value());
+    REQUIRE(struc.get_field("field_a").value().to_bool().value());
+    REQUIRE(struc.get_field("field_b").value().to_number().value() == 42.0);
+}
+
+SCENARIO("Struct Initializer List Constructor")
+{
+    using namespace sixtyfps::interpreter;
+
+    Struct struc({ { "field_a", Value(true) }, { "field_b", Value(42.0) } });
+
+    REQUIRE(!struc.get_field("foo").has_value());
+    REQUIRE(struc.get_field("field_a").has_value());
+    REQUIRE(struc.get_field("field_a").value().to_bool().value());
+    REQUIRE(struc.get_field("field_b").value().to_number().value() == 42.0);
 }

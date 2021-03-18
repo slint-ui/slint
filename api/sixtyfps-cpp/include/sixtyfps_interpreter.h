@@ -52,33 +52,26 @@ public:
     }
     ~Struct() { cbindgen_private::sixtyfps_interpreter_struct_destructor(&inner); }
 
-#if 0
-    Struct(std::initializer_list<std::pair<std::string_view, Value>>) template<
-            typename InputIterator,
-            typename = std::enable_if<
-                    std::is_same(decltype(*std::declval<InputIterator>())),
-                    std::pair<std::string_view, Value>>> // InputIterator produces
-                                                         // std::pair<std::string, Value>
-    Struct(InputIterator begin,
-           InputIterator end); // Creates
-                               // Value::Struct
-#endif
+    inline Struct(std::initializer_list<std::pair<std::string_view, Value>> args);
+
+    template<typename InputIterator>
+    inline Struct(InputIterator begin, InputIterator end);
 
     // FIXME: this probably miss a lot of iterator api
     struct iterator
     {
         using value_type = std::pair<std::string_view, const Value &>;
+
     private:
         cbindgen_private::StructIteratorOpaque inner;
         const Value *v = nullptr;
         std::string_view k;
         friend Struct;
-        explicit iterator(cbindgen_private::StructIteratorOpaque inner) : inner(inner) {
-            next();
-        }
+        explicit iterator(cbindgen_private::StructIteratorOpaque inner) : inner(inner) { next(); }
         // construct a end iterator
         iterator() = default;
-        void next() {
+        void next()
+        {
             auto next = cbindgen_private::sixtyfps_interpreter_struct_iterator_next(&inner);
             v = reinterpret_cast<const Value *>(next.v);
             k = std::string_view(reinterpret_cast<char *>(next.k.ptr), next.k.len);
@@ -86,8 +79,10 @@ public:
                 cbindgen_private::sixtyfps_interpreter_struct_iterator_destructor(&inner);
             }
         }
+
     public:
-        ~iterator() {
+        ~iterator()
+        {
             if (v) {
                 cbindgen_private::sixtyfps_interpreter_struct_iterator_destructor(&inner);
             }
@@ -97,28 +92,22 @@ public:
         iterator &operator=(const iterator &) = delete;
         iterator(iterator &&) = default;
         iterator &operator=(iterator &&) = default;
-        iterator &operator++() {
+        iterator &operator++()
+        {
             if (v)
                 next();
             return *this;
         }
-        value_type operator*() const {
-            return {k, *v};
-        }
-        friend bool operator==(const iterator&a, const iterator&b) {
-            return a.v == b.v;
-        }
-        friend bool operator!=(const iterator&a, const iterator&b) {
-            return a.v != b.v;
-        }
+        value_type operator*() const { return { k, *v }; }
+        friend bool operator==(const iterator &a, const iterator &b) { return a.v == b.v; }
+        friend bool operator!=(const iterator &a, const iterator &b) { return a.v != b.v; }
     };
 
-    iterator begin() const {
+    iterator begin() const
+    {
         return iterator(cbindgen_private::sixtyfps_interpreter_struct_make_iter(&inner));
     }
-    iterator end() const {
-        return iterator();
-    }
+    iterator end() const { return iterator(); }
 
     inline std::optional<Value> get_field(std::string_view name) const;
     inline void set_field(std::string_view name, const Value &value);
@@ -134,6 +123,15 @@ private:
     StructOpaque inner;
     friend class Value;
 };
+
+template<typename InputIterator>
+inline Struct::Struct(InputIterator it, InputIterator end) : Struct()
+{
+    for (; it != end; ++it) {
+        auto [key, value] = *it;
+        set_field(key, value);
+    }
+}
 
 class Value
 {
@@ -315,6 +313,11 @@ inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
     static const ModelAdaptorVTable vt { row_count, row_data, set_row_data, get_notify, drop };
     vtable::VBox<ModelAdaptorVTable> wrap { &vt, wrapper.get() };
     cbindgen_private::sixtyfps_interpreter_value_new_model(wrap, &inner);
+}
+
+inline Struct::Struct(std::initializer_list<std::pair<std::string_view, Value>> args)
+    : Struct(args.begin(), args.end())
+{
 }
 
 inline std::optional<Value> Struct::get_field(std::string_view name) const
