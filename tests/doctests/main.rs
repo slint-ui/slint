@@ -10,18 +10,14 @@ LICENSE END */
 
 #[cfg(test)]
 fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let config = sixtyfps_interpreter::CompilerConfiguration::new();
-    let (component, diagnostics) =
-        spin_on::spin_on(sixtyfps_interpreter::ComponentDefinition::from_source(
-            snippet.into(),
-            Default::default(),
-            config,
-        ));
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
+    let component =
+        spin_on::spin_on(compiler.build_from_source(snippet.into(), Default::default()));
 
     #[cfg(feature = "display-diagnostics")]
-    sixtyfps_interpreter::print_diagnostics(&diagnostics);
+    sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
 
-    for d in diagnostics {
+    for d in compiler.diagnostics() {
         if d.level() == sixtyfps_interpreter::DiagnosticLevel::Error {
             return Err(d.message().to_owned().into());
         }

@@ -481,7 +481,7 @@ fn test_load_from_callback_ok() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.style = Some("ugly".into());
-    compiler_config.open_import_fallback = Some(Box::new(move |path| {
+    compiler_config.open_import_fallback = Some(Rc::new(move |path| {
         let ok_ = ok_.clone();
         Box::pin(async move {
             assert_eq!(path, "../FooBar.60");

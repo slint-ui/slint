@@ -37,17 +37,14 @@ fn main() -> std::io::Result<()> {
         });
     });
 
-    let mut compiler_config =
-        sixtyfps_interpreter::CompilerConfiguration::new().with_include_paths(args.include_paths);
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
+    compiler.set_include_paths(args.include_paths);
     if !args.style.is_empty() {
-        compiler_config = compiler_config.with_style(args.style);
+        compiler.set_style(args.style);
     }
 
-    let (c, diags) = spin_on::spin_on(sixtyfps_interpreter::ComponentDefinition::from_path(
-        args.path,
-        compiler_config,
-    ));
-    sixtyfps_interpreter::print_diagnostics(&diags);
+    let c = spin_on::spin_on(compiler.build_from_path(args.path));
+    sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
 
     let c = match c {
         Some(c) => c,

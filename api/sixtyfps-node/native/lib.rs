@@ -62,14 +62,11 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         }
         None => vec![],
     };
-    let compiler_config =
-        sixtyfps_interpreter::CompilerConfiguration::new().with_include_paths(include_paths);
-    let (c, diags) = spin_on::spin_on(sixtyfps_interpreter::ComponentDefinition::from_path(
-        path,
-        compiler_config,
-    ));
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
+    compiler.set_include_paths(include_paths);
+    let c = spin_on::spin_on(compiler.build_from_path(path));
 
-    sixtyfps_interpreter::print_diagnostics(&diags);
+    sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
 
     let c = if let Some(c) = c { c } else { return cx.throw_error("Compilation error") };
 

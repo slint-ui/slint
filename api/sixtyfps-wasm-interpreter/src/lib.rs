@@ -32,7 +32,7 @@ pub async fn compile_from_string(
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
-    let mut config = sixtyfps_interpreter::CompilerConfiguration::new();
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
 
     if let Some(load_callback) = optional_import_callback {
         let open_import_fallback = move |file_name: &Path| -> core::pin::Pin<
@@ -55,12 +55,10 @@ pub async fn compile_from_string(
                 }
             })
         };
-        config = config.with_file_loader(open_import_fallback);
+        compiler.set_file_loader(open_import_fallback);
     }
 
-    let (c, diags) =
-        sixtyfps_interpreter::ComponentDefinition::from_source(source, base_url.into(), config)
-            .await;
+    let c = compiler.build_from_source(source, base_url.into()).await;
 
     match c {
         Some(c) => Ok(WrappedCompiledComp(c)),
@@ -72,7 +70,7 @@ pub async fn compile_from_string(
             let level_key = JsValue::from_str("level");
             let mut error_as_string = String::new();
             let array = js_sys::Array::new();
-            for d in diags.into_iter() {
+            for d in compiler.diagnostics().into_iter() {
                 let filename = d
                     .source_file()
                     .as_ref()

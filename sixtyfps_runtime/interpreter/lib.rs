@@ -30,12 +30,13 @@ executor, such as the one provided by the `spin_on` crate
 This example load a `.60` dynamically from a path and show error if any
 
 ```rust
-use sixtyfps_interpreter::{ComponentDefinition, CompilerConfiguration};
+use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, CompilerConfiguration};
 
-let (definition, diagnostics) =
-    spin_on::spin_on(ComponentDefinition::from_path("hello.60", CompilerConfiguration::new()));
+let mut compiler = ComponentCompiler::new();
+let definition =
+    spin_on::spin_on(compiler.build_from_path("hello.60"));
 # #[cfg(feature="print_diagnostics")]
-sixtyfps_interpreter::print_diagnostics(&diagnostics);
+sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
 if let Some(definition) = definition {
     let instance = definition.create();
     instance.run();
@@ -45,7 +46,7 @@ if let Some(definition) = definition {
 This example load a `.60` from a string and set some properties
 
 ```rust
-use sixtyfps_interpreter::{ComponentDefinition, CompilerConfiguration, Value, SharedString};
+use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
 
 let code = r#"
     MyWin := Window {
@@ -56,9 +57,10 @@ let code = r#"
     }
 "#;
 
-let (definition, diagnostics) =
-    spin_on::spin_on(ComponentDefinition::from_source(code.into(), Default::default(), CompilerConfiguration::new()));
-assert!(diagnostics.is_empty());
+let mut compiler = ComponentCompiler::new();
+let definition =
+    spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+assert!(compiler.diagnostics().is_empty());
 let instance = definition.unwrap().create();
 instance.set_property("my_name", Value::from(SharedString::from("World"))).unwrap();
 # return; // we don't want to call run in the tests

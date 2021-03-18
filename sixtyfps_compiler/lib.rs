@@ -66,6 +66,7 @@ mod passes {
 }
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
+#[derive(Clone)]
 pub struct CompilerConfiguration {
     /// Indicate whether to embed resources such as images in the generated output or whether
     /// to retain references to the resources on the file system.
@@ -80,7 +81,7 @@ pub struct CompilerConfiguration {
     /// The callback should open the file specified by the given file name and
     /// return an future that provides the text content of the file as output.
     pub open_import_fallback:
-        Option<Box<dyn Fn(String) -> Pin<Box<dyn Future<Output = std::io::Result<String>>>>>>,
+        Option<Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = std::io::Result<String>>>>>>,
 }
 
 impl CompilerConfiguration {

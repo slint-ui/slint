@@ -334,7 +334,124 @@ impl TryInto<Vec<Value>> for Value {
     }
 }
 
-/// ComponentDescription is a representation of a compiled component from .60
+/// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
+/// to load .60 files or compile them on-the-fly from a string.
+pub struct ComponentCompiler {
+    config: sixtyfps_compilerlib::CompilerConfiguration,
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl ComponentCompiler {
+    /// Returns a new ComponentCompiler
+    pub fn new() -> Self {
+        Self {
+            config: sixtyfps_compilerlib::CompilerConfiguration::new(
+                sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+            ),
+            diagnostics: vec![],
+        }
+    }
+
+    /// Create a new configuration that includes sets the include paths used for looking up
+    /// `.60` imports to the specified vector of paths.
+    pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
+        self.config.include_paths = include_paths;
+    }
+
+    /// Create a new configuration that selects the style to be used for widgets.
+    pub fn set_style(&mut self, style: String) {
+        self.config.style = Some(style);
+    }
+
+    /// Create a new configuration that will use the provided callback for loading.
+    pub fn set_file_loader(
+        &mut self,
+        file_loader_fallback: impl Fn(
+                &Path,
+            )
+                -> core::pin::Pin<Box<dyn core::future::Future<Output = std::io::Result<String>>>>
+            + 'static,
+    ) {
+        self.config.open_import_fallback =
+            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+    }
+
+    /// Returns the diagnostics that were produced in the last call to [[build_from_path]] or [[build_from_source]].
+    pub fn diagnostics(&self) -> &Vec<Diagnostic> {
+        &self.diagnostics
+    }
+
+    /// Compile a .60 file into a ComponentDefinition
+    ///
+    /// Returns the compiled `ComponentDefinition` if there was no errors.
+    ///
+    /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
+    /// in this ComponentCompiler and can be retrieved after the call using the [[diagnostics()]]
+    /// function. The [`print_diagnostics`] function can be used to display the diagnostics
+    /// to the users.
+    ///
+    /// Diagnostics from previous calls are cleared when calling this function.
+    ///
+    /// This function is `async` but in practice, this is only asynchronious if
+    /// [`set_file_loader`] was called and its future is actually asynchronious.
+    /// If that is not used, then it is fine to use a very simple executor, such as the one
+    /// provided by the `spin_on` crate
+    pub async fn build_from_path<P: AsRef<Path>>(
+        &mut self,
+        path: P,
+    ) -> Option<ComponentDefinition> {
+        let path = path.as_ref();
+        let source = match sixtyfps_compilerlib::diagnostics::load_from_path(path) {
+            Ok(s) => s,
+            Err(d) => {
+                self.diagnostics = vec![d];
+                return None;
+            }
+        };
+
+        // We create here a 'static guard. That's alright because we make sure
+        // in this module that we only use erased component
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+
+        let (c, diag) =
+            crate::dynamic_component::load(source, path.into(), self.config.clone(), guard).await;
+        self.diagnostics = diag.into_iter().collect();
+        c.ok().map(|inner| ComponentDefinition { inner })
+    }
+
+    /// Compile some .60 code into a ComponentDefinition
+    ///
+    /// The `path` argument will be used for diagnostics and to compute relative
+    /// path while importing
+    ///
+    /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
+    /// in this ComponentCompiler and can be retrieved after the call using the [[diagnostics()]]
+    /// function. The [`print_diagnostics`] function can be used to display the diagnostics
+    /// to the users.
+    ///
+    /// Diagnostics from previous calls are cleared when calling this function.
+    ///
+    /// This function is `async` but in practice, this is only asynchronious if
+    /// [`set_file_loader`] is set and its future is actually asynchronious.
+    /// If that is not used, then it is fine to use a very simple executor, such as the one
+    /// provided by the `spin_on` crate
+    pub async fn build_from_source(
+        &mut self,
+        source_code: String,
+        path: PathBuf,
+    ) -> Option<ComponentDefinition> {
+        // We create here a 'static guard. That's alright because we make sure
+        // in this module that we only use erased component
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+
+        let (c, diag) =
+            crate::dynamic_component::load(source_code, path, self.config.clone(), guard).await;
+        self.diagnostics = diag.into_iter().collect();
+        c.ok().map(|inner| ComponentDefinition { inner })
+    }
+}
+
+/// ComponentDefinition is a representation of a compiled component from .60
 ///
 /// It can be constructed from a .60 file using the [`Self::from_path`] or [`Self::from_source`] functions.
 /// And then it can be instentiated with the [`Self::create`] function
@@ -344,66 +461,6 @@ pub struct ComponentDefinition {
 }
 
 impl ComponentDefinition {
-    /// Compile a .60 file into a ComponentDefinition
-    ///
-    /// The first element of the returned tuple is going to be the compiled
-    /// `ComponentDefinition` if there was no errors. This function also return
-    /// a vector if diagnostics with errors and/or warnings.
-    /// The [`print_diagnostics`] function can be used to display the diagnostics
-    /// to the users.
-    ///
-    /// This function is `async` but in practice, this is only asynchronious if
-    /// [`CompilerConfiguration::with_file_loader`] is set and its future is actually asynchronious.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
-    pub async fn from_path<P: AsRef<Path>>(
-        path: P,
-        config: CompilerConfiguration,
-    ) -> (Option<Self>, Vec<Diagnostic>) {
-        let path = path.as_ref();
-        let source = match sixtyfps_compilerlib::diagnostics::load_from_path(path) {
-            Ok(s) => s,
-            Err(d) => return (None, vec![d]),
-        };
-
-        // We create here a 'static guard. That's alright because we make sure
-        // in this module that we only use erased component
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-
-        let (c, diag) =
-            crate::dynamic_component::load(source, path.into(), config.config, guard).await;
-        (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
-    }
-
-    /// Compile some .60 code into a ComponentDefinition
-    ///
-    /// The `path` argument will be used for diagnostics and to compute relative
-    /// path while importing
-    ///
-    /// The first element of the returned tuple is going to be the compiled
-    /// `ComponentDefinition` if there was no errors. This function also return
-    /// a vector if diagnostics with errors and/or warnings.
-    /// The [`print_diagnostics`] function can be used to display the diagnostics
-    /// to the users.
-    ///
-    /// This function is `async` but in practice, this is only asynchronious if
-    /// [`CompilerConfiguration::with_file_loader`] is set and its future is actually asynchronious.
-    /// If that is not used, then it is fine to use a very simple executor, such as the one
-    /// provided by the `spin_on` crate
-    pub async fn from_source(
-        source_code: String,
-        path: PathBuf,
-        config: CompilerConfiguration,
-    ) -> (Option<Self>, Vec<Diagnostic>) {
-        // We create here a 'static guard. That's alright because we make sure
-        // in this module that we only use erased component
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-
-        let (c, diag) =
-            crate::dynamic_component::load(source_code, path, config.config, guard).await;
-        (c.ok().map(|inner| Self { inner }), diag.into_iter().collect())
-    }
-
     /// Instantiate the component
     pub fn create(&self) -> ComponentInstance {
         ComponentInstance {
@@ -478,15 +535,16 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, CompilerConfiguration, Value, SharedString};
+    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     MyWin := Window {
     ///         property <int> my_property: 42;
     ///     }
     /// "#;
-    /// let (definition, diagnostics) = spin_on::spin_on(
-    ///     ComponentDefinition::from_source(code.into(), Default::default(), CompilerConfiguration::new()));
-    /// assert!(diagnostics.is_empty(), "{:?}", diagnostics);
+    /// let mut compiler = ComponentCompiler::new();
+    /// let definition = spin_on::spin_on(
+    ///     compiler.build_from_source(code.into(), Default::default()));
+    /// assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
     /// let instance = definition.unwrap().create();
     /// assert_eq!(instance.get_property("my_property").unwrap(), Value::from(42));
     /// ```
@@ -517,7 +575,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, CompilerConfiguration, Value, SharedString};
+    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// use core::convert::TryInto;
     /// let code = r#"
     ///     MyWin := Window {
@@ -525,8 +583,8 @@ impl ComponentInstance {
     ///         property <int> my_prop: 12;
     ///     }
     /// "#;
-    /// let (definition, _) = spin_on::spin_on(
-    ///     ComponentDefinition::from_source(code.into(), Default::default(), CompilerConfiguration::new()));
+    /// let definition = spin_on::spin_on(
+    ///     ComponentCompiler::new().build_from_source(code.into(), Default::default()));
     /// let instance = definition.unwrap().create();
     ///
     /// let instance_weak = instance.as_weak();
@@ -704,7 +762,7 @@ impl CompilerConfiguration {
     ) -> Self {
         let mut config = self.config;
         config.open_import_fallback =
-            Some(Box::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
+            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
         Self { config }
     }
 }
