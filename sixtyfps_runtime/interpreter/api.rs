@@ -832,6 +832,15 @@ pub(crate) mod ffi {
         std::ptr::write(val as *mut Value, Value::Brush(brush.clone()))
     }
 
+    /// Construct a new Value in the given memory location as Struct
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_value_new_struct(
+        struc: &StructOpaque,
+        val: *mut ValueOpaque,
+    ) {
+        std::ptr::write(val as *mut Value, Value::Struct(struc.as_struct().clone()))
+    }
+
     #[repr(i8)]
     pub enum ValueType {
         Void,
@@ -903,6 +912,16 @@ pub(crate) mod ffi {
     pub extern "C" fn sixtyfps_interpreter_value_to_brush(val: &ValueOpaque) -> Option<&Brush> {
         match val.as_value() {
             Value::Brush(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_interpreter_value_to_struct(
+        val: &ValueOpaque,
+    ) -> Option<&StructOpaque> {
+        match val.as_value() {
+            Value::Struct(s) => Some(unsafe { std::mem::transmute::<&Struct, &StructOpaque>(s) }),
             _ => None,
         }
     }

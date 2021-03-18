@@ -113,4 +113,15 @@ SCENARIO("Value API")
         REQUIRE(brush_opt.has_value());
         REQUIRE(brush_opt.value() == brush);
     }
+
+    SECTION("Construct a struct")
+    {
+        REQUIRE(!value.to_struct().has_value());
+        sixtyfps::interpreter::Struct struc;
+        value = Value(struc);
+        REQUIRE(value.type() == Value::Type::Struct);
+
+        auto struct_opt = value.to_struct();
+        REQUIRE(struct_opt.has_value());
+    }
 }

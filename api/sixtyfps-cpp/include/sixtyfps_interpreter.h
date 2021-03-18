@@ -17,6 +17,74 @@ LICENSE END */
 
 namespace sixtyfps::interpreter {
 
+class Value;
+
+struct Struct
+{
+public:
+    Struct() { cbindgen_private::sixtyfps_interpreter_struct_new(&inner); }
+
+    Struct(const Struct &other)
+    {
+        cbindgen_private::sixtyfps_interpreter_struct_clone(&other.inner, &inner);
+    }
+    Struct(Struct &&other)
+    {
+        inner = other.inner;
+        cbindgen_private::sixtyfps_interpreter_struct_new(&other.inner);
+    }
+    Struct &operator=(const Struct &other)
+    {
+        if (this == &other)
+            return *this;
+        cbindgen_private::sixtyfps_interpreter_struct_destructor(&inner);
+        sixtyfps_interpreter_struct_clone(&other.inner, &inner);
+        return *this;
+    }
+    Struct &operator=(Struct &&other)
+    {
+        if (this == &other)
+            return *this;
+        cbindgen_private::sixtyfps_interpreter_struct_destructor(&inner);
+        inner = other.inner;
+        cbindgen_private::sixtyfps_interpreter_struct_new(&other.inner);
+        return *this;
+    }
+    ~Struct() { cbindgen_private::sixtyfps_interpreter_struct_destructor(&inner); }
+
+#if 0
+    Struct(std::initializer_list<std::pair<std::string_view, Value>>) template<
+            typename InputIterator,
+            typename = std::enable_if<
+                    std::is_same(decltype(*std::declval<InputIterator>())),
+                    std::pair<std::string_view, Value>>> // InputIterator produces
+                                                         // std::pair<std::string, Value>
+    Struct(InputIterator begin,
+           InputIterator end); // Creates
+                               // Value::Struct
+
+    struct iterator
+    {
+        //... iterator API to key/value pairs
+    }
+
+    iterator
+    begin() const;
+    iterator end() const;
+#endif
+
+    // internal
+    Struct(const sixtyfps::cbindgen_private::StructOpaque &other)
+    {
+        cbindgen_private::sixtyfps_interpreter_struct_clone(&other, &inner);
+    }
+
+private:
+    using StructOpaque = sixtyfps::cbindgen_private::StructOpaque;
+    StructOpaque inner;
+    friend class Value;
+};
+
 class Value
 {
 public:
@@ -28,6 +96,14 @@ public:
         inner = other.inner;
         cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
     }
+    Value &operator=(const Value &other)
+    {
+        if (this == &other)
+            return *this;
+        cbindgen_private::sixtyfps_interpreter_value_destructor(&inner);
+        sixtyfps_interpreter_value_clone(&other.inner, &inner);
+        return *this;
+    }
     Value &operator=(Value &&other)
     {
         if (this == &other)
@@ -35,14 +111,6 @@ public:
         cbindgen_private::sixtyfps_interpreter_value_destructor(&inner);
         inner = other.inner;
         cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
-        return *this;
-    }
-    Value &operator=(const Value &other)
-    {
-        if (this == &other)
-            return *this;
-        cbindgen_private::sixtyfps_interpreter_value_destructor(&inner);
-        sixtyfps_interpreter_value_clone(&other.inner, &inner);
         return *this;
     }
     ~Value() { cbindgen_private::sixtyfps_interpreter_value_destructor(&inner); }
@@ -90,7 +158,14 @@ public:
             return {};
         }
     }
-    // std::optional<Struct> to_struct() const;
+    std::optional<Struct> to_struct() const
+    {
+        if (auto *opaque_struct = cbindgen_private::sixtyfps_interpreter_value_to_struct(&inner)) {
+            return Struct(*opaque_struct);
+        } else {
+            return {};
+        }
+    }
 
     // template<typename T> std::optional<T> get() const;
     Value(double value) { cbindgen_private::sixtyfps_interpreter_value_new_double(value, &inner); }
@@ -105,7 +180,10 @@ public:
     {
         cbindgen_private::sixtyfps_interpreter_value_new_brush(&brush, &inner);
     }
-    // Value(const Struct &);
+    Value(const Struct &struc)
+    {
+        cbindgen_private::sixtyfps_interpreter_value_new_struct(&struc.inner, &inner);
+    }
 
     Type type() const { return cbindgen_private::sixtyfps_interpreter_value_type(&inner); }
 
@@ -128,5 +206,4 @@ inline std::optional<sixtyfps::SharedVector<Value>> Value::to_array() const
         return {};
     }
 }
-
 }
