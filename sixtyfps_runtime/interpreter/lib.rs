@@ -15,8 +15,8 @@ With this crate, you can load a .60 at runtime and show its UI.
 You only need to use this crate if you do not want to use pre-compiled .60
 code, which is the normal way to use SixtyFPS, using the `sixtyfps` crate
 
-The entry point for this crate is the [`ComponentDefinition`] type, which you can
-instantiate with the [`ComponentDefinition::from_source`] or [`ComponentDefinition::from_path`]
+The entry point for this crate is the [`ComponentCompiler`] type, which you can
+use to create [`ComponentDefinition`] with the [`ComponentCompiler::build_from_source`] or [`ComponentCompiler::build_from_path`]
 functions.
 
 ### Note about `async` functions
