@@ -128,10 +128,12 @@ SCENARIO("Value API")
     SECTION("Construct a model")
     {
         // And test that it is properly destroyed when the value is destroyed
-        struct M : sixtyfps::VectorModel<Value> {
+        struct M : sixtyfps::VectorModel<Value>
+        {
             bool *destroyed;
-            explicit M(bool *destroyed) : destroyed(destroyed) {}
-            void play() {
+            explicit M(bool *destroyed) : destroyed(destroyed) { }
+            void play()
+            {
                 this->push_back(Value(4.));
                 this->set_row_data(0, Value(9.));
             }
@@ -155,3 +157,18 @@ SCENARIO("Value API")
     }
 }
 
+SCENARIO("Struct API")
+{
+    using namespace sixtyfps::interpreter;
+    Struct struc;
+
+    REQUIRE(!struc.get_field("not_there"));
+
+    struc.set_field("field_a", Value(true));
+
+    auto value_opt = struc.get_field("field_a");
+    REQUIRE(value_opt.has_value());
+    auto value = value_opt.value();
+    REQUIRE(value.to_bool().has_value());
+    REQUIRE(value.to_bool().value() == true);
+}
