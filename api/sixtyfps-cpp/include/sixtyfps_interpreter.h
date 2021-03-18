@@ -62,16 +62,63 @@ public:
     Struct(InputIterator begin,
            InputIterator end); // Creates
                                // Value::Struct
+#endif
 
+    // FIXME: this probably miss a lot of iterator api
     struct iterator
     {
-        //... iterator API to key/value pairs
-    }
+        using value_type = std::pair<std::string_view, const Value &>;
+    private:
+        cbindgen_private::StructIteratorOpaque inner;
+        const Value *v = nullptr;
+        std::string_view k;
+        friend Struct;
+        explicit iterator(cbindgen_private::StructIteratorOpaque inner) : inner(inner) {
+            next();
+        }
+        // construct a end iterator
+        iterator() = default;
+        void next() {
+            auto next = cbindgen_private::sixtyfps_interpreter_struct_iterator_next(&inner);
+            v = reinterpret_cast<const Value *>(next.v);
+            k = std::string_view(reinterpret_cast<char *>(next.k.ptr), next.k.len);
+            if (!v) {
+                cbindgen_private::sixtyfps_interpreter_struct_iterator_destructor(&inner);
+            }
+        }
+    public:
+        ~iterator() {
+            if (v) {
+                cbindgen_private::sixtyfps_interpreter_struct_iterator_destructor(&inner);
+            }
+        }
+        // FIXME i believe iterator are supposed to be copy constructible
+        iterator(const iterator &) = delete;
+        iterator &operator=(const iterator &) = delete;
+        iterator(iterator &&) = default;
+        iterator &operator=(iterator &&) = default;
+        iterator &operator++() {
+            if (v)
+                next();
+            return *this;
+        }
+        value_type operator*() const {
+            return {k, *v};
+        }
+        friend bool operator==(const iterator&a, const iterator&b) {
+            return a.v == b.v;
+        }
+        friend bool operator!=(const iterator&a, const iterator&b) {
+            return a.v != b.v;
+        }
+    };
 
-    iterator
-    begin() const;
-    iterator end() const;
-#endif
+    iterator begin() const {
+        return iterator(cbindgen_private::sixtyfps_interpreter_struct_make_iter(&inner));
+    }
+    iterator end() const {
+        return iterator();
+    }
 
     inline std::optional<Value> get_field(std::string_view name) const;
     inline void set_field(std::string_view name, const Value &value);
