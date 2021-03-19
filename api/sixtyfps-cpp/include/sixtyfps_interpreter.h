@@ -374,22 +374,16 @@ public:
 
     bool set_property(std::string_view name, const Value &value) const
     {
-        cbindgen_private::Slice<uint8_t> name_view {
-            const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
-            name.size()
-        };
-        return cbindgen_private::sixtyfps_interpreter_component_instance_set_property(
-                &inner, name_view, &value.inner);
+        using namespace cbindgen_private;
+        return sixtyfps_interpreter_component_instance_set_property(
+                &inner, Slice<uint8_t>::from_string(name), &value.inner);
     }
     std::optional<Value> get_property(std::string_view name) const
     {
-        cbindgen_private::Slice<uint8_t> name_view {
-            const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
-            name.size()
-        };
-        cbindgen_private::ValueOpaque out;
-        if (cbindgen_private::sixtyfps_interpreter_component_instance_get_property(
-                    &inner, name_view, &out)) {
+        using namespace cbindgen_private;
+        ValueOpaque out;
+        if (sixtyfps_interpreter_component_instance_get_property(
+                    &inner, Slice<uint8_t>::from_string(name), &out)) {
             return Value(out);
         } else {
             return {};
@@ -398,16 +392,11 @@ public:
     // FIXME! Slice in public API?  Should be std::span (c++20) or we need to improve the Slice API
     std::optional<Value> invoke_callback(std::string_view name, Slice<Value> args) const
     {
-        cbindgen_private::Slice<cbindgen_private::ValueOpaque> args_view {
-            reinterpret_cast<cbindgen_private::ValueOpaque *>(args.ptr), args.len
-        };
-        cbindgen_private::Slice<uint8_t> name_view {
-            const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
-            name.size()
-        };
-        cbindgen_private::ValueOpaque out;
-        if (cbindgen_private::sixtyfps_interpreter_component_instance_invoke_callback(
-                    &inner, name_view, args_view, &out)) {
+        using namespace cbindgen_private;
+        Slice<ValueOpaque> args_view { reinterpret_cast<ValueOpaque *>(args.ptr), args.len };
+        ValueOpaque out;
+        if (sixtyfps_interpreter_component_instance_invoke_callback(
+                    &inner, Slice<uint8_t>::from_string(name), args_view, &out)) {
             return Value(out);
         } else {
             return {};
@@ -418,17 +407,13 @@ public:
     bool set_callback(std::string_view name, F callback) const
     {
         using cbindgen_private::ValueOpaque;
-        cbindgen_private::Slice<uint8_t> name_view {
-            const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
-            name.size()
-        };
         auto actual_cb = [](void *data, Slice<ValueOpaque> arg, ValueOpaque *ret) {
             Slice<Value> args_view { reinterpret_cast<Value *>(arg.ptr), arg.len };
             Value r = (*reinterpret_cast<F *>(data))(arg);
             new (ret) Value(std::move(r));
         };
         return cbindgen_private::sixtyfps_interpreter_component_instance_set_callback(
-                &inner, name_view, actual_cb, new F(std::move(callback)),
+                &inner, Slice<uint8_t>::from_string(name), actual_cb, new F(std::move(callback)),
                 [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 };
