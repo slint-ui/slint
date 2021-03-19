@@ -103,17 +103,6 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 
     let mut string_config = config.clone();
     string_config.export.exclude = vec!["SharedString".into()];
-    string_config.trailer = Some(
-        "namespace sixtyfps::private_api {
-             cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)  {
-                 return cbindgen_private::Slice<uint8_t> {
-                     const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(str.data())),
-                     str.size()
-                 };
-            }
-        }".to_owned(),
-    );
-
     cbindgen::Builder::new()
         .with_config(string_config)
         .with_src(crate_dir.join("string.rs"))

@@ -111,13 +111,21 @@ struct SharedString
     }
 
     friend bool operator<(const SharedString &a, const SharedString &b)
-    { return std::string_view(a) < std::string_view(b); }
+    {
+        return std::string_view(a) < std::string_view(b);
+    }
     friend bool operator<=(const SharedString &a, const SharedString &b)
-    { return std::string_view(a) <= std::string_view(b); }
+    {
+        return std::string_view(a) <= std::string_view(b);
+    }
     friend bool operator>(const SharedString &a, const SharedString &b)
-    { return std::string_view(a) > std::string_view(b); }
+    {
+        return std::string_view(a) > std::string_view(b);
+    }
     friend bool operator>=(const SharedString &a, const SharedString &b)
-    { return std::string_view(a) >= std::string_view(b); }
+    {
+        return std::string_view(a) >= std::string_view(b);
+    }
 
     /// Writes the \a shared_string to the specified \a stream and returns a reference to the
     /// stream.
@@ -126,15 +134,18 @@ struct SharedString
         return stream << std::string_view(shared_string);
     }
 
-    friend SharedString operator+(const SharedString &a, std::string_view b) {
+    friend SharedString operator+(const SharedString &a, std::string_view b)
+    {
         SharedString a2 = a;
         return a2 += b;
     }
-    friend SharedString operator+(SharedString &&a, std::string_view b) {
+    friend SharedString operator+(SharedString &&a, std::string_view b)
+    {
         a += b;
         return a;
     }
-    SharedString &operator+=(std::string_view other) {
+    SharedString &operator+=(std::string_view other)
+    {
         cbindgen_private::sixtyfps_shared_string_append(this, other.data(), other.size());
         return *this;
     }
@@ -147,4 +158,14 @@ private:
     }
     void *inner; // opaque
 };
+
+namespace private_api {
+cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
+{
+    return cbindgen_private::Slice<uint8_t> {
+        const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(str.data())), str.size()
+    };
+}
+}
+
 }
