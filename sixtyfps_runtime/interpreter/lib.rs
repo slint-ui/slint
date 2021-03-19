@@ -21,7 +21,7 @@ functions.
 
 ### Note about `async` functions
 
-Compiling a component is `async` but in practice, this is only assynchronious if [`CompilerConfiguration::with_file_loader`]
+Compiling a component is `async` but in practice, this is only assynchronious if [`ComponentCompiler::set_file_loader`]
 is set and its future is actually asynchronious.  If that is not used, then it is fine to use a very simple
 executor, such as the one provided by the `spin_on` crate
 

@@ -726,52 +726,6 @@ pub enum CallCallbackError {
     NoSuchCallback,
 }
 
-/// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
-pub struct CompilerConfiguration {
-    config: sixtyfps_compilerlib::CompilerConfiguration,
-}
-
-impl CompilerConfiguration {
-    /// Creates a new default configuration.
-    pub fn new() -> Self {
-        Self {
-            config: sixtyfps_compilerlib::CompilerConfiguration::new(
-                sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-            ),
-        }
-    }
-
-    /// Create a new configuration that includes sets the include paths used for looking up
-    /// `.60` imports to the specified vector of paths.
-    pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
-        let mut config = self.config;
-        config.include_paths = include_paths;
-        Self { config }
-    }
-
-    /// Create a new configuration that selects the style to be used for widgets.
-    pub fn with_style(self, style: String) -> Self {
-        let mut config = self.config;
-        config.style = Some(style);
-        Self { config }
-    }
-
-    /// Create a new configuration that will use the provided callback for loading.
-    pub fn with_file_loader(
-        self,
-        file_loader_fallback: impl Fn(
-                &Path,
-            )
-                -> core::pin::Pin<Box<dyn core::future::Future<Output = std::io::Result<String>>>>
-            + 'static,
-    ) -> Self {
-        let mut config = self.config;
-        config.open_import_fallback =
-            Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
-        Self { config }
-    }
-}
-
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
