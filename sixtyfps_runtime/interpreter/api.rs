@@ -368,6 +368,11 @@ impl ComponentCompiler {
         self.config.style = Some(style);
     }
 
+    /// Returns the style the compiler is currently using when compiling .60 files.
+    pub fn style(&self) -> Option<&String> {
+        self.config.style.as_ref()
+    }
+
     /// Create a new configuration that will use the provided callback for loading.
     pub fn set_file_loader(
         &mut self,
@@ -1293,6 +1298,25 @@ pub(crate) mod ffi {
         compiler
             .as_component_compiler_mut()
             .set_include_paths(paths.iter().map(|path| path.as_str().into()).collect())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_set_style(
+        compiler: &mut ComponentCompilerOpaque,
+        style: Slice<u8>,
+    ) {
+        compiler
+            .as_component_compiler_mut()
+            .set_style(std::str::from_utf8(&style).unwrap().to_string())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_style(
+        compiler: &ComponentCompilerOpaque,
+        style_out: &mut SharedString,
+    ) {
+        *style_out =
+            compiler.as_component_compiler().style().map_or(SharedString::default(), |s| s.into());
     }
 
     #[no_mangle]

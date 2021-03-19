@@ -259,6 +259,13 @@ SCENARIO("Component Compiler")
         REQUIRE(out_paths[1] == "path2");
     }
 
+    SECTION("configure style")
+    {
+        REQUIRE(compiler.style() == "");
+        compiler.set_style("ugly");
+        REQUIRE(compiler.style() == "ugly");
+    }
+
     SECTION("Compile failure from source")
     {
         auto result = compiler.build_from_source("Syntax Error!!", "");

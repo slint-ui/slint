@@ -469,6 +469,19 @@ public:
         cbindgen_private::sixtyfps_interpreter_component_compiler_set_include_paths(&inner, &paths);
     }
 
+    void set_style(std::string_view style)
+    {
+        cbindgen_private::sixtyfps_interpreter_component_compiler_set_style(
+                &inner, sixtyfps::private_api::string_to_slice(style));
+    }
+
+    sixtyfps::SharedString style() const
+    {
+        sixtyfps::SharedString s;
+        cbindgen_private::sixtyfps_interpreter_component_compiler_get_style(&inner, &s);
+        return s;
+    }
+
     sixtyfps::SharedVector<sixtyfps::SharedString> include_paths() const
     {
         sixtyfps::SharedVector<sixtyfps::SharedString> paths;
