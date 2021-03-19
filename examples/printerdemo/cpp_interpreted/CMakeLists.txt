@@ -17,6 +17,7 @@ endif()
 add_executable(printerdemo_interpreted main.cpp)
 target_compile_definitions(printerdemo_interpreted PRIVATE
    FONTS_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/../ui/fonts\"
+   SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 )
 if (MSVC)
     target_compile_options(printerdemo_interpreted PRIVATE /bigobj)

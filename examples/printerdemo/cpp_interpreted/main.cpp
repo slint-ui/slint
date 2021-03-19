@@ -9,16 +9,16 @@
 LICENSE END */
 #include <sixtyfps_interpreter.h>
 
-
 using sixtyfps::interpreter::Value;
-
 
 struct InkLevelModel : sixtyfps::Model<Value>
 {
     int row_count() const override { return m_data.size(); }
     Value row_data(int i) const override { return m_data[i]; }
+
 private:
-    static Value make_inklevel_value(sixtyfps::Color color, float level) {
+    static Value make_inklevel_value(sixtyfps::Color color, float level)
+    {
         sixtyfps::interpreter::Struct s;
         s.set_field("color", Value(color));
         s.set_field("level", level);
@@ -26,10 +26,10 @@ private:
     }
 
     std::vector<Value> m_data = {
-        make_inklevel_value( sixtyfps::Color::from_rgb_uint8(255, 255, 0), 0.9 ),
-        make_inklevel_value( sixtyfps::Color::from_rgb_uint8(255, 0, 255), 0.8 ),
-        make_inklevel_value( sixtyfps::Color::from_rgb_uint8(0, 255, 255), 0.5 ),
-        make_inklevel_value( sixtyfps::Color::from_rgb_uint8(0, 0, 0), 0.1 ),
+        make_inklevel_value(sixtyfps::Color::from_rgb_uint8(255, 255, 0), 0.9),
+        make_inklevel_value(sixtyfps::Color::from_rgb_uint8(255, 0, 255), 0.8),
+        make_inklevel_value(sixtyfps::Color::from_rgb_uint8(0, 255, 255), 0.5),
+        make_inklevel_value(sixtyfps::Color::from_rgb_uint8(0, 0, 0), 0.1),
     };
 };
 
@@ -43,10 +43,23 @@ int main()
     }
 
     sixtyfps::interpreter::ComponentCompiler compiler;
-    auto definition = compiler.build_from_path(__FILE__ "/../../ui/printerdemo.60");
-    // FIXME: show diagnostics
+    auto definition = compiler.build_from_path(SOURCE_DIR "/../ui/printerdemo.60");
+
+    for (auto diagnostic : compiler.diagnostics()) {
+        std::cerr << (diagnostic.level == sixtyfps::interpreter::DiagnosticLevel::Warning
+                              ? "warning: "
+                              : "error: ")
+                  << diagnostic.message << std::endl;
+        std::cerr << "location: " << diagnostic.source_file;
+        if (diagnostic.line > 0)
+            std::cerr << ":" << diagnostic.line;
+        if (diagnostic.column > 0)
+            std::cerr << ":" << diagnostic.column;
+        std::cerr << std::endl;
+    }
+
     if (!definition) {
-        std::cerr << "compilation failure" << std::endl;
+        std::cerr << "compilation failure!" << std::endl;
         return EXIT_FAILURE;
     }
     auto instance = definition->create();
@@ -55,6 +68,9 @@ int main()
         std::cerr << "Could not set property ink_levels" << std::endl;
         return EXIT_FAILURE;
     }
-    instance->set_callback("quit", [](auto) { std::exit(0); return Value(); });
+    instance->set_callback("quit", [](auto) {
+        std::exit(0);
+        return Value();
+    });
     instance->run();
 }
