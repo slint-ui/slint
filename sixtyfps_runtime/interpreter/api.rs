@@ -805,7 +805,7 @@ pub mod testing {
 
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
-pub(crate) mod ffi {
+pub mod ffi {
     use super::*;
     use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer};
     use sixtyfps_corelib::slice::Slice;
@@ -1305,11 +1305,11 @@ pub(crate) mod ffi {
         [(); std::mem::align_of::<ComponentCompiler>()];
 
     impl ComponentCompilerOpaque {
-        fn as_component_compiler(&self) -> &ComponentCompiler {
+        pub fn as_component_compiler(&self) -> &ComponentCompiler {
             // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
             unsafe { std::mem::transmute::<&ComponentCompilerOpaque, &ComponentCompiler>(self) }
         }
-        fn as_component_compiler_mut(&mut self) -> &mut ComponentCompiler {
+        pub fn as_component_compiler_mut(&mut self) -> &mut ComponentCompiler {
             // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
             unsafe {
                 std::mem::transmute::<&mut ComponentCompilerOpaque, &mut ComponentCompiler>(self)
@@ -1353,5 +1353,58 @@ pub(crate) mod ffi {
                 .iter()
                 .map(|path| path.to_string_lossy().to_string().into()),
         );
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_build_from_source(
+        compiler: &mut ComponentCompilerOpaque,
+        source_code: Slice<u8>,
+        path: Slice<u8>,
+        component_definition_ptr: *mut ComponentDefinitionOpaque,
+    ) -> bool {
+        match spin_on::spin_on(compiler.as_component_compiler_mut().build_from_source(
+            std::str::from_utf8(&source_code).unwrap().to_string(),
+            std::str::from_utf8(&path).unwrap().to_string().into(),
+        )) {
+            Some(definition) => {
+                std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition);
+                true
+            }
+            None => false,
+        }
+    }
+
+    #[repr(C)]
+    // Note: This needs to stay the size of 1 pointer to allow for the null pointer definition
+    // in the C++ wrapper to allow for the null state.
+    pub struct ComponentDefinitionOpaque([usize; 1]);
+    /// Asserts that ComponentCompilerOpaque is as large as ComponentCompiler and has the same alignment, to make transmute safe.
+    const _: [(); std::mem::size_of::<ComponentDefinitionOpaque>()] =
+        [(); std::mem::size_of::<ComponentDefinition>()];
+    const _: [(); std::mem::align_of::<ComponentDefinitionOpaque>()] =
+        [(); std::mem::align_of::<ComponentDefinition>()];
+
+    impl ComponentDefinitionOpaque {
+        fn as_component_definition(&self) -> &ComponentDefinition {
+            // Safety: there should be no way to construct a ComponentDefinitionOpaque without it holding an actual ComponentDefinition
+            unsafe { std::mem::transmute::<&ComponentDefinitionOpaque, &ComponentDefinition>(self) }
+        }
+    }
+
+    /// Construct a new Value in the given memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_clone(
+        other: &ComponentDefinitionOpaque,
+        def: *mut ComponentDefinitionOpaque,
+    ) {
+        std::ptr::write(def as *mut ComponentDefinition, other.as_component_definition().clone())
+    }
+
+    /// Destruct the value in that memory location
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_destructor(
+        val: *mut ComponentDefinitionOpaque,
+    ) {
+        drop(std::ptr::read(val as *mut ComponentDefinition))
     }
 }

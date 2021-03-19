@@ -258,4 +258,16 @@ SCENARIO("Component Compiler")
         REQUIRE(out_paths[0] == "path1");
         REQUIRE(out_paths[1] == "path2");
     }
+
+    SECTION("Compile failure from source")
+    {
+        auto result = compiler.build_from_source("Syntax Error!!", "");
+        REQUIRE_FALSE(result.has_value());
+    }
+
+    SECTION("Compile from source")
+    {
+        auto result = compiler.build_from_source("export Dummy := Rectangle {}", "");
+        REQUIRE(result.has_value());
+    }
 }

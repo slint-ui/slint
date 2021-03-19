@@ -418,6 +418,46 @@ public:
     }
 };
 
+class ComponentDefinition
+{
+    friend class ComponentCompiler;
+
+    union {
+        sixtyfps::cbindgen_private::ComponentDefinitionOpaque inner;
+        void *ptr;
+    };
+
+public:
+    ComponentDefinition() { ptr = nullptr; }
+    ComponentDefinition(const ComponentDefinition &other)
+    {
+        ptr = nullptr;
+        operator=(other);
+    }
+    ComponentDefinition &operator=(const ComponentDefinition &other)
+    {
+        using namespace sixtyfps::cbindgen_private;
+
+        if (this == &other)
+            return *this;
+
+        if (ptr != nullptr)
+            sixtyfps_interpreter_component_definition_destructor(&inner);
+
+        if (other.ptr != nullptr)
+            sixtyfps_interpreter_component_definition_clone(&other.inner, &inner);
+        else
+            ptr = nullptr;
+
+        return *this;
+    }
+    ~ComponentDefinition()
+    {
+        if (ptr != nullptr)
+            sixtyfps_interpreter_component_definition_destructor(&inner);
+    }
+};
+
 class ComponentCompiler
 {
     cbindgen_private::ComponentCompilerOpaque inner;
@@ -443,6 +483,20 @@ public:
         sixtyfps::SharedVector<sixtyfps::SharedString> paths;
         cbindgen_private::sixtyfps_interpreter_component_compiler_get_include_paths(&inner, &paths);
         return paths;
+    }
+
+    std::optional<ComponentDefinition> build_from_source(std::string_view source_code,
+                                                         std::string_view path)
+    {
+        ComponentDefinition result;
+        if (cbindgen_private::sixtyfps_interpreter_component_compiler_build_from_source(
+                    &inner, sixtyfps::private_api::string_to_slice(source_code),
+                    sixtyfps::private_api::string_to_slice(path), &result.inner)) {
+
+            return result;
+        } else {
+            return {};
+        }
     }
 };
 
