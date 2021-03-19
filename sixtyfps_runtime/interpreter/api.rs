@@ -805,7 +805,7 @@ pub mod testing {
 
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
-pub mod ffi {
+pub(crate) mod ffi {
     use super::*;
     use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer};
     use sixtyfps_corelib::slice::Slice;
@@ -1305,11 +1305,11 @@ pub mod ffi {
         [(); std::mem::align_of::<ComponentCompiler>()];
 
     impl ComponentCompilerOpaque {
-        pub fn as_component_compiler(&self) -> &ComponentCompiler {
+        fn as_component_compiler(&self) -> &ComponentCompiler {
             // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
             unsafe { std::mem::transmute::<&ComponentCompilerOpaque, &ComponentCompiler>(self) }
         }
-        pub fn as_component_compiler_mut(&mut self) -> &mut ComponentCompiler {
+        fn as_component_compiler_mut(&mut self) -> &mut ComponentCompiler {
             // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
             unsafe {
                 std::mem::transmute::<&mut ComponentCompilerOpaque, &mut ComponentCompiler>(self)
