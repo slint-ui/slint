@@ -460,8 +460,6 @@ public:
         return *this;
     }
     ~ComponentDefinition() { sixtyfps_interpreter_component_definition_destructor(&inner); }
-    }
-
     ComponentHandle<ComponentInstance> create() const {
         union CI {
             cbindgen_private::ComponentInstance i;
@@ -472,7 +470,7 @@ public:
         } u;
         cbindgen_private::sixtyfps_interpreter_component_instance_create(&inner, &u.i);
         return *reinterpret_cast<ComponentHandle<ComponentInstance> *>(&u.i);
-
+    }
 };
 
 class ComponentCompiler
