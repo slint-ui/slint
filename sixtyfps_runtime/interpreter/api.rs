@@ -1290,4 +1290,26 @@ pub(crate) mod ffi {
     ) {
         notify.as_model_notify().row_removed(row, count);
     }
+
+    #[repr(C)]
+    pub struct ComponentCompilerOpaque([usize; 12]);
+    /// Asserts that ComponentCompilerOpaque is as large as ComponentCompiler and has the same alignment, to make transmute safe.
+    const _: [(); std::mem::size_of::<ComponentCompilerOpaque>()] =
+        [(); std::mem::size_of::<ComponentCompiler>()];
+    const _: [(); std::mem::align_of::<ComponentCompilerOpaque>()] =
+        [(); std::mem::align_of::<ComponentCompiler>()];
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_new(
+        compiler: *mut ComponentCompilerOpaque,
+    ) {
+        std::ptr::write(compiler as *mut ComponentCompiler, ComponentCompiler::new())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_destructor(
+        compiler: *mut ComponentCompilerOpaque,
+    ) {
+        drop(std::ptr::read(compiler as *mut ComponentCompiler))
+    }
 }

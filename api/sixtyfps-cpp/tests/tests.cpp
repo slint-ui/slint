@@ -156,13 +156,12 @@ SCENARIO("Value API")
         REQUIRE(destroyed);
     }
 
-
     SECTION("Compare Values")
     {
-        Value str1{sixtyfps::SharedString("Hello1")};
-        Value str2{sixtyfps::SharedString("Hello2")};
-        Value fl1{10.};
-        Value fl2{12.};
+        Value str1 { sixtyfps::SharedString("Hello1") };
+        Value str2 { sixtyfps::SharedString("Hello2") };
+        Value fl1 { 10. };
+        Value fl2 { 12. };
 
         REQUIRE(str1 == str1);
         REQUIRE(str1 != str2);
@@ -177,7 +176,6 @@ SCENARIO("Value API")
         REQUIRE(fl1 != sixtyfps::SharedString("Hello2"));
         REQUIRE(fl2 == 12.);
     }
-
 }
 
 SCENARIO("Struct API")
@@ -239,4 +237,11 @@ SCENARIO("Struct Initializer List Constructor")
     REQUIRE(struc.get_field("field_a").has_value());
     REQUIRE(struc.get_field("field_a").value().to_bool().value());
     REQUIRE(struc.get_field("field_b").value().to_number().value() == 42.0);
+}
+
+SCENARIO("Component Compiler")
+{
+    using namespace sixtyfps::interpreter;
+
+    ComponentCompiler compiler;
 }
