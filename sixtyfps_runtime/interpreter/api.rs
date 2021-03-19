@@ -358,6 +358,11 @@ impl ComponentCompiler {
         self.config.include_paths = include_paths;
     }
 
+    /// Returns the include paths the component compiler is currently configured with.
+    pub fn include_paths(&self) -> &Vec<std::path::PathBuf> {
+        &self.config.include_paths
+    }
+
     /// Create a new configuration that selects the style to be used for widgets.
     pub fn set_style(&mut self, style: String) {
         self.config.style = Some(style);
@@ -1299,6 +1304,19 @@ pub(crate) mod ffi {
     const _: [(); std::mem::align_of::<ComponentCompilerOpaque>()] =
         [(); std::mem::align_of::<ComponentCompiler>()];
 
+    impl ComponentCompilerOpaque {
+        fn as_component_compiler(&self) -> &ComponentCompiler {
+            // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
+            unsafe { std::mem::transmute::<&ComponentCompilerOpaque, &ComponentCompiler>(self) }
+        }
+        fn as_component_compiler_mut(&mut self) -> &mut ComponentCompiler {
+            // Safety: there should be no way to construct a ComponentCompilerOpaque without it holding an actual ComponentCompiler
+            unsafe {
+                std::mem::transmute::<&mut ComponentCompilerOpaque, &mut ComponentCompiler>(self)
+            }
+        }
+    }
+
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_new(
         compiler: *mut ComponentCompilerOpaque,
@@ -1311,5 +1329,29 @@ pub(crate) mod ffi {
         compiler: *mut ComponentCompilerOpaque,
     ) {
         drop(std::ptr::read(compiler as *mut ComponentCompiler))
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_set_include_paths(
+        compiler: &mut ComponentCompilerOpaque,
+        paths: &SharedVector<SharedString>,
+    ) {
+        compiler
+            .as_component_compiler_mut()
+            .set_include_paths(paths.iter().map(|path| path.as_str().into()).collect())
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_include_paths(
+        compiler: &ComponentCompilerOpaque,
+        paths: &mut SharedVector<SharedString>,
+    ) {
+        paths.extend(
+            compiler
+                .as_component_compiler()
+                .include_paths()
+                .iter()
+                .map(|path| path.to_string_lossy().to_string().into()),
+        );
     }
 }

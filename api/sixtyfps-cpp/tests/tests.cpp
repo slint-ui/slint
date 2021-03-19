@@ -242,6 +242,20 @@ SCENARIO("Struct Initializer List Constructor")
 SCENARIO("Component Compiler")
 {
     using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
 
     ComponentCompiler compiler;
+
+    SECTION("configure include paths")
+    {
+        SharedVector<SharedString> in_paths;
+        in_paths.push_back("path1");
+        in_paths.push_back("path2");
+        compiler.set_include_paths(in_paths);
+
+        auto out_paths = compiler.include_paths();
+        REQUIRE(out_paths.size() == 2);
+        REQUIRE(out_paths[0] == "path1");
+        REQUIRE(out_paths[1] == "path2");
+    }
 }

@@ -447,6 +447,18 @@ public:
     {
         cbindgen_private::sixtyfps_interpreter_component_compiler_destructor(&inner);
     }
+
+    void set_include_paths(const sixtyfps::SharedVector<sixtyfps::SharedString> &paths)
+    {
+        cbindgen_private::sixtyfps_interpreter_component_compiler_set_include_paths(&inner, &paths);
+    }
+
+    sixtyfps::SharedVector<sixtyfps::SharedString> include_paths() const
+    {
+        sixtyfps::SharedVector<sixtyfps::SharedString> paths;
+        cbindgen_private::sixtyfps_interpreter_component_compiler_get_include_paths(&inner, &paths);
+        return paths;
+    }
 };
 
 }
