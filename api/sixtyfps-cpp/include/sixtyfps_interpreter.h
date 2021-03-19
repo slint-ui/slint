@@ -437,7 +437,6 @@ class ComponentCompiler
 {
     cbindgen_private::ComponentCompilerOpaque inner;
 
-    ComponentCompiler() = delete;
     ComponentCompiler(ComponentCompiler &) = delete;
     ComponentCompiler &operator=(ComponentCompiler &) = delete;
 
