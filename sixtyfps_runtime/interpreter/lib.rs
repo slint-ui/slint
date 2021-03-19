@@ -30,7 +30,7 @@ executor, such as the one provided by the `spin_on` crate
 This example load a `.60` dynamically from a path and show error if any
 
 ```rust
-use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, CompilerConfiguration};
+use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler};
 
 let mut compiler = ComponentCompiler::new();
 let definition =
