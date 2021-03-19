@@ -422,17 +422,17 @@ class ComponentDefinition
 {
     friend class ComponentCompiler;
 
-    union {
-        sixtyfps::cbindgen_private::ComponentDefinitionOpaque inner;
-        void *ptr;
-    };
+    using ComponentDefinitionOpaque = sixtyfps::cbindgen_private::ComponentDefinitionOpaque;
+    ComponentDefinitionOpaque inner;
+
+    ComponentDefinition() = delete;
+    // Internal constructor that takes ownership of the component definition
+    explicit ComponentDefinition(ComponentDefinitionOpaque &inner) : inner(inner) { }
 
 public:
-    ComponentDefinition() { ptr = nullptr; }
     ComponentDefinition(const ComponentDefinition &other)
     {
-        ptr = nullptr;
-        operator=(other);
+        sixtyfps_interpreter_component_definition_clone(&other.inner, &inner);
     }
     ComponentDefinition &operator=(const ComponentDefinition &other)
     {
@@ -441,21 +441,12 @@ public:
         if (this == &other)
             return *this;
 
-        if (ptr != nullptr)
-            sixtyfps_interpreter_component_definition_destructor(&inner);
-
-        if (other.ptr != nullptr)
-            sixtyfps_interpreter_component_definition_clone(&other.inner, &inner);
-        else
-            ptr = nullptr;
+        sixtyfps_interpreter_component_definition_destructor(&inner);
+        sixtyfps_interpreter_component_definition_clone(&other.inner, &inner);
 
         return *this;
     }
-    ~ComponentDefinition()
-    {
-        if (ptr != nullptr)
-            sixtyfps_interpreter_component_definition_destructor(&inner);
-    }
+    ~ComponentDefinition() { sixtyfps_interpreter_component_definition_destructor(&inner); }
 };
 
 class ComponentCompiler
@@ -488,12 +479,12 @@ public:
     std::optional<ComponentDefinition> build_from_source(std::string_view source_code,
                                                          std::string_view path)
     {
-        ComponentDefinition result;
+        cbindgen_private::ComponentDefinitionOpaque result;
         if (cbindgen_private::sixtyfps_interpreter_component_compiler_build_from_source(
                     &inner, sixtyfps::private_api::string_to_slice(source_code),
-                    sixtyfps::private_api::string_to_slice(path), &result.inner)) {
+                    sixtyfps::private_api::string_to_slice(path), &result)) {
 
-            return result;
+            return ComponentDefinition(result);
         } else {
             return {};
         }
