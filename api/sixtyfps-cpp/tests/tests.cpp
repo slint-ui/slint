@@ -277,4 +277,16 @@ SCENARIO("Component Compiler")
         auto result = compiler.build_from_source("export Dummy := Rectangle {}", "");
         REQUIRE(result.has_value());
     }
+
+    SECTION("Compile failure from path")
+    {
+        auto result = compiler.build_from_path(SOURCE_DIR "/file-not-there.60");
+        REQUIRE_FALSE(result.has_value());
+    }
+
+    SECTION("Compile from path")
+    {
+        auto result = compiler.build_from_path(SOURCE_DIR "/tests/test.60");
+        REQUIRE(result.has_value());
+    }
 }

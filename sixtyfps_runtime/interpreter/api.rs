@@ -1352,6 +1352,26 @@ pub(crate) mod ffi {
         }
     }
 
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_build_from_path(
+        compiler: &mut ComponentCompilerOpaque,
+        path: Slice<u8>,
+        component_definition_ptr: *mut ComponentDefinitionOpaque,
+    ) -> bool {
+        use std::str::FromStr;
+        match spin_on::spin_on(
+            compiler
+                .as_component_compiler_mut()
+                .build_from_path(PathBuf::from_str(std::str::from_utf8(&path).unwrap()).unwrap()),
+        ) {
+            Some(definition) => {
+                std::ptr::write(component_definition_ptr as *mut ComponentDefinition, definition);
+                true
+            }
+            None => false,
+        }
+    }
+
     #[repr(C)]
     // Note: This needs to stay the size of 1 pointer to allow for the null pointer definition
     // in the C++ wrapper to allow for the null state.

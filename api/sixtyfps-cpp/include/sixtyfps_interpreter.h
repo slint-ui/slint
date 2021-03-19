@@ -502,6 +502,18 @@ public:
             return {};
         }
     }
+
+    std::optional<ComponentDefinition> build_from_path(std::string_view path)
+    {
+        cbindgen_private::ComponentDefinitionOpaque result;
+        if (cbindgen_private::sixtyfps_interpreter_component_compiler_build_from_path(
+                    &inner, sixtyfps::private_api::string_to_slice(path), &result)) {
+
+            return ComponentDefinition(result);
+        } else {
+            return {};
+        }
+    }
 };
 
 }

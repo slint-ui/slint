@@ -136,6 +136,9 @@ if(BUILD_TESTING)
 
     add_executable(api_tests tests/tests.cpp)
     target_link_libraries(api_tests PRIVATE SixtyFPS Catch2::Catch2)
+    target_compile_definitions(api_tests PRIVATE
+        SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\"
+    )
     add_test(api_tests ${CMAKE_CURRENT_BINARY_DIR}/api_tests)
     # Somehow the wrong relative rpath ends up in the binary, requiring us to change the
     # working directory.
