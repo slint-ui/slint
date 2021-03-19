@@ -14,6 +14,7 @@ include(CTest)
 
 add_subdirectory(api/sixtyfps-cpp/)
 add_subdirectory(examples/printerdemo/cpp/)
+add_subdirectory(examples/printerdemo/cpp_interpreted/)
 add_subdirectory(examples/todo/cpp/)
 add_subdirectory(examples/gallery/)
 add_subdirectory(examples/memory/)
