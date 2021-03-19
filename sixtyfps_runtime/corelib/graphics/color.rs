@@ -212,14 +212,14 @@ impl std::fmt::Display for Color {
     }
 }
 
-#[cfg(feature = "femtovg_backend")]
+#[cfg(feature = "femtovg")]
 impl From<&Color> for femtovg::Color {
     fn from(col: &Color) -> Self {
         Self::rgba(col.red, col.green, col.blue, col.alpha)
     }
 }
 
-#[cfg(feature = "femtovg_backend")]
+#[cfg(feature = "femtovg")]
 impl From<Color> for femtovg::Color {
     fn from(col: Color) -> Self {
         Self::rgba(col.red, col.green, col.blue, col.alpha)
