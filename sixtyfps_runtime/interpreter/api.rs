@@ -1329,7 +1329,7 @@ pub(crate) mod ffi {
                 .as_component_compiler()
                 .include_paths()
                 .iter()
-                .map(|path| path.to_string_lossy().to_string().into()),
+                .map(|path| path.to_str().map_or_else(|| Default::default(), |str| str.into())),
         );
     }
 
