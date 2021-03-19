@@ -376,7 +376,7 @@ impl ComponentCompiler {
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
     }
 
-    /// Returns the diagnostics that were produced in the last call to [[ComponentCompiler::build_from_path]] or [[ComponentCompiler::build_from_source]].
+    /// Returns the diagnostics that were produced in the last call to [[Self::build_from_path]] or [[Self::build_from_source]].
     pub fn diagnostics(&self) -> &Vec<Diagnostic> {
         &self.diagnostics
     }
@@ -386,14 +386,14 @@ impl ComponentCompiler {
     /// Returns the compiled `ComponentDefinition` if there was no errors.
     ///
     /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
-    /// in this ComponentCompiler and can be retrieved after the call using the [[ComponentCompiler::diagnostics()]]
+    /// in this ComponentCompiler and can be retrieved after the call using the [[Self::diagnostics()]]
     /// function. The [`print_diagnostics`] function can be used to display the diagnostics
     /// to the users.
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
     /// This function is `async` but in practice, this is only asynchronious if
-    /// [`ComponentCompiler::set_file_loader`] was called and its future is actually asynchronious.
+    /// [`Self::set_file_loader`] was called and its future is actually asynchronious.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_path<P: AsRef<Path>>(
@@ -425,14 +425,14 @@ impl ComponentCompiler {
     /// path while importing
     ///
     /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
-    /// in this ComponentCompiler and can be retrieved after the call using the [[ComponentCompiler::diagnostics()]]
+    /// in this ComponentCompiler and can be retrieved after the call using the [[Self::diagnostics()]]
     /// function. The [`print_diagnostics`] function can be used to display the diagnostics
     /// to the users.
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
     /// This function is `async` but in practice, this is only asynchronious if
-    /// [`ComponentCompiler::set_file_loader`] is set and its future is actually asynchronious.
+    /// [`Self::set_file_loader`] is set and its future is actually asynchronious.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(
