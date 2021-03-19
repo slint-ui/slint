@@ -15,6 +15,15 @@ LICENSE END */
 
 #include <optional>
 
+namespace sixtyfps::cbindgen_private {
+    //  This has to stay opaque, but VRc don't compile if it is just forward declared
+    struct ErasedComponentBox : vtable::Dyn {
+        ~ErasedComponentBox() = delete;
+        ErasedComponentBox() = delete;
+        ErasedComponentBox(ErasedComponentBox&) = delete;
+    };
+}
+
 namespace sixtyfps::interpreter {
 
 class Value;
@@ -349,21 +358,25 @@ inline void Struct::set_field(std::string_view name, const Value &value)
     cbindgen_private::sixtyfps_interpreter_struct_set_field(&inner, name_view, &value.inner);
 }
 
-class ComponentInstance
+class ComponentInstance : vtable::Dyn
 {
-    cbindgen_private::ComponentInstance inner;
     ComponentInstance() = delete;
     ComponentInstance(ComponentInstance &) = delete;
     ComponentInstance &operator=(ComponentInstance &) = delete;
+    friend class ComponentDefinition;
+
+    // ComponentHandle<ComponentInstance>  is in fact a VRc<ComponentVTable, ErasedComponentBox>
+    const cbindgen_private::ErasedComponentBox *inner() const
+    { return reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(this); }
 
 public:
     void show() const
     {
-        cbindgen_private::sixtyfps_interpreter_component_instance_show(&inner, true);
+        cbindgen_private::sixtyfps_interpreter_component_instance_show(inner(), true);
     }
     void hide() const
     {
-        cbindgen_private::sixtyfps_interpreter_component_instance_show(&inner, false);
+        cbindgen_private::sixtyfps_interpreter_component_instance_show(inner(), false);
     }
     void run() const
     {
@@ -376,14 +389,14 @@ public:
     {
         using namespace cbindgen_private;
         return sixtyfps_interpreter_component_instance_set_property(
-                &inner, sixtyfps::private_api::string_to_slice(name), &value.inner);
+                inner(), sixtyfps::private_api::string_to_slice(name), &value.inner);
     }
     std::optional<Value> get_property(std::string_view name) const
     {
         using namespace cbindgen_private;
         ValueOpaque out;
         if (sixtyfps_interpreter_component_instance_get_property(
-                    &inner, sixtyfps::private_api::string_to_slice(name), &out)) {
+                    inner(), sixtyfps::private_api::string_to_slice(name), &out)) {
             return Value(out);
         } else {
             return {};
@@ -396,7 +409,7 @@ public:
         Slice<ValueOpaque> args_view { reinterpret_cast<ValueOpaque *>(args.ptr), args.len };
         ValueOpaque out;
         if (sixtyfps_interpreter_component_instance_invoke_callback(
-                    &inner, sixtyfps::private_api::string_to_slice(name), args_view, &out)) {
+                    inner(), sixtyfps::private_api::string_to_slice(name), args_view, &out)) {
             return Value(out);
         } else {
             return {};
@@ -413,7 +426,7 @@ public:
             new (ret) Value(std::move(r));
         };
         return cbindgen_private::sixtyfps_interpreter_component_instance_set_callback(
-                &inner, sixtyfps::private_api::string_to_slice(name), actual_cb,
+                inner(), sixtyfps::private_api::string_to_slice(name), actual_cb,
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 };
@@ -447,6 +460,19 @@ public:
         return *this;
     }
     ~ComponentDefinition() { sixtyfps_interpreter_component_definition_destructor(&inner); }
+    }
+
+    ComponentHandle<ComponentInstance> create() const {
+        union CI {
+            cbindgen_private::ComponentInstance i;
+            ~CI() {
+                i.~ComponentInstance();
+            }
+            CI() {}
+        } u;
+        cbindgen_private::sixtyfps_interpreter_component_instance_create(&inner, &u.i);
+        return *reinterpret_cast<ComponentHandle<ComponentInstance> *>(&u.i);
+
 };
 
 class ComponentCompiler

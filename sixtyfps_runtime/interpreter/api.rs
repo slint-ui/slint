@@ -765,6 +765,8 @@ pub mod testing {
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
 pub(crate) mod ffi {
+    use crate::dynamic_component::ErasedComponentBox;
+
     use super::*;
     use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer};
     use sixtyfps_corelib::slice::Slice;
@@ -1073,11 +1075,13 @@ pub(crate) mod ffi {
     /// to the resulting value. If this function returns false, out is unchanged
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_get_property(
-        inst: &ComponentInstance,
+        inst: &ErasedComponentBox,
         name: Slice<u8>,
         out: *mut ValueOpaque,
     ) -> bool {
-        match inst.get_property(std::str::from_utf8(&name).unwrap()) {
+        generativity::make_guard!(guard);
+        let comp = inst.unerase(guard);
+        match comp.description().get_property(comp.borrow(), std::str::from_utf8(&name).unwrap()) {
             Ok(val) => {
                 std::ptr::write(out as *mut Value, val);
                 true
@@ -1088,11 +1092,19 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub extern "C" fn sixtyfps_interpreter_component_instance_set_property(
-        inst: &ComponentInstance,
+        inst: &ErasedComponentBox,
         name: Slice<u8>,
         val: &ValueOpaque,
     ) -> bool {
-        inst.set_property(std::str::from_utf8(&name).unwrap(), val.as_value().clone()).is_ok()
+        generativity::make_guard!(guard);
+        let comp = inst.unerase(guard);
+        comp.description()
+            .set_property(
+                comp.borrow(),
+                std::str::from_utf8(&name).unwrap(),
+                val.as_value().clone(),
+            )
+            .is_ok()
     }
 
     /// Invoke a callback.
@@ -1100,13 +1112,19 @@ pub(crate) mod ffi {
     /// to the resulting value. If this function returns false, out is unchanged
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_invoke_callback(
-        inst: &ComponentInstance,
+        inst: &ErasedComponentBox,
         name: Slice<u8>,
         args: Slice<ValueOpaque>,
         out: *mut ValueOpaque,
     ) -> bool {
         let args = std::mem::transmute::<Slice<ValueOpaque>, Slice<Value>>(args);
-        match inst.invoke_callback(std::str::from_utf8(&name).unwrap(), args.as_slice()) {
+        generativity::make_guard!(guard);
+        let comp = inst.unerase(guard);
+        match comp.description().invoke_callback(
+            comp.borrow(),
+            std::str::from_utf8(&name).unwrap(),
+            args.as_slice(),
+        ) {
             Ok(val) => {
                 std::ptr::write(out as *mut Value, val);
                 true
@@ -1119,7 +1137,7 @@ pub(crate) mod ffi {
     /// The `callback` function must initialize the `ret` (the `ret` passed to the callback is initialized and is assumed initialized after the function)
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_callback(
-        inst: &ComponentInstance,
+        inst: &ErasedComponentBox,
         name: Slice<u8>,
         callback: extern "C" fn(
             user_data: *mut c_void,
@@ -1150,20 +1168,42 @@ pub(crate) mod ffi {
             ret.assume_init()
         };
 
-        inst.set_callback(std::str::from_utf8(&name).unwrap(), callback).is_ok()
+        generativity::make_guard!(guard);
+        let comp = inst.unerase(guard);
+        comp.description()
+            .set_callback_handler(
+                comp.borrow(),
+                std::str::from_utf8(&name).unwrap(),
+                Box::new(callback),
+            )
+            .is_ok()
     }
 
     /// Show or hide
     #[no_mangle]
     pub extern "C" fn sixtyfps_interpreter_component_instance_show(
-        inst: &ComponentInstance,
+        inst: &ErasedComponentBox,
         is_visible: bool,
     ) {
+        generativity::make_guard!(guard);
+        let comp = inst.unerase(guard);
         if is_visible {
-            inst.show();
+            comp.window().show();
         } else {
-            inst.hide();
+            comp.window().hide();
         }
+    }
+
+    /// Instantiate an instance from a definition.
+    ///
+    /// The `out` must be uninitialized and is going to be initialized after the call
+    /// and need to be destroyed with sixtyfps_interpreter_component_instance_destructor
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_create(
+        def: &ComponentDefinitionOpaque,
+        out: *mut ComponentInstance,
+    ) {
+        std::ptr::write(out, def.as_component_definition().create())
     }
 
     #[vtable::vtable]
