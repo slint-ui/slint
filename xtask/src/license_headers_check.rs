@@ -358,8 +358,9 @@ impl CargoToml {
             Some(dep_table) => dep_table
                 .iter()
                 .filter_map(|(name, entry)| {
-                    CargoDependency::new(entry.as_value().unwrap())
-                        .map(|entry| (name.to_owned(), entry))
+                    entry.as_value().and_then(|entry| {
+                        CargoDependency::new(entry).map(|entry| (name.to_owned(), entry))
+                    })
                 })
                 .collect(),
             None => Vec::new(),
