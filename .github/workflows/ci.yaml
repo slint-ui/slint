@@ -477,6 +477,11 @@ jobs:
         sed -i "s/#wasm# //" Cargo.toml
         wasm-pack build --release --target web
       working-directory: examples/printerdemo/rust
+    - name: Printer demo old WASM build
+      run: |
+        sed -i "s/#wasm# //" Cargo.toml
+        wasm-pack build --release --target web
+      working-directory: examples/printerdemo_old/rust
     - name: Todo demo WASM build
       run: |
         sed -i "s/#wasm# //" Cargo.toml
@@ -499,6 +504,7 @@ jobs:
           path: |
               examples/gallery/
               examples/printerdemo/rust/
+              examples/printerdemo_old/rust/
               examples/todo/
               examples/memory/
               examples/slide_puzzle/
@@ -539,6 +545,10 @@ jobs:
             mkdir -p demos/printerdemo
             cp -a ../printerdemo/rust/{pkg,index.html} demos/printerdemo/
             rm demos/printerdemo/pkg/.gitignore
+
+            mkdir -p demos/printerdemo_old
+            cp -a ../printerdemo_old/rust/{pkg,index.html} demos/printerdemo_old/
+            rm demos/printerdemo_old/pkg/.gitignore
 
             mkdir -p demos/todo
             cp -a ../todo/rust/{pkg,index.html} demos/todo/
