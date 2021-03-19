@@ -88,6 +88,22 @@ struct SharedString
     /// \return true if the string contains no characters; false otherwise.
     bool empty() const { return std::string_view(*this).empty(); }
 
+    /// \return true if the string starts with the specified prefix string; false otherwise
+    bool starts_with(std::string_view prefix) const
+    {
+        return std::string_view(*this).substr(0, prefix.size()) == prefix;
+    }
+
+    /// \return true if the string ends with the specified prefix string; false otherwise
+    bool ends_with(std::string_view prefix) const
+    {
+        std::string_view self_view(*this);
+        return self_view.size() >= prefix.size()
+                && self_view.compare(self_view.size() - prefix.size(), std::string_view::npos,
+                                     prefix)
+                == 0;
+    }
+
     /// Creates a new SharedString from the given number \a n. The string representation of the
     /// number uses a minimal formatting scheme: If \a n has no fractional part, the number will be
     /// formatted as an integer.

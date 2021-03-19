@@ -473,6 +473,9 @@ public:
     }
 };
 
+using Diagnostic = sixtyfps::cbindgen_private::CDiagnostic;
+using DiagnosticLevel = sixtyfps::cbindgen_private::CDiagnosticLevel;
+
 class ComponentCompiler
 {
     cbindgen_private::ComponentCompilerOpaque inner;
@@ -511,6 +514,13 @@ public:
         sixtyfps::SharedVector<sixtyfps::SharedString> paths;
         cbindgen_private::sixtyfps_interpreter_component_compiler_get_include_paths(&inner, &paths);
         return paths;
+    }
+
+    sixtyfps::SharedVector<Diagnostic> diagnostics() const
+    {
+        sixtyfps::SharedVector<Diagnostic> result;
+        cbindgen_private::sixtyfps_interpreter_component_compiler_get_diagnostics(&inner, &result);
+        return result;
     }
 
     std::optional<ComponentDefinition> build_from_source(std::string_view source_code,

@@ -282,6 +282,10 @@ SCENARIO("Component Compiler")
     {
         auto result = compiler.build_from_path(SOURCE_DIR "/file-not-there.60");
         REQUIRE_FALSE(result.has_value());
+        auto diags = compiler.diagnostics();
+
+        REQUIRE(diags.size() == 1);
+        REQUIRE(diags[0].message.starts_with("Could not load"));
     }
 
     SECTION("Compile from path")

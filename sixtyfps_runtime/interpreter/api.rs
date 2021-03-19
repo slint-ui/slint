@@ -1295,6 +1295,24 @@ pub(crate) mod ffi {
         notify.as_model_notify().row_removed(row, count);
     }
 
+    // FIXME: Figure out how to re-export the one from compilerlib
+    #[derive(Clone)]
+    #[repr(C)]
+    pub enum CDiagnosticLevel {
+        Error,
+        Warning,
+    }
+
+    #[derive(Clone)]
+    #[repr(C)]
+    pub struct CDiagnostic {
+        message: SharedString,
+        source_file: SharedString,
+        line: usize,
+        column: usize,
+        level: CDiagnosticLevel,
+    }
+
     #[repr(C)]
     pub struct ComponentCompilerOpaque([usize; 12]);
     /// Asserts that ComponentCompilerOpaque is as large as ComponentCompiler and has the same alignment, to make transmute safe.
@@ -1371,6 +1389,29 @@ pub(crate) mod ffi {
                 .iter()
                 .map(|path| path.to_str().map_or_else(|| Default::default(), |str| str.into())),
         );
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_diagnostics(
+        compiler: &ComponentCompilerOpaque,
+        out_diags: &mut SharedVector<CDiagnostic>,
+    ) {
+        out_diags.extend(compiler.as_component_compiler().diagnostics.iter().map(|diagnostic| {
+            let (line, column) = diagnostic.line_column();
+            CDiagnostic {
+                message: diagnostic.message().into(),
+                source_file: diagnostic
+                    .source_file()
+                    .and_then(|path| path.to_str())
+                    .map_or_else(|| Default::default(), |str| str.into()),
+                line,
+                column,
+                level: match diagnostic.level() {
+                    DiagnosticLevel::Error => CDiagnosticLevel::Error,
+                    DiagnosticLevel::Warning => CDiagnosticLevel::Warning,
+                },
+            }
+        }));
     }
 
     #[no_mangle]
