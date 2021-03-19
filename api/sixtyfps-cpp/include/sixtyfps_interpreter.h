@@ -376,14 +376,14 @@ public:
     {
         using namespace cbindgen_private;
         return sixtyfps_interpreter_component_instance_set_property(
-                &inner, Slice<uint8_t>::from_string(name), &value.inner);
+                &inner, sixtyfps::private_api::string_to_slice(name), &value.inner);
     }
     std::optional<Value> get_property(std::string_view name) const
     {
         using namespace cbindgen_private;
         ValueOpaque out;
         if (sixtyfps_interpreter_component_instance_get_property(
-                    &inner, Slice<uint8_t>::from_string(name), &out)) {
+                    &inner, sixtyfps::private_api::string_to_slice(name), &out)) {
             return Value(out);
         } else {
             return {};
@@ -396,7 +396,7 @@ public:
         Slice<ValueOpaque> args_view { reinterpret_cast<ValueOpaque *>(args.ptr), args.len };
         ValueOpaque out;
         if (sixtyfps_interpreter_component_instance_invoke_callback(
-                    &inner, Slice<uint8_t>::from_string(name), args_view, &out)) {
+                    &inner, sixtyfps::private_api::string_to_slice(name), args_view, &out)) {
             return Value(out);
         } else {
             return {};
@@ -413,8 +413,8 @@ public:
             new (ret) Value(std::move(r));
         };
         return cbindgen_private::sixtyfps_interpreter_component_instance_set_callback(
-                &inner, Slice<uint8_t>::from_string(name), actual_cb, new F(std::move(callback)),
-                [](void *data) { delete reinterpret_cast<F *>(data); });
+                &inner, sixtyfps::private_api::string_to_slice(name), actual_cb,
+                new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 };
 
