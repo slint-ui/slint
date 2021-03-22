@@ -264,3 +264,41 @@ SCENARIO("Component Compiler")
         REQUIRE(result.has_value());
     }
 }
+
+SCENARIO("Invoke callback")
+{
+    using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
+
+    ComponentCompiler compiler;
+
+    SECTION("valid")
+    {
+        auto result = compiler.build_from_source("export Dummy := Rectangle { callback foo(string, int) -> string; }", "");
+        REQUIRE(result.has_value());
+        auto instance = result->create();
+        REQUIRE(instance->set_callback("foo", [](auto args) {
+            SharedString arg1 = *args[0].to_string();
+            int arg2 = *args[1].to_number();
+            std::string res = std::string(arg1) + ":" + std::to_string(arg2);
+            return Value(SharedString(res));
+        }));
+        Value args[] = { SharedString("Hello"), 42. };
+        auto res = instance->invoke_callback("foo", Slice<Value>{args, 2});
+        REQUIRE(res.has_value());
+        REQUIRE(*res->to_string() == SharedString("Hello:42"));
+    }
+
+    SECTION("invalid")
+    {
+        auto result = compiler.build_from_source("export Dummy := Rectangle { callback foo(string, int) -> string; }", "");
+        REQUIRE(result.has_value());
+        auto instance = result->create();
+        REQUIRE(!instance->set_callback("bar", [](auto) {
+            return Value();
+        }));
+        Value args[] = { SharedString("Hello"), 42. };
+        auto res = instance->invoke_callback("bar", Slice<Value>{args, 2});
+        REQUIRE(!res.has_value());
+    }
+}

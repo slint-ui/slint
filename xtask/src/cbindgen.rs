@@ -103,6 +103,10 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 
     let mut string_config = config.clone();
     string_config.export.exclude = vec!["SharedString".into()];
+    string_config.export.body.insert(
+        "Slice".to_owned(),
+        "    const T &operator[](int i) const { return ptr[i]; }".to_owned(),
+    );
     cbindgen::Builder::new()
         .with_config(string_config)
         .with_src(crate_dir.join("string.rs"))

@@ -422,7 +422,7 @@ public:
         using cbindgen_private::ValueOpaque;
         auto actual_cb = [](void *data, Slice<ValueOpaque> arg, ValueOpaque *ret) {
             Slice<Value> args_view { reinterpret_cast<Value *>(arg.ptr), arg.len };
-            Value r = (*reinterpret_cast<F *>(data))(arg);
+            Value r = (*reinterpret_cast<F *>(data))(args_view);
             new (ret) Value(std::move(r));
         };
         return cbindgen_private::sixtyfps_interpreter_component_instance_set_callback(
