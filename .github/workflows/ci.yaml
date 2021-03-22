@@ -236,6 +236,7 @@ jobs:
   cpp_cmake:
     env:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
+      QT_QPA_PLATFORM: offscreen
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-latest, windows-latest]
