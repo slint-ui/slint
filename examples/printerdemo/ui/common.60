@@ -181,6 +181,7 @@ export SpinBox := Rectangle {
 
 export ComboBox := Rectangle {
     property<string> value;
+    property<[string]> choices;
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control_outline_color;
@@ -202,6 +203,41 @@ export ComboBox := Rectangle {
         image-fit: contain;
         x: parent.width - width - y;
         y: (parent.height - height)/2;
+    }
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+        clicked => { popup.show(); }
+    }
+
+    popup := PopupWindow {
+        y: root.height;
+        width: root.width;
+        Rectangle {
+            background: DemoPalette.page_background_color;
+            border-radius: 3px;
+            border-width: 2px;
+            border-color: DemoPalette.control_outline_color;
+        }
+        VerticalLayout {
+            spacing: 6px;
+            padding: 12px;
+            for value[idx] in root.choices: Rectangle {
+                VerticalLayout {
+                    Text {
+                        text: value;
+                        color: DemoPalette.text_foreground_color;
+                        TouchArea {
+                            clicked => {
+                                root.value = value;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
     }
 }
 

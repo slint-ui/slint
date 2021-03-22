@@ -48,25 +48,40 @@ export SettingsPage := Page {
         }
         Row {
             Label { text: "Layout"; }
-            ComboBox { value: "Portrait"; }
+            ComboBox {
+                value: "Portrait";
+                choices: ["Portrait", "Landscape"];
+            }
 
             Rectangle {}
 
             Label { text: "Paper Tray"; }
-            ComboBox { value: "Special Tray"; }
+            ComboBox {
+                value: "Special Tray";
+                choices: ["Special Tray", "Normal Tray"];
+            }
         }
         Row {
             Label { text: "Quality"; }
-            ComboBox { value: "Best"; }
+            ComboBox {
+                value: "Best";
+                choices: ["Best", "Medium", "Draft"];
+            }
 
             Rectangle {}
 
             Label { text: "Paper Type"; }
-            ComboBox { value: "Standard"; }
+            ComboBox {
+                value: "Standard";
+                choices: ["Standard", "Non-standard"];
+            }
         }
         Row {
             Label { text: "Color Mode"; }
-            ComboBox { value: "Grayscale"; }
+            ComboBox {
+                value: "Grayscale";
+                choices: ["Grayscale", "RGB", "YCMB"];
+            }
 
             Rectangle {}
 
@@ -75,7 +90,7 @@ export SettingsPage := Page {
                 checked: true;
                 text: "sort page";
             }
-        }    
+        }
         Row { Rectangle {} }
     }
 

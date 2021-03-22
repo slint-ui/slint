@@ -61,7 +61,10 @@ export UsbPage := Page {
         }
         Row {
             Label { col: 1; text: "Color"; }
-            ComboBox { value: "Grayscale"; }
+            ComboBox {
+                value: "Grayscale";
+                choices: ["Grayscale", "Color"];
+            }
         }
         HorizontalLayout {
             row: 4;

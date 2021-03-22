@@ -38,25 +38,40 @@ export ScanPage := Page {
             Rectangle {}
 
             Label { text: "Size"; }
-            ComboBox { value: "Original"; }
+            ComboBox {
+                value: "Original";
+                choices: ["Original", "A4"];
+            }
         }
         Row {
             Label { text: "Quality"; }
-            ComboBox { value: "Best"; }
+            ComboBox {
+                value: "Best";
+                choices: ["Best", "Medium", "Draft"];
+            }
 
             Rectangle {}
 
             Label { text: "Format"; }
-            ComboBox { value: "PDF"; }
+            ComboBox {
+                value: "PDF";
+                choices: ["PDF", "JPEG", "PNG"];
+            }
         }
         Row {
             Label { text: "Color"; }
-            ComboBox { value: "Grayscale"; }
+            ComboBox {
+                value: "Grayscale";
+                choices: ["Grayscale", "RGB", "YCMB"];
+            }
 
             Rectangle {}
 
             Label { text: "Save to"; }
-            ComboBox { value: "Desktop"; }
+            ComboBox {
+                value: "Desktop";
+                choices: ["Desktop"];
+            }
         }
          Row {
             Rectangle {
