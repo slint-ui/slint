@@ -13,7 +13,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
-
+import exhale_multiproject_monkeypatch
 
 # -- Project information -----------------------------------------------------
 
@@ -33,23 +33,40 @@ release = '0.0.5'
 extensions = ["breathe", "recommonmark", "exhale", "sphinx_markdown_tables"]
 
 breathe_projects = {
-        "SixtyFPS": "./docs/xml"
+        "SixtyFPS": "./docs/xml",
+        "SixtyFPS Interpreter": "./interpreter-docs/xml",
 }
 breathe_default_project = "SixtyFPS"
 
 exhale_args = {
-        "containmentFolder": "./api",
-        "rootFileName": "library_root.rst",
-        "rootFileTitle": "SixtyFPS CPP Reference Documentation",
         "doxygenStripFromPath": "..",
         "createTreeView": True,
         "exhaleExecutesDoxygen": True,
+        "rootFileName": "library_root.rst",
+}
+
+exhale_projects_args = {
+    "SixtyFPS": {
+        "rootFileTitle": "SixtyFPS CPP Reference",
+        "containmentFolder": "./api",
         "exhaleDoxygenStdin": '''INPUT = ../../api/sixtyfps-cpp/include
 EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api* sixtyfps::interpreter*
 EXCLUDE = ../../api/sixtyfps-cpp/include/vtable.h ../../api/sixtyfps-cpp/include/sixtyfps_testing.h
 ENABLE_PREPROCESSING = YES
 PREDEFINED = DOXYGEN'''
+    },
+    "SixtyFPS Interpreter": {
+        "rootFileTitle": "SixtyFPS Interpreter CPP Reference",
+        "containmentFolder": "./interpreter-api",
+        "exhaleDoxygenStdin": '''INPUT = ../../api/sixtyfps-cpp/include/sixtyfps_interpreter.h
+EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api*
+EXCLUDE = ../../api/sixtyfps-cpp/include/vtable.h ../../api/sixtyfps-cpp/include/sixtyfps_testing.h
+ENABLE_PREPROCESSING = YES
+PREDEFINED = DOXYGEN
+'''
+    },
 }
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
