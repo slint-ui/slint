@@ -134,15 +134,20 @@ if(BUILD_TESTING)
 
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(api_tests tests/tests.cpp)
-    target_link_libraries(api_tests PRIVATE SixtyFPS Catch2::Catch2)
-    target_compile_definitions(api_tests PRIVATE
-        SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\"
-    )
-    add_test(api_tests ${CMAKE_CURRENT_BINARY_DIR}/api_tests)
-    # Somehow the wrong relative rpath ends up in the binary, requiring us to change the
-    # working directory.
-    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-        set_property(TEST api_tests PROPERTY WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
-    endif()
+    macro(sixtyfps_test NAME)
+        add_executable(test_${NAME} tests/${NAME}.cpp)
+        target_link_libraries(test_${NAME} PRIVATE SixtyFPS Catch2::Catch2)
+        target_compile_definitions(test_${NAME} PRIVATE
+            SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\"
+        )
+        add_test(test_${NAME} ${CMAKE_CURRENT_BINARY_DIR}/test_${NAME})
+        # Somehow the wrong relative rpath ends up in the binary, requiring us to change the
+        # working directory.
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            set_property(TEST test_${NAME} PROPERTY WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+        endif()
+    endmacro(sixtyfps_test)
+    sixtyfps_test(datastructures)
+    sixtyfps_test(interpreter)
+
 endif()

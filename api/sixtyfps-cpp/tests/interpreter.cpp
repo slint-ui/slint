@@ -14,36 +14,6 @@ LICENSE END */
 #include <sixtyfps.h>
 #include <sixtyfps_interpreter.h>
 
-SCENARIO("SharedString API")
-{
-    sixtyfps::SharedString str;
-
-    REQUIRE(str.empty());
-
-    SECTION("Construct from string_view")
-    {
-        std::string foo("Foo");
-        std::string_view foo_view(foo);
-        str = foo_view;
-        REQUIRE(str == "Foo");
-    }
-}
-
-TEST_CASE("Basic SharedVector API", "[vector]")
-{
-    sixtyfps::SharedVector<int> vec;
-    REQUIRE(vec.empty());
-
-    SECTION("Initializer list")
-    {
-        sixtyfps::SharedVector<int> vec({ 1, 4, 10 });
-        REQUIRE(vec.size() == 3);
-        REQUIRE(vec[0] == 1);
-        REQUIRE(vec[1] == 4);
-        REQUIRE(vec[2] == 10);
-    }
-}
-
 SCENARIO("Value API")
 {
     using namespace sixtyfps::interpreter;
