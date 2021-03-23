@@ -178,6 +178,20 @@ private:
     StructOpaque inner;
     friend class Value;
 };
+
+/// This is a dynamically typed value used in the SixtyFPS interpreter.
+/// It can hold a value of different types, and you should use the
+/// different overloaded constructors and the to_xxx() functions to access the
+//// value within.
+///
+/// ```
+/// Value v(42.0); // Creates a value that holds a double with the value 42.
+///
+/// Value some_value = ...;
+/// // Check if the value has a string
+/// if (std::optional<sixtyfps::SharedString> string_value = some_value.to_string())
+///     do_something(*string_value);  // Extract the string by de-referencing
+/// ```
 class Value
 {
 public:
@@ -208,6 +222,7 @@ public:
     }
     ~Value() { cbindgen_private::sixtyfps_interpreter_value_destructor(&inner); }
 
+    /// \private
     using Type = cbindgen_private::ValueType;
 
     // optional<int> to_int() const;
