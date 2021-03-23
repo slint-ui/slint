@@ -209,6 +209,38 @@ SCENARIO("Struct Initializer List Constructor")
     REQUIRE(struc.get_field("field_b").value().to_number().value() == 42.0);
 }
 
+SCENARIO("Struct empty field iteration")
+{
+    using namespace sixtyfps::interpreter;
+    Struct struc;
+    REQUIRE(struc.begin() == struc.end());
+}
+
+SCENARIO("Struct field iteration")
+{
+    using namespace sixtyfps::interpreter;
+
+    Struct struc({ { "field_a", Value(true) }, { "field_b", Value(42.0) } });
+
+    auto it = struc.begin();
+    auto end = struc.end();
+    REQUIRE(it != end);
+
+    {
+        auto [key, value] = *it;
+        REQUIRE(key == "field_a");
+        REQUIRE(value == Value(true));
+    }
+    ++it;
+    {
+        auto [key, value] = *it;
+        REQUIRE(key == "field_b");
+        REQUIRE(value == Value(42.0));
+    }
+    ++it;
+    REQUIRE(it == end);
+}
+
 SCENARIO("Component Compiler")
 {
     using namespace sixtyfps::interpreter;
@@ -274,7 +306,8 @@ SCENARIO("Invoke callback")
 
     SECTION("valid")
     {
-        auto result = compiler.build_from_source("export Dummy := Rectangle { callback foo(string, int) -> string; }", "");
+        auto result = compiler.build_from_source(
+                "export Dummy := Rectangle { callback foo(string, int) -> string; }", "");
         REQUIRE(result.has_value());
         auto instance = result->create();
         REQUIRE(instance->set_callback("foo", [](auto args) {
@@ -284,21 +317,20 @@ SCENARIO("Invoke callback")
             return Value(SharedString(res));
         }));
         Value args[] = { SharedString("Hello"), 42. };
-        auto res = instance->invoke_callback("foo", Slice<Value>{args, 2});
+        auto res = instance->invoke_callback("foo", Slice<Value> { args, 2 });
         REQUIRE(res.has_value());
         REQUIRE(*res->to_string() == SharedString("Hello:42"));
     }
 
     SECTION("invalid")
     {
-        auto result = compiler.build_from_source("export Dummy := Rectangle { callback foo(string, int) -> string; }", "");
+        auto result = compiler.build_from_source(
+                "export Dummy := Rectangle { callback foo(string, int) -> string; }", "");
         REQUIRE(result.has_value());
         auto instance = result->create();
-        REQUIRE(!instance->set_callback("bar", [](auto) {
-            return Value();
-        }));
+        REQUIRE(!instance->set_callback("bar", [](auto) { return Value(); }));
         Value args[] = { SharedString("Hello"), 42. };
-        auto res = instance->invoke_callback("bar", Slice<Value>{args, 2});
+        auto res = instance->invoke_callback("bar", Slice<Value> { args, 2 });
         REQUIRE(!res.has_value());
     }
 }

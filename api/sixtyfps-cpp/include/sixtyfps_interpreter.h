@@ -105,6 +105,31 @@ public:
     }
 
     // FIXME: this probably miss a lot of iterator api
+    /// The Struct::iterator class implements the typical C++ iterator protocol and conveniently
+    /// provides access to the field names and values of a Struct. It is created by calling either
+    /// Struct::begin() or Struct::end().
+    ///
+    /// Make sure to compare the iterator to the iterator returned by Struct::end() before
+    /// de-referencing it. The value returned when de-referencing is a std::pair that holds a
+    /// std::string_view of the field name as well as a const reference of the value. Both
+    /// references become invalid when the iterator or the Struct is changed, so make sure to make
+    /// copies if you want to retain the name or value.
+    ///
+    /// If you're using C++ 17, you can use the convenience destructuring syntax to extract the name
+    /// and value in one go:
+    ///
+    /// ```
+    /// Struct stru = ...;
+    /// auto it = stru.begin();
+    /// ...
+    /// ++it; // advance iterator to the next field
+    /// ...
+    /// // Check iterator before dereferencing it
+    /// if (it != stru.end()) {
+    ///     // Extract a view of the name and a const reference to the value in one go.
+    ///     auto [field_name, field_value] = *it;
+    /// }
+    /// ```
     struct iterator
     {
         using value_type = std::pair<std::string_view, const Value &>;
@@ -128,6 +153,7 @@ public:
         }
 
     public:
+        /// Destroys this field iterator.
         ~iterator()
         {
             if (v) {
