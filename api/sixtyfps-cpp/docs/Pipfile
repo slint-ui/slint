@@ -12,7 +12,6 @@ sphinx-rtd-theme = "*"
 exhale = "*"
 recommonmark = "*"
 sphinx-markdown-tables = "*"
-sphinx-contrib-exhale-multiproject = {subdirectory = "sphinx-contrib-exhale-multiproject", editable = true, git = "https://github.com/tronical/sphinx-contrib-mithro"}
 
 [requires]
 python_version = "3.8"
