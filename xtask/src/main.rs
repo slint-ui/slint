@@ -22,7 +22,7 @@ pub enum TaskCommand {
     #[structopt(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
     #[structopt(name = "cppdocs")]
-    CppDocs,
+    CppDocs(CppDocsCommand),
     #[structopt(name = "cbindgen")]
     Cbindgen(CbindgenCommand),
     #[structopt(name = "node_package")]
@@ -42,6 +42,12 @@ pub struct CbindgenCommand {
     output_dir: String,
 }
 
+#[derive(Debug, StructOpt)]
+pub struct CppDocsCommand {
+    #[structopt(long)]
+    show_warnings: bool,
+}
+
 /// The root dir of the git repository
 fn root_dir() -> PathBuf {
     let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -49,7 +55,12 @@ fn root_dir() -> PathBuf {
     root
 }
 
-fn run_command<I, K, V>(program: &str, args: &[&str], env: I) -> anyhow::Result<Vec<u8>>
+struct CommandOutput {
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
+fn run_command<I, K, V>(program: &str, args: &[&str], env: I) -> anyhow::Result<CommandOutput>
 where
     I: IntoIterator<Item = (K, V)>,
     K: AsRef<std::ffi::OsStr>,
@@ -75,14 +86,14 @@ where
             String::from_utf8_lossy(&output.stderr)
         ))
     } else {
-        Ok(output.stdout)
+        Ok(CommandOutput { stderr: output.stderr, stdout: output.stdout })
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::from_args().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
-        TaskCommand::CppDocs => cppdocs::generate()?,
+        TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings)?,
         TaskCommand::Cbindgen(cmd) => cbindgen::gen_all(&root_dir(), Path::new(&cmd.output_dir))?,
         TaskCommand::NodePackage => nodepackage::generate()?,
     };

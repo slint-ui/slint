@@ -59,7 +59,7 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
     Ok(())
 }
 
-pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
+pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 
     let docs_source_dir = root.join("api/sixtyfps-cpp");
@@ -106,7 +106,11 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     )
     .context("Error running pipenv install")?;
 
-    println!("{}", String::from_utf8_lossy(&output));
+    println!("{}", String::from_utf8_lossy(&output.stdout));
+
+    if show_warnings {
+        println!("{}", String::from_utf8_lossy(&output.stderr));
+    }
 
     Ok(())
 }

@@ -279,7 +279,8 @@ fn collect_files() -> Result<Vec<PathBuf>> {
         "git",
         &["ls-files", "-z"],
         std::iter::empty::<(std::ffi::OsString, std::ffi::OsString)>(),
-    )?;
+    )?
+    .stdout;
     let mut files = Vec::new();
     for path in ls_files_output.split(|ch| *ch == 0) {
         if path.is_empty() {
