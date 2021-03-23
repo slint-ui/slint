@@ -492,14 +492,22 @@ class ComponentInstance : vtable::Dyn
     }
 
 public:
+    /// Marks the window of this component to be shown on the screen. This registers
+    /// the window with the windowing system. In order to react to events from the windowing system,
+    /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
+    /// using sixtyfps::run_event_loop().
     void show() const
     {
         cbindgen_private::sixtyfps_interpreter_component_instance_show(inner(), true);
     }
+    /// Marks the window of this component to be hidden on the screen. This de-registers
+    /// the window from the windowing system and it will not receive any further events.
     void hide() const
     {
         cbindgen_private::sixtyfps_interpreter_component_instance_show(inner(), false);
     }
+    /// This is a convenience function that first calls show(), followed by
+    /// sixtyfps::run_event_loop() and hide().
     void run() const
     {
         show();
