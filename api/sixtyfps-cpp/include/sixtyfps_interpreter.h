@@ -29,6 +29,15 @@ namespace sixtyfps::interpreter {
 
 class Value;
 
+/// This type represents a runtime instance of structure in `.60`.
+///
+/// This can either be an instance of a name structure introduced
+/// with the `struct` keyword in the .60 file, or an annonymous struct
+/// writen with the `{ key: value, }`  notation.
+///
+/// It can be constructed with the range constructor or initializer lst,
+/// and converted into or from a Value with the Value constructor and
+/// Value::to_struct().
 struct Struct
 {
 public:

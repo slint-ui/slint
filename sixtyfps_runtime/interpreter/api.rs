@@ -272,10 +272,10 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
     }
 }
 
-/// This type represent a runtime instance of structure in `.60`.
+/// This type represents a runtime instance of structure in `.60`.
 ///
 /// This can either be an instance of a name structure introduced
-/// with the `struct` keywrod in the .60 file, or an annonymous struct
+/// with the `struct` keyword in the .60 file, or an annonymous struct
 /// writen with the `{ key: value, }`  notation.
 ///
 /// It can be constructed with the [`FromIterator`] trait, and converted
