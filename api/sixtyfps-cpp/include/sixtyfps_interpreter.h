@@ -184,6 +184,9 @@ private:
 /// different overloaded constructors and the to_xxx() functions to access the
 //// value within.
 ///
+/// It is also possible to query the type the value holds by calling the Value::type()
+/// function.
+///
 /// ```
 /// Value v(42.0); // Creates a value that holds a double with the value 42.
 ///
@@ -195,6 +198,7 @@ private:
 class Value
 {
 public:
+    /// Constructs a new value of type Value::Type::Void.
     Value() { cbindgen_private::sixtyfps_interpreter_value_new(&inner); }
 
     Value(const Value &other) { sixtyfps_interpreter_value_clone(&other.inner, &inner); }
