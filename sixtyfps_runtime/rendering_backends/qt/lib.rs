@@ -39,7 +39,8 @@ pub fn use_modules() -> usize {
     }
     #[cfg(not(no_qt))]
     {
-        (&widgets::NativeButtonVTable) as *const _ as usize
+        qt_window::ffi::sixtyfps_qt_get_widget as usize
+            + (&widgets::NativeButtonVTable) as *const _ as usize
     }
 }
 

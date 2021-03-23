@@ -15,6 +15,12 @@ LICENSE END */
 
 #include <optional>
 
+#define SIXTYFPS_QT_INTEGRATION // In the future, should be defined by cmake only if this is enabled
+#ifdef SIXTYFPS_QT_INTEGRATION
+class QWidget;
+#endif
+
+
 namespace sixtyfps::cbindgen_private {
 //  This has to stay opaque, but VRc don't compile if it is just forward declared
 struct ErasedComponentBox : vtable::Dyn
@@ -501,6 +507,17 @@ public:
         cbindgen_private::sixtyfps_run_event_loop();
         hide();
     }
+#ifdef SIXTYFPS_QT_INTEGRATION
+    /// Return a QWidget for this instance.
+    /// This function is only available if the qt graphical backend was compiled in, and
+    /// it may return nullptr if the Qt backend is not used at runtime.
+    QWidget *qwidget() const {
+        cbindgen_private::ComponentWindowOpaque win;
+        cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win);
+        return reinterpret_cast<QWidget *>(cbindgen_private::sixtyfps_qt_get_widget(
+            reinterpret_cast<cbindgen_private::ComponentWindow *>(&win)));
+    }
+#endif
 
     bool set_property(std::string_view name, const Value &value) const
     {

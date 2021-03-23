@@ -1010,6 +1010,10 @@ impl PlatformWindow for QtWindow {
             })
             .unwrap_or_default()
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 fn get_font(request: FontRequest) -> QFont {
@@ -1198,4 +1202,20 @@ fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedStr
         _ => "",
     }
     .into()
+}
+
+pub(crate) mod ffi {
+    use std::any::Any;
+    use std::ffi::c_void;
+
+    use super::QtWindow;
+
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_qt_get_widget(
+        window: &sixtyfps_corelib::window::ComponentWindow,
+    ) -> *mut c_void {
+        Any::downcast_ref(window.0.as_any()).map_or(std::ptr::null_mut(), |win: &QtWindow| {
+            win.widget_ptr().cast::<c_void>().as_ptr()
+        })
+    }
 }

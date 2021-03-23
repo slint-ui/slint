@@ -65,6 +65,9 @@ pub trait PlatformWindow {
         &self,
         source: Pin<&crate::properties::Property<ImageReference>>,
     ) -> crate::graphics::Size;
+
+    /// Return self as any so the backend can upcast
+    fn as_any(&self) -> &dyn core::any::Any;
 }
 
 /// Structure that represent a Window in the runtime

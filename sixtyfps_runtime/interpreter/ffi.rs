@@ -420,6 +420,23 @@ pub extern "C" fn sixtyfps_interpreter_component_instance_show(
     }
 }
 
+/// Return a window for the component
+///
+/// The out pointer must be uninitialized and must be destroyed with
+/// sixtyfps_component_window_drop after usage
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_window(
+    inst: &ErasedComponentBox,
+    out: *mut sixtyfps_corelib::window::ffi::ComponentWindowOpaque,
+) {
+    use sixtyfps_corelib::window::ComponentWindow;
+    assert_eq!(
+        core::mem::size_of::<ComponentWindow>(),
+        core::mem::size_of::<sixtyfps_corelib::window::ffi::ComponentWindowOpaque>()
+    );
+    core::ptr::write(out as *mut ComponentWindow, inst.window())
+}
+
 /// Instantiate an instance from a definition.
 ///
 /// The `out` must be uninitialized and is going to be initialized after the call

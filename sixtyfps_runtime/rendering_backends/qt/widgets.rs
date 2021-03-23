@@ -130,6 +130,9 @@ cpp! {{
     void ensure_initialized()
     {
         static auto app [[maybe_unused]]  = []{
+            if (qApp) {
+                return qApp;
+            }
             QCoreApplication::setAttribute(Qt::AA_PluginApplication, true);
             static int argc  = 1;
             static char argv[] = "sixtyfps";
