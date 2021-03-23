@@ -120,6 +120,8 @@ public:
     /// references become invalid when the iterator or the Struct is changed, so make sure to make
     /// copies if you want to retain the name or value.
     ///
+    /// Note that the order in which the iterator exposes the fields is not defined.
+    ///
     /// If you're using C++ 17, you can use the convenience destructuring syntax to extract the name
     /// and value in one go:
     ///

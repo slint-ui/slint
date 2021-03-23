@@ -226,19 +226,22 @@ SCENARIO("Struct field iteration")
     auto end = struc.end();
     REQUIRE(it != end);
 
-    {
-        auto [key, value] = *it;
-        REQUIRE(key == "field_a");
-        REQUIRE(value == Value(true));
+    auto check_valid_entry = [](const auto &key, const auto &value) -> bool {
+        if (key == "field_a")
+            return value == Value(true);
+        if (key == "field_b")
+            return value == Value(42.0);
+        return false;
+    };
+
+    std::set<std::string> seen_fields;
+
+    for (; it != end; ++it) {
+        const auto [key, value] = *it;
+        REQUIRE(check_valid_entry(key, value));
+        auto [insert_it, value_inserted] = seen_fields.insert(std::string(key));
+        REQUIRE(value_inserted);
     }
-    ++it;
-    {
-        auto [key, value] = *it;
-        REQUIRE(key == "field_b");
-        REQUIRE(value == Value(42.0));
-    }
-    ++it;
-    REQUIRE(it == end);
 }
 
 SCENARIO("Component Compiler")
