@@ -16,12 +16,13 @@ LICENSE END */
 #include <optional>
 
 namespace sixtyfps::cbindgen_private {
-    //  This has to stay opaque, but VRc don't compile if it is just forward declared
-    struct ErasedComponentBox : vtable::Dyn {
-        ~ErasedComponentBox() = delete;
-        ErasedComponentBox() = delete;
-        ErasedComponentBox(ErasedComponentBox&) = delete;
-    };
+//  This has to stay opaque, but VRc don't compile if it is just forward declared
+struct ErasedComponentBox : vtable::Dyn
+{
+    ~ErasedComponentBox() = delete;
+    ErasedComponentBox() = delete;
+    ErasedComponentBox(ErasedComponentBox &) = delete;
+};
 }
 
 namespace sixtyfps::interpreter {
@@ -63,14 +64,19 @@ public:
 
     inline Struct(std::initializer_list<std::pair<std::string_view, Value>> args);
 
-    template<typename InputIterator,
+    template<typename InputIterator
+// Doxygen doesn't understand this template wizardry
+#if !defined(DOXYGEN)
+             ,
              typename std::enable_if_t<
                      std::is_convertible<decltype(std::get<0>(*std::declval<InputIterator>())),
                                          std::string_view>::value
                      && std::is_convertible<decltype(std::get<1>(*std::declval<InputIterator>())),
                                             Value>::value
 
-                     > * = nullptr>
+                     > * = nullptr
+#endif
+             >
     Struct(InputIterator it, InputIterator end) : Struct()
     {
         for (; it != end; ++it) {
@@ -367,7 +373,9 @@ class ComponentInstance : vtable::Dyn
 
     // ComponentHandle<ComponentInstance>  is in fact a VRc<ComponentVTable, ErasedComponentBox>
     const cbindgen_private::ErasedComponentBox *inner() const
-    { return reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(this); }
+    {
+        return reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(this);
+    }
 
 public:
     void show() const
@@ -460,13 +468,12 @@ public:
         return *this;
     }
     ~ComponentDefinition() { sixtyfps_interpreter_component_definition_destructor(&inner); }
-    ComponentHandle<ComponentInstance> create() const {
+    ComponentHandle<ComponentInstance> create() const
+    {
         union CI {
             cbindgen_private::ComponentInstance i;
-            ~CI() {
-                i.~ComponentInstance();
-            }
-            CI() {}
+            ~CI() { i.~ComponentInstance(); }
+            CI() { }
         } u;
         cbindgen_private::sixtyfps_interpreter_component_instance_create(&inner, &u.i);
         return *reinterpret_cast<ComponentHandle<ComponentInstance> *>(&u.i);
