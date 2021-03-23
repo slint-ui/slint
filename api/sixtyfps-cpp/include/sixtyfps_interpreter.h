@@ -41,17 +41,22 @@ class Value;
 struct Struct
 {
 public:
+    /// Constructs a new empty struct. You can add fields with set_field() and
+    /// read them with get_field().
     Struct() { cbindgen_private::sixtyfps_interpreter_struct_new(&inner); }
 
+    /// Creates a new Struct as a copy from \a other. All fields are copied as well.
     Struct(const Struct &other)
     {
         cbindgen_private::sixtyfps_interpreter_struct_clone(&other.inner, &inner);
     }
+    /// Creates a new Struct by moving all fields from \a other into this struct.
     Struct(Struct &&other)
     {
         inner = other.inner;
         cbindgen_private::sixtyfps_interpreter_struct_new(&other.inner);
     }
+    /// Assigns all the fields of \a other to this struct.
     Struct &operator=(const Struct &other)
     {
         if (this == &other)
@@ -60,6 +65,7 @@ public:
         sixtyfps_interpreter_struct_clone(&other.inner, &inner);
         return *this;
     }
+    /// Moves all the fields of \a other to this struct.
     Struct &operator=(Struct &&other)
     {
         if (this == &other)
@@ -69,10 +75,14 @@ public:
         cbindgen_private::sixtyfps_interpreter_struct_new(&other.inner);
         return *this;
     }
+    /// Destroys this struct.
     ~Struct() { cbindgen_private::sixtyfps_interpreter_struct_destructor(&inner); }
 
+    /// Creates a new struct with the fields of the std::initializer_list given by args.
     inline Struct(std::initializer_list<std::pair<std::string_view, Value>> args);
 
+    /// Creates a new struct with the fields produced by the iterator \a it. \a it is
+    /// advanced until it equals \a end.
     template<typename InputIterator
 // Doxygen doesn't understand this template wizardry
 #if !defined(DOXYGEN)
@@ -140,16 +150,24 @@ public:
         friend bool operator!=(const iterator &a, const iterator &b) { return a.v != b.v; }
     };
 
+    /// Returns an iterator over the fields of the struct.
     iterator begin() const
     {
         return iterator(cbindgen_private::sixtyfps_interpreter_struct_make_iter(&inner));
     }
+    /// Returns an iterator that when compared with an iterator returned by begin() can be
+    /// used to detect when all fields have been visited.
     iterator end() const { return iterator(); }
 
+    /// Returns the value of the field with the given \a name; Returns an std::optional without
+    /// value if the field does not exist.
     inline std::optional<Value> get_field(std::string_view name) const;
+    /// Sets the value of the field with the given \a name to the specified \a value. If the field
+    /// does not exist yet, it is created; otherwise the existing field is updated to hold the new
+    /// value.
     inline void set_field(std::string_view name, const Value &value);
 
-    // internal
+    /// \private
     Struct(const sixtyfps::cbindgen_private::StructOpaque &other)
     {
         cbindgen_private::sixtyfps_interpreter_struct_clone(&other, &inner);
