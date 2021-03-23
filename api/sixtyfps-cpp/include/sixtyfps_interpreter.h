@@ -201,12 +201,15 @@ public:
     /// Constructs a new value of type Value::Type::Void.
     Value() { cbindgen_private::sixtyfps_interpreter_value_new(&inner); }
 
+    /// Constructs a new value by copying \a other.
     Value(const Value &other) { sixtyfps_interpreter_value_clone(&other.inner, &inner); }
+    /// Constructs a new value by moving \a other to this.
     Value(Value &&other)
     {
         inner = other.inner;
         cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
     }
+    /// Assigns the value \a other to this.
     Value &operator=(const Value &other)
     {
         if (this == &other)
@@ -215,6 +218,7 @@ public:
         sixtyfps_interpreter_value_clone(&other.inner, &inner);
         return *this;
     }
+    /// Moves the value \a other to this.
     Value &operator=(Value &&other)
     {
         if (this == &other)
@@ -224,6 +228,7 @@ public:
         cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
         return *this;
     }
+    /// Destroys the value.
     ~Value() { cbindgen_private::sixtyfps_interpreter_value_destructor(&inner); }
 
     /// \private
@@ -231,6 +236,8 @@ public:
 
     // optional<int> to_int() const;
     // optional<float> to_float() const;
+    /// Returns a std::optional that contains a double if the type of this Value is
+    /// Type::Double, otherwise an empty optional is returned.
     std::optional<double> to_number() const
     {
         if (auto *number = cbindgen_private::sixtyfps_interpreter_value_to_number(&inner)) {
@@ -239,6 +246,9 @@ public:
             return {};
         }
     }
+
+    /// Returns a std::optional that contains a string if the type of this Value is
+    /// Type::String, otherwise an empty optional is returned.
     std::optional<sixtyfps::SharedString> to_string() const
     {
         if (auto *str = cbindgen_private::sixtyfps_interpreter_value_to_string(&inner)) {
@@ -247,6 +257,9 @@ public:
             return {};
         }
     }
+
+    /// Returns a std::optional that contains a bool if the type of this Value is
+    /// Type::Bool, otherwise an empty optional is returned.
     std::optional<bool> to_bool() const
     {
         if (auto *b = cbindgen_private::sixtyfps_interpreter_value_to_bool(&inner)) {
@@ -255,8 +268,17 @@ public:
             return {};
         }
     }
+
+    /// Returns a std::optional that contains a vector of values if the type of this Value is
+    /// Type::Array, otherwise an empty optional is returned.
     inline std::optional<sixtyfps::SharedVector<Value>> to_array() const;
+
+    /// Returns a std::optional that contains a model of values if the type of this Value is
+    /// Type::Model, otherwise an empty optional is returned.
     std::optional<std::shared_ptr<sixtyfps::Model<Value>>> to_model() const;
+
+    /// Returns a std::optional that contains a brush if the type of this Value is
+    /// Type::Brush, otherwise an empty optional is returned.
     std::optional<sixtyfps::Brush> to_brush() const
     {
         if (auto *brush = cbindgen_private::sixtyfps_interpreter_value_to_brush(&inner)) {
@@ -265,6 +287,9 @@ public:
             return {};
         }
     }
+
+    /// Returns a std::optional that contains a Struct if the type of this Value is
+    /// Type::Struct, otherwise an empty optional is returned.
     std::optional<Struct> to_struct() const
     {
         if (auto *opaque_struct = cbindgen_private::sixtyfps_interpreter_value_to_struct(&inner)) {
@@ -275,29 +300,41 @@ public:
     }
 
     // template<typename T> std::optional<T> get() const;
+
+    /// Constructs a new Value that holds the double \a value.
     Value(double value) { cbindgen_private::sixtyfps_interpreter_value_new_double(value, &inner); }
+    /// Constructs a new Value that holds the string \a str.
     Value(const SharedString &str)
     {
         cbindgen_private::sixtyfps_interpreter_value_new_string(&str, &inner);
     }
+    /// Constructs a new Value that holds the boolean \a b.
     Value(bool b) { cbindgen_private::sixtyfps_interpreter_value_new_bool(b, &inner); }
-    inline Value(const SharedVector<Value> &);
-    Value(const std::shared_ptr<sixtyfps::Model<Value>> &);
+    /// Constructs a new Value that holds the value vector \a v.
+    inline Value(const SharedVector<Value> &v);
+    /// Constructs a new Value that holds the value model \a m.
+    Value(const std::shared_ptr<sixtyfps::Model<Value>> &m);
+    /// Constructs a new Value that holds the brush \a b.
     Value(const sixtyfps::Brush &brush)
     {
         cbindgen_private::sixtyfps_interpreter_value_new_brush(&brush, &inner);
     }
+    /// Constructs a new Value that holds the Struct \a struc.
     Value(const Struct &struc)
     {
         cbindgen_private::sixtyfps_interpreter_value_new_struct(&struc.inner, &inner);
     }
 
+    /// Returns the type the variant holds.
     Type type() const { return cbindgen_private::sixtyfps_interpreter_value_type(&inner); }
 
+    /// Returns true if \a and \b hold values of the same type and the underlying vales are equal.
     friend bool operator==(const Value &a, const Value &b)
     {
         return cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
     }
+    /// Returns true if \a and \b hold values of the same type and the underlying vales are not
+    /// equal.
     friend bool operator!=(const Value &a, const Value &b)
     {
         return !cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
