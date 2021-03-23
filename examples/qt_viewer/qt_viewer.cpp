@@ -48,6 +48,8 @@ int main(int argc, char **argv) {
     ui.setupUi(&main);
     QHBoxLayout layout(ui.my_content);
 
+    sixtyfps::interpreter::Value::Type currentType;
+
     QObject::connect(ui.load_button, &QPushButton::clicked, [&] {
         QString fileName = QFileDialog::getOpenFileName(
             &main, QApplication::translate("qt_viewer", "Open SixtyFPS File"), {},
@@ -67,6 +69,55 @@ int main(int argc, char **argv) {
         layout.addWidget(wid);
         loaded_file = std::make_unique<LoadedFile>(LoadedFile{ instance, wid });
     });
+
+    QObject::connect(ui.prop_name, &QLineEdit::textChanged, [&] {
+        if (!loaded_file) return;
+        if (auto val = loaded_file->instance->get_property(ui.prop_name->text().toUtf8().data())) {
+            currentType = val->type();
+            switch (currentType) {
+                case sixtyfps::interpreter::Value::Type::String:
+                    ui.prop_value->setText(QString::fromUtf8(val->to_string()->data()));
+                    break;
+
+                case sixtyfps::interpreter::Value::Type::Number:
+                    ui.prop_value->setText(QString::number(val->to_number().value()));
+                    break;
+
+                default:
+                    ui.prop_value->clear();
+                    break;
+            }
+        }
+    });
+
+    QObject::connect(ui.set_button, &QPushButton::clicked, [&] {
+        if (!loaded_file) return;
+        sixtyfps::interpreter::Value val;
+        switch (currentType) {
+        case sixtyfps::interpreter::Value::Type::String:
+            val = sixtyfps::SharedString(ui.prop_value->text().toUtf8().data());
+            break;
+        case sixtyfps::interpreter::Value::Type::Number: {
+            bool ok;
+            val = ui.prop_value->text().toDouble(&ok);
+            if (!ok) {
+                QMessageBox::critical(&main, QApplication::translate("qt_viewer", "Set Property Error"),
+                    QApplication::translate("qt_viewer", "Invalid conversion to number"), QMessageBox::StandardButton::Ok);
+                return;
+            }
+            break;
+        }
+        default:
+            QMessageBox::critical(&main, QApplication::translate("qt_viewer", "Set Property Error"),
+                QApplication::translate("qt_viewer", "Cannot set properties of this type"), QMessageBox::StandardButton::Ok);
+            return;
+        }
+        if (!loaded_file->instance->set_property(ui.prop_name->text().toUtf8().data(), val)) {
+            QMessageBox::critical(&main, QApplication::translate("qt_viewer", "Set Property Error"),
+                QApplication::translate("qt_viewer", "Could not set property"), QMessageBox::StandardButton::Ok);
+        }
+    });
+
     main.show();
     return app.exec();
 }
