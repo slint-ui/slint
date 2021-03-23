@@ -592,6 +592,8 @@ public:
 using Diagnostic = sixtyfps::cbindgen_private::CDiagnostic;
 using DiagnosticLevel = sixtyfps::cbindgen_private::CDiagnosticLevel;
 
+/// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
+/// to load .60 files or compile them on-the-fly from a string.
 class ComponentCompiler
 {
     cbindgen_private::ComponentCompilerOpaque inner;
@@ -600,24 +602,29 @@ class ComponentCompiler
     ComponentCompiler &operator=(ComponentCompiler &) = delete;
 
 public:
+    /// Constructs a new ComponentCompiler instance.
     ComponentCompiler() { cbindgen_private::sixtyfps_interpreter_component_compiler_new(&inner); }
 
+    /// Destroys this ComponentCompiler.
     ~ComponentCompiler()
     {
         cbindgen_private::sixtyfps_interpreter_component_compiler_destructor(&inner);
     }
 
+    /// Sets the include paths used for looking up `.60` imports to the specified vector of paths.
     void set_include_paths(const sixtyfps::SharedVector<sixtyfps::SharedString> &paths)
     {
         cbindgen_private::sixtyfps_interpreter_component_compiler_set_include_paths(&inner, &paths);
     }
 
+    /// Sets the style to be used for widgets.
     void set_style(std::string_view style)
     {
         cbindgen_private::sixtyfps_interpreter_component_compiler_set_style(
                 &inner, sixtyfps::private_api::string_to_slice(style));
     }
 
+    /// Returns the widget style the compiler is currently using when compiling .60 files.
     sixtyfps::SharedString style() const
     {
         sixtyfps::SharedString s;
@@ -625,6 +632,7 @@ public:
         return s;
     }
 
+    /// Returns the include paths the component compiler is currently configured with.
     sixtyfps::SharedVector<sixtyfps::SharedString> include_paths() const
     {
         sixtyfps::SharedVector<sixtyfps::SharedString> paths;
@@ -632,6 +640,8 @@ public:
         return paths;
     }
 
+    /// Returns the diagnostics that were produced in the last call to build_from_path() or
+    /// build_from_source().
     sixtyfps::SharedVector<Diagnostic> diagnostics() const
     {
         sixtyfps::SharedVector<Diagnostic> result;
@@ -639,6 +649,15 @@ public:
         return result;
     }
 
+    /// Compile a .60 file into a ComponentDefinition
+    ///
+    /// Returns the compiled `ComponentDefinition` if there were no errors.
+    ///
+    /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
+    /// in this ComponentCompiler and can be retrieved after the call using the diagnostics()
+    /// function.
+    ///
+    /// Diagnostics from previous calls are cleared when calling this function.
     std::optional<ComponentDefinition> build_from_source(std::string_view source_code,
                                                          std::string_view path)
     {
@@ -653,6 +672,16 @@ public:
         }
     }
 
+    /// Compile some .60 code into a ComponentDefinition
+    ///
+    /// The `path` argument will be used for diagnostics and to compute relative
+    /// paths while importing.
+    ///
+    /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
+    /// in this ComponentCompiler and can be retrieved after the call using the
+    /// Self::diagnostics() function.
+    ///
+    /// Diagnostics from previous calls are cleared when calling this function.
     std::optional<ComponentDefinition> build_from_path(std::string_view path)
     {
         cbindgen_private::ComponentDefinitionOpaque result;

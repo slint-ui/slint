@@ -352,8 +352,7 @@ impl ComponentCompiler {
         }
     }
 
-    /// Create a new configuration that includes sets the include paths used for looking up
-    /// `.60` imports to the specified vector of paths.
+    /// Sets the include paths used for looking up `.60` imports to the specified vector of paths.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.config.include_paths = include_paths;
     }
@@ -363,17 +362,20 @@ impl ComponentCompiler {
         &self.config.include_paths
     }
 
-    /// Create a new configuration that selects the style to be used for widgets.
+    /// Sets the style to be used for widgets.
     pub fn set_style(&mut self, style: String) {
         self.config.style = Some(style);
     }
 
-    /// Returns the style the compiler is currently using when compiling .60 files.
+    /// Returns the widget style the compiler is currently using when compiling .60 files.
     pub fn style(&self) -> Option<&String> {
         self.config.style.as_ref()
     }
 
-    /// Create a new configuration that will use the provided callback for loading.
+    /// Sets the callback that will be invoked when loading imported .60 files. The specified
+    /// `file_loader_callback` parameter will be called with a canonical file path as argument
+    /// and is expected to return a future that, when resolved, provides the source code of the
+    /// .60 file to be imported as a string.
     pub fn set_file_loader(
         &mut self,
         file_loader_fallback: impl Fn(
@@ -393,7 +395,7 @@ impl ComponentCompiler {
 
     /// Compile a .60 file into a ComponentDefinition
     ///
-    /// Returns the compiled `ComponentDefinition` if there was no errors.
+    /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
     /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
     /// in this ComponentCompiler and can be retrieved after the call using the [[Self::diagnostics()]]
@@ -432,9 +434,9 @@ impl ComponentCompiler {
     /// Compile some .60 code into a ComponentDefinition
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
-    /// path while importing
+    /// paths while importing.
     ///
-    /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
+    /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
     /// in this ComponentCompiler and can be retrieved after the call using the [[Self::diagnostics()]]
     /// function. The [`print_diagnostics`] function can be used to display the diagnostics
     /// to the users.
