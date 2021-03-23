@@ -34,7 +34,7 @@ extensions = ["breathe", "recommonmark", "exhale", "sphinx_markdown_tables"]
 
 breathe_projects = {
         "SixtyFPS": "./docs/xml",
-        "SixtyFPS Interpreter": "./interpreter-docs/xml",
+        "SixtyFPS Interpreter": "./docs/xml",
 }
 breathe_default_project = "SixtyFPS"
 
