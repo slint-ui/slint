@@ -208,6 +208,7 @@ lazy_static! {
         (".+\\.json$", LicenseLocation::NoLicense),
         (".+\\.html$", LicenseLocation::NoLicense),
         (".+\\.ttf$", LicenseLocation::NoLicense),
+        (".+\\.ui$", LicenseLocation::NoLicense),
         (".+\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
         (".+\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".*\\.gitignore$", LicenseLocation::NoLicense),
