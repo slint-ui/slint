@@ -20,7 +20,6 @@ LICENSE END */
 class QWidget;
 #endif
 
-
 namespace sixtyfps::cbindgen_private {
 //  This has to stay opaque, but VRc don't compile if it is just forward declared
 struct ErasedComponentBox : vtable::Dyn
@@ -511,11 +510,12 @@ public:
     /// Return a QWidget for this instance.
     /// This function is only available if the qt graphical backend was compiled in, and
     /// it may return nullptr if the Qt backend is not used at runtime.
-    QWidget *qwidget() const {
+    QWidget *qwidget() const
+    {
         cbindgen_private::ComponentWindowOpaque win;
         cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win);
         return reinterpret_cast<QWidget *>(cbindgen_private::sixtyfps_qt_get_widget(
-            reinterpret_cast<cbindgen_private::ComponentWindow *>(&win)));
+                reinterpret_cast<cbindgen_private::ComponentWindow *>(&win)));
     }
 #endif
 
@@ -565,6 +565,14 @@ public:
     }
 };
 
+/// ComponentDefinition is a representation of a compiled component from .60 markup.
+///
+/// It can be constructed from a .60 file using the ComponentCompiler::build_from_path() or
+/// ComponentCompiler::build_from_source() functions. And then it can be instantiated with the
+/// create() function.
+///
+/// The ComponentDefinition acts as a factory to create new instances. When you've finished
+/// creating the instances it is safe to destroy the ComponentDefinition.
 class ComponentDefinition
 {
     friend class ComponentCompiler;
@@ -577,10 +585,12 @@ class ComponentDefinition
     explicit ComponentDefinition(ComponentDefinitionOpaque &inner) : inner(inner) { }
 
 public:
+    /// Constructs a new ComponentDefinition as a copy of \a other.
     ComponentDefinition(const ComponentDefinition &other)
     {
         sixtyfps_interpreter_component_definition_clone(&other.inner, &inner);
     }
+    /// Assigns \a other to this ComponentDefinition.
     ComponentDefinition &operator=(const ComponentDefinition &other)
     {
         using namespace sixtyfps::cbindgen_private;
@@ -593,7 +603,9 @@ public:
 
         return *this;
     }
+    /// Destroys this ComponentDefinition.
     ~ComponentDefinition() { sixtyfps_interpreter_component_definition_destructor(&inner); }
+    /// Creates a new instance of the component and returns a shared handle to it.
     ComponentHandle<ComponentInstance> create() const
     {
         union CI {

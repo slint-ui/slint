@@ -463,17 +463,20 @@ impl ComponentCompiler {
     }
 }
 
-/// ComponentDefinition is a representation of a compiled component from .60
+/// ComponentDefinition is a representation of a compiled component from .60 markup.
 ///
 /// It can be constructed from a .60 file using the [`ComponentCompiler::build_from_path`] or [`ComponentCompiler::build_from_source`] functions.
-/// And then it can be instentiated with the [`Self::create`] function
+/// And then it can be instantiated with the [`Self::create`] function.
+///
+/// The ComponentDefinition acts as a factory to create new instances. When you've finished
+/// creating the instances it is safe to drop the ComponentDefinition.
 #[derive(Clone)]
 pub struct ComponentDefinition {
     inner: Rc<crate::dynamic_component::ComponentDescription<'static>>,
 }
 
 impl ComponentDefinition {
-    /// Instantiate the component
+    /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> ComponentInstance {
         ComponentInstance {
             inner: self.inner.clone().create(
