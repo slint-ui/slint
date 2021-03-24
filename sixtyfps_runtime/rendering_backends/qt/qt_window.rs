@@ -10,6 +10,7 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
+use sixtyfps_corelib::graphics::{Brush, FontRequest, Point, Rect, RenderingCache, Size};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
@@ -17,10 +18,6 @@ use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
-use sixtyfps_corelib::{
-    graphics::{Brush, FontRequest, Point, Rect, RenderingCache, Size},
-    items::Window,
-};
 use sixtyfps_corelib::{ImageReference, PathData, Property};
 
 use std::cell::RefCell;
@@ -71,6 +68,7 @@ cpp! {{
 
         SixtyFPSWidget() {
             setMouseTracking(true);
+            setFocusPolicy(Qt::StrongFocus);
         }
 
         void paintEvent(QPaintEvent *) override {
@@ -907,7 +905,7 @@ impl QtWindow {
                 let component = ComponentRc::borrow_pin(&component_rc);
                 let root_item = component.as_ref().get_item_ref(0);
                 ItemRef::downcast_pin(root_item)
-                    .map(|window_item: Pin<&Window>| window_item.default_font_properties())
+                    .map(|window_item: Pin<&items::Window>| window_item.default_font_properties())
             })
             .unwrap_or_default()
     }
