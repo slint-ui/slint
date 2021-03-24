@@ -780,18 +780,20 @@ impl QtWindow {
         let component_rc = self.self_weak.upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
-        self.meta_property_listener.as_ref().evaluate_if_dirty(|| {
-            self.apply_geometry_constraint(component.as_ref().layout_info());
-            component.as_ref().apply_layout(Default::default());
+        if self.meta_property_listener.as_ref().is_dirty() {
+            self.meta_property_listener.as_ref().evaluate_as_dependency_root(|| {
+                self.apply_geometry_constraint(component.as_ref().layout_info());
+                component.as_ref().apply_layout(Default::default());
 
-            let root_item = component.as_ref().get_item_ref(0);
-            if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-                self.apply_window_properties(window_item);
-            }
-        });
+                let root_item = component.as_ref().get_item_ref(0);
+                if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+                    self.apply_window_properties(window_item);
+                }
+            });
+        }
 
         let cache = self.cache.clone();
-        self.redraw_listener.as_ref().evaluate(|| {
+        self.redraw_listener.as_ref().evaluate_as_dependency_root(|| {
             let mut renderer = QtItemRenderer {
                 painter,
                 cache,

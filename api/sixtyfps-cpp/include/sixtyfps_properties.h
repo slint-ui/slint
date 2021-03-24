@@ -228,6 +228,22 @@ struct PropertyTracker
         return result;
     }
 
+    template<typename F>
+    auto evaluate_as_dependency_root(const F &f) const -> std::enable_if_t<std::is_same_v<decltype(f()), void>>
+    {
+        cbindgen_private::sixtyfps_property_tracker_evaluate_as_dependency_root(
+                &inner, [](void *f) { (*reinterpret_cast<const F *>(f))(); }, const_cast<F *>(&f));
+    }
+
+    template<typename F>
+    auto evaluate_as_dependency_root(const F &f) const
+            -> std::enable_if_t<!std::is_same_v<decltype(f()), void>, decltype(f())>
+    {
+        decltype(f()) result;
+        this->evaluate_as_dependency_root([&] { result = f(); });
+        return result;
+    }
+
 private:
     cbindgen_private::PropertyTrackerOpaque inner;
 };

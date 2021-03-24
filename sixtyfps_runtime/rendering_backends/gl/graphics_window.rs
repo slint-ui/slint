@@ -285,7 +285,7 @@ impl GraphicsWindow {
 
         {
             if self.meta_property_listener.as_ref().is_dirty() {
-                self.meta_property_listener.as_ref().evaluate(|| {
+                self.meta_property_listener.as_ref().evaluate_as_dependency_root(|| {
                     self.apply_geometry_constraint(component.as_ref().layout_info());
                     component.as_ref().apply_layout(self.get_geometry());
 

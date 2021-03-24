@@ -167,6 +167,18 @@ struct BindingHolder<B = ()> {
     binding: B,
 }
 
+impl BindingHolder {
+    fn register_self_as_dependency(
+        self: Pin<&Self>,
+        property_that_will_notify: *mut DependencyListHead,
+    ) {
+        let node = DependencyNode::for_binding(self);
+        let mut dep_nodes = self.dep_nodes.borrow_mut();
+        let node = dep_nodes.push_front(node);
+        unsafe { DependencyListHead::append(property_that_will_notify, node.get_ref() as *const _) }
+    }
+}
+
 fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut BindingHolder {
     /// Safety: _self must be a pointer that comes from a `Box<BindingHolder<B>>::into_raw()`
     unsafe fn binding_drop<B>(_self: *mut BindingHolder) {
@@ -447,12 +459,7 @@ impl PropertyHandle {
     fn register_as_dependency_to_current_binding(&self) {
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
-                let node = DependencyNode::for_binding(cur_binding);
-                let mut dep_nodes = cur_binding.dep_nodes.borrow_mut();
-                let node = dep_nodes.push_front(node);
-                unsafe {
-                    DependencyListHead::append(self.dependencies(), node.get_ref() as *const _)
-                }
+                cur_binding.register_self_as_dependency(self.dependencies());
             });
         }
     }
@@ -1302,9 +1309,27 @@ impl PropertyTracker {
     }
 
     /// Evaluate the function, and record dependencies of properties accessed whithin this function.
+    /// If this is called during the evaluation of another property binding or property tracker, then
+    /// any changes to accessed properties will also mark the other binding/tracker dirty.
     pub fn evaluate<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
+        if CURRENT_BINDING.is_set() {
+            CURRENT_BINDING.with(|cur_binding| {
+                cur_binding.register_self_as_dependency(
+                    self.holder.dependencies.as_ptr() as *mut DependencyListHead
+                )
+            });
+        }
+
+        self.evaluate_as_dependency_root(f)
+    }
+
+    /// Evaluate the function, and record dependencies of properties accessed whithin this function.
+    /// If this is called during the evaluation of another property binding or property tracker, then
+    /// any changes to accessed properties will not propagate to the other tracker.
+    pub fn evaluate_as_dependency_root<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
         // clear all the nodes so that we can start from scratch
         *self.holder.dep_nodes.borrow_mut() = Default::default();
+
         // Safety: it is safe to project the holder as we don't implement drop or unpin
         let pinned_holder = unsafe { self.map_unchecked(|s| &s.holder) };
         let r = CURRENT_BINDING.set(pinned_holder, f);
@@ -1349,6 +1374,28 @@ fn test_property_listener_scope() {
     let mut ok = false;
     scope.as_ref().evaluate_if_dirty(|| ok = true);
     assert!(ok);
+}
+
+#[test]
+fn test_nested_property_trackers() {
+    let tracker1 = Box::pin(PropertyTracker::default());
+    let tracker2 = Box::pin(PropertyTracker::default());
+    let prop = Box::pin(Property::new(42));
+
+    let r = tracker1.as_ref().evaluate(|| tracker2.as_ref().evaluate(|| prop.as_ref().get()));
+    assert_eq!(r, 42);
+
+    prop.as_ref().set(1);
+    assert!(tracker2.as_ref().is_dirty());
+    assert!(tracker1.as_ref().is_dirty());
+
+    let r = tracker1
+        .as_ref()
+        .evaluate(|| tracker2.as_ref().evaluate_as_dependency_root(|| prop.as_ref().get()));
+    assert_eq!(r, 1);
+    prop.as_ref().set(100);
+    assert!(tracker2.as_ref().is_dirty());
+    assert!(!tracker1.as_ref().is_dirty());
 }
 
 #[cfg(feature = "ffi")]
@@ -1758,6 +1805,7 @@ pub(crate) mod ffi {
     }
 
     /// Call the callback with the user data. Any properties access within the callback will be registered.
+    /// Any currently evaluated bindings or property trackers will be notified if accessed properties are changed.
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_property_tracker_evaluate(
         handle: *const PropertyTrackerOpaque,
@@ -1767,6 +1815,17 @@ pub(crate) mod ffi {
         Pin::new_unchecked(&*(handle as *const PropertyTracker)).evaluate(|| callback(user_data))
     }
 
+    /// Call the callback with the user data. Any properties access within the callback will be registered.
+    /// Any currently evaluated bindings or property trackers will be not notified if accessed properties are changed.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_property_tracker_evaluate_as_dependency_root(
+        handle: *const PropertyTrackerOpaque,
+        callback: extern "C" fn(user_data: *mut c_void),
+        user_data: *mut c_void,
+    ) {
+        Pin::new_unchecked(&*(handle as *const PropertyTracker))
+            .evaluate_as_dependency_root(|| callback(user_data))
+    }
     /// Query if the property tracker is dirty
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_property_tracker_is_dirty(

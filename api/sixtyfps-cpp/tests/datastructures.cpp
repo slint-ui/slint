@@ -42,3 +42,25 @@ TEST_CASE("Basic SharedVector API", "[vector]")
         REQUIRE(vec[2] == 10);
     }
 }
+
+TEST_CASE("Property Tracker")
+{
+    using namespace sixtyfps;
+    PropertyTracker tracker1;
+    PropertyTracker tracker2;
+    Property<int> prop(42);
+
+    auto r = tracker1.evaluate([&]() { return tracker2.evaluate([&]() { return prop.get(); }); });
+    REQUIRE(r == 42);
+
+    prop.set(1);
+    REQUIRE(tracker2.is_dirty());
+    REQUIRE(tracker1.is_dirty());
+
+    r = tracker1.evaluate(
+            [&]() { return tracker2.evaluate_as_dependency_root([&]() { return prop.get(); }); });
+    REQUIRE(r == 1);
+    prop.set(100);
+    REQUIRE(tracker2.is_dirty());
+    REQUIRE(!tracker1.is_dirty());
+}
