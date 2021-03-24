@@ -33,7 +33,7 @@ type WindowFactoryFn =
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics backends.
 pub struct GraphicsWindow {
-    pub(crate) self_weak: once_cell::unsync::OnceCell<Weak<corelib::window::Window>>,
+    pub(crate) self_weak: Weak<corelib::window::Window>,
     window_factory: Box<WindowFactoryFn>,
     map_state: RefCell<GraphicsWindowBackendState>,
     properties: Pin<Box<WindowProperties>>,
@@ -55,11 +55,12 @@ impl GraphicsWindow {
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
     pub(crate) fn new(
+        window_weak: &Weak<corelib::window::Window>,
         graphics_backend_factory: impl Fn(&dyn crate::eventloop::EventLoopInterface, winit::window::WindowBuilder) -> Backend
             + 'static,
     ) -> Rc<Self> {
         Rc::new(Self {
-            self_weak: Default::default(),
+            self_weak: window_weak.clone(),
             window_factory: Box::new(graphics_backend_factory),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             properties: Box::pin(WindowProperties::default()),
@@ -246,13 +247,11 @@ impl GraphicsWindow {
     }
 
     fn component(&self) -> ComponentRc {
-        self.self_weak.get().unwrap().upgrade().unwrap().component()
+        self.self_weak.upgrade().unwrap().component()
     }
 
     fn default_font_properties(&self) -> FontRequest {
         self.self_weak
-            .get()
-            .unwrap()
             .upgrade()
             .unwrap()
             .try_component()
@@ -376,7 +375,7 @@ impl GraphicsWindow {
         self.mouse_input_state.set(corelib::input::process_mouse_input(
             component,
             MouseEvent { pos, what },
-            &ComponentWindow::new(self.self_weak.get().unwrap().upgrade().unwrap()),
+            &ComponentWindow::new(self.self_weak.upgrade().unwrap()),
             self.mouse_input_state.take(),
         ));
 

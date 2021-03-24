@@ -105,9 +105,8 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
-            let qt_window = qt_window::QtWindow::new();
-            let window = std::rc::Rc::new(sixtyfps_corelib::window::Window::new(qt_window.clone()));
-            qt_window.self_weak.set(std::rc::Rc::downgrade(&window)).ok().unwrap();
+            let window =
+                sixtyfps_corelib::window::Window::new(|window| qt_window::QtWindow::new(window));
             ComponentWindow::new(window)
         }
     }

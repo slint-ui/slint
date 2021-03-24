@@ -19,7 +19,7 @@ use crate::ImageReference;
 use core::cell::Cell;
 use core::pin::Pin;
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 /// This trait represents the interface that the generated code and the run-time
 /// require in order to implement functionality such as device-independent pixels,
@@ -73,7 +73,7 @@ pub trait PlatformWindow {
 /// Structure that represent a Window in the runtime
 pub struct Window {
     /// FIXME! use Box instead;
-    platform_window: Rc<dyn PlatformWindow>,
+    platform_window: once_cell::unsync::OnceCell<Rc<dyn PlatformWindow>>,
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
 
@@ -90,15 +90,20 @@ impl Drop for Window {
 }
 
 impl Window {
-    /// Create a new instance of the window, given the platform_window
-    pub fn new(platform_window: Rc<dyn PlatformWindow>) -> Self {
-        Self {
-            platform_window,
+    /// Create a new instance of the window, given the platform_window factory fn
+    pub fn new(
+        platform_window_fn: impl FnOnce(&Weak<Window>) -> Rc<dyn PlatformWindow>,
+    ) -> Rc<Self> {
+        let window = Rc::new(Self {
+            platform_window: Default::default(),
             component: Default::default(),
             mouse_input_state: Default::default(),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
-        }
+        });
+        let window_weak = Rc::downgrade(&window);
+        window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
+        window
     }
 
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
@@ -205,7 +210,7 @@ impl core::ops::Deref for Window {
     type Target = dyn PlatformWindow;
 
     fn deref(&self) -> &Self::Target {
-        &*self.platform_window
+        self.platform_window.get().unwrap().as_ref()
     }
 }
 
@@ -225,12 +230,12 @@ impl ComponentWindow {
     /// Registers the window with the windowing system, in order to render the component's items and react
     /// to input events once the event loop spins.
     pub fn show(&self) {
-        self.0.platform_window.clone().show();
+        self.0.platform_window.get().unwrap().clone().show();
     }
 
     /// De-registers the window with the windowing system.
     pub fn hide(&self) {
-        self.0.platform_window.clone().hide();
+        self.0.platform_window.get().unwrap().clone().hide();
     }
 
     /// Returns the scale factor set on the window.
@@ -246,7 +251,7 @@ impl ComponentWindow {
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache][`crate::graphics::RenderingCache`].
     pub fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>) {
-        self.0.platform_window.clone().free_graphics_resources(items);
+        self.0.platform_window.get().unwrap().clone().free_graphics_resources(items);
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
@@ -271,11 +276,11 @@ impl ComponentWindow {
 
     /// Show a popup at the given position
     pub fn show_popup(&self, popup: &ComponentRc, position: Point) {
-        self.0.platform_window.clone().show_popup(popup, position)
+        self.0.platform_window.get().unwrap().clone().show_popup(popup, position)
     }
     /// Close the active popup if any
     pub fn close_popup(&self) {
-        self.0.platform_window.clone().close_popup()
+        self.0.platform_window.get().unwrap().clone().close_popup()
     }
 }
 

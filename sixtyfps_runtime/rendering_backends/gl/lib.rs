@@ -1446,11 +1446,11 @@ impl GLFontMetrics {
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
-    let platform_window = GraphicsWindow::new(move |event_loop, window_builder| {
-        GLRenderer::new(event_loop, window_builder, &canvas_id)
+    let window = sixtyfps_corelib::window::Window::new(|window| {
+        GraphicsWindow::new(window, move |event_loop, window_builder| {
+            GLRenderer::new(event_loop, window_builder, &canvas_id)
+        })
     });
-    let window = Rc::new(sixtyfps_corelib::window::Window::new(platform_window.clone()));
-    platform_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
     ComponentWindow(window)
 }
 
@@ -1470,16 +1470,16 @@ thread_local!(pub(crate) static CLIPBOARD : std::cell::RefCell<copypasta::Clipbo
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> ComponentWindow {
-        let platform_window = GraphicsWindow::new(|event_loop, window_builder| {
-            GLRenderer::new(
-                event_loop,
-                window_builder,
-                #[cfg(target_arch = "wasm32")]
-                "canvas",
-            )
+        let window = sixtyfps_corelib::window::Window::new(|window| {
+            GraphicsWindow::new(window, |event_loop, window_builder| {
+                GLRenderer::new(
+                    event_loop,
+                    window_builder,
+                    #[cfg(target_arch = "wasm32")]
+                    "canvas",
+                )
+            })
         });
-        let window = Rc::new(sixtyfps_corelib::window::Window::new(platform_window.clone()));
-        platform_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
         ComponentWindow(window)
     }
 

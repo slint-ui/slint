@@ -335,13 +335,7 @@ pub fn run() {
                                     text,
                                     modifiers: window.current_keyboard_modifiers(),
                                 };
-                                window
-                                    .self_weak
-                                    .get()
-                                    .unwrap()
-                                    .upgrade()
-                                    .unwrap()
-                                    .process_key_input(&event);
+                                window.self_weak.upgrade().unwrap().process_key_input(&event);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
                             };
@@ -366,22 +360,10 @@ pub fn run() {
                                     modifiers,
                                 };
 
-                                window
-                                    .self_weak
-                                    .get()
-                                    .unwrap()
-                                    .upgrade()
-                                    .unwrap()
-                                    .process_key_input(&event);
+                                window.self_weak.upgrade().unwrap().process_key_input(&event);
 
                                 event.event_type = KeyEventType::KeyReleased;
-                                window
-                                    .self_weak
-                                    .get()
-                                    .unwrap()
-                                    .upgrade()
-                                    .unwrap()
-                                    .process_key_input(&event);
+                                window.self_weak.upgrade().unwrap().process_key_input(&event);
                                 // FIXME: remove this, it should be based on actual changes rather than this
                                 window.request_redraw();
                             }
@@ -421,13 +403,7 @@ pub fn run() {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window
-                                .self_weak
-                                .get()
-                                .unwrap()
-                                .upgrade()
-                                .unwrap()
-                                .set_focus(have_focus);
+                            window.self_weak.upgrade().unwrap().set_focus(have_focus);
                             // FIXME: remove this, it should be based on actual changes rather than this
                             window.request_redraw();
                         }

@@ -729,7 +729,7 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
-    pub(crate) self_weak: once_cell::unsync::OnceCell<Weak<sixtyfps_corelib::window::Window>>,
+    pub(crate) self_weak: Weak<sixtyfps_corelib::window::Window>,
 
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_property_listener: Pin<Rc<PropertyTracker>>,
@@ -744,14 +744,14 @@ pub struct QtWindow {
 }
 
 impl QtWindow {
-    pub fn new() -> Rc<Self> {
+    pub fn new(window_weak: &Weak<sixtyfps_corelib::window::Window>) -> Rc<Self> {
         let widget_ptr = cpp! {unsafe [] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
             ensure_initialized();
             return std::make_unique<SixtyFPSWidget>();
         }};
         let rc = Rc::new(QtWindow {
             widget_ptr,
-            self_weak: Default::default(),
+            self_weak: window_weak.clone(),
             meta_property_listener: Rc::pin(Default::default()),
             redraw_listener: Rc::pin(Default::default()),
             popup_window: Default::default(),
@@ -777,7 +777,7 @@ impl QtWindow {
     fn paint_event(&self, painter: &mut QPainter) {
         sixtyfps_corelib::animations::update_animations();
 
-        let component_rc = self.self_weak.get().unwrap().upgrade().unwrap().component();
+        let component_rc = self.self_weak.upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
         self.meta_property_listener.as_ref().evaluate_if_dirty(|| {
@@ -821,7 +821,7 @@ impl QtWindow {
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
-        let component_rc = self.self_weak.get().unwrap().upgrade().unwrap().component();
+        let component_rc = self.self_weak.upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         if let Some(window_item) = ItemRef::downcast_pin::<items::Window>(root_item) {
@@ -832,7 +832,7 @@ impl QtWindow {
 
     fn mouse_event(&self, what: MouseEventType, pos: qttypes::QPoint) {
         let pos = Point::new(pos.x as _, pos.y as _);
-        self.self_weak.get().unwrap().upgrade().unwrap().process_mouse_input(pos, what);
+        self.self_weak.upgrade().unwrap().process_mouse_input(pos, what);
         timer_event();
     }
 
@@ -853,7 +853,7 @@ impl QtWindow {
             text,
             modifiers,
         };
-        self.self_weak.get().unwrap().upgrade().unwrap().process_key_input(&event);
+        self.self_weak.upgrade().unwrap().process_key_input(&event);
 
         timer_event();
     }
@@ -896,8 +896,6 @@ impl QtWindow {
 
     fn default_font_properties(&self) -> FontRequest {
         self.self_weak
-            .get()
-            .unwrap()
             .upgrade()
             .unwrap()
             .try_component()
@@ -914,7 +912,7 @@ impl QtWindow {
 #[allow(unused)]
 impl PlatformWindow for QtWindow {
     fn show(self: Rc<Self>) {
-        let component_rc = self.self_weak.get().unwrap().upgrade().unwrap().component();
+        let component_rc = self.self_weak.upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
         component.as_ref().apply_layout(Default::default());
         let root_item = component.as_ref().get_item_ref(0);
@@ -971,9 +969,9 @@ impl PlatformWindow for QtWindow {
     }
 
     fn show_popup(&self, popup: &sixtyfps_corelib::component::ComponentRc, position: Point) {
-        let popup_window = QtWindow::new();
-        let window = Rc::new(sixtyfps_corelib::window::Window::new(popup_window.clone()));
-        popup_window.self_weak.set(Rc::downgrade(&window)).ok().unwrap();
+        let window = sixtyfps_corelib::window::Window::new(|window| QtWindow::new(window));
+        let popup_window: &QtWindow =
+            std::any::Any::downcast_ref(window.as_ref().as_any()).unwrap();
         window.set_component(popup);
         let popup_ptr = popup_window.widget_ptr();
         let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
