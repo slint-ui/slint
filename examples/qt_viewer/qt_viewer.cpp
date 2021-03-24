@@ -50,12 +50,7 @@ int main(int argc, char **argv) {
 
     sixtyfps::interpreter::Value::Type currentType;
 
-    QObject::connect(ui.load_button, &QPushButton::clicked, [&] {
-        QString fileName = QFileDialog::getOpenFileName(
-            &main, QApplication::translate("qt_viewer", "Open SixtyFPS File"), {},
-            QApplication::translate("qt_viewer", "SixtyFPS File (*.60)"));
-        if (fileName.isEmpty())
-            return;
+    auto load_file = [&](const QString &fileName) {
         loaded_file.reset();
         sixtyfps::interpreter::ComponentCompiler compiler;
         auto def = compiler.build_from_path(fileName.toUtf8().data());
@@ -68,6 +63,20 @@ int main(int argc, char **argv) {
         wid->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         layout.addWidget(wid);
         loaded_file = std::make_unique<LoadedFile>(LoadedFile{ instance, wid });
+    };
+
+    auto args = app.arguments();
+    if (args.count() == 2) {
+        load_file(args.at(1));
+    }
+
+    QObject::connect(ui.load_button, &QPushButton::clicked, [&] {
+        QString fileName = QFileDialog::getOpenFileName(
+            &main, QApplication::translate("qt_viewer", "Open SixtyFPS File"), {},
+            QApplication::translate("qt_viewer", "SixtyFPS File (*.60)"));
+        if (fileName.isEmpty())
+            return;
+        load_file(fileName);
     });
 
     QObject::connect(ui.prop_name, &QLineEdit::textChanged, [&] {
