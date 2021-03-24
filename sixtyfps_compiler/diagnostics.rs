@@ -310,7 +310,9 @@ impl BuildDiagnostics {
             .inner
             .into_iter()
             .filter_map(|d| {
-                let spans = if let Some(sf) = &d.span.source_file {
+                let spans = if !d.span.span.is_valid() {
+                    vec![]
+                } else if let Some(sf) = &d.span.source_file {
                     if let Some(ref mut handle_no_source) = handle_no_source {
                         if sf.source.is_none() {
                             handle_no_source(d);
