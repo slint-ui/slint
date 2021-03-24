@@ -112,7 +112,7 @@ enum BindingResult {
 struct BindingVTable {
     drop: unsafe fn(_self: *mut BindingHolder),
     evaluate: unsafe fn(_self: *mut BindingHolder, value: *mut ()) -> BindingResult,
-    mark_dirty: unsafe fn(_self: *const BindingHolder),
+    mark_dirty: unsafe fn(_self: *const BindingHolder, was_dirty: bool),
     intercept_set: unsafe fn(_self: *const BindingHolder, value: *const ()) -> bool,
     intercept_set_binding:
         unsafe fn(_self: *const BindingHolder, new_binding: *mut BindingHolder) -> bool,
@@ -198,7 +198,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
     }
 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
-    unsafe fn mark_dirty<B: BindingCallable>(_self: *const BindingHolder) {
+    unsafe fn mark_dirty<B: BindingCallable>(_self: *const BindingHolder, _: bool) {
         Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding)).mark_dirty()
     }
 
@@ -486,8 +486,8 @@ unsafe fn mark_dependencies_dirty(deps: *mut DependencyListHead) {
         node.debug_assert_valid();
         next = node.next.get();
         let binding = &*node.binding;
-        binding.dirty.set(true);
-        (binding.vtable.mark_dirty)(node.binding);
+        let was_dirty = binding.dirty.replace(true);
+        (binding.vtable.mark_dirty)(node.binding, was_dirty);
         mark_dependencies_dirty(binding.dependencies.as_ptr() as *mut DependencyListHead)
     }
 }
@@ -1273,18 +1273,33 @@ pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn()
     unsafe { property.handle.set_binding(bind_callable) }
 }
 
-/// This structure allow to run a closure that queries properties, and can report
-/// if any property we accessed have become dirty
-pub struct PropertyTracker {
-    holder: BindingHolder<()>,
+#[doc(hidden)]
+pub trait PropertyChangeHandler {
+    fn notify(&self);
 }
 
-impl Default for PropertyTracker {
+impl PropertyChangeHandler for () {
+    fn notify(&self) {}
+}
+
+impl<F: Fn()> PropertyChangeHandler for F {
+    fn notify(&self) {
+        self()
+    }
+}
+
+/// This structure allow to run a closure that queries properties, and can report
+/// if any property we accessed have become dirty
+pub struct PropertyTracker<ChangeHandler = ()> {
+    holder: BindingHolder<ChangeHandler>,
+}
+
+impl Default for PropertyTracker<()> {
     fn default() -> Self {
         static VT: &'static BindingVTable = &BindingVTable {
             drop: |_| (),
             evaluate: |_, _| BindingResult::KeepBinding,
-            mark_dirty: |_| (),
+            mark_dirty: |_, _| (),
             intercept_set: |_, _| false,
             intercept_set_binding: |_, _| false,
         };
@@ -1301,7 +1316,7 @@ impl Default for PropertyTracker {
     }
 }
 
-impl PropertyTracker {
+impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
     /// Any of the properties accessed during the last evaluation of the closure called
     /// from the last call to evaluate is pottentially dirty.
     pub fn is_dirty(&self) -> bool {
@@ -1331,7 +1346,11 @@ impl PropertyTracker {
         *self.holder.dep_nodes.borrow_mut() = Default::default();
 
         // Safety: it is safe to project the holder as we don't implement drop or unpin
-        let pinned_holder = unsafe { self.map_unchecked(|s| &s.holder) };
+        let pinned_holder = unsafe {
+            self.map_unchecked(|s| {
+                core::mem::transmute::<&BindingHolder<ChangeHandler>, &BindingHolder<()>>(&s.holder)
+            })
+        };
         let r = CURRENT_BINDING.set(pinned_holder, f);
         self.holder.dirty.set(false);
         r
@@ -1347,6 +1366,43 @@ impl PropertyTracker {
     /// Mark this PropertyTracker as dirty
     pub fn set_dirty(&self) {
         self.holder.dirty.set(true);
+    }
+
+    /// Sets the specified callback handler function, which will be called if any
+    /// properties that this tracker depends on change their value.
+    pub fn new_with_change_handler(handler: ChangeHandler) -> Self {
+        /// Safety: _self must be a pointer to a `BindingHolder<ChangeHandler>`
+        unsafe fn mark_dirty<B: PropertyChangeHandler>(
+            _self: *const BindingHolder,
+            was_dirty: bool,
+        ) {
+            if !was_dirty {
+                ((*(_self as *const BindingHolder<B>)).binding).notify();
+            }
+        }
+
+        trait HasBindingVTable {
+            const VT: &'static BindingVTable;
+        }
+        impl<B: PropertyChangeHandler> HasBindingVTable for B {
+            const VT: &'static BindingVTable = &BindingVTable {
+                drop: |_| (),
+                evaluate: |_, _| BindingResult::KeepBinding,
+                mark_dirty: mark_dirty::<B>,
+                intercept_set: |_, _| false,
+                intercept_set_binding: |_, _| false,
+            };
+        }
+
+        let holder = BindingHolder {
+            dependencies: Cell::new(0),
+            dep_nodes: Default::default(),
+            vtable: <ChangeHandler as HasBindingVTable>::VT,
+            dirty: Cell::new(true), // starts dirty so it evaluates the property when used
+            pinned: PhantomPinned,
+            binding: handler,
+        };
+        Self { holder }
     }
 }
 
@@ -1396,6 +1452,35 @@ fn test_nested_property_trackers() {
     prop.as_ref().set(100);
     assert!(tracker2.as_ref().is_dirty());
     assert!(!tracker1.as_ref().is_dirty());
+}
+
+#[test]
+fn test_property_change_handler() {
+    let call_flag = Rc::new(Cell::new(false));
+    let tracker = Box::pin(PropertyTracker::new_with_change_handler({
+        let call_flag = call_flag.clone();
+        move || {
+            (*call_flag).set(true);
+        }
+    }));
+    let prop = Box::pin(Property::new(42));
+
+    let r = tracker.as_ref().evaluate(|| prop.as_ref().get());
+
+    assert_eq!(r, 42);
+    assert!(!tracker.as_ref().is_dirty());
+    assert!(!call_flag.get());
+
+    prop.as_ref().set(100);
+    assert!(tracker.as_ref().is_dirty());
+    assert!(call_flag.get());
+
+    // Repeated changes before evaluation should not trigger further
+    // change handler calls, otherwise it would be a notification storm.
+    call_flag.set(false);
+    prop.as_ref().set(101);
+    assert!(tracker.as_ref().is_dirty());
+    assert!(!call_flag.get());
 }
 
 #[cfg(feature = "ffi")]
