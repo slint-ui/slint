@@ -524,8 +524,10 @@ public:
     {
         cbindgen_private::ComponentWindowOpaque win;
         cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win);
-        return reinterpret_cast<QWidget *>(cbindgen_private::sixtyfps_qt_get_widget(
+        auto wid = reinterpret_cast<QWidget *>(cbindgen_private::sixtyfps_qt_get_widget(
                 reinterpret_cast<cbindgen_private::ComponentWindow *>(&win)));
+        cbindgen_private::sixtyfps_component_window_drop(&win);
+        return wid;
     }
 #endif
 
