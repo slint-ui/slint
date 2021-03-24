@@ -17,7 +17,12 @@ use std::ffi::c_void;
 use vtable::VRef;
 
 #[repr(C)]
+#[cfg(target_pointer_width = "64")]
 pub struct ValueOpaque([usize; 7]);
+#[repr(C)]
+#[cfg(target_pointer_width = "32")]
+#[repr(align(8))]
+pub struct ValueOpaque([usize; 10]);
 /// Asserts that ValueOpaque is as large as Value and has the same alignment, to make transmute safe.
 const _: [(); std::mem::size_of::<ValueOpaque>()] = [(); std::mem::size_of::<Value>()];
 const _: [(); std::mem::align_of::<ValueOpaque>()] = [(); std::mem::align_of::<Value>()];
@@ -203,7 +208,11 @@ pub extern "C" fn sixtyfps_interpreter_value_to_struct(val: &ValueOpaque) -> Opt
 }
 
 #[repr(C)]
+#[cfg(target_pointer_width = "64")]
 pub struct StructOpaque([usize; 6]);
+#[repr(C)]
+#[cfg(target_pointer_width = "32")]
+pub struct StructOpaque([usize; 8]);
 /// Asserts that StructOpaque is at least as large as Struct, otherwise this would overflow
 const _: usize = std::mem::size_of::<StructOpaque>() - std::mem::size_of::<Struct>();
 
@@ -486,7 +495,11 @@ impl Model for ModelAdaptorWrapper {
 }
 
 #[repr(C)]
+#[cfg(target_pointer_width = "64")]
 pub struct ModelNotifyOpaque([usize; 6]);
+#[repr(C)]
+#[cfg(target_pointer_width = "32")]
+pub struct ModelNotifyOpaque([usize; 10]);
 /// Asserts that ModelNotifyOpaque is at least as large as ModelNotify, otherwise this would overflow
 const _: usize = std::mem::size_of::<ModelNotifyOpaque>() - std::mem::size_of::<ModelNotify>();
 
