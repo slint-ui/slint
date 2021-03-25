@@ -204,8 +204,6 @@ pub fn run() {
                                 }
                             };
                             window.clone().process_mouse_input(cursor_pos, what);
-                            // FIXME: remove this, it should be based on actual changes rather than this
-                            window.request_redraw();
                         }
                     });
                 }
@@ -234,8 +232,6 @@ pub fn run() {
                                 winit::event::TouchPhase::Moved => MouseEventType::MouseMoved,
                             };
                             window.clone().process_mouse_input(cursor_pos, what);
-                            // FIXME: remove this, it should be based on actual changes rather than this
-                            window.request_redraw();
                         }
                     });
                 }
@@ -253,8 +249,6 @@ pub fn run() {
                             window
                                 .clone()
                                 .process_mouse_input(cursor_pos, MouseEventType::MouseMoved);
-                            // FIXME: remove this, it should be based on actual changes rather than this
-                            window.request_redraw();
                         }
                     });
                 }
@@ -275,8 +269,6 @@ pub fn run() {
                                 window
                                     .clone()
                                     .process_mouse_input(cursor_pos, MouseEventType::MouseExit);
-                                // FIXME: remove this, it should be based on actual changes rather than this
-                                window.request_redraw();
                             }
                         });
                     }
@@ -336,8 +328,6 @@ pub fn run() {
                                     modifiers: window.current_keyboard_modifiers(),
                                 };
                                 window.self_weak.upgrade().unwrap().process_key_input(&event);
-                                // FIXME: remove this, it should be based on actual changes rather than this
-                                window.request_redraw();
                             };
                         }
                     });
@@ -364,8 +354,6 @@ pub fn run() {
 
                                 event.event_type = KeyEventType::KeyReleased;
                                 window.self_weak.upgrade().unwrap().process_key_input(&event);
-                                // FIXME: remove this, it should be based on actual changes rather than this
-                                window.request_redraw();
                             }
                         });
                     }
@@ -404,8 +392,6 @@ pub fn run() {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             window.self_weak.upgrade().unwrap().set_focus(have_focus);
-                            // FIXME: remove this, it should be based on actual changes rather than this
-                            window.request_redraw();
                         }
                     });
                 }
@@ -433,15 +419,7 @@ pub fn run() {
                 })
             }
 
-            if corelib::timers::TimerList::maybe_activate_timers() {
-                ALL_WINDOWS.with(|windows| {
-                    windows.borrow().values().for_each(|window| {
-                        if let Some(window) = window.upgrade() {
-                            window.request_redraw();
-                        }
-                    })
-                })
-            }
+            corelib::timers::TimerList::maybe_activate_timers();
 
             if *control_flow == winit::event_loop::ControlFlow::Wait {
                 if let Some(next_timer) = corelib::timers::TimerList::next_timeout() {

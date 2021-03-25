@@ -271,70 +271,77 @@ impl Drop for GraphicsWindow {
 impl GraphicsWindow {
     /// Draw the items of the specified `component` in the given window.
     pub fn draw(self: Rc<Self>) {
-        let component_rc = self.component();
-        let component = ComponentRc::borrow_pin(&component_rc);
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        runtime_window.draw_tracked(|| {
+            let component_rc = self.component();
+            let component = ComponentRc::borrow_pin(&component_rc);
 
-        {
-            if self.meta_property_listener.as_ref().is_dirty() {
-                self.meta_property_listener.as_ref().evaluate_as_dependency_root(|| {
-                    self.apply_geometry_constraint(component.as_ref().layout_info());
-                    component.as_ref().apply_layout(self.get_geometry());
+            {
+                if self.meta_property_listener.as_ref().is_dirty() {
+                    self.meta_property_listener.as_ref().evaluate(|| {
+                        self.apply_geometry_constraint(component.as_ref().layout_info());
+                        component.as_ref().apply_layout(self.get_geometry());
 
-                    if let Some((popup, pos)) = &*self.active_popup.borrow() {
-                        let popup = ComponentRc::borrow_pin(popup);
-                        let popup_root = popup.as_ref().get_item_ref(0);
-                        let size = if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
-                            let layout_info = popup.as_ref().layout_info();
+                        if let Some((popup, pos)) = &*self.active_popup.borrow() {
+                            let popup = ComponentRc::borrow_pin(popup);
+                            let popup_root = popup.as_ref().get_item_ref(0);
+                            let size = if let Some(window_item) = ItemRef::downcast_pin(popup_root)
+                            {
+                                let layout_info = popup.as_ref().layout_info();
 
-                            let width =
-                                corelib::items::Window::FIELD_OFFSETS.width.apply_pin(window_item);
-                            let mut w = width.get();
-                            if w < layout_info.min_width {
-                                w = layout_info.min_width;
-                                width.set(w);
-                            }
+                                let width = corelib::items::Window::FIELD_OFFSETS
+                                    .width
+                                    .apply_pin(window_item);
+                                let mut w = width.get();
+                                if w < layout_info.min_width {
+                                    w = layout_info.min_width;
+                                    width.set(w);
+                                }
 
-                            let height =
-                                corelib::items::Window::FIELD_OFFSETS.height.apply_pin(window_item);
-                            let mut h = height.get();
-                            if h < layout_info.min_height {
-                                h = layout_info.min_height;
-                                height.set(h);
-                            }
-                            Size::new(h, w)
-                        } else {
-                            Size::default()
-                        };
-                        popup.as_ref().apply_layout(Rect::new(pos.clone(), size));
-                    }
-                })
+                                let height = corelib::items::Window::FIELD_OFFSETS
+                                    .height
+                                    .apply_pin(window_item);
+                                let mut h = height.get();
+                                if h < layout_info.min_height {
+                                    h = layout_info.min_height;
+                                    height.set(h);
+                                }
+                                Size::new(h, w)
+                            } else {
+                                Size::default()
+                            };
+                            popup.as_ref().apply_layout(Rect::new(pos.clone(), size));
+                        }
+                    })
+                }
             }
-        }
 
-        let map_state = self.map_state.borrow();
-        let window = map_state.as_mapped();
-        let root_item = component.as_ref().get_item_ref(0);
-        let background_color =
-            if let Some(window_item) = ItemRef::downcast_pin::<corelib::items::Window>(root_item) {
+            let map_state = self.map_state.borrow();
+            let window = map_state.as_mapped();
+            let root_item = component.as_ref().get_item_ref(0);
+            let background_color = if let Some(window_item) =
+                ItemRef::downcast_pin::<corelib::items::Window>(root_item)
+            {
                 window_item.background()
             } else {
                 RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
             };
 
-        let mut renderer = window.backend.borrow_mut().new_renderer(
-            &background_color,
-            self.scale_factor(),
-            self.default_font_properties(),
-        );
-        corelib::item_rendering::render_component_items(
-            &component_rc,
-            &mut renderer,
-            Point::default(),
-        );
-        if let Some(popup) = &*self.active_popup.borrow() {
-            corelib::item_rendering::render_component_items(&popup.0, &mut renderer, popup.1);
-        }
-        window.backend.borrow_mut().flush_renderer(renderer);
+            let mut renderer = window.backend.borrow_mut().new_renderer(
+                &background_color,
+                self.scale_factor(),
+                self.default_font_properties(),
+            );
+            corelib::item_rendering::render_component_items(
+                &component_rc,
+                &mut renderer,
+                Point::default(),
+            );
+            if let Some(popup) = &*self.active_popup.borrow() {
+                corelib::item_rendering::render_component_items(&popup.0, &mut renderer, popup.1);
+            }
+            window.backend.borrow_mut().flush_renderer(renderer);
+        })
     }
 
     /// FIXME: this is the same as Window::process_mouse_input, but this handle the popup.

@@ -744,8 +744,6 @@ pub struct QtWindow {
 
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_property_listener: Pin<Rc<PropertyTracker>>,
-    /// Gets dirty if something needs to be painted
-    redraw_listener: Pin<Rc<PropertyTracker>>,
 
     popup_window: RefCell<Option<(Rc<sixtyfps_corelib::window::Window>, ComponentRc)>>,
 
@@ -764,7 +762,6 @@ impl QtWindow {
             widget_ptr,
             self_weak: window_weak.clone(),
             meta_property_listener: Rc::pin(Default::default()),
-            redraw_listener: Rc::pin(Default::default()),
             popup_window: Default::default(),
             cache: Default::default(),
             scale_factor: Box::pin(Property::new(1.)),
@@ -786,20 +783,21 @@ impl QtWindow {
 
     /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::draw
     fn paint_event(&self, painter: &mut QPainter) {
-        sixtyfps_corelib::animations::update_animations();
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        runtime_window.draw_tracked(|| {
+            sixtyfps_corelib::animations::update_animations();
 
-        let component_rc = self.self_weak.upgrade().unwrap().component();
-        let component = ComponentRc::borrow_pin(&component_rc);
+            let component_rc = self.self_weak.upgrade().unwrap().component();
+            let component = ComponentRc::borrow_pin(&component_rc);
 
-        if self.meta_property_listener.as_ref().is_dirty() {
-            self.meta_property_listener.as_ref().evaluate_as_dependency_root(|| {
-                self.apply_geometry_constraint(component.as_ref().layout_info());
-                component.as_ref().apply_layout(Default::default());
-            });
-        }
+            if self.meta_property_listener.as_ref().is_dirty() {
+                self.meta_property_listener.as_ref().evaluate(|| {
+                    self.apply_geometry_constraint(component.as_ref().layout_info());
+                    component.as_ref().apply_layout(Default::default());
+                });
+            }
 
-        let cache = self.cache.clone();
-        self.redraw_listener.as_ref().evaluate_as_dependency_root(|| {
+            let cache = self.cache.clone();
             let mut renderer = QtItemRenderer {
                 painter,
                 cache,
@@ -810,21 +808,21 @@ impl QtWindow {
                 &mut renderer,
                 Point::default(),
             );
-        });
 
-        sixtyfps_corelib::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-            if !driver.has_active_animations() {
-                return;
-            }
-            let widget_ptr = self.widget_ptr();
-            cpp! {unsafe [widget_ptr as "QWidget*"] {
-                // FIXME: using QTimer -::singleShot is not optimal. We should use Qt animation timer
-                QTimer::singleShot(16, [widget_ptr = QPointer<QWidget>(widget_ptr)] {
-                    if (widget_ptr)
-                        widget_ptr->update();
-                });
-                //return widget_ptr->update();
-            }}
+            sixtyfps_corelib::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+                if !driver.has_active_animations() {
+                    return;
+                }
+                let widget_ptr = self.widget_ptr();
+                cpp! {unsafe [widget_ptr as "QWidget*"] {
+                    // FIXME: using QTimer -::singleShot is not optimal. We should use Qt animation timer
+                    QTimer::singleShot(16, [widget_ptr = QPointer<QWidget>(widget_ptr)] {
+                        if (widget_ptr)
+                            widget_ptr->update();
+                    });
+                    //return widget_ptr->update();
+                }}
+            });
         });
     }
 
@@ -923,13 +921,10 @@ impl PlatformWindow for QtWindow {
     }
 
     fn request_redraw(&self) {
-        // We should check that redraw_listener.is_dirty, but that does not take in account the repeater
-        //if self.redraw_listener.is_dirty() {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             return widget_ptr->update();
         }}
-        //}
     }
 
     fn request_window_properties_update(&self) {
@@ -1089,12 +1084,18 @@ fn timer_event() {
     sixtyfps_corelib::animations::update_animations();
     sixtyfps_corelib::timers::TimerList::maybe_activate_timers();
 
-    ALL_WINDOWS.with(|windows| {
-        for x in windows.borrow().iter() {
-            if let Some(x) = x.upgrade() {
-                x.request_redraw();
-            }
+    sixtyfps_corelib::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+        if !driver.has_active_animations() {
+            return;
         }
+
+        ALL_WINDOWS.with(|windows| {
+            for x in windows.borrow().iter() {
+                if let Some(x) = x.upgrade() {
+                    x.request_redraw();
+                }
+            }
+        });
     });
 
     let mut timeout = sixtyfps_corelib::timers::TimerList::next_timeout().map(|instant| {

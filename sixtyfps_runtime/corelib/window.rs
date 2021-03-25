@@ -90,12 +90,27 @@ impl crate::properties::PropertyChangeHandler for WindowPropertiesTracker {
     }
 }
 
+struct WindowRedrawTracker {
+    window_weak: Weak<Window>,
+}
+
+impl crate::properties::PropertyChangeHandler for WindowRedrawTracker {
+    fn notify(&self) {
+        if let Some(platform_window) =
+            self.window_weak.upgrade().and_then(|window| window.platform_window.get().cloned())
+        {
+            platform_window.request_redraw();
+        };
+    }
+}
+
 /// Structure that represent a Window in the runtime
 pub struct Window {
     /// FIXME! use Box instead;
     platform_window: once_cell::unsync::OnceCell<Rc<dyn PlatformWindow>>,
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
+    redraw_tracker: once_cell::unsync::OnceCell<Pin<Box<PropertyTracker<WindowRedrawTracker>>>>,
     window_properties_tracker:
         once_cell::unsync::OnceCell<Pin<Box<PropertyTracker<WindowPropertiesTracker>>>>,
 
@@ -120,6 +135,7 @@ impl Window {
             platform_window: Default::default(),
             component: Default::default(),
             mouse_input_state: Default::default(),
+            redraw_tracker: Default::default(),
             window_properties_tracker: Default::default(),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
@@ -130,6 +146,13 @@ impl Window {
         window
             .window_properties_tracker
             .set(Box::pin(PropertyTracker::new_with_change_handler(WindowPropertiesTracker {
+                window_weak: window_weak.clone(),
+            })))
+            .ok()
+            .unwrap();
+        window
+            .redraw_tracker
+            .set(Box::pin(PropertyTracker::new_with_change_handler(WindowRedrawTracker {
                 window_weak,
             })))
             .ok()
@@ -253,6 +276,16 @@ impl Window {
                     self.platform_window.get().unwrap().apply_window_properties(window_item);
                 }
             });
+        }
+    }
+
+    /// Calls draw_fn using a [`crate::properties::PropertyTracker`], which is set up to issue a call to [`PlatformWindow::request_redraw`]
+    /// when any properties accessed during drawing change.
+    pub fn draw_tracked<R>(self: Rc<Self>, draw_fn: impl FnOnce() -> R) -> R {
+        if let Some(redraw_tracker) = self.redraw_tracker.get() {
+            redraw_tracker.as_ref().evaluate_as_dependency_root(|| draw_fn())
+        } else {
+            draw_fn()
         }
     }
 }
