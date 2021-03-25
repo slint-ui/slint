@@ -22,8 +22,8 @@ assert(!instance.get_falsevar());
 
 ```rust
 let instance = TestCase::new();
-assert!(instance.get_truevar(), 1);
-assert!(!instance.get_falsevar(), 1);
+assert!(instance.get_truevar());
+assert!(!instance.get_falsevar());
 ```
 
 ```js
