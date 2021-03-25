@@ -124,15 +124,6 @@ impl GraphicsWindow {
             }
         }
     }
-    fn apply_window_properties(&self, window_item: Pin<&corelib::items::Window>) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => {
-                let backend = window.backend.borrow();
-                backend.window().set_title(window_item.title().as_str());
-            }
-        }
-    }
 
     /// Requests for the window to be mapped to the screen.
     ///
@@ -288,11 +279,6 @@ impl GraphicsWindow {
                 self.meta_property_listener.as_ref().evaluate_as_dependency_root(|| {
                     self.apply_geometry_constraint(component.as_ref().layout_info());
                     component.as_ref().apply_layout(self.get_geometry());
-
-                    let root_item = component.as_ref().get_item_ref(0);
-                    if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-                        self.apply_window_properties(window_item);
-                    }
 
                     if let Some((popup, pos)) = &*self.active_popup.borrow() {
                         let popup = ComponentRc::borrow_pin(popup);
@@ -465,6 +451,25 @@ impl PlatformWindow for GraphicsWindow {
 
     fn close_popup(&self) {
         *self.active_popup.borrow_mut() = None;
+    }
+
+    fn request_window_properties_update(&self) {
+        crate::eventloop::with_window_target(|event_loop| {
+            event_loop.event_loop_proxy().send_event(
+                crate::eventloop::CustomEvent::UpdateWindowProperties(self.self_weak.clone()),
+            )
+        })
+        .ok();
+    }
+
+    fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::Window>) {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                let backend = window.backend.borrow();
+                backend.window().set_title(&window_item.title());
+            }
+        }
     }
 
     fn show(self: Rc<Self>) {

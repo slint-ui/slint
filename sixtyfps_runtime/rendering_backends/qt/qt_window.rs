@@ -42,6 +42,7 @@ cpp! {{
     #include <QtCore/QTimer>
     #include <QtCore/QPointer>
     #include <QtCore/QBuffer>
+    #include <QtCore/QEvent>
     #include <memory>
     void ensure_initialized();
 
@@ -129,6 +130,16 @@ cpp! {{
             rust!(SFPS_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modif: u32 as "uint"] {
                 rust_window.key_event(key, text.clone(), modif, true);
             });
+        }
+
+        void customEvent(QEvent *event) override {
+            if (event->type() == QEvent::User) {
+               rust!(SFPS_updateWindowProps [rust_window: &QtWindow as "void*"]{
+                   rust_window.self_weak.upgrade().map(|window| window.update_window_properties());
+                });
+            } else {
+                QWidget::customEvent(event);
+            }
         }
     };
 
@@ -784,11 +795,6 @@ impl QtWindow {
             self.meta_property_listener.as_ref().evaluate_as_dependency_root(|| {
                 self.apply_geometry_constraint(component.as_ref().layout_info());
                 component.as_ref().apply_layout(Default::default());
-
-                let root_item = component.as_ref().get_item_ref(0);
-                if let Some(window_item) = ItemRef::downcast_pin(root_item) {
-                    self.apply_window_properties(window_item);
-                }
             });
         }
 
@@ -877,25 +883,6 @@ impl QtWindow {
         }};
     }
 
-    /// Apply windows property such as title to the QWidget*
-    fn apply_window_properties(&self, window_item: Pin<&items::Window>) {
-        let widget_ptr = self.widget_ptr();
-        let title: qttypes::QString = window_item.title().as_str().into();
-        let size = qttypes::QSize {
-            width: window_item.width().ceil() as _,
-            height: window_item.height().ceil() as _,
-        };
-        let background: u32 = window_item.background().as_argb_encoded();
-        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
-            if (!size.isEmpty())
-                widget_ptr->resize(size);
-            widget_ptr->setWindowTitle(title);
-            auto pal = widget_ptr->palette();
-            pal.setColor(QPalette::Window, QColor::fromRgba(background));
-            widget_ptr->setPalette(pal);
-        }};
-    }
-
     fn default_font_properties(&self) -> FontRequest {
         self.self_weak
             .upgrade()
@@ -943,6 +930,32 @@ impl PlatformWindow for QtWindow {
             return widget_ptr->update();
         }}
         //}
+    }
+
+    fn request_window_properties_update(&self) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "SixtyFPSWidget*"]  {
+            QCoreApplication::postEvent(widget_ptr, new QEvent(QEvent::User));
+        }};
+    }
+
+    /// Apply windows property such as title to the QWidget*
+    fn apply_window_properties(&self, window_item: Pin<&items::Window>) {
+        let widget_ptr = self.widget_ptr();
+        let title: qttypes::QString = window_item.title().as_str().into();
+        let size = qttypes::QSize {
+            width: window_item.width().ceil() as _,
+            height: window_item.height().ceil() as _,
+        };
+        let background: u32 = window_item.background().as_argb_encoded();
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
+            if (!size.isEmpty())
+                widget_ptr->resize(size);
+            widget_ptr->setWindowTitle(title);
+            auto pal = widget_ptr->palette();
+            pal.setColor(QPalette::Window, QColor::fromRgba(background));
+            widget_ptr->setPalette(pal);
+        }};
     }
 
     fn scale_factor(&self) -> f32 {

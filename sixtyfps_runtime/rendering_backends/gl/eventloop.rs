@@ -104,12 +104,12 @@ pub fn unregister_window(id: winit::window::WindowId) {
 
 /// This enum captures run-time specific events that can be dispatched to the event loop in
 /// addition to the winit events.
-#[derive(Debug)]
 pub enum CustomEvent {
     /// Request for the event loop to wake up and poll. This is used on the web for example to
     /// request an animation frame.
     #[cfg(target_arch = "wasm32")]
     WakeUpAndPoll,
+    UpdateWindowProperties(Weak<Window>),
 }
 
 /// Runs the event loop and renders the items in the provided `component` in its
@@ -408,6 +408,10 @@ pub fn run() {
                             window.request_redraw();
                         }
                     });
+                }
+
+                winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window)) => {
+                    window.upgrade().map(|window| window.update_window_properties());
                 }
 
                 _ => (),

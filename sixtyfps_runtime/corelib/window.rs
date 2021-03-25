@@ -14,6 +14,7 @@ use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::Point;
 use crate::input::{KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
+use crate::properties::PropertyTracker;
 use crate::slice::Slice;
 use crate::ImageReference;
 use core::cell::Cell;
@@ -49,6 +50,11 @@ pub trait PlatformWindow {
     /// Close the active popup if any
     fn close_popup(&self);
 
+    /// Request for the event loop to wake up and call [`Window::update_window_properties()`].
+    fn request_window_properties_update(&self);
+    /// Request for the given title string to be set to the windowing system for use as window title.
+    fn apply_window_properties(&self, window_item: Pin<&crate::items::Window>);
+
     /// Return a font metrics trait object for the given font request. This is typically provided by the backend and
     /// requested by text related items in order to measure text metrics with the item's chosen font.
     /// Note that if the FontRequest's pixel_size is 0, it is interpreted as the undefined size and that the
@@ -70,12 +76,28 @@ pub trait PlatformWindow {
     fn as_any(&self) -> &dyn core::any::Any;
 }
 
+struct WindowPropertiesTracker {
+    window_weak: Weak<Window>,
+}
+
+impl crate::properties::PropertyChangeHandler for WindowPropertiesTracker {
+    fn notify(&self) {
+        if let Some(platform_window) =
+            self.window_weak.upgrade().and_then(|window| window.platform_window.get().cloned())
+        {
+            platform_window.request_window_properties_update();
+        };
+    }
+}
+
 /// Structure that represent a Window in the runtime
 pub struct Window {
     /// FIXME! use Box instead;
     platform_window: once_cell::unsync::OnceCell<Rc<dyn PlatformWindow>>,
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
+    window_properties_tracker:
+        once_cell::unsync::OnceCell<Pin<Box<PropertyTracker<WindowPropertiesTracker>>>>,
 
     focus_item: RefCell<ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
@@ -98,11 +120,21 @@ impl Window {
             platform_window: Default::default(),
             component: Default::default(),
             mouse_input_state: Default::default(),
+            window_properties_tracker: Default::default(),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
         });
         let window_weak = Rc::downgrade(&window);
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
+
+        window
+            .window_properties_tracker
+            .set(Box::pin(PropertyTracker::new_with_change_handler(WindowPropertiesTracker {
+                window_weak,
+            })))
+            .ok()
+            .unwrap();
+
         window
     }
 
@@ -204,6 +236,25 @@ impl Window {
             focus_item.borrow().as_ref().focus_event(&event, &window);
         }
     }
+
+    /// If the component's root item is a Window element, then this function synchronizes its properties, such as the title
+    /// for example, with the properties known to the windowing system.
+    pub fn update_window_properties(self: Rc<Self>) {
+        if let Some(window_properties_tracker) = self.window_properties_tracker.get() {
+            // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
+            // an evaluation.
+            window_properties_tracker.as_ref().evaluate_as_dependency_root(|| {
+                let component = self.component();
+                let component = ComponentRc::borrow_pin(&component);
+                let root_item = component.as_ref().get_item_ref(0);
+
+                if let Some(window_item) = ItemRef::downcast_pin::<crate::items::Window>(root_item)
+                {
+                    self.platform_window.get().unwrap().apply_window_properties(window_item);
+                }
+            });
+        }
+    }
 }
 
 impl core::ops::Deref for Window {
@@ -231,6 +282,7 @@ impl ComponentWindow {
     /// to input events once the event loop spins.
     pub fn show(&self) {
         self.0.platform_window.get().unwrap().clone().show();
+        self.0.clone().update_window_properties();
     }
 
     /// De-registers the window with the windowing system.
