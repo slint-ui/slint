@@ -670,6 +670,11 @@ void run_event_loop()
     cbindgen_private::sixtyfps_run_event_loop();
 }
 
+void quit_event_loop()
+{
+    cbindgen_private::sixtyfps_quit_event_loop();
+}
+
 /// Registers a font by the specified path. The path must refer to an existing
 /// TrueType font font.
 /// \returns an empty optional on success, otherwise an error string

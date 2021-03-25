@@ -24,6 +24,9 @@ pub trait Backend: Send + Sync {
     /// Spins an event loop and renders the visible windows.
     fn run_event_loop(&'static self);
 
+    /// Exits the event loop.
+    fn quit_event_loop(&'static self);
+
     /// This function can be used to register a custom TrueType font with SixtyFPS,
     /// for use with the `font-family` property. The provided slice must be a valid TrueType
     /// font.

@@ -110,6 +110,7 @@ pub enum CustomEvent {
     #[cfg(target_arch = "wasm32")]
     WakeUpAndPoll,
     UpdateWindowProperties(Weak<Window>),
+    Exit,
 }
 
 /// Runs the event loop and renders the items in the provided `component` in its
@@ -398,6 +399,10 @@ pub fn run() {
 
                 winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window)) => {
                     window.upgrade().map(|window| window.update_window_properties());
+                }
+
+                winit::event::Event::UserEvent(CustomEvent::Exit) => {
+                    *control_flow = winit::event_loop::ControlFlow::Exit;
                 }
 
                 _ => (),

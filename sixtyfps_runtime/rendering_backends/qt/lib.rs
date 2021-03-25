@@ -114,9 +114,21 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     fn run_event_loop(&'static self) {
         #[cfg(not(no_qt))]
         {
+            // Schedule any timers with Qt that were set up before this event loop start.
+            crate::qt_window::timer_event();
             use cpp::cpp;
             cpp! {unsafe [] {
                 qApp->exec();
+            } }
+        };
+    }
+
+    fn quit_event_loop(&'static self) {
+        #[cfg(not(no_qt))]
+        {
+            use cpp::cpp;
+            cpp! {unsafe [] {
+                qApp->quit();
             } }
         };
     }

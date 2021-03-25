@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+#include <chrono>
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
@@ -63,4 +64,13 @@ TEST_CASE("Property Tracker")
     prop.set(100);
     REQUIRE(tracker2.is_dirty());
     REQUIRE(!tracker1.is_dirty());
+}
+
+TEST_CASE("C++ Timers")
+{
+    using namespace sixtyfps;
+
+    Timer testTimer(std::chrono::milliseconds(16), []() { sixtyfps::quit_event_loop(); });
+
+    sixtyfps::run_event_loop();
 }

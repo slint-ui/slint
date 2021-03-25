@@ -1487,6 +1487,12 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         crate::eventloop::run();
     }
 
+    fn quit_event_loop(&'static self) {
+        crate::eventloop::with_window_target(|event_loop| {
+            event_loop.event_loop_proxy().send_event(crate::eventloop::CustomEvent::Exit).ok();
+        })
+    }
+
     fn register_font_from_memory(
         &'static self,
         data: &[u8],

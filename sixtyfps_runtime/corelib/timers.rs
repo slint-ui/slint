@@ -340,7 +340,7 @@ pub(crate) mod ffi {
         timer.start(TimerMode::Repeated, core::time::Duration::from_millis(duration), move || {
             (wrap.callback)(wrap.user_data)
         });
-        timer.id.get().map(|x| x as i64).unwrap_or(-1)
+        timer.id.take().map(|x| x as i64).unwrap_or(-1)
     }
 
     /// Execute a callback with a delay in milisecond

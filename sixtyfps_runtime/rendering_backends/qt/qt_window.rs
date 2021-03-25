@@ -1080,7 +1080,7 @@ thread_local! {
 }
 
 /// Called by C++'s TimerHandler::timerEvent, or everytime a timer might have been started
-fn timer_event() {
+pub(crate) fn timer_event() {
     sixtyfps_corelib::animations::update_animations();
     sixtyfps_corelib::timers::TimerList::maybe_activate_timers();
 
@@ -1113,6 +1113,7 @@ fn timer_event() {
     };
     if let Some(timeout) = timeout {
         cpp! { unsafe [timeout as "int"] {
+            ensure_initialized();
             TimerHandler::instance().timer.start(timeout, &TimerHandler::instance());
         }}
     }
