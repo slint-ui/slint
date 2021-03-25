@@ -61,7 +61,7 @@ macro_rules! verify_node {
         for c in $node.children() {
             assert!(
                 false $(|| c.kind() == verify_node!(@extract_kind $t1 $($t2)*))*,
-                format!("Node is none of [{}]\n{:?}", stringify!($($t1 $($t2)*),*) ,c));
+                "Node is none of [{}]\n{:?}", stringify!($($t1 $($t2)*),*) ,c);
         }
 
         // recurse
