@@ -220,6 +220,12 @@ private:
 /// It is also possible to query the type the value holds by calling the Value::type()
 /// function.
 ///
+/// Note that models are only represented in one direction: You can create a sixtyfps::Model<Value>
+/// in C++, store it in a std::shared_ptr and construct Value from it. Then you can set it on a
+/// property in your .60 code that was declared to be either an array (`property <[sometype]> foo;`)
+/// or an object literal (`property <{foo: string, bar: int}> myprop;`). Such properties are dynamic
+/// and accept models implemented in C++.
+///
 /// ```
 /// Value v(42.0); // Creates a value that holds a double with the value 42.
 ///
@@ -305,10 +311,6 @@ public:
     /// Returns a std::optional that contains a vector of values if the type of this Value is
     /// Type::Array, otherwise an empty optional is returned.
     inline std::optional<sixtyfps::SharedVector<Value>> to_array() const;
-
-    /// Returns a std::optional that contains a model of values if the type of this Value is
-    /// Type::Model, otherwise an empty optional is returned.
-    std::optional<std::shared_ptr<sixtyfps::Model<Value>>> to_model() const;
 
     /// Returns a std::optional that contains a brush if the type of this Value is
     /// Type::Brush, otherwise an empty optional is returned.

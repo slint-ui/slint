@@ -337,3 +337,39 @@ SCENARIO("Invoke callback")
         REQUIRE(!res.has_value());
     }
 }
+
+SCENARIO("Array between .60 and C++")
+{
+    using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
+
+    ComponentCompiler compiler;
+
+    auto result = compiler.build_from_source(
+            "export Dummy := Rectangle { property <[int]> array: [1, 2, 3]; }", "");
+    REQUIRE(result.has_value());
+    auto instance = result->create();
+
+    SECTION(".60 to C++")
+    {
+        auto maybe_array = instance->get_property("array");
+        REQUIRE(maybe_array.has_value());
+        REQUIRE(maybe_array->type() == Value::Type::Array);
+
+        auto array = *maybe_array;
+        REQUIRE(array == sixtyfps::SharedVector<Value> { Value(1.), Value(2.), Value(3.) });
+    }
+
+    SECTION("C++ to .60")
+    {
+        sixtyfps::SharedVector<Value> cpp_array { Value(4.), Value(5.), Value(6.) };
+
+        instance->set_property("array", Value(cpp_array));
+        auto maybe_array = instance->get_property("array");
+        REQUIRE(maybe_array.has_value());
+        REQUIRE(maybe_array->type() == Value::Type::Array);
+
+        auto actual_array = *maybe_array;
+        REQUIRE(actual_array == cpp_array);
+    }
+}
