@@ -33,6 +33,13 @@ fn default_config() -> cbindgen::Config {
             .collect(),
             ..Default::default()
         },
+        defines: [
+            ("target_pointer_width = 64".into(), "SIXTYFPS_TARGET_64".into()),
+            ("target_pointer_width = 32".into(), "SIXTYFPS_TARGET_32".into()),
+        ]
+        .iter()
+        .cloned()
+        .collect(),
         ..Default::default()
     }
 }

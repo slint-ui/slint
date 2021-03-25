@@ -24,6 +24,13 @@ add_library(SixtyFPS INTERFACE)
 add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
 target_link_libraries(SixtyFPS INTERFACE sixtyfps-cpp)
 target_compile_features(SixtyFPS INTERFACE cxx_std_17)
+if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    target_compile_definitions(SixtyFPS INTERFACE SIXTYFPS_TARGET_64)
+elseif (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    target_compile_definitions(SixtyFPS INTERFACE SIXTYFPS_TARGET_32)
+else()
+    message(FATAL_ERROR "Unsupported CPU target architecture where the pointer size is neiter 4 nor 8")
+endif()
 
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
