@@ -376,6 +376,7 @@ public:
     }
 
 private:
+    inline Value(const void *) = delete; // Avoid that for example Value("foo") turns to Value(bool)
     using ValueOpaque = sixtyfps::cbindgen_private::ValueOpaque;
     ValueOpaque inner;
     friend struct Struct;
