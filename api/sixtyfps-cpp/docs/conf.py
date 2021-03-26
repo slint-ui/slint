@@ -48,7 +48,7 @@ exhale_args = {
 EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api*
 EXCLUDE = ../../api/sixtyfps-cpp/include/vtable.h ../../api/sixtyfps-cpp/include/sixtyfps_testing.h
 ENABLE_PREPROCESSING = YES
-PREDEFINED = DOXYGEN'''
+PREDEFINED += DOXYGEN'''
 }
 
 # Add any paths that contain templates here, relative to this directory.
