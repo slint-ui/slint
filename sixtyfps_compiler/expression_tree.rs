@@ -13,56 +13,10 @@ use crate::object_tree::*;
 use crate::parser::{NodeOrTokenWithSourceFile, SyntaxNodeWithSourceFile};
 use core::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
-/// Reference to a property or callback of a given name within an element.
-#[derive(Clone)]
-pub struct NamedReference {
-    pub element: Weak<RefCell<Element>>,
-    pub name: String,
-}
-
-fn pretty_print_element_ref(
-    f: &mut dyn std::fmt::Write,
-    element: &Weak<RefCell<Element>>,
-) -> std::fmt::Result {
-    match element.upgrade() {
-        Some(e) => match e.try_borrow() {
-            Ok(el) => write!(f, "{}", el.id),
-            Err(_) => write!(f, "<borrowed>"),
-        },
-        None => write!(f, "<null>"),
-    }
-}
-
-impl std::fmt::Debug for NamedReference {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        pretty_print_element_ref(f, &self.element)?;
-        write!(f, ".{}", self.name)
-    }
-}
-
-impl NamedReference {
-    pub fn new(element: &ElementRc, name: &str) -> Self {
-        Self { element: Rc::downgrade(element), name: name.to_owned() }
-    }
-}
-
-impl Eq for NamedReference {}
-
-impl PartialEq for NamedReference {
-    fn eq(&self, other: &Self) -> bool {
-        self.name == other.name && Weak::ptr_eq(&self.element, &other.element)
-    }
-}
-
-impl Hash for NamedReference {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-        self.element.as_ptr().hash(state);
-    }
-}
+// FIXME remove the pub
+pub use crate::namedreference::NamedReference;
 
 #[derive(Debug, Clone)]
 /// A function built into the run-time
@@ -1098,9 +1052,11 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::BuiltinMacroReference(a, _) => write!(f, "{:?}", a),
         Expression::ElementReference(a) => write!(f, "{:?}", a),
-        Expression::RepeaterIndexReference { element } => pretty_print_element_ref(f, element),
+        Expression::RepeaterIndexReference { element } => {
+            crate::namedreference::pretty_print_element_ref(f, element)
+        }
         Expression::RepeaterModelReference { element } => {
-            pretty_print_element_ref(f, element)?;
+            crate::namedreference::pretty_print_element_ref(f, element)?;
             write!(f, ".@model")
         }
         Expression::FunctionParameterReference { index, ty: _ } => write!(f, "_arg_{}", index),
