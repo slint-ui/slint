@@ -41,7 +41,8 @@ tiny-skia = { version= "0.4.2", optional = true, default-features = false }
 derive_more = "0.99.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }
+web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes", "Response"] }
+js-sys = "0.3.44"
 wasm-bindgen = { version = "0.2" }
 winit = { version = "0.24", default-features = false, features = ["web-sys"] }
 ttf-parser = "0.9"

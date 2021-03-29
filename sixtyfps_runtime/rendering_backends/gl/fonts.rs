@@ -10,7 +10,7 @@ LICENSE END */
 use super::CanvasRc;
 use sixtyfps_corelib::graphics::FontRequest;
 #[cfg(target_arch = "wasm32")]
-use std::cell::Cell;
+use sixtyfps_corelib::SharedString;
 use std::cell::RefCell;
 
 thread_local! {
@@ -20,7 +20,7 @@ thread_local! {
 
 #[cfg(target_arch = "wasm32")]
 thread_local! {
-    static WASM_FONT_REGISTERED: Cell<bool> = Cell::new(false)
+    static WASM_DEFAULT_FONT: RefCell<Option<SharedString>> = RefCell::new(None)
 }
 
 /// This function can be used to register a custom TrueType font with SixtyFPS,
@@ -94,6 +94,7 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
+    /*
     WASM_FONT_REGISTERED.with(|registered| {
         if !registered.get() {
             registered.set(true);
@@ -102,6 +103,10 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
     });
     let mut fallback_request = request.clone();
     fallback_request.family = Some("DejaVu Sans".into());
+    try_load_app_font(canvas, &fallback_request).unwrap()
+    */
+    let mut fallback_request = request.clone();
+    fallback_request.family = WASM_DEFAULT_FONT.with(|dff| dff.borrow().clone());
     try_load_app_font(canvas, &fallback_request).unwrap()
 }
 
@@ -144,4 +149,52 @@ pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequ
             letter_spacing: _request.letter_spacing,
         },
     ]
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn download_fonts(
+    event_loop_proxy: winit::event_loop::EventLoopProxy<crate::eventloop::CustomEvent>,
+) {
+    let font_load_callback =
+        wasm_bindgen::closure::Closure::once(move |response: wasm_bindgen::JsValue| {
+            use sixtyfps_corelib::debug_log;
+            let response: web_sys::Response = response.into();
+            let array_buffer_promise = response.array_buffer().unwrap();
+
+            let font_load_callback =
+                wasm_bindgen::closure::Closure::once(move |buffer: wasm_bindgen::JsValue| {
+                    let font_data = js_sys::Uint8Array::new(&buffer).to_vec();
+                    APPLICATION_FONTS.with(|fontdb| {
+                        let mut fontdb = fontdb.borrow_mut();
+                        fontdb.load_font_data(font_data);
+                        let family_loaded = fontdb
+                            .faces()
+                            .last()
+                            .as_ref()
+                            .map(|face_info| face_info.family.as_str().into());
+                        WASM_DEFAULT_FONT.with(|dff| {
+                            *dff.borrow_mut() = family_loaded;
+                        });
+                    });
+
+                    event_loop_proxy
+                        .send_event(crate::eventloop::CustomEvent::FontsLoaded)
+                        .ok()
+                        .unwrap();
+                });
+
+            array_buffer_promise.then(&font_load_callback);
+            font_load_callback.forget();
+        });
+    let font_promise = web_sys::window()
+    .unwrap().fetch_with_str("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/sixtyfps_runtime/rendering_backends/gl/fonts/DejaVuSans.ttf");
+    font_promise.then(&font_load_callback);
+    font_load_callback.forget();
+}
+
+pub(crate) fn fonts_loaded() -> bool {
+    #[cfg(target_arch = "wasm32")]
+    return WASM_DEFAULT_FONT.with(|dff| dff.borrow().is_some());
+    #[cfg(not(target_arch = "wasm32"))]
+    return true;
 }

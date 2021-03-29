@@ -14,7 +14,6 @@ use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use const_field_offset::FieldOffsets;
-use corelib::component::ComponentRc;
 use corelib::graphics::*;
 use corelib::input::{KeyboardModifiers, MouseEvent, MouseEventType};
 use corelib::items::ItemRef;
@@ -22,6 +21,7 @@ use corelib::properties::PropertyTracker;
 use corelib::slice::Slice;
 use corelib::window::{ComponentWindow, PlatformWindow};
 use corelib::Property;
+use corelib::{component::ComponentRc, debug_log};
 use sixtyfps_corelib as corelib;
 
 /// FIXME! this is some remains from a time where the GLRenderer was called the backend
@@ -327,20 +327,27 @@ impl GraphicsWindow {
                 RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
             };
 
-            let mut renderer = window.backend.borrow_mut().new_renderer(
+            if let Some(mut renderer) = window.backend.borrow_mut().new_renderer(
                 &background_color,
                 self.scale_factor(),
                 self.default_font_properties(),
-            );
-            corelib::item_rendering::render_component_items(
-                &component_rc,
-                &mut renderer,
-                Point::default(),
-            );
-            if let Some(popup) = &*self.active_popup.borrow() {
-                corelib::item_rendering::render_component_items(&popup.0, &mut renderer, popup.1);
-            }
-            window.backend.borrow_mut().flush_renderer(renderer);
+            ) {
+                corelib::item_rendering::render_component_items(
+                    &component_rc,
+                    &mut renderer,
+                    Point::default(),
+                );
+                if let Some(popup) = &*self.active_popup.borrow() {
+                    corelib::item_rendering::render_component_items(
+                        &popup.0,
+                        &mut renderer,
+                        popup.1,
+                    );
+                }
+                window.backend.borrow_mut().flush_renderer(renderer);
+            } else {
+                debug_log!("not rendering");
+            };
         })
     }
 

@@ -397,7 +397,11 @@ impl GLRenderer {
         clear_color: &Color,
         scale_factor: f32,
         default_font_properties: FontRequest,
-    ) -> GLItemRenderer {
+    ) -> Option<GLItemRenderer> {
+        if !fonts::fonts_loaded() {
+            return None;
+        }
+
         let size = self.window().inner_size();
 
         #[cfg(not(target_arch = "wasm32"))]
@@ -415,7 +419,7 @@ impl GLRenderer {
             canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
         }
 
-        GLItemRenderer {
+        Some(GLItemRenderer {
             shared_data: self.shared_data.clone(),
             scale_factor,
             default_font_properties,
@@ -423,7 +427,7 @@ impl GLRenderer {
                 Point::default(),
                 Size::new(size.width as _, size.height as _),
             )],
-        }
+        })
     }
 
     /// Complete the item rendering by calling this function. This will typically flush any remaining/pending

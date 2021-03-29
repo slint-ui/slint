@@ -109,6 +109,8 @@ pub enum CustomEvent {
     /// request an animation frame.
     #[cfg(target_arch = "wasm32")]
     WakeUpAndPoll,
+    #[cfg(target_arch = "wasm32")]
+    FontsLoaded,
     UpdateWindowProperties(Weak<Window>),
     Exit,
 }
@@ -126,6 +128,9 @@ pub fn run() {
 
     let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
     let mut winit_loop = not_running_loop_instance.instance;
+
+    #[cfg(target_arch = "wasm32")]
+    crate::fonts::download_fonts(event_loop_proxy.clone());
 
     // last seen cursor position, (physical coordinate)
     let mut cursor_pos = Point::default();
@@ -399,6 +404,19 @@ pub fn run() {
 
                 winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window)) => {
                     window.upgrade().map(|window| window.update_window_properties());
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                winit::event::Event::UserEvent(CustomEvent::FontsLoaded) => {
+                    use sixtyfps_corelib::debug_log;
+                    debug_log!("REDRAW");
+                    ALL_WINDOWS.with(|windows| {
+                        windows.borrow().values().for_each(|window| {
+                            if let Some(window) = window.upgrade() {
+                                window.request_redraw();
+                            }
+                        })
+                    })
                 }
 
                 winit::event::Event::UserEvent(CustomEvent::Exit) => {
