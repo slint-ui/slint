@@ -12,15 +12,15 @@ LICENSE END */
 */
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::{self, Unit};
-use crate::expression_tree::{BindingExpression, Expression, NamedReference};
+use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::PropertyLookupResult;
 use crate::langtype::{NativeClass, Type};
+use crate::namedreference::NamedReference;
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::TypeRegister;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-use std::{borrow::Cow, cell::RefCell};
 
 /// The full document (a complete file)
 #[derive(Default, Debug)]
@@ -272,6 +272,9 @@ pub struct Element {
     pub enclosing_component: Weak<Component>,
 
     pub property_declarations: HashMap<String, PropertyDeclaration>,
+
+    /// Main owner for a reference to a property.
+    pub named_references: crate::namedreference::NamedReferenceContainer,
 
     pub property_animations: HashMap<String, PropertyAnimation>,
 
@@ -668,10 +671,10 @@ impl Element {
                 condition: state.Expression().map(|e| Expression::Uncompiled(e.into())),
                 property_changes: state
                     .StatePropertyChange()
-                    .map(|s| {
-                        let (ne, _) =
-                            lookup_property_from_qualified_name(s.QualifiedName(), &r, diag);
-                        (ne, Expression::Uncompiled(s.BindingExpression().into()))
+                    .filter_map(|s| {
+                        lookup_property_from_qualified_name(s.QualifiedName(), &r, diag).map(
+                            |(ne, _)| (ne, Expression::Uncompiled(s.BindingExpression().into())),
+                        )
                     })
                     .collect(),
             };
@@ -689,14 +692,12 @@ impl Element {
                     .PropertyAnimation()
                     .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
                     .filter_map(|(pa, qn)| {
-                        let (ne, prop_type) =
-                            lookup_property_from_qualified_name(qn.clone(), &r, diag);
-                        if prop_type == Type::Invalid {
-                            debug_assert!(diag.has_error()); // Error should have been reported already
-                            return None;
-                        }
-                        animation_element_from_node(&pa, &qn, prop_type, diag, tr)
-                            .map(|anim_element| (ne, anim_element))
+                        lookup_property_from_qualified_name(qn.clone(), &r, diag).and_then(
+                            |(ne, prop_type)| {
+                                animation_element_from_node(&pa, &qn, prop_type, diag, tr)
+                                    .map(|anim_element| (ne, anim_element))
+                            },
+                        )
                     })
                     .collect(),
                 node: trs.DeclaredIdentifier().into(),
@@ -952,7 +953,7 @@ fn lookup_property_from_qualified_name(
     node: syntax_nodes::QualifiedName,
     r: &Rc<RefCell<Element>>,
     diag: &mut BuildDiagnostics,
-) -> (NamedReference, Type) {
+) -> Option<(NamedReference, Type)> {
     let qualname = QualifiedTypeName::from_node(node.clone());
     match qualname.members.as_slice() {
         [unresolved_prop_name] => {
@@ -961,32 +962,27 @@ fn lookup_property_from_qualified_name(
             if !property_type.is_property_type() {
                 diag.push_error(format!("'{}' is not a valid property", qualname), &node);
             }
-            (
-                NamedReference { element: Rc::downgrade(&r), name: resolved_name.to_string() },
-                property_type,
-            )
+            Some((NamedReference::new(&r, &resolved_name), property_type))
         }
         [elem_id, unresolved_prop_name] => {
-            let (element, name, ty) =
-                if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
-                    let PropertyLookupResult { resolved_name, property_type } =
-                        element.borrow().lookup_property(unresolved_prop_name.as_ref());
-                    if !property_type.is_property_type() {
-                        diag.push_error(
-                            format!("'{}' not found in '{}'", unresolved_prop_name, elem_id),
-                            &node,
-                        );
-                    }
-                    (Rc::downgrade(&element), resolved_name, property_type)
-                } else {
-                    diag.push_error(format!("'{}' is not a valid element id", elem_id), &node);
-                    (Weak::new(), Cow::Borrowed(unresolved_prop_name.as_ref()), Type::Invalid)
-                };
-            (NamedReference { element, name: name.to_string() }, ty)
+            if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
+                let PropertyLookupResult { resolved_name, property_type } =
+                    element.borrow().lookup_property(unresolved_prop_name.as_ref());
+                if !property_type.is_property_type() {
+                    diag.push_error(
+                        format!("'{}' not found in '{}'", unresolved_prop_name, elem_id),
+                        &node,
+                    );
+                }
+                Some((NamedReference::new(&element, &resolved_name), property_type))
+            } else {
+                diag.push_error(format!("'{}' is not a valid element id", elem_id), &node);
+                None
+            }
         }
         _ => {
             diag.push_error(format!("'{}' is not a valid property", qualname), &node);
-            (NamedReference { element: Default::default(), name: String::default() }, Type::Invalid)
+            None
         }
     }
 }
@@ -1114,13 +1110,8 @@ pub fn visit_element_expressions(
             vis(cond, None, &|| Type::Bool)
         }
         for (ne, e) in &mut s.property_changes {
-            vis(e, Some(ne.name.as_ref()), &|| {
-                ne.element
-                    .upgrade()
-                    .unwrap()
-                    .borrow()
-                    .lookup_property(ne.name.as_ref())
-                    .property_type
+            vis(e, Some(ne.name()), &|| {
+                ne.element().borrow().lookup_property(ne.name()).property_type
             });
         }
     }
@@ -1164,10 +1155,11 @@ pub fn visit_all_named_references_in_element(
             // FIXME: this should probably be lowered into a PropertyReference
             Expression::RepeaterModelReference { element }
             | Expression::RepeaterIndexReference { element } => {
-                let mut nc = NamedReference { element: element.clone(), name: "$model".into() };
+                // FIXME: this is questionable
+                let mut nc = NamedReference::new(&element.upgrade().unwrap(), "$model");
                 vis(&mut nc);
-                debug_assert!(nc.element.upgrade().unwrap().borrow().repeated.is_some());
-                *element = nc.element;
+                debug_assert!(nc.element().borrow().repeated.is_some());
+                *element = Rc::downgrade(&nc.element());
             }
             _ => {}
         }

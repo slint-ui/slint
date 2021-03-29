@@ -90,8 +90,7 @@ fn lower_popup_window(
     // - There are other object reference than in the NamedReference
     // - Maybe this should actually be allowed
     visit_all_named_references(&parent_component, &mut |nr| {
-        if std::rc::Weak::ptr_eq(&nr.element.upgrade().unwrap().borrow().enclosing_component, &weak)
-        {
+        if std::rc::Weak::ptr_eq(&nr.element().borrow().enclosing_component, &weak) {
             diag.push_error(
                 "Cannot access the inside of a PopupWindow from enclosing component".into(),
                 &*popup_window_element.borrow(),
@@ -130,10 +129,7 @@ fn create_coodiate(
         }
         expression = Expression::BinaryExpression {
             lhs: Box::new(expression),
-            rhs: Box::new(Expression::PropertyReference(NamedReference {
-                element: Rc::downgrade(&parent),
-                name: coord.to_owned(),
-            })),
+            rhs: Box::new(Expression::PropertyReference(NamedReference::new(parent, coord))),
             op: '+',
         };
     }
@@ -144,5 +140,5 @@ fn create_coodiate(
         .property_declarations
         .insert(property_name.clone(), Type::Length.into());
     parent_element.borrow_mut().bindings.insert(property_name.clone(), expression.into());
-    NamedReference { element: Rc::downgrade(&parent_element), name: property_name }
+    NamedReference::new(parent_element, &property_name)
 }

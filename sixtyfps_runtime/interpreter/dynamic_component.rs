@@ -361,7 +361,7 @@ impl<'id> ComponentDescription<'id> {
             .get(name)
             .and_then(|d| d.is_alias.as_ref())
         {
-            eval::store_property(c, &alias.element.upgrade().unwrap(), &alias.name, value)
+            eval::store_property(c, &alias.element(), alias.name(), value)
         } else {
             eval::store_property(c, &self.original.root_element, name, value)
         }
@@ -413,7 +413,7 @@ impl<'id> ComponentDescription<'id> {
             .get(name)
             .and_then(|d| d.is_alias.as_ref())
         {
-            eval::load_property(c, &alias.element.upgrade().unwrap(), &alias.name)
+            eval::load_property(c, &alias.element(), alias.name())
         } else {
             eval::load_property(c, &self.original.root_element, name)
         }
@@ -513,10 +513,7 @@ fn ensure_repeater_updated<'id>(
         let assume_property_f32 =
             |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<f32>)) };
         let get_prop = |nr: &NamedReference| -> f32 {
-            eval::load_property(instance_ref, &nr.element.upgrade().unwrap(), &nr.name)
-                .unwrap()
-                .try_into()
-                .unwrap()
+            eval::load_property(instance_ref, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         };
         repeater.ensure_updated_listview(
             init,
@@ -1212,12 +1209,12 @@ pub fn instantiate<'id>(
 }
 
 fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
-    let element = nr.element.upgrade().unwrap();
+    let element = nr.element();
     generativity::make_guard!(guard);
     let enclosing_component = eval::enclosing_component_for_element(&element, instance, guard);
     let element = element.borrow();
     if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id {
-        if let Some(x) = enclosing_component.component_type.custom_properties.get(&nr.name) {
+        if let Some(x) = enclosing_component.component_type.custom_properties.get(nr.name()) {
             return unsafe { enclosing_component.as_ptr().add(x.offset).cast() };
         };
     };
@@ -1225,12 +1222,10 @@ fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
         .component_type
         .items
         .get(element.id.as_str())
-        .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, nr.name));
+        .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, nr.name()));
     core::mem::drop(element);
     let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-    unsafe {
-        item.as_ptr().add(item_info.rtti.properties.get(nr.name.as_str()).unwrap().offset()).cast()
-    }
+    unsafe { item.as_ptr().add(item_info.rtti.properties.get(nr.name()).unwrap().offset()).cast() }
 }
 
 use sixtyfps_corelib::layout::*;
@@ -1411,10 +1406,7 @@ fn collect_layouts_recursively<'a, 'b>(
         })
     };
     let expr_eval = |nr: &NamedReference| -> f32 {
-        eval::load_property(component, &nr.element.upgrade().unwrap(), nr.name.as_ref())
-            .unwrap()
-            .try_into()
-            .unwrap()
+        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
 
     match layout {
@@ -1507,7 +1499,7 @@ fn collect_layouts_recursively<'a, 'b>(
                 .alignment
                 .as_ref()
                 .map(|nr| {
-                    eval::load_property(component, &nr.element.upgrade().unwrap(), &nr.name)
+                    eval::load_property(component, &nr.element(), nr.name())
                         .unwrap()
                         .try_into()
                         .unwrap_or_default()
@@ -1528,7 +1520,7 @@ impl<'a> LayoutTreeItem<'a> {
     fn solve(&self, instance_ref: InstanceRef) {
         let resolve_prop_ref = |prop_ref: &Option<NamedReference>| {
             prop_ref.as_ref().map_or(0., |nr| {
-                eval::load_property(instance_ref, &nr.element.upgrade().unwrap(), &nr.name)
+                eval::load_property(instance_ref, &nr.element(), nr.name())
                     .unwrap()
                     .try_into()
                     .unwrap_or(0.)
@@ -1665,7 +1657,7 @@ extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
             &mut info,
             &component_layouts.root_constraints,
             &|nr: &NamedReference| {
-                eval::load_property(instance_ref, &nr.element.upgrade().unwrap(), nr.name.as_ref())
+                eval::load_property(instance_ref, &nr.element(), nr.name())
                     .unwrap()
                     .try_into()
                     .unwrap()

@@ -164,7 +164,7 @@ impl LayoutConstraints {
         let mut apply_size_constraint = |prop, binding, op: &mut Option<NamedReference>| {
             if let Some(other_prop) = op {
                 diag.push_error(
-                    format!("Cannot specity both {} and {}.", prop, other_prop.name),
+                    format!("Cannot specity both {} and {}.", prop, other_prop.name()),
                     binding,
                 )
             }
@@ -291,7 +291,7 @@ impl LayoutGeometry {
 
 fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
     if element.borrow().bindings.contains_key(name) {
-        Some(NamedReference { element: Rc::downgrade(element), name: name.into() })
+        Some(NamedReference::new(element, name))
     } else {
         None
     }
@@ -306,7 +306,7 @@ fn init_fake_property(
         && !grid_layout_element.borrow().bindings.contains_key(name)
     {
         if let Some(e) = lazy_default() {
-            if e.name == name && Rc::ptr_eq(&e.element.upgrade().unwrap(), grid_layout_element) {
+            if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
                 // Don't reference self
                 return;
             }
@@ -329,19 +329,13 @@ impl LayoutGeometry {
         let padding = || {
             let style_metrics_element = style_metrics_element.clone();
             binding_reference(layout_element, "padding").or_else(|| {
-                style_metrics_element.map(|metrics| NamedReference {
-                    element: Rc::downgrade(&metrics),
-                    name: "layout_padding".into(),
-                })
+                style_metrics_element.map(|metrics| NamedReference::new(&metrics, "layout_padding"))
             })
         };
         let spacing = binding_reference(layout_element, "spacing").or_else({
             let style_metrics_element = style_metrics_element.clone();
             move || {
-                style_metrics_element.map(|metrics| NamedReference {
-                    element: Rc::downgrade(&metrics),
-                    name: "layout_spacing".into(),
-                })
+                style_metrics_element.map(|metrics| NamedReference::new(&metrics, "layout_spacing"))
             }
         });
         let alignment = binding_reference(layout_element, "alignment");

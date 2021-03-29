@@ -1363,7 +1363,7 @@ fn access_named_reference(
     component: &Rc<Component>,
     component_cpp: &str,
 ) -> String {
-    access_member(&nr.element.upgrade().unwrap(), &nr.name, component, component_cpp)
+    access_member(&nr.element(), nr.name(), component, component_cpp)
 }
 
 fn compile_expression(

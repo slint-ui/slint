@@ -9,7 +9,6 @@
 LICENSE END */
 //! This pass creates properties that are used but are otherwise not real
 
-use crate::expression_tree::NamedReference;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use std::collections::HashMap;
@@ -17,14 +16,14 @@ use std::rc::Rc;
 
 pub fn materialize_fake_properties(component: &Rc<Component>) {
     recurse_elem_no_borrow(&component.root_element, &(), &mut |elem, _| {
-        visit_all_named_references_in_element(elem, |NamedReference { element, name }| {
-            let elem = element.upgrade().unwrap();
+        visit_all_named_references_in_element(elem, |nr| {
+            let elem = nr.element();
             let elem = elem.borrow_mut();
             let (base_type, mut property_declarations) =
                 std::cell::RefMut::map_split(elem, |elem| {
                     (&mut elem.base_type, &mut elem.property_declarations)
                 });
-            maybe_materialize(&mut property_declarations, &base_type, name);
+            maybe_materialize(&mut property_declarations, &base_type, nr.name());
         });
         let elem = elem.borrow_mut();
         let base_type = elem.base_type.clone();

@@ -182,6 +182,7 @@ fn duplicate_element_with_mapping(
             .map(|t| duplicate_transition(t, mapping, root_component))
             .collect(),
         child_of_layout: elem.child_of_layout,
+        named_references: Default::default(),
         item_index: Default::default(), // Not determined yet
     }));
     mapping.insert(element_key(element.clone()), new.clone());
@@ -222,12 +223,9 @@ fn duplicate_property_animation(
     }
 }
 
-fn fixup_reference(
-    NamedReference { element, .. }: &mut NamedReference,
-    mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
-) {
-    if let Some(e) = element.upgrade().and_then(|e| mapping.get(&element_key(e))) {
-        *element = Rc::downgrade(e);
+fn fixup_reference(nr: &mut NamedReference, mapping: &HashMap<ByAddress<ElementRc>, ElementRc>) {
+    if let Some(e) = mapping.get(&element_key(nr.element())) {
+        *nr = NamedReference::new(&e, nr.name());
     }
 }
 

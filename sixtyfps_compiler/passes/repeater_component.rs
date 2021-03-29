@@ -41,6 +41,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 children: std::mem::take(&mut elem.children),
                 property_declarations: std::mem::take(&mut elem.property_declarations),
                 property_animations: std::mem::take(&mut elem.property_animations),
+                named_references: Default::default(),
                 repeated: None,
                 node: elem.node.clone(),
                 enclosing_component: Default::default(),
@@ -65,14 +66,14 @@ fn create_repeater_components(component: &Rc<Component>) {
 /// Make sure that references to property within the repeated element actually point to the reference
 /// to the root of the newly created component
 fn adjust_references(comp: &Rc<Component>) {
-    visit_all_named_references(&comp, &mut |NamedReference { element, name }| {
-        if name == "$model" {
+    visit_all_named_references(&comp, &mut |nr| {
+        if nr.name() == "$model" {
             return;
         }
-        let e = element.upgrade().unwrap();
+        let e = nr.element();
         if e.borrow().repeated.is_some() {
             if let Type::Component(c) = e.borrow().base_type.clone() {
-                *element = Rc::downgrade(&c.root_element);
+                *nr = NamedReference::new(&c.root_element, nr.name())
             };
         }
     });

@@ -12,8 +12,6 @@ LICENSE END */
 //!
 //! Note that the layout default property are handled in the lower_layout pass
 
-use std::rc::Rc;
-
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::Type;
@@ -40,19 +38,19 @@ pub async fn apply_default_properties_from_style<'a>(
             match elem.native_class().as_ref().map(|nc| nc.class_name.as_str()) {
                 Some("TextInput") => {
                     elem.bindings.entry("text_cursor_width".into()).or_insert_with(|| {
-                        Expression::PropertyReference(NamedReference {
-                            element: Rc::downgrade(&style_metrics.root_element),
-                            name: "text_cursor_width".into(),
-                        })
+                        Expression::PropertyReference(NamedReference::new(
+                            &style_metrics.root_element,
+                            "text_cursor_width",
+                        ))
                         .into()
                     });
                 }
                 Some("Window") => {
                     elem.bindings.entry("background".into()).or_insert_with(|| {
-                        Expression::PropertyReference(NamedReference {
-                            element: Rc::downgrade(&style_metrics.root_element),
-                            name: "window_background".into(),
-                        })
+                        Expression::PropertyReference(NamedReference::new(
+                            &style_metrics.root_element,
+                            "window_background",
+                        ))
                         .into()
                     });
                 }

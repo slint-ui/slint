@@ -604,19 +604,13 @@ impl Expression {
                 if resolved_name.as_ref() != &first_str {
                     ctx.diag.push_property_deprecation_warning(&first_str, &resolved_name, &first);
                 }
-                let prop = Self::PropertyReference(NamedReference {
-                    element: Rc::downgrade(&elem),
-                    name: resolved_name.to_string(),
-                });
+                let prop = Self::PropertyReference(NamedReference::new(&elem, &resolved_name));
                 return maybe_lookup_object(prop, it, ctx);
             } else if matches!(property_type, Type::Callback { .. }) {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error("Cannot access fields of callback".into(), &x)
                 }
-                return Self::CallbackReference(NamedReference {
-                    element: Rc::downgrade(&elem),
-                    name: resolved_name.to_string(),
-                });
+                return Self::CallbackReference(NamedReference::new(&elem, &resolved_name));
             } else if property_type.is_object_type() {
                 todo!("Continue looking up");
             }
@@ -1185,19 +1179,13 @@ fn continue_lookup_within_element(
         if resolved_name != prop_name {
             ctx.diag.push_property_deprecation_warning(&prop_name, &resolved_name, &second);
         }
-        let prop = Expression::PropertyReference(NamedReference {
-            element: Rc::downgrade(elem),
-            name: resolved_name.to_string(),
-        });
+        let prop = Expression::PropertyReference(NamedReference::new(elem, &resolved_name));
         maybe_lookup_object(prop, it, ctx)
     } else if matches!(property_type, Type::Callback { .. }) {
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
-        Expression::CallbackReference(NamedReference {
-            element: Rc::downgrade(elem),
-            name: resolved_name.to_string(),
-        })
+        Expression::CallbackReference(NamedReference::new(elem, &resolved_name))
     } else if matches!(property_type, Type::Function { .. }) {
         let member = elem.borrow().base_type.lookup_member_function(&resolved_name);
         Expression::MemberFunction {

@@ -21,7 +21,7 @@ pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
     let mut hash = BTreeMap::new();
 
     let mut maybe_collect_global = |nr: &mut NamedReference| {
-        let element = nr.element.upgrade().unwrap();
+        let element = nr.element();
         let global_component = element.borrow().enclosing_component.upgrade().unwrap();
         if global_component.is_global() {
             hash.insert(global_component.id.clone(), global_component.clone());

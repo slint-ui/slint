@@ -18,7 +18,7 @@ use corelib::rtti::AnimatedBindingKind;
 use corelib::window::ComponentWindow;
 use corelib::{Brush, Color, ImageReference, PathData, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
-    BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference, Path as ExprPath,
+    BindingExpression, BuiltinFunction, EasingCurve, Expression, Path as ExprPath,
     PathElement as ExprPathElement,
 };
 use sixtyfps_compilerlib::langtype::Type;
@@ -155,8 +155,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
         Expression::BuiltinMacroReference { .. } => panic!("macro expressions must not appear in the code generator anymore"),
-        Expression::PropertyReference(NamedReference { element, name }) => {
-            load_property_helper(local_context.component_instance, &element.upgrade().unwrap(), name.as_ref()).unwrap()
+        Expression::PropertyReference(nr) => {
+            load_property_helper(local_context.component_instance, &nr.element(), nr.name()).unwrap()
         }
         Expression::RepeaterIndexReference { element } => load_property_helper(local_context.component_instance,
             &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
@@ -201,8 +201,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             v
         }
         Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
-            Expression::CallbackReference(NamedReference { element, name }) => {
-                let element = element.upgrade().unwrap();
+            Expression::CallbackReference(nr) => {
+                let element = nr.element();
                 generativity::make_guard!(guard);
                 match enclosing_component_instance_for_element(&element, local_context.component_instance, guard) {
                     ComponentInstance::InstanceRef(enclosing_component) => {
@@ -211,19 +211,19 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                         let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
                         let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
 
-                        if let Some(callback) = item_info.rtti.callbacks.get(name.as_str()) {
+                        if let Some(callback) = item_info.rtti.callbacks.get(nr.name()) {
                             callback.call(item, args.as_slice())
-                        } else if let Some(callback_offset) = component_type.custom_callbacks.get(name.as_str())
+                        } else if let Some(callback_offset) = component_type.custom_callbacks.get(nr.name())
                         {
                             let callback = callback_offset.apply(&*enclosing_component.instance);
                             callback.call(args.as_slice())
                         } else {
-                            panic!("unkown callback {}", name)
+                            panic!("unkown callback {}", nr.name())
                         }
                     }
                     ComponentInstance::GlobalComponent(global) => {
                         let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                        global.as_ref().invoke_callback(name.as_ref(), args.collect::<Vec<_>>().as_slice())
+                        global.as_ref().invoke_callback(nr.name(), args.collect::<Vec<_>>().as_slice())
                     }
                 }
             }
@@ -322,8 +322,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
                     let popup_list = parent_component.popup_windows.borrow();
                     let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
-                    let x = load_property_helper(local_context.component_instance, &popup.x.element.upgrade().unwrap(), &popup.x.name).unwrap();
-                    let y = load_property_helper(local_context.component_instance, &popup.y.element.upgrade().unwrap(), &popup.y.name).unwrap();
+                    let x = load_property_helper(local_context.component_instance, &popup.x.element(), popup.x.name()).unwrap();
+                    let y = load_property_helper(local_context.component_instance, &popup.y.element(), popup.y.name()).unwrap();
                     crate::dynamic_component::show_popup(popup, x.try_into().unwrap(), y.try_into().unwrap(), component.borrow(), window_ref(component).unwrap());
                     Value::Void
                 } else {
@@ -531,8 +531,8 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
         (lhs, rhs, op) => panic!("unsupported {:?} {} {:?}", lhs, op, rhs),
     };
     match lhs {
-        Expression::PropertyReference(NamedReference { element, name }) => {
-            let element = element.upgrade().unwrap();
+        Expression::PropertyReference(nr) => {
+            let element = nr.element();
             generativity::make_guard!(guard);
             let enclosing_component = enclosing_component_instance_for_element(
                 &element,
@@ -543,14 +543,14 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
             match enclosing_component {
                 ComponentInstance::InstanceRef(enclosing_component) => {
                     if op == '=' {
-                        store_property(enclosing_component, &element, name.as_ref(), rhs).unwrap();
+                        store_property(enclosing_component, &element, nr.name(), rhs).unwrap();
                         return;
                     }
 
                     let component = element.borrow().enclosing_component.upgrade().unwrap();
                     if element.borrow().id == component.root_element.borrow().id {
                         if let Some(x) =
-                            enclosing_component.component_type.custom_properties.get(name)
+                            enclosing_component.component_type.custom_properties.get(nr.name())
                         {
                             unsafe {
                                 let p = Pin::new_unchecked(
@@ -565,16 +565,13 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
                         &enclosing_component.component_type.items[element.borrow().id.as_str()];
                     let item =
                         unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-                    let p = &item_info.rtti.properties[name.as_str()];
+                    let p = &item_info.rtti.properties[nr.name()];
                     p.set(item, eval(p.get(item)), None);
                 }
                 ComponentInstance::GlobalComponent(global) => {
-                    let val = if op == '=' {
-                        rhs
-                    } else {
-                        eval(global.as_ref().get_property(name.as_str()))
-                    };
-                    global.as_ref().set_property(name.as_str(), val);
+                    let val =
+                        if op == '=' { rhs } else { eval(global.as_ref().get_property(nr.name())) };
+                    global.as_ref().set_property(nr.name(), val);
                 }
             }
         }

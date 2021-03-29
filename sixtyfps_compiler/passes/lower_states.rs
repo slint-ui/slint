@@ -38,10 +38,8 @@ fn lower_state_in_element(
     }
     let has_transitions = !root_element.borrow().transitions.is_empty();
     let state_property_name = compute_state_property_name(root_element);
-    let state_property = Expression::PropertyReference(NamedReference {
-        element: Rc::downgrade(root_element),
-        name: state_property_name.clone(),
-    });
+    let state_property =
+        Expression::PropertyReference(NamedReference::new(root_element, &state_property_name));
     let state_property_ref = if has_transitions {
         Expression::StructFieldAccess {
             base: Box::new(state_property.clone()),
@@ -63,10 +61,10 @@ fn lower_state_in_element(
             };
         }
         for (ne, expr) in state.property_changes {
-            let e = ne.element.upgrade().unwrap();
-            let property_expr = expression_for_property(&e, ne.name.as_str());
+            let e = ne.element();
+            let property_expr = expression_for_property(&e, ne.name());
             e.borrow_mut().bindings.insert(
-                ne.name,
+                ne.name().to_owned(),
                 Expression::Condition {
                     condition: Box::new(Expression::BinaryExpression {
                         lhs: Box::new(state_property_ref.clone()),
@@ -125,8 +123,8 @@ fn lower_transitions_in_element(
         }
     }
     for (ne, (node, animations)) in props {
-        let e = ne.element.upgrade().unwrap();
-        match e.borrow_mut().property_animations.entry(ne.name) {
+        let e = ne.element();
+        match e.borrow_mut().property_animations.entry(ne.name().to_owned()) {
             std::collections::hash_map::Entry::Occupied(e) => {
                 diag.push_error(
                     format!(

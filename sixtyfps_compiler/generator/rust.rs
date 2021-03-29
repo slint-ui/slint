@@ -184,13 +184,7 @@ fn handle_property_binding(
             });
         ));
     } else if let Expression::TwoWayBinding(nr, next) = &binding_expression {
-        let p2 = access_member(
-            &nr.element.upgrade().unwrap(),
-            &nr.name,
-            component,
-            quote!(_self),
-            false,
-        );
+        let p2 = access_member(&nr.element(), nr.name(), component, quote!(_self), false);
         init.push(quote!(
             Property::link_two_way(#rust_property, #p2);
         ));
@@ -1036,7 +1030,7 @@ fn access_named_reference(
     component: &Rc<Component>,
     component_rust: TokenStream,
 ) -> TokenStream {
-    access_member(&nr.element.upgrade().unwrap(), &nr.name, component, component_rust, false)
+    access_member(&nr.element(), nr.name(), component, component_rust, false)
 }
 
 fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStream {

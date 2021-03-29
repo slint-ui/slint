@@ -128,14 +128,13 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
     core::mem::take(&mut *component.optimized_elements.borrow_mut());
 }
 
-fn fixup_reference(NamedReference { element, name }: &mut NamedReference) {
-    let e = element.upgrade().unwrap();
+fn fixup_reference(nr: &mut NamedReference) {
+    let e = nr.element();
     let component = e.borrow().enclosing_component.upgrade().unwrap();
     if !Rc::ptr_eq(&e, &component.root_element)
-        && e.borrow().property_declarations.contains_key(name)
+        && e.borrow().property_declarations.contains_key(nr.name())
     {
-        *name = map_name(&e, name.as_str());
-        *element = Rc::downgrade(&component.root_element);
+        *nr = NamedReference::new(&component.root_element, map_name(&e, nr.name()).as_str());
     }
 }
 
@@ -195,7 +194,8 @@ fn assert_optimized_item_unused(items: &[ElementRc]) {
     for e in items {
         recurse_elem(e, &(), &mut |e, _| {
             assert_eq!(Rc::strong_count(e), 1);
-            assert_eq!(Rc::weak_count(e), 0);
+            // no longer working because we have weak cound in the named reference holder
+            //assert_eq!(Rc::weak_count(e), 0);
         });
     }
 }

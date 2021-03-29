@@ -399,15 +399,9 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
-            Expression::TwoWayBinding(NamedReference { element, name }, _) => {
-                element.upgrade().unwrap().borrow().lookup_property(name).property_type
-            }
-            Expression::CallbackReference(NamedReference { element, name }) => {
-                element.upgrade().unwrap().borrow().lookup_property(name).property_type
-            }
-            Expression::PropertyReference(NamedReference { element, name }) => {
-                element.upgrade().unwrap().borrow().lookup_property(name).property_type
-            }
+            Expression::TwoWayBinding(nr, _) => nr.ty(),
+            Expression::CallbackReference(nr) => nr.ty(),
+            Expression::PropertyReference(nr) => nr.ty(),
             Expression::BuiltinFunctionReference(funcref) => funcref.ty(),
             Expression::MemberFunction { member, .. } => member.ty(),
             Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type

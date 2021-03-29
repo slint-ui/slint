@@ -62,8 +62,8 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         'bindings: for (name, binding) in &e.borrow().bindings {
             let mut exp = &binding.expression;
             while let Expression::TwoWayBinding(nr, next) = exp {
-                let other_e = nr.element.upgrade().unwrap();
-                if name == &nr.name && Rc::ptr_eq(e, &other_e) {
+                let other_e = nr.element();
+                if name == nr.name() && Rc::ptr_eq(e, &other_e) {
                     diag.push_error("Property cannot alias to itself".into(), binding);
                     continue 'bindings;
                 }
@@ -106,15 +106,15 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
 
     // Remove the properties
     for (remove, to) in aliases_to_remove {
-        let elem = remove.element.upgrade().unwrap();
+        let elem = remove.element();
 
         // adjust the bindings
-        let old_binding = elem.borrow_mut().bindings.remove(&remove.name);
+        let old_binding = elem.borrow_mut().bindings.remove(remove.name());
         let must_simplify = if let Some(mut binding) = old_binding {
             simplify_expression(&mut binding.expression, &to);
             if !matches!(binding.expression, Expression::Invalid) {
-                let to_elem = to.element.upgrade().unwrap();
-                match to_elem.borrow_mut().bindings.entry(to.name.clone()) {
+                let to_elem = to.element();
+                match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
                     Entry::Occupied(mut e) => {
                         simplify_expression(e.get_mut(), &to);
                         if e.get().priority < binding.priority {
@@ -145,12 +145,12 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         };
 
         if must_simplify {
-            let to_elem = to.element.upgrade().unwrap();
+            let to_elem = to.element();
             let mut to_elem = to_elem.borrow_mut();
-            if let Some(b) = to_elem.bindings.get_mut(&to.name) {
+            if let Some(b) = to_elem.bindings.get_mut(to.name()) {
                 simplify_expression(&mut b.expression, &to);
                 if matches!(b.expression, Expression::Invalid) {
-                    to_elem.bindings.remove(&to.name);
+                    to_elem.bindings.remove(to.name());
                 }
             }
         }
@@ -158,23 +158,24 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         // Remove the declaration
         {
             let mut elem = elem.borrow_mut();
-            if let Some(d) = elem.property_declarations.get_mut(&remove.name) {
+            if let Some(d) = elem.property_declarations.get_mut(remove.name()) {
                 if d.expose_in_public_api {
                     d.is_alias = Some(to.clone());
                 } else {
                     drop(d);
-                    elem.property_declarations.remove(&remove.name);
+                    elem.property_declarations.remove(remove.name());
                 }
             } else {
                 // This is not a declaration, we must re-create the binding
-                elem.bindings.insert(remove.name, Expression::TwoWayBinding(to, None).into());
+                elem.bindings
+                    .insert(remove.name().to_owned(), Expression::TwoWayBinding(to, None).into());
             }
         }
     }
 }
 
 fn is_declaration(x: &NamedReference) -> bool {
-    x.element.upgrade().unwrap().borrow().property_declarations.contains_key(&x.name)
+    x.element().borrow().property_declarations.contains_key(x.name())
 }
 
 /// Out of two named reference, return the one which is the best to keep.
@@ -188,9 +189,9 @@ fn best_property<'a>(
         ($x: expr) => {{
             (
                 is_declaration(&$x),
-                !Rc::ptr_eq(&component.root_element, &$x.element.upgrade().unwrap()),
-                $x.element.upgrade().unwrap().borrow().id.clone(),
-                $x.name.as_str(),
+                !Rc::ptr_eq(&component.root_element, &$x.element()),
+                $x.element().borrow().id.clone(),
+                $x.name(),
             )
         }};
     }

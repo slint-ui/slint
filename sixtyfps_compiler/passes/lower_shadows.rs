@@ -190,10 +190,8 @@ pub fn lower_shadow_properties(
                 for (prop, _) in crate::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter() {
                     let prop = prop.to_string();
                     if !shadow_elem.bindings.contains_key(&prop) {
-                        let binding_ref = Expression::PropertyReference(NamedReference {
-                            element: Rc::downgrade(&child),
-                            name: prop.clone(),
-                        });
+                        let binding_ref =
+                            Expression::PropertyReference(NamedReference::new(&child, &prop));
                         shadow_elem.bindings.insert(prop, binding_ref.into());
                     }
                 }
