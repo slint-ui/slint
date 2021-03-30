@@ -679,6 +679,13 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_build_from_path
     }
 }
 
+#[derive(Clone)]
+#[repr(C)]
+pub struct PropertyDescriptor {
+    property_name: SharedString,
+    property_type: ValueType,
+}
+
 #[repr(C)]
 // Note: This needs to stay the size of 1 pointer to allow for the null pointer definition
 // in the C++ wrapper to allow for the null state.
@@ -711,4 +718,18 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_destructor(
     val: *mut ComponentDefinitionOpaque,
 ) {
     drop(std::ptr::read(val as *mut ComponentDefinition))
+}
+
+/// Construct a new Value in the given memory location
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_properties(
+    def: &ComponentDefinitionOpaque,
+    props: &mut SharedVector<PropertyDescriptor>,
+) {
+    props.extend((&*def).as_component_definition().properties().map(
+        |(property_name, property_type)| PropertyDescriptor {
+            property_name: property_name.into(),
+            property_type,
+        },
+    ))
 }

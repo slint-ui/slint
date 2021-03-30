@@ -300,6 +300,20 @@ SCENARIO("Component Compiler")
     }
 }
 
+SCENARIO("Component Definition Properties")
+{
+    using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
+
+    ComponentCompiler compiler;
+    auto comp_def = *compiler.build_from_source(
+            "export Dummy := Rectangle { property <string> test; callback dummy; }", "");
+    auto properties = comp_def.properties();
+    REQUIRE(properties.size() == 1);
+    REQUIRE(properties[0].property_name == "test");
+    REQUIRE(properties[0].property_type == Value::Type::String);
+}
+
 SCENARIO("Invoke callback")
 {
     using namespace sixtyfps::interpreter;

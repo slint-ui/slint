@@ -580,6 +580,8 @@ public:
     }
 };
 
+using PropertyDescriptor = sixtyfps::cbindgen_private::PropertyDescriptor;
+
 /// ComponentDefinition is a representation of a compiled component from .60 markup.
 ///
 /// It can be constructed from a .60 file using the ComponentCompiler::build_from_path() or
@@ -631,6 +633,16 @@ public:
         } u;
         cbindgen_private::sixtyfps_interpreter_component_instance_create(&inner, &u.i);
         return u.result;
+    }
+
+    /// Returns a vector of that contains PropertyDescriptor instances that describe the list of
+    /// public properties that can be read and written using ComponentInstance::set_property and
+    /// ComponentInstance::get_property.
+    sixtyfps::SharedVector<PropertyDescriptor> properties() const
+    {
+        sixtyfps::SharedVector<PropertyDescriptor> props;
+        cbindgen_private::sixtyfps_interpreter_component_definition_properties(&inner, &props);
+        return props;
     }
 };
 
