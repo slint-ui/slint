@@ -9,6 +9,7 @@
 LICENSE END */
 
 use core::convert::TryInto;
+use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::{Brush, ImageReference, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -20,6 +21,7 @@ pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i8)]
 pub enum ValueType {
     /// The variant that expresses the non-type. This is the default.
@@ -40,6 +42,28 @@ pub enum ValueType {
     Brush,
     /// The type is not a public type but something internal.
     Other = -1,
+}
+
+impl From<LangType> for ValueType {
+    fn from(ty: LangType) -> Self {
+        match ty {
+            LangType::Float32
+            | LangType::Int32
+            | LangType::Duration
+            | LangType::Angle
+            | LangType::Length
+            | LangType::LogicalLength
+            | LangType::Percent
+            | LangType::UnitProduct(_) => Self::Number,
+            LangType::String => Self::String,
+            LangType::Color => Self::Brush,
+            LangType::Array(_) => Self::Array,
+            LangType::Bool => Self::Bool,
+            LangType::Struct { .. } => Self::Struct,
+            LangType::Void => Self::Void,
+            _ => Self::Other,
+        }
+    }
 }
 
 /// This is a dynamically typed value used in the SixtyFPS interpreter.
@@ -538,10 +562,21 @@ impl ComponentDefinition {
     ///
     /// This is internal because it exposes the `Type` from compilerlib.
     #[doc(hidden)]
-    pub fn properties(
+    pub fn properties_and_callbacks(
         &self,
     ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
         self.inner.properties()
+    }
+
+    /// List of publicly declared properties.
+    pub fn properties<'a>(&'a self) -> impl Iterator<Item = (String, ValueType)> + 'a {
+        self.inner.properties().filter_map(|(prop_name, prop_type)| {
+            if prop_type.is_property_type() {
+                Some((prop_name, prop_type.into()))
+            } else {
+                None
+            }
+        })
     }
 
     /// The name of this Component as written in the .60 file
@@ -808,6 +843,29 @@ pub mod testing {
             &comp.inner.window(),
         );
     }
+}
+
+#[test]
+fn component_definition_properties() {
+    let mut compiler = ComponentCompiler::new();
+    let comp_def = spin_on::spin_on(
+        compiler.build_from_source(
+            r#"
+    export Dummy := Rectangle {
+        property <string> test;
+        callback hello;
+    }"#
+            .into(),
+            "".into(),
+        ),
+    )
+    .unwrap();
+
+    let props = comp_def.properties().collect::<Vec<(_, _)>>();
+
+    assert_eq!(props.len(), 1);
+    assert_eq!(props[0].0, "test");
+    assert_eq!(props[0].1, ValueType::String);
 }
 
 #[cfg(feature = "ffi")]
