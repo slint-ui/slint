@@ -18,6 +18,30 @@ use std::rc::Rc;
 #[doc(inline)]
 pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 
+/// This enum represents the different public variants of the [`Value`] enum, without
+/// the contained values.
+#[repr(i8)]
+pub enum ValueType {
+    /// The variant that expresses the non-type. This is the default.
+    Void,
+    /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
+    Number,
+    /// Correspond to the `string` type in .60
+    String,
+    /// Correspond to the `bool` type in .60
+    Bool,
+    /// An Array in the .60 language.
+    Array,
+    /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
+    Model,
+    /// An object
+    Struct,
+    /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
+    Brush,
+    /// The type is not a public type but something internal.
+    Other = -1,
+}
+
 /// This is a dynamically typed value used in the SixtyFPS interpreter.
 /// It can hold a value of different types, and you should use the
 /// [`From`] or [`TryInto`] traits to access the value.
@@ -50,7 +74,7 @@ pub enum Value {
     Model(Rc<dyn sixtyfps_corelib::model::Model<Data = Value>>),
     /// An object
     Struct(Struct),
-    /// Corresespond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
+    /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
     Brush(Brush),
     #[doc(hidden)]
     /// The elements of a path
@@ -62,6 +86,23 @@ pub enum Value {
     /// An enumation, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
     /// FIXME: consider representing that with a number?
     EnumerationValue(String, String),
+}
+
+impl Value {
+    /// Returns the type variant that this value holds without the containing value.
+    pub fn value_type(&self) -> ValueType {
+        match self {
+            Value::Void => ValueType::Void,
+            Value::Number(_) => ValueType::Number,
+            Value::String(_) => ValueType::String,
+            Value::Bool(_) => ValueType::Bool,
+            Value::Array(_) => ValueType::Array,
+            Value::Model(_) => ValueType::Model,
+            Value::Struct(_) => ValueType::Struct,
+            Value::Brush(_) => ValueType::Brush,
+            _ => ValueType::Other,
+        }
+    }
 }
 
 impl Default for Value {

@@ -126,32 +126,9 @@ pub unsafe extern "C" fn sixtyfps_interpreter_value_new_model(
     std::ptr::write(val as *mut Value, Value::Model(Rc::new(ModelAdaptorWrapper(model))))
 }
 
-#[repr(i8)]
-pub enum ValueType {
-    Void,
-    Number,
-    String,
-    Bool,
-    Array,
-    Model,
-    Struct,
-    Brush,
-    Other = -1,
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_value_type(val: *const ValueOpaque) -> ValueType {
-    match &*(val as *const Value) {
-        Value::Void => ValueType::Void,
-        Value::Number(_) => ValueType::Number,
-        Value::String(_) => ValueType::String,
-        Value::Bool(_) => ValueType::Bool,
-        Value::Array(_) => ValueType::Array,
-        Value::Model(_) => ValueType::Model,
-        Value::Struct(_) => ValueType::Struct,
-        Value::Brush(_) => ValueType::Brush,
-        _ => ValueType::Other,
-    }
+    (&*val).as_value().value_type()
 }
 
 #[no_mangle]
