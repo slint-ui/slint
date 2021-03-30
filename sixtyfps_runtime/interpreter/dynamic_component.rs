@@ -34,7 +34,7 @@ use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::ComponentWindow;
-use sixtyfps_corelib::{Color, Property, SharedString};
+use sixtyfps_corelib::{Brush, Color, Property, SharedString};
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
 
@@ -781,6 +781,7 @@ fn generate_component<'id>(
             Type::Int32 => animated_property_info::<i32>(),
             Type::String => property_info::<SharedString>(),
             Type::Color => animated_property_info::<Color>(),
+            Type::Brush => animated_property_info::<Brush>(),
             Type::Duration => animated_property_info::<i64>(),
             Type::Angle => animated_property_info::<f32>(),
             Type::Length => animated_property_info::<f32>(),
