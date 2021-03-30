@@ -176,7 +176,7 @@ private:
 };
 
 namespace private_api {
-cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
+inline cbindgen_private::Slice<uint8_t> string_to_slice(std::string_view str)
 {
     return cbindgen_private::Slice<uint8_t> {
         const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(str.data())), str.size()

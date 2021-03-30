@@ -215,7 +215,7 @@ using cbindgen_private::MouseEvent;
 using cbindgen_private::sixtyfps_visit_item_tree;
 namespace private_api {
 
-void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
+inline void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
 {
 #ifdef __cpp_sized_deallocation
     ::operator delete(reinterpret_cast<void *>(ptr), layout.size,
@@ -226,7 +226,7 @@ void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
 }
 
 template<typename T>
-vtable::Layout drop_in_place(ComponentRef component)
+inline vtable::Layout drop_in_place(ComponentRef component)
 {
     reinterpret_cast<T *>(component.instance)->~T();
     return vtable::Layout { sizeof(T), alignof(T) };
@@ -646,13 +646,13 @@ NativeStyleMetrics::NativeStyleMetrics()
 
 using cbindgen_private::StandardListViewItem;
 namespace cbindgen_private {
-bool operator==(const StandardListViewItem &a, const StandardListViewItem &b)
+inline bool operator==(const StandardListViewItem &a, const StandardListViewItem &b)
 {
     static_assert(sizeof(StandardListViewItem) == sizeof(std::tuple<SharedString>),
                   "must update to cover all fields");
     return a.text == b.text;
 }
-bool operator!=(const StandardListViewItem &a, const StandardListViewItem &b)
+inline bool operator!=(const StandardListViewItem &a, const StandardListViewItem &b)
 {
     return !(a == b);
 }
@@ -665,12 +665,12 @@ struct VersionCheckHelper
 };
 }
 
-void run_event_loop()
+inline void run_event_loop()
 {
     cbindgen_private::sixtyfps_run_event_loop();
 }
 
-void quit_event_loop()
+inline void quit_event_loop()
 {
     cbindgen_private::sixtyfps_quit_event_loop();
 }
@@ -678,7 +678,7 @@ void quit_event_loop()
 /// Registers a font by the specified path. The path must refer to an existing
 /// TrueType font font.
 /// \returns an empty optional on success, otherwise an error string
-std::optional<SharedString> register_font_from_path(const SharedString &path)
+inline std::optional<SharedString> register_font_from_path(const SharedString &path)
 {
     SharedString maybe_err;
     cbindgen_private::sixtyfps_register_font_from_path(&path, &maybe_err);

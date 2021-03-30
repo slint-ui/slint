@@ -182,7 +182,7 @@ inline Color Color::darker(float factor) const
 }
 
 template<>
-RgbaColor<uint8_t>::RgbaColor(const Color &color)
+inline RgbaColor<uint8_t>::RgbaColor(const Color &color)
 {
     red = color.red();
     green = color.green();
@@ -191,7 +191,7 @@ RgbaColor<uint8_t>::RgbaColor(const Color &color)
 }
 
 template<>
-RgbaColor<float>::RgbaColor(const Color &color)
+inline RgbaColor<float>::RgbaColor(const Color &color)
 {
     red = float(color.red()) / 255.;
     green = float(color.green()) / 255.;
@@ -210,8 +210,9 @@ RgbaColor<float> Color::to_argb_float() const
 }
 
 template<>
-void Property<Color>::set_animated_value(
-        const Color &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
+inline void
+Property<Color>::set_animated_value(const Color &new_value,
+                                    const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_value_color(&inner, value, new_value,
                                                                  &animation_data);

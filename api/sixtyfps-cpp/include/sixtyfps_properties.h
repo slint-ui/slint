@@ -25,7 +25,7 @@ using cbindgen_private::StateInfo;
 
 namespace private_api {
 
-void sixtyfps_property_set_animated_binding_helper(
+inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, int32_t *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
@@ -35,7 +35,7 @@ void sixtyfps_property_set_animated_binding_helper(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
-void sixtyfps_property_set_animated_binding_helper(
+inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, float *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
@@ -45,7 +45,7 @@ void sixtyfps_property_set_animated_binding_helper(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
-void sixtyfps_property_set_animated_binding_helper(
+inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, Color *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
@@ -55,7 +55,7 @@ void sixtyfps_property_set_animated_binding_helper(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
-void sixtyfps_property_set_animated_binding_helper(
+inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, Brush *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
@@ -198,7 +198,7 @@ private:
 };
 
 template<>
-void Property<int32_t>::set_animated_value(
+inline void Property<int32_t>::set_animated_value(
         const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_value_int(&inner, value, new_value,
@@ -206,8 +206,9 @@ void Property<int32_t>::set_animated_value(
 }
 
 template<>
-void Property<float>::set_animated_value(
-        const float &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
+inline void
+Property<float>::set_animated_value(const float &new_value,
+                                    const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::sixtyfps_property_set_animated_value_float(&inner, value, new_value,
                                                                  &animation_data);
