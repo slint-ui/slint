@@ -12,7 +12,7 @@ LICENSE END */
 Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component,
     this is existing for any evaluation of a binding
- - `self_pinned` is of type `VRc<ComponentVTable, ComponentType>` or Rc<ComponentType> for globals (FIXME: rename to self_rc?)
+ - `self_rc` is of type `VRc<ComponentVTable, ComponentType>` or Rc<ComponentType> for globals
     this is usualy a local variable to the init code that shouldn't rbe relied upon by the binding code.
 */
 
@@ -151,29 +151,24 @@ fn handle_property_binding(
 ) {
     let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
     let prop_type = item_rc.borrow().lookup_property(prop_name).property_type;
-    let (downgrade, upgrade) = if item_rc
-        .borrow()
-        .enclosing_component
-        .upgrade()
-        .unwrap()
-        .is_global()
-    {
-        (
-            quote!(let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_pinned.clone());),
-            quote!(
-                let self_pinned = self_weak.upgrade().unwrap();
-                let _self = self_pinned.as_ref();
-            ),
-        )
-    } else {
-        (
-            quote!(let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);),
-            quote!(
-                let self_pinned = self_weak.upgrade().unwrap();
-                let _self = self_pinned.as_pin_ref();
-            ),
-        )
-    };
+    let (downgrade, upgrade) =
+        if item_rc.borrow().enclosing_component.upgrade().unwrap().is_global() {
+            (
+                quote!(let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_rc.clone());),
+                quote!(
+                    let self_rc = self_weak.upgrade().unwrap();
+                    let _self = self_rc.as_ref();
+                ),
+            )
+        } else {
+            (
+                quote!(let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_rc);),
+                quote!(
+                    let self_rc = self_weak.upgrade().unwrap();
+                    let _self = self_rc.as_pin_ref();
+                ),
+            )
+        };
 
     if matches!(prop_type, Type::Callback { .. }) {
         let tokens_for_expression = compile_expression(binding_expression, &component);
@@ -512,10 +507,10 @@ fn generate_component(
                 // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
                 init.push(quote! {
                     _self.#repeater_id.set_model_binding({
-                        let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
+                        let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_rc);
                         move || {
-                            let self_pinned = self_weak.upgrade().unwrap();
-                            let _self = self_pinned.as_pin_ref();
+                            let self_rc = self_weak.upgrade().unwrap();
+                            let _self = self_rc.as_pin_ref();
                             (#model) as _
                         }
                     });
@@ -764,15 +759,15 @@ fn generate_component(
 
     let new_code = if !component.is_global() {
         quote! {
-            let self_pinned = VRc::new(self_);
-            self_pinned.self_weak.set(VRc::downgrade(&self_pinned)).map_err(|_|())
+            let self_rc = VRc::new(self_);
+            self_rc.self_weak.set(VRc::downgrade(&self_rc)).map_err(|_|())
                 .expect("Can only be pinned once");
-            let _self = self_pinned.as_pin_ref();
+            let _self = self_rc.as_pin_ref();
         }
     } else {
         quote! {
-            let self_pinned = ::std::rc::Rc::pin(self_);
-            let _self = self_pinned.as_ref();
+            let self_rc = ::std::rc::Rc::pin(self_);
+            let _self = self_rc.as_ref();
         }
     };
     let self_weak = if !component.is_global() { Some(quote!(self_weak)) } else { None };
@@ -886,7 +881,7 @@ fn generate_component(
                 };
                 #new_code
                 #(#init)*
-                self_pinned.into()
+                self_rc.into()
             }
             #item_tree_impl
 
