@@ -12,8 +12,11 @@ LICENSE END */
 Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component,
     this is existing for any evaluation of a binding
- - `self_rc` is of type `VRc<ComponentVTable, ComponentType>` or Rc<ComponentType> for globals
+ - `self_rc` is of type `VRc<ComponentVTable, ComponentType>` or `Rc<ComponentType>` for globals
     this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
+ - `self_mapped` is of type `VRcMapped<ComponentVTable, ComponentType>` or `Rc<ComponentType>` for globals,
+    it is also used in the init code and in code that can initialize repeater's component
+
 */
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
@@ -489,7 +492,6 @@ fn generate_component(
                     ) {
                         use sixtyfps::re_exports::*;
                         let vp_w = viewport_width.get();
-
                         #p_y.set(*offset_y);
                         *offset_y += #p_height.get();
                         let w = #p_width.get();
@@ -500,14 +502,12 @@ fn generate_component(
                 }
             } else {
                 // TODO: we could generate this code only if we know that this component is in a box layout
-
                 quote! {
                     fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sixtyfps::re_exports::Orientation)
                         -> sixtyfps::re_exports::BoxLayoutCellData
                     {
                         use sixtyfps::re_exports::*;
                         BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
-
                     }
                 }
             };
@@ -548,10 +548,10 @@ fn generate_component(
             // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
             binding_and_handler_setup_code.push(quote! {
                 _self.#repeater_id.set_model_binding({
-                    let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_rc);
+                    let self_weak = sixtyfps::re_exports::VRcMapped::downgrade(&self_mapped);
                     move || {
-                        let self_rc = self_weak.upgrade().unwrap();
-                        let _self = self_rc.as_pin_ref();
+                        let self_mapped = self_weak.upgrade().unwrap();
+                        let _self = self_mapped.as_pin_ref();
                         (#model) as _
                     }
                 });
@@ -559,7 +559,6 @@ fn generate_component(
 
             if let Some(listview) = &repeated.is_listview {
                 let vp_y = access_named_reference(&listview.viewport_y, component, quote!(_self));
-
                 let vp_h =
                     access_named_reference(&listview.viewport_height, component, quote!(_self));
                 let lv_h =
@@ -642,7 +641,6 @@ fn generate_component(
                     parent_index: #parent_index,
                 }
             ));
-
             item_names.push(field_name);
             item_types.push(ident(&item.base_type.as_native().class_name));
         }
@@ -807,10 +805,10 @@ fn generate_component(
     let (new_code, self_mapped_type, self_mapped_init_code) = if !component.is_global() {
         (
             quote! {
-            let self_rc = VRc::new(self_);
-            self_rc.self_weak.set(VRc::downgrade(&self_rc)).map_err(|_|())
-                    .expect("Can only be pinned once");
-            let _self = self_rc.as_pin_ref();
+                let self_rc = VRc::new(self_);
+                self_rc.self_weak.set(VRc::downgrade(&self_rc)).map_err(|_|())
+                        .expect("Can only be pinned once");
+                let _self = self_rc.as_pin_ref();
                 let self_mapped = sixtyfps::re_exports::VRcMapped::map(&self_rc, |s| s);
             },
             quote!(&sixtyfps::re_exports::VRcMapped<sixtyfps::re_exports::ComponentVTable, Self>),
@@ -819,12 +817,12 @@ fn generate_component(
     } else {
         (
             quote! {
-            let self_rc = ::std::rc::Rc::pin(self_);
-            let _self = self_rc.as_ref();
-                let self_mapped = self_pinned;
+                let self_rc = ::std::rc::Rc::pin(self_);
+                let _self = self_rc.as_ref();
+                let self_mapped = self_rc.clone();
             },
-            quote!(&Self),
-            quote!(self_mapped),
+            quote!(&::core::pin::Pin<::std::rc::Rc<Self>>),
+            quote!(self_mapped.as_ref()),
         )
     };
     let self_weak = if !component.is_global() { Some(quote!(self_weak)) } else { None };
@@ -961,6 +959,7 @@ fn generate_component(
         impl #inner_component_id{
             fn init(self_mapped: #self_mapped_type)
             {
+                #![allow(unused)]
                 let _self = #self_mapped_init_code;
                 #(#binding_and_handler_setup_code)*
             }
@@ -1818,18 +1817,15 @@ fn compile_assignment(
 fn grid_layout_cell_data(
     layout: &crate::layout::GridLayout,
     orientation: Orientation,
-
     component: &Rc<Component>,
 ) -> TokenStream {
     let cells = layout.elems.iter().map(|c| {
         let (col_or_row, span) = c.col_or_row_and_span(orientation);
         let layout_info =
             get_layout_info(&c.item.element, component, &c.item.constraints, orientation);
-
         quote!(GridLayoutCellData {
             col_or_row: #col_or_row,
             span: #span,
-
             constraint: #layout_info,
         })
     });
@@ -1909,7 +1905,6 @@ fn box_layout_data(
         }
         (
             quote! { {
-
                 let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
                 #push_code
                 items_vec
@@ -1969,14 +1964,12 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
                 sixtyfps::re_exports::Orientation::Horizontal => #layout_info_h,
                 sixtyfps::re_exports::Orientation::Vertical => #layout_info_v,
             }
-
         }
     }
 }
 
 fn get_layout_info(
     elem: &ElementRc,
-
     component: &Rc<Component>,
     constraints: &crate::layout::LayoutConstraints,
     orientation: Orientation,
