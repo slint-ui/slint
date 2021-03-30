@@ -66,6 +66,7 @@ pub enum Value {
     String(SharedString),
     /// Correspond to the `bool` type in .60
     Bool(bool),
+    #[doc(hidden)]
     /// Correspond to the `image` type in .60
     Image(ImageReference),
     /// An Array in the .60 language.
