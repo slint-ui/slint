@@ -10,7 +10,10 @@ LICENSE END */
 /*! module for the Rust code generator
 
 Some convention used in the generated code:
- - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component
+ - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component,
+    this is existing for any evaluation of a binding
+ - `self_pinned` is of type `VRc<ComponentVTable, ComponentType>` or Rc<ComponentType> for globals (FIXME: rename to self_rc?)
+    this is usualy a local variable to the init code that shouldn't rbe relied upon by the binding code.
 */
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
@@ -290,8 +293,8 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
-                            let self_pinned = vtable::VRc::as_pin_ref(&self.0);
-                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).call(&(#(#args_name,)*))
+                            let _self = vtable::VRc::as_pin_ref(&self.0);
+                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self).call(&(#(#args_name,)*))
                         }
                     )
                     ,
@@ -304,9 +307,9 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #on_ident(&self, f: impl Fn(#(#callback_args),*) -> #return_type + 'static) {
-                            let self_pinned = vtable::VRc::as_pin_ref(&self.0);
+                            let _self = vtable::VRc::as_pin_ref(&self.0);
                             #[allow(unused)]
-                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(self_pinned).set_handler(
+                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self).set_handler(
                                 // FIXME: why do i need to clone here?
                                 move |args| f(#(args.#args_index.clone()),*)
                             )
@@ -508,7 +511,7 @@ fn generate_component(
 
                 // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
                 init.push(quote! {
-                    self_pinned.#repeater_id.set_model_binding({
+                    _self.#repeater_id.set_model_binding({
                         let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_pinned);
                         move || {
                             let self_pinned = self_weak.upgrade().unwrap();
@@ -531,8 +534,8 @@ fn generate_component(
                         access_named_reference(&listview.listview_width, component, quote!(_self));
 
                     let ensure_updated = quote! {
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated_listview(
-                            || { #rep_inner_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() },
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
+                            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window).into() },
                             #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                         );
                     };
@@ -540,7 +543,7 @@ fn generate_component(
                     repeated_visit_branch.push(quote!(
                         #repeater_index => {
                             #ensure_updated
-                            self_pinned.#repeater_id.visit(order, visitor)
+                            _self.#repeater_id.visit(order, visitor)
                         }
                     ));
 
@@ -549,21 +552,21 @@ fn generate_component(
                     ));
                 } else {
                     let ensure_updated = quote! {
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self_pinned).ensure_updated(
-                            || { #rep_inner_component_id::new(self_pinned.self_weak.get().unwrap().clone(), &self_pinned.window).into() }
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window).into() }
                         );
                     };
 
                     repeated_visit_branch.push(quote!(
                         #repeater_index => {
                             #ensure_updated
-                            self_pinned.#repeater_id.visit(order, visitor)
+                            _self.#repeater_id.visit(order, visitor)
                         }
                     ));
 
                     repeated_element_layouts.push(quote!(
                         #ensure_updated
-                        self_pinned.#repeater_id.compute_layout();
+                        _self.#repeater_id.compute_layout();
                     ));
                 }
 
@@ -712,8 +715,7 @@ fn generate_component(
                         use sixtyfps::re_exports::*;
                         return sixtyfps::re_exports::visit_item_tree(self, &VRc::into_dyn(self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
                         #[allow(unused)]
-                        fn visit_dynamic(self_pinned: ::core::pin::Pin<&#inner_component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
-                            let _self = self_pinned;
+                        fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                             match dyn_index {
                                 #(#repeated_visit_branch)*
                                 _ => panic!("invalid dyn_index {}", dyn_index),
@@ -1999,7 +2001,6 @@ fn compute_layout(
             let window = _self.window.clone();
             #(#layouts)*
 
-            let self_pinned = self;
             let _self = self;
             #(#repeated_element_layouts)*
         }
