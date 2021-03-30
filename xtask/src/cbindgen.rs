@@ -256,6 +256,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
+        .with_include("sixtyfps_config.h")
         .with_include("vtable.h")
         .with_include("sixtyfps_string.h")
         .with_include("sixtyfps_sharedvector.h")
