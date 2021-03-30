@@ -537,9 +537,10 @@ impl ComponentDefinition {
     /// List of publicly declared properties or callback.
     ///
     /// This is internal because it exposes the `Type` from compilerlib.
-    /// In the future this should probably return an iterator instead.
     #[doc(hidden)]
-    pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::langtype::Type> {
+    pub fn properties(
+        &self,
+    ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
         self.inner.properties()
     }
 

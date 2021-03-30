@@ -115,7 +115,7 @@ fn create<'cx>(
     let persistent_context = persistent_context::PersistentContext::new(cx);
 
     if let Some(args) = cx.argument_opt(0).and_then(|arg| arg.downcast::<JsObject>().ok()) {
-        let properties = component_type.properties();
+        let properties = component_type.properties().collect::<std::collections::HashMap<_, _>>();
         for x in args.get_own_property_names(cx)?.to_vec(cx)? {
             let prop_name = x.to_string(cx)?.value();
             let value = args.get(cx, x)?;
@@ -296,9 +296,9 @@ declare_types! {
             let ct = cx.borrow(&this, |x| x.0.clone());
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let properties = ct.properties();
-            let array = JsArray::new(&mut cx, properties.len() as u32);
+            let array = JsArray::new(&mut cx, 0);
             let mut len: u32 = 0;
-            for (p, _) in properties.iter().filter(|(_, prop_type)| prop_type.is_property_type()) {
+            for (p, _) in properties.filter(|(_, prop_type)| prop_type.is_property_type()) {
                 let prop_name = JsString::new(&mut cx, p);
                 array.set(&mut cx, len, prop_name)?;
                 len = len + 1;
@@ -310,9 +310,9 @@ declare_types! {
             let ct = cx.borrow(&this, |x| x.0.clone());
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let properties = ct.properties();
-            let array = JsArray::new(&mut cx, properties.len() as u32);
+            let array = JsArray::new(&mut cx, 0);
             let mut len: u32 = 0;
-            for (p, _) in properties.iter().filter(|(_, prop_type)| matches!(**prop_type, Type::Callback{..})) {
+            for (p, _) in properties.filter(|(_, prop_type)| matches!(prop_type, Type::Callback{..})) {
                 let prop_name = JsString::new(&mut cx, p);
                 array.set(&mut cx, len, prop_name)?;
                 len = len + 1;
@@ -372,7 +372,7 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let ty = component.definition().properties()
-                .get(&prop_name)
+                .find_map(|(name, proptype)| if name == prop_name { Some(proptype) } else { None })
                 .ok_or(())
                 .or_else(|()| {
                     cx.throw_error(format!("Property {} not found in the component", prop_name))
@@ -394,7 +394,8 @@ declare_types! {
             let this = cx.this();
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let ty = component.definition().properties().get(&callback_name)
+            let ty = component.definition().properties()
+                .find_map(|(name, proptype)| if name == callback_name { Some(proptype) } else { None })
                 .ok_or(())
                 .or_else(|()| {
                     cx.throw_error(format!("Callback {} not found in the component", callback_name))
@@ -434,7 +435,8 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
 
-            let ty = component.definition().properties().get(&callback_name)
+            let ty = component.definition().properties()
+                .find_map(|(name, proptype)| if name == callback_name { Some(proptype) } else { None })
                 .ok_or(())
                 .or_else(|()| {
                     cx.throw_error(format!("Callback {} not found in the component", callback_name))

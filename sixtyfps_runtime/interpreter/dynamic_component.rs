@@ -14,10 +14,10 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use expression_tree::NamedReference;
 use object_tree::{Element, ElementRc};
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLayout};
 use sixtyfps_compilerlib::*;
+use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use sixtyfps_compilerlib::{expression_tree::Expression, langtype::PropertyLookupResult};
 use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::{ImageReference, Rect};
@@ -301,6 +301,8 @@ pub struct ComponentDescription<'id> {
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
     pub(crate) original: Rc<object_tree::Component>,
+    // Copy of original.root_element.property_declarations, without a guarded refcell
+    public_properties: HashMap<String, PropertyDeclaration>,
 }
 
 impl<'id> ComponentDescription<'id> {
@@ -309,15 +311,11 @@ impl<'id> ComponentDescription<'id> {
         self.original.id.as_str()
     }
 
-    /// List of publicly declared properties or callback
-    pub fn properties(&self) -> HashMap<String, sixtyfps_compilerlib::langtype::Type> {
-        self.original
-            .root_element
-            .borrow()
-            .property_declarations
-            .iter()
-            .map(|(s, v)| (s.clone(), v.property_type.clone()))
-            .collect()
+    /// List of publicly declared properties or callbacks
+    pub fn properties(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
+        self.public_properties.iter().map(|(s, v)| (s.clone(), v.property_type.clone()))
     }
 
     /// Instantiate a runtime component from this ComponentDescription
@@ -850,6 +848,8 @@ fn generate_component<'id>(
 
     let extra_data_offset = builder.add_field_type::<ComponentExtraData>();
 
+    let public_properties = component.root_element.borrow().property_declarations.clone();
+
     let t = ComponentVTable {
         visit_children_item,
         layout_info,
@@ -872,6 +872,7 @@ fn generate_component<'id>(
         parent_component_offset,
         window_offset,
         extra_data_offset,
+        public_properties,
     };
 
     Rc::new(t)
