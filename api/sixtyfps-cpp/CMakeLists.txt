@@ -42,6 +42,7 @@ endforeach()
 set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_string_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_brush_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_sharedvector_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_properties_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_image_internal.h
@@ -49,6 +50,7 @@ set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_pathdata_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_qt_internal.h
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_backend_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_interpreter_internal.h
 )
 
 file(GLOB generated_headers_dependencies
