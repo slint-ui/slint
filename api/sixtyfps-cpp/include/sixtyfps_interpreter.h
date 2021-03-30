@@ -625,11 +625,12 @@ public:
     {
         union CI {
             cbindgen_private::ComponentInstance i;
-            ~CI() { i.~ComponentInstance(); }
+            ComponentHandle<ComponentInstance> result;
+            ~CI() { result.~ComponentHandle(); }
             CI() { }
         } u;
         cbindgen_private::sixtyfps_interpreter_component_instance_create(&inner, &u.i);
-        return *reinterpret_cast<ComponentHandle<ComponentInstance> *>(&u.i);
+        return u.result;
     }
 };
 
