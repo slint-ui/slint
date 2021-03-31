@@ -196,7 +196,14 @@ fn reload_document(
     let mut diag = BuildDiagnostics::default();
     spin_on::spin_on(document_cache.documents.load_file(&path_canon, path, content, &mut diag));
 
-    let mut lsp_diags = HashMap::<Url, Vec<lsp_types::Diagnostic>>::new();
+    // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
+    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(path)
+        .chain(diag.all_loaded_files.iter().map(|pathbuf| pathbuf.as_path()))
+        .map(|path| {
+            let uri = Url::from_file_path(path).unwrap();
+            (uri, Default::default())
+        })
+        .collect();
 
     for d in diag.into_iter() {
         if d.source_file().unwrap().is_relative() {
