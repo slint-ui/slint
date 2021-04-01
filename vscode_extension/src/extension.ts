@@ -22,7 +22,9 @@ import {
 
 let client: LanguageClient;
 
-function lspProgramNameSuffix(): string | null {
+const program_extension = process.platform === "win32" ? ".exe" : "";
+
+function lspPlatform(): string | null {
 	if (process.platform === "darwin") {
 		return "x86_64-apple-darwin";
 	}
@@ -32,7 +34,7 @@ function lspProgramNameSuffix(): string | null {
 		}
 	}
 	if (process.platform === "win32") {
-		return "x86_64-pc-windows-gnu.exe";
+		return "x86_64-pc-windows-gnu";
 	}
 	return null;
 }
@@ -61,15 +63,15 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', getShowPreviewhandler(false)));
 	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreviewToSide', getShowPreviewhandler(true)));
 
-	let lspSuffix = lspProgramNameSuffix();
-	if (lspSuffix === null) {
+	let lsp_platform = lspPlatform();
+	if (lsp_platform === null) {
 		return;
 	}
 
-	let serverModule = path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lspSuffix);
+	let serverModule = path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_platform + program_extension);
 
 	if (!existsSync(serverModule)) {
-		serverModule = context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp'));
+		serverModule = context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp' + program_extension));
 	}
 	if (!existsSync(serverModule)) {
 		console.warn("Could not locate sixtyfps-server server binary, neither in bundled bin/ directory nor relative in ../target");
