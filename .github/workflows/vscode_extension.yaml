@@ -28,6 +28,9 @@ jobs:
     - name: "Install vsce"
       working-directory: vscode_extension
       run: npm install vsce
+    - name: "npm install"
+      working-directory: vscode_extension
+      run: npm install
     - name: "Build package"
       working-directory: vscode_extension
       run: npx vsce package
