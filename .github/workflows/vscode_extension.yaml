@@ -1,0 +1,39 @@
+# LICENSE BEGIN
+# This file is part of the SixtyFPS Project -- https://sixtyfps.io
+# Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+# Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+# This file is also available under commercial licensing terms.
+# Please contact info@sixtyfps.io for more information.
+# LICENSE END
+name: VS Code Extension Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_containers:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+    - name: "Install vsce"
+      working-directory: vscode_extension
+      run: npm install vsce
+    - name: "Build package"
+      working-directory: vscode_extension
+      run: npx vsce package
+    - name: "Upload extension artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: sixtyfps-vscode-0.0.1.vsix
+          path: |
+              vscode_extension/sixtyfps-vscode-0.0.1.vsix

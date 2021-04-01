@@ -25,15 +25,5 @@ You can see the output in the output pane "SixtyFPS LSP" (that's the drop-down t
 
 ## How to build the extension package
 
-Until the building of the LSP binaries is automated via npm, the following commands need to be run before packaging with `vsce package`:
-(Note: this assume this is run on MacOS)
-
-```shell
-
-cross build --target x86_64-unknown-linux-gnu --release -p sixtyfps-lsp
-cp target/x86_64-unknown-linux-gnu/release/sixtyfps-lsp vscode_extension/bin/sixtyfps-lsp-x86_64-unknown-linux-gnu
-cross build --target x86_64-pc-windows-gnu --release -p sixtyfps-lsp
-cp target/x86_64-pc-windows-gnu/release/sixtyfps-lsp.exe vscode_extension/bin/sixtyfps-lsp-x86_64-pc-windows-gnu.exe
-cargo build --release -p sixtyfps-lsp
-cp target/release/sixtyfps-lsp vscode_extension/bin/sixtyfps-lsp-x86_64-apple-darwin
-```
+To create a `.vsix` package, install `vsce` (via npm for example) and run `vsce package`. This will build the extension and the LSP server
+binaries into a bundle.

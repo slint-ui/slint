@@ -57,8 +57,9 @@
 		"bin/sixtyfps-lsp-*"
 	],
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
+		"vscode:prepublish": "npm run compile && npm run compile-lsp",
 		"compile": "tsc -p ./",
+		"compile-lsp": "./build_lsp.sh",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
 		"lint": "eslint src --ext ts",
