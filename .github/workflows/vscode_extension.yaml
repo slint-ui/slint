@@ -14,7 +14,7 @@ on:
 
 jobs:
   build_extension:
-    runs-on: linux-latest # temporary until macos-latest is back up and running
+    runs-on: ubuntu-latest # temporary until macos-latest is back up and running
     steps:
     - uses: actions/checkout@v2
     - name: Setup Node.js
