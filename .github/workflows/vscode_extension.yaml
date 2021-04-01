@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build_containers:
+  build_extension:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
