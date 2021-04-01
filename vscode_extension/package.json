@@ -41,6 +41,9 @@
 	"dependencies": {
 		"vscode-languageclient": "^7"
 	},
+	"files": [
+		"bin/sixtyfps-lsp-*"
+	],
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
