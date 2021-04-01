@@ -191,14 +191,14 @@ fn reload_document(
     let newline_offsets = newline_offsets_from_content(&content);
     document_cache.newline_offsets.insert(uri.clone(), newline_offsets);
 
-    let path = Path::new(uri.path());
+    let path = uri.to_file_path().unwrap();
     let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
     let mut diag = BuildDiagnostics::default();
-    spin_on::spin_on(document_cache.documents.load_file(&path_canon, path, content, &mut diag));
+    spin_on::spin_on(document_cache.documents.load_file(&path_canon, &path, content, &mut diag));
 
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
-    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(path)
-        .chain(diag.all_loaded_files.iter().map(|pathbuf| pathbuf.as_path()))
+    let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)
+        .chain(diag.all_loaded_files.iter())
         .map(|path| {
             let uri = Url::from_file_path(path).unwrap();
             (uri, Default::default())
