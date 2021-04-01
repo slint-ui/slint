@@ -37,16 +37,29 @@ function lspProgramNameSuffix(): string | null {
 	return null;
 }
 
+function getShowPreviewhandler(toSide: boolean): (...args: any[]) => any {
+	return () => {
+		let ae = vscode.window.activeTextEditor;
+		if (!ae) {
+			return;
+		}
+		let uri = ae.document.uri;
+		const webview = vscode.window.createWebviewPanel(
+			"sixtyfps.preview",
+			"[Preview] " + path.basename(uri.fsPath),
+			ae.viewColumn ? ae.viewColumn + (toSide ? 1 : 0) : 0
+		);
+		webview.webview.html = `<p>Here will soon come a preview for ${uri.toString()}</p>`;
+	};
+}
+
 export function activate(context: vscode.ExtensionContext) {
 
 	/*let test_output = vscode.window.createOutputChannel("Test Output");
 	test_output.appendLine("Hello from extension");*/
 
-	const commandHandler = (name: string = 'world') => {
-		console.log(`Hello ${name}!!!  (Not yet implemented)`);
-	};
-	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', commandHandler));
-	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreviewToSide', commandHandler));
+	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', getShowPreviewhandler(false)));
+	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreviewToSide', getShowPreviewhandler(true)));
 
 	let lspSuffix = lspProgramNameSuffix();
 	if (lspSuffix === null) {

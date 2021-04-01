@@ -48,7 +48,19 @@
 				"title": "SixtyFPS: Show Preview To Side",
 				"category": "SixtyFPS"
 			}
-		]
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "sixtyfps.showPreview",
+					"when": "editorLangId == sixtyfps"
+				},
+				{
+					"command": "sixtyfps.showPreviewToSide",
+					"when": "editorLangId == sixtyfps"
+				}
+			]
+		}
 	},
 	"dependencies": {
 		"vscode-languageclient": "^7"
