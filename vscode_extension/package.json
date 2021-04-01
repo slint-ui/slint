@@ -36,6 +36,18 @@
 				"scopeName": "source.sixtyfps",
 				"path": "./sixtyfps.tmLanguage.json"
 			}
+		],
+		"commands": [
+			{
+				"command": "sixtyfps.showPreview",
+				"title": "SixtyFPS: Show Preview",
+				"category": "SixtyFPS"
+			},
+			{
+				"command": "sixtyfps.showPreviewToSide",
+				"title": "SixtyFPS: Show Preview To Side",
+				"category": "SixtyFPS"
+			}
 		]
 	},
 	"dependencies": {

@@ -10,7 +10,7 @@ LICENSE END */
 
 import * as path from 'path';
 import { existsSync } from 'fs';
-import { workspace, extensions, ExtensionContext } from 'vscode';
+import * as vscode from 'vscode';
 
 import {
 	LanguageClient,
@@ -37,7 +37,17 @@ function lspProgramNameSuffix(): string | null {
 	return null;
 }
 
-export function activate(context: ExtensionContext) {
+export function activate(context: vscode.ExtensionContext) {
+
+	/*let test_output = vscode.window.createOutputChannel("Test Output");
+	test_output.appendLine("Hello from extension");*/
+
+	const commandHandler = (name: string = 'world') => {
+		console.log(`Hello ${name}!!!  (Not yet implemented)`);
+	};
+	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', commandHandler));
+	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreviewToSide', commandHandler));
+
 	let lspSuffix = lspProgramNameSuffix();
 	if (lspSuffix === null) {
 		return;
@@ -54,9 +64,6 @@ export function activate(context: ExtensionContext) {
 	}
 
 	console.log(`Starting LSP server from {serverModule)`);
-
-	/*let test_output = vscode.window.createOutputChannel("Test Output");
-	test_output.appendLine("Hello from extension");*/
 
 	let serverOptions: ServerOptions = {
 		run: { command: serverModule },
