@@ -3,6 +3,11 @@
 	"displayName": "SixtyFPS-vscode",
 	"description": "SixtyFPS Language extension",
 	"version": "0.0.1",
+	"publisher": "SixtyFPS",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/sixtyfpsui/sixtyfps"
+	},
 	"engines": {
 		"vscode": "^1.52.0"
 	},
