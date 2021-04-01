@@ -23,27 +23,31 @@ import {
 let client: LanguageClient;
 
 function lspProgramNameSuffix(): string | null {
-	if (process.platform == "darwin")
+	if (process.platform === "darwin") {
 		return "x86_64-apple-darwin";
-	if (process.platform === "linux") {
-		if (process.arch === "x64")
-			return "x86_64-unknown-linux-gnu"
 	}
-	if (process.platform == "win32")
+	if (process.platform === "linux") {
+		if (process.arch === "x64") {
+			return "x86_64-unknown-linux-gnu";
+		}
+	}
+	if (process.platform === "win32") {
 		return "x86_64-pc-windows-gnu.exe";
+	}
 	return null;
 }
 
 export function activate(context: ExtensionContext) {
-	let lsp_suffix = lspProgramNameSuffix();
-	if (lsp_suffix == null)
+	let lspSuffix = lspProgramNameSuffix();
+	if (lspSuffix === null) {
 		return;
+	}
 
-	let serverModule = path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_suffix);
+	let serverModule = path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lspSuffix);
 
-	if (!existsSync(serverModule))
+	if (!existsSync(serverModule)) {
 		serverModule = context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp'));
-
+	}
 	if (!existsSync(serverModule)) {
 		console.warn("Could not locate sixtyfps-server server binary, neither in bundled bin/ directory nor relative in ../target");
 		return;
