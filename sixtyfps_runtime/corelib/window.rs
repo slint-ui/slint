@@ -164,6 +164,8 @@ impl Window {
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
     /// done with that component.
     pub fn set_component(&self, component: &ComponentRc) {
+        self.focus_item.replace(Default::default());
+        self.mouse_input_state.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
     }
 

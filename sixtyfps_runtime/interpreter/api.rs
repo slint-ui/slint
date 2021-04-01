@@ -558,6 +558,16 @@ impl ComponentDefinition {
         ComponentInstance { inner: self.inner.clone().create(canvas_id.into()) }
     }
 
+    /// Instentiate the component using an existing window.
+    /// This method is internal because the Window is not a public type
+    #[doc(hidden)]
+    pub fn create_with_existing_window(
+        &self,
+        window: sixtyfps_corelib::window::ComponentWindow,
+    ) -> ComponentInstance {
+        ComponentInstance { inner: self.inner.clone().create_with_existing_window(window) }
+    }
+
     /// List of publicly declared properties or callback.
     ///
     /// This is internal because it exposes the `Type` from compilerlib.
@@ -752,6 +762,15 @@ impl ComponentInstance {
     /// Create a weak pointer to this component
     pub fn as_weak(&self) -> WeakComponentInstance {
         WeakComponentInstance { inner: vtable::VRc::downgrade(&self.inner) }
+    }
+
+    /// Return the window.
+    /// This method is internal because the Window is not a public type
+    #[doc(hidden)]
+    pub fn window(&self) -> sixtyfps_corelib::window::ComponentWindow {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        comp.window()
     }
 }
 

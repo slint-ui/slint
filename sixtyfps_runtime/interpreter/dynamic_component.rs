@@ -323,12 +323,19 @@ impl<'id> ComponentDescription<'id> {
         self: Rc<Self>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
-        let component_ref = instantiate(
-            self,
-            None,
-            #[cfg(target_arch = "wasm32")]
-            canvas_id,
-        );
+        #[cfg(not(target_arch = "wasm32"))]
+        let window = sixtyfps_rendering_backend_default::backend().create_window();
+        #[cfg(target_arch = "wasm32")]
+        let window = sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id);
+        self.create_with_existing_window(window)
+    }
+
+    #[doc(hidden)]
+    pub fn create_with_existing_window(
+        self: Rc<Self>,
+        window: sixtyfps_corelib::window::ComponentWindow,
+    ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
+        let component_ref = instantiate(self, None, window);
         component_ref
             .as_pin_ref()
             .window()
@@ -489,12 +496,14 @@ fn ensure_repeater_updated<'id>(
 ) {
     let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
     let init = || {
-        instantiate(
-            rep_in_comp.component_to_repeat.clone(),
-            Some(instance_ref.borrow()),
-            #[cfg(target_arch = "wasm32")]
-            String::new(),
-        )
+        let window = instance_ref
+            .component_type
+            .window_offset
+            .apply(instance_ref.as_ref())
+            .as_ref()
+            .unwrap()
+            .clone();
+        instantiate(rep_in_comp.component_to_repeat.clone(), Some(instance_ref.borrow()), window)
     };
     if let Some(lv) = &rep_in_comp
         .component_to_repeat
@@ -940,26 +949,13 @@ pub fn animation_for_property(
 pub fn instantiate<'id>(
     component_type: Rc<ComponentDescription<'id>>,
     parent_ctx: Option<ComponentRefPin>,
-    #[cfg(target_arch = "wasm32")] canvas_id: String,
+    window: sixtyfps_corelib::window::ComponentWindow,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
 
     if let Some(parent) = parent_ctx {
-        generativity::make_guard!(guard);
-        // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
-        let parent_instance_ref = unsafe { InstanceRef::from_pin_ref(parent, guard) };
-
-        let window = parent_instance_ref
-            .component_type
-            .window_offset
-            .apply(parent_instance_ref.as_ref())
-            .as_ref()
-            .unwrap()
-            .clone();
-
         *component_type.parent_component_offset.unwrap().apply_mut(instance.as_mut()) =
             Some(parent);
-        *component_type.window_offset.apply_mut(instance.as_mut()) = Some(window);
     } else {
         let extra_data = component_type.extra_data_offset.apply_mut(instance.as_mut());
         extra_data.globals = component_type
@@ -969,13 +965,8 @@ pub fn instantiate<'id>(
             .iter()
             .map(|g| (g.id.clone(), crate::global_component::instantiate(g)))
             .collect();
-        #[cfg(not(target_arch = "wasm32"))]
-        let window = Some(sixtyfps_rendering_backend_default::backend().create_window());
-        #[cfg(target_arch = "wasm32")]
-        let window =
-            Some(sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id));
-        *component_type.window_offset.apply_mut(instance.as_mut()) = window;
     }
+    *component_type.window_offset.apply_mut(instance.as_mut()) = Some(window);
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
     let instance_ref = component_box.borrow_instance();
@@ -1473,12 +1464,14 @@ fn collect_layouts_recursively<'a, 'b>(
                         generativity::make_guard!(guard);
                         let rep = get_repeater_by_name(component, elem.borrow().id.as_str(), guard);
                         rep.0.as_ref().ensure_updated(|| {
-                            instantiate(
-                                rep.1.clone(),
-                                Some(component.borrow()),
-                                #[cfg(target_arch = "wasm32")]
-                                String::new(),
-                            )
+                            let window = component
+                                .component_type
+                                .window_offset
+                                .apply(component.as_ref())
+                                .as_ref()
+                                .unwrap()
+                                .clone();
+                            instantiate(rep.1.clone(), Some(component.borrow()), window)
                         });
 
                         BoxLayoutCellTmpData::Repeater(
@@ -1811,16 +1804,13 @@ pub fn show_popup(
     x: f32,
     y: f32,
     parent_comp: ComponentRefPin,
-    window: ComponentWindow,
+    parent_window: ComponentWindow,
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
-    let inst = instantiate(
-        compiled,
-        Some(parent_comp),
-        #[cfg(target_arch = "wasm32")]
-        String::new(),
-    );
-    window.show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));
+    let window = sixtyfps_rendering_backend_default::backend().create_window();
+    let inst = instantiate(compiled, Some(parent_comp), window);
+    parent_window
+        .show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));
 }
