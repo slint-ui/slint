@@ -1,0 +1,33 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+Test := Rectangle {
+    // allow declaring brush properties and assigning colors
+    property<brush> color_brush: blue;
+}
+
+/*
+```cpp
+auto handle = Test::create();
+const Test &t = *handle;
+assert_eq(t.get_color_brush().color(), sixtyfps::Color::from_rgb_uint8(0, 0, 0xff));
+```
+
+
+```rust
+let t = Test::new();
+assert_eq!(t.get_color_brush().color(), sixtyfps::Color::from_rgb_u8(0, 0, 0xff));
+```
+
+```js
+var t = new sixtyfps.Test({});
+assert.equal(t.color_brush, "#0000ffff");
+```
+*/
+
