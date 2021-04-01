@@ -169,7 +169,7 @@ fn to_eval_value<'cx>(
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))
         }
         Type::String => Ok(Value::String(val.to_string(cx)?.value().into())),
-        Type::Color => {
+        Type::Color | Type::Brush => {
             let c = val
                 .to_string(cx)?
                 .value()
@@ -228,7 +228,6 @@ fn to_eval_value<'cx>(
         | Type::Easing
         | Type::Component(_)
         | Type::PathElements
-        | Type::Brush
         | Type::ElementReference => cx.throw_error("Cannot convert to a Sixtyfps property value"),
     }
 }
