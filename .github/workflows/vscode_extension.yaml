@@ -45,7 +45,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: build
-          target: ${{ matrix.toolchain }}
+          toolchain: ${{ matrix.toolchain }}
           args: --release -p sixtyfps-lsp
     - name: Create artifact directory
       run: |
