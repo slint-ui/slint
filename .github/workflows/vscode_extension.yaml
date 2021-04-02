@@ -20,18 +20,22 @@ jobs:
           - os: ubuntu-latest
             toolchain: x86_64-unknown-linux-gnu
             binary_built: sixtyfps-lsp
+            target_dir:
             artifact_name: sixtyfps-lsp-x86_64-unknown-linux-gnu
           - os: macos-latest
             toolchain: x86_64-apple-darwin
             binary_built: sixtyfps-lsp
+            target_dir:
             artifact_name: sixtyfps-lsp-x86_64-apple-darwin
           - os: macos-latest
             toolchain: aarch64-apple-darwin
             binary_built: sixtyfps-lsp
+            target_dir: aarch64-apple-darwin
             artifact_name: sixtyfps-lsp-aarch64-apple-darwin
           - os: windows-latest
             toolchain: x86_64-pc-windows-gnu
             binary_built: sixtyfps-lsp.exe
+            target_dir:
             artifact_name: sixtyfps-lsp-x86_64-pc-windows-gnu.exe
     runs-on: ${{ matrix.os }}
     steps:
@@ -49,7 +53,7 @@ jobs:
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
+          cp target/${{ matrix.target_dir }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
