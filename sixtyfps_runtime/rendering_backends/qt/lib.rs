@@ -196,4 +196,44 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         }
         None
     }
+
+    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
+        #[cfg(not(no_qt))]
+        {
+            use cpp::cpp;
+            cpp! {{
+               struct TraitObject { void *a, *b; };
+               struct EventHolder {
+                   TraitObject fnbox = {nullptr, nullptr};
+                   ~EventHolder() {
+                       if (fnbox.a != nullptr || fnbox.b != nullptr) {
+                           rust!(SFPS_delete_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
+                               drop(Box::from_raw(fnbox))
+                           });
+                       }
+                   }
+                   EventHolder(TraitObject f) : fnbox(f)  {}
+                   EventHolder(const EventHolder&) = delete;
+                   EventHolder& operator=(const EventHolder&) = delete;
+                   EventHolder(EventHolder&& other) : fnbox(other.fnbox) {
+                        other.fnbox = {nullptr, nullptr};
+                   }
+                   void operator()() {
+                        if (fnbox.a != nullptr || fnbox.b != nullptr) {
+                            TraitObject fnbox = std::move(this->fnbox);
+                            this->fnbox = {nullptr, nullptr};
+                            rust!(SFPS_call_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
+                               let b = Box::from_raw(fnbox);
+                               b();
+                            });
+                        }
+                   }
+               };
+            }};
+            let fnbox = Box::into_raw(event);
+            cpp! {unsafe [fnbox as "TraitObject"] {
+                QTimer::singleShot(0, qApp, EventHolder{fnbox});
+            }}
+        };
+    }
 }

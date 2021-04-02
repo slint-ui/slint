@@ -45,6 +45,9 @@ pub trait Backend: Send + Sync {
 
     fn set_clipboard_text(&'static self, text: String);
     fn clipboard_text(&'static self) -> Option<String>;
+
+    /// Send an user event to from another thread that should be run in the GUI event loop
+    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>);
 }
 
 static PRIVATE_BACKEND_INSTANCE: once_cell::sync::OnceCell<Box<dyn Backend + 'static>> =

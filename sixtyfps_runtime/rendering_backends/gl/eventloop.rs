@@ -74,6 +74,10 @@ thread_local! {
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
 
+pub static GLOBAL_PROXY: once_cell::sync::OnceCell<
+    std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<CustomEvent>>>,
+> = once_cell::sync::OnceCell::new();
+
 pub(crate) fn with_window_target<T>(callback: impl FnOnce(&dyn EventLoopInterface) -> T) -> T {
     if CURRENT_WINDOW_TARGET.is_set() {
         CURRENT_WINDOW_TARGET.with(|current_target| callback(current_target))
@@ -110,6 +114,7 @@ pub enum CustomEvent {
     #[cfg(target_arch = "wasm32")]
     WakeUpAndPoll,
     UpdateWindowProperties(winit::window::WindowId),
+    UserEvent(Box<dyn FnOnce() + Send>),
     Exit,
 }
 
@@ -125,6 +130,8 @@ pub fn run() {
     });
 
     let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
+    *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Some(event_loop_proxy.clone());
+
     let mut winit_loop = not_running_loop_instance.instance;
 
     // last seen cursor position, (physical coordinate)
@@ -409,6 +416,10 @@ pub fn run() {
 
                 winit::event::Event::UserEvent(CustomEvent::Exit) => {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
+                }
+
+                winit::event::Event::UserEvent(CustomEvent::UserEvent(user)) => {
+                    user();
                 }
 
                 _ => (),

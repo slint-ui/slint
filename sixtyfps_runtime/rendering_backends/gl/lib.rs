@@ -1516,4 +1516,13 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         use copypasta::ClipboardProvider;
         CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok())
     }
+
+    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
+        crate::eventloop::GLOBAL_PROXY
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|proxy| proxy.send_event(crate::eventloop::CustomEvent::UserEvent(event)));
+    }
 }
