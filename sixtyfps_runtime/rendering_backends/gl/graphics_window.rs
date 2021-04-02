@@ -461,12 +461,22 @@ impl PlatformWindow for GraphicsWindow {
     }
 
     fn request_window_properties_update(&self) {
-        crate::eventloop::with_window_target(|event_loop| {
-            event_loop.event_loop_proxy().send_event(
-                crate::eventloop::CustomEvent::UpdateWindowProperties(self.self_weak.clone()),
-            )
-        })
-        .ok();
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {
+                // Nothing to be done if the window isn't visible. When it becomes visible,
+                // ComponentWindow::show() calls update_window_properties()
+            }
+            GraphicsWindowBackendState::Mapped(window) => {
+                let backend = window.backend.borrow();
+                let window_id = backend.window().id();
+                crate::eventloop::with_window_target(|event_loop| {
+                    event_loop.event_loop_proxy().send_event(
+                        crate::eventloop::CustomEvent::UpdateWindowProperties(window_id),
+                    )
+                })
+                .ok();
+            }
+        }
     }
 
     fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::Window>) {

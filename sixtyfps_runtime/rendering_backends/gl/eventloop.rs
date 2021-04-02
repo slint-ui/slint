@@ -109,7 +109,7 @@ pub enum CustomEvent {
     /// request an animation frame.
     #[cfg(target_arch = "wasm32")]
     WakeUpAndPoll,
-    UpdateWindowProperties(Weak<Window>),
+    UpdateWindowProperties(winit::window::WindowId),
     Exit,
 }
 
@@ -397,8 +397,14 @@ pub fn run() {
                     });
                 }
 
-                winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window)) => {
-                    window.upgrade().map(|window| window.update_window_properties());
+                winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            window.self_weak.upgrade().unwrap().update_window_properties();
+                        }
+                    });
                 }
 
                 winit::event::Event::UserEvent(CustomEvent::Exit) => {
