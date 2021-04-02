@@ -46,7 +46,7 @@ jobs:
       with:
           command: build
           target: ${{ matrix.toolchain }}
-          args: --release
+          args: --release -p sixtyfps-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
