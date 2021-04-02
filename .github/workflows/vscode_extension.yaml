@@ -54,15 +54,15 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: lsp-binary-ubuntu-latest
-        path: vscode_extension
+        path: vscode_extension/bin
     - uses: actions/download-artifact@v2
       with:
         name: lsp-binary-windows-latest
-        path: vscode_extension
+        path: vscode_extension/bin
     - uses: actions/download-artifact@v2
       with:
         name: lsp-binary-macos-latest
-        path: vscode_extension
+        path: vscode_extension/bin
     - name: Fix permissions
       run: chmod 755 vscode_extension/bin/*
     - name: Setup Node.js
