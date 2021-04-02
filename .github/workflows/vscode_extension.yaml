@@ -28,6 +28,7 @@ jobs:
             artifact_name: sixtyfps-lsp-x86_64-pc-windows-gnu.exe
     runs-on: ${{ matrix.os }}
     steps:
+    - uses: actions/checkout@v2
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
