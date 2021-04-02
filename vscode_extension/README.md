@@ -25,5 +25,10 @@ You can see the output in the output pane "SixtyFPS LSP" (that's the drop-down t
 
 ## How to build the extension package
 
-To create a `.vsix` package, install `vsce` (via npm for example) and run `vsce package`. This will build the extension and the LSP server
-binaries into a bundle.
+To create a `.vsix` package:
+
+  1. Install `vsce` (via npm for example).
+  2. Change to the `vscode_extension` sub-directory.
+  3. Install the dependencies: `npm install`.
+  4. Build the lsp binaries: `npm compile-lsp`.
+  5. Run `vsce package` to create the extension package.

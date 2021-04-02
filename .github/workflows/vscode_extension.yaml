@@ -13,10 +13,55 @@ on:
   workflow_dispatch:
 
 jobs:
+  build_lsp:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            binary_built: sixtyfps-lsp
+            artifact_name: sixtyfps-lsp-x86_64-unknown-linux-gnu
+          - os: macos-latest
+            binary_built: sixtyfps-lsp
+            artifact_name: sixtyfps-lsp-x86_64-apple-darwin
+          - os: windows-latest
+            binary_built: sixtyfps-lsp.exe
+            artifact_name: sixtyfps-lsp-x86_64-pc-windows-gnu.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+    - name: Build LSP
+      run: cargo build --release -p sixtyfps-lsp
+    - name: Create artifact directory
+      run: |
+          mkdir bin
+          cp ${{ matrix.binary_built }} ${{ matrix.artifact_name }}
+    - name: "Upload LSP Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: lsp-binary-${{ matrix.os }}
+          path: |
+              bin
+
   build_extension:
-    runs-on: macos-latest
+    needs: [build_containers
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: lsp-binary-ubuntu-latest
+        path: vscode_extension
+    - uses: actions/download-artifact@v2
+      with:
+        name: lsp-binary-windows-latest
+        path: vscode_extension
+    - uses: actions/download-artifact@v2
+      with:
+        name: lsp-binary-macos-latest
+        path: vscode_extension
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
