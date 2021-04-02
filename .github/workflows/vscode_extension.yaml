@@ -39,13 +39,12 @@ jobs:
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: stable
-          target: ${{ matrix.toolchain }}
+          toolchain: stable-${{ matrix.toolchain }}
     - name: Build LSP
       uses: actions-rs/cargo@v1
       with:
           command: build
-          toolchain: ${{ matrix.toolchain }}
+          toolchain: stable-${{ matrix.toolchain }}
           args: --release -p sixtyfps-lsp
     - name: Create artifact directory
       run: |
