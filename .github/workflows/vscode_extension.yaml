@@ -85,11 +85,11 @@ jobs:
         path: vscode_extension/bin
     - uses: actions/download-artifact@v2
       with:
-        name: lsp-binary-x86_64-apple-darwint
+        name: lsp-binary-x86_64-apple-darwin
         path: vscode_extension/bin
     - uses: actions/download-artifact@v2
       with:
-        name: lsp-binary-aarch64-apple-darwint
+        name: lsp-binary-aarch64-apple-darwin
         path: vscode_extension/bin
     - name: Fix permissions
       run: chmod 755 vscode_extension/bin/*
