@@ -31,7 +31,6 @@ jobs:
             artifact_name: sixtyfps-lsp-aarch64-apple-darwin
           - os: windows-latest
             toolchain: x86_64-pc-windows-gnu
-            toolchain: 
             binary_built: sixtyfps-lsp.exe
             artifact_name: sixtyfps-lsp-x86_64-pc-windows-gnu.exe
     runs-on: ${{ matrix.os }}
