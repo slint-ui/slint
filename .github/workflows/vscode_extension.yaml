@@ -38,7 +38,7 @@ jobs:
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp target/release/${{ matrix.binary_built }} ${{ matrix.artifact_name }}
+          cp target/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
@@ -63,6 +63,8 @@ jobs:
       with:
         name: lsp-binary-macos-latest
         path: vscode_extension
+    - name: Fix permissions
+      run: chmod 755 vscode_extension/bin/*
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
