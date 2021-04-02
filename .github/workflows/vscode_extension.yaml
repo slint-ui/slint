@@ -45,6 +45,9 @@ jobs:
       with:
           toolchain: stable
           target: ${{ matrix.toolchain }}
+    - name: Select XCode version
+      if: matrix.os == 'macos-latest'
+      run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
     - name: Select SDK
       if: matrix.os == 'macos-latest'
       run: |
