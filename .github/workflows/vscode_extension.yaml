@@ -45,6 +45,11 @@ jobs:
       with:
           toolchain: stable
           target: ${{ matrix.toolchain }}
+    - name: Select SDK
+      if: matrix.os == 'macos-latest'
+      run: |
+          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
     - name: Build LSP
       uses: actions-rs/cargo@v1
       with:
