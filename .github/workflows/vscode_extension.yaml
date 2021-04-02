@@ -69,12 +69,6 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: '12'
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-    - name: "Install cross"
-      run: cargo install cross
     - name: "Install vsce"
       working-directory: vscode_extension
       run: npm install vsce
