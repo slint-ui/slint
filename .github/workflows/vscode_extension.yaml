@@ -38,7 +38,7 @@ jobs:
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp ${{ matrix.binary_built }} ${{ matrix.artifact_name }}
+          cp target/release/${{ matrix.binary_built }} ${{ matrix.artifact_name }}
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
