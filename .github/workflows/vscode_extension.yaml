@@ -43,17 +43,18 @@ jobs:
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: stable-${{ matrix.toolchain }}
+          toolchain: stable
+          target: ${{ matrix.toolchain }}
     - name: Build LSP
       uses: actions-rs/cargo@v1
       with:
           command: build
-          toolchain: stable-${{ matrix.toolchain }}
-          args: --release -p sixtyfps-lsp
+          toolchain: stable
+          args: --target ${{ matrix.toolchain }} --release -p sixtyfps-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp target/${{ matrix.target_dir }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
+          cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
