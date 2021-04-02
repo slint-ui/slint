@@ -26,14 +26,18 @@ const program_extension = process.platform === "win32" ? ".exe" : "";
 
 function lspPlatform(): string | null {
 	if (process.platform === "darwin") {
-		return "x86_64-apple-darwin";
+		if (process.arch === "x64") {
+			return "x86_64-apple-darwin";
+		} else if (process.arch == "arm64") {
+			return "aarch64-apple-darwin";
+		}
 	}
-	if (process.platform === "linux") {
+	else if (process.platform === "linux") {
 		if (process.arch === "x64") {
 			return "x86_64-unknown-linux-gnu";
 		}
 	}
-	if (process.platform === "win32") {
+	else if (process.platform === "win32") {
 		return "x86_64-pc-windows-gnu";
 	}
 	return null;
