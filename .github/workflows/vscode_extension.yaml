@@ -46,7 +46,7 @@ jobs:
               bin
 
   build_extension:
-    needs: [build_containers
+    needs: [build_containers]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
