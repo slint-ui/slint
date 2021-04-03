@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+mod preview;
+
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -63,6 +65,7 @@ fn main() -> Result<(), Error> {
     };
     let server_capabilities = serde_json::to_value(&capabilities).unwrap();
     let initialization_params = connection.initialize(server_capabilities)?;
+    preview::start_ui_thread();
     main_loop(&connection, initialization_params)?;
     io_threads.join()?;
     Ok(())
@@ -70,8 +73,6 @@ fn main() -> Result<(), Error> {
 
 fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
-    eprintln!("starting example main loop");
-
     let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
         sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
     );
@@ -164,6 +165,16 @@ fn handle_notification(
                 params.text_document.uri,
                 document_cache,
             )?;
+        }
+        "sixtyfps/showPreview" => {
+            let e = || -> Error { "InvalidParameter".into() };
+            let path = if let serde_json::Value::String(s) = req.params.get(0).ok_or_else(e)? {
+                s
+            } else {
+                return Err(e());
+            };
+            dbg!(&path);
+            preview::load_preview(path.into());
         }
         _ => (),
     }

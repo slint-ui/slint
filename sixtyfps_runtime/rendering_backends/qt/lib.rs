@@ -118,6 +118,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             crate::qt_window::timer_event();
             use cpp::cpp;
             cpp! {unsafe [] {
+                ensure_initialized();
                 qApp->exec();
             } }
         };

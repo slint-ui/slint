@@ -42,21 +42,12 @@
 				"command": "sixtyfps.showPreview",
 				"title": "SixtyFPS: Show Preview",
 				"category": "SixtyFPS"
-			},
-			{
-				"command": "sixtyfps.showPreviewToSide",
-				"title": "SixtyFPS: Show Preview To Side",
-				"category": "SixtyFPS"
 			}
 		],
 		"menus": {
 			"commandPalette": [
 				{
 					"command": "sixtyfps.showPreview",
-					"when": "editorLangId == sixtyfps"
-				},
-				{
-					"command": "sixtyfps.showPreviewToSide",
 					"when": "editorLangId == sixtyfps"
 				}
 			]
