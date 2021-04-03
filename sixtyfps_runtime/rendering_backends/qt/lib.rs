@@ -198,7 +198,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         None
     }
 
-    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
+    fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
         #[cfg(not(no_qt))]
         {
             use cpp::cpp;
@@ -231,7 +231,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
                    }
                };
             }};
-            let fnbox = Box::into_raw(event);
+            let fnbox = Box::into_raw(_event);
             cpp! {unsafe [fnbox as "TraitObject"] {
                 QTimer::singleShot(0, qApp, EventHolder{fnbox});
             }}
