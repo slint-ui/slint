@@ -173,7 +173,6 @@ fn handle_notification(
             } else {
                 return Err(e());
             };
-            dbg!(&path);
             preview::load_preview(path.into());
         }
         _ => (),
@@ -234,13 +233,22 @@ fn reload_document(
     Ok(())
 }
 
+fn to_lsp_diag_level(
+    level: sixtyfps_compilerlib::diagnostics::DiagnosticLevel,
+) -> lsp_types::DiagnosticSeverity {
+    match level {
+        sixtyfps_interpreter::DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::Error,
+        sixtyfps_interpreter::DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::Warning,
+    }
+}
+
 fn to_lsp_diag(d: &sixtyfps_compilerlib::diagnostics::Diagnostic) -> lsp_types::Diagnostic {
     lsp_types::Diagnostic::new(
         to_range(d.line_column()),
-        Some(lsp_types::DiagnosticSeverity::Error),
+        Some(to_lsp_diag_level(d.level())),
         None,
         None,
-        d.to_string(),
+        d.message().to_owned(),
         None,
         None,
     )
