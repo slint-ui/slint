@@ -74,6 +74,7 @@ thread_local! {
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
 
+#[cfg(not(target_arch = "wasm32"))]
 pub static GLOBAL_PROXY: once_cell::sync::OnceCell<
     std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<CustomEvent>>>,
 > = once_cell::sync::OnceCell::new();
@@ -130,7 +131,11 @@ pub fn run() {
     });
 
     let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
-    *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Some(event_loop_proxy.clone());
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() =
+            Some(event_loop_proxy.clone());
+    }
 
     let mut winit_loop = not_running_loop_instance.instance;
 
