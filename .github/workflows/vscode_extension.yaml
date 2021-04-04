@@ -53,6 +53,9 @@ jobs:
       run: |
           echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
           echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
+    - name: Install Linux Dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
     - name: Build LSP
       uses: actions-rs/cargo@v1
       with:
