@@ -1361,6 +1361,10 @@ fn test_parse_color_literal() {
 }
 
 fn unescape_string(string: &str) -> Option<String> {
+    if string.contains('\n') {
+        // FIXME: new line in string literal not yet supported
+        return None;
+    }
     let string = string.strip_prefix('"').or_else(|| string.strip_prefix('}'))?;
     let string = string.strip_suffix('"').or_else(|| string.strip_suffix("\\{"))?;
     if !string.contains('\\') {

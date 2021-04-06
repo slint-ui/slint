@@ -120,12 +120,10 @@ pub fn lex_string(text: &str, state: &mut LexState) -> usize {
         };
         match text.as_bytes()[stop] {
             b'"' => {
-                assert!(!text[..stop].contains('\n'), "new lines in string not yet supported");
                 return stop + 1;
             }
             b'\\' => {
                 if text.as_bytes()[stop + 1] == b'{' {
-                    assert!(!text[..stop].contains('\n'), "new lines in string not yet supported");
                     state.template_string_stack.push(0);
                     return stop + 2;
                 }
