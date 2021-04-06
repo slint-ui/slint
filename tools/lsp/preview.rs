@@ -8,10 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-#![allow(unused)]
-
-use std::borrow::BorrowMut;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Wake;
@@ -41,7 +40,7 @@ impl Wake for FutureRunner {
     }
 }
 
-fn run_in_ui_thread(mut fut: Pin<Box<dyn Future<Output = ()>>>) {
+fn run_in_ui_thread(fut: Pin<Box<dyn Future<Output = ()>>>) {
     Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake()
 }
 
@@ -60,9 +59,55 @@ pub fn load_preview(path: std::path::PathBuf) {
     run_in_ui_thread(Box::pin(async move { reload_preview(&path).await }));
 }
 
+#[derive(Default)]
+struct ContentCache {
+    source_code: HashMap<PathBuf, String>,
+    dependency: HashSet<PathBuf>,
+    current_root: PathBuf,
+}
+
+static CONTENT_CACHE: once_cell::sync::OnceCell<Mutex<ContentCache>> =
+    once_cell::sync::OnceCell::new();
+
+pub fn set_contents(path: &Path, content: String) {
+    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    cache.source_code.insert(path.to_owned(), content);
+    if cache.dependency.contains(path) {
+        let current_root = cache.current_root.clone();
+        drop(cache);
+        load_preview(current_root);
+    }
+}
+
+/// If the file is in the cache, returns it.
+/// In any was, register it as a dependency
+fn get_file_from_cache(path: PathBuf) -> Option<String> {
+    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+    let r = cache.source_code.get(&path).map(|r| r.clone());
+    cache.dependency.insert(path);
+    r
+}
+
 async fn reload_preview(path: &std::path::Path) {
+    {
+        let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+        cache.dependency.clear();
+        cache.current_root = path.to_owned();
+    }
+
     let mut builder = sixtyfps_interpreter::ComponentCompiler::new();
-    if let Some(compiled) = builder.build_from_path(path).await {
+    builder.set_file_loader(|path| {
+        let path = path.to_owned();
+        Box::pin(async move { get_file_from_cache(path).map(Result::Ok) })
+    });
+
+    let compiled = if let Some(from_cache) = get_file_from_cache(path.to_owned()) {
+        builder.build_from_source(from_cache, path.to_owned()).await
+    } else {
+        builder.build_from_path(path).await
+    };
+
+    if let Some(compiled) = compiled {
         #[derive(Default)]
         struct PreviewState {
             handle: Option<sixtyfps_interpreter::ComponentInstance>,

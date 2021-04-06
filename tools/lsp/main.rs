@@ -216,6 +216,7 @@ fn reload_document(
 
     let path = uri.to_file_path().unwrap();
     let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+    preview::set_contents(&path_canon, content.clone());
     let mut diag = BuildDiagnostics::default();
     spin_on::spin_on(document_cache.documents.load_file(&path_canon, &path, content, &mut diag));
 
