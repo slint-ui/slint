@@ -93,7 +93,6 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
 
     let mut document_cache = DocumentCache::new(&compiler_config);
     for msg in &connection.receiver {
-        eprintln!("got msg: {:?}", msg);
         match msg {
             Message::Request(req) => {
                 if connection.handle_shutdown(&req)? {
