@@ -18,7 +18,6 @@ use corelib::component::ComponentRc;
 use corelib::graphics::*;
 use corelib::input::{KeyboardModifiers, MouseEvent, MouseEventType};
 use corelib::items::ItemRef;
-use corelib::properties::PropertyTracker;
 use corelib::slice::Slice;
 use corelib::window::{ComponentWindow, PlatformWindow};
 use corelib::Property;
@@ -38,8 +37,6 @@ pub struct GraphicsWindow {
     map_state: RefCell<GraphicsWindowBackendState>,
     properties: Pin<Box<WindowProperties>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
-    /// Gets dirty when the layout restrictions, or some other property of the windows change
-    meta_property_listener: Pin<Rc<PropertyTracker>>,
 
     mouse_input_state: std::cell::Cell<corelib::input::MouseInputState>,
     /// Current popup's component and position
@@ -65,7 +62,6 @@ impl GraphicsWindow {
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             properties: Box::pin(WindowProperties::default()),
             keyboard_modifiers: Default::default(),
-            meta_property_listener: Rc::pin(Default::default()),
             mouse_input_state: Default::default(),
             active_popup: Default::default(),
         })
@@ -217,13 +213,13 @@ impl GraphicsWindow {
     /// Draw the items of the specified `component` in the given window.
     pub fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.draw_tracked(|| {
+        runtime_window.clone().draw_tracked(|| {
             let component_rc = self.component();
             let component = ComponentRc::borrow_pin(&component_rc);
 
             {
-                if self.meta_property_listener.as_ref().is_dirty() {
-                    self.meta_property_listener.as_ref().evaluate(|| {
+                if runtime_window.meta_properties_tracker.as_ref().is_dirty() {
+                    runtime_window.meta_properties_tracker.as_ref().evaluate(|| {
                         self.apply_geometry_constraint(component.as_ref().layout_info());
                         component.as_ref().apply_layout(Default::default());
 
@@ -394,7 +390,7 @@ impl PlatformWindow for GraphicsWindow {
     }
 
     fn show_popup(&self, popup: &ComponentRc, position: Point) {
-        self.meta_property_listener.set_dirty();
+        self.self_weak.upgrade().map(|window| window.meta_properties_tracker.set_dirty());
         *self.active_popup.borrow_mut() = Some((popup.clone(), position));
     }
 

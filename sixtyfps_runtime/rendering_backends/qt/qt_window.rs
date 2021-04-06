@@ -14,7 +14,6 @@ use sixtyfps_corelib::graphics::{Brush, FontRequest, Point, Rect, RenderingCache
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
-use sixtyfps_corelib::properties::PropertyTracker;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
@@ -742,9 +741,6 @@ pub struct QtWindow {
     widget_ptr: QWidgetPtr,
     pub(crate) self_weak: Weak<sixtyfps_corelib::window::Window>,
 
-    /// Gets dirty when the layout restrictions, or some other property of the windows change
-    meta_property_listener: Pin<Rc<PropertyTracker>>,
-
     popup_window: RefCell<Option<(Rc<sixtyfps_corelib::window::Window>, ComponentRc)>>,
 
     cache: QtRenderingCache,
@@ -761,7 +757,6 @@ impl QtWindow {
         let rc = Rc::new(QtWindow {
             widget_ptr,
             self_weak: window_weak.clone(),
-            meta_property_listener: Rc::pin(Default::default()),
             popup_window: Default::default(),
             cache: Default::default(),
             scale_factor: Box::pin(Property::new(1.)),
@@ -784,14 +779,14 @@ impl QtWindow {
     /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::draw
     fn paint_event(&self, painter: &mut QPainter) {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.draw_tracked(|| {
+        runtime_window.clone().draw_tracked(|| {
             sixtyfps_corelib::animations::update_animations();
 
             let component_rc = self.self_weak.upgrade().unwrap().component();
             let component = ComponentRc::borrow_pin(&component_rc);
 
-            if self.meta_property_listener.as_ref().is_dirty() {
-                self.meta_property_listener.as_ref().evaluate(|| {
+            if runtime_window.meta_properties_tracker.as_ref().is_dirty() {
+                runtime_window.meta_properties_tracker.as_ref().evaluate(|| {
                     self.apply_geometry_constraint(component.as_ref().layout_info());
                     component.as_ref().apply_layout(Default::default());
                 });

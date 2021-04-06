@@ -110,6 +110,9 @@ pub struct Window {
     redraw_tracker: once_cell::unsync::OnceCell<Pin<Box<PropertyTracker<WindowRedrawTracker>>>>,
     window_properties_tracker:
         once_cell::unsync::OnceCell<Pin<Box<PropertyTracker<WindowPropertiesTracker>>>>,
+    /// Gets dirty when the layout restrictions, or some other property of the windows change
+    /// FIXME: should only be exposed to the backend
+    pub meta_properties_tracker: Pin<Rc<PropertyTracker>>,
 
     focus_item: RefCell<ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
@@ -134,6 +137,7 @@ impl Window {
             mouse_input_state: Default::default(),
             redraw_tracker: Default::default(),
             window_properties_tracker: Default::default(),
+            meta_properties_tracker: Rc::pin(Default::default()),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
         });
@@ -164,6 +168,7 @@ impl Window {
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
+        self.meta_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         self.request_window_properties_update();
         self.request_redraw();
     }
