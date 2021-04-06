@@ -1316,6 +1316,14 @@ impl Default for PropertyTracker<()> {
     }
 }
 
+impl<ChangeHandler> Drop for PropertyTracker<ChangeHandler> {
+    fn drop(&mut self) {
+        unsafe {
+            DependencyListHead::drop(self.holder.dependencies.as_ptr() as *mut DependencyListHead);
+        }
+    }
+}
+
 impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
     /// Any of the properties accessed during the last evaluation of the closure called
     /// from the last call to evaluate is pottentially dirty.
@@ -1481,6 +1489,20 @@ fn test_property_change_handler() {
     prop.as_ref().set(101);
     assert!(tracker.as_ref().is_dirty());
     assert!(!call_flag.get());
+}
+
+#[test]
+fn test_property_tracker_drop() {
+    let outer_tracker = Box::pin(PropertyTracker::default());
+    let inner_tracker = Box::pin(PropertyTracker::default());
+    let prop = Box::pin(Property::new(42));
+
+    let r =
+        outer_tracker.as_ref().evaluate(|| inner_tracker.as_ref().evaluate(|| prop.as_ref().get()));
+    assert_eq!(r, 42);
+
+    drop(inner_tracker);
+    prop.as_ref().set(200); // don't crash
 }
 
 #[cfg(feature = "ffi")]
