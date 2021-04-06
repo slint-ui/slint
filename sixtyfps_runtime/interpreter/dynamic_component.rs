@@ -340,6 +340,7 @@ impl<'id> ComponentDescription<'id> {
             .as_pin_ref()
             .window()
             .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
+        component_ref.run_setup_code();
         component_ref
     }
 
@@ -503,7 +504,13 @@ fn ensure_repeater_updated<'id>(
             .as_ref()
             .unwrap()
             .clone();
-        instantiate(rep_in_comp.component_to_repeat.clone(), Some(instance_ref.borrow()), window)
+        let instance = instantiate(
+            rep_in_comp.component_to_repeat.clone(),
+            Some(instance_ref.borrow()),
+            window,
+        );
+        instance.run_setup_code();
+        instance
     };
     if let Some(lv) = &rep_in_comp
         .component_to_repeat
@@ -1189,13 +1196,6 @@ pub fn instantiate<'id>(
         let weak = vtable::VRc::downgrade(&comp_rc);
         let instance_ref = comp.borrow_instance();
         instance_ref.self_weak().set(weak).ok();
-
-        for extra_init_code in component_type.original.setup_code.borrow().iter() {
-            eval::eval_expression(
-                extra_init_code,
-                &mut eval::EvalLocalContext::from_component_instance(instance_ref),
-            );
-        }
     }
 
     comp_rc
@@ -1249,6 +1249,18 @@ impl ErasedComponentBox {
 
     pub fn window(&self) -> ComponentWindow {
         self.0.window()
+    }
+
+    pub fn run_setup_code(&self) {
+        generativity::make_guard!(guard);
+        let compo_box = self.unerase(guard);
+        let instance_ref = compo_box.borrow_instance();
+        for extra_init_code in self.0.component_type.original.setup_code.borrow().iter() {
+            eval::eval_expression(
+                extra_init_code,
+                &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+            );
+        }
     }
 }
 impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
@@ -1471,7 +1483,10 @@ fn collect_layouts_recursively<'a, 'b>(
                                 .as_ref()
                                 .unwrap()
                                 .clone();
-                            instantiate(rep.1.clone(), Some(component.borrow()), window)
+                            let instance =
+                                instantiate(rep.1.clone(), Some(component.borrow()), window);
+                            instance.run_setup_code();
+                            instance
                         });
 
                         BoxLayoutCellTmpData::Repeater(
@@ -1811,6 +1826,7 @@ pub fn show_popup(
     let compiled = generate_component(&popup.component, guard);
     let window = sixtyfps_rendering_backend_default::backend().create_window();
     let inst = instantiate(compiled, Some(parent_comp), window);
+    inst.run_setup_code();
     parent_window
         .show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));
 }
