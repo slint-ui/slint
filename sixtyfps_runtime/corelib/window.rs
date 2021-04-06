@@ -38,9 +38,6 @@ pub trait PlatformWindow {
     /// Sets an overriding scale factor for the window. This is typically only used for testing.
     fn set_scale_factor(&self, factor: f32);
 
-    /// Returns the geometry of the window
-    fn get_geometry(&self) -> crate::graphics::Rect;
-
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
     fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<ItemRef<'a>>>);

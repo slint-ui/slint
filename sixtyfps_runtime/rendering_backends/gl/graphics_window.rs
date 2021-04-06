@@ -168,53 +168,9 @@ impl GraphicsWindow {
                         .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
                 }
 
-                let window_id = platform_window.id();
-
                 self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
-                let existing_size = platform_window.inner_size();
 
-                let mut new_size = existing_size;
-
-                if let Some(window_item) =
-                    ItemRef::downcast_pin::<corelib::items::Window>(root_item)
-                {
-                    let width = window_item.width();
-                    if width > 0. {
-                        new_size.width = width as _;
-                    }
-                    let height = window_item.height();
-                    if height > 0. {
-                        new_size.height = height as _;
-                    }
-
-                    {
-                        let window = self.clone();
-                        window_item.as_ref().width.set_binding(move || {
-                            WindowProperties::FIELD_OFFSETS
-                                .width
-                                .apply_pin(window.properties.as_ref())
-                                .get()
-                        });
-                    }
-                    {
-                        let window = self.clone();
-                        window_item.as_ref().height.set_binding(move || {
-                            WindowProperties::FIELD_OFFSETS
-                                .height
-                                .apply_pin(window.properties.as_ref())
-                                .get()
-                        });
-                    }
-                }
-
-                if new_size != existing_size {
-                    platform_window.set_inner_size(new_size)
-                }
-
-                self.properties.as_ref().width.set(new_size.width as _);
-                self.properties.as_ref().height.set(new_size.height as _);
-
-                window_id
+                platform_window.id()
             };
 
             self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
@@ -269,7 +225,7 @@ impl GraphicsWindow {
                 if self.meta_property_listener.as_ref().is_dirty() {
                     self.meta_property_listener.as_ref().evaluate(|| {
                         self.apply_geometry_constraint(component.as_ref().layout_info());
-                        component.as_ref().apply_layout(self.get_geometry());
+                        component.as_ref().apply_layout(Default::default());
 
                         if let Some((popup, pos)) = &*self.active_popup.borrow() {
                             let popup = ComponentRc::borrow_pin(popup);
@@ -394,8 +350,14 @@ impl GraphicsWindow {
     /// Sets the size of the window. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
     pub fn set_geometry(&self, width: f32, height: f32) {
-        self.properties.as_ref().width.set(width);
-        self.properties.as_ref().height.set(height);
+        self.self_weak.upgrade().unwrap().try_component().map(|component_rc| {
+            let component = ComponentRc::borrow_pin(&component_rc);
+            let root_item = component.as_ref().get_item_ref(0);
+            if let Some(window_item) = ItemRef::downcast_pin::<corelib::items::Window>(root_item) {
+                window_item.width.set(width);
+                window_item.height.set(height);
+            }
+        });
     }
 }
 
@@ -415,15 +377,6 @@ impl PlatformWindow for GraphicsWindow {
 
     fn set_scale_factor(&self, factor: f32) {
         self.properties.as_ref().scale_factor.set(factor);
-    }
-
-    fn get_geometry(&self) -> corelib::graphics::Rect {
-        euclid::rect(
-            0.,
-            0.,
-            WindowProperties::FIELD_OFFSETS.width.apply_pin(self.properties.as_ref()).get(),
-            WindowProperties::FIELD_OFFSETS.height.apply_pin(self.properties.as_ref()).get(),
-        )
     }
 
     fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<ItemRef<'a>>>) {
@@ -473,7 +426,11 @@ impl PlatformWindow for GraphicsWindow {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
                 let backend = window.backend.borrow();
-                backend.window().set_title(&window_item.title());
+                let winit_window = backend.window();
+                winit_window.set_title(&window_item.title());
+                let size: winit::dpi::PhysicalSize<u32> =
+                    (window_item.width(), window_item.height()).into();
+                winit_window.set_inner_size(size);
             }
         }
     }
@@ -550,16 +507,10 @@ impl GraphicsWindowBackendState {
 #[pin]
 struct WindowProperties {
     scale_factor: Property<f32>,
-    width: Property<f32>,
-    height: Property<f32>,
 }
 
 impl Default for WindowProperties {
     fn default() -> Self {
-        Self {
-            scale_factor: Property::new(1.0),
-            width: Property::new(800.),
-            height: Property::new(600.),
-        }
+        Self { scale_factor: Property::new(1.0) }
     }
 }

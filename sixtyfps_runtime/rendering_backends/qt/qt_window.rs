@@ -966,11 +966,6 @@ impl PlatformWindow for QtWindow {
         self.scale_factor.as_ref().set(factor)
     }
 
-    fn get_geometry(&self) -> sixtyfps_corelib::graphics::Rect {
-        // FIXME
-        Default::default()
-    }
-
     fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<items::ItemRef<'a>>>) {
         for item in items.iter() {
             let cached_rendering_data = item.cached_rendering_data_offset();
