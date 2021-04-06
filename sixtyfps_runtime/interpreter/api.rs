@@ -442,13 +442,16 @@ impl ComponentCompiler {
     /// `file_loader_callback` parameter will be called with a canonical file path as argument
     /// and is expected to return a future that, when resolved, provides the source code of the
     /// .60 file to be imported as a string.
+    /// If an error is returned, then the build will abort with that error.
+    /// If None is returned, it means the normal resolution algorithm will proceed as if the hook
+    /// was not in place (i.e: load from the file system following the include paths)
     pub fn set_file_loader(
         &mut self,
         file_loader_fallback: impl Fn(
                 &Path,
-            )
-                -> core::pin::Pin<Box<dyn core::future::Future<Output = std::io::Result<String>>>>
-            + 'static,
+            ) -> core::pin::Pin<
+                Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
+            > + 'static,
     ) {
         self.config.open_import_fallback =
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));

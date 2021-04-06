@@ -81,8 +81,9 @@ pub struct CompilerConfiguration {
     ///
     /// The callback should open the file specified by the given file name and
     /// return an future that provides the text content of the file as output.
-    pub open_import_fallback:
-        Option<Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = std::io::Result<String>>>>>>,
+    pub open_import_fallback: Option<
+        Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>,
+    >,
 }
 
 impl CompilerConfiguration {

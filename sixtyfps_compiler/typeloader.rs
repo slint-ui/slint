@@ -10,7 +10,6 @@ LICENSE END */
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -28,30 +27,6 @@ pub struct LoadedDocuments {
     currently_loading: HashSet<PathBuf>,
 }
 
-pub(crate) struct OpenFile {
-    pub(crate) path: PathBuf,
-    source_code_future:
-        core::pin::Pin<Box<dyn std::future::Future<Output = std::io::Result<String>>>>,
-}
-
-trait DirectoryAccess<'a> {
-    fn try_open(&self, file_path: &str) -> Option<OpenFile>;
-}
-
-impl<'a> DirectoryAccess<'a> for PathBuf {
-    fn try_open(&self, file_path: &str) -> Option<OpenFile> {
-        let candidate = self.join(file_path);
-
-        std::fs::File::open(&candidate).ok().map(|mut f| OpenFile {
-            path: candidate,
-            source_code_future: Box::pin(async move {
-                let mut buf = String::new();
-                f.read_to_string(&mut buf).map(|_| buf)
-            }),
-        })
-    }
-}
-
 pub struct VirtualFile<'a> {
     pub path: &'a str,
     pub contents: &'a str,
@@ -59,30 +34,11 @@ pub struct VirtualFile<'a> {
 
 pub type VirtualDirectory<'a> = [&'a VirtualFile<'a>];
 
-impl<'a> DirectoryAccess<'a> for &'a VirtualDirectory<'a> {
-    fn try_open(&self, file_path: &str) -> Option<OpenFile> {
-        self.iter().find_map(|virtual_file| {
-            if virtual_file.path != file_path {
-                return None;
-            }
-            Some(OpenFile {
-                path: file_path.into(),
-                source_code_future: Box::pin({
-                    let source = virtual_file.contents.to_owned();
-                    async move { Ok(source) }
-                }),
-            })
-        })
-    }
-}
-
 struct ImportedTypes {
     pub type_names: Vec<ImportedName>,
     pub import_token: SyntaxTokenWithSourceFile,
-    pub file: OpenFile,
+    pub file: String,
 }
-
-type DependenciesByFile = BTreeMap<PathBuf, ImportedTypes>;
 
 #[derive(Debug)]
 pub struct ImportedName {
@@ -168,15 +124,7 @@ impl<'a> TypeLoader<'a> {
         type_name: &str,
         diagnostics: &mut BuildDiagnostics,
     ) -> Option<crate::langtype::Type> {
-        let file = match self.import_file(None, file_to_import) {
-            Some(file) => file,
-            None => return None,
-        };
-
-        let doc_path = match self
-            .ensure_document_loaded(&file.path, file.source_code_future, None, diagnostics)
-            .await
-        {
+        let doc_path = match self.ensure_document_loaded(file_to_import, None, diagnostics).await {
             Some(doc_path) => doc_path,
             None => return None,
         };
@@ -194,11 +142,29 @@ impl<'a> TypeLoader<'a> {
 
     async fn ensure_document_loaded<'b>(
         &'b mut self,
-        path: &'b Path,
-        source_code_future: impl std::future::Future<Output = std::io::Result<String>>,
+        file_to_import: &'b str,
         import_token: Option<SyntaxTokenWithSourceFile>,
         diagnostics: &'b mut BuildDiagnostics,
     ) -> Option<PathBuf> {
+        let referencing_file =
+            import_token.as_ref().and_then(|s| s.source_file.as_ref()).map(|s| s.path());
+
+        let mut is_builtin = None;
+
+        let path = self
+            .find_file_in_include_path(referencing_file, file_to_import)
+            .or_else(|| {
+                self.builtin_library.and_then(|library| {
+                    library.iter().find(|virtual_file| virtual_file.path == file_to_import).map(
+                        |virtual_file| {
+                            is_builtin = Some(virtual_file.contents);
+                            format!("builtin:/{}", file_to_import).into()
+                        },
+                    )
+                })
+            })
+            .unwrap_or_else(|| resolve_import_path(referencing_file, file_to_import));
+
         let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
 
         if self.all_documents.docs.get(path_canon.as_path()).is_some() {
@@ -211,8 +177,27 @@ impl<'a> TypeLoader<'a> {
             return None;
         }
 
-        let source_code = match source_code_future.await {
+        let source_code_result = if let Some(builtin) = is_builtin {
+            Ok(builtin.to_owned())
+        } else if let Some(fallback) = &self.compiler_config.open_import_fallback {
+            let result = fallback(path_canon.to_string_lossy().into()).await;
+            result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
+        } else {
+            std::fs::read_to_string(&path_canon)
+        };
+
+        let source_code = match source_code_result {
             Ok(source) => source,
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                diagnostics.push_error(
+                    format!(
+                        "Cannot find requested import {} in the include search path",
+                        file_to_import
+                    ),
+                    &import_token,
+                );
+                return None;
+            }
             Err(err) => {
                 diagnostics.push_error(
                     format!("Error reading requested import {}: {}", path.display(), err),
@@ -222,7 +207,7 @@ impl<'a> TypeLoader<'a> {
             }
         };
 
-        self.load_file(&path_canon, path, source_code, diagnostics).await;
+        self.load_file(&path_canon, &path, source_code, diagnostics).await;
         let _ok = self.all_documents.currently_loading.remove(path_canon.as_path());
         assert!(_ok);
         Some(path_canon)
@@ -272,8 +257,7 @@ impl<'a> TypeLoader<'a> {
         Box::pin(async move {
             let doc_path = match self
                 .ensure_document_loaded(
-                    &import.file.path,
-                    import.file.source_code_future,
+                    &import.file,
                     Some(import.import_token.clone()),
                     build_diagnostics,
                 )
@@ -301,8 +285,7 @@ impl<'a> TypeLoader<'a> {
                         build_diagnostics.push_error(
                             format!(
                                 "No exported type called {} found in {}",
-                                import_name.external_name,
-                                import.file.path.display()
+                                import_name.external_name, import.file
                             ),
                             &import.import_token,
                         );
@@ -317,11 +300,13 @@ impl<'a> TypeLoader<'a> {
         })
     }
 
-    pub(crate) fn import_file(
+    /// Lookup a filename and try to find the absolute filename based on the include path or
+    /// the current file directory
+    pub(crate) fn find_file_in_include_path(
         &self,
         referencing_file: Option<&std::path::Path>,
         file_to_import: &str,
-    ) -> Option<OpenFile> {
+    ) -> Option<PathBuf> {
         // The directory of the current file is the first in the list of include directories.
         let maybe_current_directory =
             referencing_file.and_then(|path| path.parent()).map(|p| p.to_path_buf());
@@ -337,16 +322,9 @@ impl<'a> TypeLoader<'a> {
                     }
                 }
             }))
-            .find_map(|include_dir| include_dir.try_open(file_to_import))
-            .or_else(|| self.builtin_library.and_then(|lib| lib.try_open(file_to_import)))
-            .or_else(|| {
-                let resolved_absolute_path = resolve_import_path(referencing_file, file_to_import);
-
-                self.compiler_config.open_import_fallback.as_ref().map(|import_callback| {
-                    let source_code_future =
-                        import_callback(resolved_absolute_path.to_string_lossy().to_string());
-                    OpenFile { path: resolved_absolute_path, source_code_future }
-                })
+            .find_map(|include_dir| {
+                let candidate = include_dir.join(file_to_import);
+                candidate.exists().then(|| candidate)
             })
     }
 
@@ -355,8 +333,7 @@ impl<'a> TypeLoader<'a> {
         doc: &syntax_nodes::Document,
         doc_diagnostics: &mut BuildDiagnostics,
     ) -> impl Iterator<Item = ImportedTypes> {
-        let referencing_file = doc.source_file.as_ref().unwrap().path().clone();
-
+        type DependenciesByFile = BTreeMap<String, ImportedTypes>;
         let mut dependencies = DependenciesByFile::new();
 
         for import in doc.ImportSpecifier() {
@@ -370,29 +347,17 @@ impl<'a> TypeLoader<'a> {
                 continue;
             }
 
-            let dependency_entry = if let Some(dependency_file) =
-                self.import_file(Some(&referencing_file), &path_to_import)
-            {
-                match dependencies.entry(dependency_file.path.clone()) {
-                    std::collections::btree_map::Entry::Vacant(vacant_entry) => vacant_entry
-                        .insert(ImportedTypes {
-                            type_names: vec![],
-                            import_token: import_uri,
-                            file: dependency_file,
-                        }),
-                    std::collections::btree_map::Entry::Occupied(existing_entry) => {
-                        existing_entry.into_mut()
-                    }
+            let dependency_entry = match dependencies.entry(path_to_import.clone()) {
+                std::collections::btree_map::Entry::Vacant(vacant_entry) => {
+                    vacant_entry.insert(ImportedTypes {
+                        type_names: vec![],
+                        import_token: import_uri,
+                        file: path_to_import,
+                    })
                 }
-            } else {
-                doc_diagnostics.push_error(
-                    format!(
-                        "Cannot find requested import {} in the include search path",
-                        path_to_import
-                    ),
-                    &import_uri,
-                );
-                continue;
+                std::collections::btree_map::Entry::Occupied(existing_entry) => {
+                    existing_entry.into_mut()
+                }
             };
             dependency_entry.type_names.extend(ImportedName::extract_imported_names(&import));
         }
@@ -414,6 +379,7 @@ impl<'a> TypeLoader<'a> {
     }
 }
 
+/// Append a possibly relative path to a base path
 pub fn resolve_import_path(
     base_path_or_url: Option<&std::path::Path>,
     maybe_relative_path_or_url: &str,
@@ -487,7 +453,7 @@ fn test_load_from_callback_ok() {
             assert_eq!(path, "../FooBar.60");
             assert_eq!(ok_.get(), false);
             ok_.set(true);
-            Ok("export XX := Rectangle {} ".to_owned())
+            Some(Ok("export XX := Rectangle {} ".to_owned()))
         })
     }));
 

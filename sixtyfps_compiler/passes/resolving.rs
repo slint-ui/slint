@@ -404,21 +404,13 @@ impl Expression {
 
         let absolute_source_path = {
             let path = std::path::Path::new(&s);
-
             if path.is_absolute() || s.starts_with("http://") || s.starts_with("https://") {
                 s
             } else {
+                let base = node.source_file.as_ref().map(|sf| sf.path());
                 ctx.type_loader
-                    .and_then(|loader| {
-                        loader
-                            .import_file(node.source_file.as_ref().map(|sf| sf.path()), &s)
-                            .map(|resolved_file| resolved_file.path)
-                    })
-                    .unwrap_or_else(|| {
-                        std::env::current_dir()
-                            .map(|b| b.join(&path))
-                            .unwrap_or_else(|_| path.into())
-                    })
+                    .and_then(|loader| loader.find_file_in_include_path(base, &s))
+                    .unwrap_or_else(|| crate::typeloader::resolve_import_path(base, &s))
                     .to_string_lossy()
                     .to_string()
             }

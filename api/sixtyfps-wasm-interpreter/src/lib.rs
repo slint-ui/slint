@@ -36,7 +36,7 @@ pub async fn compile_from_string(
 
     if let Some(load_callback) = optional_import_callback {
         let open_import_fallback = move |file_name: &Path| -> core::pin::Pin<
-            Box<dyn core::future::Future<Output = std::io::Result<String>>>,
+            Box<dyn core::future::Future<Output = Option<std::io::Result<String>>>>,
         > {
             Box::pin({
                 let load_callback = load_callback.clone();
@@ -46,11 +46,11 @@ pub async fn compile_from_string(
                     let promise: js_sys::Promise = result.unwrap().into();
                     let future = wasm_bindgen_futures::JsFuture::from(promise);
                     match future.await {
-                        Ok(js_ok) => Ok(js_ok.as_string().unwrap_or_default()),
-                        Err(js_err) => Err(std::io::Error::new(
+                        Ok(js_ok) => Some(Ok(js_ok.as_string().unwrap_or_default())),
+                        Err(js_err) => Some(Err(std::io::Error::new(
                             std::io::ErrorKind::Other,
                             js_err.as_string().unwrap_or_default(),
-                        )),
+                        ))),
                     }
                 }
             })
