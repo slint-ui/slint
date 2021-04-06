@@ -45,19 +45,16 @@ impl<'a> DocumentCache<'a> {
 }
 
 fn main() {
-    // Start the LSP thread with a delay when the gui event loop is up and running, to be able
-    // to be immediately ready to serve preview requests.
-    preview::run_in_ui_thread(Box::new(|| {
-        std::thread::spawn(|| {
-            match run_lsp_server() {
-                Ok(_) => {}
-                Err(error) => {
-                    eprintln!("Error running LSP server: {}", error);
-                }
+    std::thread::spawn(|| {
+        match run_lsp_server() {
+            Ok(_) => {}
+            Err(error) => {
+                eprintln!("Error running LSP server: {}", error);
             }
-            preview::quit_ui_event_loop();
-        });
-    }));
+        }
+        preview::quit_ui_event_loop();
+    });
+
     // TODO: Don't terminate the event loop when the window is closed
     preview::start_ui_event_loop();
 }

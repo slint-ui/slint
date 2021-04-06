@@ -27,7 +27,7 @@ unsafe impl Sync for FutureRunner {}
 
 impl Wake for FutureRunner {
     fn wake(self: Arc<Self>) {
-        run_in_ui_thread(Box::new(move || {
+        sixtyfps_rendering_backend_default::backend().post_event(Box::new(move || {
             let waker = self.clone().into();
             let mut cx = std::task::Context::from_waker(&waker);
             let mut fut_opt = self.fut.lock().unwrap();
@@ -37,16 +37,12 @@ impl Wake for FutureRunner {
                     std::task::Poll::Pending => {}
                 }
             }
-        }))
+        }));
     }
 }
 
-fn run_future_in_ui_thread(mut fut: Pin<Box<dyn Future<Output = ()>>>) {
+fn run_in_ui_thread(mut fut: Pin<Box<dyn Future<Output = ()>>>) {
     Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake()
-}
-
-pub fn run_in_ui_thread(f: Box<dyn FnOnce() + Send>) {
-    sixtyfps_rendering_backend_default::backend().post_event(f);
 }
 
 pub fn start_ui_event_loop() {
@@ -61,7 +57,7 @@ pub fn quit_ui_event_loop() {
 }
 
 pub fn load_preview(path: std::path::PathBuf) {
-    run_future_in_ui_thread(Box::pin(async move { reload_preview(&path).await }));
+    run_in_ui_thread(Box::pin(async move { reload_preview(&path).await }));
 }
 
 async fn reload_preview(path: &std::path::Path) {
