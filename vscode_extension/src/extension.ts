@@ -13,11 +13,11 @@ import { existsSync } from 'fs';
 import * as vscode from 'vscode';
 
 import {
-	LanguageClient,
-	LanguageClientOptions,
-	ServerCapabilities,
-	ServerOptions,
-	//	TransportKind
+    LanguageClient,
+    LanguageClientOptions,
+    ServerCapabilities,
+    ServerOptions,
+    //	TransportKind
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
@@ -25,75 +25,75 @@ let client: LanguageClient;
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
 function lspPlatform(): string | null {
-	if (process.platform === "darwin") {
-		if (process.arch === "x64") {
-			return "x86_64-apple-darwin";
-		} else if (process.arch == "arm64") {
-			return "aarch64-apple-darwin";
-		}
-	}
-	else if (process.platform === "linux") {
-		if (process.arch === "x64") {
-			return "x86_64-unknown-linux-gnu";
-		}
-	}
-	else if (process.platform === "win32") {
-		return "x86_64-pc-windows-gnu";
-	}
-	return null;
+    if (process.platform === "darwin") {
+        if (process.arch === "x64") {
+            return "x86_64-apple-darwin";
+        } else if (process.arch == "arm64") {
+            return "aarch64-apple-darwin";
+        }
+    }
+    else if (process.platform === "linux") {
+        if (process.arch === "x64") {
+            return "x86_64-unknown-linux-gnu";
+        }
+    }
+    else if (process.platform === "win32") {
+        return "x86_64-pc-windows-gnu";
+    }
+    return null;
 }
 
 export function activate(context: vscode.ExtensionContext) {
 
-	/*let test_output = vscode.window.createOutputChannel("Test Output");
-	test_output.appendLine("Hello from extension");*/
+    /*let test_output = vscode.window.createOutputChannel("Test Output");
+    test_output.appendLine("Hello from extension");*/
 
-	let lsp_platform = lspPlatform();
-	if (lsp_platform === null) {
-		return;
-	}
+    let lsp_platform = lspPlatform();
+    if (lsp_platform === null) {
+        return;
+    }
 
-	let serverModule = path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_platform + program_extension);
+    let serverModule = path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_platform + program_extension);
 
-	if (!existsSync(serverModule)) {
-		serverModule = context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp' + program_extension));
-	}
-	if (!existsSync(serverModule)) {
-		console.warn("Could not locate sixtyfps-server server binary, neither in bundled bin/ directory nor relative in ../target");
-		return;
-	}
+    if (!existsSync(serverModule)) {
+        serverModule = context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp' + program_extension));
+    }
+    if (!existsSync(serverModule)) {
+        console.warn("Could not locate sixtyfps-server server binary, neither in bundled bin/ directory nor relative in ../target");
+        return;
+    }
 
-	console.log(`Starting LSP server from {serverModule)`);
+    console.log(`Starting LSP server from {serverModule)`);
 
-	let serverOptions: ServerOptions = {
-		run: { command: serverModule },
-		debug: { command: serverModule }
-	};
+    let serverOptions: ServerOptions = {
+        run: { command: serverModule },
+        debug: { command: serverModule }
+    };
 
-	let clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file', language: 'sixtyfps' }],
-	};
+    let clientOptions: LanguageClientOptions = {
+        documentSelector: [{ scheme: 'file', language: 'sixtyfps' }],
+    };
 
-	client = new LanguageClient(
-		'sixtyfps-lsp',
-		'SixtyFPS LSP',
-		serverOptions,
-		clientOptions
-	);
+    client = new LanguageClient(
+        'sixtyfps-lsp',
+        'SixtyFPS LSP',
+        serverOptions,
+        clientOptions
+    );
 
-	context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', function () {
-		let ae = vscode.window.activeTextEditor;
-		if (!ae) {
-			return;
-		}
-		client.sendNotification("sixtyfps/showPreview", ae.document.uri.fsPath.toString());
-	}));
-	client.start();
+    context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', function () {
+        let ae = vscode.window.activeTextEditor;
+        if (!ae) {
+            return;
+        }
+        client.sendNotification("sixtyfps/showPreview", ae.document.uri.fsPath.toString());
+    }));
+    client.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {
-	if (!client) {
-		return undefined;
-	}
-	return client.stop();
+    if (!client) {
+        return undefined;
+    }
+    return client.stop();
 }
