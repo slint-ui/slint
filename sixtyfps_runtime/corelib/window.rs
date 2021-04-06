@@ -167,6 +167,9 @@ impl Window {
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
+        self.redraw_tracker.get().map(|x| x.set_dirty());
+        self.window_properties_tracker.get().map(|x| x.set_dirty());
+        self.request_redraw();
     }
 
     /// return the component.
