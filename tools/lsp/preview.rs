@@ -45,8 +45,8 @@ fn run_in_ui_thread(mut fut: Pin<Box<dyn Future<Output = ()>>>) {
     Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake()
 }
 
-pub fn start_ui_thread() {
-    std::thread::spawn(sixtyfps_interpreter::run_event_loop);
+pub fn start_ui_event_loop() {
+    sixtyfps_interpreter::run_event_loop;
 }
 
 pub fn load_preview(path: std::path::PathBuf) {

@@ -44,31 +44,42 @@ impl<'a> DocumentCache<'a> {
     }
 }
 
-fn main() -> Result<(), Error> {
-    let (connection, io_threads) = Connection::stdio();
-    let capabilities = ServerCapabilities {
-        completion_provider: Some(CompletionOptions {
-            resolve_provider: Some(true),
-            trigger_characters: None,
-            work_done_progress_options: WorkDoneProgressOptions::default(),
-        }),
-        hover_provider: Some(HoverProviderCapability::Simple(true)),
-        document_highlight_provider: Some(OneOf::Left(true)),
-        document_symbol_provider: Some(OneOf::Left(true)),
-        workspace_symbol_provider: Some(OneOf::Left(true)),
-        definition_provider: Some(OneOf::Left(true)),
-        text_document_sync: Some(TextDocumentSyncCapability::Kind(
-            lsp_types::TextDocumentSyncKind::Full,
-        )),
+fn main() {
+    start_lsp_thread();
+    // TODO: Don't terminate the event loop when the window is closed with Qt
+    // TODO: There's a race condition where theoretically the LSP could receive a preview
+    // request before the gui event loop has started, which would cause post_event to panic.
+    // Instead we should start the lsp thread when the gui thread is *ready*, for example through
+    // a single-shot timer.
+    preview::start_ui_event_loop();
+}
 
-        ..ServerCapabilities::default()
-    };
-    let server_capabilities = serde_json::to_value(&capabilities).unwrap();
-    let initialization_params = connection.initialize(server_capabilities)?;
-    preview::start_ui_thread();
-    main_loop(&connection, initialization_params)?;
-    io_threads.join()?;
-    Ok(())
+fn start_lsp_thread() {
+    std::thread::spawn(|| {
+        let (connection, io_threads) = Connection::stdio();
+        let capabilities = ServerCapabilities {
+            completion_provider: Some(CompletionOptions {
+                resolve_provider: Some(true),
+                trigger_characters: None,
+                work_done_progress_options: WorkDoneProgressOptions::default(),
+            }),
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            document_highlight_provider: Some(OneOf::Left(true)),
+            document_symbol_provider: Some(OneOf::Left(true)),
+            workspace_symbol_provider: Some(OneOf::Left(true)),
+            definition_provider: Some(OneOf::Left(true)),
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                lsp_types::TextDocumentSyncKind::Full,
+            )),
+
+            ..ServerCapabilities::default()
+        };
+        let server_capabilities = serde_json::to_value(&capabilities).unwrap();
+        let initialization_params = connection.initialize(server_capabilities).unwrap();
+        main_loop(&connection, initialization_params).unwrap();
+        io_threads.join().unwrap();
+        // TODO: notify the gui thread to gracefully terminate the event loop
+    });
 }
 
 fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
