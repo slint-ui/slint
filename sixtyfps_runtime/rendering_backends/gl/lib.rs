@@ -1520,12 +1520,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
         let e = crate::eventloop::CustomEvent::UserEvent(event);
         #[cfg(not(target_arch = "wasm32"))]
-        crate::eventloop::GLOBAL_PROXY
-            .get_or_init(Default::default)
-            .lock()
-            .unwrap()
-            .as_ref()
-            .map(|proxy| proxy.send_event(e));
+        crate::eventloop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
         #[cfg(target_arch = "wasm32")]
         crate::eventloop::with_window_target(|event_loop| {
             event_loop.event_loop_proxy().send_event(e).ok();

@@ -75,8 +75,45 @@ thread_local! {
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
 
 #[cfg(not(target_arch = "wasm32"))]
-pub static GLOBAL_PROXY: once_cell::sync::OnceCell<
-    std::sync::Mutex<Option<winit::event_loop::EventLoopProxy<CustomEvent>>>,
+pub(crate) enum GlobalEventLoopProxyOrEventQueue {
+    Proxy(winit::event_loop::EventLoopProxy<CustomEvent>),
+    Queue(Vec<CustomEvent>),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl GlobalEventLoopProxyOrEventQueue {
+    pub(crate) fn send_event(&mut self, event: CustomEvent) {
+        match self {
+            GlobalEventLoopProxyOrEventQueue::Proxy(proxy) => proxy.send_event(event).ok().unwrap(),
+            GlobalEventLoopProxyOrEventQueue::Queue(queue) => {
+                queue.push(event);
+            }
+        };
+    }
+
+    fn set_proxy(&mut self, proxy: winit::event_loop::EventLoopProxy<CustomEvent>) {
+        match self {
+            GlobalEventLoopProxyOrEventQueue::Proxy(_) => {}
+            GlobalEventLoopProxyOrEventQueue::Queue(queue) => {
+                std::mem::take(queue)
+                    .into_iter()
+                    .for_each(|event| proxy.send_event(event).ok().unwrap());
+                *self = GlobalEventLoopProxyOrEventQueue::Proxy(proxy);
+            }
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Default for GlobalEventLoopProxyOrEventQueue {
+    fn default() -> Self {
+        Self::Queue(Vec::new())
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) static GLOBAL_PROXY: once_cell::sync::OnceCell<
+    std::sync::Mutex<GlobalEventLoopProxyOrEventQueue>,
 > = once_cell::sync::OnceCell::new();
 
 pub(crate) fn with_window_target<T>(callback: impl FnOnce(&dyn EventLoopInterface) -> T) -> T {
@@ -133,8 +170,11 @@ pub fn run() {
     let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
     #[cfg(not(target_arch = "wasm32"))]
     {
-        *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() =
-            Some(event_loop_proxy.clone());
+        GLOBAL_PROXY
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap()
+            .set_proxy(event_loop_proxy.clone());
     }
 
     let mut winit_loop = not_running_loop_instance.instance;
