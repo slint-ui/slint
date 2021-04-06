@@ -49,6 +49,12 @@ pub fn start_ui_event_loop() {
     sixtyfps_interpreter::run_event_loop();
 }
 
+pub fn quit_ui_event_loop() {
+    sixtyfps_rendering_backend_default::backend().post_event(Box::new(|| {
+        sixtyfps_rendering_backend_default::backend().quit_event_loop();
+    }));
+}
+
 pub fn load_preview(path: std::path::PathBuf) {
     run_in_ui_thread(Box::pin(async move { reload_preview(&path).await }));
 }
