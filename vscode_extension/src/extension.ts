@@ -63,7 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
     }
 
-    console.log(`Starting LSP server from {serverModule)`);
+    console.log(`Starting LSP server from {serverModule}`);
 
     let serverOptions: ServerOptions = {
         run: { command: serverModule },
