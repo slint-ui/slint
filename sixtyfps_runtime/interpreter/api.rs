@@ -744,7 +744,9 @@ impl ComponentInstance {
     /// and [`Self::hide`].
     pub fn run(&self) {
         self.show();
-        sixtyfps_rendering_backend_default::backend().run_event_loop();
+        sixtyfps_rendering_backend_default::backend().run_event_loop(
+            sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
+        );
         self.hide();
     }
 
@@ -837,7 +839,8 @@ pub enum CallCallbackError {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    sixtyfps_rendering_backend_default::backend().run_event_loop();
+    sixtyfps_rendering_backend_default::backend()
+        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
 /// This module constains a few function use by tests

@@ -257,17 +257,6 @@ impl GraphicsWindow {
     }
 }
 
-impl Drop for GraphicsWindow {
-    fn drop(&mut self) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(mw) => {
-                crate::eventloop::unregister_window(mw.backend.borrow().window().id());
-            }
-        }
-    }
-}
-
 impl GraphicsWindow {
     /// Draw the items of the specified `component` in the given window.
     pub fn draw(self: Rc<Self>) {
@@ -532,6 +521,12 @@ impl PlatformWindow for GraphicsWindow {
 struct MappedWindow {
     backend: RefCell<Backend>,
     constraints: Cell<corelib::layout::LayoutInfo>,
+}
+
+impl Drop for MappedWindow {
+    fn drop(&mut self) {
+        crate::eventloop::unregister_window(self.backend.borrow().window().id());
+    }
 }
 
 enum GraphicsWindowBackendState {

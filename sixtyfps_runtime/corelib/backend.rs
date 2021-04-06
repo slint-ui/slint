@@ -15,6 +15,14 @@ use std::path::Path;
 
 use crate::window::ComponentWindow;
 
+/// Behavior describing how the event loop should terminate.
+pub enum EventLoopQuitBehavior {
+    /// Terminate the event loop when the last window was closed.
+    QuitOnLastWindowClosed,
+    /// Keep the event loop running until [`Backend::quit_event_loop()`] is called.
+    QuitOnlyExplicitly,
+}
+
 /// Interface implemented by backends
 pub trait Backend: Send + Sync {
     /// Instentiate a window for a component.
@@ -22,7 +30,7 @@ pub trait Backend: Send + Sync {
     fn create_window(&'static self) -> ComponentWindow;
 
     /// Spins an event loop and renders the visible windows.
-    fn run_event_loop(&'static self);
+    fn run_event_loop(&'static self, behavior: EventLoopQuitBehavior);
 
     /// Exits the event loop.
     fn quit_event_loop(&'static self);

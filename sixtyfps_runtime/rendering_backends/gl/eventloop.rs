@@ -159,7 +159,7 @@ pub enum CustomEvent {
 /// Runs the event loop and renders the items in the provided `component` in its
 /// own window.
 #[allow(unused_mut)] // mut need changes for wasm
-pub fn run() {
+pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
     use winit::event::Event;
     use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
@@ -193,8 +193,25 @@ pub fn run() {
             match event {
                 winit::event::Event::WindowEvent {
                     event: winit::event::WindowEvent::CloseRequested,
-                    ..
-                } => *control_flow = winit::event_loop::ControlFlow::Exit,
+                    window_id,
+                } => {
+                    ALL_WINDOWS
+                        .with(|windows| {
+                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
+                        })
+                        .map(|window_rc| {
+                            window_rc.hide();
+                        });
+                    match quit_behavior {
+                        corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                            let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
+                            if window_count == 0 {
+                                *control_flow = winit::event_loop::ControlFlow::Exit;
+                            }
+                        }
+                        corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
+                    }
+                }
                 winit::event::Event::RedrawRequested(id) => {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {

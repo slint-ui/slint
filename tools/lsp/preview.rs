@@ -50,7 +50,8 @@ pub fn run_in_ui_thread(f: Box<dyn FnOnce() + Send>) {
 }
 
 pub fn start_ui_event_loop() {
-    sixtyfps_interpreter::run_event_loop();
+    sixtyfps_rendering_backend_default::backend()
+        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly);
 }
 
 pub fn quit_ui_event_loop() {

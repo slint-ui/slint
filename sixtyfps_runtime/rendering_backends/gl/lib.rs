@@ -1483,8 +1483,8 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         ComponentWindow(window)
     }
 
-    fn run_event_loop(&'static self) {
-        crate::eventloop::run();
+    fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+        crate::eventloop::run(behavior);
     }
 
     fn quit_event_loop(&'static self) {

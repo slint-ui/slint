@@ -34,7 +34,8 @@ pub unsafe extern "C" fn sixtyfps_component_window_init(out: *mut ComponentWindo
 
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_run_event_loop() {
-    crate::backend().run_event_loop();
+    crate::backend()
+        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
 #[no_mangle]

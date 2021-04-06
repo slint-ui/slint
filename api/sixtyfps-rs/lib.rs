@@ -241,7 +241,8 @@ pub fn create_window() -> re_exports::ComponentWindow {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    sixtyfps_rendering_backend_default::backend().run_event_loop();
+    sixtyfps_rendering_backend_default::backend()
+        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
 /// This trait describes the common public API of a strongly referenced SixtyFPS component,
