@@ -1374,6 +1374,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
     /// Mark this PropertyTracker as dirty
     pub fn set_dirty(&self) {
         self.holder.dirty.set(true);
+        unsafe { mark_dependencies_dirty(self.holder.dependencies.as_ptr() as *mut _) };
     }
 
     /// Sets the specified callback handler function, which will be called if any
@@ -1503,6 +1504,25 @@ fn test_property_tracker_drop() {
 
     drop(inner_tracker);
     prop.as_ref().set(200); // don't crash
+}
+
+#[test]
+fn test_nested_property_tracker_dirty() {
+    let outer_tracker = Box::pin(PropertyTracker::default());
+    let inner_tracker = Box::pin(PropertyTracker::default());
+    let prop = Box::pin(Property::new(42));
+
+    let r =
+        outer_tracker.as_ref().evaluate(|| inner_tracker.as_ref().evaluate(|| prop.as_ref().get()));
+    assert_eq!(r, 42);
+
+    assert!(!outer_tracker.is_dirty());
+    assert!(!inner_tracker.is_dirty());
+
+    // Let's pretend that there was another dependency unaccounted first, mark the inner tracker as dirty
+    // by hand.
+    inner_tracker.as_ref().set_dirty();
+    assert!(outer_tracker.is_dirty());
 }
 
 #[cfg(feature = "ffi")]
