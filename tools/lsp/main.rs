@@ -55,7 +55,6 @@ fn main() {
         preview::quit_ui_event_loop();
     });
 
-    // TODO: Don't terminate the event loop when the window is closed
     preview::start_ui_event_loop();
 }
 
