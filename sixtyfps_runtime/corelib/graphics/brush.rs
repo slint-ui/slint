@@ -110,6 +110,7 @@ pub struct GradientStop {
 
 /// Returns the start / end points of a gradiant within the [-0.5; 0.5] unit square, based on the angle (in degree).
 pub fn line_for_angle(angle: f32) -> (Point, Point) {
+    let angle = angle.to_radians();
     let r = (angle.sin().abs() + angle.cos().abs()) / 2.;
     let (y, x) = (angle - std::f32::consts::PI / 2.).sin_cos();
     let (y, x) = (y * r, x * r);
