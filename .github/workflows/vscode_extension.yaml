@@ -14,6 +14,8 @@ on:
 
 jobs:
   build_lsp:
+    env:
+      SIXTYFPS_NO_QT: 1
     strategy:
       matrix:
         include:
