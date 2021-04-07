@@ -262,6 +262,26 @@ impl Type {
         }
     }
 
+    /// List of sub properties valid for the auto completion
+    pub fn property_list(&self) -> Vec<(String, Type)> {
+        match self {
+            Type::Component(c) => {
+                let mut r = c.root_element.borrow().base_type.property_list();
+                r.extend(
+                    c.root_element
+                        .borrow()
+                        .property_declarations
+                        .iter()
+                        .map(|(k, d)| (k.clone(), d.property_type.clone())),
+                );
+                r
+            }
+            Type::Builtin(b) => b.properties.iter().map(|(k, t)| (k.clone(), t.clone())).collect(),
+            Type::Native(n) => n.properties.iter().map(|(k, t)| (k.clone(), t.clone())).collect(),
+            _ => Vec::new(),
+        }
+    }
+
     pub fn lookup_type_for_child_element(
         &self,
         name: &str,

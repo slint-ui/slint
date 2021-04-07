@@ -711,6 +711,11 @@ impl SyntaxNodeWithSourceFile {
     pub fn text(&self) -> rowan::SyntaxText {
         self.node.text()
     }
+    pub fn parent(&self) -> Option<SyntaxNodeWithSourceFile> {
+        self.node
+            .parent()
+            .map(|node| SyntaxNodeWithSourceFile { node, source_file: self.source_file.clone() })
+    }
 }
 
 #[derive(Debug, Clone)]

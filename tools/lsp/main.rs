@@ -18,16 +18,17 @@ use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notifi
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
-    CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+    CompletionItem, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
     GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink,
     MarkedString, OneOf, Position, PublishDiagnosticsParams, Range, ServerCapabilities,
     TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::{BuildDiagnostics, Spanned};
-use sixtyfps_compilerlib::parser::{SyntaxKind, SyntaxNodeWithSourceFile};
+use sixtyfps_compilerlib::langtype::Type;
+use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use sixtyfps_compilerlib::typeloader::TypeLoader;
 use sixtyfps_compilerlib::typeregister::TypeRegister;
-use sixtyfps_compilerlib::CompilerConfiguration;
+use sixtyfps_compilerlib::{object_tree, CompilerConfiguration};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -120,13 +121,11 @@ fn handle_request(
             .and_then(|token| goto_definition(document_cache, token.parent()));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
-    } else if let Some((_id, _params)) = cast::<Completion>(&mut req) {
-        /*let result = vec![
-            CompletionItem::new_simple("Hello".to_string(), "Some detail".to_string()),
-            CompletionItem::new_simple("Bye".to_string(), "More detail".to_string()),
-        ];
+    } else if let Some((id, params)) = cast::<Completion>(&mut req) {
+        let result = token_descr(document_cache, params.text_document_position)
+            .and_then(|token| completion_at(document_cache, token.parent()));
         let resp = Response::new_ok(id, result);
-        connection.sender.send(Message::Response(resp))?;*/
+        connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<HoverRequest>(&mut req) {
         let result =
             token_descr(document_cache, params.text_document_position_params).map(|x| Hover {
@@ -355,4 +354,62 @@ fn goto_node(
         target_range: range,
         target_selection_range: range,
     }]))
+}
+
+fn completion_at(
+    document_cache: &DocumentCache,
+    token: SyntaxNodeWithSourceFile,
+) -> Option<Vec<CompletionItem>> {
+    match token.kind() {
+        SyntaxKind::Element => {
+            let element = syntax_nodes::Element(token.clone());
+            let element_type = lookup_current_element_type(
+                token,
+                &document_cache.documents.global_type_registry.borrow(),
+            )
+            .unwrap_or_default();
+            return Some(
+                element_type
+                    .property_list()
+                    .into_iter()
+                    .map(|(k, t)| CompletionItem::new_simple(k, t.to_string()))
+                    .chain(element.PropertyDeclaration().map(|pr| {
+                        CompletionItem::new_simple(
+                            sixtyfps_compilerlib::parser::identifier_text(&pr.DeclaredIdentifier())
+                                .unwrap_or_default(),
+                            pr.Type().text().into(),
+                        )
+                    }))
+                    .chain(element.CallbackDeclaration().map(|cd| {
+                        CompletionItem::new_simple(
+                            sixtyfps_compilerlib::parser::identifier_text(&cd.DeclaredIdentifier())
+                                .unwrap_or_default(),
+                            "callback".into(),
+                        )
+                    }))
+                    .collect(),
+            );
+        }
+        _ => return None,
+    }
+}
+
+fn lookup_current_element_type(
+    mut node: SyntaxNodeWithSourceFile,
+    tr: &TypeRegister,
+) -> Option<Type> {
+    while node.kind() != SyntaxKind::Element {
+        if let Some(parent) = node.parent() {
+            node = parent
+        } else {
+            return None;
+        }
+    }
+    let parent = node
+        .parent()
+        .and_then(|parent| lookup_current_element_type(parent, tr))
+        .unwrap_or_default();
+    let qualname =
+        object_tree::QualifiedTypeName::from_node(syntax_nodes::Element(node).QualifiedName()?);
+    parent.lookup_type_for_child_element(&qualname.to_string(), tr).ok()
 }
