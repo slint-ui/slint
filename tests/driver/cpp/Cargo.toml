@@ -22,3 +22,4 @@ spin_on = "0.1"
 test_driver_lib = { path = "../driverlib" }
 anyhow = "1"
 cbindgen = "0.16"
+proc-macro2 = "1.0.11"
