@@ -2,6 +2,13 @@
 
 Extension for VSCode which include syntax coloration and a way to start the LSP server
 
+## Features
+
+ - Syntax highlighting
+ - Diagnostics from .60 files
+ - Live Preview of a .60 file
+ - Jump to definition (currently, only definition of Component)
+
 ## Setup
 
 1. Build the LSP
