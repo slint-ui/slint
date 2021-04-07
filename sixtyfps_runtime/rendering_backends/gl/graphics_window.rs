@@ -426,7 +426,9 @@ impl PlatformWindow for GraphicsWindow {
                 winit_window.set_title(&window_item.title());
                 let size: winit::dpi::PhysicalSize<u32> =
                     (window_item.width(), window_item.height()).into();
-                winit_window.set_inner_size(size);
+                if size.width > 0 && size.height > 0 {
+                    winit_window.set_inner_size(size);
+                }
             }
         }
     }
