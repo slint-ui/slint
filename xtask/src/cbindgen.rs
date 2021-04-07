@@ -350,6 +350,7 @@ fn gen_interpreter(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 /// `root_dir` is the root directory of the sixtyfps git repo
 /// `include_dir` is the output directory
 pub fn gen_all(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
+    proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     gen_corelib(root_dir, include_dir)?;
     gen_backend_qt(root_dir, include_dir)?;
