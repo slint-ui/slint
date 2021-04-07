@@ -65,3 +65,7 @@ default-members = [
 
 [profile.release]
 lto = true
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
