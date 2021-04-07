@@ -63,7 +63,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
     }
 
-    console.log(`Starting LSP server from {serverModule}`);
+    console.log(`Starting LSP server from ${serverModule}`);
 
     let serverOptions: ServerOptions = {
         run: { command: serverModule },
@@ -80,6 +80,8 @@ export function activate(context: vscode.ExtensionContext) {
         serverOptions,
         clientOptions
     );
+    client.start();
+
 
     context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', function () {
         let ae = vscode.window.activeTextEditor;
@@ -88,7 +90,11 @@ export function activate(context: vscode.ExtensionContext) {
         }
         client.sendNotification("sixtyfps/showPreview", ae.document.uri.fsPath.toString());
     }));
-    client.start();
+
+    context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.reload', async function () {
+        await client.stop();
+        client.start();
+    }));
 }
 
 export function deactivate(): Thenable<void> | undefined {

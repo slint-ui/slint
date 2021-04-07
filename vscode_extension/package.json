@@ -40,7 +40,12 @@
 		"commands": [
 			{
 				"command": "sixtyfps.showPreview",
-				"title": "SixtyFPS: Show Preview",
+				"title": "Show Preview",
+				"category": "SixtyFPS"
+			},
+			{
+				"command": "sixtyfps.reload",
+				"title": "Restart server",
 				"category": "SixtyFPS"
 			}
 		],
@@ -49,6 +54,9 @@
 				{
 					"command": "sixtyfps.showPreview",
 					"when": "editorLangId == sixtyfps"
+				},
+				{
+					"command": "sixtyfps.reload"
 				}
 			]
 		}
