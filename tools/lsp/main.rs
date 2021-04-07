@@ -285,12 +285,14 @@ fn token_descr(
     let doc =
         document_cache.documents.get_document(Path::new(lsp_position.text_document.uri.path()))?;
     let node = doc.node.as_ref()?;
+    if !node.0.node.text_range().contains(o.into()) {
+        return None;
+    }
     let token = node.0.node.token_at_offset(o.into()).last()?;
     Some(sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile {
         token,
         source_file: node.0.source_file.clone(),
     })
-    //Some(format!("{:?}", token))
 }
 
 fn goto_definition(
