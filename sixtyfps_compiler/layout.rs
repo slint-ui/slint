@@ -143,6 +143,8 @@ pub struct LayoutConstraints {
     pub maximum_width: Option<NamedReference>,
     pub minimum_height: Option<NamedReference>,
     pub maximum_height: Option<NamedReference>,
+    pub preferred_width: Option<NamedReference>,
+    pub preferred_height: Option<NamedReference>,
     pub horizontal_stretch: Option<NamedReference>,
     pub vertical_stretch: Option<NamedReference>,
     pub fixed_width: bool,
@@ -156,6 +158,8 @@ impl LayoutConstraints {
             maximum_width: binding_reference(&element, "maximum_width"),
             minimum_height: binding_reference(&element, "minimum_height"),
             maximum_height: binding_reference(&element, "maximum_height"),
+            preferred_width: binding_reference(&element, "preferred_width"),
+            preferred_height: binding_reference(&element, "preferred_height"),
             horizontal_stretch: binding_reference(&element, "horizontal_stretch"),
             vertical_stretch: binding_reference(&element, "vertical_stretch"),
             fixed_width: false,
@@ -231,6 +235,8 @@ impl LayoutConstraints {
                     (x, "max_height_percent")
                 }
             }))
+            .chain(self.preferred_width.as_ref().map(|x| (x, "preferred_width")))
+            .chain(self.preferred_height.as_ref().map(|x| (x, "preferred_height")))
             .chain(self.horizontal_stretch.as_ref().map(|x| (x, "horizontal_stretch")))
             .chain(self.vertical_stretch.as_ref().map(|x| (x, "vertical_stretch")))
     }
@@ -240,6 +246,8 @@ impl LayoutConstraints {
         self.minimum_width.as_mut().map(|e| visitor(&mut *e));
         self.maximum_height.as_mut().map(|e| visitor(&mut *e));
         self.minimum_height.as_mut().map(|e| visitor(&mut *e));
+        self.preferred_width.as_mut().map(|e| visitor(&mut *e));
+        self.preferred_height.as_mut().map(|e| visitor(&mut *e));
         self.horizontal_stretch.as_mut().map(|e| visitor(&mut *e));
         self.vertical_stretch.as_mut().map(|e| visitor(&mut *e));
     }
@@ -367,6 +375,8 @@ impl LayoutGeometry {
             maximum_width: fake_property_ref("maximum_width"),
             minimum_height: fake_property_ref("minimum_height"),
             maximum_height: fake_property_ref("maximum_height"),
+            preferred_width: fake_property_ref("preferred_width"),
+            preferred_height: fake_property_ref("preferred_height"),
             horizontal_stretch: fake_property_ref("horizontal_stretch"),
             vertical_stretch: fake_property_ref("vertical_stretch"),
             // these two have booleans have no meeing in this case

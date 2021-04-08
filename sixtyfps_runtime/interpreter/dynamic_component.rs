@@ -1404,6 +1404,12 @@ fn fill_layout_info_constraints(
             layout_info.max_height_percent = expr_eval(e)
         }
     });
+    constraints.preferred_width.as_ref().map(|e| {
+        layout_info.preferred_width = expr_eval(e);
+    });
+    constraints.preferred_height.as_ref().map(|e| {
+        layout_info.preferred_height = expr_eval(e);
+    });
     constraints.horizontal_stretch.as_ref().map(|e| layout_info.horizontal_stretch = expr_eval(e));
     constraints.vertical_stretch.as_ref().map(|e| layout_info.vertical_stretch = expr_eval(e));
 }

@@ -1,0 +1,45 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    background: green;
+    width: 300phx;
+    height: 50phx;
+
+    HorizontalLayout {
+        padding: 0px;
+        fake-image := Rectangle {
+            background: blue;
+            // Don't apply the preferred height for the horizontal layout.
+            preferred-height: 500phx;
+            horizontal-stretch: 0;
+            vertical-stretch: 0;
+        }
+    }
+
+    property <bool> fake-image-ok: fake-image.height == 50phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+TestCase::apply_layout({&TestCase::static_vtable, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
+assert(instance.get_fake_image_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+sixtyfps::testing::apply_layout(&instance, sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
+assert!(instance.get_fake_image_ok());
+```
+
+*/

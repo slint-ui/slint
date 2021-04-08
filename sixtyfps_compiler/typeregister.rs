@@ -28,6 +28,8 @@ const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
     ("padding_right", Type::Length),
     ("padding_top", Type::Length),
     ("padding_bottom", Type::Length),
+    ("preferred_width", Type::Length),
+    ("preferred_height", Type::Length),
     ("horizontal_stretch", Type::Float32),
     ("vertical_stretch", Type::Float32),
     ("col", Type::Int32),
