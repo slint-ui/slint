@@ -278,6 +278,9 @@ pub struct LayoutGeometry {
     pub spacing: Option<NamedReference>,
     pub alignment: Option<NamedReference>,
     pub padding: Padding,
+    /// This contains the reference of properties of the materialized properties who
+    /// don't have explicit binding and must therefore need to be set
+    pub materialized_constraints: LayoutConstraints,
 }
 
 impl LayoutGeometry {
@@ -286,15 +289,12 @@ impl LayoutGeometry {
         self.spacing.as_mut().map(|e| visitor(&mut *e));
         self.alignment.as_mut().map(|e| visitor(&mut *e));
         self.padding.visit_named_references(visitor);
+        self.materialized_constraints.visit_named_references(visitor);
     }
 }
 
 fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
-    if element.borrow().bindings.contains_key(name) {
-        Some(NamedReference::new(element, name))
-    } else {
-        None
-    }
+    element.borrow().bindings.contains_key(name).then(|| NamedReference::new(element, name))
 }
 
 fn init_fake_property(
@@ -356,7 +356,24 @@ impl LayoutGeometry {
             bottom: binding_reference(layout_element, "padding_bottom").or_else(padding),
         };
 
-        Self { rect, spacing, padding, alignment }
+        // that's kind of the opposite of binding reference
+        let fake_property_ref = |name| {
+            (layout_element.borrow().property_declarations.contains_key(name)
+                && !layout_element.borrow().bindings.contains_key(name))
+            .then(|| NamedReference::new(layout_element, name))
+        };
+        let materialized_constraints = LayoutConstraints {
+            minimum_width: fake_property_ref("minimum_width"),
+            maximum_width: fake_property_ref("maximum_width"),
+            minimum_height: fake_property_ref("minimum_height"),
+            maximum_height: fake_property_ref("maximum_height"),
+            horizontal_stretch: fake_property_ref("horizontal_stretch"),
+            vertical_stretch: fake_property_ref("vertical_stretch"),
+            // these two have booleans have no meeing in this case
+            fixed_width: false,
+            fixed_height: false,
+        };
+        Self { rect, spacing, padding, alignment, materialized_constraints }
     }
 }
 
@@ -469,6 +486,17 @@ pub mod gen {
         },
         #[from]
         PathLayout(&'a PathLayout),
+    }
+
+    impl<'a, L: Language> LayoutTreeItem<'a, L> {
+        pub fn geometry(&self) -> Option<&LayoutGeometry> {
+            match self {
+                Self::GridLayout { geometry, .. } | Self::BoxLayout { geometry, .. } => {
+                    Some(geometry)
+                }
+                _ => None,
+            }
+        }
     }
 
     pub fn collect_layouts_recursively<'a, 'b, L: Language>(

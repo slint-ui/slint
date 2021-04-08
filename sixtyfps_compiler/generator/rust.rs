@@ -1758,6 +1758,27 @@ fn generate_layout_padding_and_spacing<'a, 'b>(
 
 impl<'a> LayoutTreeItem<'a> {
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<TokenStream>) {
+        if let Some(geometry) = self.geometry() {
+            if geometry.materialized_constraints.has_explicit_restrictions() {
+                let info = self.layout_info();
+                let (name, expr): (Vec<_>, Vec<_>) = geometry
+                    .materialized_constraints
+                    .for_each_restrictions()
+                    .map(|(e, s)| {
+                        (
+                            format_ident!("{}", s),
+                            access_named_reference(e, component, quote!(_self)),
+                        )
+                    })
+                    .unzip();
+
+                code_stream.push(quote!({
+                    let info = #info;
+                    #(#expr.set(info.#name);)*
+                }));
+            }
+        }
+
         let layout_prop = |p: &Option<NamedReference>| {
             if let Some(nr) = p {
                 let p = access_named_reference(nr, component, quote!(_self));

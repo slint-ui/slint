@@ -15,7 +15,9 @@ use dynamic_type::{Instance, InstanceBox};
 use expression_tree::NamedReference;
 use object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem, PathLayout};
+use sixtyfps_compilerlib::layout::{
+    Layout, LayoutConstraints, LayoutGeometry, LayoutItem, PathLayout,
+};
 use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use sixtyfps_compilerlib::{expression_tree::Expression, langtype::PropertyLookupResult};
@@ -1330,6 +1332,14 @@ impl<'a> LayoutTreeItem<'a> {
             LayoutTreeItem::PathLayout(_) => todo!(),
         }
     }
+
+    fn geometry(&self) -> Option<&LayoutGeometry> {
+        match self {
+            Self::GridLayout(LayoutWithCells { geometry, .. })
+            | Self::BoxLayout(LayoutWithCells { geometry, .. }, _, _) => Some(geometry),
+            _ => None,
+        }
+    }
 }
 
 fn get_layout_info<'a, 'b>(
@@ -1536,6 +1546,27 @@ impl<'a> LayoutTreeItem<'a> {
                     .unwrap_or(0.)
             })
         };
+
+        if let Some(geometry) = self.geometry() {
+            // Set the properties that depends on the constraints
+            if geometry.materialized_constraints.has_explicit_restrictions() {
+                let info = self.layout_info();
+                let apply_materialized_constraint = |nr: &Option<NamedReference>, c: f32| {
+                    if let Some(nr) = nr {
+                        let p = get_property_ptr(nr, instance_ref);
+                        let p_ref = unsafe { &*(p as *const Property<f32>) };
+                        p_ref.set(c);
+                    };
+                };
+                let c = &geometry.materialized_constraints;
+                apply_materialized_constraint(&c.minimum_width, info.min_width);
+                apply_materialized_constraint(&c.minimum_height, info.min_height);
+                apply_materialized_constraint(&c.maximum_width, info.max_width);
+                apply_materialized_constraint(&c.maximum_height, info.max_height);
+                apply_materialized_constraint(&c.vertical_stretch, info.vertical_stretch);
+                apply_materialized_constraint(&c.horizontal_stretch, info.horizontal_stretch);
+            }
+        }
 
         match self {
             Self::GridLayout(grid_layout) => {

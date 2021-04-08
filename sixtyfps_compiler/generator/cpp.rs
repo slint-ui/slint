@@ -2031,6 +2031,21 @@ fn generate_layout_padding_and_spacing<'a, 'b>(
 
 impl<'a> LayoutTreeItem<'a> {
     fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<String>) {
+        if let Some(geometry) = self.geometry() {
+            if geometry.materialized_constraints.has_explicit_restrictions() {
+                code_stream.push("    {".into());
+                code_stream.push(format!("    auto layout_info = {};", self.layout_info()));
+                for (expr, name) in geometry.materialized_constraints.for_each_restrictions() {
+                    code_stream.push(format!(
+                        "    {}.set(layout_info.{});",
+                        access_named_reference(expr, component, "self"),
+                        name
+                    ));
+                }
+                code_stream.push("    }".into());
+            }
+        }
+
         let layout_prop = |p: &Option<NamedReference>| match p {
             Some(nr) => format!("{}.get()", access_named_reference(nr, component, "self")),
             None => "0".into(),
