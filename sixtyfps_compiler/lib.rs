@@ -43,6 +43,7 @@ pub mod typeregister;
 
 mod passes {
     pub mod apply_default_properties_from_style;
+    pub mod apply_percentage_size;
     pub mod check_expressions;
     pub mod collect_globals;
     pub mod collect_structs;
@@ -160,6 +161,7 @@ pub async fn run_passes(
     passes::focus_item::resolve_element_reference_in_set_focus_calls(&doc.root_component, diag);
     passes::focus_item::determine_initial_focus_item(&doc.root_component, diag);
     passes::focus_item::erase_forward_focus_properties(&doc.root_component);
+    passes::default_geometry::default_geometry(&doc.root_component, diag);
     passes::materialize_fake_properties::materialize_fake_properties(&doc.root_component);
     if compiler_config.embed_resources {
         passes::embed_resources::embed_resources(&doc.root_component);
@@ -169,7 +171,7 @@ pub async fn run_passes(
     passes::lower_popups::lower_popups(&doc.root_component, &doc.local_registry, diag);
     passes::lower_layout::lower_layouts(&doc.root_component, &mut type_loader, diag).await;
     passes::lower_shadows::lower_shadow_properties(&doc.root_component, &doc.local_registry, diag);
-    passes::default_geometry::default_geometry(&doc.root_component, diag);
+    passes::apply_percentage_size::apply_percentage_size(&doc.root_component, diag);
     passes::apply_default_properties_from_style::apply_default_properties_from_style(
         &doc.root_component,
         &mut type_loader,

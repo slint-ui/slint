@@ -1161,6 +1161,12 @@ pub fn visit_all_named_references_in_element(
                 debug_assert!(nc.element().borrow().repeated.is_some());
                 *element = Rc::downgrade(&nc.element());
             }
+            // FIXME: this is questionable as well
+            Expression::ElementReference(element) => {
+                let mut nc = NamedReference::new(&element.upgrade().unwrap(), "$self");
+                vis(&mut nc);
+                *element = Rc::downgrade(&nc.element());
+            }
             _ => {}
         }
     }

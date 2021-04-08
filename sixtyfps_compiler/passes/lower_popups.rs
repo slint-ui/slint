@@ -90,6 +90,10 @@ fn lower_popup_window(
     // - There are other object reference than in the NamedReference
     // - Maybe this should actually be allowed
     visit_all_named_references(&parent_component, &mut |nr| {
+        if nr.name() == "$self" && std::rc::Rc::ptr_eq(&nr.element(), &popup_window_element) {
+            // It is allow to reference ourself for the .show() call
+            return;
+        }
         if std::rc::Weak::ptr_eq(&nr.element().borrow().enclosing_component, &weak) {
             diag.push_error(
                 "Cannot access the inside of a PopupWindow from enclosing component".into(),
