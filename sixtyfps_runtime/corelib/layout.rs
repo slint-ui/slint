@@ -37,6 +37,11 @@ pub struct LayoutInfo {
     /// The maximum height in percentage of the parent (value between 0 and 100).
     pub max_height_percent: f32,
 
+    /// the preferred width
+    pub preferred_width: f32,
+    /// the preferred height
+    pub preferred_height: f32,
+
     /// the horizontal stretch factor
     pub horizontal_stretch: f32,
     /// the vertical stretch factor
@@ -54,6 +59,8 @@ impl Default for LayoutInfo {
             max_width_percent: 100.,
             min_height_percent: 0.,
             max_height_percent: 100.,
+            preferred_width: 0.,
+            preferred_height: 0.,
             horizontal_stretch: 0.,
             vertical_stretch: 0.,
         }
@@ -63,6 +70,16 @@ impl Default for LayoutInfo {
 impl LayoutInfo {
     // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout infos.
     pub fn merge(&self, other: &LayoutInfo) -> Self {
+        let merge_preferred_size = |left_stretch, left_size, right_stretch, right_size| {
+            if left_stretch < right_stretch {
+                left_size
+            } else if left_stretch > right_stretch {
+                right_size
+            } else {
+                (left_size + right_size) / 2.
+            }
+        };
+
         Self {
             min_width: self.min_width.max(other.min_width),
             max_width: self.max_width.min(other.max_width),
@@ -72,6 +89,18 @@ impl LayoutInfo {
             max_width_percent: self.max_width_percent.min(other.max_width_percent),
             min_height_percent: self.min_height_percent.max(other.min_height_percent),
             max_height_percent: self.max_height_percent.min(other.max_height_percent),
+            preferred_width: merge_preferred_size(
+                self.horizontal_stretch,
+                self.preferred_width,
+                other.horizontal_stretch,
+                other.preferred_width,
+            ),
+            preferred_height: merge_preferred_size(
+                self.vertical_stretch,
+                self.preferred_height,
+                other.vertical_stretch,
+                other.preferred_height,
+            ),
             horizontal_stretch: self.horizontal_stretch.min(other.horizontal_stretch),
             vertical_stretch: self.vertical_stretch.min(other.vertical_stretch),
         }
@@ -361,8 +390,8 @@ pub fn grid_layout_info<'a>(
         cdata.max = cdata.max.min(cell.constraint.max_width);
         rdata.min = rdata.min.max(cell.constraint.min_height);
         cdata.min = cdata.min.max(cell.constraint.min_width);
-        rdata.pref = rdata.pref.max(cell.constraint.min_height);
-        cdata.pref = cdata.pref.max(cell.constraint.min_width);
+        rdata.pref = rdata.pref.max(cell.constraint.preferred_height);
+        cdata.pref = cdata.pref.max(cell.constraint.preferred_width);
         rdata.stretch = rdata.stretch.min(cell.constraint.vertical_stretch);
         cdata.stretch = cdata.stretch.min(cell.constraint.horizontal_stretch);
     }
@@ -399,6 +428,8 @@ pub fn grid_layout_info<'a>(
         max_width_percent: 100.,
         min_height_percent: 0.,
         max_height_percent: 100.,
+        preferred_width: 0.,
+        preferred_height: 0.,
         horizontal_stretch,
         vertical_stretch,
     }
@@ -566,7 +597,20 @@ pub fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
             width: max(constraint.max_width, constraint.max_width_percent, data.width),
             height: max(constraint.max_height, constraint.max_height_percent, data.height),
         };
+
+        let convert_preferred_size = |size| {
+            if size != 0. {
+                Dimension::Points(size)
+            } else {
+                Dimension::Auto
+            }
+        };
+
         let cell_style = Style {
+            size: Size {
+                width: convert_preferred_size(constraint.preferred_width),
+                height: convert_preferred_size(constraint.preferred_height),
+            },
             min_size,
             max_size,
             flex_grow: if data.alignment != LayoutAlignment::stretch {
@@ -653,6 +697,8 @@ pub fn box_layout_info<'a>(
             max_width_percent: 100.,
             min_height_percent: 0.,
             max_height_percent: 100.,
+            preferred_width: 0.,
+            preferred_height: 0.,
             horizontal_stretch,
             vertical_stretch,
         }
@@ -684,6 +730,8 @@ pub fn box_layout_info<'a>(
             max_width_percent: 100.,
             min_height_percent: 0.,
             max_height_percent: 100.,
+            preferred_width: 0.,
+            preferred_height: 0.,
             horizontal_stretch,
             vertical_stretch,
         }

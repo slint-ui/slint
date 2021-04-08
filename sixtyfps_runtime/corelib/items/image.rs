@@ -71,9 +71,13 @@ impl Item for Image {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        // FIXME: should we use the image size here
-        Default::default()
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+        let natural_size = self.implicit_size(window);
+        LayoutInfo {
+            preferred_width: natural_size.width,
+            preferred_height: natural_size.height,
+            ..Default::default()
+        }
     }
 
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
@@ -142,9 +146,13 @@ impl Item for ClippedImage {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        // FIXME: should we use the image size here
-        Default::default()
+    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+        let natural_size = self.implicit_size(window);
+        LayoutInfo {
+            preferred_width: natural_size.width,
+            preferred_height: natural_size.height,
+            ..Default::default()
+        }
     }
 
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
