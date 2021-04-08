@@ -14,7 +14,7 @@ LICENSE END */
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::PropertyLookupResult;
-use crate::langtype::{NativeClass, Type};
+use crate::langtype::{BuiltinElement, NativeClass, Type};
 use crate::namedreference::NamedReference;
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::TypeRegister;
@@ -846,6 +846,19 @@ impl Element {
                 }
                 Type::Builtin(builtin) => break Some(builtin.native_class.clone()),
                 Type::Native(native) => break Some(native.clone()),
+                _ => break None,
+            }
+        }
+    }
+
+    pub fn builtin_type(&self) -> Option<Rc<BuiltinElement>> {
+        let mut base_type = self.base_type.clone();
+        loop {
+            match &base_type {
+                Type::Component(component) => {
+                    base_type = component.root_element.clone().borrow().base_type.clone();
+                }
+                Type::Builtin(builtin) => break Some(builtin.clone()),
                 _ => break None,
             }
         }

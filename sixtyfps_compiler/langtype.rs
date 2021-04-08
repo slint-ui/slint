@@ -359,6 +359,14 @@ impl Type {
         }
     }
 
+    /// Assume it is an enumeration, panic if it isn't
+    pub fn as_enum(&self) -> &Rc<Enumeration> {
+        match self {
+            Type::Enumeration(e) => e,
+            _ => panic!("should be an enumeration, bug in compiler pass"),
+        }
+    }
+
     /// Return true if the type can be converted to the other type
     pub fn can_convert(&self, other: &Self) -> bool {
         let can_convert_struct = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {

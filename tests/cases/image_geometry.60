@@ -1,0 +1,87 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+//include_path: ../../examples/printerdemo/ui/images/
+TestCase := Rectangle {
+    fixed_image := Image {
+        width: 50phx;
+        height: 50phx;
+    }
+    fixed_image_contain := Image {
+        width: 50phx;
+        height: 50phx;
+        image-fit: contain;
+    }
+
+    VerticalLayout {
+        image_in_layout := Image {
+        }
+        image_in_layout_with_explicit_fit := Image {
+            image-fit: fill;
+        }    
+    }
+
+    image_with_missing_height := Image {
+        source: @image-url("cat_preview_round.png");
+        width: 500phx;
+        property <bool> expected_height_ok: self.height == 750phx;
+    }
+
+    image_with_missing_width := Image {
+        source: @image-url("cat_preview_round.png");
+        height: 600phx;
+        property <bool> expected_width_ok: self.width == 400phx;
+    }
+
+    property <bool> fixed_image_default_image_fit_ok: fixed_image.image-fit == ImageFit.fill;
+    property <bool> fixed_image_image_fit_override_ok: fixed_image_contain.image-fit == ImageFit.contain;
+    property <bool> image_in_layout_fit_ok: image_in_layout.image-fit == ImageFit.contain;
+    property <bool> image_in_layout_custom_fit_ok: image_in_layout_with_explicit_fit.image-fit == ImageFit.fill;
+    property <bool> image_with_missing_height_ok <=> image_with_missing_height.expected_height_ok;
+    property <bool> image_with_missing_width_ok <=> image_with_missing_width.expected_width_ok;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+TestCase::apply_layout({&TestCase::static_vtable, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
+assert(instance.get_fixed_image_default_image_fit_ok());
+assert(instance.get_fixed_image_image_fit_override_ok());
+assert(instance.get_image_in_layout_fit_ok());
+assert(instance.get_image_in_layout_custom_fit_ok());
+assert(instance.get_image_with_missing_height_ok());
+assert(instance.get_image_with_missing_width_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+sixtyfps::testing::apply_layout(&instance, sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
+assert!(instance.get_fixed_image_default_image_fit_ok());
+assert!(instance.get_fixed_image_image_fit_override_ok());
+assert!(instance.get_image_in_layout_fit_ok());
+assert!(instance.get_image_in_layout_custom_fit_ok());
+assert!(instance.get_image_with_missing_height_ok());
+assert!(instance.get_image_with_missing_width_ok());
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+instance.send_mouse_click(5., 5.);
+assert(instance.fixed_image_default_image_fit_ok);
+assert(instance.fixed_image_image_fit_override_ok);
+assert(instance.image_in_layout_fit_ok);
+assert(instance.image_in_layout_custom_fit_ok);
+assert(instance.image_with_missing_height_ok);
+assert(instance.image_with_missing_width_ok);
+```
+
+*/

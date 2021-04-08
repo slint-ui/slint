@@ -8,7 +8,11 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-//! Set the width and height of Rectangle, TouchArea, ... to 100%.
+/*! Set the width and height of Rectangle, TouchArea, ... to 100%,
+    the implicit width or aspect ratio preserving for Images.
+    Also set the Image.image-fit default depending on the presence of a
+    layout parent.
+*/
 
 use std::rc::Rc;
 
@@ -40,8 +44,59 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                         }
                     }
                     DefaultSizeBinding::ImplicitSize => {
-                        make_default_implicit(elem, "width", BuiltinFunction::ImplicitItemSize);
-                        make_default_implicit(elem, "height", BuiltinFunction::ImplicitItemSize);
+                        let has_length_property_binding = |elem: &ElementRc, property: &str| {
+                            debug_assert!({
+                                let PropertyLookupResult { resolved_name: _, property_type } =
+                                    elem.borrow().lookup_property(property);
+                                property_type == Type::Length
+                            });
+
+                            elem.borrow_mut().bindings.contains_key(property)
+                        };
+
+                        let width_specified = has_length_property_binding(elem, "width");
+                        let height_specified = has_length_property_binding(elem, "height");
+
+                        let is_image = matches!(elem.borrow().builtin_type(), Some(builtin) if builtin.name == "Image");
+
+                        if !elem.borrow().child_of_layout {
+                            // Add aspect-ratio preserving width or height bindings
+                            if is_image && width_specified && !height_specified {
+                                make_default_aspect_ratio_preserving_binding(
+                                    elem, "height", "width",
+                                )
+                            } else if is_image && height_specified && !width_specified {
+                                make_default_aspect_ratio_preserving_binding(
+                                    elem, "width", "height",
+                                )
+                            } else {
+                                make_default_implicit(elem, "width");
+                                make_default_implicit(elem, "height");
+                            }
+                        } else if is_image {
+                            // If an image is in a layout and has no explicit width or height specified, change the default for image-fit
+                            // to `contain`
+                            if !width_specified || !height_specified {
+                                let PropertyLookupResult {
+                                    resolved_name: image_fit_prop_name,
+                                    property_type: image_fit_prop_type,
+                                } = elem.borrow().lookup_property("image_fit");
+
+                                elem.borrow_mut()
+                                    .bindings
+                                    .entry(image_fit_prop_name.into())
+                                    .or_insert_with(|| {
+                                        Expression::EnumerationValue(
+                                            image_fit_prop_type
+                                                .as_enum()
+                                                .clone()
+                                                .try_value_from_string("contain")
+                                                .unwrap(),
+                                        )
+                                        .into()
+                                    });
+                            }
+                        }
                     }
                 }
             }
@@ -93,11 +148,13 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
     });
 }
 
-fn make_default_implicit(elem: &ElementRc, property: &str, function: BuiltinFunction) {
+fn make_default_implicit(elem: &ElementRc, property: &str) {
     elem.borrow_mut().bindings.entry(property.into()).or_insert_with(|| {
         Expression::StructFieldAccess {
             base: Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(function)),
+                function: Box::new(Expression::BuiltinFunctionReference(
+                    BuiltinFunction::ImplicitItemSize,
+                )),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
             }
@@ -106,4 +163,64 @@ fn make_default_implicit(elem: &ElementRc, property: &str, function: BuiltinFunc
         }
         .into()
     });
+}
+
+// For an element with `width`, `height`, `preferred-width` and `preferred-height`, make an aspect
+// ratio preserving binding. This is currently only called for Image elements. For example when for an
+// image the `width` is specified and there is no `height` binding, it is called with with `missing_size_property = height`
+// and `given_size_property = width` and install a binding like this:
+//
+//    height: self.width * self.preferred_height / self.preferred_width;
+//
+fn make_default_aspect_ratio_preserving_binding(
+    elem: &ElementRc,
+    missing_size_property: &str,
+    given_size_property: &str,
+) {
+    if elem.borrow().bindings.contains_key(missing_size_property) {
+        return;
+    }
+
+    let implicit_size_var = Box::new(Expression::ReadLocalVariable {
+        name: "image_implicit_size".into(),
+        ty: match BuiltinFunction::ImplicitItemSize.ty() {
+            Type::Function { return_type, .. } => *return_type,
+            _ => panic!("invalid type for ImplicitItemSize built-in function"),
+        },
+    });
+
+    let binding = Expression::CodeBlock(vec![
+        Expression::StoreLocalVariable {
+            name: "image_implicit_size".into(),
+            value: Box::new(Expression::FunctionCall {
+                function: Box::new(Expression::BuiltinFunctionReference(
+                    BuiltinFunction::ImplicitItemSize,
+                )),
+                arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+                source_location: None,
+            }),
+        },
+        Expression::BinaryExpression {
+            lhs: Box::new(Expression::BinaryExpression {
+                lhs: Expression::PropertyReference(NamedReference::new(
+                    elem,
+                    &given_size_property.as_ref(),
+                ))
+                .into(),
+                rhs: Box::new(Expression::StructFieldAccess {
+                    base: implicit_size_var.clone(),
+                    name: missing_size_property.to_string(),
+                }),
+                op: '*',
+            }),
+            rhs: Box::new(Expression::StructFieldAccess {
+                base: implicit_size_var,
+                name: given_size_property.to_string(),
+            }),
+            op: '/',
+        },
+    ])
+    .into();
+
+    elem.borrow_mut().bindings.insert(missing_size_property.to_string(), binding);
 }
