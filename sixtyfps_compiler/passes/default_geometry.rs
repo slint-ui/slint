@@ -22,9 +22,66 @@ use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BuiltinFunction, Expression, NamedReference};
+use crate::langtype::DefaultSizeBinding;
 use crate::langtype::Type;
-use crate::langtype::{DefaultSizeBinding, PropertyLookupResult};
 use crate::object_tree::{Component, ElementRc};
+
+/// Helper structure that computes the minimum and maxiumum size constraint of an element given the inner layout
+#[derive(Default)]
+struct ConstraintCalculator {
+    /// Vector containing all the inner layout of the element.
+    inner_layout: Vec<ElementRc>,
+}
+
+impl ConstraintCalculator {
+    fn constrainted_binding(&self, property: &str, exp: Expression) -> Expression {
+        if self.inner_layout.is_empty() {
+            exp
+        } else {
+            let min = format!("minimum_{}", property);
+            let max = format!("maximum_{}", property);
+            let mut idx = 0;
+            debug_assert_eq!(exp.ty(), Type::Length);
+            let mut code = exp;
+            for layout in self.inner_layout.iter() {
+                code = Self::make_constaint(
+                    code,
+                    Expression::PropertyReference(NamedReference::new(layout, &min)),
+                    '>',
+                    idx,
+                );
+                code = Self::make_constaint(
+                    code,
+                    Expression::PropertyReference(NamedReference::new(layout, &max)),
+                    '<',
+                    idx + 1,
+                );
+                idx += 2;
+            }
+            code
+        }
+    }
+
+    fn make_constaint(base: Expression, rhs: Expression, op: char, id: usize) -> Expression {
+        let n1 = format!("minmax_lhs{}", id);
+        let n2 = format!("minmax_rhs{}", id);
+        let a1 = Box::new(Expression::ReadLocalVariable { name: n1.clone(), ty: Type::Length });
+        let a2 = Box::new(Expression::ReadLocalVariable { name: n2.clone(), ty: Type::Length });
+        Expression::CodeBlock(vec![
+            Expression::StoreLocalVariable { name: n1, value: Box::new(base) },
+            Expression::StoreLocalVariable { name: n2, value: Box::new(rhs) },
+            Expression::Condition {
+                condition: Box::new(Expression::BinaryExpression {
+                    lhs: a1.clone(),
+                    rhs: a2.clone(),
+                    op,
+                }),
+                true_expr: a1,
+                false_expr: a2,
+            },
+        ])
+    }
+}
 
 pub fn default_geometry(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components(
@@ -36,21 +93,23 @@ pub fn default_geometry(root_component: &Rc<Component>, _diag: &mut BuildDiagnos
             {
                 let base_type = elem.borrow().base_type.clone();
                 if let (Some(parent), Type::Builtin(builtin_type)) = (parent, base_type) {
+                    let inner_layout = elem
+                        .borrow()
+                        .children
+                        .iter()
+                        .filter(|c| is_layout(&c.borrow().base_type))
+                        .cloned()
+                        .collect();
+                    let cc = ConstraintCalculator { inner_layout };
                     match builtin_type.default_size_binding {
                         DefaultSizeBinding::None => {}
                         DefaultSizeBinding::ExpandsToParentGeometry => {
-                            if !elem.borrow().child_of_layout {
-                                make_default_100(elem, parent, "width");
-                                make_default_100(elem, parent, "height");
-                            }
+                            make_default_100(elem, parent, "width", &cc);
+                            make_default_100(elem, parent, "height", &cc);
                         }
                         DefaultSizeBinding::ImplicitSize => {
-                            make_default_implicit(elem, "width", BuiltinFunction::ImplicitItemSize);
-                            make_default_implicit(
-                                elem,
-                                "height",
-                                BuiltinFunction::ImplicitItemSize,
-                            );
+                            make_default_implicit(elem, "width", &cc);
+                            make_default_implicit(elem, "height", &cc);
                         }
                     }
                 }
@@ -73,29 +132,37 @@ fn is_layout(base_type: &Type) -> bool {
     }
 }
 
-fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str) {
-    let PropertyLookupResult { resolved_name, property_type } =
-        parent_element.borrow().lookup_property(property);
-    if property_type != Type::Length {
-        return;
-    }
-    elem.borrow_mut().bindings.entry(resolved_name.to_string()).or_insert_with(|| {
-        Expression::PropertyReference(NamedReference::new(parent_element, resolved_name.as_ref()))
-            .into()
+fn make_default_100(
+    elem: &ElementRc,
+    parent_element: &ElementRc,
+    property: &str,
+    cc: &ConstraintCalculator,
+) {
+    elem.borrow_mut().bindings.entry(property.to_owned()).or_insert_with(|| {
+        cc.constrainted_binding(
+            property,
+            Expression::PropertyReference(NamedReference::new(parent_element, property)),
+        )
+        .into()
     });
 }
 
-fn make_default_implicit(elem: &ElementRc, property: &str, function: BuiltinFunction) {
+fn make_default_implicit(elem: &ElementRc, property: &str, cc: &ConstraintCalculator) {
     elem.borrow_mut().bindings.entry(property.into()).or_insert_with(|| {
-        Expression::StructFieldAccess {
-            base: Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(function)),
-                arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
-                source_location: None,
-            }
-            .into(),
-            name: property.into(),
-        }
+        cc.constrainted_binding(
+            property,
+            Expression::StructFieldAccess {
+                base: Expression::FunctionCall {
+                    function: Box::new(Expression::BuiltinFunctionReference(
+                        BuiltinFunction::ImplicitItemSize,
+                    )),
+                    arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+                    source_location: None,
+                }
+                .into(),
+                name: property.into(),
+            },
+        )
         .into()
     });
 }
