@@ -60,6 +60,10 @@ fn lower_grid_layout(
                 );
                 col += 1;
             }
+            if col > 0 {
+                row += 1;
+                col = 0;
+            }
             component.optimized_elements.borrow_mut().push(layout_child.clone());
         } else {
             grid.add_element(
