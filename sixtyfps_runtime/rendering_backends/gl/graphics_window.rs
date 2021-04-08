@@ -424,10 +424,20 @@ impl PlatformWindow for GraphicsWindow {
                 let backend = window.backend.borrow();
                 let winit_window = backend.window();
                 winit_window.set_title(&window_item.title());
-                let size: winit::dpi::PhysicalSize<u32> =
-                    (window_item.width(), window_item.height()).into();
-                if size.width > 0 && size.height > 0 {
-                    winit_window.set_inner_size(size);
+                let mut size = winit_window.inner_size();
+                let mut must_resize = false;
+                let mut apply = |r: &mut u32, v| {
+                    if v > 0. {
+                        *r = v as _
+                    } else {
+                        must_resize = true
+                    }
+                };
+                apply(&mut size.width, window_item.width());
+                apply(&mut size.height, window_item.height());
+                winit_window.set_inner_size(size);
+                if must_resize {
+                    self.set_geometry(size.width as _, size.height as _)
                 }
             }
         }

@@ -933,14 +933,26 @@ impl PlatformWindow for QtWindow {
     fn apply_window_properties(&self, window_item: Pin<&items::Window>) {
         let widget_ptr = self.widget_ptr();
         let title: qttypes::QString = window_item.title().as_str().into();
-        let size = qttypes::QSize {
+        let mut size = qttypes::QSize {
             width: window_item.width().ceil() as _,
             height: window_item.height().ceil() as _,
         };
+        if size.width == 0 || size.height == 0 {
+            let existing_size = cpp!(unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
+                return widget_ptr->size();
+            });
+            if size.width == 0 {
+                window_item.width.set(existing_size.width as _);
+                size.width = existing_size.width;
+            }
+            if size.height == 0 {
+                window_item.height.set(existing_size.height as _);
+                size.height = existing_size.height;
+            }
+        }
         let background: u32 = window_item.background().as_argb_encoded();
         cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
-            if (!size.isEmpty())
-                widget_ptr->resize(size);
+            widget_ptr->resize(size);
             widget_ptr->setWindowTitle(title);
             auto pal = widget_ptr->palette();
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
