@@ -29,16 +29,6 @@ let native = !process.env.SIXTYFPS_NODE_NATIVE_LIB ? require('../native/index.no
 /**
  * @hidden
  */
-interface Rect {
-    x: number,
-    y: number,
-    width: number,
-    height: number
-}
-
-/**
- * @hidden
- */
 class Component {
     protected comp: any;
 
@@ -64,10 +54,6 @@ class Component {
 
     send_keyboard_string_sequence(s: String) {
         this.comp.send_keyboard_string_sequence(s)
-    }
-
-    apply_layout(rect: Rect) {
-        this.comp.apply_layout(rect)
     }
 }
 
