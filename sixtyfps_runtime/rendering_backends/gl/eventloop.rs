@@ -39,7 +39,7 @@ impl NotRunningEventLoop {
 
 struct RunningEventLoop<'a> {
     event_loop_target: &'a winit::event_loop::EventLoopWindowTarget<CustomEvent>,
-    event_loop_proxy: winit::event_loop::EventLoopProxy<CustomEvent>,
+    event_loop_proxy: &'a winit::event_loop::EventLoopProxy<CustomEvent>,
 }
 
 pub(crate) trait EventLoopInterface {
@@ -186,7 +186,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                            event_loop_target: &EventLoopWindowTarget<CustomEvent>,
                            control_flow: &mut ControlFlow| {
         let running_instance =
-            RunningEventLoop { event_loop_target, event_loop_proxy: event_loop_proxy.clone() };
+            RunningEventLoop { event_loop_target, event_loop_proxy: &event_loop_proxy };
         CURRENT_WINDOW_TARGET.set(&running_instance, || {
             *control_flow = ControlFlow::Wait;
 
