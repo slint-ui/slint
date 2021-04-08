@@ -11,7 +11,7 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::{ImageReference, SharedVector};
+use sixtyfps_corelib::{graphics::Rect, ImageReference, SharedVector};
 
 mod js_model;
 mod persistent_context;
@@ -474,6 +474,22 @@ declare_types! {
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
                 sixtyfps_interpreter::testing::send_keyboard_string_sequence(&component, sequence.into());
+                Ok(())
+            })?;
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+
+        method apply_layout(mut cx) {
+            let rect = cx.argument::<JsObject>(0)?;
+            let x = rect.get(&mut cx, "x")?.downcast::<JsNumber>().unwrap().value();
+            let y = rect.get(&mut cx, "y")?.downcast::<JsNumber>().unwrap().value();
+            let width = rect.get(&mut cx, "width")?.downcast::<JsNumber>().unwrap().value();
+            let height = rect.get(&mut cx, "height")?.downcast::<JsNumber>().unwrap().value();
+            let this = cx.this();
+            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
+            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            run_scoped(&mut cx,this.downcast().unwrap(), || {
+                sixtyfps_interpreter::testing::apply_layout(&component, Rect::new((x as f32, y as f32).into(), (width as f32, height as f32).into()));
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))

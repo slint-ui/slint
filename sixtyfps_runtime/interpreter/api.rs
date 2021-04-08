@@ -868,6 +868,10 @@ pub mod testing {
             &comp.inner.window(),
         );
     }
+    /// Applies the specified rectangular constraints to the component's layout.
+    pub fn apply_layout(comp: &super::ComponentInstance, rect: sixtyfps_corelib::graphics::Rect) {
+        comp.inner.borrow().as_ref().apply_layout(rect);
+    }
 }
 
 #[test]
