@@ -228,6 +228,7 @@ impl<'a> TypeLoader<'a> {
         if diagnostics.has_error() {
             let mut d = Document::default();
             d.node = Some(dependency_doc.into());
+            d.local_registry = TypeRegister::new(&self.global_type_registry);
             self.all_documents.docs.insert(path.to_owned(), d);
             return;
         }
