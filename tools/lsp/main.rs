@@ -363,11 +363,13 @@ fn completion_at(
     match token.kind() {
         SyntaxKind::Element => {
             let element = syntax_nodes::Element(token.clone());
-            let element_type = lookup_current_element_type(
-                token,
-                &document_cache.documents.global_type_registry.borrow(),
-            )
-            .unwrap_or_default();
+            let global_tr = document_cache.documents.global_type_registry.borrow();
+            let tr = token
+                .source_file()
+                .and_then(|sf| document_cache.documents.get_document(sf.path()))
+                .map(|doc| &doc.local_registry)
+                .unwrap_or(&global_tr);
+            let element_type = lookup_current_element_type(token, tr).unwrap_or_default();
             return Some(
                 element_type
                     .property_list()
