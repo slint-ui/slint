@@ -72,18 +72,18 @@ using cbindgen_private::ItemWeak;
 }
 using cbindgen_private::ComponentRc;
 using cbindgen_private::EasingCurve;
+using cbindgen_private::EventResult;
+using cbindgen_private::FillRule;
+using cbindgen_private::ImageFit;
+using cbindgen_private::KeyboardModifiers;
+using cbindgen_private::KeyEvent;
 using cbindgen_private::PropertyAnimation;
 using cbindgen_private::Slice;
 using cbindgen_private::TextHorizontalAlignment;
-using cbindgen_private::TextVerticalAlignment;
 using cbindgen_private::TextOverflow;
+using cbindgen_private::TextVerticalAlignment;
 using cbindgen_private::TextWrap;
 using cbindgen_private::TraversalOrder;
-using cbindgen_private::ImageFit;
-using cbindgen_private::KeyEvent;
-using cbindgen_private::EventResult;
-using cbindgen_private::KeyboardModifiers;
-using cbindgen_private::FillRule;
 
 namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
@@ -116,7 +116,7 @@ public:
 
     void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)
     {
-        cbindgen_private::ItemRc item_rc{component_rc, item_index};
+        cbindgen_private::ItemRc item_rc { component_rc, item_index };
         cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, &item_rc);
     }
 
@@ -147,6 +147,7 @@ private:
 }
 
 using cbindgen_private::BorderRectangle;
+using cbindgen_private::BoxShadow;
 using cbindgen_private::Clip;
 using cbindgen_private::ClippedImage;
 using cbindgen_private::Flickable;
@@ -154,12 +155,11 @@ using cbindgen_private::FocusScope;
 using cbindgen_private::Image;
 using cbindgen_private::Path;
 using cbindgen_private::Rectangle;
+using cbindgen_private::Rotate;
 using cbindgen_private::Text;
 using cbindgen_private::TextInput;
 using cbindgen_private::TouchArea;
 using cbindgen_private::Window;
-using cbindgen_private::BoxShadow;
-using cbindgen_private::Rotate;
 
 using cbindgen_private::NativeButton;
 using cbindgen_private::NativeCheckBox;
@@ -184,8 +184,8 @@ constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
 
 constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t parent_index)
 {
-    return ItemTreeNode { ItemTreeNode::DynamicTree_Body {
-        ItemTreeNode::Tag::DynamicTree, offset, parent_index } };
+    return ItemTreeNode { ItemTreeNode::DynamicTree_Body { ItemTreeNode::Tag::DynamicTree, offset,
+                                                           parent_index } };
 }
 
 inline ItemRef get_item_ref(ComponentRef component, Slice<ItemTreeNode> item_tree, int index)
@@ -195,7 +195,7 @@ inline ItemRef get_item_ref(ComponentRef component, Slice<ItemTreeNode> item_tre
 }
 
 inline ItemWeak parent_item(cbindgen_private::ComponentWeak component,
-                                Slice<ItemTreeNode> item_tree, int index)
+                            Slice<ItemTreeNode> item_tree, int index)
 {
     const auto &node = item_tree.ptr[index];
     if (node.tag == ItemTreeNode::Tag::Item) {
@@ -232,11 +232,16 @@ inline vtable::Layout drop_in_place(ComponentRef component)
     return vtable::Layout { sizeof(T), alignof(T) };
 }
 
-template<typename T> struct ReturnWrapper {
-    ReturnWrapper(T val) : value(std::move(val)) {}
+template<typename T>
+struct ReturnWrapper
+{
+    ReturnWrapper(T val) : value(std::move(val)) { }
     T value;
 };
-template<> struct ReturnWrapper<void> {};
+template<>
+struct ReturnWrapper<void>
+{
+};
 } // namespace private_api
 
 template<typename T>
@@ -259,9 +264,7 @@ public:
     const T &operator*() const { return inner.operator*(); }
 
     /// internal function that returns the internal handle
-    vtable::VRc<private_api::ComponentVTable> into_dyn() const {
-        return inner.into_dyn();
-    }
+    vtable::VRc<private_api::ComponentVTable> into_dyn() const { return inner.into_dyn(); }
 };
 
 /// A weak reference to the component. Can be constructed from a `ComponentHandle<T>`
@@ -286,43 +289,37 @@ public:
 /// A Timer that can call a callback at repeated interval
 ///
 /// Use the static single_shot function to make a single shot timer
-struct Timer {
+struct Timer
+{
     /// Construct a timer which will repeat the callback every `duration` milliseconds until
     /// the destructor of the timer is called.
     template<typename F>
     Timer(std::chrono::milliseconds duration, F callback)
         : id(cbindgen_private::sixtyfps_timer_start(
-            duration.count(),
-            [](void *data) { (*reinterpret_cast<F*>(data))(); },
-            new F(std::move(callback)),
-            [](void *data) { delete reinterpret_cast<F*>(data); }))
-        {}
-    Timer(const Timer&) = delete;
-    Timer &operator=(const Timer&) = delete;
-    ~Timer() {
-        cbindgen_private::sixtyfps_timer_stop(id);
+                duration.count(), [](void *data) { (*reinterpret_cast<F *>(data))(); },
+                new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); }))
+    {
     }
+    Timer(const Timer &) = delete;
+    Timer &operator=(const Timer &) = delete;
+    ~Timer() { cbindgen_private::sixtyfps_timer_stop(id); }
 
     /// Call the callback after the given duration.
     template<typename F>
-    static void single_shot(std::chrono::milliseconds duration, F callback) {
+    static void single_shot(std::chrono::milliseconds duration, F callback)
+    {
         cbindgen_private::sixtyfps_timer_singleshot(
-            duration.count(),
-            [](void *data) { (*reinterpret_cast<F*>(data))(); },
-            new F(std::move(callback)),
-            [](void *data) { delete reinterpret_cast<F*>(data); });
+                duration.count(), [](void *data) { (*reinterpret_cast<F *>(data))(); },
+                new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 
 private:
     int64_t id;
 };
 
-
 // layouts:
-using cbindgen_private::sixtyfps_box_layout_info;
 using cbindgen_private::BoxLayoutCellData;
 using cbindgen_private::BoxLayoutData;
-using cbindgen_private::sixtyfps_grid_layout_info;
 using cbindgen_private::GridLayoutCellData;
 using cbindgen_private::GridLayoutData;
 using cbindgen_private::LayoutAlignment;
@@ -331,6 +328,8 @@ using cbindgen_private::Padding;
 using cbindgen_private::PathLayoutData;
 using cbindgen_private::PathLayoutItemData;
 using cbindgen_private::Rect;
+using cbindgen_private::sixtyfps_box_layout_info;
+using cbindgen_private::sixtyfps_grid_layout_info;
 using cbindgen_private::sixtyfps_solve_box_layout;
 using cbindgen_private::sixtyfps_solve_grid_layout;
 using cbindgen_private::sixtyfps_solve_path_layout;
@@ -425,7 +424,7 @@ class ArrayModel : public Model<ModelData>
 
 public:
     template<typename... A>
-    ArrayModel(A &&... a) : data { std::forward<A>(a)... }
+    ArrayModel(A &&...a) : data { std::forward<A>(a)... }
     {
     }
     int row_count() const override { return Count; }
@@ -596,8 +595,7 @@ public:
         if (!inner)
             return;
         for (auto &x : inner->data) {
-            (*x.ptr)->apply_layout({ &C::static_vtable, const_cast<C *>(&(**x.ptr)) },
-                                   parent_rect);
+            (*x.ptr)->apply_layout({ &C::static_vtable, const_cast<C *>(&(**x.ptr)) }, parent_rect);
         }
     }
 
