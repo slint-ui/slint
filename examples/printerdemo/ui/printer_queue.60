@@ -98,50 +98,57 @@ NarrowPrintQueueElement := Rectangle {
 
     property <bool> expanded;
 
-    VerticalLayout {
-        padding: root.border_radius;
-        spacing: 4px;
+    height: layout.minimum-height;
+    animate height { duration: 200ms; easing: ease; }
 
-        Text {
-            // TODO: text-transform: uppercase
-            text: {
-                if (queue_item.status == "PRINTING") {
-                   "\{queue_item.progress}% - \{queue_item.status}"
-                } else {
-                    queue_item.status
+    Clip {
+        height: 100%;
+        layout := VerticalLayout {
+            padding: root.border_radius;
+            spacing: 4px;
+            alignment: start;
+
+            Text {
+                // TODO: text-transform: uppercase
+                text: {
+                    if (queue_item.status == "PRINTING") {
+                    "\{queue_item.progress}% - \{queue_item.status}"
+                    } else {
+                        queue_item.status
+                    }
                 }
+                color: DemoPalette.status_label_text_color;
+                font-size: DemoPalette.base_font_size * 0.75;
+                font-weight: 800;
+                letter-spacing: 1.56px;
             }
-            color: DemoPalette.status_label_text_color;
-            font-size: DemoPalette.base_font_size * 0.75;
-            font-weight: 800;
-            letter-spacing: 1.56px;
-        }
 
-        Text {
-            text: queue_item.title;
-            overflow: elide;
-            color: DemoPalette.text_foreground_color;
-            font-weight: 800;
-            font-size: DemoPalette.base_font_size * 1.125;
-        }
-
-        if (expanded): PrintDetails {
-            padding: 0px;
-            padding-bottom: root.border-radius / 2;
-            queue_item: root.queue_item;
-        }
-
-        if (expanded): HorizontalLayout {
-            Rectangle {
-                horizontal-stretch: 0;
-                width: 10%;
+            Text {
+                text: queue_item.title;
+                overflow: elide;
+                color: DemoPalette.text_foreground_color;
+                font-weight: 800;
+                font-size: DemoPalette.base_font_size * 1.125;
             }
-            PushButton {
-                text: "More";
+
+            if (expanded): PrintDetails {
+                padding: 0px;
+                padding-bottom: root.border-radius / 2;
+                queue_item: root.queue_item;
             }
-            Rectangle {
-                horizontal-stretch: 0;
-                width: 10%;
+
+            if (expanded): HorizontalLayout {
+                Rectangle {
+                    horizontal-stretch: 0;
+                    width: 10%;
+                }
+                PushButton {
+                    text: "More";
+                }
+                Rectangle {
+                    horizontal-stretch: 0;
+                    width: 10%;
+                }
             }
         }
     }
