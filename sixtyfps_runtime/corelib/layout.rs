@@ -172,6 +172,7 @@ mod grid_internal {
                 max_size: Size { width: max, height: Dimension::Auto },
                 size: Size { width: pref, height: Dimension::Auto },
                 flex_grow: cell.stretch,
+                flex_shrink: cell.stretch,
                 margin,
                 ..Default::default()
             };
@@ -598,6 +599,14 @@ pub fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
             height: max(constraint.max_height, constraint.max_height_percent, data.height),
         };
 
+        let flex_grow_shrink = if data.alignment != LayoutAlignment::stretch {
+            0.
+        } else if let Some(s) = smaller_strecth {
+            stretch_factor(cell) / s
+        } else {
+            1.
+        };
+
         let convert_preferred_size = |size| {
             if size != 0. {
                 Dimension::Points(size)
@@ -608,18 +617,21 @@ pub fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
 
         let cell_style = Style {
             size: Size {
-                width: convert_preferred_size(constraint.preferred_width),
-                height: convert_preferred_size(constraint.preferred_height),
+                width: if is_horizontal {
+                    convert_preferred_size(constraint.preferred_width)
+                } else {
+                    Dimension::Auto
+                },
+                height: if !is_horizontal {
+                    convert_preferred_size(constraint.preferred_height)
+                } else {
+                    Dimension::Auto
+                },
             },
             min_size,
             max_size,
-            flex_grow: if data.alignment != LayoutAlignment::stretch {
-                0.
-            } else if let Some(s) = smaller_strecth {
-                stretch_factor(cell) / s
-            } else {
-                1.
-            },
+            flex_grow: flex_grow_shrink,
+            flex_shrink: flex_grow_shrink,
             flex_basis: if is_horizontal { min_size.width } else { min_size.height },
             margin,
             align_self: AlignSelf::Stretch,
