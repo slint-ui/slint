@@ -42,4 +42,10 @@ sixtyfps::testing::apply_layout(&instance, sixtyfps::re_exports::Rect::new(Defau
 assert!(instance.get_fake_image_ok());
 ```
 
+```js
+var instance = new sixtyfps.TestCase();
+instance.send_mouse_click(5., 5.);
+assert(instance.fake_image_ok);
+```
+
 */
