@@ -337,6 +337,16 @@ using cbindgen_private::sixtyfps_solve_path_layout;
 inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 {
     // Note: This "logic" is duplicated from LayoutInfo::merge in layout.rs.
+    const auto merge_preferred_size = [](float left_stretch, float left_size, float right_stretch,
+                                         float right_size) -> float {
+        if (left_stretch < right_stretch) {
+            return left_size;
+        } else if (left_stretch > right_stretch) {
+            return right_size;
+        } else {
+            return (left_size + right_size) / 2.;
+        }
+    };
     return LayoutInfo { std::max(min_width, other.min_width),
                         std::min(max_width, other.max_width),
                         std::max(min_height, other.min_height),
@@ -345,6 +355,10 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
                         std::min(max_width_percent, other.max_width_percent),
                         std::max(min_height_percent, other.min_height_percent),
                         std::min(max_height_percent, other.max_height_percent),
+                        merge_preferred_size(horizontal_stretch, preferred_width,
+                                             other.horizontal_stretch, other.preferred_width),
+                        merge_preferred_size(vertical_stretch, preferred_height,
+                                             other.vertical_stretch, other.preferred_height),
                         std::min(horizontal_stretch, other.horizontal_stretch),
                         std::min(vertical_stretch, other.vertical_stretch) };
 }
