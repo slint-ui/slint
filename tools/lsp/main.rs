@@ -184,7 +184,7 @@ fn handle_notification(
             } else {
                 return Err(e());
             };
-            preview::load_preview(path.into());
+            preview::load_preview(path.into(), preview::PostLoadBehavior::ShowAfterLoad);
         }
         _ => (),
     }

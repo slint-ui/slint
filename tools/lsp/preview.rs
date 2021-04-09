@@ -55,8 +55,13 @@ pub fn quit_ui_event_loop() {
     }));
 }
 
-pub fn load_preview(path: std::path::PathBuf) {
-    run_in_ui_thread(Box::pin(async move { reload_preview(&path).await }));
+pub enum PostLoadBehavior {
+    ShowAfterLoad,
+    DoNothing,
+}
+
+pub fn load_preview(path: std::path::PathBuf, post_load_behavior: PostLoadBehavior) {
+    run_in_ui_thread(Box::pin(async move { reload_preview(&path, post_load_behavior).await }));
 }
 
 #[derive(Default)]
@@ -75,7 +80,7 @@ pub fn set_contents(path: &Path, content: String) {
     if cache.dependency.contains(path) {
         let current_root = cache.current_root.clone();
         drop(cache);
-        load_preview(current_root);
+        load_preview(current_root, PostLoadBehavior::DoNothing);
     }
 }
 
@@ -88,7 +93,7 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
     r
 }
 
-async fn reload_preview(path: &std::path::Path) {
+async fn reload_preview(path: &std::path::Path, post_load_behavior: PostLoadBehavior) {
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.dependency.clear();
@@ -118,7 +123,10 @@ async fn reload_preview(path: &std::path::Path) {
             if let Some(handle) = preview_state.handle.take() {
                 let window = handle.window();
                 let handle = compiled.create_with_existing_window(window);
-                handle.show();
+                match post_load_behavior {
+                    PostLoadBehavior::ShowAfterLoad => handle.show(),
+                    PostLoadBehavior::DoNothing => {}
+                }
                 preview_state.handle = Some(handle);
             } else {
                 let handle = compiled.create();
