@@ -324,7 +324,6 @@ export PrinterQueue := Rectangle {
     background: DemoPalette.night_mode ? DemoPalette.printer_action_background_color : #F4F6FF;
 
     VerticalLayout {
-        alignment: start;
         padding: 16px;
         spacing: 16px;
 

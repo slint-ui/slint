@@ -40,7 +40,5 @@ export PrintPage := Page {
                 viewport_width: width;
             }
         }
-
-        Row { Rectangle {} }
     }
 }
