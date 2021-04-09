@@ -823,7 +823,7 @@ impl Item for Flickable {
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo::default()
+        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
     fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
