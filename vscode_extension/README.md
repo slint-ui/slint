@@ -7,6 +7,7 @@ Extension for VSCode which include syntax coloration and a way to start the LSP 
  - Syntax highlighting
  - Diagnostics from .60 files
  - Live Preview of a .60 file
+ - Completion of properties
  - Jump to definition (currently, only definition of Component)
 
 ## Setup
@@ -24,7 +25,7 @@ cd vscode_extension
 npm install
 ```
 
-## How to run the LSP
+## How to debug the LSP
 
 At the moment you need to load this directory in VS code and then start debugging (Run -> Start Debugging).
 That will "debug" the vs code extension and create a new VS code window. The LSP server binary will be started if previously built
@@ -32,10 +33,21 @@ You can see the output in the output pane "SixtyFPS LSP" (that's the drop-down t
 
 ## How to build the extension package
 
-To create a `.vsix` package:
+To create a `.vsix` package for local installation:
 
-  1. Install `vsce` (via npm for example).
-  2. Change to the `vscode_extension` sub-directory.
-  3. Install the dependencies: `npm install`.
-  4. Build the lsp binaries: `npm compile-lsp`.
-  5. Run `vsce package` to create the extension package.
+1. Follow the setup steps above to build the lsp binary and install npm dependencies.
+
+2. Create a `.vsix` package (needs `vsce` installed)
+
+```sh
+npm run local-package
+```
+3. Install the `.vsix` file with
+
+```sh
+code --install-extension sixtyfps-vscode-*.vsix
+```
+
+4. Reload your VS code windows
+
+Note that the resulting `.vsix` package contains your locally built debug LSP server. It is not suitable for distribution.

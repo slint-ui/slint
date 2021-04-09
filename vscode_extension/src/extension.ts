@@ -53,12 +53,17 @@ export function activate(context: vscode.ExtensionContext) {
         return;
     }
 
-    let serverModule = path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_platform + program_extension);
+    // Try a local ../target build first, then try the plain bundled binary and finally the architecture specific one.
+    // A debug session will find the first one, a local package build the second and the distributed vsix the last.
+    const lspSearchPaths = [
+        context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp' + program_extension)),
+        path.join(context.extensionPath, "bin", "sixtyfps-lsp" + program_extension),
+        path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_platform + program_extension),
+    ];
 
-    if (!existsSync(serverModule)) {
-        serverModule = context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp' + program_extension));
-    }
-    if (!existsSync(serverModule)) {
+    let serverModule = lspSearchPaths.find(path => existsSync(path));
+
+    if (serverModule == undefined) {
         console.warn("Could not locate sixtyfps-server server binary, neither in bundled bin/ directory nor relative in ../target");
         return;
     }
