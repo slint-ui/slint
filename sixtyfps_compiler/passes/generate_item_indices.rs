@@ -10,11 +10,9 @@ LICENSE END */
 //! Assign the Element::item_index on each elements
 pub fn generate_item_indices(component: &std::rc::Rc<crate::object_tree::Component>) {
     let mut current_item_index: usize = 0;
-    crate::generator::build_array_helper(&component, move |item_rc, _, _, is_flickable_rect| {
+    crate::generator::build_array_helper(&component, move |item_rc, _, _| {
         let item = item_rc.borrow();
-        if is_flickable_rect {
-            current_item_index += 1;
-        } else if item.base_type == crate::langtype::Type::Void {
+        if item.base_type == crate::langtype::Type::Void {
         } else {
             if let crate::langtype::Type::Component(c) = &item.base_type {
                 generate_item_indices(c);

@@ -27,7 +27,7 @@ use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
 use sixtyfps_corelib::items::{
-    Flickable, ItemRc, ItemRef, ItemVTable, ItemWeak, PropertyAnimation, Rectangle,
+    Flickable, ItemRc, ItemRef, ItemVTable, ItemWeak, PropertyAnimation,
 };
 use sixtyfps_corelib::layout::{LayoutInfo, Padding};
 use sixtyfps_corelib::model::RepeatedComponent;
@@ -569,57 +569,6 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
     (T::name(), Rc::new(rtti))
 }
 
-/// Flickable is special because some of its property applies to the viewport.
-/// This adds the viewport property in the flickable's property list
-fn rtti_for_flickable() -> (&'static str, Rc<ItemRTTI>) {
-    let (name, mut rtti) = rtti_for::<Flickable>();
-
-    use rtti::BuiltinItem;
-    let rect_prop = &["viewport_x", "viewport_y", "viewport_width", "viewport_height"];
-
-    struct FlickableViewPortPropertyInfo(&'static dyn rtti::PropertyInfo<Rectangle, Value>);
-    fn viewport(flick: Pin<ItemRef>) -> Pin<&Rectangle> {
-        Flickable::FIELD_OFFSETS
-            .viewport
-            .apply_pin(ItemRef::downcast_pin::<Flickable>(flick).unwrap())
-    }
-
-    impl eval::ErasedPropertyInfo for FlickableViewPortPropertyInfo {
-        fn get(&self, item: Pin<ItemRef>) -> Value {
-            (*self.0).get(viewport(item)).unwrap()
-        }
-        fn set(&self, item: Pin<ItemRef>, value: Value, animation: Option<PropertyAnimation>) {
-            (*self.0).set(viewport(item), value, animation).unwrap()
-        }
-        fn set_binding(
-            &self,
-            item: Pin<ItemRef>,
-            binding: Box<dyn Fn() -> Value>,
-            animation: AnimatedBindingKind,
-        ) {
-            (*self.0).set_binding(viewport(item), binding, animation).unwrap();
-        }
-        fn offset(&self) -> usize {
-            (*self.0).offset() + Flickable::FIELD_OFFSETS.viewport.get_byte_offset()
-        }
-
-        unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
-            (*self.0).link_two_ways(viewport(item), property2)
-        }
-    }
-
-    Rc::get_mut(&mut rtti).unwrap().properties.extend(
-        Rectangle::properties().into_iter().filter_map(|(k, v)| {
-            Some((
-                *rect_prop.iter().find(|x| x.ends_with(k))?,
-                Box::new(FlickableViewPortPropertyInfo(v)) as Box<dyn eval::ErasedPropertyInfo>,
-            ))
-        }),
-    );
-
-    (name, rtti)
-}
-
 /// Create a ComponentDescription from a source.
 /// The path corresponding to the source need to be passed as well (path is used for diagnostics
 /// and loading relative assets)
@@ -668,7 +617,7 @@ fn generate_component<'id>(
                 rtti_for::<TouchArea>(),
                 rtti_for::<FocusScope>(),
                 rtti_for::<Path>(),
-                rtti_for_flickable(),
+                rtti_for::<Flickable>(),
                 rtti_for::<Window>(),
                 rtti_for::<TextInput>(),
                 rtti_for::<Clip>(),
@@ -707,55 +656,49 @@ fn generate_component<'id>(
     let mut repeater = vec![];
     let mut repeater_names = HashMap::new();
 
-    generator::build_array_helper(
-        component,
-        |rc_item, child_offset, parent_index, is_flickable_rect| {
-            let item = rc_item.borrow();
-            if is_flickable_rect {
-                use vtable::HasStaticVTable;
-                let offset = items_types[&item.id].offset
-                    + Flickable::FIELD_OFFSETS.viewport.get_byte_offset();
-                tree_array.push(ItemTreeNode::Item {
-                    item: unsafe { vtable::VOffset::from_raw(Rectangle::static_vtable(), offset) },
-                    children_index: tree_array.len() as u32 + 1,
-                    chilren_count: item.children.len() as _,
-                    parent_index,
-                });
-            } else if let Some(repeated) = &item.repeated {
-                tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len(), parent_index });
-                let base_component = item.base_type.as_component();
-                repeater_names.insert(item.id.clone(), repeater.len());
-                generativity::make_guard!(guard);
-                repeater.push(
-                    RepeaterWithinComponent {
-                        component_to_repeat: generate_component(base_component, guard),
-                        offset: builder.add_field_type::<Repeater<ErasedComponentBox>>(),
-                        model: repeated.model.clone(),
-                    }
-                    .into(),
+    generator::build_array_helper(component, |rc_item, child_offset, parent_index| {
+        let item = rc_item.borrow();
+        if let Some(repeated) = &item.repeated {
+            tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len(), parent_index });
+            let base_component = item.base_type.as_component();
+            repeater_names.insert(item.id.clone(), repeater.len());
+            generativity::make_guard!(guard);
+            repeater.push(
+                RepeaterWithinComponent {
+                    component_to_repeat: generate_component(base_component, guard),
+                    offset: builder.add_field_type::<Repeater<ErasedComponentBox>>(),
+                    model: repeated.model.clone(),
+                }
+                .into(),
+            );
+        } else {
+            let rt = rtti.get(&*item.base_type.as_native().class_name).unwrap_or_else(|| {
+                panic!("Native type not registered: {}", item.base_type.as_native().class_name)
+            });
+
+            let offset = if item.is_flickable_viewport {
+                let parent =
+                    &items_types[&object_tree::find_parent_element(rc_item).unwrap().borrow().id];
+                assert_eq!(
+                    parent.elem.borrow().base_type.as_native().class_name.as_str(),
+                    "Flickable"
                 );
+                parent.offset + Flickable::FIELD_OFFSETS.viewport.get_byte_offset()
             } else {
-                let rt = rtti.get(&*item.base_type.as_native().class_name).unwrap_or_else(|| {
-                    panic!("Native type not registered: {}", item.base_type.as_native().class_name)
-                });
-                let offset = builder.add_field(rt.type_info);
-                tree_array.push(ItemTreeNode::Item {
-                    item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
-                    children_index: child_offset,
-                    chilren_count: if generator::is_flickable(rc_item) {
-                        1
-                    } else {
-                        item.children.len() as _
-                    },
-                    parent_index,
-                });
-                items_types.insert(
-                    item.id.clone(),
-                    ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
-                );
-            }
-        },
-    );
+                builder.add_field(rt.type_info)
+            };
+            tree_array.push(ItemTreeNode::Item {
+                item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
+                children_index: child_offset,
+                chilren_count: item.children.len() as u32,
+                parent_index,
+            });
+            items_types.insert(
+                item.id.clone(),
+                ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
+            );
+        }
+    });
 
     let mut custom_properties = HashMap::new();
     let mut custom_callbacks = HashMap::new();

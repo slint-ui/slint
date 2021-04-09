@@ -92,22 +92,15 @@ pub fn generate(
 ///  1. the item
 ///  2. the first_children_offset,
 ///  3. the parent index
-///  4. wether this is the flickable rectangle
 #[allow(dead_code)]
-pub fn build_array_helper(
-    component: &Component,
-    mut visit_item: impl FnMut(&ElementRc, u32, u32, bool),
-) {
-    visit_item(&component.root_element, 1, 0, false);
+pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&ElementRc, u32, u32)) {
+    visit_item(&component.root_element, 1, 0);
     visit_children(&component.root_element, &mut 0, 1, &mut visit_item);
 
     fn sub_children_count(e: &ElementRc) -> usize {
         let mut count = e.borrow().children.len();
         for i in &e.borrow().children {
             count += sub_children_count(i);
-        }
-        if is_flickable(e) {
-            count += 1;
         }
         count
     }
@@ -116,17 +109,12 @@ pub fn build_array_helper(
         item: &ElementRc,
         index: &mut u32,
         children_offset: u32,
-        visit_item: &mut impl FnMut(&ElementRc, u32, u32, bool),
+        visit_item: &mut impl FnMut(&ElementRc, u32, u32),
     ) {
         let mut offset = children_offset + item.borrow().children.len() as u32;
 
-        if is_flickable(item) {
-            visit_item(item, offset, *index, true);
-            offset += 1;
-        }
-
         for i in &item.borrow().children {
-            visit_item(i, offset, *index, false);
+            visit_item(i, offset, *index);
             offset += sub_children_count(i) as u32;
         }
 
@@ -134,27 +122,9 @@ pub fn build_array_helper(
 
         let mut offset = children_offset + item.borrow().children.len() as u32;
 
-        if is_flickable(item) {
-            offset += 1;
-            *index += 1;
-        }
-
         for e in &item.borrow().children {
             visit_children(e, index, offset, visit_item);
             offset += sub_children_count(e) as u32;
         }
-    }
-}
-
-pub fn is_flickable(e: &ElementRc) -> bool {
-    matches!(&e.borrow().base_type, crate::langtype::Type::Native(n) if n.class_name == "Flickable")
-}
-
-/// If the element is a Flickable and the property is the property of the viewport, returns the property with the prefix stipped
-pub fn as_flickable_viewport_property<'a>(e: &ElementRc, name: &'a str) -> Option<&'a str> {
-    if is_flickable(e) {
-        name.strip_prefix("viewport_")
-    } else {
-        None
     }
 }

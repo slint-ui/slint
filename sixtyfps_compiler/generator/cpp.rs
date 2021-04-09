@@ -332,25 +332,29 @@ fn handle_property_binding(
 ) {
     let item = elem.borrow();
     let component = item.enclosing_component.upgrade().unwrap();
-    let id = &item.id;
+    let accessor_prefix = if item.property_declarations.contains_key(prop_name) {
+        String::new()
+    } else if item.is_flickable_viewport {
+        format!(
+            "{id}.viewport.",
+            id = crate::object_tree::find_parent_element(elem).unwrap().borrow().id
+        )
+    } else {
+        format!("{id}.", id = item.id)
+    };
     let prop_type = item.lookup_property(prop_name).property_type;
     if let Type::Callback { args, .. } = &prop_type {
-        let callback_accessor_prefix = if item.property_declarations.contains_key(prop_name) {
-            String::new()
-        } else {
-            format!("{id}.", id = id.clone())
-        };
         let mut params = args.iter().enumerate().map(|(i, ty)| {
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
         });
 
         init.push(format!(
-            "{callback_accessor_prefix}{prop}.set_handler(
+            "{accessor_prefix}{prop}.set_handler(
                     [this]({params}) {{
                         [[maybe_unused]] auto self = this;
                         return {code};
                     }});",
-            callback_accessor_prefix = callback_accessor_prefix,
+            accessor_prefix = accessor_prefix,
             prop = prop_name,
             params = params.join(", "),
             code = compile_expression_wrap_return(binding_expression, &component)
@@ -366,20 +370,10 @@ fn handle_property_binding(
             handle_property_binding(elem, prop_name, next, init)
         }
     } else {
-        let accessor_prefix = if item.property_declarations.contains_key(prop_name) {
-            String::new()
-        } else {
-            format!("{id}.", id = id.clone())
-        };
-
         let component = &item.enclosing_component.upgrade().unwrap();
 
         let init_expr = compile_expression_wrap_return(binding_expression, component);
-        let cpp_prop = if let Some(vp) = super::as_flickable_viewport_property(elem, prop_name) {
-            format!("{}viewport.{}", accessor_prefix, vp,)
-        } else {
-            format!("{}{}", accessor_prefix, prop_name,)
-        };
+        let cpp_prop = format!("{}{}", accessor_prefix, prop_name);
 
         init.push(if binding_expression.is_constant() {
             format!("{}.set({});", cpp_prop, init_expr)
@@ -1005,67 +999,66 @@ fn generate_component(
     let mut tree_array = vec![];
     let mut item_names_and_vt_symbols = vec![];
     let mut repeater_count = 0;
-    super::build_array_helper(
-        component,
-        |item_rc, children_offset, parent_index, is_flickable_rect| {
-            let item = item_rc.borrow();
-            if is_flickable_rect {
-                tree_array.push(format!(
-                "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::private_api::RectangleVTable, {}, {}, {})",
-                &component_id,
-                item.id,
-                item.children.len(),
-                tree_array.len() + 1,
-                parent_index,
+    super::build_array_helper(component, |item_rc, children_offset, parent_index| {
+        let item = item_rc.borrow();
+        if item.base_type == Type::Void {
+            assert!(component.is_global());
+            for (prop_name, binding_expression) in &item.bindings {
+                handle_property_binding(item_rc, prop_name, binding_expression, &mut init);
+            }
+        } else if let Some(repeated) = &item.repeated {
+            tree_array.push(format!(
+                "sixtyfps::private_api::make_dyn_node({}, {})",
+                repeater_count, parent_index
             ));
-            } else if item.base_type == Type::Void {
-                assert!(component.is_global());
-                for (prop_name, binding_expression) in &item.bindings {
-                    handle_property_binding(item_rc, prop_name, binding_expression, &mut init);
-                }
-            } else if let Some(repeated) = &item.repeated {
+            let base_component = item.base_type.as_component();
+            let mut friends = Vec::new();
+            generate_component(file, base_component, diag, Some(&mut friends));
+            if let Some(sub_components) = sub_components.as_mut() {
+                sub_components.extend_from_slice(friends.as_slice());
+                sub_components.push(self::component_id(base_component))
+            }
+            component_struct.friends.append(&mut friends);
+            component_struct.friends.push(self::component_id(base_component));
+            handle_repeater(
+                repeated,
+                base_component,
+                component,
+                repeater_count,
+                &mut component_struct,
+                &mut init,
+                &mut children_visitor_cases,
+                &mut repeated_input_branch,
+                &mut repeater_layout_code,
+                diag,
+            );
+            repeater_count += 1;
+        } else {
+            if item.is_flickable_viewport {
                 tree_array.push(format!(
-                    "sixtyfps::private_api::make_dyn_node({}, {})",
-                    repeater_count, parent_index
+                    "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), &sixtyfps::private_api::RectangleVTable, {}, {}, {})",
+                    &component_id,
+                    crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id,
+                    item.children.len(),
+                    children_offset,
+                    parent_index,
                 ));
-                let base_component = item.base_type.as_component();
-                let mut friends = Vec::new();
-                generate_component(file, base_component, diag, Some(&mut friends));
-                if let Some(sub_components) = sub_components.as_mut() {
-                    sub_components.extend_from_slice(friends.as_slice());
-                    sub_components.push(self::component_id(base_component))
-                }
-                component_struct.friends.append(&mut friends);
-                component_struct.friends.push(self::component_id(base_component));
-                handle_repeater(
-                    repeated,
-                    base_component,
-                    component,
-                    repeater_count,
-                    &mut component_struct,
-                    &mut init,
-                    &mut children_visitor_cases,
-                    &mut repeated_input_branch,
-                    &mut repeater_layout_code,
-                    diag,
-                );
-                repeater_count += 1;
             } else {
                 tree_array.push(format!(
                     "sixtyfps::private_api::make_item_node(offsetof({}, {}), &sixtyfps::private_api::{}, {}, {}, {})",
                     component_id,
                     item.id,
                     item.base_type.as_native().vtable_symbol,
-                    if super::is_flickable(item_rc) { 1 } else { item.children.len() },
+                    item.children.len(),
                     children_offset,
                     parent_index,
                 ));
-                handle_item(item_rc, &mut component_struct, &mut init);
-                item_names_and_vt_symbols
-                    .push((item.id.clone(), item.base_type.as_native().vtable_symbol.clone()));
             }
-        },
-    );
+            handle_item(item_rc, &mut component_struct, &mut init);
+            item_names_and_vt_symbols
+                .push((item.id.clone(), item.base_type.as_native().vtable_symbol.clone()));
+        }
+    });
 
     if !component.is_global() {
         component_struct
@@ -1327,8 +1320,13 @@ fn access_member(
     if Rc::ptr_eq(component, &enclosing_component) {
         if e.property_declarations.contains_key(name) || name == "" || component.is_global() {
             format!("{}->{}", component_cpp, name)
-        } else if let Some(vp) = super::as_flickable_viewport_property(element, name) {
-            format!("{}->{}.viewport.{}", component_cpp, e.id.as_str(), vp)
+        } else if e.is_flickable_viewport {
+            format!(
+                "{}->{}.viewport.{}",
+                component_cpp,
+                crate::object_tree::find_parent_element(element).unwrap().borrow().id,
+                name
+            )
         } else {
             format!("{}->{}.{}", component_cpp, e.id.as_str(), name)
         }

@@ -50,6 +50,7 @@ mod passes {
     pub mod deduplicate_property_read;
     pub mod default_geometry;
     pub mod embed_resources;
+    pub mod flickable;
     pub mod focus_item;
     pub mod generate_item_indices;
     pub mod inlining;
@@ -160,6 +161,10 @@ pub async fn run_passes(
     passes::focus_item::resolve_element_reference_in_set_focus_calls(&doc.root_component, diag);
     passes::focus_item::determine_initial_focus_item(&doc.root_component, diag);
     passes::focus_item::erase_forward_focus_properties(&doc.root_component);
+    passes::flickable::handle_flickable(
+        &doc.root_component,
+        &type_loader.global_type_registry.borrow(),
+    );
     passes::materialize_fake_properties::materialize_fake_properties(&doc.root_component);
     if compiler_config.embed_resources {
         passes::embed_resources::embed_resources(&doc.root_component);

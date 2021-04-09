@@ -287,6 +287,9 @@ pub struct Element {
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
 
+    /// true if this Element is the fake Flickable viewport
+    pub is_flickable_viewport: bool,
+
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.
     pub item_index: once_cell::unsync::OnceCell<usize>,
@@ -1015,6 +1018,28 @@ fn find_element_by_id(e: &ElementRc, name: &str) -> Option<ElementRc> {
     }
 
     None
+}
+
+/// Find the parent element to a given element.
+/// (since there is no parent mapping we need to fo an exhaustive search)
+pub fn find_parent_element(e: &ElementRc) -> Option<ElementRc> {
+    fn recurse(base: &ElementRc, e: &ElementRc) -> Option<ElementRc> {
+        for child in &base.borrow().children {
+            if Rc::ptr_eq(child, e) {
+                return Some(base.clone());
+            }
+            if let Some(x) = recurse(child, e) {
+                return Some(x);
+            }
+        }
+        None
+    }
+
+    let root = e.borrow().enclosing_component.upgrade().unwrap().root_element.clone();
+    if Rc::ptr_eq(&root, e) {
+        return None;
+    }
+    recurse(&root, e)
 }
 
 /// Call the visitor for each children of the element recursively, starting with the element itself

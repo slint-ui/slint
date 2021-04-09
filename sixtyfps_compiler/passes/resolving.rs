@@ -190,28 +190,6 @@ fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
     None
 }
 
-/// Find the parent element to a given element.
-/// (since there is no parent mapping we need to fo an exhaustive search)
-fn find_parent_element(e: &ElementRc) -> Option<ElementRc> {
-    fn recurse(base: &ElementRc, e: &ElementRc) -> Option<ElementRc> {
-        for child in &base.borrow().children {
-            if Rc::ptr_eq(child, e) {
-                return Some(base.clone());
-            }
-            if let Some(x) = recurse(child, e) {
-                return Some(x);
-            }
-        }
-        None
-    }
-
-    let root = e.borrow().enclosing_component.upgrade().unwrap().root_element.clone();
-    if Rc::ptr_eq(&root, e) {
-        return None;
-    }
-    recurse(&root, e)
-}
-
 impl Expression {
     pub fn from_binding_expression_node(
         node: SyntaxNodeWithSourceFile,
