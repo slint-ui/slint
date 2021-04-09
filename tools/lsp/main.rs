@@ -180,11 +180,12 @@ fn handle_notification(
         "sixtyfps/showPreview" => {
             let e = || -> Error { "InvalidParameter".into() };
             let path = if let serde_json::Value::String(s) = req.params.get(0).ok_or_else(e)? {
-                s
+                std::path::PathBuf::from(s)
             } else {
                 return Err(e());
             };
-            preview::load_preview(path.into(), preview::PostLoadBehavior::ShowAfterLoad);
+            let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+            preview::load_preview(path_canon.into(), preview::PostLoadBehavior::ShowAfterLoad);
         }
         _ => (),
     }
