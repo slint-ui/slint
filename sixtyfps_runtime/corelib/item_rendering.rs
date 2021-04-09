@@ -88,7 +88,12 @@ pub fn render_component_items(
             let item_geometry = item.as_ref().geometry();
             let item_origin = item_geometry.origin;
 
-            if !renderer.borrow().get_current_clip().intersects(&item_geometry) {
+            // Don't render items that are clipped, with the exception of the Clip or Flickable since
+            // they themself clip their content.  (FIXME: there should be some flag in the vtable instead of downcasting)
+            if !renderer.borrow().get_current_clip().intersects(&item_geometry)
+                && ItemRef::downcast_pin::<Flickable>(item).is_none()
+                && ItemRef::downcast_pin::<Clip>(item).is_none()
+            {
                 renderer.borrow_mut().translate(item_origin.x, item_origin.y);
                 return (ItemVisitorResult::Continue(()), ());
             }
