@@ -1160,7 +1160,6 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
 /// The rhs and lhs of the expression must have the same numerical type
 pub fn min_max_expression(lhs: Expression, rhs: Expression, op: char) -> Expression {
     let ty = lhs.ty();
-    debug_assert_eq!(ty, rhs.ty());
     static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
     let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let n1 = format!("minmax_lhs{}", id);
