@@ -1104,25 +1104,7 @@ fn min_max_macro(
     };
     for (next, arg_node) in args {
         let rhs = next.maybe_convert_to(ty.clone(), &arg_node, diag);
-        static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
-        let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        let n1 = format!("minmax_lhs{}", id);
-        let n2 = format!("minmax_rhs{}", id);
-        let a1 = Box::new(Expression::ReadLocalVariable { name: n1.clone(), ty: ty.clone() });
-        let a2 = Box::new(Expression::ReadLocalVariable { name: n2.clone(), ty: ty.clone() });
-        base = Expression::CodeBlock(vec![
-            Expression::StoreLocalVariable { name: n1, value: Box::new(base) },
-            Expression::StoreLocalVariable { name: n2, value: Box::new(rhs) },
-            Expression::Condition {
-                condition: Box::new(Expression::BinaryExpression {
-                    lhs: a1.clone(),
-                    rhs: a2.clone(),
-                    op,
-                }),
-                true_expr: a1,
-                false_expr: a2,
-            },
-        ]);
+        base = crate::expression_tree::min_max_expression(base, rhs, op);
     }
     base
 }

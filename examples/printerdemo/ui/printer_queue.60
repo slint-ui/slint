@@ -162,9 +162,6 @@ NarrowPrintQueueElement := Rectangle {
 
 NarrowPrinterQueueList := Flickable {
     property <[PrinterQueueItem]> printer_queue;
-    viewport_height: 2000px; /* FIXME: the flickable needs to learn its viewport height from the layout */
-    viewport_width: width;
-
     VerticalLayout {
         alignment: start;
         padding: 0px;
@@ -302,7 +299,6 @@ export WidePrinterQueueList := Flickable {
     callback cancel_job(int);
     callback pause_job(int);
     property <[PrinterQueueItem]> printer_queue;
-    viewport_height: 2000px; /* FIXME: the flickable needs to learn its viewport height from the layout */
 
     VerticalLayout {
         alignment: start;
