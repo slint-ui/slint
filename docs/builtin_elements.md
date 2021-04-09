@@ -105,7 +105,7 @@ Example := Window {
 
 ## `Image`
 
-An Image can be used to represent an image loaded from an image file
+An Image can be used to represent an image loaded from an image file.
 
 ### Properties
 
@@ -114,10 +114,16 @@ An Image can be used to represent an image loaded from an image file
 * **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (*int*): properties in source
   image coordinates that, when specified, can be used to render only a portion of the specified image.
 * **`image-fit`** (*enum*): Specifies how the source image shall be fit into the image element. Possible values are:
-   * `fill` (default): Scales and stretches the image to fit the width and height of the element.
+   * `fill`: Scales and stretches the image to fit the width and height of the element.
    * `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
    * `cover`: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
+
+   When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
+
 * **`colorize`** (*brush*): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
+* **`width`**, **`height`** (*length*): The width and height of the image as it appears on the screen.The default values are
+  the sizes provided by the **`source`** image. If the `Image` is **not** in a layout and only **one** of the two sizes are
+  specified, then the other defaults to the specified value scaled according to the aspect ratio of the **`source`** image.
 
 ### Example
 
@@ -132,6 +138,18 @@ Example := Window {
             source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
             colorize: red;
         }
+    }
+}
+```
+
+Scaled while preserving the aspect ratio:
+
+```60
+Example := Window {
+    Image {
+        source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+        width: 270px;
+        // implicit default: height: self.width * natural_height / natural_width;
     }
 }
 ```
