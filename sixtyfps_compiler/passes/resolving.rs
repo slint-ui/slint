@@ -380,12 +380,15 @@ impl Expression {
             if path.is_absolute() || s.starts_with("http://") || s.starts_with("https://") {
                 s
             } else {
-                let base = node.source_file.path();
                 ctx.type_loader
-                    .and_then(|loader| loader.find_file_in_include_path(Some(base), &s))
-                    .unwrap_or_else(|| crate::typeloader::resolve_import_path(Some(base), &s))
-                    .to_string_lossy()
-                    .to_string()
+                    .map(|loader| {
+                        loader
+                            .resolve_import_path(Some(&node.0.into()), &s)
+                            .0
+                            .to_string_lossy()
+                            .to_string()
+                    })
+                    .unwrap_or_else(|| s.into())
             }
         };
 

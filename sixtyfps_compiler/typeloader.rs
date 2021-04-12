@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::object_tree::{self, Document};
-use crate::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
+use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 
@@ -154,35 +154,71 @@ impl<'a> TypeLoader<'a> {
         })
     }
 
+    /// Append a possibly relative path to a base path. Returns the data if it resolves to a built-in (compiled-in)
+    /// file.
+    pub fn resolve_import_path(
+        &self,
+        import_token: Option<&NodeOrToken>,
+        maybe_relative_path_or_url: &str,
+    ) -> (std::path::PathBuf, Option<&'_ str>) {
+        let referencing_file_or_url =
+            import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
+
+        self.find_file_in_include_path(referencing_file_or_url, maybe_relative_path_or_url)
+            .map(|path| (path, None))
+            .or_else(|| {
+                self.builtin_library.and_then(|library| {
+                    library
+                        .iter()
+                        .find(|virtual_file| virtual_file.path == maybe_relative_path_or_url)
+                        .map(|virtual_file| {
+                            (
+                                format!("builtin:/{}", maybe_relative_path_or_url).into(),
+                                Some(virtual_file.contents),
+                            )
+                        })
+                })
+            })
+            .unwrap_or_else(|| {
+                (
+                    referencing_file_or_url
+                        .and_then(|base_path_or_url| {
+                            let base_path_or_url_str = base_path_or_url.to_string_lossy();
+                            if base_path_or_url_str.contains("://") {
+                                url::Url::parse(&base_path_or_url_str).ok().and_then(|base_url| {
+                                    base_url
+                                        .join(maybe_relative_path_or_url)
+                                        .ok()
+                                        .map(|url| url.to_string().into())
+                                })
+                            } else {
+                                base_path_or_url.parent().and_then(|base_dir| {
+                                    base_dir.join(maybe_relative_path_or_url).canonicalize().ok()
+                                })
+                            }
+                        })
+                        .unwrap_or_else(|| maybe_relative_path_or_url.into()),
+                    None,
+                )
+            })
+    }
+
     async fn ensure_document_loaded<'b>(
         &'b mut self,
         file_to_import: &'b str,
-        import_token: Option<SyntaxToken>,
+        import_token: Option<NodeOrToken>,
         diagnostics: &'b mut BuildDiagnostics,
     ) -> Option<PathBuf> {
-        let referencing_file = import_token.source_file().map(|s| s.path());
-
-        let mut is_builtin = None;
-
-        let path = self
-            .find_file_in_include_path(referencing_file, file_to_import)
-            .or_else(|| {
-                self.builtin_library.and_then(|library| {
-                    library.iter().find(|virtual_file| virtual_file.path == file_to_import).map(
-                        |virtual_file| {
-                            is_builtin = Some(virtual_file.contents);
-                            format!("builtin:/{}", file_to_import).into()
-                        },
-                    )
-                })
-            })
-            .unwrap_or_else(|| resolve_import_path(referencing_file, file_to_import));
+        let (path, is_builtin) = self.resolve_import_path(import_token.as_ref(), file_to_import);
 
         let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
 
         if self.all_documents.docs.get(path_canon.as_path()).is_some() {
             return Some(path_canon);
         }
+
+        // Drop &self lifetime attached to is_builtin, in order to mutable borrow self below
+        let is_builtin = is_builtin.map(|s| s.to_owned());
 
         if !self.all_documents.currently_loading.insert(path_canon.clone()) {
             diagnostics
@@ -273,7 +309,7 @@ impl<'a> TypeLoader<'a> {
             let doc_path = match self
                 .ensure_document_loaded(
                     &import.file,
-                    Some(import.import_token.clone()),
+                    Some(import.import_token.clone().into()),
                     build_diagnostics,
                 )
                 .await
@@ -384,27 +420,6 @@ impl<'a> TypeLoader<'a> {
     pub fn all_files<'b>(&'b self) -> impl Iterator<Item = &PathBuf> + 'b {
         self.all_documents.docs.keys()
     }
-}
-
-/// Append a possibly relative path to a base path
-pub fn resolve_import_path(
-    base_path_or_url: Option<&std::path::Path>,
-    maybe_relative_path_or_url: &str,
-) -> std::path::PathBuf {
-    base_path_or_url
-        .and_then(|base_path_or_url| {
-            let base_path_or_url_str = base_path_or_url.to_string_lossy();
-            if base_path_or_url_str.contains("://") {
-                url::Url::parse(&base_path_or_url_str).ok().and_then(|base_url| {
-                    base_url.join(maybe_relative_path_or_url).ok().map(|url| url.to_string().into())
-                })
-            } else {
-                base_path_or_url.parent().and_then(|base_dir| {
-                    base_dir.join(maybe_relative_path_or_url).canonicalize().ok()
-                })
-            }
-        })
-        .unwrap_or_else(|| maybe_relative_path_or_url.into())
 }
 
 #[test]

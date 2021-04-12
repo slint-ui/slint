@@ -780,6 +780,15 @@ impl Spanned for NodeOrToken {
     }
 }
 
+impl Spanned for Option<NodeOrToken> {
+    fn span(&self) -> crate::diagnostics::Span {
+        self.as_ref().map(|t| t.span()).unwrap_or_default()
+    }
+    fn source_file(&self) -> Option<&SourceFile> {
+        self.as_ref().and_then(|t| t.source_file())
+    }
+}
+
 impl Spanned for Option<SyntaxToken> {
     fn span(&self) -> crate::diagnostics::Span {
         self.as_ref().map(|t| t.span()).unwrap_or_default()
