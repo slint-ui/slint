@@ -143,12 +143,12 @@ impl InterpolatedPropertyValue for Brush {
                     let mut iter = new_grad.0.as_slice_mut().iter_mut();
                     {
                         let angle = &mut iter.next().unwrap().position;
-                        *angle = dbg!(angle.interpolate(&rhs.angle(), t));
+                        *angle = angle.interpolate(&rhs.angle(), t);
                     }
                     let mut rhs_stops = rhs.stops();
                     while let (Some(s1), Some(s2)) = (iter.next(), rhs_stops.next()) {
                         s1.color = s1.color.interpolate(&s2.color, t);
-                        s1.position = dbg!(s1.position.interpolate(&s2.position, t));
+                        s1.position = s1.position.interpolate(&s2.position, t);
                     }
                     for x in iter {
                         x.position = x.position.interpolate(&1.0, t);
