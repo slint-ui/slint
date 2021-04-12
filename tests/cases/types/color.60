@@ -28,7 +28,7 @@ Test := Rectangle {
     property<color> c2: rgb(100, 23, 42);
     property<color> c3: rgba(39%, 50%, 16%, 81%);
 
-    property<color> i1: rgb(0.2, 666, -85);
+    property<color> i1: rgb(0, 666, -85);
 }
 
 /*
