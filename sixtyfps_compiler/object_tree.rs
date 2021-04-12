@@ -99,7 +99,8 @@ impl Document {
                 node.ImportSpecifier()
                     .last()
                     .and_then(|import| {
-                        crate::typeloader::ImportedName::extract_imported_names(&import).last()
+                        crate::typeloader::ImportedName::extract_imported_names(&import)
+                            .and_then(|it| it.last())
                     })
                     .and_then(|import| match local_registry.lookup(&import.internal_name) {
                         Type::Component(c) => Some(c),

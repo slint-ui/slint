@@ -658,20 +658,23 @@ fn parse_export_specifier(p: &mut impl Parser) -> bool {
 #[cfg_attr(test, parser_test)]
 /// ```test,ImportSpecifier
 /// import { Type1, Type2 } from "somewhere";
+/// import "something.ttf";
 /// ```
 fn parse_import_specifier(p: &mut impl Parser) -> bool {
     debug_assert_eq!(p.peek().as_str(), "import");
     let mut p = p.start_node(SyntaxKind::ImportSpecifier);
     p.consume(); // "import"
-    if !parse_import_identifier_list(&mut *p) {
-        return false;
-    }
-    if p.peek().as_str() != "from" {
-        p.error("Expected from keyword for import statement");
-        return false;
-    }
-    if !p.expect(SyntaxKind::Identifier) {
-        return false;
+    if p.peek().kind != SyntaxKind::StringLiteral {
+        if !parse_import_identifier_list(&mut *p) {
+            return false;
+        }
+        if p.peek().as_str() != "from" {
+            p.error("Expected from keyword for import statement");
+            return false;
+        }
+        if !p.expect(SyntaxKind::Identifier) {
+            return false;
+        }
     }
     let peek = p.peek();
     if peek.kind != SyntaxKind::StringLiteral

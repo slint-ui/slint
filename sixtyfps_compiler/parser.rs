@@ -349,7 +349,7 @@ declare_syntax! {
         ExportIdentifier -> [],
         ExportName -> [],
         /// import { foo, bar, baz } from "blah"; The import uri is stored as string literal.
-        ImportSpecifier -> [ ImportIdentifierList ],
+        ImportSpecifier -> [ ?ImportIdentifierList ],
         ImportIdentifierList -> [ *ImportIdentifier ],
         /// { foo as bar } or just { foo }
         ImportIdentifier -> [ ExternalName, ?InternalName ],

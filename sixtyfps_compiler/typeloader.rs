@@ -35,8 +35,8 @@ pub struct VirtualFile<'a> {
 pub type VirtualDirectory<'a> = [&'a VirtualFile<'a>];
 
 struct ImportedTypes {
-    pub type_names: Vec<ImportedName>,
     pub import_token: SyntaxToken,
+    pub imported_types: syntax_nodes::ImportSpecifier,
     pub file: String,
 }
 
@@ -51,16 +51,19 @@ pub struct ImportedName {
 impl ImportedName {
     pub fn extract_imported_names(
         import: &syntax_nodes::ImportSpecifier,
-    ) -> impl Iterator<Item = ImportedName> {
-        import.ImportIdentifierList().ImportIdentifier().map(|importident| {
-            let external_name = importident.ExternalName().text().to_string().trim().to_string();
+    ) -> Option<impl Iterator<Item = ImportedName>> {
+        import.ImportIdentifierList().map(|import_identifiers| {
+            import_identifiers.ImportIdentifier().map(|importident| {
+                let external_name =
+                    importident.ExternalName().text().to_string().trim().to_string();
 
-            let internal_name = match importident.InternalName() {
-                Some(name_ident) => name_ident.text().to_string().trim().to_string(),
-                None => external_name.clone(),
-            };
+                let internal_name = match importident.InternalName() {
+                    Some(name_ident) => name_ident.text().to_string().trim().to_string(),
+                    None => external_name.clone(),
+                };
 
-            ImportedName { internal_name, external_name }
+                ImportedName { internal_name, external_name }
+            })
         })
     }
 }
@@ -114,7 +117,18 @@ impl<'a> TypeLoader<'a> {
     ) {
         let dependencies = self.collect_dependencies(&doc, diagnostics).await;
         for import in dependencies.into_iter() {
-            self.load_dependency(import, registry_to_populate, diagnostics).await;
+            if let Some(imported_types) =
+                ImportedName::extract_imported_names(&import.imported_types)
+            {
+                self.load_dependency(import, imported_types, registry_to_populate, diagnostics)
+                    .await;
+            } else {
+                diagnostics.push_error(
+                    "Import names are missing. Please specify which types you would like to import"
+                        .into(),
+                    &import.import_token,
+                );
+            }
         }
     }
 
@@ -251,6 +265,7 @@ impl<'a> TypeLoader<'a> {
     fn load_dependency<'b>(
         &'b mut self,
         import: ImportedTypes,
+        imported_types: impl Iterator<Item = ImportedName> + 'b,
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
         build_diagnostics: &'b mut BuildDiagnostics,
     ) -> core::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'b>> {
@@ -270,7 +285,7 @@ impl<'a> TypeLoader<'a> {
             let doc = self.all_documents.docs.get(&doc_path).unwrap();
             let exports = doc.exports();
 
-            for import_name in import.type_names {
+            for import_name in imported_types {
                 let imported_type = exports.iter().find_map(|(export_name, ty)| {
                     if import_name.external_name == *export_name {
                         Some(ty.clone())
@@ -347,19 +362,11 @@ impl<'a> TypeLoader<'a> {
                 continue;
             }
 
-            let dependency_entry = match dependencies.entry(path_to_import.clone()) {
-                std::collections::btree_map::Entry::Vacant(vacant_entry) => {
-                    vacant_entry.insert(ImportedTypes {
-                        type_names: vec![],
-                        import_token: import_uri,
-                        file: path_to_import,
-                    })
-                }
-                std::collections::btree_map::Entry::Occupied(existing_entry) => {
-                    existing_entry.into_mut()
-                }
-            };
-            dependency_entry.type_names.extend(ImportedName::extract_imported_names(&import));
+            dependencies.entry(path_to_import.clone()).or_insert_with(|| ImportedTypes {
+                import_token: import_uri,
+                imported_types: import,
+                file: path_to_import,
+            });
         }
 
         dependencies.into_iter().map(|(_, value)| value)
