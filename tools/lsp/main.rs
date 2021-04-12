@@ -19,9 +19,9 @@ use lsp_types::request::GotoDefinition;
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
     CompletionItem, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink,
-    MarkedString, OneOf, Position, PublishDiagnosticsParams, Range, ServerCapabilities,
-    TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
+    GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink, OneOf,
+    Position, PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability, Url,
+    WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::{BuildDiagnostics, Spanned};
 use sixtyfps_compilerlib::langtype::Type;
@@ -126,8 +126,8 @@ fn handle_request(
             .and_then(|token| completion_at(document_cache, token.parent()));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
-    } else if let Some((id, params)) = cast::<HoverRequest>(&mut req) {
-        let result =
+    } else if let Some((id, _params)) = cast::<HoverRequest>(&mut req) {
+        /*let result =
             token_descr(document_cache, params.text_document_position_params).map(|x| Hover {
                 contents: lsp_types::HoverContents::Scalar(MarkedString::from_language_code(
                     "text".into(),
@@ -136,7 +136,8 @@ fn handle_request(
                 range: None,
             });
         let resp = Response::new_ok(id, result);
-        connection.sender.send(Message::Response(resp))?;
+        connection.sender.send(Message::Response(resp))?;*/
+        connection.sender.send(Message::Response(Response::new_ok(id, None::<Hover>)))?;
     };
     Ok(())
 }
