@@ -37,7 +37,7 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) -> ()
         &root_component,
         &(),
         &mut |elem: &ElementRc, _| {
-            if !matches!(elem.borrow().native_class(), Some(n) if n.class_name == "Flickable") {
+            if !matches!(elem.borrow().builtin_type(), Some(n) if n.name == "Flickable") {
                 return;
             }
 
@@ -137,7 +137,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
 /// Return true if this type is a layout that has constraints
 fn is_layout(base_type: &Type) -> bool {
     if let Type::Builtin(be) = base_type {
-        match be.native_class.class_name.as_str() {
+        match be.name.as_str() {
             "GridLayout" | "HorizontalLayout" | "VerticalLayout" => true,
             "PathLayout" => false,
             _ => false,
