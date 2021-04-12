@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
  - Support for `else if`
  - The path fill rule can now be specified using `Path::fill-rule`.
  - Support for `letter-spacing` in `Text`/`TextInput` elements.
+ - `rgb()` / `rgba()`
 
 ### Fixed
  - `Image::image-fit`'s `cover` and `contains` varient are fixed to match the CSS spec

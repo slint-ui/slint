@@ -52,6 +52,7 @@ pub enum BuiltinMacroFunction {
     Min,
     Max,
     CubicBezier,
+    Rgb,
 }
 
 impl BuiltinFunction {
@@ -116,7 +117,7 @@ impl BuiltinFunction {
             },
             BuiltinFunction::Rgb => Type::Function {
                 return_type: Box::new(Type::Color),
-                args: vec![Type::Int32, Type::Int32, Type::Int32],
+                args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
             },
         }
     }

@@ -815,6 +815,9 @@ The trigonometry funtion. Note that the should be typed with `deg` or `rad` unit
 
 Square root
 
- * **`rgb(int, int, int) -> color`**
+ * **`rgb(int, int, int) -> color`**,  **`rgba(int, int, int, float) -> color`**
 
-Return the color as in CSS. Values are clipped to 0..255.
+Return the color as in CSS. Like in CSS, These two functions are actually aliases that can take 3 or for parameter.
+The first 3 parameters can be either number between 0 and 255, or percentage with a `%` unit.
+The fourth value, if present, is an alpha value between 0 and 1.
+(Unlike in CSS, the comas are mendatory)

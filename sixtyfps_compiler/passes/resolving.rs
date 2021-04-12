@@ -663,7 +663,12 @@ impl Expression {
             "ceil" => return Expression::BuiltinFunctionReference(BuiltinFunction::Ceil),
             "floor" => return Expression::BuiltinFunctionReference(BuiltinFunction::Floor),
             "sqrt" => return Expression::BuiltinFunctionReference(BuiltinFunction::Sqrt),
-            "rgb" => return Expression::BuiltinFunctionReference(BuiltinFunction::Rgb),
+            "rgb" => {
+                return Expression::BuiltinMacroReference(BuiltinMacroFunction::Rgb, first.into())
+            }
+            "rgba" => {
+                return Expression::BuiltinMacroReference(BuiltinMacroFunction::Rgb, first.into())
+            }
             "max" => {
                 return Expression::BuiltinMacroReference(BuiltinMacroFunction::Max, first.into())
             }
@@ -756,6 +761,9 @@ impl Expression {
                     }
 
                     return expr;
+                }
+                BuiltinMacroFunction::Rgb => {
+                    return rgb_macro(n, sub_expr.collect(), &mut ctx.diag);
                 }
             },
             Expression::MemberFunction { base, base_node, member } => {
@@ -1108,6 +1116,44 @@ fn min_max_macro(
         base = crate::expression_tree::min_max_expression(base, rhs, op);
     }
     base
+}
+
+fn rgb_macro(
+    node: NodeOrTokenWithSourceFile,
+    args: Vec<(Expression, NodeOrTokenWithSourceFile)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() < 3 {
+        diag.push_error("Needs 3 or 4 argument".into(), &node);
+        return Expression::Invalid;
+    }
+    let mut arguments: Vec<_> = args
+        .into_iter()
+        .enumerate()
+        .map(|(i, (expr, n))| {
+            if i < 3 {
+                if expr.ty() == Type::Percent {
+                    Expression::BinaryExpression {
+                        lhs: Box::new(expr.maybe_convert_to(Type::Float32, &n, diag)),
+                        rhs: Box::new(Expression::NumberLiteral(255., Unit::None)),
+                        op: '*',
+                    }
+                } else {
+                    expr.maybe_convert_to(Type::Int32, &n, diag)
+                }
+            } else {
+                expr.maybe_convert_to(Type::Float32, &n, diag)
+            }
+        })
+        .collect();
+    if arguments.len() < 4 {
+        arguments.push(Expression::NumberLiteral(1., Unit::None))
+    }
+    Expression::FunctionCall {
+        function: Box::new(Expression::BuiltinFunctionReference(BuiltinFunction::Rgb)),
+        arguments,
+        source_location: Some(node.to_source_location()),
+    }
 }
 
 fn continue_lookup_within_element(

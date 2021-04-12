@@ -1115,11 +1115,12 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 quote!((|x: Color, factor| -> Color { x.darker(factor as f32) }))
             }
             BuiltinFunction::Rgb => {
-                quote!((|r: i32, g: i32, b: i32| {
+                quote!((|r: i32, g: i32, b: i32, a: f32| {
                     let r: u8 = r.max(0).min(255) as u8;
                     let g: u8 = g.max(0).min(255) as u8;
                     let b: u8 = b.max(0).min(255) as u8;
-                    sixtyfps::re_exports::Color::from_rgb_u8(r, g, b)
+                    let a: u8 = (255. * a).max(0.).min(255.) as u8;
+                    sixtyfps::re_exports::Color::from_argb_u8(a, r, g, b)
                 }))
             }
         },

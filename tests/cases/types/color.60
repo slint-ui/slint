@@ -26,6 +26,7 @@ Test := Rectangle {
 
     property<color> c1: #ff335588;
     property<color> c2: rgb(100, 23, 42);
+    property<color> c3: rgba(39%, 50%, 16%, 81%);
 
     property<color> i1: rgb(0.2, 666, -85);
 }
@@ -65,6 +66,11 @@ assert_eq(t.get_c2().alpha(), 0xff);
 assert_eq(t.get_c2().red(), 100);
 assert_eq(t.get_c2().green(), 23);
 assert_eq(t.get_c2().blue(), 42);
+
+assert_eq(t.get_c3().alpha(), uint8_t(255.*0.81));
+assert_eq(t.get_c3().red(), uint8_t(255.*0.39));
+assert_eq(t.get_c3().green(), uint8_t(255.*0.50));
+assert_eq(t.get_c3().blue(), uint8_t(255.*0.16));
 
 assert_eq(t.get_i1().alpha(), 0xff);
 assert_eq(t.get_i1().red(), 0);
@@ -107,6 +113,11 @@ assert_eq!(t.get_c2().red(), 100);
 assert_eq!(t.get_c2().green(), 23);
 assert_eq!(t.get_c2().blue(), 42);
 
+assert_eq!(t.get_c3().alpha(), (255.*0.81) as u8);
+assert_eq!(t.get_c3().red(), (255.*0.39) as u8);
+assert_eq!(t.get_c3().green(), (255.*0.50) as u8);
+assert_eq!(t.get_c3().blue(), (255.*0.16) as u8);
+
 assert_eq!(t.get_i1().alpha(), 0xff);
 assert_eq!(t.get_i1().red(), 0);
 assert_eq!(t.get_i1().green(), 255);
@@ -141,6 +152,7 @@ assert.equal(t.g1, t.r1);
 
 assert.equal(t.c1, "#ff335588");
 assert.equal(t.c2, "#64172aff");
+assert.equal(t.c3, "#637f28ce");
 assert.equal(t.i1, "#00ff00ff");
 
 ```
