@@ -52,6 +52,8 @@ TestCase := Window {
         }
     }
 
+    Flickable { for i in 5: Rectangle {} }
+
     property<bool> all_ok: r1.ok && r2.ok && r3.ok && r4.ok;
 }
 

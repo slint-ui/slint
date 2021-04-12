@@ -110,6 +110,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .borrow()
                 .children
                 .iter()
+                .filter(|x| is_layout(&x.borrow().base_type))
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "minimum_width")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "width")),
@@ -123,6 +124,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .borrow()
                 .children
                 .iter()
+                .filter(|x| is_layout(&x.borrow().base_type))
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "minimum_height")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "height")),
