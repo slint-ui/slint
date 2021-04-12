@@ -20,6 +20,9 @@ import { Nothing } from "";
 import "invalid_export.60";
 //     ^error{Import names are missing. Please specify which types you would like to import}
 
+import "myimage.png";
+//     ^error{Unsupported foreign import myimage.png}
+
 X := Rectangle {
 
 }

@@ -127,9 +127,15 @@ pub async fn compile_syntax_node(
 
     let mut loader =
         typeloader::TypeLoader::new(global_type_registry, &compiler_config, &mut diagnostics);
-    loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
+    let foreign_imports =
+        loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
-    let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
+    let doc = crate::object_tree::Document::from_node(
+        doc_node,
+        foreign_imports,
+        &mut diagnostics,
+        &type_registry,
+    );
 
     if let Some((_, node)) = &*doc.root_component.child_insertion_point.borrow() {
         diagnostics

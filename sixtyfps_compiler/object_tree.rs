@@ -17,6 +17,7 @@ use crate::langtype::PropertyLookupResult;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
 use crate::namedreference::NamedReference;
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
+use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -30,12 +31,16 @@ pub struct Document {
     pub inner_structs: Vec<Type>,
     pub root_component: Rc<Component>,
     pub local_registry: TypeRegister,
+    /// A list of paths to .ttf/.ttc files that are supposed to be registered on
+    /// startup for custom font use.
+    pub custom_fonts: Vec<String>,
     exports: Exports,
 }
 
 impl Document {
     pub fn from_node(
         node: syntax_nodes::Document,
+        foreign_imports: Vec<ImportedTypes>,
         diag: &mut BuildDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
     ) -> Self {
@@ -108,12 +113,29 @@ impl Document {
                     })
             })
             .unwrap_or_default();
+
+        let custom_fonts = foreign_imports
+            .into_iter()
+            .filter_map(|import| {
+                if import.file.ends_with(".ttc") || import.file.ends_with(".ttf") {
+                    Some(import.file)
+                } else {
+                    diag.push_error(
+                        format!("Unsupported foreign import {}", import.file),
+                        &import.import_token,
+                    );
+                    None
+                }
+            })
+            .collect();
+
         Document {
             node: Some(node),
             root_component,
             inner_components,
             inner_structs,
             local_registry,
+            custom_fonts,
             exports,
         }
     }

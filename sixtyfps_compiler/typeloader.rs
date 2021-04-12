@@ -34,7 +34,7 @@ pub struct VirtualFile<'a> {
 
 pub type VirtualDirectory<'a> = [&'a VirtualFile<'a>];
 
-struct ImportedTypes {
+pub struct ImportedTypes {
     pub import_token: SyntaxToken,
     pub imported_types: syntax_nodes::ImportSpecifier,
     pub file: String,
@@ -109,27 +109,39 @@ impl<'a> TypeLoader<'a> {
         }
     }
 
+    /// Imports of files that don't have the .60 extension are returned.
     pub async fn load_dependencies_recursively(
         &mut self,
         doc: &syntax_nodes::Document,
         diagnostics: &mut BuildDiagnostics,
         registry_to_populate: &Rc<RefCell<TypeRegister>>,
-    ) {
+    ) -> Vec<ImportedTypes> {
         let dependencies = self.collect_dependencies(&doc, diagnostics).await;
-        for import in dependencies.into_iter() {
-            if let Some(imported_types) =
-                ImportedName::extract_imported_names(&import.imported_types)
-            {
-                self.load_dependency(import, imported_types, registry_to_populate, diagnostics)
-                    .await;
-            } else {
-                diagnostics.push_error(
+        let mut foreign_imports = vec![];
+        for mut import in dependencies.into_iter() {
+            if import.file.ends_with(".60") {
+                if let Some(imported_types) =
+                    ImportedName::extract_imported_names(&import.imported_types)
+                {
+                    self.load_dependency(import, imported_types, registry_to_populate, diagnostics)
+                        .await;
+                } else {
+                    diagnostics.push_error(
                     "Import names are missing. Please specify which types you would like to import"
                         .into(),
                     &import.import_token,
                 );
+                }
+            } else {
+                import.file = self
+                    .resolve_import_path(Some(&import.import_token.clone().into()), &import.file)
+                    .0
+                    .to_string_lossy()
+                    .to_string();
+                foreign_imports.push(import);
             }
         }
+        foreign_imports
     }
 
     pub async fn import_type(
@@ -286,11 +298,13 @@ impl<'a> TypeLoader<'a> {
 
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
-        self.load_dependencies_recursively(&dependency_doc, diagnostics, &dependency_registry)
+        let foreign_imports = self
+            .load_dependencies_recursively(&dependency_doc, diagnostics, &dependency_registry)
             .await;
 
         let doc = crate::object_tree::Document::from_node(
             dependency_doc,
+            foreign_imports,
             diagnostics,
             &dependency_registry,
         );
@@ -419,6 +433,11 @@ impl<'a> TypeLoader<'a> {
     /// Return an iterator over all the loaded file path
     pub fn all_files<'b>(&'b self) -> impl Iterator<Item = &PathBuf> + 'b {
         self.all_documents.docs.keys()
+    }
+
+    /// Returns an iterator over all the loaded documents
+    pub fn all_documents(&self) -> impl Iterator<Item = &object_tree::Document> + '_ {
+        self.all_documents.docs.values()
     }
 }
 
