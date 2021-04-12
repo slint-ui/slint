@@ -44,6 +44,7 @@ pub mod typeregister;
 mod passes {
     pub mod apply_default_properties_from_style;
     pub mod check_expressions;
+    pub mod clip;
     pub mod collect_globals;
     pub mod collect_structs;
     pub mod compile_paths;
@@ -153,6 +154,7 @@ pub async fn run_passes(
     mut type_loader: &mut typeloader::TypeLoader<'_>,
     compiler_config: &CompilerConfiguration,
 ) {
+    let global_type_registry = type_loader.global_type_registry.clone();
     passes::resolving::resolve_expressions(doc, &type_loader, diag);
     passes::inlining::inline(doc);
     passes::check_expressions::check_expressions(doc, diag);
@@ -161,10 +163,7 @@ pub async fn run_passes(
     passes::focus_item::resolve_element_reference_in_set_focus_calls(&doc.root_component, diag);
     passes::focus_item::determine_initial_focus_item(&doc.root_component, diag);
     passes::focus_item::erase_forward_focus_properties(&doc.root_component);
-    passes::flickable::handle_flickable(
-        &doc.root_component,
-        &type_loader.global_type_registry.borrow(),
-    );
+    passes::flickable::handle_flickable(&doc.root_component, &global_type_registry.borrow());
     passes::materialize_fake_properties::materialize_fake_properties(&doc.root_component);
     if compiler_config.embed_resources {
         passes::embed_resources::embed_resources(&doc.root_component);
@@ -174,6 +173,7 @@ pub async fn run_passes(
     passes::lower_popups::lower_popups(&doc.root_component, &doc.local_registry, diag);
     passes::lower_layout::lower_layouts(&doc.root_component, &mut type_loader, diag).await;
     passes::lower_shadows::lower_shadow_properties(&doc.root_component, &doc.local_registry, diag);
+    passes::clip::handle_clip(&doc.root_component, &global_type_registry.borrow(), diag);
     passes::default_geometry::default_geometry(&doc.root_component, diag);
     passes::apply_default_properties_from_style::apply_default_properties_from_style(
         &doc.root_component,

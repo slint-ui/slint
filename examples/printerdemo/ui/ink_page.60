@@ -31,10 +31,11 @@ export InkPage := Page {
         HorizontalLayout {
             spacing: root.width * 5%;
             for color_info in ink_levels : Rectangle {
-                ink := Clip {
+                ink := Rectangle {
                     width: parent.width;
                     height: parent.height * color_info.level;
                     y: parent.height - self.height;
+                    clip: true;
                     Rectangle {
                         background: color_info.color;
                         border-radius: width / 2;

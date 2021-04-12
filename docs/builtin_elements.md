@@ -51,6 +51,9 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`border_width`** (*length*): The width of the border. (default value: 0)
 * **`border_color`** (*brush*): The color of the border. (default value: transparent)
 * **`border_radius`** (*length*): The size of the radius. (default value: 0)
+* **`clip`** (*bool*): By default, when an item is bigger or outside another item, it is still shown.
+    But when this property is set to true, then the children element of this Rectangle are going to be clipped.
+    This property must be a literal `true` or `false` (default: false)
 
 ### Example
 
@@ -563,6 +566,8 @@ But the `Clip` element  make sure to clip any children outside of the rectangle 
 
 When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
 
+FIXME: deprecate this item as it can be replaced by the `clip:` property
+
 ## `PopupWindow`
 
 This allow to show a popup window like a tooltip or a popup menu.
@@ -655,7 +660,7 @@ This enum describes the how the text appear if it is too wide to fit in the Text
 
 ### Values
 
-* **`TextWrap.clip`**: The text will simpli be clipped.
+* **`TextWrap.clip`**: The text will simply be clipped.
 * **`TextWrap.elide`**: The text will be ellided with `…`.
 
 ## `EventResult`

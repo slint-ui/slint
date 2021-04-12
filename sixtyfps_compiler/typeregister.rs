@@ -36,6 +36,7 @@ const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
     ("row", Type::Int32),
     ("colspan", Type::Int32),
     ("rowspan", Type::Int32),
+    ("clip", Type::Bool),
 ];
 
 const RESERVED_OTHER_PROPERTIES: &'static [(&'static str, Type)] = &[

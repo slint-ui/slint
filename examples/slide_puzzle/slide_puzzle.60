@@ -63,8 +63,9 @@ Checkbox := Rectangle {
         border-color: unchecked_color;
         border-radius: 2px;
 
-        clip := Clip {
+        clip := Rectangle {
             width: 0px;
+            clip: true;
 
             Text {
                 width: root.width;
@@ -295,9 +296,9 @@ export MainWindow := Window {
 
 
         for p[i] in pieces : Rectangle {
-            x: tile.py * (pieces_size + pieces_spacing) + p.offset_x
+            x: py * (pieces_size + pieces_spacing) + p.offset_x
                 + (parent.width - (4*pieces_size + 3*pieces_spacing))/2;
-            y: tile.px * (pieces_size + pieces_spacing) + p.offset_y
+            y: px * (pieces_size + pieces_spacing) + p.offset_y
                 + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
             width: pieces_size;
             height: pieces_size;
@@ -308,85 +309,84 @@ export MainWindow := Window {
             drop-shadow-blur: 6px;
             drop-shadow-color: #00000080;
             border-radius: current-theme.piece-radius;
+            clip: true;
 
-            tile := Clip {
-                property<float> px: p.pos_x;
-                property<float> py: p.pos_y;
-                animate px , py { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
+            property<float> px: p.pos_x;
+            property<float> py: p.pos_y;
+            animate px , py { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
 
-                if (current-theme.game-use-background-image) : Image {
-                    height: 100%; width: 100%;
-                    // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
-                    source: @image-url("berlin.jpg");
-                    source-clip-x: mod(i, 4) * 1024 / 4;
-                    source-clip-y: floor(i / 4) * 683 / 4;
-                    source-clip-width: 1024 / 4;
-                    source-clip-height: 683 / 4;
+            if (current-theme.game-use-background-image) : Image {
+                height: 100%; width: 100%;
+                // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
+                source: @image-url("berlin.jpg");
+                source-clip-x: mod(i, 4) * 1024 / 4;
+                source-clip-y: floor(i / 4) * 683 / 4;
+                source-clip-width: 1024 / 4;
+                source-clip-height: 683 / 4;
 
-                    if (root.tiles-left != 0) : Rectangle {
-                        width: 60%;
-                        height: 60%;
-                        x: (parent.width - width) / 2;
-                        y: (parent.height - height) / 2;
-                        border-radius: width;
-                        background: is_correct ? #0008 : #fff8;
-                    }
+                if (root.tiles-left != 0) : Rectangle {
+                    width: 60%;
+                    height: 60%;
+                    x: (parent.width - width) / 2;
+                    y: (parent.height - height) / 2;
+                    border-radius: width;
+                    background: is_correct ? #0008 : #fff8;
                 }
-
-                if (!current-theme.game-use-background-image) : Rectangle {
-                    background: i >= 8 ? current-theme.piece-background-2 : current-theme.piece-background-1;
-                    border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
-                    border-width: current-theme.piece-border;
-                    border-radius: current-theme.piece-radius;
-                    animate border-width, border-radius { duration: 500ms; easing: ease-out; }
-                }
-
-                if (!current-theme.game-use-background-image || tiles-left > 0) : Text {
-                    text: i+1;
-                    color: ((!current-theme.game-use-background-image && i >= 8) || (current-theme.game-use-background-image && is_correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
-                    font-size: pieces_size / 3;
-                    font-weight: is_correct ? current-theme.piece-text-weight-correct-pos : current-theme.piece-text-weight-incorrect-pos;
-                    font-family: current-theme.piece-text-font-family;
-                    vertical-alignment: center;
-                    horizontal-alignment: center;
-                    width: 100%;
-                    height: 100%;
-                }
-
-                touch := TouchArea {
-                    clicked => { root.piece_clicked(i); }
-                }
-
-                shadow := Rectangle {
-                    circle := Rectangle {
-                        height: width;
-                        border-radius: width/2;
-                        background: #0002;
-                        x: touch.pressed_x - width/2;
-                        y: touch.pressed_y - width/2;
-                    }
-                }
-
-                states [
-                    pressed when touch.pressed : {
-                        shadow.color: #0002;
-                        circle.width: shadow.width * 2 * 1.4142;
-                    }
-                    hover when touch.has_hover: {
-                        shadow.color: #0000000d;
-                    }
-
-                ]
-                transitions [
-                    in pressed : {
-                        animate shadow.color { duration: 50ms; }
-                        animate circle.width { duration: 2s; easing: ease-out; }
-                    }
-                    out pressed : {
-                        animate shadow.color { duration: 50ms; }
-                    }
-                ]
             }
+
+            if (!current-theme.game-use-background-image) : Rectangle {
+                background: i >= 8 ? current-theme.piece-background-2 : current-theme.piece-background-1;
+                border-color: i >= 8 ? current-theme.piece-border-color-2 : current-theme.piece-border-color-1;
+                border-width: current-theme.piece-border;
+                border-radius: current-theme.piece-radius;
+                animate border-width, border-radius { duration: 500ms; easing: ease-out; }
+            }
+
+            if (!current-theme.game-use-background-image || tiles-left > 0) : Text {
+                text: i+1;
+                color: ((!current-theme.game-use-background-image && i >= 8) || (current-theme.game-use-background-image && is_correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
+                font-size: pieces_size / 3;
+                font-weight: is_correct ? current-theme.piece-text-weight-correct-pos : current-theme.piece-text-weight-incorrect-pos;
+                font-family: current-theme.piece-text-font-family;
+                vertical-alignment: center;
+                horizontal-alignment: center;
+                width: 100%;
+                height: 100%;
+            }
+
+            touch := TouchArea {
+                clicked => { root.piece_clicked(i); }
+            }
+
+            shadow := Rectangle {
+                circle := Rectangle {
+                    height: width;
+                    border-radius: width/2;
+                    background: #0002;
+                    x: touch.pressed_x - width/2;
+                    y: touch.pressed_y - width/2;
+                }
+            }
+
+            states [
+                pressed when touch.pressed : {
+                    shadow.color: #0002;
+                    circle.width: shadow.width * 2 * 1.4142;
+                }
+                hover when touch.has_hover: {
+                    shadow.color: #0000000d;
+                }
+
+            ]
+            transitions [
+                in pressed : {
+                    animate shadow.color { duration: 50ms; }
+                    animate circle.width { duration: 2s; easing: ease-out; }
+                }
+                out pressed : {
+                    animate shadow.color { duration: 50ms; }
+                }
+            ]
         }
 
         if (root.tiles-left == 0) : Text {

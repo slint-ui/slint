@@ -95,13 +95,15 @@ NarrowPrintQueueElement := Rectangle {
     border-radius: 14px;
     border-width: 2px;
     background: DemoPalette.printer_queue_item_background_color;
+    clip: true;
 
     property <bool> expanded;
 
     height: layout.minimum-height;
     animate height { duration: 200ms; easing: ease; }
 
-    Clip {
+
+    Rectangle {
         height: 100%;
         layout := VerticalLayout {
             padding: root.border_radius;
