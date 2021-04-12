@@ -1,0 +1,27 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+
+SubElements := Rectangle {
+    Rectangle {
+        clip: 42;
+//           ^error{Cannot convert float to bool}
+//           ^^error{The 'clip' property can only be a boolean literal \(true or false\) for now}
+    }
+    Image {
+        clip: false;
+//           ^error{The 'clip' property can only be applied to a Rectangle for now}
+    }
+    for a in 12 : Rectangle {
+        clip: true || true;
+//           ^error{The 'clip' property can only be a boolean literal \(true or false\) for now}
+    }
+}
+
