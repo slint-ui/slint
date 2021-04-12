@@ -128,9 +128,11 @@ pub trait ItemRenderer {
     fn draw_text_input(&mut self, text_input: Pin<&TextInput>);
     fn draw_path(&mut self, path: Pin<&Path>);
     fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
-    fn combine_clip(&mut self, rect: Rect);
-    /// Get the current clip rect in the current transformed coordinate.
-    /// If there is a rotation, this might only be the bounding box of the clip
+    /// Clip the further call until restore_state.
+    /// radius can be used for border rectangle clip.
+    /// (FIXME: consider removing radius and have another  function that take a path instead)
+    fn combine_clip(&mut self, rect: Rect, radius: f32);
+    /// Get the current clip bounding box in the current transformed coordinate.
     fn get_current_clip(&self) -> Rect;
 
     fn translate(&mut self, x: f32, y: f32);
