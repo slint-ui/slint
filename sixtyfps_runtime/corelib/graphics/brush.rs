@@ -125,9 +125,37 @@ impl InterpolatedPropertyValue for Brush {
             (Brush::SolidColor(source_col), Brush::SolidColor(target_col)) => {
                 Brush::SolidColor(source_col.interpolate(target_col, t))
             }
-            (Brush::SolidColor(_), Brush::LinearGradient(_)) => unimplemented!(),
-            (Brush::LinearGradient(_), Brush::SolidColor(_)) => unimplemented!(),
-            (Brush::LinearGradient(_), Brush::LinearGradient(_)) => unimplemented!(),
+            (Brush::SolidColor(col), Brush::LinearGradient(grad)) => {
+                let mut new_grad = grad.clone();
+                for x in new_grad.0.as_slice_mut().iter_mut().skip(1) {
+                    x.color = col.interpolate(&x.color, t);
+                }
+                Brush::LinearGradient(new_grad)
+            }
+            (a @ Brush::LinearGradient(_), b @ Brush::SolidColor(_)) => {
+                Self::interpolate(b, a, 1. - t)
+            }
+            (Brush::LinearGradient(lhs), Brush::LinearGradient(rhs)) => {
+                if lhs.0.len() < rhs.0.len() {
+                    Self::interpolate(target_value, self, 1. - t)
+                } else {
+                    let mut new_grad = lhs.clone();
+                    let mut iter = new_grad.0.as_slice_mut().iter_mut();
+                    {
+                        let angle = &mut iter.next().unwrap().position;
+                        *angle = dbg!(angle.interpolate(&rhs.angle(), t));
+                    }
+                    let mut rhs_stops = rhs.stops();
+                    while let (Some(s1), Some(s2)) = (iter.next(), rhs_stops.next()) {
+                        s1.color = s1.color.interpolate(&s2.color, t);
+                        s1.position = dbg!(s1.position.interpolate(&s2.position, t));
+                    }
+                    for x in iter {
+                        x.position = x.position.interpolate(&1.0, t);
+                    }
+                    Brush::LinearGradient(new_grad)
+                }
+            }
         }
     }
 }
