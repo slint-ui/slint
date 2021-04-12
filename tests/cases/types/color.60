@@ -18,12 +18,16 @@ Test := Rectangle {
     property<color> r3: #ff0000;
     property<color> r4: #f00f;
     property<color> r5: #ff0000ff;
-    property<color> r6: #ff335588;
 
     property<color> y1: yellow;
     property<color> y2: #ff0;
 
     property<color> g1: #999;
+
+    property<color> c1: #ff335588;
+    property<color> c2: rgb(100, 23, 42);
+
+    property<color> i1: rgb(0.2, 666, -85);
 }
 
 /*
@@ -41,11 +45,6 @@ assert_eq(t.get_b1(), t.get_b5());
 assert(t.get_b1() != t.get_r5());
 assert_eq(t.get_y1(), t.get_y2());
 
-assert_eq(t.get_r6().alpha(), 0x88);
-assert_eq(t.get_r6().red(), 0xff);
-assert_eq(t.get_r6().green(), 0x33);
-assert_eq(t.get_r6().blue(), 0x55);
-
 auto red = sixtyfps::Color::from_argb_float(1, 1, 0, 0);
 auto blue = sixtyfps::Color::from_rgb_float(0, 0, 1);
 auto g = sixtyfps::Color::from_rgb_uint8(0x99, 0x99, 0x99);
@@ -56,6 +55,21 @@ assert_eq(t.get_y1(), sixtyfps::Color::from_argb_encoded(0xffffff00));
 
 t.set_g1(blue);
 assert_eq(t.get_g1(), t.get_b1());
+
+assert_eq(t.get_c1().alpha(), 0x88);
+assert_eq(t.get_c1().red(), 0xff);
+assert_eq(t.get_c1().green(), 0x33);
+assert_eq(t.get_c1().blue(), 0x55);
+
+assert_eq(t.get_c2().alpha(), 0xff);
+assert_eq(t.get_c2().red(), 100);
+assert_eq(t.get_c2().green(), 23);
+assert_eq(t.get_c2().blue(), 42);
+
+assert_eq(t.get_i1().alpha(), 0xff);
+assert_eq(t.get_i1().red(), 0);
+assert_eq(t.get_i1().green(), 255);
+assert_eq(t.get_i1().blue(), 0);
 ```
 
 
@@ -72,11 +86,6 @@ assert_eq!(t.get_b1(), t.get_b5());
 assert_ne!(t.get_b1(), t.get_r5());
 assert_eq!(t.get_y1(), t.get_y2());
 
-assert_eq!(t.get_r6().alpha(), 0x88);
-assert_eq!(t.get_r6().red(), 0xff);
-assert_eq!(t.get_r6().green(), 0x33);
-assert_eq!(t.get_r6().blue(), 0x55);
-
 let red = sixtyfps::Color::from_argb_f32(1., 1., 0., 0.);
 let blue = sixtyfps::Color::from_rgb_f32(0., 0., 1.);
 let g = sixtyfps::Color::from_rgb_u8(0x99, 0x99, 0x99);
@@ -87,6 +96,22 @@ assert_eq!(t.get_y1(), sixtyfps::Color::from_argb_encoded(0xffffff00));
 
 t.set_g1(blue);
 assert_eq!(t.get_g1(), t.get_b1());
+
+assert_eq!(t.get_c1().alpha(), 0x88);
+assert_eq!(t.get_c1().red(), 0xff);
+assert_eq!(t.get_c1().green(), 0x33);
+assert_eq!(t.get_c1().blue(), 0x55);
+
+assert_eq!(t.get_c2().alpha(), 0xff);
+assert_eq!(t.get_c2().red(), 100);
+assert_eq!(t.get_c2().green(), 23);
+assert_eq!(t.get_c2().blue(), 42);
+
+assert_eq!(t.get_i1().alpha(), 0xff);
+assert_eq!(t.get_i1().red(), 0);
+assert_eq!(t.get_i1().green(), 255);
+assert_eq!(t.get_i1().blue(), 0);
+
 ```
 
 ```js
@@ -101,8 +126,6 @@ assert(t.b1 == t.b4);
 assert(t.b1 == t.b5);
 assert(t.b1 != t.r5);
 
-assert.equal(t.r6, "#ff335588");
-
 let red = "#ff0000ff";
 let blue = "#0000ffff";
 let g = "#999999ff";
@@ -115,6 +138,10 @@ t.g1 = "blue";
 assert.equal(t.g1, t.b1);
 t.g1 = "#f00";
 assert.equal(t.g1, t.r1);
+
+assert.equal(t.c1, "#ff335588");
+assert.equal(t.c2, "#64172aff");
+assert.equal(t.i1, "#00ff00ff");
 
 ```
 */

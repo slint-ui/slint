@@ -1235,16 +1235,26 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     let f = compile_expression(function, &component);
                     let a = arguments.iter().map(|a| compile_expression(a, &component));
                     let function_type = function.ty();
-                    if let Type::Callback { args, .. } = function_type {
-                        let cast = args.iter().map(|ty| match ty {
-                            Type::Bool => quote!(as bool),
-                            Type::Int32 => quote!(as i32),
-                            Type::Float32 => quote!(as f32),
-                            _ => quote!(.clone()),
-                        });
-                        quote! { #f.call(&(#((#a)#cast,)*).into())}
-                    } else {
-                        quote! { #f(#(#a.clone()),*)}
+                    match function_type {
+                         Type::Callback { args, .. } => {
+                            let cast = args.iter().map(|ty| match ty {
+                                Type::Bool => quote!(as bool),
+                                Type::Int32 => quote!(as i32),
+                                Type::Float32 => quote!(as f32),
+                                _ => quote!(.clone()),
+                            });
+                            quote! { #f.call(&(#((#a)#cast,)*).into())}
+                        }
+                        Type::Function {args, .. } => {
+                            let cast = args.iter().map(|ty| match ty {
+                                Type::Bool => quote!(as bool),
+                                Type::Int32 => quote!(as i32),
+                                Type::Float32 => quote!(as f32),
+                                _ => quote!(.clone()),
+                            });
+                            quote! { #f(#((#a) #cast),*)}
+                        }
+                        _ => panic!("not calling a function")
                     }
                 }
             }
