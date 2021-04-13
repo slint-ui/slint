@@ -302,7 +302,7 @@ fn goto_definition(
 ) -> Option<GotoDefinitionResponse> {
     match token.kind() {
         SyntaxKind::QualifiedName => {
-            let source_file = token.source_file.clone()?;
+            let source_file = token.source_file.clone();
             let parent = token.node.parent()?;
             let qual =
                 sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(token.into());
@@ -327,7 +327,7 @@ fn goto_node(
     document_cache: &mut DocumentCache,
     node: &SyntaxNode,
 ) -> Option<GotoDefinitionResponse> {
-    let path = node.source_file.as_ref()?.path();
+    let path = node.source_file.path();
     let target_uri = Url::from_file_path(path).ok()?;
     let newline_offsets = match document_cache.newline_offsets.entry(target_uri.clone()) {
         std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),

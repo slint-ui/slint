@@ -127,9 +127,7 @@ pub async fn compile_syntax_node(
 
     let mut loader =
         typeloader::TypeLoader::new(global_type_registry, &compiler_config, &mut diagnostics);
-    if doc_node.source_file.is_some() {
-        loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
-    }
+    loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
     let doc = crate::object_tree::Document::from_node(doc_node, &mut diagnostics, &type_registry);
 

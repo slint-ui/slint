@@ -623,14 +623,14 @@ impl rowan::Language for Language {
 pub struct SyntaxNode {
     #[deref]
     pub node: rowan::SyntaxNode<Language>,
-    pub source_file: Option<SourceFile>,
+    pub source_file: SourceFile,
 }
 
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct SyntaxToken {
     #[deref]
     pub token: rowan::SyntaxToken<Language>,
-    pub source_file: Option<SourceFile>,
+    pub source_file: SourceFile,
 }
 
 impl SyntaxToken {
@@ -740,7 +740,7 @@ impl Spanned for SyntaxNode {
     }
 
     fn source_file(&self) -> Option<&SourceFile> {
-        self.source_file.as_ref()
+        Some(&self.source_file)
     }
 }
 
@@ -750,7 +750,7 @@ impl Spanned for Option<SyntaxNode> {
     }
 
     fn source_file(&self) -> Option<&SourceFile> {
-        self.as_ref().map(|n| n.source_file.as_ref()).unwrap_or_default()
+        self.as_ref().and_then(|n| n.source_file())
     }
 }
 
@@ -760,7 +760,7 @@ impl Spanned for SyntaxToken {
     }
 
     fn source_file(&self) -> Option<&SourceFile> {
-        self.source_file.as_ref()
+        Some(&self.source_file)
     }
 }
 
@@ -808,9 +808,9 @@ pub fn parse(
     let source_file = if let Some(path) = path {
         p.source_file =
             std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(path.to_path_buf(), source));
-        Some(p.source_file.clone())
+        p.source_file.clone()
     } else {
-        None
+        Default::default()
     };
     document::parse_document(&mut p);
     SyntaxNode { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
@@ -833,8 +833,5 @@ pub fn parse_tokens(
 ) -> SyntaxNode {
     let mut p = DefaultParser::from_tokens(tokens, diags);
     document::parse_document(&mut p);
-    SyntaxNode {
-        node: rowan::SyntaxNode::new_root(p.builder.finish()),
-        source_file: Some(source_file),
-    }
+    SyntaxNode { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
 }

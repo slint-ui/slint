@@ -13,7 +13,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::object_tree::{self, Document};
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
@@ -146,8 +146,7 @@ impl<'a> TypeLoader<'a> {
         import_token: Option<SyntaxToken>,
         diagnostics: &'b mut BuildDiagnostics,
     ) -> Option<PathBuf> {
-        let referencing_file =
-            import_token.as_ref().and_then(|s| s.source_file.as_ref()).map(|s| s.path());
+        let referencing_file = import_token.source_file().map(|s| s.path());
 
         let mut is_builtin = None;
 
