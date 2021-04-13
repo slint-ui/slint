@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use super::CanvasRc;
+use font_kit::loader::Loader;
 use sixtyfps_corelib::graphics::FontRequest;
 #[cfg(target_arch = "wasm32")]
 use std::cell::Cell;
@@ -155,7 +156,40 @@ pub(crate) fn font_fallbacks_for_request(
         .unwrap_or_default()
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
+pub(crate) fn font_fallbacks_for_request(
+    _request: &FontRequest,
+    _reference_text: &str,
+) -> Vec<FontRequest> {
+    let family_name =
+        _request.family.as_ref().map_or(font_kit::family_name::FamilyName::SansSerif, |family| {
+            font_kit::family_name::FamilyName::Title(family.to_string())
+        });
+
+    let handle = font_kit::source::SystemSource::new()
+        .select_best_match(
+            &[family_name, font_kit::family_name::FamilyName::SansSerif],
+            &font_kit::properties::Properties::new()
+                .weight(font_kit::properties::Weight(_request.weight.unwrap() as f32)),
+        )
+        .unwrap()
+        .load()
+        .unwrap();
+
+    handle
+        .get_fallbacks(_reference_text, "")
+        .fonts
+        .iter()
+        .map(|fallback_font| FontRequest {
+            family: Some(fallback_font.font.family_name().into()),
+            weight: _request.weight,
+            pixel_size: _request.pixel_size,
+            letter_spacing: _request.letter_spacing,
+        })
+        .collect()
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
 pub(crate) fn font_fallbacks_for_request(
     _request: &FontRequest,
     _reference_text: &str,
