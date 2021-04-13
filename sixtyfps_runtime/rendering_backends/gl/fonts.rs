@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use super::CanvasRc;
+#[cfg(target_os = "windows")]
 use font_kit::loader::Loader;
 use sixtyfps_corelib::graphics::FontRequest;
 #[cfg(target_arch = "wasm32")]
