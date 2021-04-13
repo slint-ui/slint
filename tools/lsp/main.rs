@@ -25,7 +25,7 @@ use lsp_types::{
 };
 use sixtyfps_compilerlib::diagnostics::{BuildDiagnostics, Spanned};
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
+use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use sixtyfps_compilerlib::typeloader::TypeLoader;
 use sixtyfps_compilerlib::typeregister::TypeRegister;
 use sixtyfps_compilerlib::{object_tree, CompilerConfiguration};
@@ -276,7 +276,7 @@ fn to_range(span: (usize, usize)) -> Range {
 fn token_descr(
     document_cache: &DocumentCache,
     lsp_position: lsp_types::TextDocumentPositionParams,
-) -> Option<sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile> {
+) -> Option<sixtyfps_compilerlib::parser::SyntaxToken> {
     let o = document_cache
         .newline_offsets
         .get(&lsp_position.text_document.uri)?
@@ -290,7 +290,7 @@ fn token_descr(
         return None;
     }
     let token = node.0.node.token_at_offset(o.into()).last()?;
-    Some(sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile {
+    Some(sixtyfps_compilerlib::parser::SyntaxToken {
         token,
         source_file: node.0.source_file.clone(),
     })
@@ -298,7 +298,7 @@ fn token_descr(
 
 fn goto_definition(
     document_cache: &mut DocumentCache,
-    token: sixtyfps_compilerlib::parser::SyntaxNodeWithSourceFile,
+    token: sixtyfps_compilerlib::parser::SyntaxNode,
 ) -> Option<GotoDefinitionResponse> {
     match token.kind() {
         SyntaxKind::QualifiedName => {
@@ -325,7 +325,7 @@ fn goto_definition(
 
 fn goto_node(
     document_cache: &mut DocumentCache,
-    node: &SyntaxNodeWithSourceFile,
+    node: &SyntaxNode,
 ) -> Option<GotoDefinitionResponse> {
     let path = node.source_file.as_ref()?.path();
     let target_uri = Url::from_file_path(path).ok()?;
@@ -358,10 +358,7 @@ fn goto_node(
     }]))
 }
 
-fn completion_at(
-    document_cache: &DocumentCache,
-    token: SyntaxNodeWithSourceFile,
-) -> Option<Vec<CompletionItem>> {
+fn completion_at(document_cache: &DocumentCache, token: SyntaxNode) -> Option<Vec<CompletionItem>> {
     match token.kind() {
         SyntaxKind::Element => {
             let element = syntax_nodes::Element(token.clone());
@@ -398,10 +395,7 @@ fn completion_at(
     }
 }
 
-fn lookup_current_element_type(
-    mut node: SyntaxNodeWithSourceFile,
-    tr: &TypeRegister,
-) -> Option<Type> {
+fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> Option<Type> {
     while node.kind() != SyntaxKind::Element {
         if let Some(parent) = node.parent() {
             node = parent

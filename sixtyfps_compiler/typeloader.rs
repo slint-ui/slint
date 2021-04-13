@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::object_tree::{self, Document};
-use crate::parser::{syntax_nodes, SyntaxKind, SyntaxTokenWithSourceFile};
+use crate::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 
@@ -36,7 +36,7 @@ pub type VirtualDirectory<'a> = [&'a VirtualFile<'a>];
 
 struct ImportedTypes {
     pub type_names: Vec<ImportedName>,
-    pub import_token: SyntaxTokenWithSourceFile,
+    pub import_token: SyntaxToken,
     pub file: String,
 }
 
@@ -143,7 +143,7 @@ impl<'a> TypeLoader<'a> {
     async fn ensure_document_loaded<'b>(
         &'b mut self,
         file_to_import: &'b str,
-        import_token: Option<SyntaxTokenWithSourceFile>,
+        import_token: Option<SyntaxToken>,
         diagnostics: &'b mut BuildDiagnostics,
     ) -> Option<PathBuf> {
         let referencing_file =

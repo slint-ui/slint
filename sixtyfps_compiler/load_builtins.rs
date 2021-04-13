@@ -20,7 +20,7 @@ use crate::expression_tree::Expression;
 use crate::langtype::DefaultSizeBinding;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
 use crate::object_tree::{self, *};
-use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
+use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
 
 /// Parse the contents of builtins.60 and fill the builtin type registery
@@ -225,7 +225,7 @@ fn compiled(
 /// Find out if there are comments that starts with `//-key` and returns `None`
 /// if no annotation with this key is found, or `Some(None)` if it is found without a value
 /// or `Some(Some(value))` if there is a `//-key:value`  match
-fn parse_annotation(key: &str, node: &SyntaxNodeWithSourceFile) -> Option<Option<String>> {
+fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<String>> {
     for x in node.children_with_tokens() {
         if x.kind() == SyntaxKind::Comment {
             if let Some(comment) = x

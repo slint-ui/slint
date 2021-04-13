@@ -30,7 +30,7 @@ mod r#type;
 /// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {
     #[cfg(test)]
-    pub use super::{syntax_nodes, SyntaxNodeVerify, SyntaxNodeWithSourceFile};
+    pub use super::{syntax_nodes, SyntaxNode, SyntaxNodeVerify};
     pub use super::{DefaultParser, Parser, SyntaxKind};
     #[cfg(test)]
     pub use parser_test_macro::parser_test;
@@ -42,7 +42,7 @@ pub trait SyntaxNodeVerify {
     const KIND: SyntaxKind;
     /// Asserts that the node is of the given SyntaxKind and that it has the expected children
     /// Panic if this is not the case
-    fn verify(node: SyntaxNodeWithSourceFile) {
+    fn verify(node: SyntaxNode) {
         assert_eq!(node.kind(), Self::KIND)
     }
 }
@@ -198,11 +198,11 @@ macro_rules! declare_syntax {
             use derive_more::*;
             $(
                 #[derive(Debug, Clone, From, Deref, DerefMut, Into)]
-                pub struct $nodekind(pub SyntaxNodeWithSourceFile);
+                pub struct $nodekind(pub SyntaxNode);
                 #[cfg(test)]
                 impl SyntaxNodeVerify for $nodekind {
                     const KIND: SyntaxKind = SyntaxKind::$nodekind;
-                    fn verify(node: SyntaxNodeWithSourceFile) {
+                    fn verify(node: SyntaxNode) {
                         assert_eq!(node.kind(), Self::KIND);
                         verify_node!(node, $children);
                     }
@@ -620,47 +620,44 @@ impl rowan::Language for Language {
 }
 
 #[derive(Debug, Clone, derive_more::Deref)]
-pub struct SyntaxNodeWithSourceFile {
+pub struct SyntaxNode {
     #[deref]
     pub node: rowan::SyntaxNode<Language>,
     pub source_file: Option<SourceFile>,
 }
 
 #[derive(Debug, Clone, derive_more::Deref)]
-pub struct SyntaxTokenWithSourceFile {
+pub struct SyntaxToken {
     #[deref]
     pub token: rowan::SyntaxToken<Language>,
     pub source_file: Option<SourceFile>,
 }
 
-impl SyntaxTokenWithSourceFile {
-    pub fn parent(&self) -> SyntaxNodeWithSourceFile {
-        SyntaxNodeWithSourceFile {
-            node: self.token.parent(),
-            source_file: self.source_file.clone(),
-        }
+impl SyntaxToken {
+    pub fn parent(&self) -> SyntaxNode {
+        SyntaxNode { node: self.token.parent(), source_file: self.source_file.clone() }
     }
 }
 
-impl std::fmt::Display for SyntaxTokenWithSourceFile {
+impl std::fmt::Display for SyntaxToken {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.token.fmt(f)
     }
 }
 
-impl SyntaxNodeWithSourceFile {
-    pub fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNodeWithSourceFile> {
+impl SyntaxNode {
+    pub fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode> {
         self.node
             .children()
             .find(|n| n.kind() == kind)
-            .map(|node| SyntaxNodeWithSourceFile { node, source_file: self.source_file.clone() })
+            .map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
     }
-    pub fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxTokenWithSourceFile> {
+    pub fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken> {
         self.node
             .children_with_tokens()
             .find(|n| n.kind() == kind)
             .and_then(|x| x.into_token())
-            .map(|token| SyntaxTokenWithSourceFile { token, source_file: self.source_file.clone() })
+            .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
     }
     pub fn child_text(&self, kind: SyntaxKind) -> Option<String> {
         self.node
@@ -671,77 +668,73 @@ impl SyntaxNodeWithSourceFile {
     pub fn kind(&self) -> SyntaxKind {
         self.node.kind()
     }
-    pub fn children(&self) -> impl Iterator<Item = SyntaxNodeWithSourceFile> {
+    pub fn children(&self) -> impl Iterator<Item = SyntaxNode> {
         let source_file = self.source_file.clone();
-        self.node
-            .children()
-            .map(move |node| SyntaxNodeWithSourceFile { node, source_file: source_file.clone() })
+        self.node.children().map(move |node| SyntaxNode { node, source_file: source_file.clone() })
     }
-    pub fn children_with_tokens(&self) -> impl Iterator<Item = NodeOrTokenWithSourceFile> {
+    pub fn children_with_tokens(&self) -> impl Iterator<Item = NodeOrToken> {
         let source_file = self.source_file.clone();
         self.node.children_with_tokens().map(move |token| match token {
             rowan::NodeOrToken::Node(node) => {
-                SyntaxNodeWithSourceFile { node, source_file: source_file.clone() }.into()
+                SyntaxNode { node, source_file: source_file.clone() }.into()
             }
             rowan::NodeOrToken::Token(token) => {
-                SyntaxTokenWithSourceFile { token, source_file: source_file.clone() }.into()
+                SyntaxToken { token, source_file: source_file.clone() }.into()
             }
         })
     }
     pub fn text(&self) -> rowan::SyntaxText {
         self.node.text()
     }
-    pub fn parent(&self) -> Option<SyntaxNodeWithSourceFile> {
-        self.node
-            .parent()
-            .map(|node| SyntaxNodeWithSourceFile { node, source_file: self.source_file.clone() })
+    pub fn parent(&self) -> Option<SyntaxNode> {
+        self.node.parent().map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
     }
 }
 
 #[derive(Debug, Clone, derive_more::From)]
-pub enum NodeOrTokenWithSourceFile {
-    Node(SyntaxNodeWithSourceFile),
-    Token(SyntaxTokenWithSourceFile),
+pub enum NodeOrToken {
+    Node(SyntaxNode),
+    Token(SyntaxToken),
 }
 
-impl NodeOrTokenWithSourceFile {
+impl NodeOrToken {
     pub fn kind(&self) -> SyntaxKind {
         match self {
-            NodeOrTokenWithSourceFile::Node(n) => n.kind(),
-            NodeOrTokenWithSourceFile::Token(t) => t.kind(),
+            NodeOrToken::Node(n) => n.kind(),
+            NodeOrToken::Token(t) => t.kind(),
         }
     }
 
-    pub fn as_node(&self) -> Option<&SyntaxNodeWithSourceFile> {
+    pub fn as_node(&self) -> Option<&SyntaxNode> {
         match self {
-            NodeOrTokenWithSourceFile::Node(n) => Some(&n),
-            NodeOrTokenWithSourceFile::Token(_) => None,
+            NodeOrToken::Node(n) => Some(&n),
+            NodeOrToken::Token(_) => None,
         }
     }
 
-    pub fn as_token(&self) -> Option<&SyntaxTokenWithSourceFile> {
+    pub fn as_token(&self) -> Option<&SyntaxToken> {
         match self {
-            NodeOrTokenWithSourceFile::Node(_) => None,
-            NodeOrTokenWithSourceFile::Token(t) => Some(&t),
+            NodeOrToken::Node(_) => None,
+            NodeOrToken::Token(t) => Some(&t),
         }
     }
 
-    pub fn into_token(self) -> Option<SyntaxTokenWithSourceFile> {
+    pub fn into_token(self) -> Option<SyntaxToken> {
         match self {
-            NodeOrTokenWithSourceFile::Token(t) => Some(t),
+            NodeOrToken::Token(t) => Some(t),
             _ => None,
         }
     }
 
-    pub fn into_node(self) -> Option<SyntaxNodeWithSourceFile> {
+    pub fn into_node(self) -> Option<SyntaxNode> {
         match self {
-            NodeOrTokenWithSourceFile::Node(n) => Some(n),
+            NodeOrToken::Node(n) => Some(n),
             _ => None,
         }
     }
 }
 
-impl Spanned for SyntaxNodeWithSourceFile {
+impl Spanned for SyntaxNode {
     fn span(&self) -> crate::diagnostics::Span {
         crate::diagnostics::Span::new(self.node.text_range().start().into())
     }
@@ -751,7 +744,7 @@ impl Spanned for SyntaxNodeWithSourceFile {
     }
 }
 
-impl Spanned for Option<SyntaxNodeWithSourceFile> {
+impl Spanned for Option<SyntaxNode> {
     fn span(&self) -> crate::diagnostics::Span {
         self.as_ref().map(|n| n.span()).unwrap_or_default()
     }
@@ -761,7 +754,7 @@ impl Spanned for Option<SyntaxNodeWithSourceFile> {
     }
 }
 
-impl Spanned for SyntaxTokenWithSourceFile {
+impl Spanned for SyntaxToken {
     fn span(&self) -> crate::diagnostics::Span {
         crate::diagnostics::Span::new(self.token.text_range().start().into())
     }
@@ -771,23 +764,23 @@ impl Spanned for SyntaxTokenWithSourceFile {
     }
 }
 
-impl Spanned for NodeOrTokenWithSourceFile {
+impl Spanned for NodeOrToken {
     fn span(&self) -> crate::diagnostics::Span {
         match self {
-            NodeOrTokenWithSourceFile::Node(n) => n.span(),
-            NodeOrTokenWithSourceFile::Token(t) => t.span(),
+            NodeOrToken::Node(n) => n.span(),
+            NodeOrToken::Token(t) => t.span(),
         }
     }
 
     fn source_file(&self) -> Option<&SourceFile> {
         match self {
-            NodeOrTokenWithSourceFile::Node(n) => n.source_file(),
-            NodeOrTokenWithSourceFile::Token(t) => t.source_file(),
+            NodeOrToken::Node(n) => n.source_file(),
+            NodeOrToken::Token(t) => t.source_file(),
         }
     }
 }
 
-impl Spanned for Option<SyntaxTokenWithSourceFile> {
+impl Spanned for Option<SyntaxToken> {
     fn span(&self) -> crate::diagnostics::Span {
         self.as_ref().map(|t| t.span()).unwrap_or_default()
     }
@@ -797,7 +790,7 @@ impl Spanned for Option<SyntaxTokenWithSourceFile> {
 }
 
 /// return the normalized identifier string of the first SyntaxKind::Identifier in this node
-pub fn identifier_text(node: &SyntaxNodeWithSourceFile) -> Option<String> {
+pub fn identifier_text(node: &SyntaxNode) -> Option<String> {
     node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))
 }
 
@@ -810,7 +803,7 @@ pub fn parse(
     source: String,
     path: Option<&std::path::Path>,
     build_diagnostics: &mut BuildDiagnostics,
-) -> SyntaxNodeWithSourceFile {
+) -> SyntaxNode {
     let mut p = DefaultParser::new(&source, build_diagnostics);
     let source_file = if let Some(path) = path {
         p.source_file =
@@ -820,13 +813,13 @@ pub fn parse(
         None
     };
     document::parse_document(&mut p);
-    SyntaxNodeWithSourceFile { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
+    SyntaxNode { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
 }
 
 pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
     build_diagnostics: &mut BuildDiagnostics,
-) -> Option<SyntaxNodeWithSourceFile> {
+) -> Option<SyntaxNode> {
     let source = crate::diagnostics::load_from_path(path.as_ref())
         .map_err(|d| build_diagnostics.push_internal_error(d))
         .ok()?;
@@ -837,10 +830,10 @@ pub fn parse_tokens(
     tokens: Vec<Token>,
     source_file: SourceFile,
     diags: &mut BuildDiagnostics,
-) -> SyntaxNodeWithSourceFile {
+) -> SyntaxNode {
     let mut p = DefaultParser::from_tokens(tokens, diags);
     document::parse_document(&mut p);
-    SyntaxNodeWithSourceFile {
+    SyntaxNode {
         node: rowan::SyntaxNode::new_root(p.builder.finish()),
         source_file: Some(source_file),
     }

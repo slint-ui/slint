@@ -16,7 +16,7 @@ use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::PropertyLookupResult;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
 use crate::namedreference::NamedReference;
-use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
+use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -210,7 +210,7 @@ impl Component {
 #[derive(Clone, Debug, Default)]
 pub struct PropertyDeclaration {
     pub property_type: Type,
-    pub type_node: Option<SyntaxNodeWithSourceFile>,
+    pub type_node: Option<SyntaxNode>,
     /// Tells if getter and setter will be added to expose in the native language API
     pub expose_in_public_api: bool,
     /// Public API property exposed as an alias: it shouldn't be generated but instead forward to the alias.
@@ -795,9 +795,7 @@ impl Element {
     fn parse_bindings(
         &mut self,
         name_for_lookup_error: &str,
-        bindings: impl Iterator<
-            Item = (crate::parser::SyntaxTokenWithSourceFile, SyntaxNodeWithSourceFile),
-        >,
+        bindings: impl Iterator<Item = (crate::parser::SyntaxToken, SyntaxNode)>,
         diag: &mut BuildDiagnostics,
     ) {
         for (name_token, b) in bindings {
@@ -1280,7 +1278,7 @@ pub struct Transition {
     pub state_id: String,
     pub property_animations: Vec<(NamedReference, ElementRc)>,
     /// Node pointing to the state name
-    pub node: SyntaxNodeWithSourceFile,
+    pub node: SyntaxNode,
 }
 
 #[derive(Default, Debug, derive_more::Deref)]
@@ -1295,7 +1293,7 @@ impl Exports {
     ) -> Self {
         #[derive(Debug, Clone)]
         struct NamedExport {
-            internal_name_ident: SyntaxNodeWithSourceFile,
+            internal_name_ident: SyntaxNode,
             internal_name: String,
             exported_name: String,
         }

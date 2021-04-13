@@ -115,7 +115,7 @@ impl CompilerConfiguration {
 }
 
 pub async fn compile_syntax_node(
-    doc_node: parser::SyntaxNodeWithSourceFile,
+    doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::BuildDiagnostics,
     compiler_config: CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {

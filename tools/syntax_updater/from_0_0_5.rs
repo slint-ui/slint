@@ -11,11 +11,11 @@ LICENSE END */
 use std::io::Write;
 
 use sixtyfps_compilerlib::object_tree;
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
+use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 
 /// Replace the 'color' type with 'brush', and the 'resource' type with 'image'
 pub(crate) fn fold_node(
-    node: &SyntaxNodeWithSourceFile,
+    node: &SyntaxNode,
     file: &mut impl Write,
     _state: &mut crate::State,
 ) -> std::io::Result<bool> {

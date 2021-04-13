@@ -10,7 +10,7 @@ LICENSE END */
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{BuiltinElement, EnumerationValue, Type};
 use crate::object_tree::*;
-use crate::parser::{NodeOrTokenWithSourceFile, SyntaxNodeWithSourceFile};
+use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
@@ -235,7 +235,7 @@ pub enum Expression {
     /// Something went wrong (and an error will be reported)
     Invalid,
     /// We haven't done the lookup yet
-    Uncompiled(SyntaxNodeWithSourceFile),
+    Uncompiled(SyntaxNode),
 
     /// Special expression that can be the value of a two way binding
     ///
@@ -265,13 +265,13 @@ pub enum Expression {
     /// a regular FunctionCall expression where the base becomes the first argument.
     MemberFunction {
         base: Box<Expression>,
-        base_node: NodeOrTokenWithSourceFile,
+        base_node: NodeOrToken,
         member: Box<Expression>,
     },
 
     /// Reference to a macro understood by the compiler.
     /// These should be transformed to other expression before reaching generation
-    BuiltinMacroReference(BuiltinMacroFunction, NodeOrTokenWithSourceFile),
+    BuiltinMacroReference(BuiltinMacroFunction, NodeOrToken),
 
     /// A reference to a specific element. This isn't possible to create in .60 syntax itself, but intermediate passes may generate this
     /// type of expression.
@@ -971,7 +971,7 @@ impl std::convert::From<Expression> for BindingExpression {
 }
 
 impl BindingExpression {
-    pub fn new_uncompiled(node: SyntaxNodeWithSourceFile) -> Self {
+    pub fn new_uncompiled(node: SyntaxNode) -> Self {
         Self {
             expression: Expression::Uncompiled(node.clone()),
             span: Some(node.to_source_location()),

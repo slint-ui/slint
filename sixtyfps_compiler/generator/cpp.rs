@@ -595,7 +595,7 @@ fn generate_struct(
                     ty: t.cpp_type().unwrap_or_else(|| {
                         diag.push_error(
                             format!("Cannot map {} to a C++ type", t),
-                            &Option::<crate::parser::SyntaxNodeWithSourceFile>::None,
+                            &Option::<crate::parser::SyntaxNode>::None,
                         );
                         Default::default()
                     }),

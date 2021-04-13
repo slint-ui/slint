@@ -22,9 +22,7 @@ LICENSE END */
 
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::object_tree;
-use sixtyfps_compilerlib::parser::{
-    syntax_nodes, NodeOrTokenWithSourceFile, SyntaxKind, SyntaxNodeWithSourceFile,
-};
+use sixtyfps_compilerlib::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use std::io::Write;
 use structopt::StructOpt;
 
@@ -180,11 +178,7 @@ struct State {
     property_name: Option<String>,
 }
 
-fn visit_node(
-    node: SyntaxNodeWithSourceFile,
-    file: &mut impl Write,
-    state: &mut State,
-) -> std::io::Result<()> {
+fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<()> {
     let mut state = state.clone();
     match node.kind() {
         SyntaxKind::PropertyDeclaration => {
@@ -208,24 +202,20 @@ fn visit_node(
     }
     for n in node.children_with_tokens() {
         match n {
-            NodeOrTokenWithSourceFile::Node(n) => visit_node(n, file, &mut state)?,
-            NodeOrTokenWithSourceFile::Token(t) => fold_token(t, file, &mut state)?,
+            NodeOrToken::Node(n) => visit_node(n, file, &mut state)?,
+            NodeOrToken::Token(t) => fold_token(t, file, &mut state)?,
         };
     }
     Ok(())
 }
 
 /// return false if one need to continue folding the children
-fn fold_node(
-    node: &SyntaxNodeWithSourceFile,
-    file: &mut impl Write,
-    state: &mut State,
-) -> std::io::Result<bool> {
+fn fold_node(node: &SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<bool> {
     from_0_0_5::fold_node(node, file, state)
 }
 
 fn fold_token(
-    node: sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile,
+    node: sixtyfps_compilerlib::parser::SyntaxToken,
     file: &mut impl Write,
     #[allow(unused)] state: &mut State,
 ) -> std::io::Result<()> {

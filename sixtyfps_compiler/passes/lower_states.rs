@@ -13,7 +13,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::parser::SyntaxNodeWithSourceFile;
+use crate::parser::SyntaxNode;
 use std::{collections::HashMap, rc::Rc};
 
 pub fn lower_states(
@@ -99,10 +99,8 @@ fn lower_transitions_in_element(
     diag: &mut BuildDiagnostics,
 ) {
     let transitions = std::mem::take(&mut elem.borrow_mut().transitions);
-    let mut props = HashMap::<
-        NamedReference,
-        (SyntaxNodeWithSourceFile, Vec<TransitionPropertyAnimation>),
-    >::new();
+    let mut props =
+        HashMap::<NamedReference, (SyntaxNode, Vec<TransitionPropertyAnimation>)>::new();
     for transition in transitions {
         let state = states_id.get(&transition.state_id).unwrap_or_else(|| {
             diag.push_error(

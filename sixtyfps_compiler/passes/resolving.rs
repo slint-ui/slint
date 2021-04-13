@@ -17,9 +17,7 @@ LICENSE END */
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::parser::{
-    identifier_text, syntax_nodes, NodeOrTokenWithSourceFile, SyntaxKind, SyntaxNodeWithSourceFile,
-};
+use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
 use crate::{
     diagnostics::{BuildDiagnostics, Spanned},
@@ -191,10 +189,7 @@ fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
 }
 
 impl Expression {
-    pub fn from_binding_expression_node(
-        node: SyntaxNodeWithSourceFile,
-        ctx: &mut LookupCtx,
-    ) -> Self {
+    pub fn from_binding_expression_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::BindingExpression);
         let e = node
             .child_node(SyntaxKind::Expression)
@@ -517,7 +512,7 @@ impl Expression {
     }
 
     /// Perform the lookup
-    fn from_qualified_name_node(node: SyntaxNodeWithSourceFile, ctx: &mut LookupCtx) -> Self {
+    fn from_qualified_name_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::QualifiedName);
 
         let mut it = node
@@ -721,9 +716,9 @@ impl Expression {
         node: syntax_nodes::FunctionCallExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let mut sub_expr = node.Expression().map(|n| {
-            (Self::from_expression_node(n.clone(), ctx), NodeOrTokenWithSourceFile::from(n.0))
-        });
+        let mut sub_expr = node
+            .Expression()
+            .map(|n| (Self::from_expression_node(n.clone(), ctx), NodeOrToken::from(n.0)));
 
         let mut arguments = Vec::new();
 
@@ -1091,9 +1086,9 @@ impl Expression {
 }
 
 fn min_max_macro(
-    node: NodeOrTokenWithSourceFile,
+    node: NodeOrToken,
     op: char,
-    args: Vec<(Expression, NodeOrTokenWithSourceFile)>,
+    args: Vec<(Expression, NodeOrToken)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.is_empty() {
@@ -1124,8 +1119,8 @@ fn min_max_macro(
 }
 
 fn rgb_macro(
-    node: NodeOrTokenWithSourceFile,
-    args: Vec<(Expression, NodeOrTokenWithSourceFile)>,
+    node: NodeOrToken,
+    args: Vec<(Expression, NodeOrToken)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.len() < 3 {
@@ -1163,8 +1158,8 @@ fn rgb_macro(
 
 fn continue_lookup_within_element(
     elem: &ElementRc,
-    it: &mut impl Iterator<Item = crate::parser::SyntaxTokenWithSourceFile>,
-    node: SyntaxNodeWithSourceFile,
+    it: &mut impl Iterator<Item = crate::parser::SyntaxToken>,
+    node: SyntaxNode,
     ctx: &mut LookupCtx,
 ) -> Expression {
     let second = if let Some(second) = it.next() {
@@ -1230,12 +1225,12 @@ fn continue_lookup_within_element(
 
 fn maybe_lookup_object(
     mut base: Expression,
-    it: impl Iterator<Item = crate::parser::SyntaxTokenWithSourceFile>,
+    it: impl Iterator<Item = crate::parser::SyntaxToken>,
     ctx: &mut LookupCtx,
 ) -> Expression {
     fn error_or_try_minus(
         ctx: &mut LookupCtx,
-        ident: crate::parser::SyntaxTokenWithSourceFile,
+        ident: crate::parser::SyntaxToken,
         lookup: impl Fn(&str) -> bool,
     ) -> Expression {
         if let Some(minus_pos) = ident.text().find('-') {
