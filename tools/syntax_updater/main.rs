@@ -15,15 +15,20 @@ LICENSE END */
 //! This is how it can be used:
 //!
 //! ````shell
-//! cargo run --bin syntax_updater -- -i  **/*.60
-//! cargo run --bin syntax_updater -- -i  **/*.rs
-//! cargo run --bin syntax_updater -- -i  **/*.md
+//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.60
+//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.rs
+//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.md
 //! ````
 
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::parser::{SyntaxKind, SyntaxNode, SyntaxNodeEx};
+use sixtyfps_compilerlib::object_tree;
+use sixtyfps_compilerlib::parser::{
+    syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeEx, SyntaxNodeWithSourceFile,
+};
 use std::io::Write;
 use structopt::StructOpt;
+
+mod from_0_0_5;
 
 #[derive(StructOpt)]
 struct Cli {
@@ -33,10 +38,21 @@ struct Cli {
     /// modify the file inline instead of outputing to stdout
     #[structopt(short, long)]
     inline: bool,
+
+    /// Version to update from
+    #[structopt(long, name = "version")]
+    from: String,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
+
+    const SUPPORTED_FROM_VERSION: &str = "0.0.5";
+
+    if args.from != SUPPORTED_FROM_VERSION {
+        eprintln!("Only version {0} is supported, use `--from {0}`", SUPPORTED_FROM_VERSION);
+        std::process::exit(1);
+    }
 
     for path in args.paths {
         let source = std::fs::read_to_string(&path)?;
@@ -158,10 +174,14 @@ fn process_file(
 
 #[derive(Default, Clone)]
 struct State {
+    /// Current element name in scope
+    element_name: Option<String>,
+    /// When visiting a binding, this is the name of the current property
     property_name: Option<String>,
 }
 
 fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<()> {
+    let mut state = state.clone();
     match node.kind() {
         SyntaxKind::PropertyDeclaration => {
             state.property_name = node.child_text(SyntaxKind::DeclaredIdentifier)
@@ -170,25 +190,33 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std
         SyntaxKind::CallbackDeclaration => {
             state.property_name = node.child_text(SyntaxKind::Identifier)
         }
+        SyntaxKind::Element => {
+            let element_node = syntax_nodes::Element(SyntaxNodeWithSourceFile {
+                node: node.clone(),
+                source_file: None,
+            });
+            state.element_name = element_node
+                .QualifiedName()
+                .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string());
+        }
         _ => (),
     }
 
-    fold_node(&node, file, state)?;
+    if fold_node(&node, file, &mut state)? {
+        return Ok(());
+    }
     for n in node.children_with_tokens() {
         match n {
-            rowan::NodeOrToken::Node(n) => visit_node(n, file, state)?,
-            rowan::NodeOrToken::Token(t) => fold_token(t, file, state)?,
+            rowan::NodeOrToken::Node(n) => visit_node(n, file, &mut state)?,
+            rowan::NodeOrToken::Token(t) => fold_token(t, file, &mut state)?,
         };
     }
     Ok(())
 }
 
-fn fold_node(
-    _node: &SyntaxNode,
-    _file: &mut impl Write,
-    _state: &mut State,
-) -> std::io::Result<()> {
-    Ok(())
+/// return false if one need to continue folding the children
+fn fold_node(node: &SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<bool> {
+    from_0_0_5::fold_node(node, file, state)
 }
 
 fn fold_token(
