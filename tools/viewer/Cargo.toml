@@ -10,12 +10,14 @@ homepage = "https://sixtyfps.io"
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.0.5", path="../../sixtyfps_runtime/corelib" }
+sixtyfps-rendering-backend-default = { version = "=0.0.5", path="../../sixtyfps_runtime/rendering_backends/default" }
 sixtyfps-interpreter = { version = "=0.0.5", path = "../../sixtyfps_runtime/interpreter", features = ["display-diagnostics"] }
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"
 codemap = "0.1"
 spin_on = "0.1"
+notify = "4.0.15"
 
 
 [[bin]]

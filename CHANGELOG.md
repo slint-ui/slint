@@ -19,9 +19,13 @@ All notable changes to this project will be documented in this file.
  - The path fill rule can now be specified using `Path::fill-rule`.
  - Support for `letter-spacing` in `Text`/`TextInput` elements.
  - `rgb()` / `rgba()`
+ - Layout in Flickable
+ - LSP server with Live Preview and basic auto completion
+ - The viewer tool gained the `--auto-reload` argument
 
 ### Fixed
  - `Image::image-fit`'s `cover` and `contains` varient are fixed to match the CSS spec
+ - Many more bugfixes
 
 ## [0.0.5] - 2021-01-29
 
