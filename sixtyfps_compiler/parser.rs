@@ -42,7 +42,7 @@ pub trait SyntaxNodeVerify {
     const KIND: SyntaxKind;
     /// Asserts that the node is of the given SyntaxKind and that it has the expected children
     /// Panic if this is not the case
-    fn verify(node: SyntaxNode) {
+    fn verify(node: SyntaxNodeWithSourceFile) {
         assert_eq!(node.kind(), Self::KIND)
     }
 }
@@ -202,7 +202,7 @@ macro_rules! declare_syntax {
                 #[cfg(test)]
                 impl SyntaxNodeVerify for $nodekind {
                     const KIND: SyntaxKind = SyntaxKind::$nodekind;
-                    fn verify(node: SyntaxNode) {
+                    fn verify(node: SyntaxNodeWithSourceFile) {
                         assert_eq!(node.kind(), Self::KIND);
                         verify_node!(node, $children);
                     }
@@ -619,42 +619,17 @@ impl rowan::Language for Language {
     }
 }
 
-type SyntaxNode = rowan::SyntaxNode<Language>;
-type SyntaxToken = rowan::SyntaxToken<Language>;
-
-/// Helper functions to easily get the children of a given kind.
-/// This traits is only supposed to be implemented on SyntaxNope
-pub trait SyntaxNodeEx {
-    fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode>;
-    fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken>;
-    fn child_text(&self, kind: SyntaxKind) -> Option<String>;
-}
-
-impl SyntaxNodeEx for SyntaxNode {
-    fn child_node(&self, kind: SyntaxKind) -> Option<SyntaxNode> {
-        self.children().find(|n| n.kind() == kind)
-    }
-    fn child_token(&self, kind: SyntaxKind) -> Option<SyntaxToken> {
-        self.children_with_tokens().find(|n| n.kind() == kind).and_then(|x| x.into_token())
-    }
-    fn child_text(&self, kind: SyntaxKind) -> Option<String> {
-        self.children_with_tokens()
-            .find(|n| n.kind() == kind)
-            .and_then(|x| x.as_token().map(|x| x.text().to_string()))
-    }
-}
-
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct SyntaxNodeWithSourceFile {
     #[deref]
-    pub node: SyntaxNode,
+    pub node: rowan::SyntaxNode<Language>,
     pub source_file: Option<SourceFile>,
 }
 
 #[derive(Debug, Clone, derive_more::Deref)]
 pub struct SyntaxTokenWithSourceFile {
     #[deref]
-    pub token: SyntaxToken,
+    pub token: rowan::SyntaxToken<Language>,
     pub source_file: Option<SourceFile>,
 }
 
@@ -845,7 +820,7 @@ pub fn parse(
         None
     };
     document::parse_document(&mut p);
-    SyntaxNodeWithSourceFile { node: SyntaxNode::new_root(p.builder.finish()), source_file }
+    SyntaxNodeWithSourceFile { node: rowan::SyntaxNode::new_root(p.builder.finish()), source_file }
 }
 
 pub fn parse_file<P: AsRef<std::path::Path>>(
@@ -858,8 +833,15 @@ pub fn parse_file<P: AsRef<std::path::Path>>(
     Some(parse(source, Some(path.as_ref()), build_diagnostics))
 }
 
-pub fn parse_tokens(tokens: Vec<Token>, diags: &mut BuildDiagnostics) -> SyntaxNode {
+pub fn parse_tokens(
+    tokens: Vec<Token>,
+    source_file: SourceFile,
+    diags: &mut BuildDiagnostics,
+) -> SyntaxNodeWithSourceFile {
     let mut p = DefaultParser::from_tokens(tokens, diags);
     document::parse_document(&mut p);
-    SyntaxNode::new_root(p.builder.finish())
+    SyntaxNodeWithSourceFile {
+        node: rowan::SyntaxNode::new_root(p.builder.finish()),
+        source_file: Some(source_file),
+    }
 }

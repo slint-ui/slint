@@ -320,21 +320,18 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut tokens = vec![];
     fill_token_vec(token_iter, &mut tokens);
 
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_tokens(tokens.clone(), &mut diag);
-    if diag.has_error() {
-        return diag.report_macro_diagnostic(&tokens);
-    }
-
     let source_file = if let Some(cargo_manifest) = std::env::var_os("CARGO_MANIFEST_DIR") {
         let mut path: std::path::PathBuf = cargo_manifest.into();
         path.push("Cargo.toml");
-        Some(diagnostics::SourceFileInner::from_path_only(path))
+        diagnostics::SourceFileInner::from_path_only(path)
     } else {
-        None
+        diagnostics::SourceFileInner::from_path_only(Default::default())
     };
-
-    let syntax_node = parser::SyntaxNodeWithSourceFile { node: syntax_node, source_file };
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = parser::parse_tokens(tokens.clone(), source_file.into(), &mut diag);
+    if diag.has_error() {
+        return diag.report_macro_diagnostic(&tokens);
+    }
 
     //println!("{:#?}", syntax_node);
     let mut compiler_config =

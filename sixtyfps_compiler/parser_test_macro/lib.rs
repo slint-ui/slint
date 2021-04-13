@@ -59,7 +59,10 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
         None => String::new(),
         Some(kind) => {
             format!(
-                "syntax_nodes::{}::verify(rowan::SyntaxNode::new_root(p.builder.finish()));",
+                "syntax_nodes::{}::verify(SyntaxNodeWithSourceFile {{
+                    node: rowan::SyntaxNode::new_root(p.builder.finish()),
+                    source_file: Default::default(),
+                }});",
                 kind
             )
         }
