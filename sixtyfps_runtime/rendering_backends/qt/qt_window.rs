@@ -1075,12 +1075,6 @@ impl sixtyfps_corelib::graphics::FontMetrics for QFont {
             return QStringView(string).left(cur).toUtf8().size();
         }}
     }
-
-    fn height(&self) -> f32 {
-        cpp! { unsafe [self as "const QFont*"] -> f32 as "float"{
-            return QFontMetricsF(*self).height();
-        }}
-    }
 }
 
 thread_local! {

@@ -135,10 +135,6 @@ pub trait FontMetrics {
     /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
     /// position.
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize;
-    /// Returns the height of the font. This is typically the sum of the ascent and the descent, resulting
-    /// in the height that can fit the talltest glyphs of the font. Note that it is possible though that
-    /// the font may include glyphs that exceed this.
-    fn height(&self) -> f32;
 }
 
 #[cfg(feature = "ffi")]

@@ -1420,18 +1420,6 @@ impl FontMetrics for GLFontMetrics {
         }
         return text.len();
     }
-
-    fn height(&self) -> f32 {
-        self.shared_data
-            .canvas
-            .borrow_mut()
-            .measure_font(self.font().init_paint(
-                self.request.letter_spacing.unwrap_or_default(),
-                femtovg::Paint::default(),
-            ))
-            .unwrap()
-            .height()
-    }
 }
 
 impl GLFontMetrics {
