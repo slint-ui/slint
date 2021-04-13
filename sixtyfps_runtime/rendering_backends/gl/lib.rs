@@ -470,13 +470,15 @@ impl GLRenderer {
         _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         font_request_fn: &dyn Fn() -> FontRequest,
         scale_factor: Pin<&Property<f32>>,
-        _reference_text: Pin<&Property<SharedString>>,
+        reference_text: Pin<&Property<SharedString>>,
     ) -> Box<dyn FontMetrics> {
-        Box::new(GLFontMetrics {
-            request: font_request_fn(),
-            scale_factor: scale_factor.get(),
-            shared_data: self.shared_data.clone(),
-        })
+        let font = self.shared_data.loaded_fonts.borrow_mut().font(
+            &self.shared_data.canvas,
+            font_request_fn(),
+            scale_factor.get(),
+            &reference_text.get(),
+        );
+        Box::new(GLFontMetrics { font, letter_spacing: font_request_fn().letter_spacing })
     }
 
     /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted
@@ -1413,19 +1415,17 @@ impl GLFont {
 }
 
 struct GLFontMetrics {
-    request: FontRequest,
-    scale_factor: f32,
-    shared_data: Rc<GLRendererData>,
+    font: GLFont,
+    letter_spacing: Option<f32>,
 }
 
 impl FontMetrics for GLFontMetrics {
     fn text_size(&self, text: &str) -> Size {
-        self.font(text).text_size(self.request.letter_spacing.unwrap_or_default(), text, None)
+        self.font.text_size(self.letter_spacing.unwrap_or_default(), text, None)
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
-        let metrics =
-            self.font(text).measure(self.request.letter_spacing.unwrap_or_default(), text);
+        let metrics = self.font.measure(self.letter_spacing.unwrap_or_default(), text);
         let mut current_x = 0.;
         for glyph in metrics.glyphs {
             if current_x + glyph.advance_x / 2. >= x {
@@ -1434,17 +1434,6 @@ impl FontMetrics for GLFontMetrics {
             current_x += glyph.advance_x;
         }
         return text.len();
-    }
-}
-
-impl GLFontMetrics {
-    fn font(&self, reference_text: &str) -> GLFont {
-        self.shared_data.loaded_fonts.borrow_mut().font(
-            &self.shared_data.canvas,
-            self.request.clone(),
-            self.scale_factor,
-            reference_text,
-        )
     }
 }
 
