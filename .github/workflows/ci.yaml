@@ -559,7 +559,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: run
-          args: --bin syntax_updater -- --from 0.0.5 -i tests/cases/**/*.60 examples/**.60
+          args: --bin syntax_updater -- --from 0.0.5 -i `find tests/cases -name \*.60`  `find examples -name \*.60`
     - name: Show the diff
       run: git diff
     - name: test
