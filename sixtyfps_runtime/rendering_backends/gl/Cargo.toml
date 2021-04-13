@@ -50,6 +50,7 @@ winit = { version = "0.24", default-features = false }
 glutin = { version = "0.26", default-features = false }
 glow = { version = "0.8.0", default-features = false }
 font-kit = { version = "0.10", features = ["loader-freetype"] }
+fontdb = { version = "0.5.1", features = ["fs"] }
 
 # Require font-config from the system. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
 # with distros at times.

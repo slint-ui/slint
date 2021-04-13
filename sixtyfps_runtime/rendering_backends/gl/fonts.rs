@@ -31,13 +31,32 @@ pub fn register_font_from_memory(data: &[u8]) -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
-    // Should use FontDb::load_font_file but that requires the `fs` feature, for which I can't figure
-    // out how to exclude it from the wasm build. It's inclusion implies mmap, which doesn't compile
-    // with wasm.
-    let data = std::fs::read(path)?;
-    APPLICATION_FONTS.with(|fontdb| fontdb.borrow_mut().load_font_data(data));
-    Ok(())
+    let requested_path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+    APPLICATION_FONTS.with(|fontdb| {
+        for face_info in fontdb.borrow().faces() {
+            match &*face_info.source {
+                fontdb::Source::Binary(_) => {}
+                fontdb::Source::File(loaded_path) => {
+                    if *loaded_path == requested_path {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
+        fontdb.borrow_mut().load_font_file(requested_path).map_err(|e| e.into())
+    })
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn register_font_from_path(_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    return Err(std::io::Error::new(
+        std::io::ErrorKind::Other,
+        "Registering fonts from paths is not supported in WASM builds",
+    )
+    .into());
 }
 
 pub(crate) fn try_load_app_font(
