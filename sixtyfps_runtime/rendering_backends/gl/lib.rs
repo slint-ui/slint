@@ -31,6 +31,7 @@ use sixtyfps_corelib::items::{
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::SharedString;
+use sixtyfps_corelib::SharedVector;
 
 mod graphics_window;
 use graphics_window::*;
@@ -68,7 +69,7 @@ impl ImageCacheKey {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 enum ItemGraphicsCacheEntry {
     Image(Rc<CachedImage>),
     ScalableImage {
@@ -83,6 +84,8 @@ enum ItemGraphicsCacheEntry {
         original_image: Rc<CachedImage>,
         colorized_image: Rc<CachedImage>,
     },
+    // The font selection is expensive because it is also based on the concrete rendered text, so this is cached here to speed up re-paints
+    Font(GLFont),
 }
 
 impl ItemGraphicsCacheEntry {
@@ -91,11 +94,17 @@ impl ItemGraphicsCacheEntry {
             ItemGraphicsCacheEntry::Image(image) => image,
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
             ItemGraphicsCacheEntry::ScalableImage { scaled_image, .. } => scaled_image,
-            //_ => panic!("internal error. image requested for non-image gpu data"),
+            _ => panic!("internal error. image requested for non-image gpu data"),
         }
     }
     fn is_colorized_image(&self) -> bool {
         matches!(self, ItemGraphicsCacheEntry::ColorizedImage { .. })
+    }
+    fn as_font(&self) -> &GLFont {
+        match self {
+            ItemGraphicsCacheEntry::Font(font) => font,
+            _ => panic!("internal error. font requested for non-font gpu data"),
+        }
     }
 }
 
@@ -144,7 +153,7 @@ impl FontCache {
                     .iter()
                     .map(|fallback_request| self.load_single_font(canvas, &fallback_request)),
             )
-            .collect::<Vec<_>>();
+            .collect::<SharedVector<_>>();
 
         GLFont { fonts, canvas: canvas.clone(), pixel_size: request.pixel_size.unwrap() }
     }
@@ -243,9 +252,9 @@ impl GLRendererData {
         })
     }
 
-    // Load the image from the specified load factory fn, unless it was cached in the item's rendering
-    // cache.
-    fn load_cached_item_image_from_function(
+    // Load the item cache entry from the specified load factory fn, unless it was cached in the
+    // item's rendering cache.
+    fn load_item_graphics_cache_with_function(
         &self,
         item_cache: &CachedRenderingData,
         load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
@@ -467,17 +476,24 @@ impl GLRenderer {
     /// closely as possible.
     fn font_metrics(
         &mut self,
-        _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         font_request_fn: &dyn Fn() -> FontRequest,
         scale_factor: Pin<&Property<f32>>,
         reference_text: Pin<&Property<SharedString>>,
     ) -> Box<dyn FontMetrics> {
-        let font = self.shared_data.loaded_fonts.borrow_mut().font(
-            &self.shared_data.canvas,
-            font_request_fn(),
-            scale_factor.get(),
-            &reference_text.get(),
-        );
+        let font = self
+            .shared_data
+            .load_item_graphics_cache_with_function(item_graphics_cache, || {
+                Some(ItemGraphicsCacheEntry::Font(self.shared_data.loaded_fonts.borrow_mut().font(
+                    &self.shared_data.canvas,
+                    font_request_fn(),
+                    scale_factor.get(),
+                    &reference_text.get(),
+                )))
+            })
+            .unwrap()
+            .as_font()
+            .clone();
         Box::new(GLFontMetrics { font, letter_spacing: font_request_fn().letter_spacing })
     }
 
@@ -618,12 +634,23 @@ impl ItemRenderer for GLItemRenderer {
         let string = string.as_str();
         let vertical_alignment = text.vertical_alignment();
         let horizontal_alignment = text.horizontal_alignment();
-        let font = self.shared_data.loaded_fonts.borrow_mut().font(
-            &self.shared_data.canvas,
-            text.unresolved_font_request().merge(&self.default_font_properties.as_ref().get()),
-            self.scale_factor,
-            &text.text(),
-        );
+        let font = self
+            .shared_data
+            .load_item_graphics_cache_with_function(&text.cached_rendering_data, || {
+                Some(ItemGraphicsCacheEntry::Font(
+                    self.shared_data.loaded_fonts.borrow_mut().font(
+                        &self.shared_data.canvas,
+                        text.unresolved_font_request()
+                            .merge(&self.default_font_properties.as_ref().get()),
+                        self.scale_factor,
+                        &text.text(),
+                    ),
+                ))
+            })
+            .unwrap()
+            .as_font()
+            .clone();
+
         let wrap = text.wrap() == TextWrap::word_wrap;
         let text_size = font.text_size(
             text.letter_spacing(),
@@ -708,14 +735,23 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let font = self.shared_data.loaded_fonts.borrow_mut().font(
-            &self.shared_data.canvas,
-            text_input
-                .unresolved_font_request()
-                .merge(&self.default_font_properties.as_ref().get()),
-            self.scale_factor,
-            &text_input.text(),
-        );
+        let font = self
+            .shared_data
+            .load_item_graphics_cache_with_function(&text_input.cached_rendering_data, || {
+                Some(ItemGraphicsCacheEntry::Font(
+                    self.shared_data.loaded_fonts.borrow_mut().font(
+                        &self.shared_data.canvas,
+                        text_input
+                            .unresolved_font_request()
+                            .merge(&self.default_font_properties.as_ref().get()),
+                        self.scale_factor,
+                        &text_input.text(),
+                    ),
+                ))
+            })
+            .unwrap()
+            .as_font()
+            .clone();
 
         let paint = match self
             .brush_to_paint(text_input.color(), &mut rect_to_path(item_rect(text_input)))
@@ -1027,6 +1063,7 @@ impl ItemRenderer for GLItemRenderer {
             Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(&self),
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
             Some(ItemGraphicsCacheEntry::ScalableImage { .. }) => unreachable!(),
+            Some(ItemGraphicsCacheEntry::Font(_)) => unreachable!(),
             None => return,
         };
         let mut canvas = self.shared_data.canvas.borrow_mut();
@@ -1197,7 +1234,7 @@ impl GLItemRenderer {
 
         let cached_image = loop {
             let image_cache_entry =
-                self.shared_data.load_cached_item_image_from_function(item_cache, || {
+                self.shared_data.load_item_graphics_cache_with_function(item_cache, || {
                     self.shared_data
                         .load_image_resource(source_property.get())
                         .and_then(|cached_image| {
@@ -1348,8 +1385,9 @@ struct FontCacheKey {
     weight: i32,
 }
 
+#[derive(Clone)]
 struct GLFont {
-    fonts: Vec<femtovg::FontId>,
+    fonts: SharedVector<femtovg::FontId>,
     pixel_size: f32,
     canvas: CanvasRc,
 }
