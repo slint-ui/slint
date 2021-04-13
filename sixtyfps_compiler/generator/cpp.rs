@@ -1439,6 +1439,12 @@ fn compile_expression(
             BuiltinFunction::Rgb => {
                 "[](int r, int g, int b, float a) {{ return sixtyfps::Color::from_argb_uint8(std::clamp(a * 255., 0., 255.), std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255)); }}".into()
             }
+            BuiltinFunction::RegisterCustomFontByPath => {                
+                panic!("internal error: RegisterCustomFontByPath can only be evaluated from within a FunctionCall expression")
+            }
+            BuiltinFunction::RegisterCustomFontByMemory => {
+                panic!("embedding fonts is not supported in C++ yet")
+            }
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
@@ -1572,6 +1578,16 @@ fn compile_expression(
                     )
                 } else {
                     panic!("internal error: argument to ImplicitItemSize must be an element")
+                }
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to RegisterCustomFontByPath call");
+                }
+                if let Expression::StringLiteral(font_path) = &arguments[0] {
+                    format!("sixtyfps::register_font_from_path(\"{}\");", font_path)
+                } else {
+                    panic!("internal error: argument to RegisterCustomFontByPath must be a string literal")
                 }
             }
             _ => {

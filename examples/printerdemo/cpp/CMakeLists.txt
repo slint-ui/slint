@@ -15,9 +15,6 @@ if (NOT TARGET SixtyFPS::SixtyFPS)
 endif()
 
 add_executable(printerdemo main.cpp)
-target_compile_definitions(printerdemo PRIVATE
-   FONTS_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/../ui/fonts\"
-)
 if (MSVC)
     target_compile_options(printerdemo PRIVATE /bigobj)
 endif()

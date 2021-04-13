@@ -45,6 +45,7 @@ mod passes {
     pub mod apply_default_properties_from_style;
     pub mod check_expressions;
     pub mod clip;
+    pub mod collect_custom_fonts;
     pub mod collect_globals;
     pub mod collect_structs;
     pub mod compile_paths;
@@ -192,6 +193,11 @@ pub async fn run_passes(
     passes::collect_globals::collect_globals(&doc.root_component, diag);
     passes::collect_structs::collect_structs(&doc.root_component, diag);
     passes::generate_item_indices::generate_item_indices(&doc.root_component);
+    passes::collect_custom_fonts::collect_custom_fonts(
+        &doc.root_component,
+        std::iter::once(&*doc).chain(type_loader.all_documents()),
+        compiler_config.embed_resources,
+    );
 }
 
 mod library {

@@ -1123,6 +1123,12 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     sixtyfps::re_exports::Color::from_argb_u8(a, r, g, b)
                 }))
             }
+            BuiltinFunction::RegisterCustomFontByPath => {
+                panic!("internal error: BuiltinFunction::RegisterCustomFontByPath can only be compiled as part of a FunctionCall expression")
+            }
+            BuiltinFunction::RegisterCustomFontByMemory => {
+                panic!("internal error: BuiltinFunction::RegisterCustomFontByMemory can only be compiled as part of a FunctionCall expression")
+            }
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction{ .. } => panic!("member function expressions must not appear in the code generator anymore"),
@@ -1230,6 +1236,28 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         )
                     } else {
                         panic!("internal error: argument to ImplicitItemSize must be an element")
+                    }
+                }
+                Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath) => {
+                    if arguments.len() != 1 {
+                        panic!("internal error: incorrect argument count to RegisterCustomFontByPath call");
+                    }
+                    if let Expression::StringLiteral(path) = &arguments[0] {
+                        quote!(sixtyfps::register_font_from_path(&std::path::PathBuf::from(#path)))
+                    } else {
+                        panic!("internal error: argument to RegisterCustomFontByPath must be a string literal")
+                    }
+                }
+                Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory) => {
+                    if arguments.len() != 1 {
+                        panic!("internal error: incorrect argument count to RegisterCustomFontByMemory call");
+                    }
+                    if let Expression::NumberLiteral(resource_id, _) = &arguments[0] {
+                        let resource_id: usize = *resource_id as _;
+                        let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
+                        quote!(sixtyfps::register_font_from_memory(#symbol.into()))
+                    } else {
+                        panic!("internal error: argument to RegisterCustomFontByMemory must be a number")
                     }
                 }
                 _ => {

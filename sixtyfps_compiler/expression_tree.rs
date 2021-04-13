@@ -44,6 +44,8 @@ pub enum BuiltinFunction {
     ColorDarker,
     Rgb,
     ImplicitItemSize,
+    RegisterCustomFontByPath,
+    RegisterCustomFontByMemory,
 }
 
 #[derive(Debug, Clone)]
@@ -119,6 +121,12 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
             },
+            BuiltinFunction::RegisterCustomFontByPath => {
+                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
+            }
+            BuiltinFunction::RegisterCustomFontByMemory => {
+                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Int32] }
+            }
         }
     }
 }

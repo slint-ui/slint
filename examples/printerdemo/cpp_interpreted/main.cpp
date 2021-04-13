@@ -35,13 +35,6 @@ private:
 
 int main()
 {
-    if (auto error = sixtyfps::register_font_from_path(FONTS_DIR "/NotoSans-Regular.ttf")) {
-        fprintf(stderr, "Error registering Noto Sans Regular font: %s\n", error->data());
-    }
-    if (auto error = sixtyfps::register_font_from_path(FONTS_DIR "/NotoSans-Bold.ttf")) {
-        fprintf(stderr, "Error registering Noto Sans Bold font: %s\n", error->data());
-    }
-
     sixtyfps::interpreter::ComponentCompiler compiler;
     auto definition = compiler.build_from_path(SOURCE_DIR "/../ui/printerdemo.60");
 
