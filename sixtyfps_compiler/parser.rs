@@ -30,7 +30,7 @@ mod r#type;
 /// Each parser submodule would simply do `use super::prelude::*` to import typically used items
 mod prelude {
     #[cfg(test)]
-    pub use super::{syntax_nodes, SyntaxNode, SyntaxNodeVerify};
+    pub use super::{syntax_nodes, SyntaxNodeVerify, SyntaxNodeWithSourceFile};
     pub use super::{DefaultParser, Parser, SyntaxKind};
     #[cfg(test)]
     pub use parser_test_macro::parser_test;
@@ -619,8 +619,8 @@ impl rowan::Language for Language {
     }
 }
 
-pub type SyntaxNode = rowan::SyntaxNode<Language>;
-pub type SyntaxToken = rowan::SyntaxToken<Language>;
+type SyntaxNode = rowan::SyntaxNode<Language>;
+type SyntaxToken = rowan::SyntaxToken<Language>;
 
 /// Helper functions to easily get the children of a given kind.
 /// This traits is only supposed to be implemented on SyntaxNope
@@ -644,8 +644,9 @@ impl SyntaxNodeEx for SyntaxNode {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, derive_more::Deref)]
 pub struct SyntaxNodeWithSourceFile {
+    #[deref]
     pub node: SyntaxNode,
     pub source_file: Option<SourceFile>,
 }
@@ -703,9 +704,13 @@ impl SyntaxNodeWithSourceFile {
     }
     pub fn children_with_tokens(&self) -> impl Iterator<Item = NodeOrTokenWithSourceFile> {
         let source_file = self.source_file.clone();
-        self.node.children_with_tokens().map(move |token| NodeOrTokenWithSourceFile {
-            node_or_token: token,
-            source_file: source_file.clone(),
+        self.node.children_with_tokens().map(move |token| match token {
+            rowan::NodeOrToken::Node(node) => {
+                SyntaxNodeWithSourceFile { node, source_file: source_file.clone() }.into()
+            }
+            rowan::NodeOrToken::Token(token) => {
+                SyntaxTokenWithSourceFile { token, source_file: source_file.clone() }.into()
+            }
         })
     }
     pub fn text(&self) -> rowan::SyntaxText {
@@ -718,48 +723,46 @@ impl SyntaxNodeWithSourceFile {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct NodeOrTokenWithSourceFile {
-    node_or_token: rowan::NodeOrToken<SyntaxNode, SyntaxToken>,
-    source_file: Option<SourceFile>,
-}
-
-impl From<SyntaxNodeWithSourceFile> for NodeOrTokenWithSourceFile {
-    fn from(n: SyntaxNodeWithSourceFile) -> Self {
-        Self { node_or_token: n.node.into(), source_file: n.source_file }
-    }
-}
-
-impl From<SyntaxTokenWithSourceFile> for NodeOrTokenWithSourceFile {
-    fn from(n: SyntaxTokenWithSourceFile) -> Self {
-        Self { node_or_token: n.token.into(), source_file: n.source_file }
-    }
+#[derive(Debug, Clone, derive_more::From)]
+pub enum NodeOrTokenWithSourceFile {
+    Node(SyntaxNodeWithSourceFile),
+    Token(SyntaxTokenWithSourceFile),
 }
 
 impl NodeOrTokenWithSourceFile {
     pub fn kind(&self) -> SyntaxKind {
-        self.node_or_token.kind()
+        match self {
+            NodeOrTokenWithSourceFile::Node(n) => n.kind(),
+            NodeOrTokenWithSourceFile::Token(t) => t.kind(),
+        }
     }
 
-    pub fn as_node(&self) -> Option<SyntaxNodeWithSourceFile> {
-        self.node_or_token.as_node().map(|node| SyntaxNodeWithSourceFile {
-            node: node.clone(),
-            source_file: self.source_file.clone(),
-        })
+    pub fn as_node(&self) -> Option<&SyntaxNodeWithSourceFile> {
+        match self {
+            NodeOrTokenWithSourceFile::Node(n) => Some(&n),
+            NodeOrTokenWithSourceFile::Token(_) => None,
+        }
     }
 
-    pub fn as_token(&self) -> Option<SyntaxTokenWithSourceFile> {
-        self.node_or_token.as_token().map(|token| SyntaxTokenWithSourceFile {
-            token: token.clone(),
-            source_file: self.source_file.clone(),
-        })
+    pub fn as_token(&self) -> Option<&SyntaxTokenWithSourceFile> {
+        match self {
+            NodeOrTokenWithSourceFile::Node(_) => None,
+            NodeOrTokenWithSourceFile::Token(t) => Some(&t),
+        }
     }
 
     pub fn into_token(self) -> Option<SyntaxTokenWithSourceFile> {
-        let source_file = self.source_file.clone();
-        self.node_or_token
-            .into_token()
-            .map(move |token| SyntaxTokenWithSourceFile { token, source_file })
+        match self {
+            NodeOrTokenWithSourceFile::Token(t) => Some(t),
+            _ => None,
+        }
+    }
+
+    pub fn into_node(self) -> Option<SyntaxNodeWithSourceFile> {
+        match self {
+            NodeOrTokenWithSourceFile::Node(n) => Some(n),
+            _ => None,
+        }
     }
 }
 
@@ -795,11 +798,17 @@ impl Spanned for SyntaxTokenWithSourceFile {
 
 impl Spanned for NodeOrTokenWithSourceFile {
     fn span(&self) -> crate::diagnostics::Span {
-        crate::diagnostics::Span::new(self.node_or_token.text_range().start().into())
+        match self {
+            NodeOrTokenWithSourceFile::Node(n) => n.span(),
+            NodeOrTokenWithSourceFile::Token(t) => t.span(),
+        }
     }
 
     fn source_file(&self) -> Option<&SourceFile> {
-        self.source_file.as_ref()
+        match self {
+            NodeOrTokenWithSourceFile::Node(n) => n.source_file(),
+            NodeOrTokenWithSourceFile::Token(t) => t.source_file(),
+        }
     }
 }
 

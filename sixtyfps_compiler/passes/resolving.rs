@@ -402,7 +402,9 @@ impl Expression {
             .children_with_tokens()
             .filter(|n| matches!(n.kind(), SyntaxKind::Comma | SyntaxKind::Expression));
         let angle_expr = match subs.next() {
-            Some(e) if e.kind() == SyntaxKind::Expression => e,
+            Some(e) if e.kind() == SyntaxKind::Expression => {
+                syntax_nodes::Expression(e.into_node().unwrap().into())
+            }
             _ => {
                 ctx.diag.push_error("Expected angle expression".into(), &node);
                 return Expression::Invalid;
@@ -413,10 +415,12 @@ impl Expression {
                 .push_error("Angle expression must be an angle followed by a comma".into(), &node);
             return Expression::Invalid;
         }
-        let angle = Box::new(
-            Expression::from_expression_node(angle_expr.as_node().unwrap().into(), ctx)
-                .maybe_convert_to(Type::Angle, &angle_expr, &mut ctx.diag),
-        );
+        let angle =
+            Box::new(Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
+                Type::Angle,
+                &angle_expr,
+                &mut ctx.diag,
+            ));
 
         let mut stops = vec![];
         enum Stop {
@@ -446,7 +450,8 @@ impl Expression {
                 // To faciliate color literal conversion, adjust the expected return type.
                 let e = {
                     let old_property_type = std::mem::replace(&mut ctx.property_type, Type::Color);
-                    let e = Expression::from_expression_node(n.as_node().unwrap().into(), ctx);
+                    let e =
+                        Expression::from_expression_node(n.as_node().unwrap().clone().into(), ctx);
                     ctx.property_type = old_property_type;
                     e
                 };

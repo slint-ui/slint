@@ -58,7 +58,10 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
     let verify = match kind {
         None => String::new(),
         Some(kind) => {
-            format!("syntax_nodes::{}::verify(SyntaxNode::new_root(p.builder.finish()));", kind)
+            format!(
+                "syntax_nodes::{}::verify(rowan::SyntaxNode::new_root(p.builder.finish()));",
+                kind
+            )
         }
     };
 

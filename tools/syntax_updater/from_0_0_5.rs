@@ -11,22 +11,17 @@ LICENSE END */
 use std::io::Write;
 
 use sixtyfps_compilerlib::object_tree;
-use sixtyfps_compilerlib::parser::{
-    syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeWithSourceFile,
-};
+use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 
 /// Replace the 'color' type with 'brush', and the 'resource' type with 'image'
 pub(crate) fn fold_node(
-    node: &SyntaxNode,
+    node: &SyntaxNodeWithSourceFile,
     file: &mut impl Write,
     _state: &mut crate::State,
 ) -> std::io::Result<bool> {
     match node.kind() {
         SyntaxKind::Type => {
-            let type_node = syntax_nodes::Type(SyntaxNodeWithSourceFile {
-                node: node.clone(),
-                source_file: None,
-            });
+            let type_node = syntax_nodes::Type(node.clone());
             if let Some(qn) = type_node.QualifiedName() {
                 match object_tree::QualifiedTypeName::from_node(qn).to_string().as_str() {
                     "color" => {

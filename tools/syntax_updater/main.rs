@@ -23,7 +23,7 @@ LICENSE END */
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::object_tree;
 use sixtyfps_compilerlib::parser::{
-    syntax_nodes, SyntaxKind, SyntaxNode, SyntaxNodeEx, SyntaxNodeWithSourceFile,
+    syntax_nodes, NodeOrTokenWithSourceFile, SyntaxKind, SyntaxNodeWithSourceFile,
 };
 use std::io::Write;
 use structopt::StructOpt;
@@ -111,8 +111,8 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
 
         let mut diag = BuildDiagnostics::default();
         let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
-        let len = syntax_node.node.text_range().end().into();
-        visit_node(syntax_node.node, &mut file, &mut State::default())?;
+        let len = syntax_node.text_range().end().into();
+        visit_node(syntax_node, &mut file, &mut State::default())?;
         if diag.has_error() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
@@ -140,8 +140,8 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
 
         let mut diag = BuildDiagnostics::default();
         let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
-        let len = syntax_node.node.text_range().end().into();
-        visit_node(syntax_node.node, &mut file, &mut State::default())?;
+        let len = syntax_node.text_range().end().into();
+        visit_node(syntax_node, &mut file, &mut State::default())?;
         if diag.has_error() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
@@ -164,7 +164,7 @@ fn process_file(
     let mut diag = BuildDiagnostics::default();
     let syntax_node = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
-    visit_node(syntax_node.node, &mut file, &mut State::default())?;
+    visit_node(syntax_node, &mut file, &mut State::default())?;
     if diag.has_error() {
         file.write_all(&source.as_bytes()[len..])?;
         diag.print();
@@ -180,7 +180,11 @@ struct State {
     property_name: Option<String>,
 }
 
-fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<()> {
+fn visit_node(
+    node: SyntaxNodeWithSourceFile,
+    file: &mut impl Write,
+    state: &mut State,
+) -> std::io::Result<()> {
     let mut state = state.clone();
     match node.kind() {
         SyntaxKind::PropertyDeclaration => {
@@ -191,10 +195,7 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std
             state.property_name = node.child_text(SyntaxKind::Identifier)
         }
         SyntaxKind::Element => {
-            let element_node = syntax_nodes::Element(SyntaxNodeWithSourceFile {
-                node: node.clone(),
-                source_file: None,
-            });
+            let element_node = syntax_nodes::Element(node.clone());
             state.element_name = element_node
                 .QualifiedName()
                 .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string());
@@ -207,20 +208,24 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std
     }
     for n in node.children_with_tokens() {
         match n {
-            rowan::NodeOrToken::Node(n) => visit_node(n, file, &mut state)?,
-            rowan::NodeOrToken::Token(t) => fold_token(t, file, &mut state)?,
+            NodeOrTokenWithSourceFile::Node(n) => visit_node(n, file, &mut state)?,
+            NodeOrTokenWithSourceFile::Token(t) => fold_token(t, file, &mut state)?,
         };
     }
     Ok(())
 }
 
 /// return false if one need to continue folding the children
-fn fold_node(node: &SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<bool> {
+fn fold_node(
+    node: &SyntaxNodeWithSourceFile,
+    file: &mut impl Write,
+    state: &mut State,
+) -> std::io::Result<bool> {
     from_0_0_5::fold_node(node, file, state)
 }
 
 fn fold_token(
-    node: sixtyfps_compilerlib::parser::SyntaxToken,
+    node: sixtyfps_compilerlib::parser::SyntaxTokenWithSourceFile,
     file: &mut impl Write,
     #[allow(unused)] state: &mut State,
 ) -> std::io::Result<()> {

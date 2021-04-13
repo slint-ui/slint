@@ -20,7 +20,7 @@ use crate::expression_tree::Expression;
 use crate::langtype::DefaultSizeBinding;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
 use crate::object_tree::{self, *};
-use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
+use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNodeWithSourceFile};
 use crate::typeregister::TypeRegister;
 
 /// Parse the contents of builtins.60 and fill the builtin type registery
@@ -45,7 +45,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
         let mut ty = object_tree::type_struct_from_node(s.ObjectType(), &mut diag, register);
         if let Type::Struct { name, .. } = &mut ty {
             *name = Some(
-                parse_annotation("name", &s.ObjectType().node)
+                parse_annotation("name", &s.ObjectType())
                     .map_or_else(|| external_name.clone(), |s| s.unwrap())
                     .to_owned(),
             );
@@ -128,9 +128,8 @@ pub fn load_builtins(register: &mut TypeRegister) {
                 }
             })
             .collect();
-        n.cpp_type = parse_annotation("cpp_type", &e.node).map(|x| x.unwrap());
-        n.rust_type_constructor =
-            parse_annotation("rust_type_constructor", &e.node).map(|x| x.unwrap());
+        n.cpp_type = parse_annotation("cpp_type", &e).map(|x| x.unwrap());
+        n.rust_type_constructor = parse_annotation("rust_type_constructor", &e).map(|x| x.unwrap());
         let global = if let Some(base) = e.QualifiedName() {
             let base = QualifiedTypeName::from_node(base).to_string();
             if base != "_" {
@@ -150,10 +149,10 @@ pub fn load_builtins(register: &mut TypeRegister) {
             Some((name, compiled(e, register, ty)))
         }));
         builtin.disallow_global_types_as_child_elements =
-            parse_annotation("disallow_global_types_as_child_elements", &e.node).is_some();
-        builtin.is_non_item_type = parse_annotation("is_non_item_type", &e.node).is_some();
-        builtin.accepts_focus = parse_annotation("accepts_focus", &e.node).is_some();
-        builtin.default_size_binding = parse_annotation("default_size_binding", &e.node)
+            parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
+        builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();
+        builtin.accepts_focus = parse_annotation("accepts_focus", &e).is_some();
+        builtin.default_size_binding = parse_annotation("default_size_binding", &e)
             .map(|size_type| match size_type.as_ref().map(|s| s.as_str()) {
                 Some("expands_to_parent_geometry") => DefaultSizeBinding::ExpandsToParentGeometry,
                 Some("implicit_size") => DefaultSizeBinding::ImplicitSize,
@@ -226,7 +225,7 @@ fn compiled(
 /// Find out if there are comments that starts with `//-key` and returns `None`
 /// if no annotation with this key is found, or `Some(None)` if it is found without a value
 /// or `Some(Some(value))` if there is a `//-key:value`  match
-fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<String>> {
+fn parse_annotation(key: &str, node: &SyntaxNodeWithSourceFile) -> Option<Option<String>> {
     for x in node.children_with_tokens() {
         if x.kind() == SyntaxKind::Comment {
             if let Some(comment) = x
