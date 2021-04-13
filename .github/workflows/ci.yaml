@@ -557,7 +557,7 @@ jobs:
     - name: Show the diff
       run: git diff
     - name: test
-          uses: actions-rs/cargo@v1
+      uses: actions-rs/cargo@v1
       with:
           command: run
           args: --bin test-driver-interpreter -- --skip example_printerdemo_old
