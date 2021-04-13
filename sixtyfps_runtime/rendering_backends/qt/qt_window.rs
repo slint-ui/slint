@@ -42,6 +42,7 @@ cpp! {{
     #include <QtCore/QPointer>
     #include <QtCore/QBuffer>
     #include <QtCore/QEvent>
+    #include <QtCore/QFileInfo>
     #include <memory>
     void ensure_initialized();
 

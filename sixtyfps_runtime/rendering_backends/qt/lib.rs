@@ -165,7 +165,15 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             let encoded_path: qttypes::QByteArray = _path.to_string_lossy().as_bytes().into();
             cpp! {unsafe [encoded_path as "QByteArray"] {
                 ensure_initialized();
-                QFontDatabase::addApplicationFont(QFile::decodeName(encoded_path));
+
+                QString requested_path = QFileInfo(QFile::decodeName(encoded_path)).canonicalFilePath();
+                static QSet<QString> loaded_app_fonts;
+                // QFontDatabase::addApplicationFont unconditionally reads the provided file from disk,
+                // while we want to do this only once to avoid things like the live-review going crazy.
+                if (!loaded_app_fonts.contains(requested_path)) {
+                    loaded_app_fonts.insert(requested_path);
+                    QFontDatabase::addApplicationFont(requested_path);
+                }
             } }
         };
         Ok(())
