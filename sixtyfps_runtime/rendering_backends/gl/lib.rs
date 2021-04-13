@@ -716,9 +716,7 @@ impl ItemRenderer for GLItemRenderer {
             width,
             height,
             sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
-            text_input
-                .unresolved_font_request()
-                .merge(&self.default_font_properties.as_ref().get()),
+            &font,
             paint,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
@@ -768,9 +766,7 @@ impl ItemRenderer for GLItemRenderer {
                 text_input.width(),
                 text_input.height(),
                 sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
-                text_input
-                    .unresolved_font_request()
-                    .merge(&self.default_font_properties.as_ref().get()),
+                &font,
                 femtovg::Paint::color(text_input.selection_foreground_color().into()),
                 text_input.horizontal_alignment(),
                 text_input.vertical_alignment(),
@@ -1074,19 +1070,12 @@ impl GLItemRenderer {
         max_width: f32,
         max_height: f32,
         text: Pin<&Property<SharedString>>,
-        font_request: FontRequest,
+        font: &GLFont,
         paint: femtovg::Paint,
         horizontal_alignment: TextHorizontalAlignment,
         vertical_alignment: TextVerticalAlignment,
         letter_spacing: f32,
     ) -> femtovg::TextMetrics {
-        let font = self.shared_data.loaded_fonts.borrow_mut().font(
-            &self.shared_data.canvas,
-            font_request,
-            self.scale_factor,
-            &text.get(),
-        );
-
         let paint = font.init_paint(letter_spacing, paint);
 
         let mut canvas = self.shared_data.canvas.borrow_mut();
