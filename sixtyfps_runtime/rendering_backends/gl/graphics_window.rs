@@ -21,6 +21,7 @@ use corelib::items::ItemRef;
 use corelib::slice::Slice;
 use corelib::window::{ComponentWindow, PlatformWindow};
 use corelib::Property;
+use corelib::SharedString;
 use sixtyfps_corelib as corelib;
 
 /// FIXME! this is some remains from a time where the GLRenderer was called the backend
@@ -466,17 +467,25 @@ impl PlatformWindow for GraphicsWindow {
 
     fn font_metrics(
         &self,
+        item_graphics_cache: &corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> corelib::graphics::FontRequest,
+        reference_text: Pin<&Property<SharedString>>,
     ) -> Option<Box<dyn corelib::graphics::FontMetrics>> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => None,
-            GraphicsWindowBackendState::Mapped(window) => {
-                Some(window.backend.borrow_mut().font_metrics(
-                    unresolved_font_request_getter,
-                    &|| self.default_font_properties().as_ref().get(),
-                    self.scale_factor(),
-                ))
-            }
+            GraphicsWindowBackendState::Mapped(window) => Some(
+                window.backend.borrow_mut().font_metrics(
+                    item_graphics_cache,
+                    &|| {
+                        unresolved_font_request_getter()
+                            .merge(&self.default_font_properties().as_ref().get())
+                    },
+                    WindowProperties::FIELD_OFFSETS
+                        .scale_factor
+                        .apply_pin(self.properties.as_ref()),
+                    reference_text,
+                ),
+            ),
         }
     }
 

@@ -10,13 +10,16 @@ LICENSE END */
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::Point;
 use crate::input::{KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::PropertyTracker;
 use crate::slice::Slice;
 use crate::ImageReference;
+use crate::{
+    component::{ComponentRc, ComponentWeak},
+    SharedString,
+};
 use core::cell::Cell;
 use core::pin::Pin;
 use std::cell::RefCell;
@@ -59,7 +62,9 @@ pub trait PlatformWindow {
     /// With some backends this may return none unless the window is mapped.
     fn font_metrics(
         &self,
+        item_graphics_cache: &crate::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> crate::graphics::FontRequest,
+        reference_text: Pin<&crate::properties::Property<SharedString>>,
     ) -> Option<Box<dyn crate::graphics::FontMetrics>>;
 
     /// Return the size of the image referenced by the specified resource, multiplied by the window

@@ -467,13 +467,14 @@ impl GLRenderer {
     /// closely as possible.
     fn font_metrics(
         &mut self,
-        unresolved_request_fn: &dyn Fn() -> FontRequest,
-        default_font_props_fn: &dyn Fn() -> FontRequest,
-        scale_factor: f32,
+        _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        font_request_fn: &dyn Fn() -> FontRequest,
+        scale_factor: Pin<&Property<f32>>,
+        _reference_text: Pin<&Property<SharedString>>,
     ) -> Box<dyn FontMetrics> {
         Box::new(GLFontMetrics {
-            request: unresolved_request_fn().merge(&default_font_props_fn()),
-            scale_factor,
+            request: font_request_fn(),
+            scale_factor: scale_factor.get(),
             shared_data: self.shared_data.clone(),
         })
     }

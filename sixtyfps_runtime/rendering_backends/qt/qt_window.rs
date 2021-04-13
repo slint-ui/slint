@@ -1009,7 +1009,9 @@ impl PlatformWindow for QtWindow {
 
     fn font_metrics(
         &self,
+        _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> sixtyfps_corelib::graphics::FontRequest,
+        _reference_text: Pin<&Property<SharedString>>,
     ) -> Option<Box<dyn sixtyfps_corelib::graphics::FontMetrics>> {
         Some(Box::new(get_font(
             unresolved_font_request_getter().merge(&self.default_font_properties()),

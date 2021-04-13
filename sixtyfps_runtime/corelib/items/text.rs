@@ -128,8 +128,11 @@ impl Item for Text {
         if self.wrap() == TextWrap::word_wrap {
             // FIXME: one should limit to the size of the smaler word
             LayoutInfo::default()
-        } else if let Some(font_metrics) = window.0.font_metrics(&|| self.unresolved_font_request())
-        {
+        } else if let Some(font_metrics) = window.0.font_metrics(
+            &self.cached_rendering_data,
+            &|| self.unresolved_font_request(),
+            Self::FIELD_OFFSETS.text.apply_pin(self),
+        ) {
             let mut min_size = font_metrics.text_size(&self.text());
             match self.overflow() {
                 TextOverflow::elide => {
@@ -153,7 +156,11 @@ impl Item for Text {
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
         window
             .0
-            .font_metrics(&|| self.unresolved_font_request())
+            .font_metrics(
+                &self.cached_rendering_data,
+                &|| self.unresolved_font_request(),
+                Self::FIELD_OFFSETS.text.apply_pin(self),
+            )
             .map(|metrics| metrics.text_size(&self.text()))
             .unwrap_or_default()
     }
@@ -264,7 +271,11 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        if let Some(font_metrics) = window.0.font_metrics(&|| self.unresolved_font_request()) {
+        if let Some(font_metrics) = window.0.font_metrics(
+            &self.cached_rendering_data,
+            &|| self.unresolved_font_request(),
+            Self::FIELD_OFFSETS.text.apply_pin(self),
+        ) {
             let size = font_metrics.text_size("********************");
 
             LayoutInfo {
@@ -281,7 +292,11 @@ impl Item for TextInput {
     fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
         window
             .0
-            .font_metrics(&|| self.unresolved_font_request())
+            .font_metrics(
+                &self.cached_rendering_data,
+                &|| self.unresolved_font_request(),
+                Self::FIELD_OFFSETS.text.apply_pin(self),
+            )
             .map(|metrics| metrics.text_size(&self.text()))
             .unwrap_or_default()
     }
@@ -306,7 +321,11 @@ impl Item for TextInput {
         }
 
         let text = self.text();
-        let font_metrics = match window.0.font_metrics(&|| self.unresolved_font_request()) {
+        let font_metrics = match window.0.font_metrics(
+            &self.cached_rendering_data,
+            &|| self.unresolved_font_request(),
+            Self::FIELD_OFFSETS.text.apply_pin(self),
+        ) {
             Some(font) => font,
             None => return InputEventResult::EventIgnored,
         };
