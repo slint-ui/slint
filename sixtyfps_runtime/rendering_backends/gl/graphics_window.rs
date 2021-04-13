@@ -466,13 +466,14 @@ impl PlatformWindow for GraphicsWindow {
 
     fn font_metrics(
         &self,
-        unresolved_font_request: corelib::graphics::FontRequest,
+        unresolved_font_request_getter: &dyn Fn() -> corelib::graphics::FontRequest,
     ) -> Option<Box<dyn corelib::graphics::FontMetrics>> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => None,
             GraphicsWindowBackendState::Mapped(window) => {
                 Some(window.backend.borrow_mut().font_metrics(
-                    unresolved_font_request.merge(&self.default_font_properties().as_ref().get()),
+                    unresolved_font_request_getter,
+                    &|| self.default_font_properties().as_ref().get(),
                     self.scale_factor(),
                 ))
             }

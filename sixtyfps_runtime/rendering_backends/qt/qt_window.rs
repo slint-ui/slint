@@ -1009,9 +1009,11 @@ impl PlatformWindow for QtWindow {
 
     fn font_metrics(
         &self,
-        unresolved_font_request: FontRequest,
+        unresolved_font_request_getter: &dyn Fn() -> sixtyfps_corelib::graphics::FontRequest,
     ) -> Option<Box<dyn sixtyfps_corelib::graphics::FontMetrics>> {
-        Some(Box::new(get_font(unresolved_font_request.merge(&self.default_font_properties()))))
+        Some(Box::new(get_font(
+            unresolved_font_request_getter().merge(&self.default_font_properties()),
+        )))
     }
 
     fn image_size(

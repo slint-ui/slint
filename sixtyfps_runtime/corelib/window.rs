@@ -59,7 +59,7 @@ pub trait PlatformWindow {
     /// With some backends this may return none unless the window is mapped.
     fn font_metrics(
         &self,
-        unresolved_font_request: crate::graphics::FontRequest,
+        unresolved_font_request_getter: &dyn Fn() -> crate::graphics::FontRequest,
     ) -> Option<Box<dyn crate::graphics::FontMetrics>>;
 
     /// Return the size of the image referenced by the specified resource, multiplied by the window

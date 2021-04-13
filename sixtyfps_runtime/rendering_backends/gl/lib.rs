@@ -465,8 +465,17 @@ impl GLRenderer {
 
     /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
     /// closely as possible.
-    fn font_metrics(&mut self, request: FontRequest, scale_factor: f32) -> Box<dyn FontMetrics> {
-        Box::new(GLFontMetrics { request, scale_factor, shared_data: self.shared_data.clone() })
+    fn font_metrics(
+        &mut self,
+        unresolved_request_fn: &dyn Fn() -> FontRequest,
+        default_font_props_fn: &dyn Fn() -> FontRequest,
+        scale_factor: f32,
+    ) -> Box<dyn FontMetrics> {
+        Box::new(GLFontMetrics {
+            request: unresolved_request_fn().merge(&default_font_props_fn()),
+            scale_factor,
+            shared_data: self.shared_data.clone(),
+        })
     }
 
     /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted
