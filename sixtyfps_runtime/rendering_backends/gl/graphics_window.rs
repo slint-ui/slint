@@ -42,6 +42,8 @@ pub struct GraphicsWindow {
     /// Current popup's component and position
     /// FIXME: the popup should actually be another window, not just some overlay
     active_popup: std::cell::RefCell<Option<(ComponentRc, Point)>>,
+
+    default_font_properties: Pin<Rc<Property<FontRequest>>>,
 }
 
 impl GraphicsWindow {
@@ -56,6 +58,27 @@ impl GraphicsWindow {
         graphics_backend_factory: impl Fn(&dyn crate::eventloop::EventLoopInterface, winit::window::WindowBuilder) -> Backend
             + 'static,
     ) -> Rc<Self> {
+        let default_font_properties_prop = Rc::pin(Property::default());
+        default_font_properties_prop.set_binding({
+            let self_weak = window_weak.clone();
+            move || {
+                self_weak
+                    .upgrade()
+                    .unwrap()
+                    .try_component()
+                    .and_then(|component_rc| {
+                        let component = ComponentRc::borrow_pin(&component_rc);
+                        let root_item = component.as_ref().get_item_ref(0);
+                        ItemRef::downcast_pin(root_item).map(
+                            |window_item: Pin<&corelib::items::Window>| {
+                                window_item.default_font_properties()
+                            },
+                        )
+                    })
+                    .unwrap_or_default()
+            }
+        });
+
         Rc::new(Self {
             self_weak: window_weak.clone(),
             window_factory: Box::new(graphics_backend_factory),
@@ -64,6 +87,7 @@ impl GraphicsWindow {
             keyboard_modifiers: Default::default(),
             mouse_input_state: Default::default(),
             active_popup: Default::default(),
+            default_font_properties: default_font_properties_prop,
         })
     }
 
@@ -193,19 +217,8 @@ impl GraphicsWindow {
         self.self_weak.upgrade().unwrap().component()
     }
 
-    fn default_font_properties(&self) -> FontRequest {
-        self.self_weak
-            .upgrade()
-            .unwrap()
-            .try_component()
-            .and_then(|component_rc| {
-                let component = ComponentRc::borrow_pin(&component_rc);
-                let root_item = component.as_ref().get_item_ref(0);
-                ItemRef::downcast_pin(root_item).map(|window_item: Pin<&corelib::items::Window>| {
-                    window_item.default_font_properties()
-                })
-            })
-            .unwrap_or_default()
+    fn default_font_properties(&self) -> &Pin<Rc<Property<FontRequest>>> {
+        &self.default_font_properties
     }
 }
 
@@ -459,7 +472,7 @@ impl PlatformWindow for GraphicsWindow {
             GraphicsWindowBackendState::Unmapped => None,
             GraphicsWindowBackendState::Mapped(window) => {
                 Some(window.backend.borrow_mut().font_metrics(
-                    unresolved_font_request.merge(&self.default_font_properties()),
+                    unresolved_font_request.merge(&self.default_font_properties().as_ref().get()),
                     self.scale_factor(),
                 ))
             }

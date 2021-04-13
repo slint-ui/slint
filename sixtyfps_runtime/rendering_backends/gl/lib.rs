@@ -396,7 +396,7 @@ impl GLRenderer {
         &mut self,
         clear_color: &Color,
         scale_factor: f32,
-        default_font_properties: FontRequest,
+        default_font_properties: &Pin<Rc<Property<FontRequest>>>,
     ) -> GLItemRenderer {
         let size = self.window().inner_size();
 
@@ -418,7 +418,7 @@ impl GLRenderer {
         GLItemRenderer {
             shared_data: self.shared_data.clone(),
             scale_factor,
-            default_font_properties,
+            default_font_properties: default_font_properties.clone(),
             clip_state: vec![Rect::new(
                 Point::default(),
                 Size::new(size.width as _, size.height as _),
@@ -479,7 +479,7 @@ impl GLRenderer {
 pub struct GLItemRenderer {
     shared_data: Rc<GLRendererData>,
     scale_factor: f32,
-    default_font_properties: FontRequest,
+    default_font_properties: Pin<Rc<Property<FontRequest>>>,
     clip_state: Vec<Rect>,
 }
 
@@ -602,7 +602,7 @@ impl ItemRenderer for GLItemRenderer {
         let horizontal_alignment = text.horizontal_alignment();
         let font = self.shared_data.loaded_fonts.borrow_mut().font(
             &self.shared_data.canvas,
-            text.unresolved_font_request().merge(&self.default_font_properties),
+            text.unresolved_font_request().merge(&self.default_font_properties.as_ref().get()),
             self.scale_factor,
         );
         let wrap = text.wrap() == TextWrap::word_wrap;
@@ -691,7 +691,9 @@ impl ItemRenderer for GLItemRenderer {
 
         let font = self.shared_data.loaded_fonts.borrow_mut().font(
             &self.shared_data.canvas,
-            text_input.unresolved_font_request().merge(&self.default_font_properties),
+            text_input
+                .unresolved_font_request()
+                .merge(&self.default_font_properties.as_ref().get()),
             self.scale_factor,
         );
 
@@ -706,7 +708,9 @@ impl ItemRenderer for GLItemRenderer {
             width,
             height,
             &text_input.text(),
-            text_input.unresolved_font_request().merge(&self.default_font_properties),
+            text_input
+                .unresolved_font_request()
+                .merge(&self.default_font_properties.as_ref().get()),
             paint,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
@@ -756,7 +760,9 @@ impl ItemRenderer for GLItemRenderer {
                 text_input.width(),
                 text_input.height(),
                 &text_input.text(),
-                text_input.unresolved_font_request().merge(&self.default_font_properties),
+                text_input
+                    .unresolved_font_request()
+                    .merge(&self.default_font_properties.as_ref().get()),
                 femtovg::Paint::color(text_input.selection_foreground_color().into()),
                 text_input.horizontal_alignment(),
                 text_input.vertical_alignment(),
