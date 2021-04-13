@@ -516,9 +516,63 @@ jobs:
           rm -rf target/*/*/*sixtyfps*
           du -hs target
 
+  updater_test:
+    env:
+      SIXTYFPS_NO_QT: 1
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Cache cargo registry
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache cargo index
+      uses: actions/cache@v2
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache cargo build
+      uses: actions/cache@v2
+      with:
+        path: target
+        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+    - name: Checkout old version
+      run: |
+          git checkout v0.0.5 --no-overlay -- examples
+          git checkout v0.0.5 --no-overlay -- tests/cases
+          # Remove printerdemo_old from Cargo.toml because this directory was not there in 0.0.5
+          sed -i "/printerdemo_old/d" Cargo.toml
+          git commit -a -m "REVERT TESTS TO v0.0.5"
+    - name: run the updater
+      uses: actions-rs/cargo@v1
+      with:
+          command: run
+          args: --bin syntax_updater -- --from 0.0.5 -i tests/cases/**/*.60 examples/**.60
+    - name: Show the diff
+      run: git diff
+    - name: test
+          uses: actions-rs/cargo@v1
+      with:
+          command: run
+          args: --bin test-driver-interpreter -- --skip example_printerdemo_old
+    - name: Clean cache # Otherwise the cache is much too big
+      run: |
+          du -hs target
+          rm -rf target/*/incremental
+          rm -rf target/*/*/*sixtyfps*
+          rm -rf target/*/*/test*
+          rm -rf target/*/*test*
+          du -hs target
+
   publish:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    needs: [build_and_test, cpp_cmake, cpp_test_driver, docs, wasm, wasm_demo] # also depends on build_and_test and cpp to only publish if tests are green
+    needs: [build_and_test, cpp_cmake, cpp_test_driver, docs, wasm, wasm_demo, updater_test] # also depends on build_and_test and cpp to only publish if tests are green
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/download-artifact@v2
