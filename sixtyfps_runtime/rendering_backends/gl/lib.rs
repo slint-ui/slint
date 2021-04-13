@@ -125,12 +125,18 @@ impl FontCache {
             .clone()
     }
 
-    fn font(&mut self, canvas: &CanvasRc, mut request: FontRequest, scale_factor: f32) -> GLFont {
+    fn font(
+        &mut self,
+        canvas: &CanvasRc,
+        mut request: FontRequest,
+        scale_factor: f32,
+        reference_text: &str,
+    ) -> GLFont {
         request.pixel_size = request.pixel_size.or(Some(DEFAULT_FONT_SIZE * scale_factor));
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
 
         let primary_font = self.load_single_font(canvas, &request);
-        let fallbacks = font_fallbacks_for_request(&request);
+        let fallbacks = font_fallbacks_for_request(&request, reference_text);
 
         let fonts = core::iter::once(primary_font)
             .chain(
@@ -604,6 +610,7 @@ impl ItemRenderer for GLItemRenderer {
             &self.shared_data.canvas,
             text.unresolved_font_request().merge(&self.default_font_properties.as_ref().get()),
             self.scale_factor,
+            &text.text(),
         );
         let wrap = text.wrap() == TextWrap::word_wrap;
         let text_size = font.text_size(
@@ -695,6 +702,7 @@ impl ItemRenderer for GLItemRenderer {
                 .unresolved_font_request()
                 .merge(&self.default_font_properties.as_ref().get()),
             self.scale_factor,
+            &text_input.text(),
         );
 
         let paint = match self
@@ -707,7 +715,7 @@ impl ItemRenderer for GLItemRenderer {
         let metrics = self.draw_text_impl(
             width,
             height,
-            &text_input.text(),
+            sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
             text_input
                 .unresolved_font_request()
                 .merge(&self.default_font_properties.as_ref().get()),
@@ -759,7 +767,7 @@ impl ItemRenderer for GLItemRenderer {
             self.draw_text_impl(
                 text_input.width(),
                 text_input.height(),
-                &text_input.text(),
+                sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
                 text_input
                     .unresolved_font_request()
                     .merge(&self.default_font_properties.as_ref().get()),
@@ -1065,7 +1073,7 @@ impl GLItemRenderer {
         &mut self,
         max_width: f32,
         max_height: f32,
-        text: &str,
+        text: Pin<&Property<SharedString>>,
         font_request: FontRequest,
         paint: femtovg::Paint,
         horizontal_alignment: TextHorizontalAlignment,
@@ -1076,13 +1084,14 @@ impl GLItemRenderer {
             &self.shared_data.canvas,
             font_request,
             self.scale_factor,
+            &text.get(),
         );
 
         let paint = font.init_paint(letter_spacing, paint);
 
         let mut canvas = self.shared_data.canvas.borrow_mut();
         let (text_width, text_height) = {
-            let text_metrics = canvas.measure_text(0., 0., &text, paint).unwrap();
+            let text_metrics = canvas.measure_text(0., 0., &text.as_ref().get(), paint).unwrap();
             let font_metrics = canvas.measure_font(paint).unwrap();
             (text_metrics.width(), font_metrics.height())
         };
@@ -1099,7 +1108,7 @@ impl GLItemRenderer {
             TextVerticalAlignment::bottom => max_height - text_height,
         };
 
-        canvas.fill_text(translate_x, translate_y, text, paint).unwrap()
+        canvas.fill_text(translate_x, translate_y, text.get(), paint).unwrap()
     }
 
     fn colorize_image(
@@ -1412,11 +1421,12 @@ struct GLFontMetrics {
 
 impl FontMetrics for GLFontMetrics {
     fn text_size(&self, text: &str) -> Size {
-        self.font().text_size(self.request.letter_spacing.unwrap_or_default(), text, None)
+        self.font(text).text_size(self.request.letter_spacing.unwrap_or_default(), text, None)
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
-        let metrics = self.font().measure(self.request.letter_spacing.unwrap_or_default(), text);
+        let metrics =
+            self.font(text).measure(self.request.letter_spacing.unwrap_or_default(), text);
         let mut current_x = 0.;
         for glyph in metrics.glyphs {
             if current_x + glyph.advance_x / 2. >= x {
@@ -1429,11 +1439,12 @@ impl FontMetrics for GLFontMetrics {
 }
 
 impl GLFontMetrics {
-    fn font(&self) -> GLFont {
+    fn font(&self, reference_text: &str) -> GLFont {
         self.shared_data.loaded_fonts.borrow_mut().font(
             &self.shared_data.canvas,
             self.request.clone(),
             self.scale_factor,
+            reference_text,
         )
     }
 }

@@ -125,7 +125,10 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
 }
 
 #[cfg(target_os = "macos")]
-pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequest> {
+pub(crate) fn font_fallbacks_for_request(
+    _request: &FontRequest,
+    _reference_text: &str,
+) -> Vec<FontRequest> {
     _request
         .family
         .as_ref()
@@ -153,7 +156,10 @@ pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequ
 }
 
 #[cfg(not(target_os = "macos"))]
-pub(crate) fn font_fallbacks_for_request(_request: &FontRequest) -> Vec<FontRequest> {
+pub(crate) fn font_fallbacks_for_request(
+    _request: &FontRequest,
+    _reference_text: &str,
+) -> Vec<FontRequest> {
     vec![
         #[cfg(target_arch = "wasm32")]
         FontRequest {
