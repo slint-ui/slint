@@ -170,11 +170,13 @@ macro_rules! node_accessors {
 /// This will allow to self-document and create the structure from the [`syntax_nodes`] module.
 /// The children can be prefixed with the following symbol:
 ///
-/// - nothing The node occurs once and exactly once, the generated acessor returns the node itself
+/// - nothing: The node occurs once and exactly once, the generated accessor returns the node itself
 /// - `+`: the node occurs one or several times, the generated accessor returns an `Iterator`
 /// - `*`: the node occurs zero or several times, the generated accessor returns an `Iterator`
 /// - `?`: the node occurs once or zero times, the generated accessor returns an `Option`
 /// - `2` or `3`: the node occurs exactly two or three times, the generated accessor returns a tuple
+///
+/// Note: the parser must generate the right amount of sub nodes, even if there is a parse error.
 ///
 /// ## The [`syntax_nodes`] module
 ///
@@ -313,8 +315,9 @@ declare_syntax! {
     // syntax kind
     {
         Document -> [ *Component, *ExportsList, *ImportSpecifier, *StructDeclaration ],
+        /// `DeclaredIdentifier := Element { ... }`
         Component -> [ DeclaredIdentifier, Element ],
-        /// Note: This is in fact the same as Component as far as the parser is concerned
+        /// `id := Element { ... }`
         SubElement -> [ Element ],
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
                      *CallbackDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation,

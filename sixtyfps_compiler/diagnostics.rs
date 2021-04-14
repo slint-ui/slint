@@ -65,7 +65,7 @@ pub trait Spanned {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct SourceFileInner {
     path: PathBuf,
 
@@ -74,6 +74,12 @@ pub struct SourceFileInner {
 
     /// The offset of each linebreak
     line_offsets: once_cell::unsync::OnceCell<Vec<usize>>,
+}
+
+impl std::fmt::Debug for SourceFileInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.path)
+    }
 }
 
 impl SourceFileInner {

@@ -159,15 +159,16 @@ fn process_file_source(
     let mut parse_diagnostics = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
     let syntax_node =
         sixtyfps_compilerlib::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+    let has_parse_error = parse_diagnostics.has_error();
+    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
+        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+    );
+    compiler_config.style = Some("ugly".into());
     let compile_diagnostics = if !parse_diagnostics.has_error() {
-        let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
-            sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-        );
-        compiler_config.style = Some("ugly".into());
         let (_, build_diags) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
-            syntax_node,
+            syntax_node.clone(),
             parse_diagnostics,
-            compiler_config,
+            compiler_config.clone(),
         ));
         build_diags
     } else {
@@ -185,6 +186,15 @@ fn process_file_source(
             String::new()
         };
         success &= process_diagnostics(&compile_diagnostics, &p, &source, silent)?;
+    }
+
+    if has_parse_error {
+        // Still try to compile to make sure it doesn't panic
+        spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
+            syntax_node,
+            compile_diagnostics,
+            compiler_config,
+        ));
     }
 
     Ok(success)

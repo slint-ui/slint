@@ -10,7 +10,7 @@ LICENSE END */
 
 
 SuperSimple := Rectangle {
-    color: green;
+    background: green;
 
     for xx Text {}
 //         ^error{Invalid 'for' syntax: there should be a 'in' token}

@@ -12,7 +12,7 @@ SuperSimple := Rectangle {
 //  ^error{Parse error}
     * / - + // no error there as this is already reported in the previous line
     foo := Rectangle {
-        color: blue + 3
+        background: blue + 3
         x: 45phx;
 //      ^error{Syntax error: expected Semicolon}
 // FIXME: would be nice if the smeicolon error was on the previous line

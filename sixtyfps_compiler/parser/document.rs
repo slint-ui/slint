@@ -67,13 +67,12 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     if is_global {
         p.consume();
     }
-    {
-        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
-        if !p.expect(SyntaxKind::Identifier) {
-            return false;
-        }
+    if !p.start_node(SyntaxKind::DeclaredIdentifier).expect(SyntaxKind::Identifier) {
+        drop(p.start_node(SyntaxKind::Element));
+        return false;
     }
     if !p.expect(SyntaxKind::ColonEqual) {
+        drop(p.start_node(SyntaxKind::Element));
         return false;
     }
 
@@ -223,6 +222,8 @@ fn parse_repeated_element(p: &mut impl Parser) {
     }
     if p.peek().as_str() != "in" {
         p.error("Invalid 'for' syntax: there should be a 'in' token");
+        drop(p.start_node(SyntaxKind::Expression));
+        drop(p.start_node(SyntaxKind::Element));
         return;
     }
     p.consume(); // "in"
