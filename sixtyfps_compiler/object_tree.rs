@@ -1429,7 +1429,8 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             }
         }
     });
-
+    elements_with_enclosing_component_reference
+        .extend_from_slice(component.optimized_elements.borrow().as_slice());
     elements_with_enclosing_component_reference.push(new_root.clone());
 
     new_root.borrow_mut().child_of_layout =
