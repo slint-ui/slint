@@ -941,6 +941,7 @@ pub struct Window {
     pub title: Property<SharedString>,
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<f32>,
+    pub default_font_weight: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1004,6 +1005,14 @@ impl Window {
                     None
                 } else {
                     Some(font_size)
+                }
+            },
+            weight: {
+                let font_weight = self.default_font_weight();
+                if font_weight == 0 {
+                    None
+                } else {
+                    Some(font_weight)
                 }
             },
             ..Default::default()

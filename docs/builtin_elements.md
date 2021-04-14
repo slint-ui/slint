@@ -37,6 +37,8 @@ Window is the root of what is on the screen
   have their family set.
 * **`default-font-size`** (*length*): The font size to use as default in text elements inside this window, that don't
   have their size set.
+* **`default-font-weight`** (*int*): The font weight to use as default in text elements inside this window, that don't
+  have their weight set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 
 ## `Rectangle`
 
