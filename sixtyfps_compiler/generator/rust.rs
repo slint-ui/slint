@@ -1243,7 +1243,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         panic!("internal error: incorrect argument count to RegisterCustomFontByPath call");
                     }
                     if let Expression::StringLiteral(path) = &arguments[0] {
-                        quote!(sixtyfps::register_font_from_path(&std::path::PathBuf::from(#path)))
+                        quote!(sixtyfps::register_font_from_path(&std::path::PathBuf::from(#path));)
                     } else {
                         panic!("internal error: argument to RegisterCustomFontByPath must be a string literal")
                     }
@@ -1255,7 +1255,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     if let Expression::NumberLiteral(resource_id, _) = &arguments[0] {
                         let resource_id: usize = *resource_id as _;
                         let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
-                        quote!(sixtyfps::register_font_from_memory(#symbol.into()))
+                        quote!(sixtyfps::register_font_from_memory(#symbol.into());)
                     } else {
                         panic!("internal error: argument to RegisterCustomFontByMemory must be a number")
                     }
