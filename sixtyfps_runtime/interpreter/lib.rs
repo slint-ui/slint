@@ -87,17 +87,10 @@ pub use api::*;
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided path must refer to a valid TrueType
 /// font.
-pub fn register_font_from_path<P: AsRef<std::path::Path>>(
+pub(crate) fn register_font_from_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
     sixtyfps_rendering_backend_default::backend().register_font_from_path(path.as_ref())
-}
-
-/// This function can be used to register a custom TrueType font with SixtyFPS,
-/// for use with the `font-family` property. The provided slice must be a valid TrueType
-/// font.
-pub fn register_font_from_memory(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    sixtyfps_rendering_backend_default::backend().register_font_from_memory(data)
 }
 
 /// (Re-export from corelib.)

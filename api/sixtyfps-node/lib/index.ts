@@ -234,5 +234,4 @@ module.exports = {
     Timer: {
         singleShot: native.singleshot_timer,
     },
-    register_font_from_path: native.register_font_from_path,
 };

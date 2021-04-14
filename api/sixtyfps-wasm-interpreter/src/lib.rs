@@ -119,29 +119,3 @@ impl WrappedCompiledComp {
         component.run();
     }
 }
-
-/// Downloads the font from the specified url and registers it as a font
-/// for use in text elements.
-#[wasm_bindgen]
-pub async fn register_font(url: String) -> Result<(), JsValue> {
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
-
-    let mut opts = RequestInit::new();
-    opts.method("GET");
-    opts.mode(RequestMode::Cors);
-
-    let request = Request::new_with_str_and_init(&url, &opts)?;
-
-    let window = web_sys::window().unwrap();
-    let resp_value = JsFuture::from(window.fetch_with_request(&request)).await?;
-
-    let resp: Response = resp_value.dyn_into().unwrap();
-
-    let data = js_sys::Uint8Array::new(&JsFuture::from(resp.array_buffer()?).await?);
-    let data = data.to_vec();
-
-    sixtyfps_interpreter::register_font_from_memory(&data).unwrap();
-
-    Ok(())
-}

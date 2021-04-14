@@ -31,10 +31,6 @@ struct Cli {
     #[structopt(long, name = "style name", default_value)]
     style: String,
 
-    /// An optionally registered font
-    #[structopt(long, name = "load font")]
-    load_font: Option<Vec<String>>,
-
     /// Automatically watch the file system, and reload when it changes
     #[structopt(long)]
     auto_reload: bool,
@@ -44,14 +40,6 @@ thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInsta
 
 fn main() -> Result<()> {
     let args = Cli::from_args();
-
-    args.load_font.as_ref().map(|fonts| {
-        fonts.iter().for_each(|font_path| {
-            if let Err(app_font_err) = sixtyfps_interpreter::register_font_from_path(&font_path) {
-                eprintln!("Error loading app font {}: {}", font_path, app_font_err);
-            }
-        });
-    });
 
     let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };
     let mut compiler = init_compiler(&args, fswatcher);

@@ -687,6 +687,8 @@ inline void quit_event_loop()
     cbindgen_private::sixtyfps_quit_event_loop();
 }
 
+namespace private_api {
+
 /// Registers a font by the specified path. The path must refer to an existing
 /// TrueType font font.
 /// \returns an empty optional on success, otherwise an error string
@@ -699,6 +701,8 @@ inline std::optional<SharedString> register_font_from_path(const SharedString &p
     } else {
         return {};
     }
+}
+
 }
 
 } // namespace sixtyfps
