@@ -834,3 +834,17 @@ fonts in your design. A custom font must be a TrueType font (`.ttf`) or a TrueTy
 You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .60 file. This
 instructions the SixtyFPS compiler to include the font and makes the font families globally available for use with
 `font-family` properties.
+
+For example:
+
+```60
+import "./NotoSans-Regular.ttf";
+
+Example := Window {
+    default-font-family: "Noto Sans";
+
+    Text {
+        text: "Hello World";
+    }
+}
+```
