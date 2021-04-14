@@ -19,10 +19,10 @@ use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notifi
 use lsp_types::request::GotoDefinition;
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
-    CompletionItem, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink, OneOf,
-    Position, PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability, Url,
-    WorkDoneProgressOptions,
+    CompletionItem, CompletionItemKind, CompletionOptions, DidChangeTextDocumentParams,
+    DidOpenTextDocumentParams, GotoDefinitionResponse, Hover, HoverProviderCapability,
+    InitializeParams, LocationLink, OneOf, Position, PublishDiagnosticsParams, Range,
+    ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::{BuildDiagnostics, Spanned};
 use sixtyfps_compilerlib::langtype::Type;
@@ -394,20 +394,41 @@ fn completion_at(document_cache: &DocumentCache, token: SyntaxNode) -> Option<Ve
                 element_type
                     .property_list()
                     .into_iter()
-                    .map(|(k, t)| CompletionItem::new_simple(k, t.to_string()))
+                    .map(|(k, t)| {
+                        let mut c = CompletionItem::new_simple(k, t.to_string());
+                        c.kind = Some(if matches!(t, Type::Callback { .. }) {
+                            CompletionItemKind::Method
+                        } else {
+                            CompletionItemKind::Property
+                        });
+                        c
+                    })
                     .chain(element.PropertyDeclaration().map(|pr| {
-                        CompletionItem::new_simple(
+                        let mut c = CompletionItem::new_simple(
                             sixtyfps_compilerlib::parser::identifier_text(&pr.DeclaredIdentifier())
                                 .unwrap_or_default(),
                             pr.Type().text().into(),
-                        )
+                        );
+                        c.kind = Some(CompletionItemKind::Property);
+                        c
                     }))
                     .chain(element.CallbackDeclaration().map(|cd| {
-                        CompletionItem::new_simple(
+                        let mut c = CompletionItem::new_simple(
                             sixtyfps_compilerlib::parser::identifier_text(&cd.DeclaredIdentifier())
                                 .unwrap_or_default(),
                             "callback".into(),
-                        )
+                        );
+                        c.kind = Some(CompletionItemKind::Method);
+                        c
+                    }))
+                    .chain(tr.all_types().into_iter().filter_map(|(k, t)| {
+                        if !matches!(t, Type::Component(_) | Type::Builtin(_)) {
+                            return None;
+                        } else {
+                            let mut c = CompletionItem::new_simple(k, "element".into());
+                            c.kind = Some(CompletionItemKind::Class);
+                            Some(c)
+                        }
                     }))
                     .collect(),
             );

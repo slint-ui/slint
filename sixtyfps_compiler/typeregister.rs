@@ -259,4 +259,14 @@ impl TypeRegister {
                 .unwrap_or_default()
         }
     }
+
+    /// Return a hashmap with all the registered type
+    pub fn all_types(&self) -> HashMap<String, Type> {
+        let mut all =
+            self.parent_registry.as_ref().map(|r| r.borrow().all_types()).unwrap_or_default();
+        for (k, v) in &self.types {
+            all.insert(k.clone(), v.clone());
+        }
+        all
+    }
 }
