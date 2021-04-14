@@ -286,14 +286,11 @@ fn token_descr(
     let doc =
         document_cache.documents.get_document(Path::new(lsp_position.text_document.uri.path()))?;
     let node = doc.node.as_ref()?;
-    if !node.0.node.text_range().contains(o.into()) {
+    if !node.text_range().contains(o.into()) {
         return None;
     }
-    let token = node.0.node.token_at_offset(o.into()).last()?;
-    Some(sixtyfps_compilerlib::parser::SyntaxToken {
-        token,
-        source_file: node.0.source_file.clone(),
-    })
+    let token = node.token_at_offset(o.into()).last()?;
+    Some(sixtyfps_compilerlib::parser::SyntaxToken { token, source_file: node.source_file.clone() })
 }
 
 fn goto_definition(
@@ -311,7 +308,7 @@ fn goto_definition(
                     let doc = document_cache.documents.get_document(source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
                         sixtyfps_compilerlib::langtype::Type::Component(c) => {
-                            goto_node(document_cache, &c.root_element.borrow().node.as_ref()?.0)
+                            goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
                         }
                         _ => None,
                     }
@@ -361,7 +358,7 @@ fn goto_node(
 fn completion_at(document_cache: &DocumentCache, token: SyntaxNode) -> Option<Vec<CompletionItem>> {
     match token.kind() {
         SyntaxKind::Element => {
-            let element = syntax_nodes::Element(token.clone());
+            let element = syntax_nodes::Element::from(token.clone());
             let global_tr = document_cache.documents.global_type_registry.borrow();
             let tr = token
                 .source_file()
@@ -407,7 +404,8 @@ fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> Optio
         .parent()
         .and_then(|parent| lookup_current_element_type(parent, tr))
         .unwrap_or_default();
-    let qualname =
-        object_tree::QualifiedTypeName::from_node(syntax_nodes::Element(node).QualifiedName()?);
+    let qualname = object_tree::QualifiedTypeName::from_node(
+        syntax_nodes::Element::from(node).QualifiedName()?,
+    );
     parent.lookup_type_for_child_element(&qualname.to_string(), tr).ok()
 }

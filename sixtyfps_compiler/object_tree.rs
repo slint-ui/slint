@@ -327,7 +327,7 @@ impl Spanned for Element {
     }
 
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
-        self.node.as_ref().map(|n| &n.0.source_file)
+        self.node.as_ref().map(|n| &n.source_file)
     }
 }
 

@@ -189,7 +189,7 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std
             state.property_name = node.child_text(SyntaxKind::Identifier)
         }
         SyntaxKind::Element => {
-            let element_node = syntax_nodes::Element(node.clone());
+            let element_node = syntax_nodes::Element::from(node.clone());
             state.element_name = element_node
                 .QualifiedName()
                 .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string());

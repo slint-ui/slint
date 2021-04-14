@@ -154,6 +154,32 @@ macro_rules! node_accessors {
 /// This macro is invoked once, to declare all the token and syntax kind.
 /// The purpose of this macro is to declare the token with its regexp at the same place,
 /// and the nodes with their contents.
+///
+/// This is split into two group: first the tokens, then the nodes.
+///
+/// # Tokens
+///
+/// Given as `$token:ident -> $rule:expr`. The rule parameter can be either a string literal or
+/// a lexer function. The order of tokens is important because the rules will be run in that order
+/// and the first one matching will be chosen.
+///
+/// # Nodes
+///
+/// Given as `$(#[$attr:meta])* $nodekind:ident -> [$($children:tt),*] `.
+/// Where `children` is a list of sub-nodes (not including tokens).
+/// This will allow to self-document and create the structure from the [`syntax_nodes`] module.
+/// The children can be prefixed with the following symbol:
+///
+/// - nothing The node occurs once and exactly once, the generated acessor returns the node itself
+/// - `+`: the node occurs one or several times, the generated accessor returns an `Iterator`
+/// - `*`: the node occurs zero or several times, the generated accessor returns an `Iterator`
+/// - `?`: the node occurs once or zero times, the generated accessor returns an `Option`
+/// - `2` or `3`: the node occurs exactly two or three times, the generated accessor returns a tuple
+///
+/// ## The [`syntax_nodes`] module
+///
+/// Creates one struct for every node with the given accessor.
+/// The struct can be converted from and to the node.
 macro_rules! declare_syntax {
     ({
         $($token:ident -> $rule:expr ,)*
@@ -197,8 +223,8 @@ macro_rules! declare_syntax {
             use super::*;
             use derive_more::*;
             $(
-                #[derive(Debug, Clone, From, Deref, DerefMut, Into)]
-                pub struct $nodekind(pub SyntaxNode);
+                #[derive(Debug, Clone, Deref, Into)]
+                pub struct $nodekind(SyntaxNode);
                 #[cfg(test)]
                 impl SyntaxNodeVerify for $nodekind {
                     const KIND: SyntaxKind = SyntaxKind::$nodekind;
@@ -209,6 +235,18 @@ macro_rules! declare_syntax {
                 }
                 impl $nodekind {
                     node_accessors!{$children}
+
+                    /// Create a new node from a SyntaxNode, if the SyntaxNode is of the correct kind
+                    pub fn new(node: SyntaxNode) -> Option<Self> {
+                        (node.kind() == SyntaxKind::$nodekind).then(|| Self(node))
+                    }
+                }
+
+                impl From<SyntaxNode> for $nodekind {
+                    fn from(node: SyntaxNode) -> Self {
+                        debug_assert_eq!(node.kind(), SyntaxKind::$nodekind);
+                        Self(node)
+                    }
                 }
 
                 impl Spanned for $nodekind {

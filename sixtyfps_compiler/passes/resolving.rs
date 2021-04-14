@@ -401,7 +401,7 @@ impl Expression {
             .filter(|n| matches!(n.kind(), SyntaxKind::Comma | SyntaxKind::Expression));
         let angle_expr = match subs.next() {
             Some(e) if e.kind() == SyntaxKind::Expression => {
-                syntax_nodes::Expression(e.into_node().unwrap().into())
+                syntax_nodes::Expression::from(e.into_node().unwrap())
             }
             _ => {
                 ctx.diag.push_error("Expected angle expression".into(), &node);
@@ -721,12 +721,12 @@ impl Expression {
     ) -> Expression {
         let mut sub_expr = node
             .Expression()
-            .map(|n| (Self::from_expression_node(n.clone(), ctx), NodeOrToken::from(n.0)));
+            .map(|n| (Self::from_expression_node(n.clone(), ctx), NodeOrToken::from((*n).clone())));
 
         let mut arguments = Vec::new();
 
         let (function, f_node) =
-            sub_expr.next().unwrap_or_else(|| (Expression::Invalid, node.0.clone().into()));
+            sub_expr.next().unwrap_or_else(|| (Expression::Invalid, (*node).clone().into()));
 
         let function = match function {
             Expression::BuiltinMacroReference(mac, n) => match mac {
