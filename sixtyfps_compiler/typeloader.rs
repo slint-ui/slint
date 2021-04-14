@@ -284,17 +284,8 @@ impl<'a> TypeLoader<'a> {
         source_code: String,
         diagnostics: &mut BuildDiagnostics,
     ) {
-        let dependency_doc = crate::parser::parse(source_code, Some(&source_path), diagnostics);
-
-        if diagnostics.has_error() {
-            let mut d = Document::default();
-            d.node = Some(dependency_doc.into());
-            d.local_registry = TypeRegister::new(&self.global_type_registry);
-            self.all_documents.docs.insert(path.to_owned(), d);
-            return;
-        }
-
-        let dependency_doc: syntax_nodes::Document = dependency_doc.into();
+        let dependency_doc: syntax_nodes::Document =
+            crate::parser::parse(source_code, Some(&source_path), diagnostics).into();
 
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
@@ -302,6 +293,19 @@ impl<'a> TypeLoader<'a> {
             .load_dependencies_recursively(&dependency_doc, diagnostics, &dependency_registry)
             .await;
 
+        if diagnostics.has_error() {
+            // If there was error (esp parse error) we don't want to report further error in this document.
+            // because they might be nonsense (TODO: we should check that the parse error were really in this document).
+            // But we still want to create a document to give better error messages in the root document.
+            let doc = crate::object_tree::Document::from_node(
+                dependency_doc,
+                foreign_imports,
+                &mut BuildDiagnostics::default(), // New diagnostics that we will ignore
+                &dependency_registry,
+            );
+            self.all_documents.docs.insert(path.to_owned(), doc);
+            return;
+        }
         let doc = crate::object_tree::Document::from_node(
             dependency_doc,
             foreign_imports,

@@ -15,6 +15,5 @@ export Rec2 := Rectangle {
 }
 
 export Rect21 := Rec1 {
-//              ^error{Unknown type Rec1}
     property <int> Bar: 45;
 }
