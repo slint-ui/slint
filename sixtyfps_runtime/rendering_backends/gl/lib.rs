@@ -1174,7 +1174,7 @@ impl GLItemRenderer {
                 image_size.width as _,
                 image_size.height as _,
                 femtovg::PixelFormat::Rgba8,
-                femtovg::ImageFlags::empty(),
+                femtovg::ImageFlags::PREMULTIPLIED,
             )
             .expect("internal error allocating temporary texture for image colorization");
 
