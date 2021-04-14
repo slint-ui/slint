@@ -114,7 +114,7 @@ Checkbox := Rectangle {
     ]
 }
 
-
+import "./plaster-font/Plaster-Regular.ttf";
 
 export MainWindow := Window {
     title: "Slide Puzzle - SixtyFPS Demo";
