@@ -37,7 +37,7 @@ impl Layout {
 
 impl Layout {
     /// Call the visitor for each NamedReference stored in the layout
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         match self {
             Layout::GridLayout(grid) => grid.visit_named_references(visitor),
             Layout::BoxLayout(l) => l.visit_named_references(visitor),
@@ -56,6 +56,16 @@ pub struct LayoutVec {
     pub main_layout: Option<usize>,
     /// The constraints that applies to the root item
     pub root_constraints: LayoutConstraints,
+}
+
+impl LayoutVec {
+    /// Call the visitor for each NamedReference stored in the layout
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+        self.root_constraints.visit_named_references(visitor);
+        for sub in &mut self.layouts {
+            sub.visit_named_references(visitor);
+        }
+    }
 }
 
 /// An Item in the layout tree

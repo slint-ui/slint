@@ -1264,7 +1264,7 @@ pub fn visit_all_named_references(
             let compo = elem.borrow().enclosing_component.clone();
             if !Weak::ptr_eq(parent_compo, &compo) {
                 let compo = compo.upgrade().unwrap();
-                compo.layouts.borrow_mut().iter_mut().for_each(|l| l.visit_named_references(vis));
+                compo.layouts.borrow_mut().visit_named_references(vis);
                 compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
                     vis(&mut p.x);
                     vis(&mut p.y);
