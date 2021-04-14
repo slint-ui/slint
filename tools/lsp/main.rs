@@ -12,7 +12,6 @@ mod lsp_ext;
 mod preview;
 
 use std::collections::HashMap;
-use std::path::Path;
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
@@ -288,8 +287,9 @@ fn token_descr(
         .get(lsp_position.position.line as usize)?
         + lsp_position.position.character as u32;
 
-    let doc =
-        document_cache.documents.get_document(Path::new(lsp_position.text_document.uri.path()))?;
+    let doc = document_cache
+        .documents
+        .get_document(&lsp_position.text_document.uri.to_file_path().ok()?)?;
     let node = doc.node.as_ref()?;
     if !node.text_range().contains(o.into()) {
         return None;
