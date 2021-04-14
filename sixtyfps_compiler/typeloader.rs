@@ -297,10 +297,15 @@ impl<'a> TypeLoader<'a> {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
             // But we still want to create a document to give better error messages in the root document.
+            let mut ignore_diag = BuildDiagnostics::default();
+            ignore_diag.push_error_with_span(
+                "Dummy error because some of the code asserts there there was an error".into(),
+                Default::default(),
+            );
             let doc = crate::object_tree::Document::from_node(
                 dependency_doc,
                 foreign_imports,
-                &mut BuildDiagnostics::default(), // New diagnostics that we will ignore
+                &mut ignore_diag,
                 &dependency_registry,
             );
             self.all_documents.docs.insert(path.to_owned(), doc);
@@ -406,9 +411,13 @@ impl<'a> TypeLoader<'a> {
         let mut dependencies = DependenciesByFile::new();
 
         for import in doc.ImportSpecifier() {
-            let import_uri = import.child_token(SyntaxKind::StringLiteral).expect(
-                "Internal error: missing import uri literal, this is a parsing/grammar bug",
-            );
+            let import_uri = match import.child_token(SyntaxKind::StringLiteral) {
+                Some(import_uri) => import_uri,
+                None => {
+                    debug_assert!(doc_diagnostics.has_error());
+                    continue;
+                }
+            };
             let path_to_import = import_uri.text().to_string();
             let path_to_import = path_to_import.trim_matches('\"').to_string();
             if path_to_import.is_empty() {
