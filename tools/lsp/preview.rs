@@ -15,6 +15,11 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Wake;
 
+use lsp_server::Message;
+use lsp_types::notification::Notification;
+
+use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
+
 struct FutureRunner {
     fut: Mutex<Option<Pin<Box<dyn Future<Output = ()>>>>>,
 }
@@ -60,8 +65,14 @@ pub enum PostLoadBehavior {
     DoNothing,
 }
 
-pub fn load_preview(path: std::path::PathBuf, post_load_behavior: PostLoadBehavior) {
-    run_in_ui_thread(Box::pin(async move { reload_preview(&path, post_load_behavior).await }));
+pub fn load_preview(
+    sender: crossbeam_channel::Sender<Message>,
+    path: std::path::PathBuf,
+    post_load_behavior: PostLoadBehavior,
+) {
+    run_in_ui_thread(Box::pin(
+        async move { reload_preview(sender, &path, post_load_behavior).await },
+    ));
 }
 
 #[derive(Default)]
@@ -69,6 +80,7 @@ struct ContentCache {
     source_code: HashMap<PathBuf, String>,
     dependency: HashSet<PathBuf>,
     current_root: PathBuf,
+    sender: Option<crossbeam_channel::Sender<Message>>,
 }
 
 static CONTENT_CACHE: once_cell::sync::OnceCell<Mutex<ContentCache>> =
@@ -79,8 +91,11 @@ pub fn set_contents(path: &Path, content: String) {
     cache.source_code.insert(path.to_owned(), content);
     if cache.dependency.contains(path) {
         let current_root = cache.current_root.clone();
+        let sender = cache.sender.take();
         drop(cache);
-        load_preview(current_root, PostLoadBehavior::DoNothing);
+        if let Some(sender) = sender {
+            load_preview(sender, current_root, PostLoadBehavior::DoNothing);
+        }
     }
 }
 
@@ -93,7 +108,13 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
     r
 }
 
-async fn reload_preview(path: &std::path::Path, post_load_behavior: PostLoadBehavior) {
+async fn reload_preview(
+    sender: crossbeam_channel::Sender<Message>,
+    path: &std::path::Path,
+    post_load_behavior: PostLoadBehavior,
+) {
+    send_notification(&sender, "Loading Preview…", Health::Ok);
+
     {
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.dependency.clear();
@@ -134,5 +155,18 @@ async fn reload_preview(path: &std::path::Path, post_load_behavior: PostLoadBeha
                 preview_state.handle = Some(handle);
             }
         });
+        send_notification(&sender, "Preview Loaded", Health::Ok);
+    } else {
+        send_notification(&sender, "Preview not upated", Health::Error);
     }
+    CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().sender.replace(sender);
+}
+
+fn send_notification(sender: &crossbeam_channel::Sender<Message>, arg: &str, health: Health) {
+    sender
+        .send(Message::Notification(lsp_server::Notification::new(
+            ServerStatusNotification::METHOD.into(),
+            ServerStatusParams { health, quiescent: false, message: Some(arg.into()) },
+        )))
+        .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }

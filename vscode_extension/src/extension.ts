@@ -17,8 +17,18 @@ import {
     LanguageClientOptions,
     ServerCapabilities,
     ServerOptions,
+    NotificationType,
     //	TransportKind
 } from 'vscode-languageclient/node';
+
+
+export interface ServerStatusParams {
+    health: "ok" | "warning" | "error";
+    quiescent: boolean;
+    message?: string;
+}
+export const serverStatus = new NotificationType<ServerStatusParams>("experimental/serverStatus");
+
 
 let client: LanguageClient;
 
@@ -63,7 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     let serverModule = lspSearchPaths.find(path => existsSync(path));
 
-    if (serverModule == undefined) {
+    if (serverModule === undefined) {
         console.warn("Could not locate sixtyfps-server server binary, neither in bundled bin/ directory nor relative in ../target");
         return;
     }
@@ -85,20 +95,34 @@ export function activate(context: vscode.ExtensionContext) {
         serverOptions,
         clientOptions
     );
-    client.start();
 
+
+    const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    context.subscriptions.push(statusBar);
+    statusBar.text = "SixtyFPS";
+
+    client.start();
+    let initClient = () => {
+        client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
+    };
+    client.onReady().then(initClient);
 
     context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', function () {
         let ae = vscode.window.activeTextEditor;
         if (!ae) {
             return;
         }
+        statusBar.show();
         client.sendNotification("sixtyfps/showPreview", ae.document.uri.fsPath.toString());
+
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.reload', async function () {
+        statusBar.hide();
         await client.stop();
         client.start();
+        await client.onReady();
+        initClient();
     }));
 }
 
@@ -107,4 +131,24 @@ export function deactivate(): Thenable<void> | undefined {
         return undefined;
     }
     return client.stop();
+}
+
+
+function setServerStatus(status: ServerStatusParams, statusBar: vscode.StatusBarItem) {
+    let icon = "";
+    switch (status.health) {
+        case "ok":
+            statusBar.color = undefined;
+            break;
+        case "warning":
+            statusBar.color = new vscode.ThemeColor("notificationsWarningIcon.foreground");
+            icon = "$(warning) ";
+            break;
+        case "error":
+            statusBar.color = new vscode.ThemeColor("notificationsErrorIcon.foreground");
+            icon = "$(error) ";
+            break;
+    }
+    statusBar.tooltip = "SixtyFPS";
+    statusBar.text = `${icon} ${status.message ?? "SixtyFPS"}`;
 }

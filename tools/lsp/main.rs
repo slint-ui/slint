@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+mod lsp_ext;
 mod preview;
 
 use std::collections::HashMap;
@@ -186,7 +187,11 @@ fn handle_notification(
                 return Err(e());
             };
             let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
-            preview::load_preview(path_canon.into(), preview::PostLoadBehavior::ShowAfterLoad);
+            preview::load_preview(
+                connection.sender.clone(),
+                path_canon.into(),
+                preview::PostLoadBehavior::ShowAfterLoad,
+            );
         }
         _ => (),
     }
