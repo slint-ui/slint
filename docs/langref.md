@@ -821,3 +821,16 @@ Return the color as in CSS. Like in CSS, These two functions are actually aliase
 The first 3 parameters can be either number between 0 and 255, or percentage with a `%` unit.
 The fourth value, if present, is an alpha value between 0 and 1.
 (Unlike in CSS, the comas are mendatory)
+
+## Font Handling
+
+Elements such as `Text` and `TextInput` can render text and allow customizing the appearance of the text through
+different properties. The properties prefixed with `font-`, such as `font-family`, `font-size` and `font-weight`
+affect the choice of font used for rendering to the screen. If any of these properties is not specified, the `default-font-`
+values in the surrounding `Window` element apply, such as `default-font-family`.
+
+The fonts chosen for rendering are automatically picked up from the system. It is also possible to include custom
+fonts in your design. A custom font must be a TrueType font (`.ttf`) or a TrueType font collection (`.ttc`).
+You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .60 file. This
+instructions the SixtyFPS compiler to include the font and makes the font families globally available for use with
+`font-family` properties.
