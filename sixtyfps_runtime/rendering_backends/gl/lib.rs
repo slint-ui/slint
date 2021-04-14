@@ -1004,7 +1004,7 @@ impl ItemRenderer for GLItemRenderer {
         canvas.fill_path(&mut shadow_path, shadow_paint);
     }
 
-    fn combine_clip(&mut self, clip_rect: Rect, _radius: f32) {
+    fn combine_clip(&mut self, clip_rect: Rect, _radius: f32, _border_width: f32) {
         self.shared_data.canvas.borrow_mut().intersect_scissor(
             clip_rect.min_x(),
             clip_rect.min_y(),

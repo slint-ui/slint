@@ -566,6 +566,7 @@ pub struct Clip {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub border_radius: Property<f32>,
+    pub border_width: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -613,6 +614,7 @@ impl Item for Clip {
         (*backend).combine_clip(
             euclid::rect(0., 0., geometry.width(), geometry.height()),
             self.border_radius(),
+            self.border_width(),
         )
     }
 }
@@ -866,7 +868,7 @@ impl Item for Flickable {
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         let geometry = self.geometry();
-        (*backend).combine_clip(euclid::rect(0., 0., geometry.width(), geometry.height()), 0.)
+        (*backend).combine_clip(euclid::rect(0., 0., geometry.width(), geometry.height()), 0., 0.)
     }
 }
 

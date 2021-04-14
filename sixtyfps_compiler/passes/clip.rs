@@ -78,10 +78,13 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
             )
         })
         .collect();
-    if parent_elem.borrow().bindings.contains_key("border_radius") {
-        clip.borrow_mut().bindings.insert(
-            "border_radius".to_string(),
-            Expression::PropertyReference(NamedReference::new(parent_elem, "border_radius")).into(),
-        );
+    for optional_binding in ["border_radius", "border_width"].iter() {
+        if parent_elem.borrow().bindings.contains_key(*optional_binding) {
+            clip.borrow_mut().bindings.insert(
+                optional_binding.to_string(),
+                Expression::PropertyReference(NamedReference::new(parent_elem, optional_binding))
+                    .into(),
+            );
+        }
     }
 }

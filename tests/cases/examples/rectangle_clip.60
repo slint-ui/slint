@@ -1,0 +1,31 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// This should render as a rectangle with a black border and
+// green "fill".
+
+export Test := Window {
+    background: white;
+    Rectangle {
+        border-radius: 25px;
+        border-width: 10px;
+        border-color: black;
+
+        clip: true;
+
+        Rectangle {
+            x: -20px;
+            y: -20px;
+            width: parent.width + 20px;
+            height: parent.height + 20px;
+            background: green;
+        }
+    }
+}

@@ -129,9 +129,9 @@ pub trait ItemRenderer {
     fn draw_path(&mut self, path: Pin<&Path>);
     fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
     /// Clip the further call until restore_state.
-    /// radius can be used for border rectangle clip.
-    /// (FIXME: consider removing radius and have another  function that take a path instead)
-    fn combine_clip(&mut self, rect: Rect, radius: f32);
+    /// radius/border_width can be used for border rectangle clip.
+    /// (FIXME: consider removing radius/border_width and have another  function that take a path instead)
+    fn combine_clip(&mut self, rect: Rect, radius: f32, border_width: f32);
     /// Get the current clip bounding box in the current transformed coordinate.
     fn get_current_clip(&self) -> Rect;
 

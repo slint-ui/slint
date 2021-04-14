@@ -224,6 +224,15 @@ macro_rules! get_geometry {
     }};
 }
 
+fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_width: &mut f32) {
+    *border_width = border_width.min((rect.width as f32) / 2.);
+    // adjust the size so that the border is drawn within the geometry
+    rect.x += *border_width as f64 / 2.;
+    rect.y += *border_width as f64 / 2.;
+    rect.width -= *border_width as f64;
+    rect.height -= *border_width as f64;
+}
+
 #[derive(Clone)]
 enum QtRenderingCacheItem {
     Pixmap(qttypes::QPixmap),
@@ -468,13 +477,14 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn combine_clip(&mut self, rect: Rect, radius: f32) {
-        let clip_rect = qttypes::QRectF {
+    fn combine_clip(&mut self, rect: Rect, radius: f32, mut border_width: f32) {
+        let mut clip_rect = qttypes::QRectF {
             x: rect.min_x() as _,
             y: rect.min_y() as _,
             width: rect.width() as _,
             height: rect.height() as _,
         };
+        adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", clip_rect as "QRectF", radius as "float"] {
             if (radius <= 0) {
@@ -718,17 +728,12 @@ impl QtItemRenderer<'_> {
         mut rect: qttypes::QRectF,
         brush: Brush,
         border_color: Brush,
-        border_width: f32,
+        mut border_width: f32,
         border_radius: f32,
     ) {
         let brush: qttypes::QBrush = brush.into();
         let border_color: qttypes::QBrush = border_color.into();
-        let border_width: f32 = border_width.min((rect.width as f32) / 2.);
-        // adjust the size so that the border is drawn within the geometry
-        rect.x += border_width as f64 / 2.;
-        rect.y += border_width as f64 / 2.;
-        rect.width -= border_width as f64;
-        rect.height -= border_width as f64;
+        adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {
             painter->setPen(border_width > 0 ? QPen(border_color, border_width) : Qt::NoPen);

@@ -196,6 +196,7 @@ export Clip := _ {
     property <length> width;
     property <length> height;
     property <length> border_radius;
+    property <length> border_width;
     //-default_size_binding:expands_to_parent_geometry
 }
 
