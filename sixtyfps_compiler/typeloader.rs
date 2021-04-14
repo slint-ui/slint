@@ -52,19 +52,20 @@ impl ImportedName {
     pub fn extract_imported_names(
         import: &syntax_nodes::ImportSpecifier,
     ) -> Option<impl Iterator<Item = ImportedName>> {
-        import.ImportIdentifierList().map(|import_identifiers| {
-            import_identifiers.ImportIdentifier().map(|importident| {
-                let external_name =
-                    importident.ExternalName().text().to_string().trim().to_string();
+        import
+            .ImportIdentifierList()
+            .map(|import_identifiers| import_identifiers.ImportIdentifier().map(Self::from_node))
+    }
 
-                let internal_name = match importident.InternalName() {
-                    Some(name_ident) => name_ident.text().to_string().trim().to_string(),
-                    None => external_name.clone(),
-                };
+    pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
+        let external_name = importident.ExternalName().text().to_string().trim().to_string();
 
-                ImportedName { internal_name, external_name }
-            })
-        })
+        let internal_name = match importident.InternalName() {
+            Some(name_ident) => name_ident.text().to_string().trim().to_string(),
+            None => external_name.clone(),
+        };
+
+        ImportedName { internal_name, external_name }
     }
 }
 

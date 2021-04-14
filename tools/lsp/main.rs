@@ -12,6 +12,7 @@ mod lsp_ext;
 mod preview;
 
 use std::collections::HashMap;
+use std::path::Path;
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
@@ -300,17 +301,15 @@ fn token_descr(
 
 fn goto_definition(
     document_cache: &mut DocumentCache,
-    token: sixtyfps_compilerlib::parser::SyntaxNode,
+    mut token: sixtyfps_compilerlib::parser::SyntaxNode,
 ) -> Option<GotoDefinitionResponse> {
-    match token.kind() {
-        SyntaxKind::QualifiedName => {
-            let source_file = token.source_file.clone();
-            let parent = token.node.parent()?;
-            let qual =
-                sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(token.into());
-            match parent.kind() {
+    loop {
+        if let Some(n) = syntax_nodes::QualifiedName::new(token.clone()) {
+            let parent = n.parent()?;
+            let qual = sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(n);
+            return match parent.kind() {
                 SyntaxKind::Element => {
-                    let doc = document_cache.documents.get_document(source_file.path())?;
+                    let doc = document_cache.documents.get_document(token.source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
                         sixtyfps_compilerlib::langtype::Type::Component(c) => {
                             goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
@@ -319,9 +318,29 @@ fn goto_definition(
                     }
                 }
                 _ => None,
-            }
+            };
+        } else if let Some(n) = syntax_nodes::ImportIdentifier::new(token.clone()) {
+            let doc = document_cache.documents.get_document(token.source_file.path())?;
+            let imp_name = sixtyfps_compilerlib::typeloader::ImportedName::from_node(n);
+            return match doc.local_registry.lookup(&imp_name.internal_name) {
+                sixtyfps_compilerlib::langtype::Type::Component(c) => {
+                    goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
+                }
+                _ => None,
+            };
+        } else if let Some(n) = syntax_nodes::ImportSpecifier::new(token.clone()) {
+            let import_file = token
+                .source_file
+                .path()
+                .parent()
+                .unwrap_or(Path::new("/"))
+                .join(n.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
+            let import_file = import_file.canonicalize().unwrap_or(import_file);
+            let doc = document_cache.documents.get_document(&import_file)?;
+            let doc_node = doc.node.clone()?;
+            return goto_node(document_cache, &*doc_node);
         }
-        _ => None,
+        token = token.parent()?;
     }
 }
 
