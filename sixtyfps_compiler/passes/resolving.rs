@@ -383,7 +383,7 @@ impl Expression {
                 ctx.type_loader
                     .map(|loader| {
                         loader
-                            .resolve_import_path(Some(&node.0.into()), &s)
+                            .resolve_import_path(Some(&(*node).clone().into()), &s)
                             .0
                             .to_string_lossy()
                             .to_string()
