@@ -69,10 +69,6 @@ export Demo := Window {
     const code = params.get("snippet");
     const load_url = params.get("load_url");
 
-    for (let font_url of params.getAll("font_url")) {
-        await sixtyfps.register_font(font_url);
-    }
-
     if (code) {
         main_source = code;
     } else if (load_url) {
