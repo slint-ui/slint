@@ -102,6 +102,9 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: '12'
+    - name: "Prepare meta-data files for nightly package"
+      working-directory: vscode_extension
+      run: ../scripts/prepare_vscode_nightly.sh
     - name: "Install vsce"
       working-directory: vscode_extension
       run: npm install vsce
