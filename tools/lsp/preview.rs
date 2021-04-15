@@ -68,11 +68,12 @@ pub enum PostLoadBehavior {
 pub fn load_preview(
     sender: crossbeam_channel::Sender<Message>,
     path: std::path::PathBuf,
+    component: Option<String>,
     post_load_behavior: PostLoadBehavior,
 ) {
-    run_in_ui_thread(Box::pin(
-        async move { reload_preview(sender, &path, post_load_behavior).await },
-    ));
+    run_in_ui_thread(Box::pin(async move {
+        reload_preview(sender, &path, component, post_load_behavior).await
+    }));
 }
 
 #[derive(Default)]
@@ -80,6 +81,7 @@ struct ContentCache {
     source_code: HashMap<PathBuf, String>,
     dependency: HashSet<PathBuf>,
     current_root: PathBuf,
+    current_component: Option<String>,
     sender: Option<crossbeam_channel::Sender<Message>>,
 }
 
@@ -91,10 +93,11 @@ pub fn set_contents(path: &Path, content: String) {
     cache.source_code.insert(path.to_owned(), content);
     if cache.dependency.contains(path) {
         let current_root = cache.current_root.clone();
+        let current_component = cache.current_component.clone();
         let sender = cache.sender.take();
         drop(cache);
         if let Some(sender) = sender {
-            load_preview(sender, current_root, PostLoadBehavior::DoNothing);
+            load_preview(sender, current_root, current_component, PostLoadBehavior::DoNothing);
         }
     }
 }
@@ -111,6 +114,7 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
 async fn reload_preview(
     sender: crossbeam_channel::Sender<Message>,
     path: &std::path::Path,
+    component: Option<String>,
     post_load_behavior: PostLoadBehavior,
 ) {
     send_notification(&sender, "Loading Preview…", Health::Ok);
@@ -127,7 +131,19 @@ async fn reload_preview(
         Box::pin(async move { get_file_from_cache(path).map(Result::Ok) })
     });
 
-    let compiled = if let Some(from_cache) = get_file_from_cache(path.to_owned()) {
+    let compiled = if let Some(mut from_cache) = get_file_from_cache(path.to_owned()) {
+        if let Some(component) = component {
+            from_cache = format!(
+                r#"{}
+_Preview := Window {{
+    {} {{
+        width <=> root.width;
+        height <=> root.height;
+    }}
+}}"#,
+                from_cache, component
+            );
+        }
         builder.build_from_source(from_cache, path.to_owned()).await
     } else {
         builder.build_from_path(path).await

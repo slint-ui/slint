@@ -16,11 +16,12 @@ use std::path::Path;
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
-use lsp_types::request::GotoDefinition;
+use lsp_types::request::{CodeActionRequest, ExecuteCommand, GotoDefinition};
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
-    CompletionItem, CompletionItemKind, CompletionOptions, DidChangeTextDocumentParams,
-    DidOpenTextDocumentParams, GotoDefinitionResponse, Hover, HoverProviderCapability,
+    CodeActionOrCommand, CodeActionProviderCapability, Command, CompletionItem, CompletionItemKind,
+    CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+    ExecuteCommandOptions, GotoDefinitionResponse, Hover, HoverProviderCapability,
     InitializeParams, LocationLink, OneOf, Position, PublishDiagnosticsParams, Range,
     ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
@@ -32,6 +33,8 @@ use sixtyfps_compilerlib::typeregister::TypeRegister;
 use sixtyfps_compilerlib::{object_tree, CompilerConfiguration};
 
 type Error = Box<dyn std::error::Error>;
+
+const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 
 struct DocumentCache<'a> {
     documents: TypeLoader<'a>,
@@ -76,7 +79,11 @@ fn run_lsp_server() -> Result<(), Error> {
         text_document_sync: Some(TextDocumentSyncCapability::Kind(
             lsp_types::TextDocumentSyncKind::Full,
         )),
-
+        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
+        execute_command_provider: Some(ExecuteCommandOptions {
+            commands: vec![SHOW_PREVIEW_COMMAND.into()],
+            ..Default::default()
+        }),
         ..ServerCapabilities::default()
     };
     let server_capabilities = serde_json::to_value(&capabilities).unwrap();
@@ -118,13 +125,21 @@ fn handle_request(
 ) -> Result<(), Error> {
     let mut req = Some(req);
     if let Some((id, params)) = cast::<GotoDefinition>(&mut req) {
-        let result = token_descr(document_cache, params.text_document_position_params)
-            .and_then(|token| goto_definition(document_cache, token.parent()));
+        let result = token_descr(
+            document_cache,
+            params.text_document_position_params.text_document,
+            params.text_document_position_params.position,
+        )
+        .and_then(|token| goto_definition(document_cache, token.parent()));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<Completion>(&mut req) {
-        let result = token_descr(document_cache, params.text_document_position)
-            .and_then(|token| completion_at(document_cache, token.parent()));
+        let result = token_descr(
+            document_cache,
+            params.text_document_position.text_document,
+            params.text_document_position.position,
+        )
+        .and_then(|token| completion_at(document_cache, token.parent()));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, _params)) = cast::<HoverRequest>(&mut req) {
@@ -139,6 +154,18 @@ fn handle_request(
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;*/
         connection.sender.send(Message::Response(Response::new_ok(id, None::<Hover>)))?;
+    } else if let Some((id, params)) = cast::<CodeActionRequest>(&mut req) {
+        let result = token_descr(document_cache, params.text_document, params.range.start)
+            .and_then(|token| get_code_actions(document_cache, token.parent()));
+        connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
+    } else if let Some((id, params)) = cast::<ExecuteCommand>(&mut req) {
+        match params.command.as_str() {
+            SHOW_PREVIEW_COMMAND => show_preview_command(&params.arguments, connection)?,
+            _ => (),
+        }
+        connection
+            .sender
+            .send(Message::Response(Response::new_ok(id, None::<serde_json::Value>)))?;
     };
     Ok(())
 }
@@ -180,21 +207,31 @@ fn handle_notification(
             )?;
         }
         "sixtyfps/showPreview" => {
-            let e = || -> Error { "InvalidParameter".into() };
-            let path = if let serde_json::Value::String(s) = req.params.get(0).ok_or_else(e)? {
-                std::path::PathBuf::from(s)
-            } else {
-                return Err(e());
-            };
-            let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
-            preview::load_preview(
-                connection.sender.clone(),
-                path_canon.into(),
-                preview::PostLoadBehavior::ShowAfterLoad,
-            );
+            show_preview_command(req.params.as_array().map_or(&[], |x| x.as_slice()), connection)?;
         }
         _ => (),
     }
+    Ok(())
+}
+
+fn show_preview_command(
+    params: &[serde_json::Value],
+    connection: &Connection,
+) -> Result<(), Error> {
+    let e = || -> Error { "InvalidParameter".into() };
+    let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
+        std::path::PathBuf::from(s)
+    } else {
+        return Err(e());
+    };
+    let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+    let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
+    preview::load_preview(
+        connection.sender.clone(),
+        path_canon.into(),
+        component,
+        preview::PostLoadBehavior::ShowAfterLoad,
+    );
     Ok(())
 }
 
@@ -279,18 +316,14 @@ fn to_range(span: (usize, usize)) -> Range {
 }
 
 fn token_descr(
-    document_cache: &DocumentCache,
-    lsp_position: lsp_types::TextDocumentPositionParams,
+    document_cache: &mut DocumentCache,
+    text_document: lsp_types::TextDocumentIdentifier,
+    pos: Position,
 ) -> Option<sixtyfps_compilerlib::parser::SyntaxToken> {
-    let o = document_cache
-        .newline_offsets
-        .get(&lsp_position.text_document.uri)?
-        .get(lsp_position.position.line as usize)?
-        + lsp_position.position.character as u32;
+    let o = document_cache.newline_offsets.get(&text_document.uri)?.get(pos.line as usize)?
+        + pos.character as u32;
 
-    let doc = document_cache
-        .documents
-        .get_document(&lsp_position.text_document.uri.to_file_path().ok()?)?;
+    let doc = document_cache.documents.get_document(&text_document.uri.to_file_path().ok()?)?;
     let node = doc.node.as_ref()?;
     if !node.text_range().contains(o.into()) {
         return None;
@@ -377,6 +410,34 @@ fn goto_node(
         target_range: range,
         target_selection_range: range,
     }]))
+}
+
+fn get_code_actions(
+    _document_cache: &mut DocumentCache,
+    node: SyntaxNode,
+) -> Option<Vec<CodeActionOrCommand>> {
+    let component = syntax_nodes::Component::new(node.clone())
+        .or_else(|| {
+            syntax_nodes::DeclaredIdentifier::new(node.clone())
+                .and_then(|n| n.parent())
+                .and_then(|p| syntax_nodes::Component::new(p))
+        })
+        .or_else(|| {
+            syntax_nodes::QualifiedName::new(node.clone())
+                .and_then(|n| n.parent())
+                .and_then(|p| syntax_nodes::Element::new(p))
+                .and_then(|n| n.parent())
+                .and_then(|p| syntax_nodes::Component::new(p))
+        })?;
+
+    let component_name =
+        sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
+
+    Some(vec![CodeActionOrCommand::Command(Command::new(
+        "Show preview".into(),
+        SHOW_PREVIEW_COMMAND.into(),
+        Some(vec![component.source_file.path().to_string_lossy().into(), component_name.into()]),
+    ))])
 }
 
 fn completion_at(document_cache: &DocumentCache, token: SyntaxNode) -> Option<Vec<CompletionItem>> {
