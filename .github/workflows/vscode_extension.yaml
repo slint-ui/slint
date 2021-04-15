@@ -117,6 +117,6 @@ jobs:
     - name: "Upload extension artifact"
       uses: actions/upload-artifact@v2
       with:
-          name: sixtyfps-vscode-0.0.1.vsix
+          name: sixtyfps-vscode.zip
           path: |
-              vscode_extension/sixtyfps-vscode-0.0.1.vsix
+              vscode_extension/sixtyfps-vscode-*.vsix
