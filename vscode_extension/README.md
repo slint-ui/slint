@@ -1,6 +1,6 @@
-# sixtyfps-vscode README
+# SixtyFPS for Visual Studio Code
 
-Extension for VSCode which include syntax coloration and a way to start the LSP server
+This extension for VS Code adds support for the SixtyFPS design markup language.
 
 ## Features
 
@@ -10,7 +10,27 @@ Extension for VSCode which include syntax coloration and a way to start the LSP 
  - Completion of properties
  - Jump to definition (currently, only definition of Component)
 
-## Setup
+## Installation
+
+You can install the extension directly from https://marketplace.visualstudio.com/vscode . Afterwards it is
+automatically activated when editing files with the `.60` extension.
+
+## Live-Preview
+
+In addition to the usual code editing features such as completion and syntax highlighting, this extension
+also offers the ability to view a rendering of the file you're editing and update it on-the-fly when making
+changes.
+
+You can issue the "SixtyFPS: Show Preview" command from the command palette when editing a `.60` file. This
+will create a new top-level window that renders the file you're editing. Any changes you make are immediately
+visible, it is not necessary to save the file.
+
+## Reporting Issues
+
+
+Issues should be reported in the [SixtyFPS issue tracker](https://github.com/sixtyfpsui/sixtyfps/labels/vscode-extension).
+
+## Building from Source
 
 1. Build the LSP
 
