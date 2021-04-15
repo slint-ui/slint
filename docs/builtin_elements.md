@@ -138,6 +138,7 @@ Example := Window {
     VerticalLayout {
         Image {
             source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+            // image-fit default is `contain` when in layout, preserving aspect ratio
         }
         Image {
             source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
@@ -154,7 +155,7 @@ Example := Window {
     Image {
         source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
         width: 270px;
-        // implicit default: height: self.width * natural_height / natural_width;
+        // implicit default, preserving aspect ratio: height: self.width * natural_height / natural_width;
     }
 }
 ```
