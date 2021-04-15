@@ -221,6 +221,11 @@ struct GLRendererData {
     image_cache: RefCell<HashMap<ImageCacheKey, Rc<CachedImage>>>,
 
     loaded_fonts: RefCell<FontCache>,
+
+    // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
+    // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
+    // `set_render_target` commands with image ids that have been deleted.
+    layer_images_to_delete_after_flush: RefCell<Vec<CachedImage>>,
 }
 
 impl GLRendererData {
@@ -400,6 +405,7 @@ impl GLRenderer {
             item_graphics_cache: Default::default(),
             image_cache: Default::default(),
             loaded_fonts: Default::default(),
+            layer_images_to_delete_after_flush: Default::default(),
         };
 
         GLRenderer { shared_data: Rc::new(shared_data) }
@@ -437,6 +443,7 @@ impl GLRenderer {
             state: vec![State {
                 scissor: Rect::new(Point::default(), Size::new(size.width as _, size.height as _)),
                 global_alpha: 1.,
+                layer: None,
             }],
         }
     }
@@ -510,10 +517,18 @@ impl GLRenderer {
     }
 }
 
+// Layers are stored in the renderer's State and flushed to the screen (or current rendering target)
+// in restore_state() by filling the target_path.
+struct Layer {
+    image: CachedImage,
+    target_path: femtovg::Path,
+}
+
 #[derive(Clone)]
 struct State {
     scissor: Rect,
     global_alpha: f32,
+    layer: Option<Rc<Layer>>,
 }
 
 pub struct GLItemRenderer {
@@ -524,10 +539,25 @@ pub struct GLItemRenderer {
     state: Vec<State>,
 }
 
-fn rect_to_path(r: Rect) -> femtovg::Path {
+fn rect_with_radius_to_path(rect: Rect, border_radius: f32) -> femtovg::Path {
     let mut path = femtovg::Path::new();
-    path.rect(r.min_x(), r.min_y(), r.width(), r.height());
+    let x = rect.origin.x;
+    let y = rect.origin.y;
+    let width = rect.size.width;
+    let height = rect.size.height;
+    // If we're drawing a circle, use directly connected bezier curves instead of
+    // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
+    // rendering artifacts due to those edges.
+    if width == height && border_radius * 2. == width {
+        path.circle(x + border_radius, y + border_radius, border_radius);
+    } else {
+        path.rounded_rect(x, y, width, height, border_radius);
+    }
     path
+}
+
+fn rect_to_path(r: Rect) -> femtovg::Path {
+    rect_with_radius_to_path(r, 0.)
 }
 
 fn adjust_rect_and_border_for_inner_drawing(rect: &mut Rect, border_width: &mut f32) {
@@ -576,20 +606,7 @@ impl ItemRenderer for GLItemRenderer {
         // is adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-        let mut path = femtovg::Path::new();
-        let border_radius = rect.border_radius();
-        let x = geometry.origin.x;
-        let y = geometry.origin.y;
-        let width = geometry.size.width;
-        let height = geometry.size.height;
-        // If we're drawing a circle, use directly connected bezier curves instead of
-        // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
-        // rendering artifacts due to those edges.
-        if width == height && border_radius * 2. == width {
-            path.circle(x + border_radius, y + border_radius, border_radius);
-        } else {
-            path.rounded_rect(x, y, width, height, border_radius);
-        }
+        let mut path = rect_with_radius_to_path(geometry, rect.border_radius());
 
         let fill_paint = self.brush_to_paint(rect.background(), &mut path);
 
@@ -1022,7 +1039,14 @@ impl ItemRenderer for GLItemRenderer {
         canvas.fill_path(&mut shadow_path, shadow_paint);
     }
 
-    fn combine_clip(&mut self, mut clip_rect: Rect, _radius: f32, mut border_width: f32) {
+    fn combine_clip(&mut self, mut clip_rect: Rect, mut radius: f32, mut border_width: f32) {
+        // Femtovg renders evenly 50% inside and 50% outside of the border width. The
+        // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
+        // would be entirely an *inner* border. However for clipping we want the rect that's
+        // entirely inside, hence the doubling of the width and consequently radius adjustment.
+        border_width *= 2.;
+        radius *= 0.75;
+
         adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
         self.shared_data.canvas.borrow_mut().intersect_scissor(
             clip_rect.min_x(),
@@ -1032,8 +1056,18 @@ impl ItemRenderer for GLItemRenderer {
         );
         let clip = &mut self.state.last_mut().unwrap().scissor;
         match clip.intersection(&clip_rect) {
-            Some(r) => *clip = r,
-            None => *clip = Rect::default(),
+            Some(r) => {
+                *clip = r;
+            }
+            None => {
+                *clip = Rect::default();
+            }
+        };
+        // This is the very expensive clipping code path, where we change the current render target
+        // to be an intermediate image and then fill the clip path with that image.
+        if radius > 0. {
+            let clip_path = rect_with_radius_to_path(clip_rect, radius);
+            self.set_clip_path(clip_path)
         }
     }
 
@@ -1047,8 +1081,35 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn restore_state(&mut self) {
+        if let Some(mut layer_to_restore) = self
+            .state
+            .pop()
+            .and_then(|state| state.layer)
+            .and_then(|layer| Rc::try_unwrap(layer).ok())
+        {
+            let paint = layer_to_restore.image.as_paint();
+
+            self.shared_data
+                .layer_images_to_delete_after_flush
+                .borrow_mut()
+                .push(layer_to_restore.image);
+
+            let mut canvas = self.shared_data.canvas.borrow_mut();
+
+            let restored_rendering_target = self
+                .state
+                .last()
+                .unwrap()
+                .layer
+                .as_ref()
+                .map_or(femtovg::RenderTarget::Screen, |layer| layer.image.as_render_target());
+            canvas.set_render_target(restored_rendering_target);
+
+            // Balanced in set_clip_path, back to original drawing conditions when set_clip_path() was called.
+            canvas.restore();
+            canvas.fill_path(&mut layer_to_restore.target_path, paint);
+        }
         self.shared_data.canvas.borrow_mut().restore();
-        self.state.pop();
     }
 
     fn scale_factor(&self) -> f32 {
@@ -1227,7 +1288,7 @@ impl GLItemRenderer {
                 ),
             );
 
-            canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
+            canvas.global_composite_operation(femtovg::CompositeOperation::SourceOver);
             canvas.fill_path(&mut image_rect, brush_paint);
 
             canvas.set_render_target(femtovg::RenderTarget::Screen);
@@ -1401,6 +1462,53 @@ impl GLItemRenderer {
             }
             _ => return None,
         })
+    }
+
+    // Set the specified path for clipping. This is done by redirecting rendering into
+    // an intermediate image and using that to fill the clip path on the next restore_state()
+    // call. Therefore this can only be called once per save_state()!
+    fn set_clip_path(&mut self, mut path: femtovg::Path) {
+        let path_bounds = {
+            let mut canvas = self.shared_data.canvas.borrow_mut();
+            canvas.save();
+            canvas.reset_transform();
+            let bbox = canvas.path_bbox(&mut path);
+            canvas.restore();
+            bbox
+        };
+
+        let layer_width = path_bounds.maxx - path_bounds.minx;
+        let layer_height = path_bounds.maxy - path_bounds.miny;
+
+        let clip_buffer_img = CachedImage::new_empty_on_gpu(
+            &self.shared_data.canvas,
+            layer_width as _,
+            layer_height as _,
+        );
+        {
+            let mut canvas = self.shared_data.canvas.borrow_mut();
+
+            // Balanced with the *first* restore() call in restore_state(), followed by
+            // the original restore() later in restore_state().
+            canvas.save();
+
+            canvas.set_render_target(clip_buffer_img.as_render_target());
+
+            canvas.reset();
+            canvas.scale(1., -1.); // Image are rendered upside down
+            canvas.translate(0., -layer_height);
+
+            canvas.clear_rect(
+                0,
+                0,
+                layer_width as _,
+                layer_height as _,
+                femtovg::Color::rgba(0, 0, 0, 0),
+            );
+            canvas.global_composite_operation(femtovg::CompositeOperation::SourceOver);
+        }
+        self.state.last_mut().unwrap().layer =
+            Some(Rc::new(Layer { image: clip_buffer_img, target_path: path }));
     }
 }
 

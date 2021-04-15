@@ -14,6 +14,10 @@ LICENSE END */
 export Test := Window {
     background: white;
     Rectangle {
+        x: 50px;
+        y: 50px;
+        width: 200px;
+        height: 200px;
         border-radius: 25px;
         border-width: 10px;
         border-color: black;
@@ -26,6 +30,14 @@ export Test := Window {
             width: parent.width + 20px;
             height: parent.height + 20px;
             background: green;
+        }
+
+        Rectangle {
+            x: 150px;
+            y: 150px;
+            width: 200px;
+            height: 200px;
+            background: red;
         }
     }
 }

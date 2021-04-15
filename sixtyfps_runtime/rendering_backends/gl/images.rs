@@ -97,6 +97,19 @@ impl CachedImage {
         ))
     }
 
+    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: usize, height: usize) -> Self {
+        let image_id = canvas
+            .borrow_mut()
+            .create_image_empty(
+                width,
+                height,
+                femtovg::PixelFormat::Rgba8,
+                femtovg::ImageFlags::PREMULTIPLIED,
+            )
+            .unwrap();
+        Self::new_on_gpu(canvas, image_id, None)
+    }
+
     #[cfg(feature = "svg")]
     fn new_on_cpu_svg(tree: usvg::Tree) -> Self {
         Self(RefCell::new(ImageData::SVG(tree)))
@@ -310,5 +323,26 @@ impl CachedImage {
                 }
             },
         })
+    }
+
+    pub(crate) fn as_render_target(&self) -> femtovg::RenderTarget {
+        match &*self.0.borrow() {
+            ImageData::Texture(tex) => femtovg::RenderTarget::Image(tex.id),
+            _ => panic!(
+                "internal error: CachedImage::as_render_target() called on non-texture image"
+            ),
+        }
+    }
+
+    pub(crate) fn as_paint(&self) -> femtovg::Paint {
+        match &*self.0.borrow() {
+            ImageData::Texture(tex) => {
+                let size = tex
+                    .size()
+                    .expect("internal error: CachedImage::as_paint() called on zero-sized texture");
+                femtovg::Paint::image(tex.id, 0., 0., size.width, size.height, 0., 1.)
+            }
+            _ => panic!("internal error: CachedImage::as_paint() called on non-texture image"),
+        }
     }
 }
