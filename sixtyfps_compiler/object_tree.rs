@@ -1336,12 +1336,14 @@ impl Exports {
             .flat_map(|exports| exports.ExportSpecifier())
             .map(|export_specifier| {
                 let internal_name = identifier_text(&export_specifier.ExportIdentifier())
-                    .expect("internal error: missing internal name for export");
-                let exported_name = match export_specifier.ExportName() {
-                    Some(ident) => identifier_text(&ident)
-                        .expect("internal error: missing external name for export"),
-                    None => internal_name.clone(),
-                };
+                    .unwrap_or_else(|| {
+                        debug_assert!(diag.has_error());
+                        String::new()
+                    });
+                let exported_name = export_specifier
+                    .ExportName()
+                    .and_then(|ident| identifier_text(&ident))
+                    .unwrap_or_else(|| internal_name.clone());
                 NamedExport {
                     internal_name_ident: export_specifier.ExportIdentifier().into(),
                     internal_name,
@@ -1350,10 +1352,12 @@ impl Exports {
             })
             .collect::<Vec<_>>();
 
-        exports.extend(doc.ExportsList().flat_map(|exports| exports.Component()).map(
+        exports.extend(doc.ExportsList().filter_map(|exports| exports.Component()).map(
             |component| {
-                let name = identifier_text(&component.DeclaredIdentifier())
-                    .expect("internal error: cannot export component without name");
+                let name = identifier_text(&component.DeclaredIdentifier()).unwrap_or_else(|| {
+                    debug_assert!(diag.has_error());
+                    String::new()
+                });
                 NamedExport {
                     internal_name_ident: component.DeclaredIdentifier().into(),
                     internal_name: name.clone(),
@@ -1363,8 +1367,10 @@ impl Exports {
         ));
         exports.extend(doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).map(
             |st| {
-                let name = identifier_text(&st.DeclaredIdentifier())
-                    .expect("internal error: cannot export struct without name");
+                let name = identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
+                    debug_assert!(diag.has_error());
+                    String::new()
+                });
                 NamedExport {
                     internal_name_ident: st.DeclaredIdentifier().into(),
                     internal_name: name.clone(),
