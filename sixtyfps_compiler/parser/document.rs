@@ -243,10 +243,13 @@ fn parse_if_element(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::ConditionalElement);
     p.consume(); // "if"
     if !p.expect(SyntaxKind::LParent) {
+        drop(p.start_node(SyntaxKind::Expression));
+        drop(p.start_node(SyntaxKind::Element));
         return;
     }
     parse_expression(&mut *p);
     if !p.expect(SyntaxKind::RParent) || !p.expect(SyntaxKind::Colon) {
+        drop(p.start_node(SyntaxKind::Element));
         return;
     }
     parse_element(&mut *p);
