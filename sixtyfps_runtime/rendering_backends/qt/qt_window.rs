@@ -225,6 +225,7 @@ macro_rules! get_geometry {
 }
 
 fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_width: &mut f32) {
+    // If the border width exceeds the width, just fill the rectangle.
     *border_width = border_width.min((rect.width as f32) / 2.);
     // adjust the size so that the border is drawn within the geometry
     rect.x += *border_width as f64 / 2.;

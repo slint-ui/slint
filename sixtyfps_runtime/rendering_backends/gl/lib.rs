@@ -523,6 +523,16 @@ fn rect_to_path(r: Rect) -> femtovg::Path {
     path
 }
 
+fn adjust_rect_and_border_for_inner_drawing(rect: &mut Rect, border_width: &mut f32) {
+    // If the border width exceeds the width, just fill the rectangle.
+    *border_width = border_width.min((rect.size.width as f32) / 2.);
+    // adjust the size so that the border is drawn within the geometry
+    rect.origin.x += *border_width / 2.;
+    rect.origin.y += *border_width / 2.;
+    rect.size.width -= *border_width;
+    rect.size.height -= *border_width;
+}
+
 fn item_rect<Item: sixtyfps_corelib::items::Item>(item: Pin<&Item>) -> Rect {
     let geometry = item.geometry();
     euclid::rect(0., 0., geometry.width(), geometry.height())
@@ -547,23 +557,24 @@ impl ItemRenderer for GLItemRenderer {
         &mut self,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
-        let geometry = item_rect(rect);
+        let mut geometry = item_rect(rect);
         if geometry.is_empty() {
             return;
         }
 
-        // If the border width exceeds the width, just fill the rectangle.
-        let border_width = rect.border_width().min(rect.width() / 2.);
+        let mut border_width = rect.border_width();
         // In CSS the border is entirely towards the inside of the boundary
         // geometry, while in femtovg the line with for a stroke is 50% in-
         // and 50% outwards. We choose the CSS model, so the inner rectangle
         // is adjusted accordingly.
+        adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+
         let mut path = femtovg::Path::new();
         let border_radius = rect.border_radius();
-        let x = geometry.min_x() + border_width / 2.;
-        let y = geometry.min_y() + border_width / 2.;
-        let width = geometry.width() - border_width;
-        let height = geometry.height() - border_width;
+        let x = geometry.origin.x;
+        let y = geometry.origin.y;
+        let width = geometry.size.width;
+        let height = geometry.size.height;
         // If we're drawing a circle, use directly connected bezier curves instead of
         // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
         // rendering artifacts due to those edges.
@@ -1004,7 +1015,8 @@ impl ItemRenderer for GLItemRenderer {
         canvas.fill_path(&mut shadow_path, shadow_paint);
     }
 
-    fn combine_clip(&mut self, clip_rect: Rect, _radius: f32, _border_width: f32) {
+    fn combine_clip(&mut self, mut clip_rect: Rect, _radius: f32, mut border_width: f32) {
+        adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
         self.shared_data.canvas.borrow_mut().intersect_scissor(
             clip_rect.min_x(),
             clip_rect.min_y(),
