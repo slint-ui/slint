@@ -72,6 +72,14 @@ fn init_compiler(
         compiler.set_style(args.style.clone());
     }
     if let Some(watcher) = fswatcher {
+        notify::Watcher::watch(
+            &mut *watcher.lock().unwrap(),
+            &args.path,
+            notify::RecursiveMode::NonRecursive,
+        )
+        .unwrap_or_else(|err| {
+            eprintln!("Warning: error while whatching {}: {:?}", args.path.display(), err)
+        });
         compiler.set_file_loader(move |path| {
             notify::Watcher::watch(
                 &mut *watcher.lock().unwrap(),
