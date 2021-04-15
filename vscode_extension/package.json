@@ -4,6 +4,7 @@
 	"description": "SixtyFPS Language extension",
 	"version": "0.0.1",
 	"publisher": "SixtyFPS",
+	"icon": "extension-logo.png",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/sixtyfpsui/sixtyfps"
