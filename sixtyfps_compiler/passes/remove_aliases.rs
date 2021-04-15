@@ -117,7 +117,9 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
                     Entry::Occupied(mut e) => {
                         simplify_expression(e.get_mut(), &to);
-                        if e.get().priority < binding.priority {
+                        if matches!(e.get().expression, Expression::Invalid) {
+                            *e.get_mut() = binding;
+                        } else if e.get().priority < binding.priority {
                             crate::passes::inlining::maybe_merge_two_ways(
                                 &mut e.get_mut().expression,
                                 &mut 0,

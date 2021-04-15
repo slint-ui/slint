@@ -377,7 +377,7 @@ impl core::fmt::Debug for Element {
         }
 
         if let Type::Component(base) = &self.base_type {
-            writeln!(f, "{:?}", base)?;
+            writeln!(f, "{:?}", base.root_element)?;
         }
         writeln!(f, "}}")
     }

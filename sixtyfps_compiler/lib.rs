@@ -66,6 +66,7 @@ mod passes {
     pub mod repeater_component;
     pub mod resolve_native_classes;
     pub mod resolving;
+    pub mod transform_and_opacity;
     pub mod unique_id;
 }
 
@@ -179,6 +180,11 @@ pub async fn run_passes(
     passes::lower_layout::lower_layouts(&doc.root_component, &mut type_loader, diag).await;
     passes::lower_shadows::lower_shadow_properties(&doc.root_component, &doc.local_registry, diag);
     passes::clip::handle_clip(&doc.root_component, &global_type_registry.borrow(), diag);
+    passes::transform_and_opacity::handle_transform_and_opacity(
+        &doc.root_component,
+        &global_type_registry.borrow(),
+        diag,
+    );
     passes::default_geometry::default_geometry(&doc.root_component, diag);
     passes::apply_default_properties_from_style::apply_default_properties_from_style(
         &doc.root_component,

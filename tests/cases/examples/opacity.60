@@ -1,0 +1,58 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+Comp := Rectangle {
+    Rectangle {
+        width: 5%;
+        height: 5%;
+        background: white;
+        opacity: 1;
+    }
+}
+
+
+TestCase := Window {
+    width: 800px;
+    height: 600px;
+    background: green;
+
+    Rectangle {
+        background: red;
+        width: 50%;
+        height: 50%;
+        opacity: 0.5;
+    }
+
+    Comp {
+        background: blue;
+        x: parent.width / 4;
+        y: parent.height / 4;
+        width: 50%;
+        height: 50%;
+        opacity: 0.5;
+        Rectangle {
+            width: 10%;
+            height: 10%;
+            background: yellow;
+        }
+    }
+
+    for i in 3 : Rectangle {
+        background: black;
+        width: 10%;
+        height: 10%;
+        opacity: 0.2 * (i + 1);
+        y: parent.height / 3;
+        x: parent.width / 4 * i;
+    }
+
+
+}
+
