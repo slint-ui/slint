@@ -38,7 +38,7 @@ function lspPlatform(): string | null {
     if (process.platform === "darwin") {
         if (process.arch === "x64") {
             return "x86_64-apple-darwin";
-        } else if (process.arch == "arm64") {
+        } else if (process.arch === "arm64") {
             return "aarch64-apple-darwin";
         }
     }
