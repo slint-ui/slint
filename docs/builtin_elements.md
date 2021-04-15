@@ -11,6 +11,8 @@ These properties are valid on all visible items
 * **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
 * **`horizontal_stretch`** and **`vertical_stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
   When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
+* **`opacity`** (*float*): A value between 0 and 1 (or a percentage) that is used to draw the element and its
+  children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
 
  ### Drop Shadows
 
