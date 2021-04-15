@@ -23,6 +23,18 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
+macro_rules! unwrap_or_continue {
+    ($e:expr ; $diag:expr) => {
+        match $e {
+            Some(x) => x,
+            None => {
+                debug_assert!($diag.has_error()); // error should have been reported at parseing time
+                continue;
+            }
+        }
+    };
+}
+
 /// The full document (a complete file)
 #[derive(Default, Debug)]
 pub struct Document {
@@ -450,7 +462,8 @@ impl Element {
         for prop_decl in node.PropertyDeclaration() {
             let type_node = prop_decl.Type();
             let prop_type = type_from_node(type_node.clone(), diag, tr);
-            let unresolved_prop_name = identifier_text(&prop_decl.DeclaredIdentifier()).unwrap();
+            let unresolved_prop_name =
+                unwrap_or_continue!(identifier_text(&prop_decl.DeclaredIdentifier()); diag);
             let PropertyLookupResult {
                 resolved_name: prop_name,
                 property_type: maybe_existing_prop_type,
@@ -524,7 +537,7 @@ impl Element {
         }
 
         for sig_decl in node.CallbackDeclaration() {
-            let name = identifier_text(&sig_decl.DeclaredIdentifier()).unwrap();
+            let name = unwrap_or_continue!(identifier_text(&sig_decl.DeclaredIdentifier()); diag);
             let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
             let return_type = sig_decl
                 .ReturnType()
@@ -540,10 +553,7 @@ impl Element {
         }
 
         for con_node in node.CallbackConnection() {
-            let unresolved_name = match identifier_text(&con_node) {
-                Some(x) => x,
-                None => continue,
-            };
+            let unresolved_name = unwrap_or_continue!(identifier_text(&con_node); diag);
             let PropertyLookupResult { resolved_name, property_type } =
                 r.lookup_property(&unresolved_name);
             if let Type::Callback { args, .. } = property_type {
