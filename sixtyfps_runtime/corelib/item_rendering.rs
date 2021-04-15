@@ -137,6 +137,8 @@ pub trait ItemRenderer {
 
     fn translate(&mut self, x: f32, y: f32);
     fn rotate(&mut self, angle_in_degrees: f32);
+    /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
+    fn apply_opacity(&mut self, opacity: f32);
 
     fn save_state(&mut self);
     fn restore_state(&mut self);

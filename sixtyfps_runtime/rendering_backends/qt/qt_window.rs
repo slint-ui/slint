@@ -552,6 +552,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
             painter->rotate(angle_in_degrees);
         }}
     }
+
+    fn apply_opacity(&mut self, opacity: f32) {
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", opacity as "float"] {
+            painter->setOpacity(painter->opacity() * opacity);
+        }}
+    }
 }
 
 fn load_image_from_resource(

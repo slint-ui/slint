@@ -205,7 +205,7 @@ export Opacity := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <float> opacity;
+    property <float> opacity: 1;
     //-default_size_binding:expands_to_parent_geometry
 }
 

@@ -686,7 +686,7 @@ impl Item for Opacity {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
-        // TODO
+        backend.apply_opacity(self.opacity());
     }
 }
 

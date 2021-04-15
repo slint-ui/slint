@@ -1111,6 +1111,11 @@ impl ItemRenderer for GLItemRenderer {
             .into();
         *clip = Rect::new(origin, (end - origin).into());
     }
+
+    fn apply_opacity(&mut self, opacity: f32) {
+        // FIXME: we should compbine opaticy with the previous opacity
+        self.shared_data.canvas.borrow_mut().set_global_alpha(opacity);
+    }
 }
 
 impl GLItemRenderer {
