@@ -200,6 +200,15 @@ export Clip := _ {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+export Opacity := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <float> opacity;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
 Row := _ {
     //-is_non_item_type
 }

@@ -48,6 +48,7 @@ extern const cbindgen_private::ItemVTable TextInputVTable;
 extern const cbindgen_private::ItemVTable ClipVTable;
 extern const cbindgen_private::ItemVTable BoxShadowVTable;
 extern const cbindgen_private::ItemVTable RotateVTable;
+extern const cbindgen_private::ItemVTable OpacityVTable;
 
 extern const cbindgen_private::ItemVTable NativeButtonVTable;
 extern const cbindgen_private::ItemVTable NativeCheckBoxVTable;
@@ -153,6 +154,7 @@ using cbindgen_private::ClippedImage;
 using cbindgen_private::Flickable;
 using cbindgen_private::FocusScope;
 using cbindgen_private::Image;
+using cbindgen_private::Opacity;
 using cbindgen_private::Path;
 using cbindgen_private::Rectangle;
 using cbindgen_private::Rotate;

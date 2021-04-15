@@ -16,7 +16,9 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - It needs to be changed in this module
  - In the compiler: builtins.60
  - In the interpreter (new item only): dynamic_component.rs
- - For the C++ code (new item only): the cbindgen.rs to export the new item, and the `using` declaration in sixtyfps.h
+ - For the C++ code (new item only):
+   - the cbindgen.rs to export the new item
+   - the `using` declaration in sixtyfps.h for the item and its vtable
  - Don't forget to update the documentation
 */
 
@@ -628,6 +630,77 @@ ItemVTable_static! {
     /// The VTable for `Clip`
     #[no_mangle]
     pub static ClipVTable for Clip
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[pin]
+/// The Opacity Item is not meant to be used directly by the .60 code, instead, the `opacity: xxx` or `visible: false` should be used
+pub struct Opacity {
+    // FIXME: this element shouldn't need these geometry property
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub opacity: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Opacity {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
+    }
+
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
+        Default::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &ComponentWindow,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+
+    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+        // TODO
+    }
+}
+
+impl ItemConsts for Opacity {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        Opacity,
+        CachedRenderingData,
+    > = Opacity::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+ItemVTable_static! {
+    /// The VTable for `Opacity`
+    #[no_mangle]
+    pub static OpacityVTable for Opacity
 }
 
 #[repr(C)]

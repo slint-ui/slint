@@ -72,6 +72,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "BoxShadow",
         "FillRule",
         "Rotate",
+        "Opacity",
     ]
     .iter()
     .map(|x| x.to_string())
