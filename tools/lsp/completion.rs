@@ -48,54 +48,51 @@ pub(crate) fn completion_at(
         return Some(
             all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::Method)).collect(),
         );
-    } else if let Some(n) = syntax_nodes::BindingExpression::new(node.clone()) {
-        let binding = syntax_nodes::Binding::new(n.parent()?)?;
-        let prop_name = binding.child_text(SyntaxKind::Identifier)?;
-        let element = syntax_nodes::Element::new(binding.parent()?)?;
-        let global_tr = document_cache.documents.global_type_registry.borrow();
-        let tr = element
-            .source_file()
-            .and_then(|sf| document_cache.documents.get_document(sf.path()))
-            .map(|doc| &doc.local_registry)
-            .unwrap_or(&global_tr);
-        let ty = element
-            .PropertyDeclaration()
-            .find_map(|p| {
-                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
-                    == prop_name)
-                    .then(|| p)
-            })
-            .map(|p| object_tree::type_from_node(p.Type(), &mut Default::default(), tr));
-        let ty = ty.or_else(|| {
-            lookup_current_element_type((*element).clone(), tr)
-                .map(|el_ty| el_ty.lookup_property(&prop_name).property_type)
-        });
-
-        // FIXME: we need also to fill in the repeated element
-        let component = {
-            let mut n = element.parent()?;
-            loop {
-                if let Some(component) = syntax_nodes::Component::new(n.clone()) {
-                    break component;
+    } else if matches!(
+        node.kind(),
+        SyntaxKind::BindingExpression
+            | SyntaxKind::CodeBlock
+            | SyntaxKind::ReturnStatement
+            | SyntaxKind::Expression
+            | SyntaxKind::FunctionCallExpression
+            | SyntaxKind::SelfAssignment
+            | SyntaxKind::ConditionalExpression
+            | SyntaxKind::BinaryExpression
+            | SyntaxKind::UnaryOpExpression
+            | SyntaxKind::Array
+    ) {
+        // find context
+        let mut n = node.parent()?;
+        let (element, prop_name) = loop {
+            if let Some(decl) = syntax_nodes::PropertyDeclaration::new(n.clone()) {
+                let prop_name =
+                    sixtyfps_compilerlib::parser::identifier_text(&decl.DeclaredIdentifier())?;
+                let element = syntax_nodes::Element::new(n.parent()?)?;
+                break (element, prop_name.to_string());
+            }
+            match n.kind() {
+                SyntaxKind::Binding
+                | SyntaxKind::TwoWayBinding
+                // FIXME: arguments of the callback
+                | SyntaxKind::CallbackConnection => {
+                    let prop_name = sixtyfps_compilerlib::parser::identifier_text(&n)?;
+                    let element = syntax_nodes::Element::new(n.parent()?)?;
+                    break (element, prop_name.to_string());
                 }
-                n = n.parent()?;
+                SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
+                    let element = syntax_nodes::Element::new(n.parent()?)?;
+                    break (element, "$model".to_string());
+                }
+                SyntaxKind::Element => {
+                    // oops: missed it
+                    let element = syntax_nodes::Element::new(n)?;
+                    break (element, String::new());
+                }
+                _ => n = n.parent()?,
+
             }
         };
-        let component_name =
-            sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
-        let component = tr.lookup(&component_name);
-        let scope = if let Type::Component(c) = component {
-            vec![c.root_element.clone()]
-        } else {
-            Vec::new()
-        };
-
-        let mut build_diagnostics = Default::default();
-        let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
-        lookup_context.property_name = Some(&prop_name);
-        lookup_context.property_type = ty.unwrap_or_default();
-        lookup_context.component_scope = &scope;
-        return resolve_expression_scope(&lookup_context, element);
+        return resolve_expression_scope(element, &prop_name, document_cache);
     }
     return None;
 }
@@ -155,16 +152,54 @@ fn resolve_element_scope(
     )
 }
 
-// FIXME: this is duplicated from Expression::from_qualified_name_node in resolving.rs
-// we must find a way to make it  only one source of truth
 fn resolve_expression_scope(
-    ctx: &LookupCtx,
-    _element: syntax_nodes::Element,
+    element: syntax_nodes::Element,
+    prop_name: &str,
+    document_cache: &DocumentCache,
 ) -> Option<Vec<CompletionItem>> {
-    let mut r = Vec::new();
+    let global_tr = document_cache.documents.global_type_registry.borrow();
+    let tr = element
+        .source_file()
+        .and_then(|sf| document_cache.documents.get_document(sf.path()))
+        .map(|doc| &doc.local_registry)
+        .unwrap_or(&global_tr);
+    let ty = element
+        .PropertyDeclaration()
+        .find_map(|p| {
+            (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
+                .then(|| p)
+        })
+        .map(|p| object_tree::type_from_node(p.Type(), &mut Default::default(), tr));
+    let ty = ty.or_else(|| {
+        lookup_current_element_type((*element).clone(), tr)
+            .map(|el_ty| el_ty.lookup_property(&prop_name).property_type)
+    });
 
+    // FIXME: we need also to fill in the repeated element
+    let component = {
+        let mut n = element.parent()?;
+        loop {
+            if let Some(component) = syntax_nodes::Component::new(n.clone()) {
+                break component;
+            }
+            n = n.parent()?;
+        }
+    };
+    let component_name =
+        sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
+    let component = tr.lookup(&component_name);
+    let scope =
+        if let Type::Component(c) = component { vec![c.root_element.clone()] } else { Vec::new() };
+
+    let mut build_diagnostics = Default::default();
+    let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
+    lookup_context.property_name = Some(&prop_name);
+    lookup_context.property_type = ty.unwrap_or_default();
+    lookup_context.component_scope = &scope;
+
+    let mut r = Vec::new();
     let global = sixtyfps_compilerlib::lookup::global_lookup();
-    global.for_each_entry(ctx, &mut |str, expr| -> Option<()> {
+    global.for_each_entry(&lookup_context, &mut |str, expr| -> Option<()> {
         let mut c = CompletionItem::new_simple(str.to_string(), expr.ty().to_string());
         c.kind = match expr {
             Expression::BoolLiteral(_) => Some(CompletionItemKind::Constant),
