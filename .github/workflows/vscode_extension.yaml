@@ -99,7 +99,7 @@ jobs:
       with:
           use-cross: true
           command: build
-          args: --target ${{ matrix.toolchain }} --release -p sixtyfps-lsp
+          args: --target ${{ matrix.target }} --release -p sixtyfps-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
