@@ -11,6 +11,9 @@ name: VS Code Extension Build
 
 on:
   workflow_dispatch:
+    inputs:
+      nightly:
+        default: "true"
 
 jobs:
   build_lsp:
@@ -103,8 +106,13 @@ jobs:
       with:
         node-version: '12'
     - name: "Prepare meta-data files for nightly package"
+      env:
+        NIGHTLY: ${{ github.event.inputs.nightly }}
       working-directory: vscode_extension
-      run: ../scripts/prepare_vscode_nightly.sh
+      run: |
+        if [ "$NIGHTLY" = "true" ]; then
+          ../scripts/prepare_vscode_nightly.sh
+        fi
     - name: "Install vsce"
       working-directory: vscode_extension
       run: npm install vsce
