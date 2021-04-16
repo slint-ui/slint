@@ -125,27 +125,27 @@ pub fn resolve_expressions(
 /// Contains information which allow to lookup identifier in expressions
 pub struct LookupCtx<'a> {
     /// the name of the property for which this expression refers.
-    property_name: Option<&'a str>,
+    pub property_name: Option<&'a str>,
 
     /// the type of the property for which this expression refers.
     /// (some property come in the scope)
-    property_type: Type,
+    pub property_type: Type,
 
     /// Here is the stack in which id applies
-    component_scope: &'a [ElementRc],
+    pub component_scope: &'a [ElementRc],
 
     /// Somewhere to report diagnostics
-    diag: &'a mut BuildDiagnostics,
+    pub diag: &'a mut BuildDiagnostics,
 
     /// The name of the arguments of the callback or function
-    arguments: Vec<String>,
+    pub arguments: Vec<String>,
 
     /// The type register in which to look for Globals
-    type_register: &'a TypeRegister,
+    pub type_register: &'a TypeRegister,
 
     /// The type loader instance, which may be used to resolve relative path references
     /// for example for img!
-    type_loader: Option<&'a crate::typeloader::TypeLoader<'a>>,
+    pub type_loader: Option<&'a crate::typeloader::TypeLoader<'a>>,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -162,7 +162,7 @@ impl<'a> LookupCtx<'a> {
         }
     }
 
-    fn return_type(&self) -> &Type {
+    pub fn return_type(&self) -> &Type {
         if let Type::Callback { return_type, .. } = &self.property_type {
             return_type.as_ref().map_or(&Type::Void, |b| &(**b))
         } else {

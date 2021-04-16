@@ -70,6 +70,11 @@ mod passes {
     pub mod unique_id;
 }
 
+pub mod lookup {
+    //!FIXME: lookup should be refactored out of the resolving pass
+    pub use super::passes::resolving::LookupCtx;
+}
+
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
 pub struct CompilerConfiguration {

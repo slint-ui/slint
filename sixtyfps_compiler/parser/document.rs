@@ -304,7 +304,12 @@ fn parse_binding_expression(p: &mut impl Parser) -> bool {
         p.test(SyntaxKind::Semicolon);
         true
     } else {
-        parse_expression(&mut *p) && p.expect(SyntaxKind::Semicolon)
+        if parse_expression(&mut *p) {
+            p.expect(SyntaxKind::Semicolon)
+        } else {
+            p.test(SyntaxKind::Semicolon);
+            false
+        }
     }
 }
 
