@@ -437,7 +437,7 @@ impl<'a> TypeLoader<'a> {
     }
 
     /// Return a document if it was already loaded
-    pub fn get_document(&self, path: &Path) -> Option<&object_tree::Document> {
+    pub fn get_document<'b>(&'b self, path: &Path) -> Option<&'b object_tree::Document> {
         path.canonicalize().map_or_else(
             |_| self.all_documents.docs.get(path),
             |path| self.all_documents.docs.get(&path),

@@ -28,7 +28,7 @@ use lsp_types::{
 };
 use sixtyfps_compilerlib::diagnostics::{BuildDiagnostics, Spanned};
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use sixtyfps_compilerlib::typeloader::TypeLoader;
 use sixtyfps_compilerlib::typeregister::TypeRegister;
 use sixtyfps_compilerlib::{object_tree, CompilerConfiguration};
@@ -131,7 +131,7 @@ fn handle_request(
             params.text_document_position_params.text_document,
             params.text_document_position_params.position,
         )
-        .and_then(|token| goto_definition(document_cache, token.parent()));
+        .and_then(|token| goto_definition(document_cache, token));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<Completion>(&mut req) {
@@ -320,7 +320,7 @@ fn token_descr(
     document_cache: &mut DocumentCache,
     text_document: lsp_types::TextDocumentIdentifier,
     pos: Position,
-) -> Option<sixtyfps_compilerlib::parser::SyntaxToken> {
+) -> Option<SyntaxToken> {
     let o = document_cache.newline_offsets.get(&text_document.uri)?.get(pos.line as usize)?
         + pos.character as u32;
 
@@ -330,20 +330,21 @@ fn token_descr(
         return None;
     }
     let token = node.token_at_offset(o.into()).last()?;
-    Some(sixtyfps_compilerlib::parser::SyntaxToken { token, source_file: node.source_file.clone() })
+    Some(SyntaxToken { token, source_file: node.source_file.clone() })
 }
 
 fn goto_definition(
     document_cache: &mut DocumentCache,
-    mut token: sixtyfps_compilerlib::parser::SyntaxNode,
+    token: SyntaxToken,
 ) -> Option<GotoDefinitionResponse> {
+    let mut node = token.parent();
     loop {
-        if let Some(n) = syntax_nodes::QualifiedName::new(token.clone()) {
+        if let Some(n) = syntax_nodes::QualifiedName::new(node.clone()) {
             let parent = n.parent()?;
             let qual = sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(n);
             return match parent.kind() {
                 SyntaxKind::Element => {
-                    let doc = document_cache.documents.get_document(token.source_file.path())?;
+                    let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
                         sixtyfps_compilerlib::langtype::Type::Component(c) => {
                             goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
@@ -353,8 +354,8 @@ fn goto_definition(
                 }
                 _ => None,
             };
-        } else if let Some(n) = syntax_nodes::ImportIdentifier::new(token.clone()) {
-            let doc = document_cache.documents.get_document(token.source_file.path())?;
+        } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
+            let doc = document_cache.documents.get_document(node.source_file.path())?;
             let imp_name = sixtyfps_compilerlib::typeloader::ImportedName::from_node(n);
             return match doc.local_registry.lookup(&imp_name.internal_name) {
                 sixtyfps_compilerlib::langtype::Type::Component(c) => {
@@ -362,8 +363,8 @@ fn goto_definition(
                 }
                 _ => None,
             };
-        } else if let Some(n) = syntax_nodes::ImportSpecifier::new(token.clone()) {
-            let import_file = token
+        } else if let Some(n) = syntax_nodes::ImportSpecifier::new(node.clone()) {
+            let import_file = node
                 .source_file
                 .path()
                 .parent()
@@ -373,8 +374,41 @@ fn goto_definition(
             let doc = document_cache.documents.get_document(&import_file)?;
             let doc_node = doc.node.clone()?;
             return goto_node(document_cache, &*doc_node);
+        } else if let Some(_) = syntax_nodes::BindingExpression::new(node.clone()) {
+            // don't fallback to the Binding
+            return None;
+        } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
+            if token.kind() == SyntaxKind::Identifier {
+                let prop_name = token.text();
+                if let Some(par) = syntax_nodes::Element::new(n.parent()?) {
+                    if let Some(p) = par.PropertyDeclaration().find_map(|p| {
+                        (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                            == prop_name)
+                            .then(|| p)
+                    }) {
+                        return goto_node(document_cache, &p);
+                    }
+                }
+                let global_tr = document_cache.documents.global_type_registry.borrow();
+                let tr = token
+                    .source_file()
+                    .and_then(|sf| document_cache.documents.get_document(sf.path()))
+                    .map(|doc| &doc.local_registry)
+                    .unwrap_or(&global_tr);
+
+                let mut element_type = lookup_current_element_type((*n).clone(), tr)?;
+                while let Type::Component(com) = element_type {
+                    if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name)
+                    {
+                        drop(global_tr);
+                        return goto_node(document_cache, p.type_node.as_ref()?);
+                    }
+                    element_type = com.root_element.borrow().base_type.clone();
+                }
+            }
         }
-        token = token.parent()?;
+
+        node = node.parent()?;
     }
 }
 
