@@ -130,6 +130,7 @@ async fn reload_preview(
         let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
         cache.dependency.clear();
         cache.current_root = path.to_owned();
+        cache.current_component = component.clone();
     }
 
     let mut builder = sixtyfps_interpreter::ComponentCompiler::new();
