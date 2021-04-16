@@ -55,7 +55,7 @@ export HomePage := Page {
     property <length> header_row_height: 40px;
     property <[PrinterQueueItem]> printer_queue;
 
-    property <length> button_spacing: 42px;
+    property <length> button_spacing: 35px;
     property <length> button_width: 127px;
     property <length> button_height: button_width + 37px;
 
