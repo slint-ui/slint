@@ -378,38 +378,82 @@ fn goto_definition(
             // don't fallback to the Binding
             return None;
         } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
-            if token.kind() == SyntaxKind::Identifier {
-                let prop_name = token.text();
-                if let Some(par) = syntax_nodes::Element::new(n.parent()?) {
-                    if let Some(p) = par.PropertyDeclaration().find_map(|p| {
-                        (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
-                            == prop_name)
-                            .then(|| p)
-                    }) {
-                        return goto_node(document_cache, &p);
-                    }
-                }
-                let global_tr = document_cache.documents.global_type_registry.borrow();
-                let tr = token
-                    .source_file()
-                    .and_then(|sf| document_cache.documents.get_document(sf.path()))
-                    .map(|doc| &doc.local_registry)
-                    .unwrap_or(&global_tr);
-
-                let mut element_type = lookup_current_element_type((*n).clone(), tr)?;
-                while let Type::Component(com) = element_type {
-                    if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name)
-                    {
-                        drop(global_tr);
-                        return goto_node(document_cache, p.type_node.as_ref()?);
-                    }
-                    element_type = com.root_element.borrow().base_type.clone();
-                }
+            if token.kind() != SyntaxKind::Identifier {
+                return None;
             }
+            let prop_name = token.text();
+            let element = syntax_nodes::Element::new(n.parent()?)?;
+            if let Some(p) = element.PropertyDeclaration().find_map(|p| {
+                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                    == prop_name)
+                    .then(|| p)
+            }) {
+                return goto_node(document_cache, &p);
+            }
+            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            return goto_node(document_cache, &n);
+        } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
+            if token.kind() != SyntaxKind::Identifier {
+                return None;
+            }
+            let prop_name = token.text();
+            if prop_name != n.child_text(SyntaxKind::Identifier)? {
+                return None;
+            }
+            let element = syntax_nodes::Element::new(n.parent()?)?;
+            if let Some(p) = element.PropertyDeclaration().find_map(|p| {
+                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                    == prop_name)
+                    .then(|| p)
+            }) {
+                return goto_node(document_cache, &p);
+            }
+            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            return goto_node(document_cache, &n);
+        } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
+            if token.kind() != SyntaxKind::Identifier {
+                return None;
+            }
+            let prop_name = token.text();
+            if prop_name != n.child_text(SyntaxKind::Identifier)? {
+                return None;
+            }
+            let element = syntax_nodes::Element::new(n.parent()?)?;
+            if let Some(p) = element.CallbackDeclaration().find_map(|p| {
+                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                    == prop_name)
+                    .then(|| p)
+            }) {
+                return goto_node(document_cache, &p);
+            }
+            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            return goto_node(document_cache, &n);
         }
-
         node = node.parent()?;
     }
+}
+
+/// Try to lookup the property `prop_name` in the base of the given Element
+fn find_property_declaration_in_base(
+    document_cache: &DocumentCache,
+    element: syntax_nodes::Element,
+    prop_name: &str,
+) -> Option<SyntaxNode> {
+    let global_tr = document_cache.documents.global_type_registry.borrow();
+    let tr = element
+        .source_file()
+        .and_then(|sf| document_cache.documents.get_document(sf.path()))
+        .map(|doc| &doc.local_registry)
+        .unwrap_or(&global_tr);
+
+    let mut element_type = lookup_current_element_type((*element).clone(), tr)?;
+    while let Type::Component(com) = element_type {
+        if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name) {
+            return p.type_node.clone();
+        }
+        element_type = com.root_element.borrow().base_type.clone();
+    }
+    None
 }
 
 fn goto_node(
