@@ -279,7 +279,7 @@ pub enum Expression {
 
     /// Reference to a macro understood by the compiler.
     /// These should be transformed to other expression before reaching generation
-    BuiltinMacroReference(BuiltinMacroFunction, NodeOrToken),
+    BuiltinMacroReference(BuiltinMacroFunction, Option<NodeOrToken>),
 
     /// A reference to a specific element. This isn't possible to create in .60 syntax itself, but intermediate passes may generate this
     /// type of expression.

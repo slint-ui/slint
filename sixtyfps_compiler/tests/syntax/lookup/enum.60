@@ -16,5 +16,20 @@ TestCase := Text {
     change_alignment => {
         // allow qualified enum lookup
         self.horizontal_alignment = TextHorizontalAlignment.left;
+
+        //typo
+        self.horizontal_alignment =
+            TextHorizontalAlignment.lefti;
+        //                          ^error{'lefti' is not a member of the enum TextHorizontalAlignment}
     }
+
+    vertical_alignment: TextVerticalAlignment.top.right;
+    //                                            ^error{Cannot access fields of property}
+    Text {
+        horizontal-alignment: right.foo;
+        //                          ^error{Cannot access fields of property}
+        vertical_alignment: TextVerticalAlignment;
+        //                  ^error{Cannot take reference to an enum}
+    }
+
 }

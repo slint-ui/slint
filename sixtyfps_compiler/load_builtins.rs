@@ -210,7 +210,7 @@ fn compiled(
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
     let e = Expression::from_binding_expression_node(
         node.clone().into(),
-        &mut crate::passes::resolving::LookupCtx::empty_context(type_register, &mut diag),
+        &mut crate::lookup::LookupCtx::empty_context(type_register, &mut diag),
     )
     .maybe_convert_to(ty, &node, &mut diag);
     if diag.has_error() {

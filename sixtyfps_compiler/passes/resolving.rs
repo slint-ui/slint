@@ -14,15 +14,14 @@ LICENSE END */
 //!
 //! Most of the code for the resolving actualy lies in the expression_tree module
 
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::Type;
+use crate::langtype::{PropertyLookupResult, Type};
+use crate::lookup::{LookupCtx, LookupObject};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
-use crate::{
-    diagnostics::{BuildDiagnostics, Spanned},
-    langtype::PropertyLookupResult,
-};
+
 use std::{collections::HashMap, rc::Rc};
 
 /// This represeresent a scope for the Component, where Component is the repeated component, but
@@ -48,6 +47,7 @@ fn resolve_expression(
             arguments: vec![],
             type_register,
             type_loader: Some(type_loader),
+            current_token: None,
         };
 
         let new_expr = match node.kind() {
@@ -120,72 +120,6 @@ pub fn resolve_expressions(
             new_scope
         })
     }
-}
-
-/// Contains information which allow to lookup identifier in expressions
-pub struct LookupCtx<'a> {
-    /// the name of the property for which this expression refers.
-    pub property_name: Option<&'a str>,
-
-    /// the type of the property for which this expression refers.
-    /// (some property come in the scope)
-    pub property_type: Type,
-
-    /// Here is the stack in which id applies
-    pub component_scope: &'a [ElementRc],
-
-    /// Somewhere to report diagnostics
-    pub diag: &'a mut BuildDiagnostics,
-
-    /// The name of the arguments of the callback or function
-    pub arguments: Vec<String>,
-
-    /// The type register in which to look for Globals
-    pub type_register: &'a TypeRegister,
-
-    /// The type loader instance, which may be used to resolve relative path references
-    /// for example for img!
-    pub type_loader: Option<&'a crate::typeloader::TypeLoader<'a>>,
-}
-
-impl<'a> LookupCtx<'a> {
-    /// Return a context that is just suitable to build simple const expression
-    pub fn empty_context(type_register: &'a TypeRegister, diag: &'a mut BuildDiagnostics) -> Self {
-        Self {
-            property_name: Default::default(),
-            property_type: Default::default(),
-            component_scope: Default::default(),
-            diag,
-            arguments: Default::default(),
-            type_register,
-            type_loader: None,
-        }
-    }
-
-    pub fn return_type(&self) -> &Type {
-        if let Type::Callback { return_type, .. } = &self.property_type {
-            return_type.as_ref().map_or(&Type::Void, |b| &(**b))
-        } else {
-            &self.property_type
-        }
-    }
-}
-
-fn find_element_by_id(roots: &[ElementRc], name: &str) -> Option<ElementRc> {
-    for e in roots.iter().rev() {
-        if e.borrow().id == name {
-            return Some(e.clone());
-        }
-        for x in &e.borrow().children {
-            if x.borrow().repeated.is_some() {
-                continue;
-            }
-            if let Some(x) = find_element_by_id(&[x.clone()], name) {
-                return Some(x);
-            }
-        }
-    }
-    None
 }
 
 impl Expression {
@@ -531,188 +465,77 @@ impl Expression {
             return Self::Invalid;
         };
 
+        ctx.current_token = Some(first.clone().into());
         let first_str = crate::parser::normalize_identifier(first.text());
-
-        if let Some(index) = ctx.arguments.iter().position(|x| x == &first_str) {
-            let ty = match &ctx.property_type {
-                Type::Callback { args, .. } | Type::Function { args, .. } => args[index].clone(),
-                _ => panic!("There should only be argument within functions or callback"),
-            };
-            let e = Expression::FunctionParameterReference { index, ty };
-            return maybe_lookup_object(e, it, ctx);
-        }
-
-        let elem_opt = match first_str.as_str() {
-            "self" => ctx.component_scope.last().cloned(),
-            "parent" => ctx.component_scope.last().and_then(find_parent_element),
-            "true" => return Self::BoolLiteral(true),
-            "false" => return Self::BoolLiteral(false),
-            _ => find_element_by_id(ctx.component_scope, &first_str).or_else(|| {
-                if let Type::Component(c) = ctx.type_register.lookup(&first_str) {
-                    if c.is_global() {
-                        return Some(c.root_element.clone());
-                    }
-                }
-                None
-            }),
-        };
-
-        if let Some(elem) = elem_opt {
-            return continue_lookup_within_element(&elem, &mut it, node, ctx);
-        }
-
-        for elem in ctx.component_scope.iter().rev() {
-            if let Some(repeated) = &elem.borrow().repeated {
-                if first_str == repeated.index_id {
-                    return Expression::RepeaterIndexReference { element: Rc::downgrade(elem) };
-                } else if first_str == repeated.model_data_id {
-                    let base = Expression::RepeaterModelReference { element: Rc::downgrade(elem) };
-                    return maybe_lookup_object(base, it, ctx);
-                }
-            }
-
-            let PropertyLookupResult { resolved_name, property_type } =
-                elem.borrow().lookup_property(&first_str);
-            if property_type.is_property_type() {
-                if resolved_name.as_ref() != &first_str {
-                    ctx.diag.push_property_deprecation_warning(&first_str, &resolved_name, &first);
-                }
-                let prop = Self::PropertyReference(NamedReference::new(&elem, &resolved_name));
-                return maybe_lookup_object(prop, it, ctx);
-            } else if matches!(property_type, Type::Callback { .. }) {
-                if let Some(x) = it.next() {
-                    ctx.diag.push_error("Cannot access fields of callback".into(), &x)
-                }
-                return Self::CallbackReference(NamedReference::new(&elem, &resolved_name));
-            } else if property_type.is_object_type() {
-                todo!("Continue looking up");
-            }
-        }
-
-        if let Some(next_identifier) = it.next() {
-            // Qualified enum lookup (NameOfEnum.value)
-            if let Type::Enumeration(enumeration) = ctx.type_register.lookup(first_str.as_str()) {
-                if let Some(value) = enumeration.try_value_from_string(
-                    &crate::parser::normalize_identifier(next_identifier.text()),
-                ) {
-                    return Expression::EnumerationValue(value);
-                }
-            }
-            ctx.diag.push_error(format!("Cannot access id '{}'", first_str), &node);
-            return Expression::Invalid;
-        }
-
-        match ctx.return_type() {
-            Type::Color => {
-                if let Some(c) = css_color_parser2::NAMED_COLORS.get(first_str.as_str()) {
-                    let value = ((c.a as u32 * 255) << 24)
-                        | ((c.r as u32) << 16)
-                        | ((c.g as u32) << 8)
-                        | (c.b as u32);
-                    return Expression::Cast {
-                        from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
-                        to: Type::Color,
-                    };
-                }
-            }
-            Type::Brush => {
-                if let Some(c) = css_color_parser2::NAMED_COLORS.get(first_str.as_str()) {
-                    let value = ((c.a as u32 * 255) << 24)
-                        | ((c.r as u32) << 16)
-                        | ((c.g as u32) << 8)
-                        | (c.b as u32);
-                    return Expression::Cast {
-                        from: Box::new(Expression::Cast {
-                            from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
-                            to: Type::Color,
-                        }),
-                        to: Type::Brush,
-                    };
-                }
-            }
-            Type::Easing => {
-                // These value are coming from CSSn with - replaced by _
-                let value = match first_str.as_str() {
-                    "linear" => Some(EasingCurve::Linear),
-                    "ease" => Some(EasingCurve::CubicBezier(0.25, 0.1, 0.25, 1.0)),
-                    "ease_in" => Some(EasingCurve::CubicBezier(0.42, 0.0, 1.0, 1.0)),
-                    "ease_in_out" => Some(EasingCurve::CubicBezier(0.42, 0.0, 0.58, 1.0)),
-                    "ease_out" => Some(EasingCurve::CubicBezier(0.0, 0.0, 0.58, 1.0)),
-                    "cubic_bezier" => {
-                        return Expression::BuiltinMacroReference(
-                            BuiltinMacroFunction::CubicBezier,
-                            first.into(),
-                        )
-                    }
-                    _ => None,
-                };
-                if let Some(curve) = value {
-                    return Expression::EasingCurve(curve);
-                }
-            }
-            Type::Enumeration(enumeration) => {
-                if let Some(value) = enumeration.clone().try_value_from_string(&first_str) {
-                    return Expression::EnumerationValue(value);
-                }
-            }
-            _ => {}
-        }
-
-        // Builtin functions  FIXME: handle that in a registery or something
-        match first_str.as_str() {
-            "debug" => return Expression::BuiltinFunctionReference(BuiltinFunction::Debug),
-            "mod" => return Expression::BuiltinFunctionReference(BuiltinFunction::Mod),
-            "round" => return Expression::BuiltinFunctionReference(BuiltinFunction::Round),
-            "ceil" => return Expression::BuiltinFunctionReference(BuiltinFunction::Ceil),
-            "floor" => return Expression::BuiltinFunctionReference(BuiltinFunction::Floor),
-            "sqrt" => return Expression::BuiltinFunctionReference(BuiltinFunction::Sqrt),
-            "rgb" => {
-                return Expression::BuiltinMacroReference(BuiltinMacroFunction::Rgb, first.into())
-            }
-            "rgba" => {
-                return Expression::BuiltinMacroReference(BuiltinMacroFunction::Rgb, first.into())
-            }
-            "max" => {
-                return Expression::BuiltinMacroReference(BuiltinMacroFunction::Max, first.into())
-            }
-            "min" => {
-                return Expression::BuiltinMacroReference(BuiltinMacroFunction::Min, first.into())
-            }
-            "sin" => return Expression::BuiltinFunctionReference(BuiltinFunction::Sin),
-            "cos" => return Expression::BuiltinFunctionReference(BuiltinFunction::Cos),
-            "tan" => return Expression::BuiltinFunctionReference(BuiltinFunction::Tan),
-            "asin" => return Expression::BuiltinFunctionReference(BuiltinFunction::ASin),
-            "acos" => return Expression::BuiltinFunctionReference(BuiltinFunction::ACos),
-            "atan" => return Expression::BuiltinFunctionReference(BuiltinFunction::ATan),
-            _ => {}
-        };
-
-        // Attempt to recover if the user wanted to write "-"
-        if let Some(minus_pos) = first.text().find('-') {
-            let report_minus_error = |ctx: &mut LookupCtx| {
-                ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a substraction.", first.text()), &node);
-            };
-            let first_str = &first.text()[0..minus_pos];
-            for elem in ctx.component_scope.iter().rev() {
-                if let Some(repeated) = &elem.borrow().repeated {
-                    if first_str == repeated.index_id || first_str == repeated.model_data_id {
-                        report_minus_error(ctx);
+        let global_lookup = crate::lookup::global_lookup();
+        let result = match global_lookup.lookup(ctx, &first_str) {
+            None => {
+                if let Some(minus_pos) = first.text().find('-') {
+                    // Attempt to recover if the user wanted to write "-"
+                    let first_str = &first.text()[0..minus_pos];
+                    if global_lookup.lookup(ctx, first_str).is_some() {
+                        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a substraction.", first.text()), &node);
                         return Expression::Invalid;
                     }
                 }
 
-                let PropertyLookupResult { resolved_name: _, property_type } =
-                    elem.borrow().lookup_property(&first_str);
-                if property_type.is_property_type() {
-                    report_minus_error(ctx);
-                    return Expression::Invalid;
+                if it.next().is_some() {
+                    ctx.diag.push_error(format!("Cannot access id '{}'", first.text()), &node);
+                } else {
+                    ctx.diag.push_error(
+                        format!("Unknown unqualified identifier '{}'", first.text()),
+                        &node,
+                    );
                 }
+                return Expression::Invalid;
             }
+            Some(x) => x,
+        };
+
+        if let Some(depr) = result.deprecated {
+            ctx.diag.push_property_deprecation_warning(&first_str, &depr, &first);
         }
 
-        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'", first.text()), &node);
-
-        Self::Invalid
+        match result.expression {
+            Expression::ElementReference(e) => {
+                return continue_lookup_within_element(&e.upgrade().unwrap(), &mut it, node, ctx);
+            }
+            r @ Expression::CallbackReference(..) => {
+                if let Some(x) = it.next() {
+                    ctx.diag.push_error("Cannot access fields of callback".into(), &x)
+                }
+                return r;
+            }
+            Expression::EnumerationValue(ev) => {
+                // Special meaning for the type itself
+                if ev.value == usize::MAX {
+                    if let Some(next_identifier) = it.next() {
+                        match ev.enumeration.lookup(
+                            ctx,
+                            &crate::parser::normalize_identifier(next_identifier.text()),
+                        ) {
+                            None => {
+                                ctx.diag.push_error(
+                                    format!(
+                                        "'{}' is not a member of the enum {}",
+                                        next_identifier.text(),
+                                        ev.enumeration.name
+                                    ),
+                                    &next_identifier,
+                                );
+                                return Expression::Invalid;
+                            }
+                            Some(r) => return maybe_lookup_object(r.expression, it, ctx),
+                        }
+                    } else {
+                        ctx.diag.push_error(format!("Cannot take reference to an enum",), &node);
+                        return Expression::Invalid;
+                    }
+                }
+                return maybe_lookup_object(Expression::EnumerationValue(ev), it, ctx);
+            }
+            other => return maybe_lookup_object(other, it, ctx),
+        }
     }
 
     fn from_function_call_node(
@@ -1089,7 +912,7 @@ impl Expression {
 }
 
 fn min_max_macro(
-    node: NodeOrToken,
+    node: Option<NodeOrToken>,
     op: char,
     args: Vec<(Expression, NodeOrToken)>,
     diag: &mut BuildDiagnostics,
@@ -1122,7 +945,7 @@ fn min_max_macro(
 }
 
 fn rgb_macro(
-    node: NodeOrToken,
+    node: Option<NodeOrToken>,
     args: Vec<(Expression, NodeOrToken)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {

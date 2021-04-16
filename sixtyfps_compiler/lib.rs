@@ -40,6 +40,7 @@ pub mod object_tree;
 pub mod parser;
 pub mod typeloader;
 pub mod typeregister;
+pub mod lookup;
 
 mod passes {
     pub mod apply_default_properties_from_style;
@@ -68,11 +69,6 @@ mod passes {
     pub mod resolving;
     pub mod transform_and_opacity;
     pub mod unique_id;
-}
-
-pub mod lookup {
-    //!FIXME: lookup should be refactored out of the resolving pass
-    pub use super::passes::resolving::LookupCtx;
 }
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
