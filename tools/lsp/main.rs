@@ -161,7 +161,9 @@ fn handle_request(
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     } else if let Some((id, params)) = cast::<ExecuteCommand>(&mut req) {
         match params.command.as_str() {
-            SHOW_PREVIEW_COMMAND => show_preview_command(&params.arguments, connection)?,
+            SHOW_PREVIEW_COMMAND => {
+                show_preview_command(&params.arguments, connection, document_cache)?
+            }
             _ => (),
         }
         connection
@@ -208,7 +210,11 @@ fn handle_notification(
             )?;
         }
         "sixtyfps/showPreview" => {
-            show_preview_command(req.params.as_array().map_or(&[], |x| x.as_slice()), connection)?;
+            show_preview_command(
+                req.params.as_array().map_or(&[], |x| x.as_slice()),
+                connection,
+                document_cache,
+            )?;
         }
         _ => (),
     }
@@ -218,6 +224,7 @@ fn handle_notification(
 fn show_preview_command(
     params: &[serde_json::Value],
     connection: &Connection,
+    document_cache: &DocumentCache,
 ) -> Result<(), Error> {
     let e = || -> Error { "InvalidParameter".into() };
     let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
@@ -227,10 +234,19 @@ fn show_preview_command(
     };
     let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
     let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
+    let is_window = component
+        .as_ref()
+        .and_then(|c| {
+            let mut ty = document_cache.documents.get_document(&path)?.local_registry.lookup(&c);
+            while let Type::Component(c) = ty {
+                ty = c.root_element.borrow().base_type.clone();
+            }
+            Some(matches!(ty, Type::Builtin(b) if b.name == "Window"))
+        })
+        .unwrap_or(false);
     preview::load_preview(
         connection.sender.clone(),
-        path_canon.into(),
-        component,
+        preview::PreviewComponent { path: path_canon.into(), component, is_window },
         preview::PostLoadBehavior::ShowAfterLoad,
     );
     Ok(())
