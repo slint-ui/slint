@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+mod completion;
 mod lsp_ext;
 mod preview;
 
@@ -19,11 +20,11 @@ use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notifi
 use lsp_types::request::{CodeActionRequest, ExecuteCommand, GotoDefinition};
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
-    CodeActionOrCommand, CodeActionProviderCapability, Command, CompletionItem, CompletionItemKind,
-    CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    ExecuteCommandOptions, GotoDefinitionResponse, Hover, HoverProviderCapability,
-    InitializeParams, LocationLink, OneOf, Position, PublishDiagnosticsParams, Range,
-    ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
+    CodeActionOrCommand, CodeActionProviderCapability, Command, CompletionOptions,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, ExecuteCommandOptions,
+    GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink, OneOf,
+    Position, PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability, Url,
+    WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::{BuildDiagnostics, Spanned};
 use sixtyfps_compilerlib::langtype::Type;
@@ -139,7 +140,7 @@ fn handle_request(
             params.text_document_position.text_document,
             params.text_document_position.position,
         )
-        .and_then(|token| completion_at(document_cache, token.parent()));
+        .and_then(|token| completion::completion_at(document_cache, token.parent()));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, _params)) = cast::<HoverRequest>(&mut req) {
@@ -438,64 +439,6 @@ fn get_code_actions(
         SHOW_PREVIEW_COMMAND.into(),
         Some(vec![component.source_file.path().to_string_lossy().into(), component_name.into()]),
     ))])
-}
-
-fn completion_at(document_cache: &DocumentCache, token: SyntaxNode) -> Option<Vec<CompletionItem>> {
-    match token.kind() {
-        SyntaxKind::Element => {
-            let element = syntax_nodes::Element::from(token.clone());
-            let global_tr = document_cache.documents.global_type_registry.borrow();
-            let tr = token
-                .source_file()
-                .and_then(|sf| document_cache.documents.get_document(sf.path()))
-                .map(|doc| &doc.local_registry)
-                .unwrap_or(&global_tr);
-            let element_type = lookup_current_element_type(token, tr).unwrap_or_default();
-            return Some(
-                element_type
-                    .property_list()
-                    .into_iter()
-                    .map(|(k, t)| {
-                        let mut c = CompletionItem::new_simple(k, t.to_string());
-                        c.kind = Some(if matches!(t, Type::Callback { .. }) {
-                            CompletionItemKind::Method
-                        } else {
-                            CompletionItemKind::Property
-                        });
-                        c
-                    })
-                    .chain(element.PropertyDeclaration().map(|pr| {
-                        let mut c = CompletionItem::new_simple(
-                            sixtyfps_compilerlib::parser::identifier_text(&pr.DeclaredIdentifier())
-                                .unwrap_or_default(),
-                            pr.Type().text().into(),
-                        );
-                        c.kind = Some(CompletionItemKind::Property);
-                        c
-                    }))
-                    .chain(element.CallbackDeclaration().map(|cd| {
-                        let mut c = CompletionItem::new_simple(
-                            sixtyfps_compilerlib::parser::identifier_text(&cd.DeclaredIdentifier())
-                                .unwrap_or_default(),
-                            "callback".into(),
-                        );
-                        c.kind = Some(CompletionItemKind::Method);
-                        c
-                    }))
-                    .chain(tr.all_types().into_iter().filter_map(|(k, t)| {
-                        if !matches!(t, Type::Component(_) | Type::Builtin(_)) {
-                            return None;
-                        } else {
-                            let mut c = CompletionItem::new_simple(k, "element".into());
-                            c.kind = Some(CompletionItemKind::Class);
-                            Some(c)
-                        }
-                    }))
-                    .collect(),
-            );
-        }
-        _ => return None,
-    }
 }
 
 fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> Option<Type> {
