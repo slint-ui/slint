@@ -18,6 +18,7 @@ import {
     ServerCapabilities,
     ServerOptions,
     NotificationType,
+    ExecutableOptions,
     //	TransportKind
 } from 'vscode-languageclient/node';
 
@@ -34,21 +35,58 @@ let client: LanguageClient;
 
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
-function lspPlatform(): string | null {
+interface Platform {
+    program_suffix: string,
+    options?: ExecutableOptions
+}
+
+function lspPlatform(): Platform | null {
     if (process.platform === "darwin") {
         if (process.arch === "x64") {
-            return "x86_64-apple-darwin";
+            return {
+                program_suffix: "x86_64-apple-darwin"
+            };
         } else if (process.arch === "arm64") {
-            return "aarch64-apple-darwin";
+            return {
+                program_suffix: "aarch64-apple-darwin"
+            };
         }
     }
     else if (process.platform === "linux") {
+        let remote_env_options = null;
+        if (typeof vscode.env.remoteName !== "undefined") {
+            remote_env_options = {
+                "DISPLAY": ":0",
+                "SIXTYFPS_FULLSCREEN": "1"
+            };
+        }
         if (process.arch === "x64") {
-            return "x86_64-unknown-linux-gnu";
+            return {
+                program_suffix: "x86_64-unknown-linux-gnu",
+                options: {
+                    env: remote_env_options
+                }
+            };
+        } else if (process.arch === "arm") {
+            return {
+                program_suffix: "armv7-unknown-linux-gnu",
+                options: {
+                    env: remote_env_options
+                }
+            };
+        } else if (process.arch === "arm64") {
+            return {
+                program_suffix: "aarch64-unknown-linux-gnu",
+                options: {
+                    env: remote_env_options
+                }
+            };
         }
     }
     else if (process.platform === "win32") {
-        return "x86_64-pc-windows-gnu";
+        return {
+            program_suffix: "x86_64-pc-windows-gnu"
+        };
     }
     return null;
 }
@@ -68,7 +106,7 @@ export function activate(context: vscode.ExtensionContext) {
     const lspSearchPaths = [
         context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp' + program_extension)),
         path.join(context.extensionPath, "bin", "sixtyfps-lsp" + program_extension),
-        path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_platform + program_extension),
+        path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_platform.program_suffix + program_extension),
     ];
 
     let serverModule = lspSearchPaths.find(path => existsSync(path));
@@ -81,8 +119,8 @@ export function activate(context: vscode.ExtensionContext) {
     console.log(`Starting LSP server from ${serverModule}`);
 
     let serverOptions: ServerOptions = {
-        run: { command: serverModule },
-        debug: { command: serverModule }
+        run: { command: serverModule, options: lsp_platform.options },
+        debug: { command: serverModule, options: lsp_platform.options }
     };
 
     let clientOptions: LanguageClientOptions = {
