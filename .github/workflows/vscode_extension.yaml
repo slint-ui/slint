@@ -78,8 +78,41 @@ jobs:
           path: |
               bin
 
+  build_cross_linux_lsp:
+    env:
+      SIXTYFPS_NO_QT: 1
+    strategy:
+      matrix:
+        target:
+          - armv7-unknown-linux-gnueabihf
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+    - name: Build LSP
+      uses: actions-rs/cargo@v1
+      with:
+          use-cross: true
+          command: build
+          args: --target ${{ matrix.toolchain }} --release -p sixtyfps-lsp
+    - name: Create artifact directory
+      run: |
+          mkdir bin
+          cp target/${{ matrix.target }}/release/sixtyfps-lsp bin/sixtyfps-lsp-${{ matrix.target }}
+    - name: "Upload LSP Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: lsp-binary-${{ matrix.target }}
+          path: |
+              bin              
+
   build_extension:
-    needs: [build_lsp]
+    needs: [build_lsp, build_cross_linux_lsp]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -98,6 +131,10 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: lsp-binary-aarch64-apple-darwin
+        path: vscode_extension/bin
+    - uses: actions/download-artifact@v2
+      with:
+        name: lsp-binary-armv7-unknown-linux-gnueabihf
         path: vscode_extension/bin
     - name: Fix permissions
       run: chmod 755 vscode_extension/bin/*

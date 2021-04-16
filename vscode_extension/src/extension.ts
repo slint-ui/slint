@@ -69,7 +69,7 @@ function lspPlatform(): Platform | null {
             };
         } else if (process.arch === "arm") {
             return {
-                program_suffix: "armv7-unknown-linux-gnu",
+                program_suffix: "armv7-unknown-linux-gnueabihf",
                 options: {
                     env: remote_env_options
                 }
