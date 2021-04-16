@@ -71,7 +71,14 @@ pub fn load_preview(
     component: Option<String>,
     post_load_behavior: PostLoadBehavior,
 ) {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    const PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
+    if PENDING_EVENTS.load(Ordering::SeqCst) > 0 {
+        return;
+    }
+    PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
     run_in_ui_thread(Box::pin(async move {
+        PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
         reload_preview(sender, &path, component, post_load_behavior).await
     }));
 }
@@ -94,7 +101,7 @@ pub fn set_contents(path: &Path, content: String) {
     if cache.dependency.contains(path) {
         let current_root = cache.current_root.clone();
         let current_component = cache.current_component.clone();
-        let sender = cache.sender.take();
+        let sender = cache.sender.clone();
         drop(cache);
         if let Some(sender) = sender {
             load_preview(sender, current_root, current_component, PostLoadBehavior::DoNothing);
