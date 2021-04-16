@@ -140,7 +140,7 @@ fn handle_request(
             params.text_document_position.text_document,
             params.text_document_position.position,
         )
-        .and_then(|token| completion::completion_at(document_cache, token.parent()));
+        .and_then(|token| completion::completion_at(document_cache, token));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, _params)) = cast::<HoverRequest>(&mut req) {
