@@ -5,6 +5,7 @@
 	"version": "0.0.1",
 	"publisher": "SixtyFPS",
 	"icon": "extension-logo.png",
+	"license": "GPL-3.0",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/sixtyfpsui/sixtyfps"
