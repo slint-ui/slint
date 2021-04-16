@@ -10,10 +10,10 @@ LICENSE END */
 
 use super::{lookup_current_element_type, DocumentCache};
 use lsp_types::{CompletionItem, CompletionItemKind};
-use object_tree::ElementRc;
 use sixtyfps_compilerlib::diagnostics::Spanned;
+use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::lookup::LookupCtx;
+use sixtyfps_compilerlib::lookup::{LookupCtx, LookupObject};
 use sixtyfps_compilerlib::object_tree;
 use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 
@@ -163,109 +163,30 @@ fn resolve_expression_scope(
 ) -> Option<Vec<CompletionItem>> {
     let mut r = Vec::new();
 
-    r.extend(ctx.arguments.iter().map(|a| {
-        let mut c = CompletionItem::new_simple(a.to_string(), String::new());
-        c.kind = Some(CompletionItemKind::Variable);
-        c
-    }));
-
-    r.extend(["true", "false"].iter().map(|a| {
-        let mut c = CompletionItem::new_simple(a.to_string(), String::new());
-        c.kind = Some(CompletionItemKind::Constant);
-        c
-    }));
-
-    r.extend(["self", "parent" /*"root"*/].iter().map(|a| {
-        let mut c = CompletionItem::new_simple(a.to_string(), String::new());
-        c.kind = Some(CompletionItemKind::Class);
-        c
-    }));
-
-    fn append_id(roots: &[ElementRc], r: &mut Vec<CompletionItem>) {
-        for e in roots.iter().rev() {
-            if !e.borrow().id.is_empty() {
-                let mut c = CompletionItem::new_simple(e.borrow().id.clone(), String::new());
-                c.kind = Some(CompletionItemKind::Class);
-                r.push(c);
-            }
-            for x in &e.borrow().children {
-                if x.borrow().repeated.is_some() {
-                    continue;
-                }
-                append_id(&[x.clone()], r)
-            }
-        }
-    }
-    append_id(ctx.component_scope, &mut r);
-
-    for elem in ctx.component_scope.iter().rev() {
-        if let Some(repeated) = &elem.borrow().repeated {
-            if !repeated.index_id.is_empty() {
-                let mut c = CompletionItem::new_simple(repeated.index_id.clone(), String::new());
-                c.kind = Some(CompletionItemKind::Variable);
-                r.push(c);
-            }
-            if !repeated.model_data_id.is_empty() {
-                let mut c =
-                    CompletionItem::new_simple(repeated.model_data_id.clone(), String::new());
-                c.kind = Some(CompletionItemKind::Variable);
-                r.push(c);
-            }
-        }
-
-        r.extend(elem.borrow().property_declarations.iter().map(|(k, p)| {
-            let mut c = CompletionItem::new_simple(k.into(), p.property_type.to_string());
-            c.kind = Some(CompletionItemKind::Property);
-            c
-        }));
-        r.extend(elem.borrow().base_type.property_list().iter().map(|(k, t)| {
-            let mut c = CompletionItem::new_simple(k.into(), t.to_string());
-            c.kind = Some(CompletionItemKind::Property);
-            c
-        }));
-    }
-
-    r.extend(ctx.type_register.all_types().into_iter().filter_map(|(k, t)| {
-        if !matches!(t, Type::Enumeration(_)) {
-            return None;
-        } else {
-            let mut c = CompletionItem::new_simple(k, "enum".into());
-            c.kind = Some(CompletionItemKind::Class);
-            Some(c)
-        }
-    }));
-
-    match ctx.return_type() {
-        Type::Color => {
-            // TODO
-        }
-        Type::Brush => {
-            // TODO
-        }
-        Type::Easing => {
-            // TODO
-        }
-        Type::Enumeration(enumeration) => {
-            r.extend(enumeration.values.iter().map(|a| {
-                let mut c = CompletionItem::new_simple(a.clone(), enumeration.name.clone());
-                c.kind = Some(CompletionItemKind::Constant);
-                c
-            }));
-        }
-        _ => {}
-    }
-
-    r.extend(
-        [
-            "debug", "mod", "round", "ceil", "floor", "sqrt", "rgb", "rgba", "max", "min", "sin",
-            "cos", "tan", "asin", "acos", "atan",
-        ]
-        .iter()
-        .map(|a| {
-            let mut c = CompletionItem::new_simple(a.to_string(), String::new());
-            c.kind = Some(CompletionItemKind::Function);
-            c
-        }),
-    );
+    let global = sixtyfps_compilerlib::lookup::global_lookup();
+    global.for_each_entry(ctx, &mut |str, expr| -> Option<()> {
+        let mut c = CompletionItem::new_simple(str.to_string(), expr.ty().to_string());
+        c.kind = match expr {
+            Expression::BoolLiteral(_) => Some(CompletionItemKind::Constant),
+            Expression::CallbackReference(_) => Some(CompletionItemKind::Method),
+            Expression::PropertyReference(_) => Some(CompletionItemKind::Property),
+            Expression::BuiltinFunctionReference(_) => Some(CompletionItemKind::Function),
+            Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::Function),
+            Expression::ElementReference(_) => Some(CompletionItemKind::Class),
+            Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::Variable),
+            Expression::RepeaterModelReference { .. } => Some(CompletionItemKind::Variable),
+            Expression::FunctionParameterReference { .. } => Some(CompletionItemKind::Variable),
+            Expression::Cast { .. } => Some(CompletionItemKind::Constant),
+            Expression::EasingCurve(_) => Some(CompletionItemKind::Constant),
+            Expression::EnumerationValue(ev) => Some(if ev.value == usize::MAX {
+                CompletionItemKind::Enum
+            } else {
+                CompletionItemKind::EnumMember
+            }),
+            _ => None,
+        };
+        r.push(c);
+        None
+    });
     Some(r)
 }

@@ -93,13 +93,13 @@ pub trait LookupObject {
     /// If the function return Some, it will imediatly be returned and not called further
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R>;
 
     /// Perform a lookup of a given identifier.
     /// One does not have to re-implment unless we can make it faster
-    fn lookup(&self, ctx: &mut LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then(|| LookupResult::new(expr)))
     }
 }
@@ -107,13 +107,13 @@ pub trait LookupObject {
 impl<T1: LookupObject, T2: LookupObject> LookupObject for (T1, T2) {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         self.0.for_each_entry(ctx, f).or_else(|| self.1.for_each_entry(ctx, f))
     }
 
-    fn lookup(&self, ctx: &mut LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         self.0.lookup(ctx, name).or_else(|| self.1.lookup(ctx, name))
     }
 }
@@ -122,7 +122,7 @@ struct ArgumentsLookup;
 impl LookupObject for ArgumentsLookup {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         let args = match &ctx.property_type {
@@ -144,7 +144,7 @@ struct SpecialIdLookup;
 impl LookupObject for SpecialIdLookup {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         let last = ctx.component_scope.last();
@@ -165,7 +165,7 @@ struct IdLookup;
 impl LookupObject for IdLookup {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         fn visit<R>(
@@ -200,7 +200,7 @@ struct InScopeLookup;
 impl LookupObject for InScopeLookup {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         for elem in ctx.component_scope.iter().rev() {
@@ -230,7 +230,7 @@ impl LookupObject for InScopeLookup {
         None
     }
 
-    fn lookup(&self, ctx: &mut LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         if name.is_empty() {
             return None;
         }
@@ -259,7 +259,7 @@ impl LookupObject for InScopeLookup {
 impl LookupObject for ElementRc {
     fn for_each_entry<R>(
         &self,
-        _ctx: &mut LookupCtx,
+        _ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         for (name, prop) in &self.borrow().property_declarations {
@@ -279,7 +279,7 @@ impl LookupObject for ElementRc {
         None
     }
 
-    fn lookup(&self, _ctx: &mut LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         let crate::langtype::PropertyLookupResult { resolved_name, property_type } =
             self.borrow().lookup_property(&name);
         (property_type != Type::Invalid).then(|| LookupResult {
@@ -306,7 +306,7 @@ struct LookupType;
 impl LookupObject for LookupType {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         for (name, ty) in ctx.type_register.all_types() {
@@ -317,7 +317,7 @@ impl LookupObject for LookupType {
         None
     }
 
-    fn lookup(&self, ctx: &mut LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         Self::as_expr(ctx.type_register.lookup(name)).map(LookupResult::new)
     }
 }
@@ -340,7 +340,7 @@ struct ReturnTypeSpecificLookup;
 impl LookupObject for ReturnTypeSpecificLookup {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         match ctx.return_type() {
@@ -352,7 +352,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
         }
     }
 
-    fn lookup(&self, ctx: &mut LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         match ctx.return_type() {
             Type::Color => ColorSpecific.lookup(ctx, name),
             Type::Brush => ColorSpecific.lookup(ctx, name),
@@ -367,7 +367,7 @@ struct ColorSpecific;
 impl LookupObject for ColorSpecific {
     fn for_each_entry<R>(
         &self,
-        _ctx: &mut LookupCtx,
+        _ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         for (name, c) in css_color_parser2::NAMED_COLORS.iter() {
@@ -377,7 +377,7 @@ impl LookupObject for ColorSpecific {
         }
         None
     }
-    fn lookup(&self, _ctx: &mut LookupCtx, name: &str) -> Option<LookupResult> {
+    fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         css_color_parser2::NAMED_COLORS.get(name).map(|c| LookupResult::new(Self::as_expr(*c)))
     }
 }
@@ -396,7 +396,7 @@ struct EasingSpecific;
 impl LookupObject for EasingSpecific {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         use EasingCurve::CubicBezier;
@@ -422,7 +422,7 @@ impl LookupObject for EasingSpecific {
 impl LookupObject for Rc<Enumeration> {
     fn for_each_entry<R>(
         &self,
-        _ctx: &mut LookupCtx,
+        _ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         for (value, name) in self.values.iter().enumerate() {
@@ -441,7 +441,7 @@ struct BuiltinFunctionLookup;
 impl LookupObject for BuiltinFunctionLookup {
     fn for_each_entry<R>(
         &self,
-        ctx: &mut LookupCtx,
+        ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         use crate::expression_tree::BuiltinFunction;
