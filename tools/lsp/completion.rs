@@ -62,39 +62,155 @@ pub(crate) fn completion_at(
             | SyntaxKind::Array
     ) {
         // find context
-        let mut n = node.parent()?;
-        let (element, prop_name) = loop {
-            if let Some(decl) = syntax_nodes::PropertyDeclaration::new(n.clone()) {
-                let prop_name =
-                    sixtyfps_compilerlib::parser::identifier_text(&decl.DeclaredIdentifier())?;
+        let (element, prop_name) = lookup_expression_context(node.parent()?)?;
+        return resolve_expression_scope(element, &prop_name, document_cache);
+    } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
+        match q.parent()?.kind() {
+            SyntaxKind::Element => {
+                // auto-complete the types
+                let global_tr = document_cache.documents.global_type_registry.borrow();
+                let tr = q
+                    .source_file()
+                    .and_then(|sf| document_cache.documents.get_document(sf.path()))
+                    .map(|doc| &doc.local_registry)
+                    .unwrap_or(&global_tr);
+                return Some(
+                    tr.all_types()
+                        .into_iter()
+                        .filter_map(|(k, t)| {
+                            if !matches!(t, Type::Component(_) | Type::Builtin(_)) {
+                                return None;
+                            } else {
+                                let mut c = CompletionItem::new_simple(k, "element".into());
+                                c.kind = Some(CompletionItemKind::Class);
+                                Some(c)
+                            }
+                        })
+                        .collect(),
+                );
+            }
+            SyntaxKind::Expression => {
+                let (element, prop_name) = lookup_expression_context(node.parent()?)?;
+                let it = q.children_with_tokens().filter_map(|t| t.into_token());
+                let mut it =
+                    it.skip_while(|t| t.kind() != SyntaxKind::Identifier && t.token != token.token);
+                let first = it.next();
+                if first.as_ref().map_or(true, |f| f.token == token.token) {
+                    return resolve_expression_scope(element, &prop_name, document_cache);
+                }
+
+                // this code is duplicated with the begining of resolve_expression_scope
+                let global_tr = document_cache.documents.global_type_registry.borrow();
+                let tr = element
+                    .source_file()
+                    .and_then(|sf| document_cache.documents.get_document(sf.path()))
+                    .map(|doc| &doc.local_registry)
+                    .unwrap_or(&global_tr);
+                let ty = element
+                    .PropertyDeclaration()
+                    .find_map(|p| {
+                        (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                            == prop_name)
+                            .then(|| p)
+                    })
+                    .map(|p| object_tree::type_from_node(p.Type(), &mut Default::default(), tr));
+                let ty = ty.or_else(|| {
+                    lookup_current_element_type((*element).clone(), tr)
+                        .map(|el_ty| el_ty.lookup_property(&prop_name).property_type)
+                });
+
+                // FIXME: we need also to fill in the repeated element
+                let component = {
+                    let mut n = element.parent()?;
+                    loop {
+                        if let Some(component) = syntax_nodes::Component::new(n.clone()) {
+                            break component;
+                        }
+                        n = n.parent()?;
+                    }
+                };
+                let component_name =
+                    sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
+                let component = tr.lookup(&component_name);
+                let scope = if let Type::Component(c) = component {
+                    vec![c.root_element.clone()]
+                } else {
+                    Vec::new()
+                };
+
+                let mut build_diagnostics = Default::default();
+                let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);
+                lookup_context.property_name = Some(&prop_name);
+                lookup_context.property_type = ty.unwrap_or_default();
+                lookup_context.component_scope = &scope;
+                // -- end of duplication
+
+                let first = sixtyfps_compilerlib::parser::normalize_identifier(first?.text());
+                let global = sixtyfps_compilerlib::lookup::global_lookup();
+                let mut expr_it = global.lookup(&lookup_context, &first)?.expression;
+                let mut has_dot = false;
+                loop {
+                    let t = if let Some(t) = it.next() { t } else { break };
+                    has_dot |= t.kind() == SyntaxKind::Dot;
+                    if t.token == token.token {
+                        break;
+                    };
+                    if t.kind() != SyntaxKind::Identifier {
+                        continue;
+                    }
+                    has_dot = false;
+                    let str = sixtyfps_compilerlib::parser::normalize_identifier(t.text());
+                    expr_it = expr_it.lookup(&lookup_context, &str)?.expression;
+                }
+                if has_dot {
+                    let mut r = Vec::new();
+                    expr_it.for_each_entry(&lookup_context, &mut |str, expr| -> Option<()> {
+                        r.push(completion_item_from_expression(str, expr));
+                        None
+                    });
+                    return Some(r);
+                }
+            }
+            _ => (),
+        }
+    }
+    return None;
+}
+
+/// Return the element and property name in which we are
+fn lookup_expression_context(
+    mut n: sixtyfps_compilerlib::parser::SyntaxNode,
+) -> Option<(syntax_nodes::Element, String)> {
+    let (element, prop_name) = loop {
+        if let Some(decl) = syntax_nodes::PropertyDeclaration::new(n.clone()) {
+            let prop_name =
+                sixtyfps_compilerlib::parser::identifier_text(&decl.DeclaredIdentifier())?;
+            let element = syntax_nodes::Element::new(n.parent()?)?;
+            break (element, prop_name.to_string());
+        }
+        match n.kind() {
+            SyntaxKind::Binding
+            | SyntaxKind::TwoWayBinding
+            // FIXME: arguments of the callback
+            | SyntaxKind::CallbackConnection => {
+                let prop_name = sixtyfps_compilerlib::parser::identifier_text(&n)?;
                 let element = syntax_nodes::Element::new(n.parent()?)?;
                 break (element, prop_name.to_string());
             }
-            match n.kind() {
-                SyntaxKind::Binding
-                | SyntaxKind::TwoWayBinding
-                // FIXME: arguments of the callback
-                | SyntaxKind::CallbackConnection => {
-                    let prop_name = sixtyfps_compilerlib::parser::identifier_text(&n)?;
-                    let element = syntax_nodes::Element::new(n.parent()?)?;
-                    break (element, prop_name.to_string());
-                }
-                SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
-                    let element = syntax_nodes::Element::new(n.parent()?)?;
-                    break (element, "$model".to_string());
-                }
-                SyntaxKind::Element => {
-                    // oops: missed it
-                    let element = syntax_nodes::Element::new(n)?;
-                    break (element, String::new());
-                }
-                _ => n = n.parent()?,
-
+            SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
+                let element = syntax_nodes::Element::new(n.parent()?)?;
+                break (element, "$model".to_string());
             }
-        };
-        return resolve_expression_scope(element, &prop_name, document_cache);
-    }
-    return None;
+            SyntaxKind::Element => {
+                // oops: missed it
+                let element = syntax_nodes::Element::new(n)?;
+                break (element, String::new());
+            }
+            _ => n = n.parent()?,
+
+        }
+    };
+    Some((element, prop_name))
 }
 
 fn resolve_element_scope(
@@ -200,28 +316,32 @@ fn resolve_expression_scope(
     let mut r = Vec::new();
     let global = sixtyfps_compilerlib::lookup::global_lookup();
     global.for_each_entry(&lookup_context, &mut |str, expr| -> Option<()> {
-        let mut c = CompletionItem::new_simple(str.to_string(), expr.ty().to_string());
-        c.kind = match expr {
-            Expression::BoolLiteral(_) => Some(CompletionItemKind::Constant),
-            Expression::CallbackReference(_) => Some(CompletionItemKind::Method),
-            Expression::PropertyReference(_) => Some(CompletionItemKind::Property),
-            Expression::BuiltinFunctionReference(_) => Some(CompletionItemKind::Function),
-            Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::Function),
-            Expression::ElementReference(_) => Some(CompletionItemKind::Class),
-            Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::Variable),
-            Expression::RepeaterModelReference { .. } => Some(CompletionItemKind::Variable),
-            Expression::FunctionParameterReference { .. } => Some(CompletionItemKind::Variable),
-            Expression::Cast { .. } => Some(CompletionItemKind::Constant),
-            Expression::EasingCurve(_) => Some(CompletionItemKind::Constant),
-            Expression::EnumerationValue(ev) => Some(if ev.value == usize::MAX {
-                CompletionItemKind::Enum
-            } else {
-                CompletionItemKind::EnumMember
-            }),
-            _ => None,
-        };
-        r.push(c);
+        r.push(completion_item_from_expression(str, expr));
         None
     });
     Some(r)
+}
+
+fn completion_item_from_expression(str: &str, expr: Expression) -> CompletionItem {
+    let mut c = CompletionItem::new_simple(str.to_string(), expr.ty().to_string());
+    c.kind = match expr {
+        Expression::BoolLiteral(_) => Some(CompletionItemKind::Constant),
+        Expression::CallbackReference(_) => Some(CompletionItemKind::Method),
+        Expression::PropertyReference(_) => Some(CompletionItemKind::Property),
+        Expression::BuiltinFunctionReference(_) => Some(CompletionItemKind::Function),
+        Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::Function),
+        Expression::ElementReference(_) => Some(CompletionItemKind::Class),
+        Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::Variable),
+        Expression::RepeaterModelReference { .. } => Some(CompletionItemKind::Variable),
+        Expression::FunctionParameterReference { .. } => Some(CompletionItemKind::Variable),
+        Expression::Cast { .. } => Some(CompletionItemKind::Constant),
+        Expression::EasingCurve(_) => Some(CompletionItemKind::Constant),
+        Expression::EnumerationValue(ev) => Some(if ev.value == usize::MAX {
+            CompletionItemKind::Enum
+        } else {
+            CompletionItemKind::EnumMember
+        }),
+        _ => None,
+    };
+    c
 }

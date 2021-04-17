@@ -478,3 +478,62 @@ pub fn global_lookup() -> impl LookupObject {
         ),
     )
 }
+
+impl LookupObject for Expression {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+    ) -> Option<R> {
+        match self {
+            Expression::ElementReference(e) => e.upgrade().unwrap().for_each_entry(ctx, f),
+            Expression::EnumerationValue(ev) => {
+                if ev.value == usize::MAX {
+                    ev.enumeration.for_each_entry(ctx, f)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                if let Type::Struct { fields, .. } = self.ty() {
+                    for name in fields.keys() {
+                        if let Some(r) = f(
+                            &name,
+                            Expression::StructFieldAccess {
+                                base: Box::new(self.clone()),
+                                name: name.clone(),
+                            },
+                        ) {
+                            return Some(r);
+                        }
+                    }
+                }
+                None
+            }
+        }
+    }
+
+    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+        match self {
+            Expression::ElementReference(e) => e.upgrade().unwrap().lookup(ctx, name),
+            Expression::EnumerationValue(ev) => {
+                if ev.value == usize::MAX {
+                    ev.enumeration.lookup(ctx, name)
+                } else {
+                    None
+                }
+            }
+            _ => {
+                if let Type::Struct { fields, .. } = self.ty() {
+                    if fields.contains_key(name) {
+                        return Some(LookupResult::new(Expression::StructFieldAccess {
+                            base: Box::new(self.clone()),
+                            name: name.to_string(),
+                        }));
+                    }
+                }
+                None
+            }
+        }
+    }
+}
