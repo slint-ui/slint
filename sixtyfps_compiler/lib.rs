@@ -35,12 +35,12 @@ pub mod langtype;
 pub mod layout;
 pub mod lexer;
 pub(crate) mod load_builtins;
+pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
 pub mod typeloader;
 pub mod typeregister;
-pub mod lookup;
 
 mod passes {
     pub mod apply_default_properties_from_style;
