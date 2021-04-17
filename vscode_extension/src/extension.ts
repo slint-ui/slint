@@ -148,9 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
         if (!ae) {
             return;
         }
-        statusBar.show();
         client.sendNotification("sixtyfps/showPreview", ae.document.uri.fsPath.toString());
-
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.reload', async function () {
@@ -187,4 +185,5 @@ function setServerStatus(status: ServerStatusParams, statusBar: vscode.StatusBar
     }
     statusBar.tooltip = "SixtyFPS";
     statusBar.text = `${icon} ${status.message ?? "SixtyFPS"}`;
+    statusBar.show();
 }
