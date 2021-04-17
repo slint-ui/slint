@@ -50,6 +50,20 @@ pub(crate) fn completion_at(
         );
     } else if matches!(
         node.kind(),
+        SyntaxKind::Type | SyntaxKind::ArrayType | SyntaxKind::ObjectType | SyntaxKind::ReturnType
+    ) {
+        return resolve_type_scope(token, document_cache);
+    } else if let Some(_) = syntax_nodes::PropertyDeclaration::new(node.clone()) {
+        if token.kind() == SyntaxKind::LAngle {
+            return resolve_type_scope(token, document_cache);
+        }
+    } else if let Some(n) = syntax_nodes::CallbackDeclaration::new(node.clone()) {
+        let paren = n.child_token(SyntaxKind::LParent)?;
+        if token.token.text_range().start() >= paren.token.text_range().end() {
+            return resolve_type_scope(token, document_cache);
+        }
+    } else if matches!(
+        node.kind(),
         SyntaxKind::BindingExpression
             | SyntaxKind::CodeBlock
             | SyntaxKind::ReturnStatement
@@ -88,6 +102,9 @@ pub(crate) fn completion_at(
                         })
                         .collect(),
                 );
+            }
+            SyntaxKind::Type => {
+                return resolve_type_scope(token, document_cache);
             }
             SyntaxKind::Expression => {
                 let (element, prop_name) = lookup_expression_context(node.parent()?)?;
@@ -264,6 +281,24 @@ fn resolve_element_scope(
                     Some(c)
                 }
             }))
+            .chain(
+                [
+                    "property",
+                    "callback",
+                    "animate",
+                    "states",
+                    "transitions",
+                    "for",
+                    "if",
+                    "@children",
+                ]
+                .iter()
+                .map(|k| {
+                    let mut c = CompletionItem::new_simple(k.to_string(), String::new());
+                    c.kind = Some(CompletionItemKind::Keyword);
+                    c
+                }),
+            )
             .collect(),
     )
 }
@@ -344,4 +379,28 @@ fn completion_item_from_expression(str: &str, expr: Expression) -> CompletionIte
         _ => None,
     };
     c
+}
+
+fn resolve_type_scope(
+    token: SyntaxToken,
+    document_cache: &DocumentCache,
+) -> Option<Vec<CompletionItem>> {
+    let global_tr = document_cache.documents.global_type_registry.borrow();
+    let tr = token
+        .source_file()
+        .and_then(|sf| document_cache.documents.get_document(sf.path()))
+        .map(|doc| &doc.local_registry)
+        .unwrap_or(&global_tr);
+    Some(
+        tr.all_types()
+            .into_iter()
+            .filter_map(|(k, t)| {
+                t.is_property_type().then(|| {
+                    let mut c = CompletionItem::new_simple(k, String::new());
+                    c.kind = Some(CompletionItemKind::TypeParameter);
+                    c
+                })
+            })
+            .collect(),
+    )
 }
