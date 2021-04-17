@@ -15,11 +15,9 @@ import * as vscode from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
-    ServerCapabilities,
     ServerOptions,
     NotificationType,
     ExecutableOptions,
-    //	TransportKind
 } from 'vscode-languageclient/node';
 
 
