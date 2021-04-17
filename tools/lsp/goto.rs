@@ -13,7 +13,9 @@ use std::path::Path;
 use super::DocumentCache;
 use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range, Url};
 use sixtyfps_compilerlib::diagnostics::Spanned;
+use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
+use sixtyfps_compilerlib::lookup::LookupObject;
 use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 
 pub fn goto_definition(
@@ -24,9 +26,9 @@ pub fn goto_definition(
     loop {
         if let Some(n) = syntax_nodes::QualifiedName::new(node.clone()) {
             let parent = n.parent()?;
-            let qual = sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(n);
             return match parent.kind() {
                 SyntaxKind::Element | SyntaxKind::Type => {
+                    let qual = sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(n);
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
                         sixtyfps_compilerlib::langtype::Type::Component(c) => {
@@ -34,6 +36,50 @@ pub fn goto_definition(
                         }
                         _ => None,
                     }
+                }
+                SyntaxKind::Expression => {
+                    if token.kind() != SyntaxKind::Identifier {
+                        return None;
+                    }
+                    let expr = crate::util::with_lookup_ctx(document_cache, node, |ctx| {
+                        let mut it = n
+                            .children_with_tokens()
+                            .filter_map(|t| t.into_token())
+                            .filter(|t| t.kind() == SyntaxKind::Identifier);
+                        let mut cur_tok = it.next()?;
+                        let first_str =
+                            sixtyfps_compilerlib::parser::normalize_identifier(cur_tok.text());
+                        let global = sixtyfps_compilerlib::lookup::global_lookup();
+                        let mut expr_it = global.lookup(ctx, &first_str)?.expression;
+                        while cur_tok.token != token.token {
+                            cur_tok = it.next()?;
+                            let str =
+                                sixtyfps_compilerlib::parser::normalize_identifier(cur_tok.text());
+                            expr_it = expr_it.lookup(ctx, &str)?.expression;
+                        }
+                        Some(expr_it)
+                    })?;
+                    let gn = match expr? {
+                        Expression::ElementReference(e) => {
+                            e.upgrade()?.borrow().node.clone()?.into()
+                        }
+                        Expression::CallbackReference(nr) | Expression::PropertyReference(nr) => {
+                            let mut el = nr.element();
+                            loop {
+                                if let Some(x) = el.borrow().property_declarations.get(nr.name()) {
+                                    break x.type_node.clone()?;
+                                }
+                                let base = el.borrow().base_type.clone();
+                                if let Type::Component(c) = base {
+                                    el = c.root_element.clone();
+                                } else {
+                                    return None;
+                                }
+                            }
+                        }
+                        _ => return None,
+                    };
+                    goto_node(document_cache, &gn)
                 }
                 _ => None,
             };
