@@ -69,7 +69,7 @@ fn run_lsp_server() -> Result<(), Error> {
     let capabilities = ServerCapabilities {
         completion_provider: Some(CompletionOptions {
             resolve_provider: Some(true),
-            trigger_characters: None,
+            trigger_characters: Some(vec![".".to_owned()]),
             work_done_progress_options: WorkDoneProgressOptions::default(),
         }),
         hover_provider: Some(HoverProviderCapability::Simple(true)),
@@ -345,7 +345,25 @@ fn token_descr(
     if !node.text_range().contains(o.into()) {
         return None;
     }
-    let token = node.token_at_offset(o.into()).last()?;
+    let mut taf = node.token_at_offset(o.into());
+    let token = match (taf.next(), taf.next()) {
+        (None, _) => return None,
+        (Some(t), None) => t,
+        (Some(l), Some(r)) => match (l.kind(), r.kind()) {
+            // Prioritize identifier
+            (SyntaxKind::Identifier, _) => l,
+            (_, SyntaxKind::Identifier) => r,
+            // then the dot
+            (SyntaxKind::Dot, _) => l,
+            (_, SyntaxKind::Dot) => r,
+            // de-prioritize the white spaces
+            (SyntaxKind::Whitespace, _) => r,
+            (SyntaxKind::Comment, _) => r,
+            (_, SyntaxKind::Whitespace) => l,
+            (_, SyntaxKind::Comment) => l,
+            _ => l,
+        },
+    };
     Some(SyntaxToken { token, source_file: node.source_file.clone() })
 }
 
