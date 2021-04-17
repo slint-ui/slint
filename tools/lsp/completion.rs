@@ -8,7 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-use super::{lookup_current_element_type, DocumentCache};
+use super::util::lookup_current_element_type;
+use super::DocumentCache;
 use lsp_types::{CompletionItem, CompletionItemKind};
 use sixtyfps_compilerlib::diagnostics::Spanned;
 use sixtyfps_compilerlib::expression_tree::Expression;

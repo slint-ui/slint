@@ -1,0 +1,175 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+use std::path::Path;
+
+use super::DocumentCache;
+use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range, Url};
+use sixtyfps_compilerlib::diagnostics::Spanned;
+use sixtyfps_compilerlib::langtype::Type;
+use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+
+pub fn goto_definition(
+    document_cache: &mut DocumentCache,
+    token: SyntaxToken,
+) -> Option<GotoDefinitionResponse> {
+    let mut node = token.parent();
+    loop {
+        if let Some(n) = syntax_nodes::QualifiedName::new(node.clone()) {
+            let parent = n.parent()?;
+            let qual = sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(n);
+            return match parent.kind() {
+                SyntaxKind::Element | SyntaxKind::Type => {
+                    let doc = document_cache.documents.get_document(node.source_file.path())?;
+                    match doc.local_registry.lookup_qualified(&qual.members) {
+                        sixtyfps_compilerlib::langtype::Type::Component(c) => {
+                            goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
+                        }
+                        _ => None,
+                    }
+                }
+                _ => None,
+            };
+        } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
+            let doc = document_cache.documents.get_document(node.source_file.path())?;
+            let imp_name = sixtyfps_compilerlib::typeloader::ImportedName::from_node(n);
+            return match doc.local_registry.lookup(&imp_name.internal_name) {
+                sixtyfps_compilerlib::langtype::Type::Component(c) => {
+                    goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
+                }
+                _ => None,
+            };
+        } else if let Some(n) = syntax_nodes::ImportSpecifier::new(node.clone()) {
+            let import_file = node
+                .source_file
+                .path()
+                .parent()
+                .unwrap_or(Path::new("/"))
+                .join(n.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
+            let import_file = import_file.canonicalize().unwrap_or(import_file);
+            let doc = document_cache.documents.get_document(&import_file)?;
+            let doc_node = doc.node.clone()?;
+            return goto_node(document_cache, &*doc_node);
+        } else if let Some(_) = syntax_nodes::BindingExpression::new(node.clone()) {
+            // don't fallback to the Binding
+            return None;
+        } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
+            if token.kind() != SyntaxKind::Identifier {
+                return None;
+            }
+            let prop_name = token.text();
+            let element = syntax_nodes::Element::new(n.parent()?)?;
+            if let Some(p) = element.PropertyDeclaration().find_map(|p| {
+                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                    == prop_name)
+                    .then(|| p)
+            }) {
+                return goto_node(document_cache, &p);
+            }
+            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            return goto_node(document_cache, &n);
+        } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
+            if token.kind() != SyntaxKind::Identifier {
+                return None;
+            }
+            let prop_name = token.text();
+            if prop_name != n.child_text(SyntaxKind::Identifier)? {
+                return None;
+            }
+            let element = syntax_nodes::Element::new(n.parent()?)?;
+            if let Some(p) = element.PropertyDeclaration().find_map(|p| {
+                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                    == prop_name)
+                    .then(|| p)
+            }) {
+                return goto_node(document_cache, &p);
+            }
+            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            return goto_node(document_cache, &n);
+        } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
+            if token.kind() != SyntaxKind::Identifier {
+                return None;
+            }
+            let prop_name = token.text();
+            if prop_name != n.child_text(SyntaxKind::Identifier)? {
+                return None;
+            }
+            let element = syntax_nodes::Element::new(n.parent()?)?;
+            if let Some(p) = element.CallbackDeclaration().find_map(|p| {
+                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                    == prop_name)
+                    .then(|| p)
+            }) {
+                return goto_node(document_cache, &p);
+            }
+            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            return goto_node(document_cache, &n);
+        }
+        node = node.parent()?;
+    }
+}
+
+/// Try to lookup the property `prop_name` in the base of the given Element
+fn find_property_declaration_in_base(
+    document_cache: &DocumentCache,
+    element: syntax_nodes::Element,
+    prop_name: &str,
+) -> Option<SyntaxNode> {
+    let global_tr = document_cache.documents.global_type_registry.borrow();
+    let tr = element
+        .source_file()
+        .and_then(|sf| document_cache.documents.get_document(sf.path()))
+        .map(|doc| &doc.local_registry)
+        .unwrap_or(&global_tr);
+
+    let mut element_type = crate::util::lookup_current_element_type((*element).clone(), tr)?;
+    while let Type::Component(com) = element_type {
+        if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name) {
+            return p.type_node.clone();
+        }
+        element_type = com.root_element.borrow().base_type.clone();
+    }
+    None
+}
+
+fn goto_node(
+    document_cache: &mut DocumentCache,
+    node: &SyntaxNode,
+) -> Option<GotoDefinitionResponse> {
+    let path = node.source_file.path();
+    let target_uri = Url::from_file_path(path).ok()?;
+    let newline_offsets = match document_cache.newline_offsets.entry(target_uri.clone()) {
+        std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+        std::collections::hash_map::Entry::Vacant(e) => e.insert(
+            DocumentCache::newline_offsets_from_content(&std::fs::read_to_string(path).ok()?),
+        ),
+    };
+    let offset = node.span().offset as u32;
+    let pos = newline_offsets.binary_search(&offset).map_or_else(
+        |line| {
+            if line == 0 {
+                Position::new(0, offset)
+            } else {
+                Position::new(
+                    line as u32 - 1,
+                    newline_offsets.get(line - 1).map_or(0, |x| offset - *x),
+                )
+            }
+        },
+        |line| Position::new(line as u32, 0),
+    );
+    let range = Range::new(pos, pos);
+    Some(GotoDefinitionResponse::Link(vec![LocationLink {
+        origin_selection_range: None,
+        target_uri,
+        target_range: range,
+        target_selection_range: range,
+    }]))
+}

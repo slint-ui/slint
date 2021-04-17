@@ -9,11 +9,12 @@
 LICENSE END */
 
 mod completion;
+mod goto;
 mod lsp_ext;
 mod preview;
+mod util;
 
 use std::collections::HashMap;
-use std::path::Path;
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
@@ -21,23 +22,22 @@ use lsp_types::request::{CodeActionRequest, ExecuteCommand, GotoDefinition};
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, Command, CompletionOptions,
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, ExecuteCommandOptions,
-    GotoDefinitionResponse, Hover, HoverProviderCapability, InitializeParams, LocationLink, OneOf,
-    Position, PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability, Url,
-    WorkDoneProgressOptions,
+    DidChangeTextDocumentParams, DidOpenTextDocumentParams, ExecuteCommandOptions, Hover,
+    HoverProviderCapability, InitializeParams, OneOf, Position, PublishDiagnosticsParams, Range,
+    ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
-use sixtyfps_compilerlib::diagnostics::{BuildDiagnostics, Spanned};
+use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use sixtyfps_compilerlib::typeloader::TypeLoader;
 use sixtyfps_compilerlib::typeregister::TypeRegister;
-use sixtyfps_compilerlib::{object_tree, CompilerConfiguration};
+use sixtyfps_compilerlib::CompilerConfiguration;
 
 type Error = Box<dyn std::error::Error>;
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 
-struct DocumentCache<'a> {
+pub struct DocumentCache<'a> {
     documents: TypeLoader<'a>,
     newline_offsets: HashMap<Url, Vec<u32>>,
 }
@@ -47,6 +47,18 @@ impl<'a> DocumentCache<'a> {
         let documents =
             TypeLoader::new(TypeRegister::builtin(), config, &mut BuildDiagnostics::default());
         Self { documents, newline_offsets: Default::default() }
+    }
+
+    fn newline_offsets_from_content(content: &str) -> Vec<u32> {
+        let mut ln_offs = 0;
+        content
+            .split('\n')
+            .map(|line| {
+                let r = ln_offs;
+                ln_offs += line.len() as u32 + 1;
+                r
+            })
+            .collect()
     }
 }
 
@@ -131,7 +143,7 @@ fn handle_request(
             params.text_document_position_params.text_document,
             params.text_document_position_params.position,
         )
-        .and_then(|token| goto_definition(document_cache, token));
+        .and_then(|token| goto::goto_definition(document_cache, token));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<Completion>(&mut req) {
@@ -252,25 +264,13 @@ fn show_preview_command(
     Ok(())
 }
 
-fn newline_offsets_from_content(content: &str) -> Vec<u32> {
-    let mut ln_offs = 0;
-    content
-        .split('\n')
-        .map(|line| {
-            let r = ln_offs;
-            ln_offs += line.len() as u32 + 1;
-            r
-        })
-        .collect()
-}
-
 fn reload_document(
     connection: &Connection,
     content: String,
     uri: lsp_types::Url,
     document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
-    let newline_offsets = newline_offsets_from_content(&content);
+    let newline_offsets = DocumentCache::newline_offsets_from_content(&content);
     document_cache.newline_offsets.insert(uri.clone(), newline_offsets);
 
     let path = uri.to_file_path().unwrap();
@@ -367,164 +367,6 @@ fn token_descr(
     Some(SyntaxToken { token, source_file: node.source_file.clone() })
 }
 
-fn goto_definition(
-    document_cache: &mut DocumentCache,
-    token: SyntaxToken,
-) -> Option<GotoDefinitionResponse> {
-    let mut node = token.parent();
-    loop {
-        if let Some(n) = syntax_nodes::QualifiedName::new(node.clone()) {
-            let parent = n.parent()?;
-            let qual = sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(n);
-            return match parent.kind() {
-                SyntaxKind::Element => {
-                    let doc = document_cache.documents.get_document(node.source_file.path())?;
-                    match doc.local_registry.lookup_qualified(&qual.members) {
-                        sixtyfps_compilerlib::langtype::Type::Component(c) => {
-                            goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
-                        }
-                        _ => None,
-                    }
-                }
-                _ => None,
-            };
-        } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
-            let doc = document_cache.documents.get_document(node.source_file.path())?;
-            let imp_name = sixtyfps_compilerlib::typeloader::ImportedName::from_node(n);
-            return match doc.local_registry.lookup(&imp_name.internal_name) {
-                sixtyfps_compilerlib::langtype::Type::Component(c) => {
-                    goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
-                }
-                _ => None,
-            };
-        } else if let Some(n) = syntax_nodes::ImportSpecifier::new(node.clone()) {
-            let import_file = node
-                .source_file
-                .path()
-                .parent()
-                .unwrap_or(Path::new("/"))
-                .join(n.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
-            let import_file = import_file.canonicalize().unwrap_or(import_file);
-            let doc = document_cache.documents.get_document(&import_file)?;
-            let doc_node = doc.node.clone()?;
-            return goto_node(document_cache, &*doc_node);
-        } else if let Some(_) = syntax_nodes::BindingExpression::new(node.clone()) {
-            // don't fallback to the Binding
-            return None;
-        } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
-            if token.kind() != SyntaxKind::Identifier {
-                return None;
-            }
-            let prop_name = token.text();
-            let element = syntax_nodes::Element::new(n.parent()?)?;
-            if let Some(p) = element.PropertyDeclaration().find_map(|p| {
-                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
-                    == prop_name)
-                    .then(|| p)
-            }) {
-                return goto_node(document_cache, &p);
-            }
-            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
-            return goto_node(document_cache, &n);
-        } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
-            if token.kind() != SyntaxKind::Identifier {
-                return None;
-            }
-            let prop_name = token.text();
-            if prop_name != n.child_text(SyntaxKind::Identifier)? {
-                return None;
-            }
-            let element = syntax_nodes::Element::new(n.parent()?)?;
-            if let Some(p) = element.PropertyDeclaration().find_map(|p| {
-                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
-                    == prop_name)
-                    .then(|| p)
-            }) {
-                return goto_node(document_cache, &p);
-            }
-            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
-            return goto_node(document_cache, &n);
-        } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
-            if token.kind() != SyntaxKind::Identifier {
-                return None;
-            }
-            let prop_name = token.text();
-            if prop_name != n.child_text(SyntaxKind::Identifier)? {
-                return None;
-            }
-            let element = syntax_nodes::Element::new(n.parent()?)?;
-            if let Some(p) = element.CallbackDeclaration().find_map(|p| {
-                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
-                    == prop_name)
-                    .then(|| p)
-            }) {
-                return goto_node(document_cache, &p);
-            }
-            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
-            return goto_node(document_cache, &n);
-        }
-        node = node.parent()?;
-    }
-}
-
-/// Try to lookup the property `prop_name` in the base of the given Element
-fn find_property_declaration_in_base(
-    document_cache: &DocumentCache,
-    element: syntax_nodes::Element,
-    prop_name: &str,
-) -> Option<SyntaxNode> {
-    let global_tr = document_cache.documents.global_type_registry.borrow();
-    let tr = element
-        .source_file()
-        .and_then(|sf| document_cache.documents.get_document(sf.path()))
-        .map(|doc| &doc.local_registry)
-        .unwrap_or(&global_tr);
-
-    let mut element_type = lookup_current_element_type((*element).clone(), tr)?;
-    while let Type::Component(com) = element_type {
-        if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name) {
-            return p.type_node.clone();
-        }
-        element_type = com.root_element.borrow().base_type.clone();
-    }
-    None
-}
-
-fn goto_node(
-    document_cache: &mut DocumentCache,
-    node: &SyntaxNode,
-) -> Option<GotoDefinitionResponse> {
-    let path = node.source_file.path();
-    let target_uri = Url::from_file_path(path).ok()?;
-    let newline_offsets = match document_cache.newline_offsets.entry(target_uri.clone()) {
-        std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
-        std::collections::hash_map::Entry::Vacant(e) => {
-            e.insert(newline_offsets_from_content(&std::fs::read_to_string(path).ok()?))
-        }
-    };
-    let offset = node.span().offset as u32;
-    let pos = newline_offsets.binary_search(&offset).map_or_else(
-        |line| {
-            if line == 0 {
-                Position::new(0, offset)
-            } else {
-                Position::new(
-                    line as u32 - 1,
-                    newline_offsets.get(line - 1).map_or(0, |x| offset - *x),
-                )
-            }
-        },
-        |line| Position::new(line as u32, 0),
-    );
-    let range = Range::new(pos, pos);
-    Some(GotoDefinitionResponse::Link(vec![LocationLink {
-        origin_selection_range: None,
-        target_uri,
-        target_range: range,
-        target_selection_range: range,
-    }]))
-}
-
 fn get_code_actions(
     _document_cache: &mut DocumentCache,
     node: SyntaxNode,
@@ -551,22 +393,4 @@ fn get_code_actions(
         SHOW_PREVIEW_COMMAND.into(),
         Some(vec![component.source_file.path().to_string_lossy().into(), component_name.into()]),
     ))])
-}
-
-fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> Option<Type> {
-    while node.kind() != SyntaxKind::Element {
-        if let Some(parent) = node.parent() {
-            node = parent
-        } else {
-            return None;
-        }
-    }
-    let parent = node
-        .parent()
-        .and_then(|parent| lookup_current_element_type(parent, tr))
-        .unwrap_or_default();
-    let qualname = object_tree::QualifiedTypeName::from_node(
-        syntax_nodes::Element::from(node).QualifiedName()?,
-    );
-    parent.lookup_type_for_child_element(&qualname.to_string(), tr).ok()
 }
