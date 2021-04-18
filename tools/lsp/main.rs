@@ -18,13 +18,14 @@ use std::collections::HashMap;
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
-use lsp_types::request::{CodeActionRequest, ExecuteCommand, GotoDefinition};
+use lsp_types::request::{CodeActionRequest, DocumentColor, ExecuteCommand, GotoDefinition};
 use lsp_types::request::{Completion, HoverRequest};
 use lsp_types::{
-    CodeActionOrCommand, CodeActionProviderCapability, Command, CompletionOptions,
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, ExecuteCommandOptions, Hover,
-    HoverProviderCapability, InitializeParams, OneOf, Position, PublishDiagnosticsParams, Range,
-    ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
+    CodeActionOrCommand, CodeActionProviderCapability, Color, ColorInformation, Command,
+    CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+    ExecuteCommandOptions, Hover, HoverProviderCapability, InitializeParams, OneOf, Position,
+    PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability, Url,
+    WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::langtype::Type;
@@ -59,6 +60,35 @@ impl<'a> DocumentCache<'a> {
                 r
             })
             .collect()
+    }
+
+    pub fn byte_offset_to_position(
+        &mut self,
+        offset: u32,
+        target_uri: &lsp_types::Url,
+    ) -> Option<lsp_types::Position> {
+        let newline_offsets = match self.newline_offsets.entry(target_uri.clone()) {
+            std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
+            std::collections::hash_map::Entry::Vacant(e) => {
+                e.insert(Self::newline_offsets_from_content(
+                    &std::fs::read_to_string(target_uri.to_file_path().ok()?).ok()?,
+                ))
+            }
+        };
+        let pos = newline_offsets.binary_search(&offset).map_or_else(
+            |line| {
+                if line == 0 {
+                    Position::new(0, offset)
+                } else {
+                    Position::new(
+                        line as u32 - 1,
+                        newline_offsets.get(line - 1).map_or(0, |x| offset - *x),
+                    )
+                }
+            },
+            |line| Position::new(line as u32, 0),
+        );
+        Some(pos)
     }
 }
 
@@ -97,6 +127,7 @@ fn run_lsp_server() -> Result<(), Error> {
             commands: vec![SHOW_PREVIEW_COMMAND.into()],
             ..Default::default()
         }),
+        color_provider: Some(true.into()),
         ..ServerCapabilities::default()
     };
     let server_capabilities = serde_json::to_value(&capabilities).unwrap();
@@ -189,6 +220,9 @@ fn handle_request(
         connection
             .sender
             .send(Message::Response(Response::new_ok(id, None::<serde_json::Value>)))?;
+    } else if let Some((id, params)) = cast::<DocumentColor>(&mut req) {
+        let result = get_document_color(document_cache, &params.text_document).unwrap_or_default();
+        connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     };
     Ok(())
 }
@@ -402,4 +436,41 @@ fn get_code_actions(
         SHOW_PREVIEW_COMMAND.into(),
         Some(vec![component.source_file.path().to_string_lossy().into(), component_name.into()]),
     ))])
+}
+
+fn get_document_color(
+    document_cache: &mut DocumentCache,
+    text_document: &lsp_types::TextDocumentIdentifier,
+) -> Option<Vec<ColorInformation>> {
+    let mut result = Vec::new();
+    let uri = &text_document.uri;
+    let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
+    let root_node = &doc.node.as_ref()?.node;
+    let mut token = root_node.first_token()?;
+    loop {
+        if token.kind() == SyntaxKind::ColorLiteral {
+            (|| -> Option<()> {
+                let range = token.text_range();
+                let col = sixtyfps_compilerlib::literals::parse_color_literal(token.text())?;
+                let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
+                result.push(ColorInformation {
+                    range: Range::new(
+                        document_cache.byte_offset_to_position(range.start().into(), &uri)?,
+                        document_cache.byte_offset_to_position(range.end().into(), &uri)?,
+                    ),
+                    color: Color {
+                        alpha: shift(24),
+                        red: shift(16),
+                        green: shift(8),
+                        blue: shift(0),
+                    },
+                });
+                Some(())
+            })();
+        }
+        token = match token.next_token() {
+            Some(token) => token,
+            None => break Some(result),
+        }
+    }
 }

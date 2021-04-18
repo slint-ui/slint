@@ -34,6 +34,7 @@ pub mod generator;
 pub mod langtype;
 pub mod layout;
 pub mod lexer;
+pub mod literals;
 pub(crate) mod load_builtins;
 pub mod lookup;
 pub mod namedreference;

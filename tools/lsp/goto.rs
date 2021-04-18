@@ -11,7 +11,7 @@ LICENSE END */
 use std::path::Path;
 
 use super::DocumentCache;
-use lsp_types::{GotoDefinitionResponse, LocationLink, Position, Range, Url};
+use lsp_types::{GotoDefinitionResponse, LocationLink, Range, Url};
 use sixtyfps_compilerlib::diagnostics::Spanned;
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
@@ -191,26 +191,8 @@ fn goto_node(
 ) -> Option<GotoDefinitionResponse> {
     let path = node.source_file.path();
     let target_uri = Url::from_file_path(path).ok()?;
-    let newline_offsets = match document_cache.newline_offsets.entry(target_uri.clone()) {
-        std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
-        std::collections::hash_map::Entry::Vacant(e) => e.insert(
-            DocumentCache::newline_offsets_from_content(&std::fs::read_to_string(path).ok()?),
-        ),
-    };
     let offset = node.span().offset as u32;
-    let pos = newline_offsets.binary_search(&offset).map_or_else(
-        |line| {
-            if line == 0 {
-                Position::new(0, offset)
-            } else {
-                Position::new(
-                    line as u32 - 1,
-                    newline_offsets.get(line - 1).map_or(0, |x| offset - *x),
-                )
-            }
-        },
-        |line| Position::new(line as u32, 0),
-    );
+    let pos = document_cache.byte_offset_to_position(offset, &target_uri)?;
     let range = Range::new(pos, pos);
     Some(GotoDefinitionResponse::Link(vec![LocationLink {
         origin_selection_range: None,
