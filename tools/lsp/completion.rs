@@ -23,7 +23,27 @@ pub(crate) fn completion_at(
 ) -> Option<Vec<CompletionItem>> {
     let node = token.parent();
     if let Some(element) = syntax_nodes::Element::new(node.clone()) {
-        return resolve_element_scope(element, document_cache);
+        return resolve_element_scope(element, document_cache).map(|mut r| {
+            r.extend(
+                [
+                    "property",
+                    "callback",
+                    "animate",
+                    "states",
+                    "transitions",
+                    "for",
+                    "if",
+                    "@children",
+                ]
+                .iter()
+                .map(|k| {
+                    let mut c = CompletionItem::new_simple(k.to_string(), String::new());
+                    c.kind = Some(CompletionItemKind::Keyword);
+                    c
+                }),
+            );
+            r
+        });
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
             return None;
@@ -200,24 +220,6 @@ fn resolve_element_scope(
                     Some(c)
                 }
             }))
-            .chain(
-                [
-                    "property",
-                    "callback",
-                    "animate",
-                    "states",
-                    "transitions",
-                    "for",
-                    "if",
-                    "@children",
-                ]
-                .iter()
-                .map(|k| {
-                    let mut c = CompletionItem::new_simple(k.to_string(), String::new());
-                    c.kind = Some(CompletionItemKind::Keyword);
-                    c
-                }),
-            )
             .collect(),
     )
 }
