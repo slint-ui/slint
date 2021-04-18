@@ -188,29 +188,51 @@ where
         binding: Box<dyn Fn() -> Value>,
         animation: AnimatedBindingKind,
     ) -> Result<(), ()> {
-        match animation {
-            AnimatedBindingKind::NotAnimated => {
-                self.0.set_binding(item, binding, AnimatedBindingKind::NotAnimated)
-            }
-            AnimatedBindingKind::Animation(animation) => {
-                self.apply_pin(item).set_animated_binding(
-                    move || {
+        // Put in a function that does not depends on Item to avoid code bloat
+        fn set_binding_impl<T: Clone + 'static, Value: 'static>(
+            p: Pin<&crate::Property<T>>,
+            binding: Box<dyn Fn() -> Value>,
+            animation: AnimatedBindingKind,
+        ) -> Result<(), ()>
+        where
+            Value: TryInto<T>,
+            T: TryInto<Value>,
+            T: crate::properties::InterpolatedPropertyValue,
+        {
+            match animation {
+                AnimatedBindingKind::NotAnimated => {
+                    p.set_binding(move || {
                         binding().try_into().map_err(|_| ()).expect("binding was of the wrong type")
-                    },
-                    animation,
-                );
-                Ok(())
-            }
-            AnimatedBindingKind::Transition(tr) => {
-                self.apply_pin(item).set_animated_binding_for_transition(
-                    move || {
-                        binding().try_into().map_err(|_| ()).expect("binding was of the wrong type")
-                    },
-                    tr,
-                );
-                Ok(())
+                    });
+                    Ok(())
+                }
+                AnimatedBindingKind::Animation(animation) => {
+                    p.set_animated_binding(
+                        move || {
+                            binding()
+                                .try_into()
+                                .map_err(|_| ())
+                                .expect("binding was of the wrong type")
+                        },
+                        animation,
+                    );
+                    Ok(())
+                }
+                AnimatedBindingKind::Transition(tr) => {
+                    p.set_animated_binding_for_transition(
+                        move || {
+                            binding()
+                                .try_into()
+                                .map_err(|_| ())
+                                .expect("binding was of the wrong type")
+                        },
+                        tr,
+                    );
+                    Ok(())
+                }
             }
         }
+        set_binding_impl(self.apply_pin(item), binding, animation)
     }
     fn offset(&self) -> usize {
         self.get_byte_offset()
