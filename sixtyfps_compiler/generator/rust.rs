@@ -273,11 +273,11 @@ fn generate_component(
             declared_callbacks.push(prop_ident.clone());
             let callback_args = args
                 .iter()
-                .map(|a| get_rust_type(a, &property_decl.type_node, diag))
+                .map(|a| get_rust_type(a, &property_decl.type_node(), diag))
                 .collect::<Vec<_>>();
             let return_type = return_type
                 .as_ref()
-                .map_or(quote!(()), |a| get_rust_type(&a, &property_decl.type_node, diag));
+                .map_or(quote!(()), |a| get_rust_type(&a, &property_decl.type_node(), diag));
 
             if property_decl.expose_in_public_api {
                 let args_name = (0..callback_args.len())
@@ -317,7 +317,7 @@ fn generate_component(
             declared_callbacks_ret.push(return_type);
         } else {
             let rust_property_type =
-                get_rust_type(&property_decl.property_type, &property_decl.type_node, diag);
+                get_rust_type(&property_decl.property_type, &property_decl.type_node(), diag);
             if property_decl.expose_in_public_api {
                 let getter_ident = format_ident!("get_{}", prop_name);
                 let setter_ident = format_ident!("set_{}", prop_name);

@@ -36,7 +36,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
         } else {
             diag.push_diagnostic(
                  format!("Properties of type {} are not supported yet for public API. The property will not be exposed.", d.property_type),
-                 &d.type_node,
+                 &d.type_node(),
                  DiagnosticLevel::Warning
             );
         }

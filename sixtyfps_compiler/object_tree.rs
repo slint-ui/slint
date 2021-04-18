@@ -11,6 +11,8 @@ LICENSE END */
  This module contains the intermediate representation of the code in the form of an object tree
 */
 
+use itertools::Either;
+
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::PropertyLookupResult;
@@ -245,11 +247,20 @@ impl Component {
 #[derive(Clone, Debug, Default)]
 pub struct PropertyDeclaration {
     pub property_type: Type,
-    pub type_node: Option<SyntaxNode>,
+    pub node: Option<Either<syntax_nodes::PropertyDeclaration, syntax_nodes::CallbackDeclaration>>,
     /// Tells if getter and setter will be added to expose in the native language API
     pub expose_in_public_api: bool,
     /// Public API property exposed as an alias: it shouldn't be generated but instead forward to the alias.
     pub is_alias: Option<NamedReference>,
+}
+
+impl PropertyDeclaration {
+    // For diagnostics: return a node pointing to the type
+    pub fn type_node(&self) -> Option<SyntaxNode> {
+        self.node.as_ref().map(|x| -> crate::parser::SyntaxNode {
+            x.as_ref().either(|x| x.Type().into(), |x| x.clone().into())
+        })
+    }
 }
 
 impl From<Type> for PropertyDeclaration {
@@ -487,7 +498,7 @@ impl Element {
                 prop_name.to_string(),
                 PropertyDeclaration {
                     property_type: prop_type,
-                    type_node: Some(type_node.into()),
+                    node: Some(Either::Left(prop_decl.clone())),
                     ..Default::default()
                 },
             );
@@ -546,7 +557,7 @@ impl Element {
                 name,
                 PropertyDeclaration {
                     property_type: Type::Callback { return_type, args },
-                    type_node: Some(sig_decl.into()),
+                    node: Some(Either::Right(sig_decl)),
                     ..Default::default()
                 },
             );

@@ -124,7 +124,7 @@ impl LayoutRect {
                 name.to_string(),
                 PropertyDeclaration {
                     property_type: Type::Length,
-                    type_node: None,
+                    node: None,
                     ..Default::default()
                 },
             );

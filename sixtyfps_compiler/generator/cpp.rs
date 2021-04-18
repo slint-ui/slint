@@ -222,7 +222,9 @@ use crate::expression_tree::{
 };
 use crate::langtype::Type;
 use crate::layout::LayoutGeometry;
-use crate::object_tree::{Component, Document, Element, ElementRc, RepeatedElementInfo};
+use crate::object_tree::{
+    Component, Document, Element, ElementRc, PropertyDeclaration, RepeatedElementInfo,
+};
 use cpp_ast::*;
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashMap};
@@ -261,9 +263,9 @@ impl CppType for Type {
     }
 }
 
-fn get_cpp_type(ty: &Type, type_node: &dyn Spanned, diag: &mut BuildDiagnostics) -> String {
+fn get_cpp_type(ty: &Type, decl: &PropertyDeclaration, diag: &mut BuildDiagnostics) -> String {
     ty.cpp_type().unwrap_or_else(|| {
-        diag.push_error("Cannot map property type to C++".into(), type_node);
+        diag.push_error("Cannot map property type to C++".into(), &decl.type_node());
         "".into()
     })
 }
@@ -662,13 +664,11 @@ fn generate_component(
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let ty = if let Type::Callback { args, return_type } = &property_decl.property_type {
-            let param_types = args
-                .iter()
-                .map(|t| get_cpp_type(t, &property_decl.type_node, diag))
-                .collect::<Vec<_>>();
+            let param_types =
+                args.iter().map(|t| get_cpp_type(t, property_decl, diag)).collect::<Vec<_>>();
             let return_type = return_type
                 .as_ref()
-                .map_or("void".into(), |t| get_cpp_type(&t, &property_decl.type_node, diag));
+                .map_or("void".into(), |t| get_cpp_type(&t, property_decl, diag));
             if property_decl.expose_in_public_api && is_root {
                 let callback_emitter = vec![format!(
                     "return {}.call({});",
@@ -708,8 +708,7 @@ fn generate_component(
             }
             format!("sixtyfps::Callback<{}({})>", return_type, param_types.join(", "))
         } else {
-            let cpp_type =
-                get_cpp_type(&property_decl.property_type, &property_decl.type_node, diag);
+            let cpp_type = get_cpp_type(&property_decl.property_type, property_decl, diag);
 
             if property_decl.expose_in_public_api && is_root {
                 let access = if let Some(alias) = &property_decl.is_alias {
