@@ -25,6 +25,30 @@ pub(crate) fn completion_at(
     let node = token.parent();
     if let Some(element) = syntax_nodes::Element::new(node.clone()) {
         return resolve_element_scope(element, document_cache).map(|mut r| {
+            // add snipets
+            for c in r.iter_mut() {
+                if client_caps
+                    .and_then(|caps| caps.completion_item.as_ref())
+                    .and_then(|caps| caps.snippet_support)
+                    .unwrap_or(false)
+                {
+                    c.insert_text_format = Some(InsertTextFormat::Snippet);
+                    match c.kind {
+                        Some(CompletionItemKind::Property) => {
+                            c.insert_text = Some(format!("{}: $1;", c.label))
+                        }
+                        Some(CompletionItemKind::Method) => {
+                            c.insert_text = Some(format!("{} => {{ $1 }}", c.label))
+                        }
+                        Some(CompletionItemKind::Class) => {
+                            c.insert_text = Some(format!("{} {{ $1 }}", c.label))
+                        }
+                        _ => (),
+                    }
+                }
+            }
+
+            // add keywords
             r.extend(
                 [
                     ("property", "property<$1> $2;"),
