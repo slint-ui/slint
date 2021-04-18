@@ -144,7 +144,7 @@ fn handle_request(
             params.text_document_position_params.text_document,
             params.text_document_position_params.position,
         )
-        .and_then(|token| goto::goto_definition(document_cache, token));
+        .and_then(|token| goto::goto_definition(document_cache, token.0));
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<Completion>(&mut req) {
@@ -156,7 +156,8 @@ fn handle_request(
         .and_then(|token| {
             completion::completion_at(
                 document_cache,
-                token,
+                token.0,
+                token.1,
                 init_param.capabilities.text_document.as_ref().and_then(|t| t.completion.as_ref()),
             )
         });
@@ -176,7 +177,7 @@ fn handle_request(
         connection.sender.send(Message::Response(Response::new_ok(id, None::<Hover>)))?;
     } else if let Some((id, params)) = cast::<CodeActionRequest>(&mut req) {
         let result = token_descr(document_cache, params.text_document, params.range.start)
-            .and_then(|token| get_code_actions(document_cache, token.parent()));
+            .and_then(|token| get_code_actions(document_cache, token.0.parent()));
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     } else if let Some((id, params)) = cast::<ExecuteCommand>(&mut req) {
         match params.command.as_str() {
@@ -339,11 +340,12 @@ fn to_range(span: (usize, usize)) -> Range {
     Range::new(pos, pos)
 }
 
+/// return the token, and the offset within the file
 fn token_descr(
     document_cache: &mut DocumentCache,
     text_document: lsp_types::TextDocumentIdentifier,
     pos: Position,
-) -> Option<SyntaxToken> {
+) -> Option<(SyntaxToken, u32)> {
     let o = document_cache.newline_offsets.get(&text_document.uri)?.get(pos.line as usize)?
         + pos.character as u32;
 
@@ -371,7 +373,7 @@ fn token_descr(
             _ => l,
         },
     };
-    Some(SyntaxToken { token, source_file: node.source_file.clone() })
+    Some((SyntaxToken { token, source_file: node.source_file.clone() }, o))
 }
 
 fn get_code_actions(

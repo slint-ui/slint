@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+use std::path::Path;
+
 use super::util::lookup_current_element_type;
 use super::DocumentCache;
 use lsp_types::{CompletionCapability, CompletionItem, CompletionItemKind, InsertTextFormat};
@@ -20,10 +22,20 @@ use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 pub(crate) fn completion_at(
     document_cache: &DocumentCache,
     token: SyntaxToken,
+    offset: u32,
     client_caps: Option<&CompletionCapability>,
 ) -> Option<Vec<CompletionItem>> {
     let node = token.parent();
-    if let Some(element) = syntax_nodes::Element::new(node.clone()) {
+
+    if token.kind() == SyntaxKind::StringLiteral {
+        if matches!(node.kind(), SyntaxKind::ImportSpecifier | SyntaxKind::AtImageUrl) {
+            return complete_path_in_string(
+                token.source_file()?.path(),
+                token.text(),
+                offset.checked_sub(token.text_range().start().into())?,
+            );
+        }
+    } else if let Some(element) = syntax_nodes::Element::new(node.clone()) {
         return resolve_element_scope(element, document_cache).map(|mut r| {
             // add snipets
             for c in r.iter_mut() {
@@ -320,5 +332,34 @@ fn resolve_type_scope(
                 })
             })
             .collect(),
+    )
+}
+
+fn complete_path_in_string(base: &Path, text: &str, offset: u32) -> Option<Vec<CompletionItem>> {
+    if offset as usize > text.len() || offset == 0 {
+        return None;
+    }
+    let mut text = text.strip_prefix("\"")?;
+    text = &text[..(offset - 1) as usize];
+    let path = if let Some(last_slash) = text.rfind('/') {
+        base.parent()?.join(Path::new(&text[..last_slash]))
+    } else {
+        base.parent()?.to_owned()
+    };
+    let dir = std::fs::read_dir(path).ok()?;
+    Some(
+        dir.filter_map(|x| {
+            let entry = x.ok()?;
+            let mut c =
+                CompletionItem::new_simple(entry.file_name().into_string().ok()?, String::new());
+            if entry.file_type().ok()?.is_dir() {
+                c.kind = Some(CompletionItemKind::Folder);
+                c.insert_text = Some(format!("{}/", c.label));
+            } else {
+                c.kind = Some(CompletionItemKind::File);
+            }
+            Some(c)
+        })
+        .collect(),
     )
 }
