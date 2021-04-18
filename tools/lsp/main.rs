@@ -107,7 +107,7 @@ fn run_lsp_server() -> Result<(), Error> {
 }
 
 fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
-    let _params: InitializeParams = serde_json::from_value(params).unwrap();
+    let params: InitializeParams = serde_json::from_value(params).unwrap();
     let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
         sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
     );
@@ -120,7 +120,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
                 if connection.handle_shutdown(&req)? {
                     return Ok(());
                 }
-                handle_request(connection, req, &mut document_cache)?;
+                handle_request(connection, req, &params, &mut document_cache)?;
             }
             Message::Response(_resp) => {}
             Message::Notification(notifi) => {
@@ -134,6 +134,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
 fn handle_request(
     connection: &Connection,
     req: Request,
+    init_param: &InitializeParams,
     document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
     let mut req = Some(req);
@@ -152,7 +153,13 @@ fn handle_request(
             params.text_document_position.text_document,
             params.text_document_position.position,
         )
-        .and_then(|token| completion::completion_at(document_cache, token));
+        .and_then(|token| {
+            completion::completion_at(
+                document_cache,
+                token,
+                init_param.capabilities.text_document.as_ref().and_then(|t| t.completion.as_ref()),
+            )
+        });
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, _params)) = cast::<HoverRequest>(&mut req) {

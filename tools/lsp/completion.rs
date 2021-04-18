@@ -10,7 +10,7 @@ LICENSE END */
 
 use super::util::lookup_current_element_type;
 use super::DocumentCache;
-use lsp_types::{CompletionItem, CompletionItemKind};
+use lsp_types::{CompletionCapability, CompletionItem, CompletionItemKind, InsertTextFormat};
 use sixtyfps_compilerlib::diagnostics::Spanned;
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
@@ -20,26 +20,27 @@ use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 pub(crate) fn completion_at(
     document_cache: &DocumentCache,
     token: SyntaxToken,
+    client_caps: Option<&CompletionCapability>,
 ) -> Option<Vec<CompletionItem>> {
     let node = token.parent();
     if let Some(element) = syntax_nodes::Element::new(node.clone()) {
         return resolve_element_scope(element, document_cache).map(|mut r| {
             r.extend(
                 [
-                    "property",
-                    "callback",
-                    "animate",
-                    "states",
-                    "transitions",
-                    "for",
-                    "if",
-                    "@children",
+                    ("property", "property<$1> $2;"),
+                    ("callback", "callback $1();"),
+                    ("animate", "animate $1 { $2 }"),
+                    ("states", "states [ $1 ]"),
+                    ("transitions", "transitions [ $1 ]"),
+                    ("for", "for $1 in $2: $3 {}"),
+                    ("if", "if ($1) : $2 {}"),
+                    ("@children", "@children"),
                 ]
                 .iter()
-                .map(|k| {
-                    let mut c = CompletionItem::new_simple(k.to_string(), String::new());
+                .map(|(kw, ins_tex)| {
+                    let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
                     c.kind = Some(CompletionItemKind::Keyword);
-                    c
+                    with_insert_text(c, ins_tex, client_caps)
                 }),
             );
             r
@@ -167,6 +168,22 @@ pub(crate) fn completion_at(
         }
     }
     return None;
+}
+
+fn with_insert_text(
+    mut c: CompletionItem,
+    ins_text: &str,
+    client_caps: Option<&CompletionCapability>,
+) -> CompletionItem {
+    if client_caps
+        .and_then(|caps| caps.completion_item.as_ref())
+        .and_then(|caps| caps.snippet_support)
+        .unwrap_or(false)
+    {
+        c.insert_text_format = Some(InsertTextFormat::Snippet);
+        c.insert_text = Some(ins_text.to_string());
+    }
+    c
 }
 
 fn resolve_element_scope(
