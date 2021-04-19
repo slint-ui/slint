@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
  - LSP server with Live Preview and basic auto completion
  - The viewer tool gained the `--auto-reload` argument
  - `Window.default-font-weight`
+ - Added `opacity` property that can be applied to elements
 
 ### Fixed
  - `Image::image-fit`'s `cover` and `contains` varient are fixed to match the CSS spec
