@@ -143,6 +143,8 @@ pub fn parse_number_literal(s: String) -> Result<Expression, String> {
 
 #[test]
 fn test_parse_number_literal() {
+    use crate::expression_tree::Unit;
+
     fn doit(s: &str) -> Result<(f64, Unit), String> {
         parse_number_literal(s.into()).map(|e| match e {
             Expression::NumberLiteral(a, b) => (a, b),
