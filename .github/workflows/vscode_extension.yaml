@@ -14,6 +14,10 @@ on:
     inputs:
       nightly:
         default: "true"
+        required: false
+      publish:
+        default: "false"
+        required: false
 
 jobs:
   build_lsp:
@@ -150,18 +154,26 @@ jobs:
         if [ "$NIGHTLY" = "true" ]; then
           ../scripts/prepare_vscode_nightly.sh
         fi
-    - name: "Install vsce"
-      working-directory: vscode_extension
-      run: npm install vsce
     - name: "npm install"
       working-directory: vscode_extension
       run: npm install
-    - name: "Build package"
-      working-directory: vscode_extension
-      run: npx vsce package
+    - name: Build package and optinoally publish to Open VSX Registry
+      id: publishToOpenVSX
+      uses: HaaLeo/publish-vscode-extension@v0
+      with:
+        pat: ${{ secrets.OPENVSX_PAT }}
+        dryRun: ${{ !github.event.inputs.publish }}
+    - name: Publish to Visual Studio Marketplace
+      if: github.event.inputs.publish
+      uses: HaaLeo/publish-vscode-extension@v0
+      with:
+        pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+        registryUrl: https://marketplace.visualstudio.com      
+        extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+        packagePath: ''
     - name: "Upload extension artifact"
       uses: actions/upload-artifact@v2
       with:
           name: sixtyfps-vscode.zip
           path: |
-              vscode_extension/sixtyfps-vscode-*.vsix
+              ${{ steps.publishToOpenVSX.outputs.vsixPath }}
