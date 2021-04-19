@@ -1,0 +1,37 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// This is a test for a crash withthe interpreter when evaluating properties
+
+global Settings := {
+    property <bool> test;
+    property <color> some_color;
+    property <string> some_string;
+    property <int> count;
+    property <{aa: bool, bb: int, cc: string}> object;
+}
+
+export Demo := Window {
+    width: 300px;
+    height: 300px;
+
+    title: Settings.some_string;
+
+    r:= Rectangle {
+        background: Settings.test ? Settings.some_color : Settings.some_color;
+    }
+
+    for foo in Settings.count: Rectangle {}
+
+    property <bool> obj: !Settings.object.aa && Settings.object.bb == 0 && Settings.object.cc == "";
+
+    property <bool> test: title == "" && r.background == Settings.some_color && Settings.count == 0 && obj;
+
+}

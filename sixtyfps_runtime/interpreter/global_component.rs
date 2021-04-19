@@ -10,12 +10,13 @@ LICENSE END */
 
 use core::pin::Pin;
 use std::collections::HashMap;
+use std::iter::FromIterator;
 use std::rc::Rc;
 
+use crate::api::{Struct, Value};
+use crate::eval;
 use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
 use sixtyfps_corelib::{rtti, Callback, Property};
-
-use crate::{api::Value, eval};
 
 pub trait GlobalComponent {
     fn invoke_callback(self: Pin<&Self>, _callback_name: &str, _args: &[Value]) -> Value {
@@ -77,7 +78,10 @@ impl GlobalComponentInstance {
             if matches!(decl.property_type, Type::Callback { .. }) {
                 instance.callbacks.insert(name.clone(), Box::pin(Default::default()));
             } else {
-                instance.properties.insert(name.clone(), Box::pin(Default::default()));
+                instance.properties.insert(
+                    name.clone(),
+                    Box::pin(Property::new(default_value_for_type(&decl.property_type))),
+                );
             }
         }
         let rc = Rc::pin(instance);
@@ -122,5 +126,38 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Value {
         let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
         prop.get(self).unwrap()
+    }
+}
+
+/// Create a value suitable as the default value of a given type
+fn default_value_for_type(ty: &Type) -> Value {
+    match ty {
+        Type::Float32 | Type::Int32 => Value::Number(0.),
+        Type::String => Value::String(Default::default()),
+        Type::Color | Type::Brush => Value::Brush(Default::default()),
+        Type::Duration | Type::Angle | Type::Length | Type::LogicalLength => Value::Number(0.),
+        Type::Image => Value::Image(Default::default()),
+        Type::Bool => Value::Bool(false),
+        Type::Callback { .. } => Value::Void,
+        Type::Struct { fields, .. } => Value::Struct(Struct::from_iter(
+            fields.iter().map(|(n, t)| (n.clone(), default_value_for_type(t))),
+        )),
+        Type::Array(_) => Value::Array(Default::default()),
+        Type::Percent => Value::Number(0.),
+        Type::Enumeration(e) => {
+            Value::EnumerationValue(e.name.clone(), e.values.get(e.default_value).unwrap().clone())
+        }
+        Type::Easing => Value::EasingCurve(Default::default()),
+        Type::Void | Type::Invalid => Value::Void,
+        Type::Model => Value::Void,
+        Type::UnitProduct(_) => Value::Number(0.),
+        Type::PathElements => Value::PathElements(Default::default()),
+        Type::ElementReference
+        | Type::Builtin(_)
+        | Type::Component(_)
+        | Type::Native(_)
+        | Type::Function { .. } => {
+            panic!("There can't be such property")
+        }
     }
 }

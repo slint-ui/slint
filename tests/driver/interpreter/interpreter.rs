@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use itertools::Itertools;
+use sixtyfps_interpreter::{Value, ValueType};
 use std::error::Error;
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
@@ -34,7 +35,13 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         Some(c) => c,
     };
 
-    component.create();
+    let instance = component.create();
+
+    if let Some((_, ty)) = component.properties().find(|x| x.0 == "test") {
+        if ty == ValueType::Bool {
+            assert_eq!(instance.get_property("test"), Ok(Value::Bool(true)));
+        }
+    }
 
     Ok(())
 }
