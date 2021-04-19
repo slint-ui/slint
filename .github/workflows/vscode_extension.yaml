@@ -163,6 +163,7 @@ jobs:
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
         dryRun: ${{ !github.event.inputs.publish }}
+        packagePath: vscode_extension
     - name: Publish to Visual Studio Marketplace
       if: github.event.inputs.publish
       uses: HaaLeo/publish-vscode-extension@v0
