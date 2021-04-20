@@ -104,7 +104,7 @@ impl CachedImage {
                 width,
                 height,
                 femtovg::PixelFormat::Rgba8,
-                femtovg::ImageFlags::PREMULTIPLIED,
+                femtovg::ImageFlags::PREMULTIPLIED | femtovg::ImageFlags::FLIP_Y,
             )
             .unwrap();
         Self::new_on_gpu(canvas, image_id, None)

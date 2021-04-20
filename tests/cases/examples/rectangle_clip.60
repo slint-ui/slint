@@ -13,13 +13,14 @@ LICENSE END */
 
 export Test := Window {
     background: white;
+
     Rectangle {
         x: 50px;
         y: 50px;
-        width: 200px;
-        height: 200px;
+        width: 300px;
+        height: 300px;
         border-radius: 25px;
-        border-width: 10px;
+        border-width: 20px;
         border-color: black;
 
         clip: true;
@@ -32,12 +33,25 @@ export Test := Window {
             background: green;
         }
 
+        Text {
+            color: blue;
+            y: 10px;
+            text: "This Text is clipped";
+            font-size: 24px;
+        }
+
         Rectangle {
             x: 150px;
             y: 150px;
             width: 200px;
             height: 200px;
             background: red;
+        }
+
+        Image {
+            source: @image-url("../../../vscode_extension/extension-logo.png");
+            y: 50px;
+            x: -30px;
         }
     }
 }

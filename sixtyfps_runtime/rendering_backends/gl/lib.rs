@@ -1497,8 +1497,6 @@ impl GLItemRenderer {
             canvas.set_render_target(clip_buffer_img.as_render_target());
 
             canvas.reset();
-            canvas.scale(1., -1.); // Image are rendered upside down
-            canvas.translate(0., -layer_height);
 
             canvas.clear_rect(
                 0,
