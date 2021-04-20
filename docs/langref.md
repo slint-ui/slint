@@ -192,8 +192,8 @@ All properties in elements have a type. The following types are supported:
 | `string` | UTF-8 encoded, reference counted string. |
 | `color` | RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as `#RRGGBBAA` or `#RGB`. |
 | `brush` | A brush is a special type that can be either initialized from a color or a gradient specification. See the [Colors Section](#colors) for more information. |
-| `length` | The type used for `x`, `y`, `width` and `height` coordinates. This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1phx`. |
-| `logical_length` | Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
+| `physicial_length` | This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1phx`. |
+| `length` | The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
 | `duration` | Type for the duration of animations. A suffix like `ms` (milisecond) or `s` (second) is used to indicate the precision. |
 | `angle` | Angle mesurement, corresponds to a literal like `90deg`, `1.2rad`, `0.25turn` |
 | `easing` | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions):  `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
@@ -246,9 +246,9 @@ Example := Window {
 
  * `int` can be converted implicitly to `float` and vice-versa
  * `int` and `float` can be converted implicitly to `string`
- * `logical_length` and `length` can be converted implictly to eachother only in
+ * `physical_length` and `length` can be converted implictly to eachother only in
    context where the pixel ratio is known.
- * the units type (`length`, `logical_length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
+ * the units type (`length`, `physical_length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
    but they can be devided with themself to result in a number. Similarily, a number can be multiplied by one of
    these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
  * The literal `0` can be converted to any of these types that have associated unit.

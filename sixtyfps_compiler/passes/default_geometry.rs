@@ -48,7 +48,7 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                             debug_assert!({
                                 let PropertyLookupResult { resolved_name: _, property_type } =
                                     elem.borrow().lookup_property(property);
-                                property_type == Type::PhysicalLength
+                                property_type == Type::LogicalLength
                             });
 
                             elem.borrow_mut().bindings.contains_key(property)
@@ -122,7 +122,7 @@ fn fix_percent_size(
             parent.borrow().lookup_property(property),
             PropertyLookupResult {
                 resolved_name: property.into(),
-                property_type: Type::PhysicalLength
+                property_type: Type::LogicalLength
             }
         );
         b.expression = Expression::BinaryExpression {
@@ -142,7 +142,7 @@ fn fix_percent_size(
 fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str) {
     let PropertyLookupResult { resolved_name, property_type } =
         parent_element.borrow().lookup_property(property);
-    if property_type != Type::PhysicalLength {
+    if property_type != Type::LogicalLength {
         return;
     }
     elem.borrow_mut().bindings.entry(resolved_name.to_string()).or_insert_with(|| {

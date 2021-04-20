@@ -1888,8 +1888,7 @@ impl<'a> LayoutTreeItem<'a> {
                 let path_layout_item_data =
                     |elem: &ElementRc, elem_rs: TokenStream, component_rust: TokenStream| {
                         let prop_ref = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type
-                                == Type::PhysicalLength
+                            if elem.borrow().lookup_property(n).property_type == Type::LogicalLength
                             {
                                 let n = format_ident!("{}", n);
                                 quote! {Some(& #elem_rs.#n)}
@@ -1898,8 +1897,7 @@ impl<'a> LayoutTreeItem<'a> {
                             }
                         };
                         let prop_value = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type
-                                == Type::PhysicalLength
+                            if elem.borrow().lookup_property(n).property_type == Type::LogicalLength
                             {
                                 let accessor = access_member(
                                     &elem,

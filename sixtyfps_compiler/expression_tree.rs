@@ -99,8 +99,8 @@ impl BuiltinFunction {
             BuiltinFunction::ImplicitItemSize => Type::Function {
                 return_type: Box::new(Type::Struct {
                     fields: [
-                        ("width".to_string(), Type::PhysicalLength),
-                        ("height".to_string(), Type::PhysicalLength),
+                        ("width".to_string(), Type::LogicalLength),
+                        ("height".to_string(), Type::LogicalLength),
                     ]
                     .iter()
                     .cloned()

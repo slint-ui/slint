@@ -133,7 +133,7 @@ impl Expression {
                     .map(|c| Self::from_codeblock_node(c.into(), ctx))
             })
             .unwrap_or(Self::Invalid);
-        if ctx.property_type == Type::PhysicalLength && e.ty() == Type::Percent {
+        if ctx.property_type == Type::LogicalLength && e.ty() == Type::Percent {
             // See if a conversion from percentage to lenght is allowed
             const RELATIVE_TO_PARENT_PROPERTIES: [&str; 2] = ["width", "height"];
             let property_name = ctx.property_name.unwrap_or_default();

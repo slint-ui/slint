@@ -2121,8 +2121,7 @@ impl<'a> LayoutTreeItem<'a> {
                 let path_layout_item_data =
                     |elem: &ElementRc, elem_cpp: &str, component_cpp: &str| {
                         let prop_ref = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type
-                                == Type::PhysicalLength
+                            if elem.borrow().lookup_property(n).property_type == Type::LogicalLength
                             {
                                 format!("&{}.{}", elem_cpp, n)
                             } else {
@@ -2130,8 +2129,7 @@ impl<'a> LayoutTreeItem<'a> {
                             }
                         };
                         let prop_value = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type
-                                == Type::PhysicalLength
+                            if elem.borrow().lookup_property(n).property_type == Type::LogicalLength
                             {
                                 let value_accessor = access_member(
                                     &elem,

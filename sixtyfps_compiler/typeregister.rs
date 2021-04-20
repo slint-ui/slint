@@ -16,24 +16,24 @@ use crate::langtype::{Enumeration, Type};
 use crate::object_tree::Component;
 
 pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] = &[
-    ("x", Type::PhysicalLength),
-    ("y", Type::PhysicalLength),
-    ("width", Type::PhysicalLength),
-    ("height", Type::PhysicalLength),
+    ("x", Type::LogicalLength),
+    ("y", Type::LogicalLength),
+    ("width", Type::LogicalLength),
+    ("height", Type::LogicalLength),
 ];
 
 const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
-    ("minimum_width", Type::PhysicalLength),
-    ("minimum_height", Type::PhysicalLength),
-    ("maximum_width", Type::PhysicalLength),
-    ("maximum_height", Type::PhysicalLength),
-    ("padding", Type::PhysicalLength),
-    ("padding_left", Type::PhysicalLength),
-    ("padding_right", Type::PhysicalLength),
-    ("padding_top", Type::PhysicalLength),
-    ("padding_bottom", Type::PhysicalLength),
-    ("preferred_width", Type::PhysicalLength),
-    ("preferred_height", Type::PhysicalLength),
+    ("minimum_width", Type::LogicalLength),
+    ("minimum_height", Type::LogicalLength),
+    ("maximum_width", Type::LogicalLength),
+    ("maximum_height", Type::LogicalLength),
+    ("padding", Type::LogicalLength),
+    ("padding_left", Type::LogicalLength),
+    ("padding_right", Type::LogicalLength),
+    ("padding_top", Type::LogicalLength),
+    ("padding_bottom", Type::LogicalLength),
+    ("preferred_width", Type::LogicalLength),
+    ("preferred_height", Type::LogicalLength),
     ("horizontal_stretch", Type::Float32),
     ("vertical_stretch", Type::Float32),
     ("col", Type::Int32),
@@ -50,9 +50,9 @@ const RESERVED_OTHER_PROPERTIES: &'static [(&'static str, Type)] = &[
 ];
 
 pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &'static [(&'static str, Type)] = &[
-    ("drop_shadow_offset_x", Type::PhysicalLength),
-    ("drop_shadow_offset_y", Type::PhysicalLength),
-    ("drop_shadow_blur", Type::PhysicalLength),
+    ("drop_shadow_offset_x", Type::LogicalLength),
+    ("drop_shadow_offset_y", Type::LogicalLength),
+    ("drop_shadow_blur", Type::LogicalLength),
     ("drop_shadow_color", Type::Color),
 ];
 

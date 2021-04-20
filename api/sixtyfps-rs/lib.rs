@@ -129,8 +129,8 @@ The follow table summarizes the entire mapping:
 | `float` | `f32` | |
 | `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
 | `color` | [`Color`] | |
-| `length` | `f32` | The unit are physical pixels. |
-| `logical_length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
+| `physicial_length` | `f32` | The unit are physical pixels. |
+| `length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
 | structure | `struct` of the same name | |
 | array | [`ModelHandle`] |  |
@@ -277,7 +277,7 @@ pub trait ComponentHandle {
     fn hide(&self);
 
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
-    /// and [`Self::hide`].    
+    /// and [`Self::hide`].
     fn run(&self);
 }
 

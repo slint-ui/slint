@@ -22,7 +22,7 @@ export const sixtyfps_language = <monaco.languages.IMonarchLanguage>{
     lang_keywords: [
         'root', 'parent', 'this', 'if'
     ],
-    type_keywords: ['int', 'string', 'float', 'length', 'logical_length', 'duration'],
+    type_keywords: ['int', 'string', 'float', 'length', 'physical_length', 'duration'],
     escapes: /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
 
     symbols: /[\#\!\%\&\*\+\-\.\/\:\;\<\=\>\@\^\|_\?,()]+/,

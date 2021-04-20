@@ -91,7 +91,7 @@ component.clicked();
 | `string` | `String` | |
 | `color` |`String` | Colors are represented as strings in the form `"#rrggbbaa"`. When setting a color property, any CSS compliant color is accepted as a string. |
 | `length` | `Number` |  |
-| `logical_length` | `Number` | |
+| `physical_length` | `Number` | |
 | `duration` | `Number` |  |
 | structure | `Object` | Structures are mapped to JavaScrip objects with structure fields mapped to properties. |
 | array | `Array` or Model Object | |

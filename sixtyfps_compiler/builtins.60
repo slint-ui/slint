@@ -474,8 +474,8 @@ export NativeComboBox := _ {
 }
 
 export global NativeStyleMetrics := {
-    property <logical_length> layout_spacing;
-    property <logical_length> layout_padding;
-    property <logical_length> text_cursor_width;
+    property <length> layout_spacing;
+    property <length> layout_padding;
+    property <length> text_cursor_width;
     //-is_non_item_type
 }

@@ -56,7 +56,7 @@ export global DemoPalette := {
 
     property <color> push_button_text_color: white;
 
-    property <logical_length> base_font_size: 16px;
+    property <length> base_font_size: 16px;
 
     property <bool> night_mode: false;
 }

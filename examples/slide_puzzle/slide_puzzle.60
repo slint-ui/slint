@@ -13,8 +13,8 @@ struct Piece := {
     pos_x: int,
     pos_y: int,
     // offset in pixel from the base position for the kicking animation
-    offset_x: logical_length,
-    offset_y: logical_length,
+    offset_x: length,
+    offset_y: length,
 }
 
 struct Theme := {

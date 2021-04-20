@@ -101,7 +101,7 @@ MainWindow := Window {
         width: 57px;
         x: 10px;
 
-        callback icon_y(int) -> logical_length;
+        callback icon_y(int) -> length;
         icon_y(index) => {
             100px // top padding
             + index * 72px;
