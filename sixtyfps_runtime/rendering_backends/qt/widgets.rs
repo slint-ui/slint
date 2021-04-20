@@ -44,7 +44,6 @@ use std::rc::Rc;
 type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 
 use crate::qt_window::QPainter;
-use crate::qttypes;
 
 /// Helper macro to get the size from the width and height property,
 /// and return Default::default in case the size is too small

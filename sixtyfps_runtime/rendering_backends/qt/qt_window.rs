@@ -26,8 +26,6 @@ use std::rc::{Rc, Weak};
 
 use crate::key_generated;
 
-use super::qttypes;
-
 cpp! {{
     #include <QtWidgets/QWidget>
     #include <QtGui/QPainter>
@@ -210,6 +208,47 @@ impl QPainterPath {
     }
 }
 
+cpp_class!(
+    pub unsafe struct QBrush as "QBrush"
+);
+
+impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
+    fn from(brush: sixtyfps_corelib::Brush) -> Self {
+        match brush {
+            sixtyfps_corelib::Brush::SolidColor(color) => {
+                let color: u32 = color.as_argb_encoded();
+                cpp!(unsafe [color as "QRgb"] -> QBrush as "QBrush" {
+                    return QBrush(QColor::fromRgba(color));
+                })
+            }
+            sixtyfps_corelib::Brush::LinearGradient(g) => {
+                let (start, end) = sixtyfps_corelib::graphics::line_for_angle(g.angle());
+                let p1 = qttypes::QPointF { x: start.x as _, y: start.y as _ };
+                let p2 = qttypes::QPointF { x: end.x as _, y: end.y as _ };
+                cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
+                let mut qlg = cpp! {
+                    unsafe [p1 as "QPointF", p2 as "QPointF"] -> QLinearGradient as "QLinearGradient" {
+                        QLinearGradient qlg(p1, p2);
+                        qlg.setCoordinateMode(QGradient::ObjectMode);
+                        return qlg;
+                    }
+                };
+                for s in g.stops() {
+                    let pos: f32 = s.position;
+                    let color: u32 = s.color.as_argb_encoded();
+                    cpp! {unsafe [mut qlg as "QLinearGradient", pos as "float", color as "QRgb"] {
+                        qlg.setColorAt(pos, QColor::fromRgba(color));
+                    }};
+                }
+                cpp! {unsafe [qlg as "QLinearGradient"] -> QBrush as "QBrush" {
+                    return QBrush(qlg);
+                }}
+            }
+            _ => QBrush::default(),
+        }
+    }
+}
+
 /// Given a position offset and an object of a given type that has x,y,width,height properties,
 /// create a QRectF that fits it.
 macro_rules! get_geometry {
@@ -250,7 +289,7 @@ struct QtItemRenderer<'a> {
 
 impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>) {
-        let brush: qttypes::QBrush = rect.background().into();
+        let brush: QBrush = rect.background().into();
         let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", brush as "QBrush", rect as "QRectF"] {
@@ -304,7 +343,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_text(&mut self, text: std::pin::Pin<&items::Text>) {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
-        let fill_brush: qttypes::QBrush = text.color().into();
+        let fill_brush: QBrush = text.color().into();
         let string: qttypes::QString = text.text().as_str().into();
         let font: QFont =
             get_font(text.unresolved_font_request().merge(&self.default_font_properties));
@@ -337,7 +376,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>) {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
-        let fill_brush: qttypes::QBrush = text_input.color().into();
+        let fill_brush: QBrush = text_input.color().into();
         let selection_foreground_color: u32 =
             text_input.selection_foreground_color().as_argb_encoded();
         let selection_background_color: u32 =
@@ -404,8 +443,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
         // FIXME: handle width/height
         //let rect: qttypes::QRectF = get_geometry!(pos, items::Path, path);
-        let fill_brush: qttypes::QBrush = path.fill().into();
-        let stroke_brush: qttypes::QBrush = path.stroke().into();
+        let fill_brush: QBrush = path.fill().into();
+        let stroke_brush: QBrush = path.stroke().into();
         let stroke_width: f32 = path.stroke_width();
         let (offset, path_events) = path.fitted_path_events();
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
@@ -417,24 +456,22 @@ impl ItemRenderer for QtItemRenderer<'_> {
         });
 
         for x in path_events.iter() {
-            impl From<Point> for qttypes::QPointF {
-                fn from(p: Point) -> Self {
-                    qttypes::QPointF { x: p.x as _, y: p.y as _ }
-                }
+            fn to_qpointf(p: Point) -> qttypes::QPointF {
+                qttypes::QPointF { x: p.x as _, y: p.y as _ }
             }
             match x {
                 lyon_path::Event::Begin { at } => {
-                    painter_path.move_to(at.into());
+                    painter_path.move_to(to_qpointf(at));
                 }
                 lyon_path::Event::Line { from: _, to } => {
-                    painter_path.line_to(to.into());
+                    painter_path.line_to(to_qpointf(to));
                 }
                 lyon_path::Event::Quadratic { from: _, ctrl, to } => {
-                    painter_path.quad_to(ctrl.into(), to.into());
+                    painter_path.quad_to(to_qpointf(ctrl), to_qpointf(to));
                 }
 
                 lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
-                    painter_path.cubic_to(ctrl1.into(), ctrl2.into(), to.into());
+                    painter_path.cubic_to(to_qpointf(ctrl1), to_qpointf(ctrl2), to_qpointf(to));
                 }
                 lyon_path::Event::End { last: _, first: _, close } => {
                     // FIXME: are we supposed to do something with last and first?
@@ -700,7 +737,7 @@ impl QtItemRenderer<'_> {
                 |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
                     if !colorize.is_transparent() {
-                        let brush: qttypes::QBrush = colorize.into();
+                        let brush: QBrush = colorize.into();
                         cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
                             QPainter p(&pixmap);
                             p.setCompositionMode(QPainter::CompositionMode_SourceIn);
@@ -739,8 +776,8 @@ impl QtItemRenderer<'_> {
         mut border_width: f32,
         border_radius: f32,
     ) {
-        let brush: qttypes::QBrush = brush.into();
-        let border_color: qttypes::QBrush = border_color.into();
+        let brush: QBrush = brush.into();
+        let border_color: QBrush = border_color.into();
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {

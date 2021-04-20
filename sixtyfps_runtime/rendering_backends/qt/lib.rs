@@ -23,8 +23,6 @@ use sixtyfps_corelib::window::ComponentWindow;
 #[cfg(not(no_qt))]
 mod qt_window;
 #[cfg(not(no_qt))]
-mod qttypes;
-#[cfg(not(no_qt))]
 mod widgets;
 
 mod key_generated;
