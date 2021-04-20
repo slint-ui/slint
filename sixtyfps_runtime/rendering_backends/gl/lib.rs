@@ -465,6 +465,8 @@ impl GLRenderer {
             .image_cache
             .borrow_mut()
             .retain(|_, cached_image| Rc::strong_count(cached_image) > 1);
+
+        std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
     }
 
     #[cfg(not(target_arch = "wasm32"))]
