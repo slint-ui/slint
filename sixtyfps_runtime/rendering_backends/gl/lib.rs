@@ -1290,7 +1290,7 @@ impl GLItemRenderer {
                 ),
             );
 
-            canvas.global_composite_operation(femtovg::CompositeOperation::SourceOver);
+            canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
             canvas.fill_path(&mut image_rect, brush_paint);
 
             canvas.set_render_target(femtovg::RenderTarget::Screen);
