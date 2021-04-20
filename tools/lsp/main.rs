@@ -19,10 +19,10 @@ use std::collections::HashMap;
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
 use lsp_types::request::{CodeActionRequest, DocumentColor, ExecuteCommand, GotoDefinition};
-use lsp_types::request::{Completion, HoverRequest};
+use lsp_types::request::{ColorPresentationRequest, Completion, HoverRequest};
 use lsp_types::{
-    CodeActionOrCommand, CodeActionProviderCapability, Color, ColorInformation, Command,
-    CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+    CodeActionOrCommand, CodeActionProviderCapability, Color, ColorInformation, ColorPresentation,
+    Command, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
     ExecuteCommandOptions, Hover, HoverProviderCapability, InitializeParams, OneOf, Position,
     PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability, Url,
     WorkDoneProgressOptions,
@@ -222,6 +222,30 @@ fn handle_request(
             .send(Message::Response(Response::new_ok(id, None::<serde_json::Value>)))?;
     } else if let Some((id, params)) = cast::<DocumentColor>(&mut req) {
         let result = get_document_color(document_cache, &params.text_document).unwrap_or_default();
+        connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
+    } else if let Some((id, params)) = cast::<ColorPresentationRequest>(&mut req) {
+        // Convert the color from the color picker to a string representation. This could try to produce a minimal
+        // representation.
+        let requested_color = params.color;
+
+        let color_literal = if requested_color.alpha != 1. {
+            format!(
+                "#{:0>2x}{:0>2x}{:0>2x}{:0>2x}",
+                (requested_color.red * 255.) as u8,
+                (requested_color.green * 255.) as u8,
+                (requested_color.blue * 255.) as u8,
+                (requested_color.alpha * 255.) as u8
+            )
+        } else {
+            format!(
+                "#{:0>2x}{:0>2x}{:0>2x}",
+                (requested_color.red * 255.) as u8,
+                (requested_color.green * 255.) as u8,
+                (requested_color.blue * 255.) as u8,
+            )
+        };
+
+        let result = vec![ColorPresentation { label: color_literal, ..Default::default() }];
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     };
     Ok(())
