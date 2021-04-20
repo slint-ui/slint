@@ -162,7 +162,7 @@ fn to_eval_value<'cx>(
         | Type::Int32
         | Type::Duration
         | Type::Angle
-        | Type::Length
+        | Type::PhysicalLength
         | Type::LogicalLength
         | Type::Percent
         | Type::UnitProduct(_) => {

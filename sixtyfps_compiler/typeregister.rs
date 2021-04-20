@@ -15,21 +15,25 @@ use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{Enumeration, Type};
 use crate::object_tree::Component;
 
-pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] =
-    &[("x", Type::Length), ("y", Type::Length), ("width", Type::Length), ("height", Type::Length)];
+pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] = &[
+    ("x", Type::PhysicalLength),
+    ("y", Type::PhysicalLength),
+    ("width", Type::PhysicalLength),
+    ("height", Type::PhysicalLength),
+];
 
 const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
-    ("minimum_width", Type::Length),
-    ("minimum_height", Type::Length),
-    ("maximum_width", Type::Length),
-    ("maximum_height", Type::Length),
-    ("padding", Type::Length),
-    ("padding_left", Type::Length),
-    ("padding_right", Type::Length),
-    ("padding_top", Type::Length),
-    ("padding_bottom", Type::Length),
-    ("preferred_width", Type::Length),
-    ("preferred_height", Type::Length),
+    ("minimum_width", Type::PhysicalLength),
+    ("minimum_height", Type::PhysicalLength),
+    ("maximum_width", Type::PhysicalLength),
+    ("maximum_height", Type::PhysicalLength),
+    ("padding", Type::PhysicalLength),
+    ("padding_left", Type::PhysicalLength),
+    ("padding_right", Type::PhysicalLength),
+    ("padding_top", Type::PhysicalLength),
+    ("padding_bottom", Type::PhysicalLength),
+    ("preferred_width", Type::PhysicalLength),
+    ("preferred_height", Type::PhysicalLength),
     ("horizontal_stretch", Type::Float32),
     ("vertical_stretch", Type::Float32),
     ("col", Type::Int32),
@@ -46,9 +50,9 @@ const RESERVED_OTHER_PROPERTIES: &'static [(&'static str, Type)] = &[
 ];
 
 pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &'static [(&'static str, Type)] = &[
-    ("drop_shadow_offset_x", Type::Length),
-    ("drop_shadow_offset_y", Type::Length),
-    ("drop_shadow_blur", Type::Length),
+    ("drop_shadow_offset_x", Type::PhysicalLength),
+    ("drop_shadow_offset_y", Type::PhysicalLength),
+    ("drop_shadow_blur", Type::PhysicalLength),
     ("drop_shadow_color", Type::Color),
 ];
 
@@ -115,7 +119,7 @@ impl TypeRegister {
         register.insert_type(Type::Float32);
         register.insert_type(Type::Int32);
         register.insert_type(Type::String);
-        register.insert_type(Type::Length);
+        register.insert_type(Type::PhysicalLength);
         register.insert_type(Type::LogicalLength);
         register.insert_type(Type::Color);
         register.insert_type(Type::Duration);
@@ -153,7 +157,7 @@ impl TypeRegister {
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());
         register.supported_property_animation_types.insert(Type::Color.to_string());
-        register.supported_property_animation_types.insert(Type::Length.to_string());
+        register.supported_property_animation_types.insert(Type::PhysicalLength.to_string());
         register.supported_property_animation_types.insert(Type::LogicalLength.to_string());
         register.supported_property_animation_types.insert(Type::Brush.to_string());
 

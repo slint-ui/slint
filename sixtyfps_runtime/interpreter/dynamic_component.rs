@@ -173,11 +173,11 @@ impl RepeatedComponent for ErasedComponentBox {
         let get_prop = |name: &str| {
             let PropertyLookupResult { resolved_name, property_type } =
                 root_item.borrow().lookup_property(name);
-            if property_type == Type::Length {
+            if property_type == Type::PhysicalLength {
                 let nr = NamedReference::new(root_item, resolved_name.as_ref());
                 let p = get_property_ptr(&nr, s.borrow_instance());
                 // Safety: assuming get_property_ptr returned a valid pointer,
-                // we know that `Type::Length` is a property of type `f32`
+                // we know that `Type::PhysicalLength` is a property of type `f32`
                 Some(unsafe { &*(p as *const Property<f32>) })
             } else {
                 None
@@ -746,7 +746,7 @@ fn generate_component<'id>(
             Type::Brush => animated_property_info::<Brush>(),
             Type::Duration => animated_property_info::<i64>(),
             Type::Angle => animated_property_info::<f32>(),
-            Type::Length => animated_property_info::<f32>(),
+            Type::PhysicalLength => animated_property_info::<f32>(),
             Type::LogicalLength => animated_property_info::<f32>(),
             Type::Image => property_info::<ImageReference>(),
             Type::Bool => property_info::<bool>(),

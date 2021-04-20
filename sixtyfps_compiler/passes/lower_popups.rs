@@ -138,7 +138,7 @@ fn create_coodiate(
     parent_element
         .borrow_mut()
         .property_declarations
-        .insert(property_name.clone(), Type::Length.into());
+        .insert(property_name.clone(), Type::PhysicalLength.into());
     parent_element.borrow_mut().bindings.insert(property_name.clone(), expression.into());
     NamedReference::new(parent_element, &property_name)
 }

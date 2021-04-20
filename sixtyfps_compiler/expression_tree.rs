@@ -99,8 +99,8 @@ impl BuiltinFunction {
             BuiltinFunction::ImplicitItemSize => Type::Function {
                 return_type: Box::new(Type::Struct {
                     fields: [
-                        ("width".to_string(), Type::Length),
-                        ("height".to_string(), Type::Length),
+                        ("width".to_string(), Type::PhysicalLength),
+                        ("height".to_string(), Type::PhysicalLength),
                     ]
                     .iter()
                     .cloned()
@@ -200,7 +200,7 @@ declare_units! {
     // Lengths or Coord
 
     /// Physical pixels
-    Phx = "phx" -> Length,
+    Phx = "phx" -> PhysicalLength,
     /// Logical pixels
     Px = "px" -> LogicalLength,
     /// Centimeters
@@ -768,7 +768,7 @@ impl Expression {
             self
         } else if ty.can_convert(&target_type) {
             let from = match (ty, &target_type) {
-                (Type::Length, Type::LogicalLength) => Expression::BinaryExpression {
+                (Type::PhysicalLength, Type::LogicalLength) => Expression::BinaryExpression {
                     lhs: Box::new(self),
                     rhs: Box::new(Expression::FunctionCall {
                         function: Box::new(Expression::BuiltinFunctionReference(
@@ -779,7 +779,7 @@ impl Expression {
                     }),
                     op: '/',
                 },
-                (Type::LogicalLength, Type::Length) => Expression::BinaryExpression {
+                (Type::LogicalLength, Type::PhysicalLength) => Expression::BinaryExpression {
                     lhs: Box::new(self),
                     rhs: Box::new(Expression::FunctionCall {
                         function: Box::new(Expression::BuiltinFunctionReference(
@@ -915,7 +915,7 @@ impl Expression {
             },
             Type::Duration => Expression::NumberLiteral(0., Unit::Ms),
             Type::Angle => Expression::NumberLiteral(0., Unit::Deg),
-            Type::Length => Expression::NumberLiteral(0., Unit::Phx),
+            Type::PhysicalLength => Expression::NumberLiteral(0., Unit::Phx),
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
             Type::Percent => Expression::NumberLiteral(100., Unit::Percent),
             // FIXME: Is that correct?

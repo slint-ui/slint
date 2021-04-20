@@ -51,7 +51,7 @@ impl From<LangType> for ValueType {
             | LangType::Int32
             | LangType::Duration
             | LangType::Angle
-            | LangType::Length
+            | LangType::PhysicalLength
             | LangType::LogicalLength
             | LangType::Percent
             | LangType::UnitProduct(_) => Self::Number,

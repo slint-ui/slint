@@ -135,7 +135,9 @@ fn default_value_for_type(ty: &Type) -> Value {
         Type::Float32 | Type::Int32 => Value::Number(0.),
         Type::String => Value::String(Default::default()),
         Type::Color | Type::Brush => Value::Brush(Default::default()),
-        Type::Duration | Type::Angle | Type::Length | Type::LogicalLength => Value::Number(0.),
+        Type::Duration | Type::Angle | Type::PhysicalLength | Type::LogicalLength => {
+            Value::Number(0.)
+        }
         Type::Image => Value::Image(Default::default()),
         Type::Bool => Value::Bool(false),
         Type::Callback { .. } => Value::Void,

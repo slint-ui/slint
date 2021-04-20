@@ -82,7 +82,7 @@ impl LayoutItem {
             let p = |unresolved_name: &str| {
                 let PropertyLookupResult { resolved_name, property_type } =
                     e.borrow().lookup_property(unresolved_name);
-                if property_type == Type::Length {
+                if property_type == Type::PhysicalLength {
                     Some(NamedReference::new(e, resolved_name.as_ref()))
                 } else {
                     None
@@ -123,7 +123,7 @@ impl LayoutRect {
             element.borrow_mut().property_declarations.insert(
                 name.to_string(),
                 PropertyDeclaration {
-                    property_type: Type::Length,
+                    property_type: Type::PhysicalLength,
                     node: None,
                     ..Default::default()
                 },

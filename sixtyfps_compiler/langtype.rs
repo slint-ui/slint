@@ -43,7 +43,7 @@ pub enum Type {
     String,
     Color,
     Duration,
-    Length,
+    PhysicalLength,
     LogicalLength,
     Angle,
     Percent,
@@ -89,7 +89,7 @@ impl core::cmp::PartialEq for Type {
             Type::Color => matches!(other, Type::Color),
             Type::Duration => matches!(other, Type::Duration),
             Type::Angle => matches!(other, Type::Angle),
-            Type::Length => matches!(other, Type::Length),
+            Type::PhysicalLength => matches!(other, Type::PhysicalLength),
             Type::LogicalLength => matches!(other, Type::LogicalLength),
             Type::Percent => matches!(other, Type::Percent),
             Type::Image => matches!(other, Type::Image),
@@ -149,7 +149,7 @@ impl Display for Type {
             Type::String => write!(f, "string"),
             Type::Duration => write!(f, "duration"),
             Type::Angle => write!(f, "angle"),
-            Type::Length => write!(f, "length"),
+            Type::PhysicalLength => write!(f, "length"),
             Type::LogicalLength => write!(f, "logical_length"),
             Type::Percent => write!(f, "percent"),
             Type::Color => write!(f, "color"),
@@ -206,7 +206,7 @@ impl Type {
                 | Self::Color
                 | Self::Duration
                 | Self::Angle
-                | Self::Length
+                | Self::PhysicalLength
                 | Self::LogicalLength
                 | Self::Percent
                 | Self::Image
@@ -399,8 +399,8 @@ impl Type {
             | (Type::Array(_), Type::Model)
             | (Type::Float32, Type::Model)
             | (Type::Int32, Type::Model)
-            | (Type::Length, Type::LogicalLength)
-            | (Type::LogicalLength, Type::Length)
+            | (Type::PhysicalLength, Type::LogicalLength)
+            | (Type::LogicalLength, Type::PhysicalLength)
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
@@ -436,7 +436,7 @@ impl Type {
     pub fn default_unit(&self) -> Option<Unit> {
         match self {
             Type::Duration => Some(Unit::Ms),
-            Type::Length => Some(Unit::Phx),
+            Type::PhysicalLength => Some(Unit::Phx),
             Type::LogicalLength => Some(Unit::Px),
             // Unit::Percent is special that it does not combine with other units like
             Type::Percent => None,

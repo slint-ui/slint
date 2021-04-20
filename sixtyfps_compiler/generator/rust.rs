@@ -35,7 +35,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Color => Some(quote!(sixtyfps::re_exports::Color)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
-        Type::Length => Some(quote!(f32)),
+        Type::PhysicalLength => Some(quote!(f32)),
         Type::LogicalLength => Some(quote!(f32)),
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
@@ -1306,7 +1306,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         Type::Int32
                             | Type::Float32
                             | Type::Duration
-                            | Type::Length
+                            | Type::PhysicalLength
                             | Type::LogicalLength
                             | Type::Angle
                     ) =>
@@ -1888,7 +1888,9 @@ impl<'a> LayoutTreeItem<'a> {
                 let path_layout_item_data =
                     |elem: &ElementRc, elem_rs: TokenStream, component_rust: TokenStream| {
                         let prop_ref = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type == Type::Length {
+                            if elem.borrow().lookup_property(n).property_type
+                                == Type::PhysicalLength
+                            {
                                 let n = format_ident!("{}", n);
                                 quote! {Some(& #elem_rs.#n)}
                             } else {
@@ -1896,7 +1898,9 @@ impl<'a> LayoutTreeItem<'a> {
                             }
                         };
                         let prop_value = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type == Type::Length {
+                            if elem.borrow().lookup_property(n).property_type
+                                == Type::PhysicalLength
+                            {
                                 let accessor = access_member(
                                     &elem,
                                     n,

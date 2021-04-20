@@ -240,7 +240,7 @@ impl CppType for Type {
             Type::Color => Some("sixtyfps::Color".to_owned()),
             Type::Duration => Some("std::int64_t".to_owned()),
             Type::Angle => Some("float".to_owned()),
-            Type::Length => Some("float".to_owned()),
+            Type::PhysicalLength => Some("float".to_owned()),
             Type::LogicalLength => Some("float".to_owned()),
             Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
@@ -2121,14 +2121,18 @@ impl<'a> LayoutTreeItem<'a> {
                 let path_layout_item_data =
                     |elem: &ElementRc, elem_cpp: &str, component_cpp: &str| {
                         let prop_ref = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type == Type::Length {
+                            if elem.borrow().lookup_property(n).property_type
+                                == Type::PhysicalLength
+                            {
                                 format!("&{}.{}", elem_cpp, n)
                             } else {
                                 "nullptr".to_owned()
                             }
                         };
                         let prop_value = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type == Type::Length {
+                            if elem.borrow().lookup_property(n).property_type
+                                == Type::PhysicalLength
+                            {
                                 let value_accessor = access_member(
                                     &elem,
                                     n,

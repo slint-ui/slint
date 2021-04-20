@@ -133,7 +133,7 @@ impl Expression {
                     .map(|c| Self::from_codeblock_node(c.into(), ctx))
             })
             .unwrap_or(Self::Invalid);
-        if ctx.property_type == Type::Length && e.ty() == Type::Percent {
+        if ctx.property_type == Type::PhysicalLength && e.ty() == Type::Percent {
             // See if a conversion from percentage to lenght is allowed
             const RELATIVE_TO_PARENT_PROPERTIES: [&str; 2] = ["width", "height"];
             let property_name = ctx.property_name.unwrap_or_default();
@@ -932,7 +932,7 @@ fn min_max_macro(
         Type::Float32 => Type::Float32,
         // In case there are other floats, we don't want to conver tthe result to int
         Type::Int32 => Type::Float32,
-        Type::Length => Type::Length,
+        Type::PhysicalLength => Type::PhysicalLength,
         Type::LogicalLength => Type::LogicalLength,
         Type::Duration => Type::Duration,
         Type::Angle => Type::Angle,
