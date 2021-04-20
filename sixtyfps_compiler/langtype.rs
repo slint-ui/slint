@@ -407,6 +407,14 @@ impl Type {
             (Type::Struct { fields: a, .. }, Type::Struct { fields: b, .. }) => {
                 can_convert_struct(a, b)
             }
+            (Type::UnitProduct(u), o) => match o.as_unit_product() {
+                Some(o) => unit_product_length_conversion(u.as_slice(), o.as_slice()).is_some(),
+                None => false,
+            },
+            (o, Type::UnitProduct(u)) => match o.as_unit_product() {
+                Some(o) => unit_product_length_conversion(u.as_slice(), o.as_slice()).is_some(),
+                None => false,
+            },
             _ => false,
         }
     }
@@ -463,6 +471,15 @@ impl Type {
             Type::Enumeration(_) => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
+        }
+    }
+
+    /// Return a unit product vector even for single scalar
+    pub fn as_unit_product(&self) -> Option<Vec<(Unit, i8)>> {
+        match self {
+            Type::UnitProduct(u) => Some(u.clone()),
+            Type::Float32 | Type::Int32 => Some(Vec::new()),
+            _ => self.default_unit().map(|u| vec![(u, 1)]),
         }
     }
 }
@@ -710,4 +727,64 @@ impl std::fmt::Display for EnumerationValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.enumeration.values[self.value].fmt(f)
     }
+}
+
+/// If the `Type::UnitProduct(a)` can be converted to `Type::UnitProduct(a)` by multiplying
+/// by the scale factor, return that scale factor, otherwise, return None
+pub fn unit_product_length_conversion(a: &[(Unit, i8)], b: &[(Unit, i8)]) -> Option<i8> {
+    let mut it1 = a.iter();
+    let mut it2 = b.iter();
+    let (mut v1, mut v2) = (it1.next(), it2.next());
+    let mut ppx = 0;
+    let mut lpx = 0;
+    loop {
+        match (v1, v2) {
+            (None, None) => return (ppx == -lpx && ppx != 0).then(|| ppx),
+            (Some(a), Some(b)) if a == b => (),
+            (Some((Unit::Phx, a)), Some((Unit::Phx, b))) => ppx += a - b,
+            (Some((Unit::Px, a)), Some((Unit::Px, b))) => lpx += a - b,
+            (Some((Unit::Phx, a)), _) => {
+                ppx += *a;
+                v1 = it1.next();
+                continue;
+            }
+            (_, Some((Unit::Phx, b))) => {
+                ppx += -b;
+                v2 = it2.next();
+                continue;
+            }
+            (Some((Unit::Px, a)), _) => {
+                lpx += *a;
+                v1 = it1.next();
+                continue;
+            }
+            (_, Some((Unit::Px, b))) => {
+                lpx += -b;
+                v2 = it2.next();
+                continue;
+            }
+            _ => return None,
+        };
+        v1 = it1.next();
+        v2 = it2.next();
+    }
+}
+
+#[test]
+fn unit_product_length_conversion_test() {
+    use Option::None;
+    use Unit::*;
+    assert_eq!(unit_product_length_conversion(&[(Px, 1)], &[(Phx, 1)]), Some(-1));
+    assert_eq!(unit_product_length_conversion(&[(Phx, -2)], &[(Px, -2)]), Some(-2));
+    assert_eq!(unit_product_length_conversion(&[(Px, 1), (Phx, -2)], &[(Phx, -1)]), Some(-1));
+    assert_eq!(
+        unit_product_length_conversion(
+            &[(Deg, 3), (Phx, 2), (Ms, -1)],
+            &[(Phx, 4), (Deg, 3), (Ms, -1), (Px, -2)]
+        ),
+        Some(-2)
+    );
+    assert_eq!(unit_product_length_conversion(&[(Px, 1)], &[(Phx, -1)]), None);
+    assert_eq!(unit_product_length_conversion(&[(Deg, 1), (Phx, -2)], &[(Px, -2)]), None);
+    assert_eq!(unit_product_length_conversion(&[(Px, 1)], &[(Phx, -1)]), None);
 }

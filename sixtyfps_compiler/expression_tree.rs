@@ -60,9 +60,10 @@ pub enum BuiltinMacroFunction {
 impl BuiltinFunction {
     pub fn ty(&self) -> Type {
         match self {
-            BuiltinFunction::GetWindowScaleFactor => {
-                Type::Function { return_type: Box::new(Type::Float32), args: vec![] }
-            }
+            BuiltinFunction::GetWindowScaleFactor => Type::Function {
+                return_type: Box::new(Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)])),
+                args: vec![],
+            },
             BuiltinFunction::Debug => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
             }
@@ -768,28 +769,6 @@ impl Expression {
             self
         } else if ty.can_convert(&target_type) {
             let from = match (ty, &target_type) {
-                (Type::PhysicalLength, Type::LogicalLength) => Expression::BinaryExpression {
-                    lhs: Box::new(self),
-                    rhs: Box::new(Expression::FunctionCall {
-                        function: Box::new(Expression::BuiltinFunctionReference(
-                            BuiltinFunction::GetWindowScaleFactor,
-                        )),
-                        arguments: vec![],
-                        source_location: Some(node.to_source_location()),
-                    }),
-                    op: '/',
-                },
-                (Type::LogicalLength, Type::PhysicalLength) => Expression::BinaryExpression {
-                    lhs: Box::new(self),
-                    rhs: Box::new(Expression::FunctionCall {
-                        function: Box::new(Expression::BuiltinFunctionReference(
-                            BuiltinFunction::GetWindowScaleFactor,
-                        )),
-                        arguments: vec![],
-                        source_location: Some(node.to_source_location()),
-                    }),
-                    op: '*',
-                },
                 (Type::Percent, Type::Float32) => Expression::BinaryExpression {
                     lhs: Box::new(self),
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
@@ -849,7 +828,32 @@ impl Expression {
                     };
                     self.maybe_convert_to(struct_type_for_component, node, diag)
                 }
-                _ => self,
+                (a, b) => match (a.as_unit_product(), b.as_unit_product()) {
+                    (Some(a), Some(b)) => {
+                        if let Some(power) = crate::langtype::unit_product_length_conversion(&a, &b)
+                        {
+                            let op = if power < 0 { '*' } else { '/' };
+                            let mut result = self;
+                            for _ in 0..power.abs() {
+                                result = Expression::BinaryExpression {
+                                    lhs: Box::new(result),
+                                    rhs: Box::new(Expression::FunctionCall {
+                                        function: Box::new(Expression::BuiltinFunctionReference(
+                                            BuiltinFunction::GetWindowScaleFactor,
+                                        )),
+                                        arguments: vec![],
+                                        source_location: Some(node.to_source_location()),
+                                    }),
+                                    op,
+                                }
+                            }
+                            result
+                        } else {
+                            self
+                        }
+                    }
+                    _ => self,
+                },
             };
             Expression::Cast { from: Box::new(from), to: target_type }
         } else if matches!((&ty, &target_type, &self), (Type::Array(a), Type::Array(b), Expression::Array{..})

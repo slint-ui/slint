@@ -23,6 +23,12 @@ TestCase := Rectangle {
     property<length> zero1: 0;
     property<length> zero2: 0 + 1phx - 0 - 1phx;
     property<bool> test_zero: zero2 == 0;
+
+    property <float> ratio: 1px / 1phx;
+
+    property<bool> test: (8phx * 5px * 3ms / 2phx)  == (8px * (3ms / 2phx) * 5px) / ratio
+        && l1*l2 - ll1*ll2 == 0cm*0phx && value;
+
 }
 
 
@@ -44,6 +50,7 @@ assert_eq(instance.get_ll4() * ratio, 120.);
 
 assert(instance.get_value());
 assert(instance.get_test_zero());
+assert(instance.get_test());
 
 ratio = 2.;
 instance.window.set_scale_factor(ratio);
@@ -59,6 +66,7 @@ assert_eq(instance.get_ll4() * ratio, 120.);
 
 assert(instance.get_value());
 assert(instance.get_test_zero());
+assert(instance.get_test());
 ```
 
 
@@ -77,6 +85,7 @@ assert_eq!(instance.get_ll4() * ratio, 120.);
 
 assert!(instance.get_value());
 assert!(instance.get_test_zero());
+assert!(instance.get_test());
 
 let ratio = 2.;
 sixtyfps::testing::set_window_scale_factor(&instance, ratio);
@@ -92,6 +101,7 @@ assert_eq!(instance.get_ll4() * ratio, 120.);
 
 assert!(instance.get_value());
 assert!(instance.get_test_zero());
+assert!(instance.get_test());
 ```
 
 ```js
@@ -110,6 +120,7 @@ assert.equal(instance.ll4 * ratio, 120.);
 
 assert(instance.value);
 assert(instance.test_zero);
+assert(instance.test);
 ```
 
 */
