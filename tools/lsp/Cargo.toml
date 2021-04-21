@@ -9,6 +9,7 @@ repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
 [package.metadata.bundle]
+name = "SixtyFPS Live Preview"
 icon = ["../../vscode_extension/extension-logo.png"]
 
 [[bin]]

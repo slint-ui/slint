@@ -89,7 +89,7 @@ jobs:
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp -a target/release/bundle/osx/sixtyfps-lsp.app bin
+          cp -a target/release/bundle/osx/SixtyFPS\ Live\ Preview.app bin
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
@@ -144,8 +144,8 @@ jobs:
         path: bin
     - name: Add macOS AArch64 binary to bundle
       run: |
-        lipo -create -output tmp sixtyfps-lsp.app/Contents/MacOS/sixtyfps-lsp bin/sixtyfps-lsp-aarch64-apple-darwin
-        mv tmp sixtyfps-lsp.app/Contents/MacOS/sixtyfps-lsp
+        lipo -create -output tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/sixtyfps-lsp bin/sixtyfps-lsp-aarch64-apple-darwin
+        mv tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/sixtyfps-lsp
         rm -rf bin
     - name: "Upload LSP macOS bundle Artifact"
       uses: actions/upload-artifact@v2

@@ -34,14 +34,14 @@ let client: LanguageClient;
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
 interface Platform {
-    program_suffix: string,
+    program_name: string,
     options?: ExecutableOptions
 }
 
 function lspPlatform(): Platform | null {
     if (process.platform === "darwin") {
         return {
-            program_suffix: ".app/Contents/MacOS/sixtyfps-lsp"
+            program_name: "SixtyFPS Live Preview.app/Contents/MacOS/sixtyfps-lsp"
         };
     }
     else if (process.platform === "linux") {
@@ -54,21 +54,21 @@ function lspPlatform(): Platform | null {
         }
         if (process.arch === "x64") {
             return {
-                program_suffix: "-x86_64-unknown-linux-gnu",
+                program_name: "sixtyfps-lsp-x86_64-unknown-linux-gnu",
                 options: {
                     env: remote_env_options
                 }
             };
         } else if (process.arch === "arm") {
             return {
-                program_suffix: "-armv7-unknown-linux-gnueabihf",
+                program_name: "sixtyfps-lsp-armv7-unknown-linux-gnueabihf",
                 options: {
                     env: remote_env_options
                 }
             };
         } else if (process.arch === "arm64") {
             return {
-                program_suffix: "-aarch64-unknown-linux-gnu",
+                program_name: "sixtyfps-lsp-aarch64-unknown-linux-gnu",
                 options: {
                     env: remote_env_options
                 }
@@ -77,7 +77,7 @@ function lspPlatform(): Platform | null {
     }
     else if (process.platform === "win32") {
         return {
-            program_suffix: "-x86_64-pc-windows-gnu"
+            program_name: "sixtyfps-lsp-x86_64-pc-windows-gnu.exe"
         };
     }
     return null;
@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
     const lspSearchPaths = [
         context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp' + program_extension)),
         path.join(context.extensionPath, "bin", "sixtyfps-lsp" + program_extension),
-        path.join(context.extensionPath, "bin", "sixtyfps-lsp" + lsp_platform.program_suffix + program_extension),
+        path.join(context.extensionPath, "bin", lsp_platform.program_name),
     ];
 
     let serverModule = lspSearchPaths.find(path => existsSync(path));
