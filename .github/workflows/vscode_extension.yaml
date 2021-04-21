@@ -20,7 +20,7 @@ on:
         required: false
 
 jobs:
-  build_lsp:
+  build_lsp_linux_windows:
     env:
       SIXTYFPS_NO_QT: 1
     strategy:
@@ -31,16 +31,6 @@ jobs:
             binary_built: sixtyfps-lsp
             target_dir:
             artifact_name: sixtyfps-lsp-x86_64-unknown-linux-gnu
-          - os: macos-latest
-            toolchain: x86_64-apple-darwin
-            binary_built: sixtyfps-lsp
-            target_dir:
-            artifact_name: sixtyfps-lsp-x86_64-apple-darwin
-          - os: macos-latest
-            toolchain: aarch64-apple-darwin
-            binary_built: sixtyfps-lsp
-            target_dir: aarch64-apple-darwin
-            artifact_name: sixtyfps-lsp-aarch64-apple-darwin
           - os: windows-latest
             toolchain: x86_64-pc-windows-gnu
             binary_built: sixtyfps-lsp.exe
@@ -54,17 +44,54 @@ jobs:
       with:
           toolchain: stable
           target: ${{ matrix.toolchain }}
-    - name: Select XCode version
-      if: matrix.os == 'macos-latest'
-      run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
-    - name: Select SDK
-      if: matrix.os == 'macos-latest'
-      run: |
-          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
-          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
     - name: Install Linux Dependencies
       if: matrix.os == 'ubuntu-latest'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
+    - name: Build LSP
+      uses: actions-rs/cargo@v1
+      with:
+          command: build
+          toolchain: stable
+          args: --target ${{ matrix.toolchain }} --release -p sixtyfps-lsp
+    - name: Create artifact directory
+      run: |
+          mkdir bin
+          cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
+    - name: "Upload LSP Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: lsp-binary-${{ matrix.toolchain }}
+          path: |
+              bin
+
+  build_lsp_macos:
+    env:
+      SIXTYFPS_NO_QT: 1
+    strategy:
+      matrix:
+        include:
+          - toolchain: x86_64-apple-darwin
+            binary_built: sixtyfps-lsp
+            target_dir:
+            artifact_name: sixtyfps-lsp-x86_64-apple-darwin
+          - toolchain: aarch64-apple-darwin
+            binary_built: sixtyfps-lsp
+            target_dir: aarch64-apple-darwin
+            artifact_name: sixtyfps-lsp-aarch64-apple-darwin
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          target: ${{ matrix.toolchain }}
+    - name: Select XCode version
+      run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
+    - name: Select SDK
+      run: |
+          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
     - name: Build LSP
       uses: actions-rs/cargo@v1
       with:
@@ -116,7 +143,7 @@ jobs:
               bin              
 
   build_extension:
-    needs: [build_lsp, build_cross_linux_lsp]
+    needs: [build_lsp_linux_windows, build_lsp_macos, build_cross_linux_lsp]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
