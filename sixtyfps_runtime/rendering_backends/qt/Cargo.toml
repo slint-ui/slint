@@ -17,7 +17,7 @@ path = "lib.rs"
 
 [dependencies]
 cpp = "0.5.5"
-qttypes = { version = "0.2", default-features = false, git="https://github.com/woboq/qmetaobject-rs" }
+qttypes = { version = "0.2", default-features = false }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 sixtyfps-corelib-macros = { version = "=0.0.5", path = "../../corelib_macros" }
