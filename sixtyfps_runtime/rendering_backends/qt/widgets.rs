@@ -74,7 +74,12 @@ macro_rules! fn_render {
                 backend.draw_cached_pixmap(
                     &self.cached_rendering_data,
                     &mut |callback| {
-                        let $size: qttypes::QSize = get_size!(self);
+                        let width = self.width() * $dpr;
+                        let height = self.height() * $dpr;
+                        if width < 1. || height < 1. {
+                            return Default::default();
+                        };
+                        let $size = qttypes::QSize { width: width as _, height: height as _ };
                         let mut imgarray = QImageWrapArray::new($size, $dpr);
                         let img = &mut imgarray.img;
                         let mut painter_ = cpp!(unsafe [img as "QImage*"] -> QPainter as "QPainter" { return QPainter(img); });
@@ -165,18 +170,16 @@ impl Item for NativeButton {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString = self.text().as_str().into();
-        let dpr = window.scale_factor();
         let size = cpp!(unsafe [
-            text as "QString",
-            dpr as "float"
+            text as "QString"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionButton option;
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
-            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr) * dpr;
+            return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -293,18 +296,16 @@ impl Item for NativeCheckBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString = self.text().as_str().into();
-        let dpr = window.scale_factor();
         let size = cpp!(unsafe [
-            text as "QString",
-            dpr as "float"
+            text as "QString"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionButton option;
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
-            return qApp->style()->sizeFromContents(QStyle::CT_CheckBox, &option, option.rect.size(), nullptr) * dpr;
+            return qApp->style()->sizeFromContents(QStyle::CT_CheckBox, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -439,20 +440,18 @@ impl Item for NativeSpinBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         //let value: i32 = self.value();
         let data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
         let enabled = self.enabled();
-        let dpr = window.scale_factor();
 
         let size = cpp!(unsafe [
             //value as "int",
             active_controls as "int",
             pressed as "bool",
-            enabled as "bool",
-            dpr as "float"
+            enabled as "bool"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             auto style = qApp->style();
@@ -462,7 +461,7 @@ impl Item for NativeSpinBox {
 
             auto content = option.fontMetrics.boundingRect("0000");
 
-            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr) * dpr;
+            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr);
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -652,7 +651,7 @@ impl Item for NativeSlider {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let enabled = self.enabled();
         let value = self.value() as i32;
         let min = self.minimum() as i32;
@@ -660,7 +659,6 @@ impl Item for NativeSlider {
         let data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-        let dpr = window.scale_factor();
 
         let size = cpp!(unsafe [
             enabled as "bool",
@@ -668,15 +666,14 @@ impl Item for NativeSlider {
             min as "int",
             max as "int",
             active_controls as "int",
-            pressed as "bool",
-            dpr as "float"
+            pressed as "bool"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionSlider option;
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
             auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
-            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr) * dpr;
+            return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr);
         });
         LayoutInfo {
             min_width: size.width as f32,
@@ -835,7 +832,7 @@ struct GroupBoxData {
 }
 
 impl Item for NativeGroupBox {
-    fn init(self: Pin<&Self>, window: &ComponentWindow) {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {
         let shared_data = Rc::pin(GroupBoxData::default());
 
         Property::link_two_way(
@@ -844,17 +841,14 @@ impl Item for NativeGroupBox {
         );
 
         shared_data.paddings.set_binding({
-            let window_weak = Rc::downgrade(&window.0.clone());
             let shared_data_weak = pin_weak::rc::PinWeak::downgrade(shared_data.clone());
             move || {
                 let shared_data = shared_data_weak.upgrade().unwrap();
 
                 let text: qttypes::QString = GroupBoxData::FIELD_OFFSETS.title.apply_pin(shared_data.as_ref()).get().as_str().into();
-                let dpr = window_weak.upgrade().unwrap().scale_factor();
 
                 cpp!(unsafe [
-                    text as "QString",
-                    dpr as "float"
+                    text as "QString"
                 ] -> qttypes::QMargins as "QMargins" {
                     ensure_initialized();
                     QStyleOptionGroupBox option;
@@ -878,10 +872,11 @@ impl Item for NativeGroupBox {
                     auto vs = qApp->style()->pixelMetric(QStyle::PM_LayoutVerticalSpacing, &option);
 
                     return {
-                        qRound((contentsRect.left() + hs) * dpr),
-                        qRound((contentsRect.top() + vs) * dpr),
-                        qRound((option.rect.right() - contentsRect.right() + hs) * dpr),
-                        qRound((option.rect.bottom() - contentsRect.bottom() + vs) * dpr) };
+                        (contentsRect.left() + hs),
+                        (contentsRect.top() + vs),
+                        (option.rect.right() - contentsRect.right() + hs),
+                        (option.rect.bottom() - contentsRect.bottom() + vs)
+                    };
                 })
             }
         });
@@ -1027,36 +1022,30 @@ pub struct NativeLineEdit {
 }
 
 impl Item for NativeLineEdit {
-    fn init(self: Pin<&Self>, window: &ComponentWindow) {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {
         let paddings = Rc::pin(Property::default());
 
-        paddings.as_ref().set_binding({
-            let window_weak = Rc::downgrade(&window.0.clone());
-            move || {
-                let dpr = window_weak.upgrade().unwrap().scale_factor();
+        paddings.as_ref().set_binding(move || {
+            cpp!(unsafe [] -> qttypes::QMargins as "QMargins" {
+                ensure_initialized();
+                QStyleOptionFrame option;
+                option.state |= QStyle::State_Enabled;
+                option.lineWidth = 1;
+                option.midLineWidth = 0;
+                    // Just some size big enough to be sure that the frame fitst in it
+                option.rect = QRect(0, 0, 10000, 10000);
+                QRect contentsRect = qApp->style()->subElementRect(
+                    QStyle::SE_LineEditContents, &option);
 
-                cpp!(unsafe [
-                    dpr as "float"
-                ] -> qttypes::QMargins as "QMargins" {
-                    ensure_initialized();
-                    QStyleOptionFrame option;
-                    option.state |= QStyle::State_Enabled;
-                    option.lineWidth = 1;
-                    option.midLineWidth = 0;
-                     // Just some size big enough to be sure that the frame fitst in it
-                    option.rect = QRect(0, 0, 10000, 10000);
-                    QRect contentsRect = qApp->style()->subElementRect(
-                        QStyle::SE_LineEditContents, &option);
+                // ### remove extra margins
 
-                    // ### remove extra margins
-
-                    return {
-                        qRound((2 + contentsRect.left()) * dpr),
-                        qRound((4 + contentsRect.top()) * dpr),
-                        qRound((2 + option.rect.right() - contentsRect.right()) * dpr),
-                        qRound((4 + option.rect.bottom() - contentsRect.bottom()) * dpr) };
-                })
-            }
+                return {
+                    (2 + contentsRect.left()),
+                    (4 + contentsRect.top()),
+                    (2 + option.rect.right() - contentsRect.right()),
+                    (4 + option.rect.bottom() - contentsRect.bottom())
+                };
+            })
         });
 
         self.native_padding_left.set_binding({
@@ -1179,46 +1168,40 @@ pub struct NativeScrollView {
 }
 
 impl Item for NativeScrollView {
-    fn init(self: Pin<&Self>, window: &ComponentWindow) {
+    fn init(self: Pin<&Self>, _window: &ComponentWindow) {
         let paddings = Rc::pin(Property::default());
 
-        paddings.as_ref().set_binding({
-            let window_weak = Rc::downgrade(&window.0.clone());
-            move || {
-                let dpr = window_weak.upgrade().unwrap().scale_factor();
+        paddings.as_ref().set_binding(move || {
+            cpp!(unsafe [] -> qttypes::QMargins as "QMargins" {
+                ensure_initialized();
+                QStyleOptionSlider option;
+                initQSliderOptions(option, false, true, 0, 0, 1000, 1000);
 
-                cpp!(unsafe [
-                    dpr as "float"
-                ] -> qttypes::QMargins as "QMargins" {
-                    ensure_initialized();
-                    QStyleOptionSlider option;
-                    initQSliderOptions(option, false, true, 0, 0, 1000, 1000);
+                int extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, nullptr);
+                int sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
+                auto horizontal_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent * 2 + sliderMin, extent), nullptr);
+                option.state ^= QStyle::State_Horizontal;
+                option.orientation = Qt::Vertical;
+                extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, nullptr);
+                sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
+                auto vertical_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent, extent * 2 + sliderMin), nullptr);
 
-                    int extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, nullptr);
-                    int sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
-                    auto horizontal_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent * 2 + sliderMin, extent), nullptr);
-                    option.state ^= QStyle::State_Horizontal;
-                    option.orientation = Qt::Vertical;
-                    extent = qApp->style()->pixelMetric(QStyle::PM_ScrollBarExtent, &option, nullptr);
-                    sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
-                    auto vertical_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent, extent * 2 + sliderMin), nullptr);
+                /*int hscrollOverlap = hbar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &opt, hbar);
+                int vscrollOverlap = vbar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &opt, vbar);*/
 
-                    /*int hscrollOverlap = hbar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &opt, hbar);
-                    int vscrollOverlap = vbar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &opt, vbar);*/
-
-                    QStyleOptionFrame frameOption;
-                    frameOption.rect = QRect(QPoint(), QSize(1000, 1000));
-                    frameOption.frameShape = QFrame::StyledPanel;
-                    frameOption.lineWidth = 1;
-                    frameOption.midLineWidth = 0;
-                    QRect cr = qApp->style()->subElementRect(QStyle::SE_ShapedFrameContents, &frameOption, nullptr);
-                    return {
-                        qRound(cr.left() * dpr),
-                        qRound(cr.top() * dpr),
-                        qRound((vertical_size.width() + frameOption.rect.right() - cr.right()) * dpr),
-                        qRound((horizontal_size.height() + frameOption.rect.bottom() - cr.bottom()) * dpr) };
-                })
-            }
+                QStyleOptionFrame frameOption;
+                frameOption.rect = QRect(QPoint(), QSize(1000, 1000));
+                frameOption.frameShape = QFrame::StyledPanel;
+                frameOption.lineWidth = 1;
+                frameOption.midLineWidth = 0;
+                QRect cr = qApp->style()->subElementRect(QStyle::SE_ShapedFrameContents, &frameOption, nullptr);
+                return {
+                    cr.left(),
+                    cr.top(),
+                    (vertical_size.width() + frameOption.rect.right() - cr.right()),
+                    (horizontal_size.height() + frameOption.rect.bottom() - cr.bottom())
+                    };
+            })
         });
 
         self.native_padding_left.set_binding({
@@ -1273,10 +1256,9 @@ impl Item for NativeScrollView {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        window: &ComponentWindow,
+        _window: &ComponentWindow,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
-        let dpr = window.scale_factor();
         let size: qttypes::QSize = get_size!(self);
         let mut data = self.data();
         let active_controls = data.active_controls;
@@ -1302,20 +1284,19 @@ impl Item for NativeScrollView {
                 size as "QSize",
                 active_controls as "int",
                 pressed as "bool",
-                dpr as "float",
                 horizontal as "bool"
             ] -> u32 as "int" {
                 ensure_initialized();
                 QStyleOptionSlider option;
-                initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr);
-                option.pageStep = page_size / dpr;
+                initQSliderOptions(option, pressed, true, active_controls, 0, max, -value);
+                option.pageStep = page_size;
                 if (!horizontal) {
                     option.state ^= QStyle::State_Horizontal;
                     option.orientation = Qt::Vertical;
                 }
                 auto style = qApp->style();
-                option.rect = { QPoint{}, size / dpr };
-                return style->hitTestComplexControl(QStyle::CC_ScrollBar, &option, pos / dpr, nullptr);
+                option.rect = { QPoint{}, size };
+                return style->hitTestComplexControl(QStyle::CC_ScrollBar, &option, pos, nullptr);
             });
 
             #[allow(non_snake_case)]
@@ -1340,16 +1321,16 @@ impl Item for NativeScrollView {
                 }
                 MouseEventType::MouseReleased => {
                     data.pressed = 0;
-                    let new_val = cpp!(unsafe [active_controls as "int", value as "int", max as "int", page_size as "int", dpr as "float"] -> i32 as "int" {
+                    let new_val = cpp!(unsafe [active_controls as "int", value as "int", max as "int", page_size as "int"] -> i32 as "int" {
                         switch (active_controls) {
                             case QStyle::SC_ScrollBarAddPage:
                                 return -value + page_size;
                             case QStyle::SC_ScrollBarSubPage:
                                 return -value - page_size;
                             case QStyle::SC_ScrollBarAddLine:
-                                return -value + 3. * dpr;
+                                return -value + 3.;
                             case QStyle::SC_ScrollBarSubLine:
-                                return -value - 3. * dpr;
+                                return -value - 3.;
                             case QStyle::SC_ScrollBarFirst:
                                 return 0;
                             case QStyle::SC_ScrollBarLast:
@@ -1427,10 +1408,10 @@ impl Item for NativeScrollView {
         let top = this.native_padding_top();
         let bottom = this.native_padding_bottom();
         let corner_rect = qttypes::QRectF {
-            x: ((size.width as f32 - (right - left)) / dpr) as _,
-            y: ((size.height as f32 - (bottom - top)) / dpr) as _,
-            width: ((right - left) / dpr) as _,
-            height: ((bottom - top) / dpr) as _,
+            x: (size.width as f32 / dpr - (right - left)) as _,
+            y: (size.height as f32 / dpr - (bottom - top)) as _,
+            width: ((right - left)) as _,
+            height: ((bottom - top)) as _,
         };
         cpp!(unsafe [painter as "QPainter*", corner_rect as "QRectF"] {
             ensure_initialized();
@@ -1553,8 +1534,7 @@ impl Item for NativeStandardListViewItem {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let dpr = window.scale_factor();
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let index: i32 = self.index();
         let item = self.item();
         let text: qttypes::QString = item.text.as_str().into();
@@ -1578,8 +1558,8 @@ impl Item for NativeStandardListViewItem {
             return qApp->style()->sizeFromContents(QStyle::CT_ItemViewItem, &option, QSize{}, nullptr);
         });
         let result = LayoutInfo {
-            min_width: s.width as f32 * dpr,
-            min_height: s.height as f32 * dpr,
+            min_width: s.width as f32,
+            min_height: s.height as f32,
             ..LayoutInfo::default()
         };
         result
@@ -1677,19 +1657,17 @@ impl Item for NativeComboBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         let text: qttypes::QString = self.current_value().as_str().into();
-        let dpr = window.scale_factor();
         let size = cpp!(unsafe [
-            text as "QString",
-            dpr as "float"
+            text as "QString"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionButton option;
             // FIXME
             option.rect = option.fontMetrics.boundingRect("*****************");
             option.text = std::move(text);
-            return qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &option, option.rect.size(), nullptr) * dpr;
+            return qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
             min_width: size.width as f32,
