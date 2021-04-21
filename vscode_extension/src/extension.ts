@@ -40,15 +40,9 @@ interface Platform {
 
 function lspPlatform(): Platform | null {
     if (process.platform === "darwin") {
-        if (process.arch === "x64") {
-            return {
-                program_suffix: "x86_64-apple-darwin.app/Contents/MacOS/sixtyfps-lsp"
-            };
-        } else if (process.arch === "arm64") {
-            return {
-                program_suffix: "aarch64-apple-darwin.app/Contents/MacOS/sixtyfps-lsp"
-            };
-        }
+        return {
+            program_suffix: ".app/Contents/MacOS/sixtyfps-lsp"
+        };
     }
     else if (process.platform === "linux") {
         let remote_env_options = null;
@@ -60,21 +54,21 @@ function lspPlatform(): Platform | null {
         }
         if (process.arch === "x64") {
             return {
-                program_suffix: "x86_64-unknown-linux-gnu",
+                program_suffix: "-x86_64-unknown-linux-gnu",
                 options: {
                     env: remote_env_options
                 }
             };
         } else if (process.arch === "arm") {
             return {
-                program_suffix: "armv7-unknown-linux-gnueabihf",
+                program_suffix: "-armv7-unknown-linux-gnueabihf",
                 options: {
                     env: remote_env_options
                 }
             };
         } else if (process.arch === "arm64") {
             return {
-                program_suffix: "aarch64-unknown-linux-gnu",
+                program_suffix: "-aarch64-unknown-linux-gnu",
                 options: {
                     env: remote_env_options
                 }
@@ -83,7 +77,7 @@ function lspPlatform(): Platform | null {
     }
     else if (process.platform === "win32") {
         return {
-            program_suffix: "x86_64-pc-windows-gnu"
+            program_suffix: "-x86_64-pc-windows-gnu"
         };
     }
     return null;
@@ -104,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
     const lspSearchPaths = [
         context.asAbsolutePath(path.join('..', 'target', 'debug', 'sixtyfps-lsp' + program_extension)),
         path.join(context.extensionPath, "bin", "sixtyfps-lsp" + program_extension),
-        path.join(context.extensionPath, "bin", "sixtyfps-lsp-" + lsp_platform.program_suffix + program_extension),
+        path.join(context.extensionPath, "bin", "sixtyfps-lsp" + lsp_platform.program_suffix + program_extension),
     ];
 
     let serverModule = lspSearchPaths.find(path => existsSync(path));

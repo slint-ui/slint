@@ -64,18 +64,9 @@ jobs:
           path: |
               bin
 
-  build_lsp_macos:
+  build_lsp_macos_x86_64:
     env:
       SIXTYFPS_NO_QT: 1
-    strategy:
-      matrix:
-        include:
-          - toolchain: x86_64-apple-darwin
-            target_dir:
-            artifact_name: sixtyfps-lsp-x86_64-apple-darwin.app
-          - toolchain: aarch64-apple-darwin
-            target_dir: aarch64-apple-darwin
-            artifact_name: sixtyfps-lsp-aarch64-apple-darwin.app
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
@@ -83,7 +74,7 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
-          target: ${{ matrix.toolchain }}
+          target: x86_64-apple-darwin
     - name: Select XCode version
       run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
     - name: Select SDK
@@ -92,19 +83,75 @@ jobs:
           echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
     - name: Install cargo-bundle
       run: cargo install cargo-bundle
-    - name: Build LSP Bundle
+    - name: Build Main LSP Bundle
       working-directory: tools/lsp
-      run: cargo bundle --target ${{ matrix.toolchain }} --release
+      run: cargo bundle --release
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp -a target/${{ matrix.toolchain }}/release/bundle/osx/sixtyfps-lsp.app bin/${{ matrix.artifact_name }}
+          cp -a target/release/bundle/osx/sixtyfps-lsp.app bin
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
-          name: lsp-binary-${{ matrix.toolchain }}
+          name: lsp-binary-x86_64-apple-darwin
           path: |
               bin
+
+  build_lsp_macos_aarch64:
+    env:
+      SIXTYFPS_NO_QT: 1
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          target: aarch64-apple-darwin
+    - name: Select XCode version
+      run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
+    - name: Select SDK
+      run: |
+          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
+    - name: Build AArch64 LSP
+      uses: actions-rs/cargo@v1
+      with:
+          command: build
+          toolchain: stable
+          args: --target aarch64-apple-darwin --release -p sixtyfps-lsp
+    - name: Create artifact directory
+      run: |
+          mkdir bin
+          cp -a target/aarch64-apple-darwin/release/sixtyfps-lsp bin/sixtyfps-lsp-aarch64-apple-darwin
+    - name: "Upload LSP Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: lsp-binary-aarch64-apple-darwin
+          path: |
+              bin
+
+  build_lsp_macos_bundle:
+    needs: [build_lsp_macos_x86_64, build_lsp_macos_aarch64]
+    runs-on: macos-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: lsp-binary-x86_64-apple-darwin
+    - uses: actions/download-artifact@v2
+      with:
+        name: lsp-binary-aarch64-apple-darwin
+        path: bin
+    - name: Add macOS AArch64 binary to bundle
+      run: |
+        lipo -create -output tmp sixtyfps-lsp.app/Contents/MacOS/sixtyfps-lsp bin/sixtyfps-lsp-aarch64-apple-darwin
+        mv tmp sixtyfps-lsp.app/Contents/MacOS/sixtyfps-lsp
+        rm -rf bin
+    - name: "Upload LSP macOS bundle Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: lsp-binary-darwin
+          path: .     
 
   build_cross_linux_lsp:
     env:
@@ -140,8 +187,8 @@ jobs:
               bin              
 
   build_extension:
-    needs: [build_lsp_linux_windows, build_lsp_macos, build_cross_linux_lsp]
-    runs-on: ubuntu-latest
+    needs: [build_lsp_linux_windows, build_lsp_macos_bundle, build_cross_linux_lsp]
+    runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
@@ -154,11 +201,7 @@ jobs:
         path: vscode_extension/bin
     - uses: actions/download-artifact@v2
       with:
-        name: lsp-binary-x86_64-apple-darwin
-        path: vscode_extension/bin
-    - uses: actions/download-artifact@v2
-      with:
-        name: lsp-binary-aarch64-apple-darwin
+        name: lsp-binary-darwin
         path: vscode_extension/bin
     - uses: actions/download-artifact@v2
       with:
@@ -181,7 +224,7 @@ jobs:
     - name: "npm install"
       working-directory: vscode_extension
       run: npm install
-    - name: Build package and optinoally publish to Open VSX Registry
+    - name: Build package and optionally publish to Open VSX Registry
       id: publishToOpenVSX
       uses: HaaLeo/publish-vscode-extension@v0
       with:
