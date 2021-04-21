@@ -42,11 +42,11 @@ function lspPlatform(): Platform | null {
     if (process.platform === "darwin") {
         if (process.arch === "x64") {
             return {
-                program_suffix: "x86_64-apple-darwin"
+                program_suffix: "x86_64-apple-darwin.app/Contents/MacOS/sixtyfps-lsp"
             };
         } else if (process.arch === "arm64") {
             return {
-                program_suffix: "aarch64-apple-darwin"
+                program_suffix: "aarch64-apple-darwin.app/Contents/MacOS/sixtyfps-lsp"
             };
         }
     }

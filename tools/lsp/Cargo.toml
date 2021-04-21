@@ -8,6 +8,9 @@ description = "SixtyFPS LSP server"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
+[package.metadata.bundle]
+icon = ["../../vscode_extension/extension-logo.png"]
+
 [[bin]]
 name = "sixtyfps-lsp"
 path = "main.rs"

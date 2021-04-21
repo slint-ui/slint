@@ -71,13 +71,11 @@ jobs:
       matrix:
         include:
           - toolchain: x86_64-apple-darwin
-            binary_built: sixtyfps-lsp
             target_dir:
-            artifact_name: sixtyfps-lsp-x86_64-apple-darwin
+            artifact_name: sixtyfps-lsp-x86_64-apple-darwin.app
           - toolchain: aarch64-apple-darwin
-            binary_built: sixtyfps-lsp
             target_dir: aarch64-apple-darwin
-            artifact_name: sixtyfps-lsp-aarch64-apple-darwin
+            artifact_name: sixtyfps-lsp-aarch64-apple-darwin.app
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2
@@ -92,16 +90,15 @@ jobs:
       run: |
           echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
           echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
-    - name: Build LSP
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          toolchain: stable
-          args: --target ${{ matrix.toolchain }} --release -p sixtyfps-lsp
+    - name: Install cargo-bundle
+      run: cargo install cargo-bundle
+    - name: Build LSP Bundle
+      working-directory: tools/lsp
+      run: cargo bundle --target ${{ matrix.toolchain }} --release
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
+          cp -a target/${{ matrix.toolchain }}/release/bundle/osx/sixtyfps-lsp.app bin/${{ matrix.artifact_name }}
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
@@ -168,7 +165,7 @@ jobs:
         name: lsp-binary-armv7-unknown-linux-gnueabihf
         path: vscode_extension/bin
     - name: Fix permissions
-      run: chmod 755 vscode_extension/bin/*
+      run: chmod 755 vscode_extension/bin/* vscode_extension/bin/*.app/Contents/MacOS/*
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
