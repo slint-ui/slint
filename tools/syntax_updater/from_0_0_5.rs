@@ -13,7 +13,7 @@ use std::io::Write;
 use sixtyfps_compilerlib::object_tree;
 use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxNode};
 
-/// Replace the 'color' type with 'brush', and the 'resource' type with 'image'
+/// Replace the 'color' type with 'brush', and the 'resource' type with 'image', and the 'logical_length' to 'length'
 pub(crate) fn fold_node(
     node: &SyntaxNode,
     file: &mut impl Write,
@@ -27,6 +27,9 @@ pub(crate) fn fold_node(
                 }
                 "resource" => {
                     return write!(file, "image").map(|_| true);
+                }
+                "logical_length" | "logical-length" => {
+                    return write!(file, "length").map(|_| true);
                 }
                 _ => (),
             }
