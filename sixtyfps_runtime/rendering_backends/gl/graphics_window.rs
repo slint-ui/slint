@@ -104,14 +104,14 @@ impl GraphicsWindow {
 
                     window.backend.borrow().window().set_min_inner_size(
                         if min_width > 0. || min_height > 0. {
-                            Some(winit::dpi::PhysicalSize::new(min_width, min_height))
+                            Some(winit::dpi::LogicalSize::new(min_width, min_height))
                         } else {
                             None
                         },
                     );
                     window.backend.borrow().window().set_max_inner_size(
                         if max_width < f32::MAX || max_height < f32::MAX {
-                            Some(winit::dpi::PhysicalSize::new(
+                            Some(winit::dpi::LogicalSize::new(
                                 max_width.min(65535.),
                                 max_height.min(65535.),
                             ))
@@ -128,7 +128,7 @@ impl GraphicsWindow {
                         if !(min_width..=max_width).contains(&(existing_size.width as f32))
                             || !(min_height..=max_height).contains(&(existing_size.height as f32))
                         {
-                            let new_size = winit::dpi::PhysicalSize::new(
+                            let new_size = winit::dpi::LogicalSize::new(
                                 existing_size
                                     .width
                                     .min(max_width.ceil() as u32)
