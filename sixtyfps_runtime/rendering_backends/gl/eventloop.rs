@@ -231,7 +231,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             window.refresh_window_scale_factor();
-                            window.set_geometry(size.width as _, size.height as _);
+                            let size = size.to_logical(window.scale_factor() as f64);
+                            window.set_geometry(size.width, size.height);
                         }
                     });
                 }
@@ -247,7 +248,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.set_geometry(size.width as f32, size.height as f32);
+                            let size = size.to_logical(scale_factor);
+                            window.set_geometry(size.width, size.height);
                             window.set_scale_factor(scale_factor as f32);
                         }
                     });
@@ -287,8 +289,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            let cursor_pos =
-                                euclid::point2(touch.location.x as _, touch.location.y as _);
+                            let location = touch.location.to_logical(window.scale_factor() as f64);
+                            let cursor_pos = euclid::point2(location.x, location.y);
                             let what = match touch.phase {
                                 winit::event::TouchPhase::Started => {
                                     pressed = true;
@@ -310,12 +312,13 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     event: winit::event::WindowEvent::CursorMoved { position, .. },
                     ..
                 } => {
-                    cursor_pos = euclid::point2(position.x as _, position.y as _);
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
+                            let position = position.to_logical(window.scale_factor() as f64);
+                            cursor_pos = euclid::point2(position.x, position.y);
                             window
                                 .clone()
                                 .process_mouse_input(cursor_pos, MouseEventType::MouseMoved);

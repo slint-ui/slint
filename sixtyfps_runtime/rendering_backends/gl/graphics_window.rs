@@ -261,7 +261,7 @@ impl GraphicsWindow {
                                     h = layout_info.min_height;
                                     height.set(h);
                                 }
-                                Size::new(h, w)
+                                Size::new(h, w) * self.scale_factor()
                             } else {
                                 Size::default()
                             };
@@ -359,6 +359,7 @@ impl GraphicsWindow {
 
     /// Sets the size of the window. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
+    /// Size is in logical pixels.
     pub fn set_geometry(&self, width: f32, height: f32) {
         self.self_weak.upgrade().unwrap().try_component().map(|component_rc| {
             let component = ComponentRc::borrow_pin(&component_rc);
@@ -438,7 +439,7 @@ impl PlatformWindow for GraphicsWindow {
                 let backend = window.backend.borrow();
                 let winit_window = backend.window();
                 winit_window.set_title(&window_item.title());
-                let mut size = winit_window.inner_size();
+                let mut size = winit_window.inner_size().to_logical(self.scale_factor() as f64);
                 let mut must_resize = false;
                 let mut apply = |r: &mut u32, v| {
                     if v > 0. {
@@ -496,7 +497,7 @@ impl PlatformWindow for GraphicsWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => Default::default(),
             GraphicsWindowBackendState::Mapped(window) => {
-                window.backend.borrow().image_size(source) * self.scale_factor()
+                window.backend.borrow().image_size(source)
             }
         }
     }

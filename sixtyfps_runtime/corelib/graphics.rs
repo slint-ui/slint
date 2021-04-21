@@ -128,7 +128,7 @@ impl FontRequest {
 /// The FontMetrics trait is constructed from a FontRequest by the graphics backend and supplied to text related
 /// items in order to measure text.
 pub trait FontMetrics {
-    /// Returns the size of the given string in physical pixels.
+    /// Returns the size of the given string in logical pixels.
     fn text_size(&self, text: &str) -> Size;
     /// Returns the (UTF-8) byte offset in the given text that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given x coordinate. This is used for hit-testing,

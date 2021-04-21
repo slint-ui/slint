@@ -22,7 +22,8 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use sixtyfps_corelib::graphics::{
-    Brush, Color, FontMetrics, FontRequest, ImageReference, Point, Rect, RenderingCache, Size,
+    Brush, Color, FontMetrics, FontRequest, ImageReference, IntRect, Point, Rect, RenderingCache,
+    Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
@@ -141,7 +142,7 @@ impl FontCache {
         scale_factor: f32,
         reference_text: &str,
     ) -> GLFont {
-        request.pixel_size = request.pixel_size.or(Some(DEFAULT_FONT_SIZE * scale_factor));
+        request.pixel_size = Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor);
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
 
         let primary_font = self.load_single_font(canvas, &request);
@@ -503,7 +504,11 @@ impl GLRenderer {
             .unwrap()
             .as_font()
             .clone();
-        Box::new(GLFontMetrics { font, letter_spacing: font_request_fn().letter_spacing })
+        Box::new(GLFontMetrics {
+            font,
+            letter_spacing: font_request_fn().letter_spacing,
+            scale_factor: scale_factor.get(),
+        })
     }
 
     /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted
@@ -572,14 +577,14 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut Rect, border_width: &mut 
     rect.size.height -= *border_width;
 }
 
-fn item_rect<Item: sixtyfps_corelib::items::Item>(item: Pin<&Item>) -> Rect {
+fn item_rect<Item: sixtyfps_corelib::items::Item>(item: Pin<&Item>, scale_factor: f32) -> Rect {
     let geometry = item.geometry();
-    euclid::rect(0., 0., geometry.width(), geometry.height())
+    euclid::rect(0., 0., geometry.width() * scale_factor, geometry.height() * scale_factor)
 }
 
 impl ItemRenderer for GLItemRenderer {
     fn draw_rectangle(&mut self, rect: std::pin::Pin<&sixtyfps_corelib::items::Rectangle>) {
-        let geometry = item_rect(rect);
+        let geometry = item_rect(rect, self.scale_factor);
         if geometry.is_empty() {
             return;
         }
@@ -596,19 +601,20 @@ impl ItemRenderer for GLItemRenderer {
         &mut self,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
-        let mut geometry = item_rect(rect);
+        let mut geometry = item_rect(rect, self.scale_factor);
         if geometry.is_empty() {
             return;
         }
 
-        let mut border_width = rect.border_width();
+        let mut border_width = rect.border_width() * self.scale_factor;
         // In CSS the border is entirely towards the inside of the boundary
         // geometry, while in femtovg the line with for a stroke is 50% in-
         // and 50% outwards. We choose the CSS model, so the inner rectangle
         // is adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-        let mut path = rect_with_radius_to_path(geometry, rect.border_radius());
+        let mut path =
+            rect_with_radius_to_path(geometry, rect.border_radius() * self.scale_factor());
 
         let fill_paint = self.brush_to_paint(rect.background(), &mut path);
 
@@ -626,7 +632,7 @@ impl ItemRenderer for GLItemRenderer {
         self.draw_image_impl(
             &image.cached_rendering_data,
             sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
-            Rect::default(),
+            IntRect::default(),
             sixtyfps_corelib::items::Image::FIELD_OFFSETS.width.apply_pin(image),
             sixtyfps_corelib::items::Image::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
@@ -638,10 +644,9 @@ impl ItemRenderer for GLItemRenderer {
         &mut self,
         clipped_image: std::pin::Pin<&sixtyfps_corelib::items::ClippedImage>,
     ) {
-        let source_clip_rect = Rect::new(
-            [clipped_image.source_clip_x() as _, clipped_image.source_clip_y() as _].into(),
-            [clipped_image.source_clip_width() as _, clipped_image.source_clip_height() as _]
-                .into(),
+        let source_clip_rect = IntRect::new(
+            [clipped_image.source_clip_x(), clipped_image.source_clip_y()].into(),
+            [clipped_image.source_clip_width(), clipped_image.source_clip_height()].into(),
         );
 
         self.draw_image_impl(
@@ -660,8 +665,8 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_text(&mut self, text: std::pin::Pin<&sixtyfps_corelib::items::Text>) {
-        let max_width = text.width();
-        let max_height = text.height();
+        let max_width = text.width() * self.scale_factor;
+        let max_height = text.height() * self.scale_factor;
 
         if max_width <= 0. || max_height <= 0. {
             return;
@@ -689,14 +694,14 @@ impl ItemRenderer for GLItemRenderer {
             .clone();
 
         let wrap = text.wrap() == TextWrap::word_wrap;
-        let text_size = font.text_size(
-            text.letter_spacing(),
-            string,
-            if wrap { Some(max_width) } else { None },
-        );
+        let letter_spacing = text.letter_spacing() * self.scale_factor;
+        let text_size =
+            font.text_size(letter_spacing, string, if wrap { Some(max_width) } else { None });
 
-        let paint = match self.brush_to_paint(text.color(), &mut rect_to_path(item_rect(text))) {
-            Some(paint) => font.init_paint(text.letter_spacing(), paint),
+        let paint = match self
+            .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
+        {
+            Some(paint) => font.init_paint(letter_spacing, paint),
             None => return,
         };
 
@@ -766,8 +771,8 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn draw_text_input(&mut self, text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>) {
-        let width = text_input.width();
-        let height = text_input.height();
+        let width = text_input.width() * self.scale_factor;
+        let height = text_input.height() * self.scale_factor;
         if width <= 0. || height <= 0. {
             return;
         }
@@ -790,13 +795,15 @@ impl ItemRenderer for GLItemRenderer {
             .as_font()
             .clone();
 
-        let paint = match self
-            .brush_to_paint(text_input.color(), &mut rect_to_path(item_rect(text_input)))
-        {
+        let paint = match self.brush_to_paint(
+            text_input.color(),
+            &mut rect_to_path(item_rect(text_input, self.scale_factor)),
+        ) {
             Some(paint) => paint,
             None => return,
         };
 
+        let letter_spacing = text_input.letter_spacing() * self.scale_factor;
         let metrics = self.draw_text_impl(
             width,
             height,
@@ -805,7 +812,7 @@ impl ItemRenderer for GLItemRenderer {
             paint,
             text_input.horizontal_alignment(),
             text_input.vertical_alignment(),
-            text_input.letter_spacing(),
+            letter_spacing,
         );
 
         // This way of drawing selected text isn't quite 100% correct. Due to femtovg only being able to
@@ -848,14 +855,14 @@ impl ItemRenderer for GLItemRenderer {
             }
 
             self.draw_text_impl(
-                text_input.width(),
-                text_input.height(),
+                width,
+                height,
                 sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
                 &font,
                 femtovg::Paint::color(text_input.selection_foreground_color().into()),
                 text_input.horizontal_alignment(),
                 text_input.vertical_alignment(),
-                text_input.letter_spacing(),
+                letter_spacing,
             );
 
             self.shared_data.canvas.borrow_mut().restore();
@@ -898,6 +905,9 @@ impl ItemRenderer for GLItemRenderer {
 
         let mut fpath = femtovg::Path::new();
 
+        /// Contrary to the SVG spec, femtovg does not use the orientation of the path to
+        /// know if it needs to fill or not some part, it uses its own Solidity enum.
+        /// We must then compute ourself the orientation and set the Solidity accordingly.
         #[derive(Default)]
         struct OrientationCalculator {
             area: f32,
@@ -919,21 +929,33 @@ impl ItemRenderer for GLItemRenderer {
             match x {
                 lyon_path::Event::Begin { at } => {
                     fpath.solidity(if orient.area < 0. { Solidity::Hole } else { Solidity::Solid });
-                    fpath.move_to(at.x, at.y);
+                    fpath.move_to(at.x * self.scale_factor, at.y * self.scale_factor);
                     orient.area = 0.;
                     orient.prev = at;
                 }
                 lyon_path::Event::Line { from: _, to } => {
-                    fpath.line_to(to.x, to.y);
+                    fpath.line_to(to.x * self.scale_factor, to.y * self.scale_factor);
                     orient.add_point(to);
                 }
                 lyon_path::Event::Quadratic { from: _, ctrl, to } => {
-                    fpath.quad_to(ctrl.x, ctrl.y, to.x, to.y);
+                    fpath.quad_to(
+                        ctrl.x * self.scale_factor,
+                        ctrl.y * self.scale_factor,
+                        to.x * self.scale_factor,
+                        to.y * self.scale_factor,
+                    );
                     orient.add_point(to);
                 }
 
                 lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
-                    fpath.bezier_to(ctrl1.x, ctrl1.y, ctrl2.x, ctrl2.y, to.x, to.y);
+                    fpath.bezier_to(
+                        ctrl1.x * self.scale_factor,
+                        ctrl1.y * self.scale_factor,
+                        ctrl2.x * self.scale_factor,
+                        ctrl2.y * self.scale_factor,
+                        to.x * self.scale_factor,
+                        to.y * self.scale_factor,
+                    );
                     orient.add_point(to);
                 }
                 lyon_path::Event::End { last: _, first: _, close } => {
@@ -954,7 +976,7 @@ impl ItemRenderer for GLItemRenderer {
         });
 
         let border_paint = self.brush_to_paint(path.stroke(), &mut fpath).map(|mut paint| {
-            paint.set_line_width(path.stroke_width());
+            paint.set_line_width(path.stroke_width() * self.scale_factor);
             paint
         });
 
@@ -975,36 +997,33 @@ impl ItemRenderer for GLItemRenderer {
     fn draw_box_shadow(&mut self, box_shadow: std::pin::Pin<&sixtyfps_corelib::items::BoxShadow>) {
         // TODO: cache path in item to avoid re-tesselation
 
-        let blur = box_shadow.blur();
+        let blur = box_shadow.blur() * self.scale_factor;
+        let offset_x = box_shadow.offset_x() * self.scale_factor;
+        let offset_y = box_shadow.offset_y() * self.scale_factor;
+        let width = box_shadow.width() * self.scale_factor;
+        let height = box_shadow.height() * self.scale_factor;
 
-        let shadow_outer_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
-            box_shadow.offset_x() - blur / 2.,
-            box_shadow.offset_y() - blur / 2.,
-            box_shadow.width() + blur,
-            box_shadow.height() + blur,
-        );
+        let shadow_outer_rect: euclid::Rect<f32, euclid::UnknownUnit> =
+            euclid::rect(offset_x - blur / 2., offset_y - blur / 2., width + blur, height + blur);
 
-        let shadow_inner_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
-            box_shadow.offset_x() + blur / 2.,
-            box_shadow.offset_y() + blur / 2.,
-            box_shadow.width() - blur,
-            box_shadow.height() - blur,
-        );
+        let shadow_inner_rect: euclid::Rect<f32, euclid::UnknownUnit> =
+            euclid::rect(offset_x + blur / 2., offset_y + blur / 2., width - blur, height - blur);
 
         let shadow_fill_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
             shadow_outer_rect.min_x() + blur / 2.,
             shadow_outer_rect.min_y() + blur / 2.,
-            box_shadow.width(),
-            box_shadow.height(),
+            width,
+            height,
         );
 
+        let radius = box_shadow.border_radius() * self.scale_factor;
         let shadow_paint = femtovg::Paint::box_gradient(
             shadow_fill_rect.min_x(),
             shadow_fill_rect.min_y(),
             shadow_fill_rect.width(),
             shadow_fill_rect.height(),
-            box_shadow.border_radius(),
-            box_shadow.blur(),
+            radius,
+            blur,
             box_shadow.color().into(),
             Color::from_argb_u8(0, 0, 0, 0).into(),
         );
@@ -1015,14 +1034,14 @@ impl ItemRenderer for GLItemRenderer {
             shadow_outer_rect.min_y(),
             shadow_outer_rect.width(),
             shadow_outer_rect.height(),
-            box_shadow.border_radius(),
+            radius,
         );
         shadow_path.rounded_rect(
             shadow_inner_rect.min_x(),
             shadow_inner_rect.min_y(),
             shadow_inner_rect.width(),
             shadow_inner_rect.height(),
-            box_shadow.border_radius(),
+            radius,
         );
         shadow_path.solidity(femtovg::Solidity::Hole);
 
@@ -1033,7 +1052,7 @@ impl ItemRenderer for GLItemRenderer {
             shadow_inner_rect.min_y(),
             shadow_inner_rect.width(),
             shadow_inner_rect.height(),
-            box_shadow.border_radius() - blur / 2.,
+            radius - blur / 2.,
         );
         let fill = femtovg::Paint::color(box_shadow.color().into());
         canvas.fill_path(&mut shadow_inner_fill_path, fill);
@@ -1042,20 +1061,6 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn combine_clip(&mut self, mut clip_rect: Rect, mut radius: f32, mut border_width: f32) {
-        // Femtovg renders evenly 50% inside and 50% outside of the border width. The
-        // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
-        // would be entirely an *inner* border. However for clipping we want the rect that's
-        // entirely inside, hence the doubling of the width and consequently radius adjustment.
-        border_width *= 2.;
-        radius *= 0.75;
-
-        adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
-        self.shared_data.canvas.borrow_mut().intersect_scissor(
-            clip_rect.min_x(),
-            clip_rect.min_y(),
-            clip_rect.width(),
-            clip_rect.height(),
-        );
         let clip = &mut self.state.last_mut().unwrap().scissor;
         match clip.intersection(&clip_rect) {
             Some(r) => {
@@ -1065,6 +1070,23 @@ impl ItemRenderer for GLItemRenderer {
                 *clip = Rect::default();
             }
         };
+
+        // Femtovg renders evenly 50% inside and 50% outside of the border width. The
+        // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
+        // would be entirely an *inner* border. However for clipping we want the rect that's
+        // entirely inside, hence the doubling of the width and consequently radius adjustment.
+        border_width *= self.scale_factor * 2.;
+        radius *= self.scale_factor * 0.75;
+        clip_rect *= self.scale_factor;
+
+        adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
+        self.shared_data.canvas.borrow_mut().intersect_scissor(
+            clip_rect.min_x(),
+            clip_rect.min_y(),
+            clip_rect.width(),
+            clip_rect.height(),
+        );
+
         // This is the very expensive clipping code path, where we change the current render target
         // to be an intermediate image and then fill the clip path with that image.
         if radius > 0. {
@@ -1163,7 +1185,10 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn translate(&mut self, x: f32, y: f32) {
-        self.shared_data.canvas.borrow_mut().translate(x, y);
+        self.shared_data
+            .canvas
+            .borrow_mut()
+            .translate(x * self.scale_factor, y * self.scale_factor);
         let clip = &mut self.state.last_mut().unwrap().scissor;
         *clip = clip.translate((-x, -y).into())
     }
@@ -1310,13 +1335,16 @@ impl GLItemRenderer {
         &mut self,
         item_cache: &CachedRenderingData,
         source_property: std::pin::Pin<&Property<ImageReference>>,
-        source_clip_rect: Rect,
+        source_clip_rect: IntRect,
         target_width: std::pin::Pin<&Property<f32>>,
         target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
-        if target_width.get() <= 0. || target_height.get() < 0. {
+        let target_w = target_width.get() * self.scale_factor;
+        let target_h = target_height.get() * self.scale_factor;
+
+        if target_w <= 0. || target_h <= 0. {
             return;
         }
 
@@ -1328,7 +1356,11 @@ impl GLItemRenderer {
                         .and_then(|cached_image| {
                             cached_image.as_renderable(
                                 // The condition at the entry of the function ensures that width/height are positive
-                                [target_width.get() as u32, target_height.get() as u32].into(),
+                                [
+                                    (target_width.get() * self.scale_factor) as u32,
+                                    (target_height.get() * self.scale_factor) as u32,
+                                ]
+                                .into(),
                             )
                         })
                         .map(|cache_entry| self.colorize_image(cache_entry, colorize_property))
@@ -1357,9 +1389,6 @@ impl GLItemRenderer {
             break cached_image.as_image().clone();
         };
 
-        let target_width = target_width.get();
-        let target_height = target_height.get();
-
         let image_id = cached_image.ensure_uploaded_to_gpu(&self);
         let image_size = cached_image.size().unwrap_or_default();
 
@@ -1369,35 +1398,35 @@ impl GLItemRenderer {
             (source_clip_rect.width() as _, source_clip_rect.height() as _)
         };
 
-        let mut source_x = source_clip_rect.min_x();
-        let mut source_y = source_clip_rect.min_y();
+        let mut source_x = source_clip_rect.min_x() as f32;
+        let mut source_y = source_clip_rect.min_y() as f32;
 
         let mut image_fit_offset = Point::default();
 
         // The source_to_target scale is applied to the paint that holds the image as well as path
         // begin rendered.
         let (source_to_target_scale_x, source_to_target_scale_y) = match image_fit {
-            ImageFit::fill => (target_width / source_width, target_height / source_height),
+            ImageFit::fill => (target_w / source_width, target_h / source_height),
             ImageFit::cover => {
-                let ratio = f32::max(target_width / source_width, target_height / source_height);
+                let ratio = f32::max(target_w / source_width, target_h / source_height);
 
-                if source_width > target_width / ratio {
-                    source_x += (source_width - target_width / ratio) / 2.;
+                if source_width > target_w / ratio {
+                    source_x += (source_width - target_w / ratio) / 2.;
                 }
-                if source_height > target_height / ratio {
-                    source_y += (source_height - target_height / ratio) / 2.
+                if source_height > target_h / ratio {
+                    source_y += (source_height - target_h / ratio) / 2.
                 }
 
                 (ratio, ratio)
             }
             ImageFit::contain => {
-                let ratio = f32::min(target_width / source_width, target_height / source_height);
+                let ratio = f32::min(target_w / source_width, target_h / source_height);
 
-                if source_width < target_width / ratio {
-                    image_fit_offset.x = (target_width - source_width * ratio) / 2.;
+                if source_width < target_w / ratio {
+                    image_fit_offset.x = (target_w - source_width * ratio) / 2.;
                 }
-                if source_height < target_height / ratio {
-                    image_fit_offset.y = (target_height - source_height * ratio) / 2.
+                if source_height < target_h / ratio {
+                    image_fit_offset.y = (target_h - source_height * ratio) / 2.
                 }
 
                 (ratio, ratio)
@@ -1588,14 +1617,16 @@ impl GLFont {
 struct GLFontMetrics {
     font: GLFont,
     letter_spacing: Option<f32>,
+    scale_factor: f32,
 }
 
 impl FontMetrics for GLFontMetrics {
     fn text_size(&self, text: &str) -> Size {
-        self.font.text_size(self.letter_spacing.unwrap_or_default(), text, None)
+        self.font.text_size(self.letter_spacing.unwrap_or_default(), text, None) / self.scale_factor
     }
 
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
+        let x = x * self.scale_factor;
         let metrics = self.font.measure(self.letter_spacing.unwrap_or_default(), text);
         let mut current_x = 0.;
         for glyph in metrics.glyphs {
