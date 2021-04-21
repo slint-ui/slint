@@ -562,7 +562,7 @@ jobs:
     - name: test
       uses: actions-rs/cargo@v1
       with:
-          command: run
+          command: test
           args: --bin test-driver-interpreter -- --skip example_printerdemo_old
     - name: Clean cache # Otherwise the cache is much too big
       run: |
