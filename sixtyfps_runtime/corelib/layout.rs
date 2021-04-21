@@ -293,7 +293,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) {
         let row_max = cnstr.max_height.min(data.height * cnstr.max_height_percent / 100.);
         let row_min = cnstr.min_height.max(data.height * cnstr.min_height_percent / 100.)
             / (cell.rowspan as f32);
-        let row_pref = row_min;
+        let row_pref = cnstr.preferred_height;
 
         for r in 0..(cell.rowspan as usize) {
             let rdata = &mut row_layout_data[cell.row as usize + r];
@@ -306,7 +306,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) {
         let col_max = cnstr.max_width.min(data.width * cnstr.max_width_percent / 100.);
         let col_min = cnstr.min_width.max(data.width * cnstr.min_width_percent / 100.)
             / (cell.colspan as f32);
-        let col_pref = col_min;
+        let col_pref = cnstr.preferred_width;
 
         for c in 0..(cell.colspan as usize) {
             let cdata = &mut col_layout_data[cell.col as usize + c];
