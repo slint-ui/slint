@@ -207,6 +207,7 @@ lazy_static! {
         (".+\\.svg$", LicenseLocation::NoLicense),
         (".+\\.json$", LicenseLocation::NoLicense),
         (".+\\.html$", LicenseLocation::NoLicense),
+        (".+\\.xml$", LicenseLocation::NoLicense),
         (".+\\.ttf$", LicenseLocation::NoLicense),
         (".+\\.ui$", LicenseLocation::NoLicense),
         (".+\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
