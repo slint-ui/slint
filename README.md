@@ -5,10 +5,6 @@
 SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We support multiple programming languages, such as
 Rust, C++, and JavaScript.
 
-*Note: SixtyFPS is still in the **early development stage**. Some APIs may change as we are still in the
-midst of developing our key features. Consequently this code is not yet ready for use in production.*
-
-
 Our design goals are:
 
  - **Lightweight**: Fit into a few hundred kilobytes of RAM and require little processing power.
