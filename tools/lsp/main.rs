@@ -23,9 +23,8 @@ use lsp_types::request::{ColorPresentationRequest, Completion, HoverRequest};
 use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, Color, ColorInformation, ColorPresentation,
     Command, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    ExecuteCommandOptions, Hover, HoverProviderCapability, InitializeParams, OneOf, Position,
-    PublishDiagnosticsParams, Range, ServerCapabilities, TextDocumentSyncCapability, Url,
-    WorkDoneProgressOptions,
+    ExecuteCommandOptions, Hover, InitializeParams, OneOf, Position, PublishDiagnosticsParams,
+    Range, ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::langtype::Type;
@@ -114,10 +113,6 @@ fn run_lsp_server() -> Result<(), Error> {
             trigger_characters: Some(vec![".".to_owned()]),
             work_done_progress_options: WorkDoneProgressOptions::default(),
         }),
-        hover_provider: Some(HoverProviderCapability::Simple(true)),
-        document_highlight_provider: Some(OneOf::Left(true)),
-        document_symbol_provider: Some(OneOf::Left(true)),
-        workspace_symbol_provider: Some(OneOf::Left(true)),
         definition_provider: Some(OneOf::Left(true)),
         text_document_sync: Some(TextDocumentSyncCapability::Kind(
             lsp_types::TextDocumentSyncKind::Full,
