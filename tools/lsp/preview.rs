@@ -8,17 +8,29 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+use once_cell::sync::Lazy;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::task::Wake;
 
 use lsp_server::Message;
 use lsp_types::notification::Notification;
 
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
+
+#[derive(PartialEq)]
+enum RequestedGuiEventLoopState {
+    Uninitialized,
+    StartLoop,
+    QuitLoop,
+}
+
+static GUI_EVENT_LOOP_NOTIFIER: Lazy<Condvar> = Lazy::new(|| Condvar::new());
+static GUI_EVENT_LOOP_STATE_REQUEST: Lazy<Mutex<RequestedGuiEventLoopState>> =
+    Lazy::new(|| Mutex::new(RequestedGuiEventLoopState::Uninitialized));
 
 struct FutureRunner {
     fut: Mutex<Option<Pin<Box<dyn Future<Output = ()>>>>>,
@@ -46,15 +58,42 @@ impl Wake for FutureRunner {
 }
 
 fn run_in_ui_thread(fut: Pin<Box<dyn Future<Output = ()>>>) {
+    // Wake up the main thread to start the event loop, if possible
+    {
+        let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
+        *state_request = RequestedGuiEventLoopState::StartLoop;
+        GUI_EVENT_LOOP_NOTIFIER.notify_one();
+    }
+
     Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake()
 }
 
 pub fn start_ui_event_loop() {
+    {
+        let mut state_requested = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
+
+        while *state_requested == RequestedGuiEventLoopState::Uninitialized {
+            state_requested = GUI_EVENT_LOOP_NOTIFIER.wait(state_requested).unwrap();
+        }
+
+        if *state_requested == RequestedGuiEventLoopState::QuitLoop {
+            return;
+        }
+    }
+
     sixtyfps_rendering_backend_default::backend()
         .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly);
 }
 
 pub fn quit_ui_event_loop() {
+    // Wake up the main thread, in case it wasn't woken up earlier. If it wasn't, then don't request
+    // a start of the event loop.
+    {
+        let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
+        *state_request = RequestedGuiEventLoopState::QuitLoop;
+        GUI_EVENT_LOOP_NOTIFIER.notify_one();
+    }
+
     sixtyfps_rendering_backend_default::backend().post_event(Box::new(|| {
         sixtyfps_rendering_backend_default::backend().quit_event_loop();
     }));
