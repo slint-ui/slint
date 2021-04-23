@@ -74,6 +74,9 @@ In order to preview a component, when you have a .60 file open, place your curso
 the name of the component you would like to preview and press *Alt + Enter* to open
 the code action menu. Select *Show Preview* from that menu.
 
+<img src="https://user-images.githubusercontent.com/959326/115923547-af5eeb00-a47e-11eb-8962-5a5f011892a7.png" width="50%" height="50%">
+
+
 ## Vim
 
 Vim and neovim support the Language Server Protocol via different plugins. We recommend the
