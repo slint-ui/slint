@@ -170,7 +170,13 @@ fn handle_request(
             params.text_document_position_params.text_document,
             params.text_document_position_params.position,
         )
-        .and_then(|token| goto::goto_definition(document_cache, token.0));
+        .and_then(|token| {
+            if token.0.kind() == SyntaxKind::Comment {
+                maybe_goto_preview(token.0, token.1, connection.sender.clone());
+                return None;
+            }
+            goto::goto_definition(document_cache, token.0)
+        });
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;
     } else if let Some((id, params)) = cast::<Completion>(&mut req) {
@@ -323,6 +329,51 @@ fn show_preview_command(
         preview::PostLoadBehavior::ShowAfterLoad,
     );
     Ok(())
+}
+
+/// Workaround for editor that do not support code action: using the goto definition on a comment
+/// that says "preview" will show the preview.
+fn maybe_goto_preview(
+    token: SyntaxToken,
+    offset: u32,
+    sender: crossbeam_channel::Sender<Message>,
+) -> Option<()> {
+    let text = token.text();
+    let offset = offset.checked_sub(token.text_range().start().into())? as usize;
+    if offset > text.len() || offset == 0 {
+        return None;
+    }
+    let begin = text[..offset].rfind(|x: char| !x.is_ascii_alphanumeric())? + 1;
+    let text = &text.as_bytes()[begin..];
+    let rest = text.strip_prefix(b"preview").or_else(|| text.strip_prefix(b"PREVIEW"))?;
+    if rest.get(0).map_or(true, |x|.is_ascii_alphanumeric()) {
+        return None;
+    }
+
+    // Ok, we were hovering on PREVIEW
+    let mut node = token.parent();
+    loop {
+        if let Some(component) = syntax_nodes::Component::new(node.clone()) {
+            let component_name = sixtyfps_compilerlib::parser::identifier_text(
+                &component.DeclaredIdentifier()
+            )?;
+            let is_window = component
+                .Element()
+                .QualifiedName()
+                .map_or(false, |q| q.text().to_string().trim() == "Window");
+            preview::load_preview(
+                sender,
+                preview::PreviewComponent {
+                    path: token.source_file.path().into(),
+                    component: Some(component_name),
+                    is_window,
+                },
+                preview::PostLoadBehavior::ShowAfterLoad,
+            );
+            return Some(());
+        }
+        node = node.parent()?;
+    }
 }
 
 fn reload_document(
