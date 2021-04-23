@@ -23,8 +23,14 @@ use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 
 #[derive(PartialEq)]
 enum RequestedGuiEventLoopState {
+    /// The UI event loop hasn't been started yet because no preview has been requested
     Uninitialized,
+    /// The LSP thread requested the UI loop to start because a preview was requested,
+    /// But the loop hasn't been started yet
     StartLoop,
+    /// The Loop is now started so the LSP thread can start posting events
+    LoopStated,
+    /// The LSP thread requested the application to be terminated
     QuitLoop,
 }
 
@@ -61,8 +67,14 @@ fn run_in_ui_thread(fut: Pin<Box<dyn Future<Output = ()>>>) {
     // Wake up the main thread to start the event loop, if possible
     {
         let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
-        *state_request = RequestedGuiEventLoopState::StartLoop;
-        GUI_EVENT_LOOP_NOTIFIER.notify_one();
+        if *state_request == RequestedGuiEventLoopState::Uninitialized {
+            *state_request = RequestedGuiEventLoopState::StartLoop;
+            GUI_EVENT_LOOP_NOTIFIER.notify_one();
+        }
+        // We don't want to call post_event before the loop is properly initialized
+        while *state_request == RequestedGuiEventLoopState::StartLoop {
+            state_request = GUI_EVENT_LOOP_NOTIFIER.wait(state_request).unwrap();
+        }
     }
 
     Arc::new(FutureRunner { fut: Mutex::new(Some(fut)) }).wake()
@@ -78,6 +90,17 @@ pub fn start_ui_event_loop() {
 
         if *state_requested == RequestedGuiEventLoopState::QuitLoop {
             return;
+        }
+
+        if *state_requested == RequestedGuiEventLoopState::StartLoop {
+            // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
+            sixtyfps_rendering_backend_default::backend().post_event(Box::new(|| {
+                let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
+                if *state_request == RequestedGuiEventLoopState::StartLoop {
+                    *state_request = RequestedGuiEventLoopState::LoopStated;
+                    GUI_EVENT_LOOP_NOTIFIER.notify_one();
+                }
+            }))
         }
     }
 
