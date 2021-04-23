@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 structopt = "0.3.14"
-cbindgen = "0.18"
+cbindgen = "0.19"
 cargo_metadata = "0.13"
 anyhow = "1.0"
 lazy_static = "1.4.0"
