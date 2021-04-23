@@ -15,6 +15,14 @@ use std::rc::Rc;
 
 sixtyfps::include_modules!();
 
+/// Returns the current time formated as a string
+fn current_time() -> sixtyfps::SharedString {
+    #[cfg(not(target_arch = "wasm32"))]
+    return chrono::Local::now().format("%H:%M:%S %d/%m/%Y").to_string().into();
+    #[cfg(target_arch = "wasm32")]
+    return "".into();
+}
+
 struct PrinterQueue {
     data: Rc<sixtyfps::VecModel<PrinterQueueItem>>,
     print_progress_timer: sixtyfps::Timer,
@@ -29,7 +37,7 @@ impl PrinterQueue {
             owner: env!("CARGO_PKG_AUTHORS").into(),
             pages: 1,
             size: "100kB".into(),
-            submission_date: chrono::Local::now().format("%H:%M:%S %d/%m/%Y").to_string().into(),
+            submission_date: current_time(),
         })
     }
 }
@@ -90,7 +98,7 @@ pub fn main() {
                     }
                     printer_queue.data.set_row_data(0, top_item);
                 } else {
-                    // FIXME: sop this timer?
+                    // FIXME: stop this timer?
                 }
             });
         },
