@@ -281,8 +281,8 @@ export PushButton := Rectangle {
     horizontal-stretch: 1;
 
     HorizontalLayout {
-        padding-top: 5px;
-        padding-bottom: 5px;
+        padding-top: 0px;
+        padding-bottom: 0px;
         padding-left: parent.border_radius;
         padding-right: parent.border_radius;
 
@@ -290,7 +290,7 @@ export PushButton := Rectangle {
             horizontal-stretch: 0;
             colorize: DemoPalette.push_button_text_color;
             image-fit: contain;
-            width: height * 1.333;
+            width: 17px;
         }
 
         label := Text {
