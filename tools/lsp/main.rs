@@ -346,7 +346,7 @@ fn maybe_goto_preview(
     let begin = text[..offset].rfind(|x: char| !x.is_ascii_alphanumeric())? + 1;
     let text = &text.as_bytes()[begin..];
     let rest = text.strip_prefix(b"preview").or_else(|| text.strip_prefix(b"PREVIEW"))?;
-    if rest.get(0).map_or(true, |x|.is_ascii_alphanumeric()) {
+    if rest.get(0).map_or(true, |x| x.is_ascii_alphanumeric()) {
         return None;
     }
 
@@ -354,9 +354,8 @@ fn maybe_goto_preview(
     let mut node = token.parent();
     loop {
         if let Some(component) = syntax_nodes::Component::new(node.clone()) {
-            let component_name = sixtyfps_compilerlib::parser::identifier_text(
-                &component.DeclaredIdentifier()
-            )?;
+            let component_name =
+                sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
             let is_window = component
                 .Element()
                 .QualifiedName()

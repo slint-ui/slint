@@ -63,6 +63,7 @@ export Rotate := _ {
     property <length> width;
     property <length> height;
     //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
 }
 
 export Text := _ {
@@ -162,6 +163,7 @@ export BoxShadow := _ {
     property <color> color;
     property <length> blur;
     //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
 }
 
 export TextInput := _ {
@@ -198,6 +200,7 @@ export Clip := _ {
     property <length> border_radius;
     property <length> border_width;
     //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
 }
 
 export Opacity := _ {
@@ -207,6 +210,7 @@ export Opacity := _ {
     property <length> height;
     property <float> opacity: 1;
     //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
 }
 
 Row := _ {
@@ -363,6 +367,7 @@ export struct StateInfo := {
     current_state: int,
     previous_state: int,
     //change_time: duration,
+    //-is_internal
 }
 
 export NativeButton := _ {
@@ -374,6 +379,7 @@ export NativeButton := _ {
     property <bool> pressed;
     callback clicked;
     property <bool> enabled: true;
+    //-is_internal
 }
 
 export NativeCheckBox := _ {
@@ -385,6 +391,7 @@ export NativeCheckBox := _ {
     property <string> text;
     property <bool> checked;
     callback toggled;
+    //-is_internal
 }
 
 export NativeSpinBox := _ {
@@ -396,6 +403,7 @@ export NativeSpinBox := _ {
     property <int> value;
     property <int> minimum;
     property <int> maximum: 100;
+    //-is_internal
 }
 
 export NativeSlider := _ {
@@ -407,6 +415,7 @@ export NativeSlider := _ {
     property <float> value;
     property <float> minimum;
     property <float> maximum: 100;
+    //-is_internal
 }
 
 export NativeGroupBox := _ {
@@ -420,6 +429,7 @@ export NativeGroupBox := _ {
     property <length> native_padding_right;
     property <length> native_padding_top;
     property <length> native_padding_bottom;
+    //-is_internal
 }
 
 export NativeLineEdit := _ {
@@ -433,6 +443,7 @@ export NativeLineEdit := _ {
     property <length> native_padding_bottom;
     property <bool> focused;
     property <bool> enabled: true;
+    //-is_internal
 }
 
 export NativeScrollView := _ {
@@ -450,6 +461,7 @@ export NativeScrollView := _ {
     property <length> native_padding_right;
     property <length> native_padding_top;
     property <length> native_padding_bottom;
+    //-is_internal
 }
 
 export NativeStandardListViewItem := _ {
@@ -460,6 +472,7 @@ export NativeStandardListViewItem := _ {
     property <int> index;
     property <StandardListViewItem> item;
     property <bool> is_selected;
+    //-is_internal
 }
 
 export NativeComboBox := _ {
@@ -471,6 +484,7 @@ export NativeComboBox := _ {
     property <bool> is_open;
     property <bool> enabled: true;
     callback open_popup;
+    //-is_internal
 }
 
 export global NativeStyleMetrics := {
@@ -478,4 +492,5 @@ export global NativeStyleMetrics := {
     property <length> layout_padding;
     property <length> text_cursor_width;
     //-is_non_item_type
+    //-is_internal
 }

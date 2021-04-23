@@ -149,13 +149,14 @@ pub(crate) fn completion_at(
                     tr.all_types()
                         .into_iter()
                         .filter_map(|(k, t)| {
-                            if !matches!(t, Type::Component(_) | Type::Builtin(_)) {
-                                return None;
-                            } else {
-                                let mut c = CompletionItem::new_simple(k, "element".into());
-                                c.kind = Some(CompletionItemKind::Class);
-                                Some(c)
-                            }
+                            match t {
+                                Type::Component(c) if !c.is_global() => (),
+                                Type::Builtin(b) if !b.is_internal && !b.is_global => (),
+                                _ => return None,
+                            };
+                            let mut c = CompletionItem::new_simple(k, "element".into());
+                            c.kind = Some(CompletionItemKind::Class);
+                            Some(c)
                         })
                         .collect(),
                 );
@@ -265,13 +266,14 @@ fn resolve_element_scope(
                 c
             }))
             .chain(tr.all_types().into_iter().filter_map(|(k, t)| {
-                if !matches!(t, Type::Component(_) | Type::Builtin(_)) {
-                    return None;
-                } else {
-                    let mut c = CompletionItem::new_simple(k, "element".into());
-                    c.kind = Some(CompletionItemKind::Class);
-                    Some(c)
-                }
+                match t {
+                    Type::Component(c) if !c.is_global() => (),
+                    Type::Builtin(b) if !b.is_internal && !b.is_global => (),
+                    _ => return None,
+                };
+                let mut c = CompletionItem::new_simple(k, "element".into());
+                c.kind = Some(CompletionItemKind::Class);
+                Some(c)
             }))
             .collect(),
     )

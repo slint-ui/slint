@@ -624,6 +624,8 @@ pub struct BuiltinElement {
     pub member_functions: HashMap<String, Expression>,
     pub is_global: bool,
     pub default_size_binding: DefaultSizeBinding,
+    /// When true this is an internal type not shown in the auto-completion
+    pub is_internal: bool,
 }
 
 impl BuiltinElement {
