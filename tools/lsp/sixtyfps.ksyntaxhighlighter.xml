@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- LICENSE BEGIN
     This file is part of the SixtyFPS Project ~~ https://sixtyfps.io
     Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
@@ -7,8 +8,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END -->
-<?xml version="1.0" encoding="UTF-8"?>
-<language name="SixtyFPS" version="3" kateversion="5.0" section="Sources" extensions="*.60" mimetype="text/sixtyfps" indenter="cstyle" license="GPL" author="info@sixtyfps.io">
+<language name="SixtyFPS" version="1" kateversion="5.0" section="Sources" extensions="*.60" mimetype="text/sixtyfps" indenter="cstyle" license="GPL" author="info@sixtyfps.io" priority="6">
 <highlighting>
     <list name="types">
       <item>int</item>
