@@ -24,9 +24,17 @@ All notable changes to this project will be documented in this file.
  - The viewer tool gained the `--auto-reload` argument
  - `Window.default-font-weight`
  - Added `opacity` property that can be applied to elements
+ - Added `clip` property in Rectangle, including clipping for rounded rectangle
+ - API to load dynamically .60 files from C++ and Rust, including a way to embed sixtyfps widgets in Qt applications
+ - Preferred size in Layouts
+ - Math functions such as `sin`, `cos`, `sqrt`, ...
+ - New printer demo design
+ - Ability to load custom fonts using `import` statements
 
 ### Fixed
- - `Image::image-fit`'s `cover` and `contains` varient are fixed to match the CSS spec
+ - `Image::image-fit`'s `cover` and `contains` variant are fixed to match the CSS spec
+ - Flickable without scrollbar
+ - Multiplying and dividing different units.
  - Many more bugfixes
 
 ## [0.0.5] - 2021-01-29
