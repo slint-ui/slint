@@ -14,7 +14,7 @@ include(FetchContent)
 FetchContent_Declare(
     Corrosion
     GIT_REPOSITORY https://github.com/AndrewGaspar/corrosion.git
-    GIT_TAG 2e4c62c9f001487b485c2f8c923dba348607b41c
+    GIT_TAG 946c5dd80a6ebdb84c5986e52af460e23e74394d
 )
 FetchContent_MakeAvailable(Corrosion)
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
