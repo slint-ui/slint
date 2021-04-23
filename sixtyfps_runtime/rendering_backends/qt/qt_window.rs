@@ -929,7 +929,7 @@ impl QtWindow {
                 max_width = QWIDGETSIZE_MAX;
             if (max_height > QWIDGETSIZE_MAX)
                 max_height = QWIDGETSIZE_MAX;
-            widget_ptr->setMaximumSize(QSize(max_width, max_height));
+            widget_ptr->setMaximumSize(QSize(max_width, max_height).expandedTo({1,1}));
         }};
     }
 
@@ -1009,7 +1009,7 @@ impl PlatformWindow for QtWindow {
         }
         let background: u32 = window_item.background().as_argb_encoded();
         cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
-            widget_ptr->resize(size);
+            widget_ptr->resize(size.expandedTo({1, 1}));
             widget_ptr->setWindowTitle(title);
             auto pal = widget_ptr->palette();
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
