@@ -565,6 +565,7 @@ fn get_document_symbols(
     .unwrap();
 
     let inner_components = doc.inner_components.clone();
+    let inner_structs = doc.inner_structs.clone();
     drop(doc);
     let mut make_range = |node: &SyntaxNode| {
         let r = node.text_range();
@@ -574,23 +575,32 @@ fn get_document_symbols(
         ))
     };
 
-    Some(
-        inner_components
-            .iter()
-            .filter_map(|c| {
-                Some(SymbolInformation {
-                    location: Location::new(
-                        uri.clone(),
-                        make_range(c.root_element.borrow().node.as_ref()?)?,
-                    ),
-                    name: c.id.clone(),
-                    kind: lsp_types::SymbolKind::Object,
-                    ..si.clone()
-                })
+    let mut r = inner_components
+        .iter()
+        .filter_map(|c| {
+            Some(SymbolInformation {
+                location: Location::new(
+                    uri.clone(),
+                    make_range(c.root_element.borrow().node.as_ref()?)?,
+                ),
+                name: c.id.clone(),
+                kind: lsp_types::SymbolKind::Object,
+                ..si.clone()
             })
-            .collect::<Vec<_>>()
-            .into(),
-    )
+        })
+        .collect::<Vec<_>>();
+
+    r.extend(inner_structs.iter().filter_map(|c| match c {
+        Type::Struct { name: Some(name), node: Some(node), .. } => Some(SymbolInformation {
+            location: Location::new(uri.clone(), make_range(node.parent().as_ref()?)?),
+            name: name.clone(),
+            kind: lsp_types::SymbolKind::Struct,
+            ..si.clone()
+        }),
+        _ => None,
+    }));
+
+    Some(r.into())
 
     // TODO: add the structs
 }

@@ -53,7 +53,7 @@ pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
 /// it are placed before in the vector
 fn sort_struct(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str) {
     let ty = if let Some(ty) = hash.remove(key) { ty } else { return };
-    if let Type::Struct { fields, name: Some(name) } = &ty {
+    if let Type::Struct { fields, name: Some(name), .. } = &ty {
         if name.contains("::") {
             // This is a builtin type.
             // FIXME! there should be a better way to handle builtin struct
@@ -69,7 +69,7 @@ fn sort_struct(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str
 
 fn visit_named_object(ty: &Type, visitor: &mut impl FnMut(&String, &Type)) {
     match ty {
-        Type::Struct { fields, name } => {
+        Type::Struct { fields, name, .. } => {
             name.as_ref().map(|struct_name| visitor(struct_name, ty));
             for sub_ty in fields.values() {
                 visit_named_object(&sub_ty, visitor);

@@ -16,6 +16,7 @@ use itertools::Itertools;
 
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::Component;
+use crate::parser::syntax_nodes;
 use crate::typeregister::TypeRegister;
 
 #[derive(Debug, Clone)]
@@ -58,6 +59,7 @@ pub enum Type {
     Struct {
         fields: BTreeMap<String, Type>,
         name: Option<String>,
+        node: Option<syntax_nodes::ObjectType>,
     },
     Enumeration(Rc<Enumeration>),
 
@@ -99,8 +101,8 @@ impl core::cmp::PartialEq for Type {
             Type::Easing => matches!(other, Type::Easing),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
-            Type::Struct { fields, name } => {
-                matches!(other, Type::Struct{fields: f, name: n} if fields == f && name == n)
+            Type::Struct { fields, name, node: _ } => {
+                matches!(other, Type::Struct{fields: f, name: n, node: _} if fields == f && name == n)
             }
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
@@ -158,7 +160,7 @@ impl Display for Type {
             Type::Model => write!(f, "model"),
             Type::Array(t) => write!(f, "[{}]", t),
             Type::Struct { name: Some(name), .. } => write!(f, "{}", name),
-            Type::Struct { fields, name: None } => {
+            Type::Struct { fields, name: None, .. } => {
                 write!(f, "{{ ")?;
                 for (k, v) in fields {
                     write!(f, "{}: {},", k, v)?;

@@ -40,7 +40,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(sixtyfps::re_exports::ImageReference)),
-        Type::Struct { fields, name: None } => {
+        Type::Struct { fields, name: None, .. } => {
             let elem = fields.values().map(|v| rust_type(v)).collect::<Option<Vec<_>>>()?;
             // This will produce a tuple
             Some(quote!((#(#elem,)*)))
@@ -80,7 +80,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .borrow()
         .iter()
         .filter_map(|ty| {
-            if let Type::Struct { fields, name: Some(name) } = ty {
+            if let Type::Struct { fields, name: Some(name), .. } = ty {
                 Some((format_ident!("{}", name), generate_struct(name, fields, diag)))
             } else {
                 None
@@ -1158,7 +1158,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             quote! {args.#i.clone()}
         }
         Expression::StructFieldAccess { base, name } => match base.ty() {
-            Type::Struct { fields, name: None } => {
+            Type::Struct { fields, name: None, .. } => {
                 let index = fields
                     .keys()
                     .position(|k| k == name)
@@ -1376,7 +1376,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             ))
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct { fields, name } = ty {
+            if let Type::Struct { fields, name, .. } = ty {
                 let elem = fields.iter().map(|(k, t)| {
                     values.get(k).map(|e| {
                         let ce = compile_expression(e, component);
@@ -1460,7 +1460,7 @@ fn compile_assignment(
             let get_obj = compile_expression(base, component);
             let ty = base.ty();
             let (member, member_ty) = match &ty {
-                Type::Struct { fields, name: None } => {
+                Type::Struct { fields, name: None, .. } => {
                     let index = fields
                         .keys()
                         .position(|k| k == name)
@@ -1468,7 +1468,7 @@ fn compile_assignment(
                     let index = proc_macro2::Literal::usize_unsuffixed(index);
                     (quote!(#index), fields[name].clone())
                 }
-                Type::Struct { fields, name: Some(_) } => {
+                Type::Struct { fields, name: Some(_), .. } => {
                     let n = format_ident!("{}", name);
                     (quote!(#n), fields[name].clone())
                 }

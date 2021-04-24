@@ -244,7 +244,7 @@ impl CppType for Type {
             Type::LogicalLength => Some("float".to_owned()),
             Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
-            Type::Struct { fields, name } => {
+            Type::Struct { fields, name, .. } => {
                 if let Some(name) = name {
                     Some(name.clone())
                 } else {
@@ -550,7 +550,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<sixtyfps.h>".into());
 
     for ty in doc.root_component.used_structs.borrow().iter() {
-        if let Type::Struct { fields, name: Some(name) } = ty {
+        if let Type::Struct { fields, name: Some(name), .. } = ty {
             generate_struct(&mut file, name, fields, diag);
         }
     }
@@ -1472,7 +1472,7 @@ fn compile_expression(
         }
         Expression::ReadLocalVariable { name, .. } => name.clone(),
         Expression::StructFieldAccess { base, name } => match base.ty() {
-            Type::Struct { fields, name : None } => {
+            Type::Struct { fields, name : None, .. } => {
                 let index = fields
                     .keys()
                     .position(|k| k == name)
@@ -1503,7 +1503,7 @@ fn compile_expression(
                 (Type::Brush, Type::Color) => {
                     format!("{}.color()", f)
                 }
-                (Type::Struct { .. }, Type::Struct{ fields, name: Some(n)}) => {
+                (Type::Struct { .. }, Type::Struct{ fields, name: Some(n), ..}) => {
                     format!(
                         "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
                         struct_name = n,
@@ -1659,7 +1659,7 @@ fn compile_expression(
             )
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct{fields, name} = ty {
+            if let Type::Struct{fields, name, ..} = ty {
                 let mut elem = fields.keys().map(|k| {
                     values
                         .get(k)
@@ -1726,7 +1726,7 @@ fn compile_assignment(
             let get_obj = compile_expression(base, component);
             let ty = base.ty();
             let member = match &ty {
-                Type::Struct { fields, name: None } => {
+                Type::Struct { fields, name: None, .. } => {
                     let index = fields
                         .keys()
                         .position(|k| k == name)

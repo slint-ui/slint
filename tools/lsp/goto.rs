@@ -34,6 +34,9 @@ pub fn goto_definition(
                         sixtyfps_compilerlib::langtype::Type::Component(c) => {
                             goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
                         }
+                        sixtyfps_compilerlib::langtype::Type::Struct {
+                            node: Some(node), ..
+                        } => goto_node(document_cache, node.parent().as_ref()?),
                         _ => None,
                     }
                 }

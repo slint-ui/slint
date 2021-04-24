@@ -950,7 +950,7 @@ pub fn type_struct_from_node(
             (identifier_text(&member).unwrap_or_default(), type_from_node(member.Type(), diag, tr))
         })
         .collect();
-    Type::Struct { fields, name: None }
+    Type::Struct { fields, name: None, node: Some(object_node) }
 }
 
 fn animation_element_from_node(

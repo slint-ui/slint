@@ -107,6 +107,7 @@ impl BuiltinFunction {
                     .cloned()
                     .collect(),
                     name: Some("Size".to_string()),
+                    node: None,
                 }),
                 args: vec![Type::ElementReference],
             },
@@ -774,7 +775,7 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
-                (Type::Struct { fields: ref a, .. }, Type::Struct { fields: b, name })
+                (Type::Struct { fields: ref a, .. }, Type::Struct { fields: b, name, node: n })
                     if a != b =>
                 {
                     if let Expression::Struct { mut values, .. } = self {
@@ -795,7 +796,11 @@ impl Expression {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.into(),
-                                    ty: Type::Struct { fields: a.clone(), name: name.clone() },
+                                    ty: Type::Struct {
+                                        fields: a.clone(),
+                                        name: name.clone(),
+                                        node: n.clone(),
+                                    },
                                 }),
                                 name: k.clone(),
                             }
@@ -825,6 +830,7 @@ impl Expression {
                             })
                             .collect(),
                         name: None,
+                        node: None,
                     };
                     self.maybe_convert_to(struct_type_for_component, node, diag)
                 }

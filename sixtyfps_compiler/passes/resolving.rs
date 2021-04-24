@@ -818,6 +818,7 @@ impl Expression {
         let ty = Type::Struct {
             fields: values.iter().map(|(k, v)| (k.clone(), v.ty())).collect(),
             name: None,
+            node: None,
         };
         Expression::Struct { ty, values }
     }
@@ -875,8 +876,12 @@ impl Expression {
             } else {
                 match (target_type, expr_ty) {
                     (
-                        Type::Struct { fields: mut result_fields, name: result_name },
-                        Type::Struct { fields: elem_fields, name: elem_name },
+                        Type::Struct {
+                            fields: mut result_fields,
+                            name: result_name,
+                            node: result_node,
+                        },
+                        Type::Struct { fields: elem_fields, name: elem_name, node: elem_node },
                     ) => {
                         for (elem_name, elem_ty) in elem_fields.into_iter() {
                             match result_fields.entry(elem_name) {
@@ -893,7 +898,11 @@ impl Expression {
                                 }
                             }
                         }
-                        Type::Struct { name: result_name.or(elem_name), fields: result_fields }
+                        Type::Struct {
+                            name: result_name.or(elem_name),
+                            fields: result_fields,
+                            node: result_node.or(elem_node),
+                        }
                     }
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {
