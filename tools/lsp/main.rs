@@ -18,13 +18,16 @@ use std::collections::HashMap;
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
-use lsp_types::request::{CodeActionRequest, DocumentColor, ExecuteCommand, GotoDefinition};
+use lsp_types::request::{
+    CodeActionRequest, DocumentColor, DocumentSymbolRequest, ExecuteCommand, GotoDefinition,
+};
 use lsp_types::request::{ColorPresentationRequest, Completion, HoverRequest};
 use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, Color, ColorInformation, ColorPresentation,
     Command, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    ExecuteCommandOptions, Hover, InitializeParams, OneOf, Position, PublishDiagnosticsParams,
-    Range, ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
+    DocumentSymbolResponse, ExecuteCommandOptions, Hover, InitializeParams, Location, OneOf,
+    Position, PublishDiagnosticsParams, Range, ServerCapabilities, SymbolInformation,
+    TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::langtype::Type;
@@ -122,6 +125,7 @@ fn run_lsp_server() -> Result<(), Error> {
             commands: vec![SHOW_PREVIEW_COMMAND.into()],
             ..Default::default()
         }),
+        document_symbol_provider: Some(OneOf::Left(true)),
         color_provider: Some(true.into()),
         ..ServerCapabilities::default()
     };
@@ -247,6 +251,9 @@ fn handle_request(
         };
 
         let result = vec![ColorPresentation { label: color_literal, ..Default::default() }];
+        connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
+    } else if let Some((id, params)) = cast::<DocumentSymbolRequest>(&mut req) {
+        let result = get_document_symbols(document_cache, &params.text_document);
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     };
     Ok(())
@@ -542,4 +549,48 @@ fn get_document_color(
             None => break Some(result),
         }
     }
+}
+
+fn get_document_symbols(
+    document_cache: &mut DocumentCache,
+    text_document: &lsp_types::TextDocumentIdentifier,
+) -> Option<DocumentSymbolResponse> {
+    let uri = &text_document.uri;
+    let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
+
+    // SymbolInformation doesn't implement default and some field depends on features or are deprecated
+    let si: SymbolInformation = serde_json::from_value(
+        serde_json::json!({ "name" : "", "kind": 255, "location" : Location::new(uri.clone(), Range::default()) })
+    )
+    .unwrap();
+
+    let inner_components = doc.inner_components.clone();
+    drop(doc);
+    let mut make_range = |node: &SyntaxNode| {
+        let r = node.text_range();
+        Some(Range::new(
+            document_cache.byte_offset_to_position(r.start().into(), &uri)?,
+            document_cache.byte_offset_to_position(r.end().into(), &uri)?,
+        ))
+    };
+
+    Some(
+        inner_components
+            .iter()
+            .filter_map(|c| {
+                Some(SymbolInformation {
+                    location: Location::new(
+                        uri.clone(),
+                        make_range(c.root_element.borrow().node.as_ref()?)?,
+                    ),
+                    name: c.id.clone(),
+                    kind: lsp_types::SymbolKind::Object,
+                    ..si.clone()
+                })
+            })
+            .collect::<Vec<_>>()
+            .into(),
+    )
+
+    // TODO: add the structs
 }
