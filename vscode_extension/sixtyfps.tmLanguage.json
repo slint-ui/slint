@@ -21,7 +21,7 @@
                     "name": "keyword.other"
                 },
                 {
-                    "match": "\\b(if|for)\\b",
+                    "match": "\\b(if|for|return)\\b",
                     "name": "keyword.control"
                 },
                 {
