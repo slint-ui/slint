@@ -695,8 +695,6 @@ impl ItemRenderer for GLItemRenderer {
 
         let wrap = text.wrap() == TextWrap::word_wrap;
         let letter_spacing = text.letter_spacing() * self.scale_factor;
-        let text_size =
-            font.text_size(letter_spacing, string, if wrap { Some(max_width) } else { None });
 
         let paint = match self
             .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
@@ -711,8 +709,8 @@ impl ItemRenderer for GLItemRenderer {
 
         let mut y = match vertical_alignment {
             TextVerticalAlignment::top => 0.,
-            TextVerticalAlignment::center => max_height / 2. - text_size.height / 2.,
-            TextVerticalAlignment::bottom => max_height - text_size.height,
+            TextVerticalAlignment::center => max_height / 2. - font_metrics.height() / 2.,
+            TextVerticalAlignment::bottom => max_height - font_metrics.height(),
         };
 
         let mut draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str| {

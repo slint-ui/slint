@@ -145,7 +145,7 @@ NarrowPrintQueueElement := Rectangle {
                     width: 10%;
                 }
                 PushButton {
-                    text: "More";
+                    text: "More   ";
                 }
                 Rectangle {
                     horizontal-stretch: 0;

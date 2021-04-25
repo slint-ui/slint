@@ -103,9 +103,8 @@ MainWindow := Window {
 
         callback icon_y(int) -> length;
         icon_y(index) => {
-            100px // top padding
-            + index * 72px;
-            ;
+            return 100px // top padding
+                + index * 72px;
         }
 
         Image {
