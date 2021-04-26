@@ -695,6 +695,8 @@ impl ItemRenderer for GLItemRenderer {
 
         let wrap = text.wrap() == TextWrap::word_wrap;
         let letter_spacing = text.letter_spacing() * self.scale_factor;
+        let text_size =
+            font.text_size(letter_spacing, string, if wrap { Some(max_width) } else { None });
 
         let paint = match self
             .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
@@ -709,8 +711,8 @@ impl ItemRenderer for GLItemRenderer {
 
         let mut y = match vertical_alignment {
             TextVerticalAlignment::top => 0.,
-            TextVerticalAlignment::center => max_height / 2. - font_metrics.height() / 2.,
-            TextVerticalAlignment::bottom => max_height - font_metrics.height(),
+            TextVerticalAlignment::center => max_height / 2. - text_size.height / 2.,
+            TextVerticalAlignment::bottom => max_height - text_size.height,
         };
 
         let mut draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str| {
@@ -1583,9 +1585,8 @@ impl GLFont {
         let paint = self.init_paint(letter_spacing, femtovg::Paint::default());
         let mut canvas = self.canvas.borrow_mut();
         let font_metrics = canvas.measure_font(paint).unwrap();
-        let mut y = 0.;
+        let mut lines = 0;
         let mut width = 0.;
-        let mut height = 0.;
         let mut start = 0;
         if let Some(max_width) = max_width {
             while start < text.len() {
@@ -1596,19 +1597,17 @@ impl GLFont {
                 let index = start + index;
                 let mesure = canvas.measure_text(0., 0., &text[start..index], paint).unwrap();
                 start = index;
-                height = y + mesure.height();
-                y += font_metrics.height();
+                lines += 1;
                 width = mesure.width().max(width);
             }
         } else {
             for line in text.lines() {
                 let mesure = canvas.measure_text(0., 0., line, paint).unwrap();
-                height = y + mesure.height();
-                y += font_metrics.height();
+                lines += 1;
                 width = mesure.width().max(width);
             }
         }
-        euclid::size2(width, height)
+        euclid::size2(width, lines as f32 * font_metrics.height())
     }
 }
 
