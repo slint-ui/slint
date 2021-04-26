@@ -1325,6 +1325,17 @@ impl<ChangeHandler> Drop for PropertyTracker<ChangeHandler> {
 }
 
 impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
+    /// Register this property tracker as a dependency to the current binding/property tracker being evaluated
+    fn register_as_dependency_to_current_binding(&self) {
+        if CURRENT_BINDING.is_set() {
+            CURRENT_BINDING.with(|cur_binding| {
+                cur_binding.register_self_as_dependency(
+                    self.holder.dependencies.as_ptr() as *mut DependencyListHead
+                );
+            });
+        }
+    }
+
     /// Any of the properties accessed during the last evaluation of the closure called
     /// from the last call to evaluate is pottentially dirty.
     pub fn is_dirty(&self) -> bool {
@@ -1335,14 +1346,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will also mark the other binding/tracker dirty.
     pub fn evaluate<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
-        if CURRENT_BINDING.is_set() {
-            CURRENT_BINDING.with(|cur_binding| {
-                cur_binding.register_self_as_dependency(
-                    self.holder.dependencies.as_ptr() as *mut DependencyListHead
-                )
-            });
-        }
-
+        self.register_as_dependency_to_current_binding();
         self.evaluate_as_dependency_root(f)
     }
 
@@ -1364,11 +1368,11 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
         r
     }
 
-    /// call `Self::evaluate` if and only if it is dirty
-    pub fn evaluate_if_dirty(self: Pin<&Self>, f: impl FnOnce()) {
-        if self.is_dirty() {
-            self.evaluate(f)
-        }
+    /// Call [`Self::evaluate`] if and only if it is dirty.
+    /// But register a dependency in any case.
+    pub fn evaluate_if_dirty<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> Option<R> {
+        self.register_as_dependency_to_current_binding();
+        self.is_dirty().then(|| self.evaluate_as_dependency_root(f))
     }
 
     /// Mark this PropertyTracker as dirty
@@ -1523,6 +1527,30 @@ fn test_nested_property_tracker_dirty() {
     // by hand.
     inner_tracker.as_ref().set_dirty();
     assert!(outer_tracker.is_dirty());
+}
+
+#[test]
+fn test_nested_property_tracker_evaluate_if_dirty() {
+    let outer_tracker = Box::pin(PropertyTracker::default());
+    let inner_tracker = Box::pin(PropertyTracker::default());
+    let prop = Box::pin(Property::new(42));
+
+    let mut cache = 0;
+    let mut cache_or_evaluate = || {
+        if let Some(x) = inner_tracker.as_ref().evaluate_if_dirty(|| prop.as_ref().get() + 1) {
+            cache = x;
+        }
+        cache
+    };
+    let r = outer_tracker.as_ref().evaluate(|| cache_or_evaluate());
+    assert_eq!(r, 43);
+    assert!(!outer_tracker.is_dirty());
+    assert!(!inner_tracker.is_dirty());
+    prop.as_ref().set(11);
+    assert!(outer_tracker.is_dirty());
+    assert!(inner_tracker.is_dirty());
+    let r = outer_tracker.as_ref().evaluate(|| cache_or_evaluate());
+    assert_eq!(r, 12);
 }
 
 #[cfg(feature = "ffi")]

@@ -41,8 +41,10 @@ impl CachedRenderingData {
         if self.cache_ok.get() {
             let index = self.cache_index.get();
             let existing_entry = cache.get_mut(index).unwrap();
-            if existing_entry.dependency_tracker.is_dirty() {
-                existing_entry.data = existing_entry.dependency_tracker.as_ref().evaluate(update_fn)
+            if let Some(data) =
+                existing_entry.dependency_tracker.as_ref().evaluate_if_dirty(update_fn)
+            {
+                existing_entry.data = data
             }
             existing_entry.data.clone()
         } else {

@@ -231,45 +231,38 @@ impl GraphicsWindow {
             let component_rc = self.component();
             let component = ComponentRc::borrow_pin(&component_rc);
 
-            {
-                if runtime_window.meta_properties_tracker.as_ref().is_dirty() {
-                    runtime_window.meta_properties_tracker.as_ref().evaluate(|| {
-                        self.apply_geometry_constraint(component.as_ref().layout_info());
-                        component.as_ref().apply_layout(Default::default());
+            runtime_window.meta_properties_tracker.as_ref().evaluate_if_dirty(|| {
+                self.apply_geometry_constraint(component.as_ref().layout_info());
+                component.as_ref().apply_layout(Default::default());
 
-                        if let Some((popup, pos)) = &*self.active_popup.borrow() {
-                            let popup = ComponentRc::borrow_pin(popup);
-                            let popup_root = popup.as_ref().get_item_ref(0);
-                            let size = if let Some(window_item) = ItemRef::downcast_pin(popup_root)
-                            {
-                                let layout_info = popup.as_ref().layout_info();
+                if let Some((popup, pos)) = &*self.active_popup.borrow() {
+                    let popup = ComponentRc::borrow_pin(popup);
+                    let popup_root = popup.as_ref().get_item_ref(0);
+                    let size = if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
+                        let layout_info = popup.as_ref().layout_info();
 
-                                let width = corelib::items::Window::FIELD_OFFSETS
-                                    .width
-                                    .apply_pin(window_item);
-                                let mut w = width.get();
-                                if w < layout_info.min_width {
-                                    w = layout_info.min_width;
-                                    width.set(w);
-                                }
-
-                                let height = corelib::items::Window::FIELD_OFFSETS
-                                    .height
-                                    .apply_pin(window_item);
-                                let mut h = height.get();
-                                if h < layout_info.min_height {
-                                    h = layout_info.min_height;
-                                    height.set(h);
-                                }
-                                Size::new(h, w) * self.scale_factor()
-                            } else {
-                                Size::default()
-                            };
-                            popup.as_ref().apply_layout(Rect::new(pos.clone(), size));
+                        let width =
+                            corelib::items::Window::FIELD_OFFSETS.width.apply_pin(window_item);
+                        let mut w = width.get();
+                        if w < layout_info.min_width {
+                            w = layout_info.min_width;
+                            width.set(w);
                         }
-                    })
+
+                        let height =
+                            corelib::items::Window::FIELD_OFFSETS.height.apply_pin(window_item);
+                        let mut h = height.get();
+                        if h < layout_info.min_height {
+                            h = layout_info.min_height;
+                            height.set(h);
+                        }
+                        Size::new(h, w) * self.scale_factor()
+                    } else {
+                        Size::default()
+                    };
+                    popup.as_ref().apply_layout(Rect::new(pos.clone(), size));
                 }
-            }
+            });
 
             let map_state = self.map_state.borrow();
             let window = map_state.as_mapped();
@@ -405,12 +398,13 @@ impl PlatformWindow for GraphicsWindow {
     }
 
     fn show_popup(&self, popup: &ComponentRc, position: Point) {
-        self.self_weak.upgrade().map(|window| window.meta_properties_tracker.set_dirty());
         *self.active_popup.borrow_mut() = Some((popup.clone(), position));
+        self.self_weak.upgrade().map(|window| window.meta_properties_tracker.set_dirty());
     }
 
     fn close_popup(&self) {
         *self.active_popup.borrow_mut() = None;
+        self.request_redraw();
     }
 
     fn request_window_properties_update(&self) {

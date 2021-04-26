@@ -490,8 +490,9 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         // Safety: Repeater does not implement drop and never let access model as mutable
         let listview_geometry_tracker =
             unsafe { self.map_unchecked(|s| &s.listview_geometry_tracker) };
-        if listview_geometry_tracker.is_dirty() {
-            listview_geometry_tracker.evaluate_if_dirty(|| {
+        let init = &init;
+        if listview_geometry_tracker
+            .evaluate_if_dirty(|| {
                 // Compute the element height
                 let total_height = Cell::new(0.);
                 let count = Cell::new(0);
@@ -542,8 +543,9 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 self.set_offset(offset, count);
                 self.ensure_updated_impl(init, &model, count);
                 self.compute_layout_listview(viewport_width, listview_width);
-            });
-        } else {
+            })
+            .is_none()
+        {
             if self.inner.borrow().borrow().is_dirty {
                 let count = self.inner.borrow().borrow().components.len();
                 self.ensure_updated_impl(init, &model, count);
