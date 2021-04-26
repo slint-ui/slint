@@ -46,6 +46,8 @@ type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
 pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 
+const KAPPA90: f32 = 0.5522847493;
+
 #[derive(PartialEq, Eq, Hash, Debug)]
 enum ImageCacheKey {
     Path(String),
@@ -1075,8 +1077,12 @@ impl ItemRenderer for GLItemRenderer {
         // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
         // would be entirely an *inner* border. However for clipping we want the rect that's
         // entirely inside, hence the doubling of the width and consequently radius adjustment.
-        border_width *= self.scale_factor * 2.;
-        radius *= self.scale_factor * 0.75;
+        radius -= border_width * KAPPA90;
+        border_width *= 2.;
+
+        // Convert from logical to physical pixels
+        border_width *= self.scale_factor;
+        radius *= self.scale_factor;
         clip_rect *= self.scale_factor;
 
         adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
