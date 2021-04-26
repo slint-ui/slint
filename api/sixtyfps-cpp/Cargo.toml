@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-cpp"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -18,7 +18,7 @@ crate-type = ["lib", "cdylib"]
 default = ["sixtyfps-interpreter"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.0.5", path="../../sixtyfps_runtime/corelib", features = ["ffi"] }
-sixtyfps-rendering-backend-default = { version = "=0.0.5", path="../../sixtyfps_runtime/rendering_backends/default" }
-sixtyfps-interpreter = { version = "=0.0.5", path="../../sixtyfps_runtime/interpreter", features = ["ffi"], optional = true }
+sixtyfps-corelib = { version = "=0.0.6", path="../../sixtyfps_runtime/corelib", features = ["ffi"] }
+sixtyfps-rendering-backend-default = { version = "=0.0.6", path="../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-interpreter = { version = "=0.0.6", path="../../sixtyfps_runtime/interpreter", features = ["ffi"], optional = true }
 
