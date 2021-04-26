@@ -295,6 +295,7 @@ export PushButton := Rectangle {
 
         label := Text {
             font-weight: 900;
+            font-size: DemoPalette.base_font_size * 0.975;
             color: DemoPalette.push_button_text_color;
             horizontal-alignment: center;
             vertical-alignment: center;

@@ -14,6 +14,7 @@ PrintQueueDetailsLabel := Text {
     font-weight: 500;
     color: DemoPalette.control_foreground;
     horizontal-stretch: 0;
+    font-size: DemoPalette.base_font_size * 0.9375;
 }
 
 PrintQueueSeparator := Rectangle {
@@ -36,6 +37,7 @@ PrintDetails := GridLayout {
             color: DemoPalette.secondary_foreground_color;
             overflow: elide;
             horizontal-stretch: 1;
+            font-size: DemoPalette.base_font_size * 0.9375;
         }
     }
     Row {
@@ -52,6 +54,7 @@ PrintDetails := GridLayout {
             color: DemoPalette.secondary_foreground_color;
             overflow: elide;
             horizontal-stretch: 1;
+            font-size: DemoPalette.base_font_size * 0.9375;
         }
     }
     Row {
@@ -68,6 +71,7 @@ PrintDetails := GridLayout {
             color: DemoPalette.secondary_foreground_color;
             overflow: elide;
             horizontal-stretch: 1;
+            font-size: DemoPalette.base_font_size * 0.9375;
         }
     }
     Row {
@@ -84,6 +88,7 @@ PrintDetails := GridLayout {
             color: DemoPalette.secondary_foreground_color;
             overflow: elide;
             horizontal-stretch: 1;
+            font-size: DemoPalette.base_font_size * 0.9375;
         }
     }
 }
@@ -209,83 +214,56 @@ WidePrintQueueElement := Rectangle {
     border-width: 2px;
     background: DemoPalette.printer_queue_item_background_color;
 
-    GridLayout {
+    HorizontalLayout {
         padding: parent.border_radius;
         spacing: 0px;
 
-        Row {
-            VerticalLayout {
-                colspan: 2;
-                horizontal-stretch: 1;
-                padding: 0px;
-                spacing: 0px;
-
-                HorizontalLayout {
-                    width: 60%;
-                    Text {
-                        // TODO: text-transform: uppercase
-                        text: {
-                            if (queue_item.status == "PRINTING") {
-                            "\{queue_item.progress}% - \{queue_item.status}"
-                            } else {
-                                queue_item.status
-                            }
-                        }
-                        color: DemoPalette.status_label_text_color;
-                        font-size: DemoPalette.base_font_size * 0.75;
-                        font-weight: 800;
-                        letter-spacing: 1.56px;
-                        horizontal-stretch: 1;
-                    }
-                    ProgressBar {
-                        // Each progress bar should have the same size
-                        // In principle it should be the smaller size which would fit next to the text foe each entry
-                        // But since it is too hard to compute, just hardcode that for now
-                        width: 50%; // 164px;
-                        progress: queue_item.progress;
-                    }
-                }
-
+        VerticalLayout {
+            colspan: 2;
+            padding: 0px;
+            spacing: 0px;
+            HorizontalLayout {
                 Text {
-                    text: queue_item.title;
-                    color: DemoPalette.text_foreground_color;
-                    overflow: elide;
-                    font-weight: 800;
-                    font-size: DemoPalette.base_font_size * 1.125;
+                    // TODO: text-transform: uppercase
+                    text: {
+                        if (queue_item.status == "PRINTING") {
+                        "\{queue_item.progress}% - \{queue_item.status}"
+                        } else {
+                            queue_item.status
+                        }
+                    }
+                    color: DemoPalette.status_label_text_color;
+                    font-size: DemoPalette.base_font_size * 0.75;
+                    font-weight: 700;
+                    letter-spacing: 1.56px;
+                    horizontal-stretch: 1;
+                }
+                ProgressBar {
+                    // Each progress bar should have the same size
+                    // In principle it should be the smaller size which would fit next to the text foe each entry
+                    // But since it is too hard to compute, just hardcode that for now
+                    width: 50%; // 164px;
+                    progress: queue_item.progress;
                 }
             }
 
-            Rectangle {
-                width: 0%;
+            Text {
+                text: queue_item.title;
+                color: DemoPalette.text_foreground_color;
+                overflow: elide;
+                font-weight: 700;
+                font-size: DemoPalette.base_font_size * 1.125;
+                horizontal-stretch: 1;
             }
 
-            Rectangle {
-                width: 12.5%;
-            }
+            Rectangle {}
 
-            PrintDetails {
-                colspan: 2;
-                rowspan: 3;
-
-                padding: 0px;
-                padding-bottom: root.border-radius / 2;
-                queue_item: root.queue_item;
-            }
-        }
-
-        Row {
-            Rectangle {
-                colspan: 2;
-                height: 0%;
-            }
-        }
-
-        Row {
             HorizontalLayout {
                 colspan: 2;
                 spacing: 14px;
                 padding: 0px;
                 horizontal-stretch: 1;
+                vertical-stretch: 0;
 
                 PushButton {
                     text: "Pause";
@@ -299,9 +277,19 @@ WidePrintQueueElement := Rectangle {
                     clicked => { cancel_job(); }
                 }
             }
+
+
+        }
+        Rectangle { width: 10%; }
+
+        PrintDetails {
+            padding: 0px;
+            padding-bottom: root.border-radius / 2;
+            queue_item: root.queue_item;
         }
     }
 }
+
 
 export WidePrinterQueueList := Flickable {
     callback cancel_job(int);
