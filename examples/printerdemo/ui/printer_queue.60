@@ -221,6 +221,7 @@ WidePrintQueueElement := Rectangle {
                 spacing: 0px;
 
                 HorizontalLayout {
+                    width: 60%;
                     Text {
                         // TODO: text-transform: uppercase
                         text: {
@@ -234,8 +235,13 @@ WidePrintQueueElement := Rectangle {
                         font-size: DemoPalette.base_font_size * 0.75;
                         font-weight: 800;
                         letter-spacing: 1.56px;
+                        horizontal-stretch: 1;
                     }
                     ProgressBar {
+                        // Each progress bar should have the same size
+                        // In principle it should be the smaller size which would fit next to the text foe each entry
+                        // But since it is too hard to compute, just hardcode that for now
+                        width: 50%; // 164px;
                         progress: queue_item.progress;
                     }
                 }
