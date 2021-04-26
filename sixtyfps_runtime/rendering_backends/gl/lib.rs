@@ -87,6 +87,10 @@ enum ItemGraphicsCacheEntry {
     },
     // The font selection is expensive because it is also based on the concrete rendered text, so this is cached here to speed up re-paints
     Font(GLFont),
+    Path {
+        path: Rc<RefCell<femtovg::Path>>,
+        border_width: f32,
+    },
 }
 
 impl ItemGraphicsCacheEntry {
@@ -601,20 +605,35 @@ impl ItemRenderer for GLItemRenderer {
         &mut self,
         rect: std::pin::Pin<&sixtyfps_corelib::items::BorderRectangle>,
     ) {
-        let mut geometry = item_rect(rect, self.scale_factor);
-        if geometry.is_empty() {
-            return;
-        }
+        let cached_path = self.shared_data.load_item_graphics_cache_with_function(
+            &rect.cached_rendering_data,
+            || {
+                let mut geometry = item_rect(rect, self.scale_factor);
+                if geometry.is_empty() {
+                    return None;
+                }
 
-        let mut border_width = rect.border_width() * self.scale_factor;
-        // In CSS the border is entirely towards the inside of the boundary
-        // geometry, while in femtovg the line with for a stroke is 50% in-
-        // and 50% outwards. We choose the CSS model, so the inner rectangle
-        // is adjusted accordingly.
-        adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+                let mut border_width = rect.border_width() * self.scale_factor;
+                // In CSS the border is entirely towards the inside of the boundary
+                // geometry, while in femtovg the line with for a stroke is 50% in-
+                // and 50% outwards. We choose the CSS model, so the inner rectangle
+                // is adjusted accordingly.
+                adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-        let mut path =
-            rect_with_radius_to_path(geometry, rect.border_radius() * self.scale_factor());
+                let path =
+                    rect_with_radius_to_path(geometry, rect.border_radius() * self.scale_factor());
+                Some(ItemGraphicsCacheEntry::Path {
+                    path: Rc::new(RefCell::new(path)),
+                    border_width,
+                })
+            },
+        );
+        let (mut path, border_width) =
+            if let Some(ItemGraphicsCacheEntry::Path { path, border_width }) = &cached_path {
+                (path.borrow_mut(), *border_width)
+            } else {
+                return;
+            };
 
         let fill_paint = self.brush_to_paint(rect.background(), &mut path);
 
@@ -1165,10 +1184,8 @@ impl ItemRenderer for GLItemRenderer {
         });
         let image_id = match cache_entry {
             Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(&self),
-            Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
-            Some(ItemGraphicsCacheEntry::ScalableImage { .. }) => unreachable!(),
-            Some(ItemGraphicsCacheEntry::Font(_)) => unreachable!(),
             None => return,
+            Some(_) => unreachable!(),
         };
         let mut canvas = self.shared_data.canvas.borrow_mut();
 
