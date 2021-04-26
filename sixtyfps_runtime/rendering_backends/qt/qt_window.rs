@@ -1038,6 +1038,26 @@ impl PlatformWindow for QtWindow {
     }
 
     fn show_popup(&self, popup: &sixtyfps_corelib::component::ComponentRc, position: Point) {
+        let component = ComponentRc::borrow_pin(popup);
+        let root_item = component.as_ref().get_item_ref(0);
+        let (mut w, mut h) =
+            if let Some(window_item) = ItemRef::downcast_pin::<items::Window>(root_item) {
+                (window_item.width(), window_item.height())
+            } else {
+                (0., 0.)
+            };
+
+        let info = component.as_ref().layout_info();
+        if w <= 0. {
+            w = info.preferred_width;
+        }
+        if h <= 0. {
+            h <= info.preferred_height;
+        }
+        w = w.clamp(info.min_width, info.max_width);
+        h = h.clamp(info.min_height, info.max_height);
+        let size = qttypes::QSize { width: w as _, height: h as _ };
+
         let window = sixtyfps_corelib::window::Window::new(|window| QtWindow::new(window));
         let popup_window: &QtWindow =
             std::any::Any::downcast_ref(window.as_ref().as_any()).unwrap();
@@ -1045,9 +1065,9 @@ impl PlatformWindow for QtWindow {
         let popup_ptr = popup_window.widget_ptr();
         let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
         let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint"] {
+        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
             popup_ptr->setParent(widget_ptr, Qt::Popup);
-            popup_ptr->move(pos + widget_ptr->pos());
+            popup_ptr->setGeometry(QRect(pos + widget_ptr->geometry().topLeft(), size));
             popup_ptr->show();
         }};
         self.popup_window.replace(Some((window, popup.clone())));
