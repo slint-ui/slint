@@ -99,7 +99,7 @@ impl AnimationDriver {
     /// Iterates through all animations based on the new time tick and updates their state. This should be called by
     /// the windowing system driver for every frame.
     pub fn update_animations(&self, new_tick: Instant) {
-        if self.global_instant.as_ref().get() != new_tick {
+        if self.global_instant.as_ref().get_untracked() != new_tick {
             self.active_animations.set(false);
             self.global_instant.as_ref().set(new_tick);
         }
