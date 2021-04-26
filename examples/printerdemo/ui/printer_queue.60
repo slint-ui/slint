@@ -103,10 +103,25 @@ NarrowPrintQueueElement := Rectangle {
     clip: true;
 
     property <bool> expanded;
+    property <float> expanded_opacity: 0;
 
-    height: layout.minimum-height;
-    animate height { duration: 200ms; easing: ease; }
-
+    height: always_visible.minimum-height + layout.padding * 2;
+    states [
+        expanded when expanded : {
+            height: layout.minimum-height;
+            expanded_opacity: 1;
+        }
+    ]
+    transitions [
+        in expanded : {
+            animate height { duration: 200ms; easing: ease; }
+            animate expanded_opacity { duration: 200ms; }
+        }
+        out expanded : {
+            animate height { duration: 200ms; easing: ease; }
+            animate expanded_opacity { duration: 200ms; }
+        }
+    ]
 
     Rectangle {
         height: 100%;
@@ -115,41 +130,48 @@ NarrowPrintQueueElement := Rectangle {
             spacing: 4px;
             alignment: start;
 
-            Text {
-                // TODO: text-transform: uppercase
-                text: {
-                    if (queue_item.status == "PRINTING") {
-                    "\{queue_item.progress}% - \{queue_item.status}"
-                    } else {
-                        queue_item.status
+            always_visible := VerticalLayout {
+                padding: 0;
+                spacing: parent.spacing;
+
+                Text {
+                    // TODO: text-transform: uppercase
+                    text: {
+                        if (queue_item.status == "PRINTING") {
+                        "\{queue_item.progress}% - \{queue_item.status}"
+                        } else {
+                            queue_item.status
+                        }
                     }
+                    color: DemoPalette.status_label_text_color;
+                    font-size: DemoPalette.base_font_size * 0.75;
+                    font-weight: 800;
+                    letter-spacing: 1.56px;
                 }
-                color: DemoPalette.status_label_text_color;
-                font-size: DemoPalette.base_font_size * 0.75;
-                font-weight: 800;
-                letter-spacing: 1.56px;
+
+                Text {
+                    text: queue_item.title;
+                    overflow: elide;
+                    color: DemoPalette.text_foreground_color;
+                    font-weight: 800;
+                    font-size: DemoPalette.base_font_size * 1.125;
+                }
             }
 
-            Text {
-                text: queue_item.title;
-                overflow: elide;
-                color: DemoPalette.text_foreground_color;
-                font-weight: 800;
-                font-size: DemoPalette.base_font_size * 1.125;
-            }
-
-            if (expanded): PrintDetails {
+            if (expanded || expanded_opacity > 0) : PrintDetails {
                 padding: 0px;
                 padding-bottom: root.border-radius / 2;
                 queue_item: root.queue_item;
+                opacity: expanded_opacity;
             }
 
-            if (expanded): HorizontalLayout {
+            if (expanded || expanded_opacity > 0) : HorizontalLayout {
                 Rectangle {
                     horizontal-stretch: 0;
                     width: 10%;
                 }
                 PushButton {
+                    opacity: expanded_opacity;
                     text: "More   ";
                 }
                 Rectangle {
