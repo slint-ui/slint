@@ -161,7 +161,7 @@ impl Item for Text {
                 &|| self.unresolved_font_request(),
                 Self::FIELD_OFFSETS.text.apply_pin(self),
             )
-            .map(|metrics| metrics.text_size(&self.text()))
+            .map(|metrics| metrics.text_size(&self.text()).ceil())
             .unwrap_or_default()
     }
 
@@ -297,7 +297,7 @@ impl Item for TextInput {
                 &|| self.unresolved_font_request(),
                 Self::FIELD_OFFSETS.text.apply_pin(self),
             )
-            .map(|metrics| metrics.text_size(&self.text()))
+            .map(|metrics| metrics.text_size(&self.text()).ceil())
             .unwrap_or_default()
     }
 
