@@ -369,7 +369,7 @@ impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
         } else {
             index -= self.offset;
         }
-        if count == 0 {
+        if count == 0 || index >= self.components.len() {
             return;
         }
         if (index + count) > self.components.len() {
@@ -547,7 +547,13 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             .is_none()
         {
             if self.inner.borrow().borrow().is_dirty.as_ref().get() {
-                let count = self.inner.borrow().borrow().components.len();
+                let count = self
+                    .inner
+                    .borrow()
+                    .borrow()
+                    .components
+                    .len()
+                    .min(row_count.saturating_sub(self.inner.borrow().borrow().offset));
                 self.ensure_updated_impl(init, &model, count);
                 self.compute_layout_listview(viewport_width, listview_width);
             }
