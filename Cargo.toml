@@ -65,10 +65,6 @@ default-members = [
 
 resolver = "2"
 
-# Temporarily pull in https://github.com/femtovg/femtovg/pull/39
-[patch.crates-io]
-femtovg = { git = "https://github.com/femtovg/femtovg", rev = "f2c7a24dac9dd6c6109b59fafa54326be8e16c24" }
-
 [profile.release]
 lto = true
 panic = "abort"
