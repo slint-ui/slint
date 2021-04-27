@@ -12,7 +12,7 @@ This extension for VS Code adds support for the SixtyFPS design markup language.
 
 ## Installation
 
-You can install the extension directly from https://marketplace.visualstudio.com/vscode . Afterwards it is
+You can install the extension directly from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode). Afterwards it is
 automatically activated when editing files with the `.60` extension.
 
 ## Live-Preview
