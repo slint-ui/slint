@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.0.6] - 2021-04-27
 
 ### Changed
  - `Rectangle::color` was deprecated and replaced by `Rectangle::background`, same for `Window::color`
@@ -134,3 +134,4 @@ All notable changes to this project will be documented in this file.
 [0.0.3]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.3
 [0.0.4]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.4
 [0.0.5]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.5
+[0.0.6]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.6
