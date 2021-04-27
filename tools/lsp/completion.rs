@@ -63,7 +63,7 @@ pub(crate) fn completion_at(
             // add keywords
             r.extend(
                 [
-                    ("property", "property<$1> $2;"),
+                    ("property", "property <$1> $2;"),
                     ("callback", "callback $1();"),
                     ("animate", "animate $1 { $2 }"),
                     ("states", "states [ $1 ]"),
