@@ -299,7 +299,7 @@ enum RepeatedComponentState {
 }
 struct RepeaterInner<C: RepeatedComponent> {
     components: Vec<(RepeatedComponentState, Option<ComponentRc<C>>)>,
-    is_dirty: bool,
+    is_dirty: Pin<Box<Property<bool>>>,
     /// The model row (index) of the first component in the `components` vector.
     /// Only used for ListView
     offset: usize,
@@ -311,7 +311,7 @@ impl<C: RepeatedComponent> Default for RepeaterInner<C> {
     fn default() -> Self {
         RepeaterInner {
             components: Default::default(),
-            is_dirty: true,
+            is_dirty: Box::pin(Property::new(true)),
             offset: 0,
             cached_item_height: 0.,
         }
@@ -333,7 +333,7 @@ trait ViewAbstraction {
 impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
     /// Notify the peers that a specific row was changed
     fn row_changed(&mut self, row: usize) {
-        self.is_dirty = true;
+        self.is_dirty.as_ref().set(true);
         if let Some(c) = self.components.get_mut(row.wrapping_sub(self.offset)) {
             c.0 = RepeatedComponentState::Dirty;
         }
@@ -352,7 +352,7 @@ impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
         if count == 0 || index > self.components.len() {
             return;
         }
-        self.is_dirty = true;
+        self.is_dirty.as_ref().set(true);
         self.components.splice(
             index..index,
             core::iter::repeat((RepeatedComponentState::Dirty, None)).take(count),
@@ -375,7 +375,7 @@ impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
         if (index + count) > self.components.len() {
             count = self.components.len() - index;
         }
-        self.is_dirty = true;
+        self.is_dirty.as_ref().set(true);
         self.components.drain(index..(index + count));
         for c in self.components[index..].iter_mut() {
             // Because all the indexes are dirty
@@ -426,7 +426,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     /// The init function is the function to create a component
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ComponentRc<C>) {
         if let ModelHandle(Some(model)) = self.model() {
-            if self.inner.borrow().borrow().is_dirty {
+            if self.inner.borrow().borrow().is_dirty.as_ref().get() {
                 self.ensure_updated_impl(init, &model, model.row_count());
             }
         } else {
@@ -456,7 +456,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 c.0 = RepeatedComponentState::Clean;
             }
         }
-        inner.is_dirty = false;
+        inner.is_dirty.as_ref().set(false);
         created
     }
 
@@ -546,7 +546,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             })
             .is_none()
         {
-            if self.inner.borrow().borrow().is_dirty {
+            if self.inner.borrow().borrow().is_dirty.as_ref().get() {
                 let count = self.inner.borrow().borrow().components.len();
                 self.ensure_updated_impl(init, &model, count);
                 self.compute_layout_listview(viewport_width, listview_width);
@@ -571,7 +571,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         }
         inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
         inner.offset = offset;
-        inner.is_dirty = true;
+        inner.is_dirty.as_ref().set(true);
     }
 
     /// Sets the data directly in the model
