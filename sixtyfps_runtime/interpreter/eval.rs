@@ -426,7 +426,9 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("internal error: incorrect argument count to RegisterCustomFontByPath")
                 }
                 if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                    crate::register_font_from_path(&std::path::PathBuf::from(s.as_str())).ok().unwrap();
+                    if let Some(err) = crate::register_font_from_path(&std::path::PathBuf::from(s.as_str())).err() {
+                        sixtyfps_corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
+                    }
                     Value::Void
                 } else {
                     panic!("Argument not a string");
