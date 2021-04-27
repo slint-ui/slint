@@ -1,6 +1,7 @@
- # LSP (Language Server Protocol) Server for SixtyFPS
+# LSP (Language Server Protocol) Server for SixtyFPS
 
-This directory contains the implementation of the LSP server for SixtyFPS featuring diagnostics, code
+This directory contains the implementation of the LSP server for [SixtyFPS](https://sixtyfps.io)
+featuring diagnostics, code
 completion, goto definition, and more importantly, live-preview
 
 

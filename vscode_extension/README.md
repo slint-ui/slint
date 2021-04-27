@@ -1,6 +1,6 @@
 # SixtyFPS for Visual Studio Code
 
-This extension for VS Code adds support for the SixtyFPS design markup language.
+This extension for VS Code adds support for the [SixtyFPS](https://sixtyfps.io) design markup language.
 
 ## Features
 
