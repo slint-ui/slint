@@ -507,22 +507,22 @@ class Repeater
             std::optional<ComponentHandle<C>> ptr;
         };
         std::vector<ComponentWithState> data;
-        bool is_dirty = true;
+        Property<bool> is_dirty{true};
 
         void row_added(int index, int count) override
         {
-            is_dirty = true;
+            is_dirty.set(true);
             data.resize(data.size() + count);
             std::rotate(data.begin() + index, data.end() - count, data.end());
         }
         void row_changed(int index) override
         {
-            is_dirty = true;
+            is_dirty.set(true);
             data[index].state = State::Dirty;
         }
         void row_removed(int index, int count) override
         {
-            is_dirty = true;
+            is_dirty.set(true);
             data.erase(data.begin() + index, data.begin() + index + count);
             for (std::size_t i = index; i < data.size(); ++i) {
                 // all the indexes are dirty
@@ -551,8 +551,8 @@ public:
             }
         }
 
-        if (inner && inner->is_dirty) {
-            inner->is_dirty = false;
+        if (inner && inner->is_dirty.get()) {
+            inner->is_dirty.set(false);
             if (auto m = model.get()) {
                 int count = m->row_count();
                 inner->data.resize(count);
@@ -634,7 +634,7 @@ public:
         }
         if (auto m = model.get()) {
             m->set_row_data(row, data);
-            if (inner && inner->is_dirty) {
+            if (inner && inner->is_dirty.get()) {
                 auto &c = inner->data[row];
                 if (c.state == RepeaterInner::State::Dirty && c.ptr) {
                     (*c.ptr)->update_data(row, m->row_data(row));
