@@ -39,15 +39,14 @@ MemoryTile := Rectangle {
         width: open_curtain ? 0px : parent.width / 2 + 4px;
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
+        clip: true;
 
-        Clip {
-            Image {
-                width: root.width - 32px;
-                height: root.height - 32px;
-                x: 16px;
-                y: 16px;
-                source: @image-url("icons/tile_logo.png");
-            }
+        Image {
+            width: root.width - 32px;
+            height: root.height - 32px;
+            x: 16px;
+            y: 16px;
+            source: @image-url("icons/tile_logo.png");
         }
     }
 
@@ -60,16 +59,15 @@ MemoryTile := Rectangle {
         height: parent.height;
         animate width { duration: 250ms; easing: ease-in; }
         animate x { duration: 250ms; easing: ease-in; }
-        Clip {
-            Image {
-                width: root.width - 32px;
-                height: root.height - 32px;
-                x: right_curtain.width - width - 16px;
-                y: 16px;
-                source: @image-url("icons/tile_logo.png");
-            }
-        }
+        clip: true;
 
+        Image {
+            width: root.width - 32px;
+            height: root.height - 32px;
+            x: right_curtain.width - width - 16px;
+            y: 16px;
+            source: @image-url("icons/tile_logo.png");
+        }
     }
 
     TouchArea {
