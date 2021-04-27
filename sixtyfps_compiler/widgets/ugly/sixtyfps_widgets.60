@@ -436,11 +436,15 @@ export StandardListView := ListView {
     property<[StandardListViewItem]> model;
     property<int> current_item: -1;
     for item[idx] in model : Rectangle {
-        Text {
-            text: item.text;
-            color: Palette.text_color;
+        l := HorizontalLayout {
+            padding: 0px;
+            spacing: 0px;
+            t := Text {
+                text: item.text;
+                color: Palette.text_color;
+            }
         }
-        height: 20px;
+        height: l.minimum_height; // FIXME: should be t.preferred_height instread, and layout not needed
         width: parent.visible_width;
         background: current_item == idx ? Palette.highlight_background : transparent;
         TouchArea {
