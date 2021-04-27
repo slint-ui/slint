@@ -206,7 +206,8 @@ impl<'a> TypeLoader<'a> {
                                 })
                             } else {
                                 base_path_or_url.parent().and_then(|base_dir| {
-                                    base_dir.join(maybe_relative_path_or_url).canonicalize().ok()
+                                    dunce::canonicalize(base_dir.join(maybe_relative_path_or_url))
+                                        .ok()
                                 })
                             }
                         })
@@ -224,7 +225,7 @@ impl<'a> TypeLoader<'a> {
     ) -> Option<PathBuf> {
         let (path, is_builtin) = self.resolve_import_path(import_token.as_ref(), file_to_import);
 
-        let path_canon = path.canonicalize().unwrap_or_else(|_| path.to_owned());
+        let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
 
         if self.all_documents.docs.get(path_canon.as_path()).is_some() {
             return Some(path_canon);
@@ -438,7 +439,7 @@ impl<'a> TypeLoader<'a> {
 
     /// Return a document if it was already loaded
     pub fn get_document<'b>(&'b self, path: &Path) -> Option<&'b object_tree::Document> {
-        path.canonicalize().map_or_else(
+        dunce::canonicalize(path).map_or_else(
             |_| self.all_documents.docs.get(path),
             |path| self.all_documents.docs.get(&path),
         )

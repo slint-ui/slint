@@ -102,7 +102,7 @@ pub fn goto_definition(
                 .parent()
                 .unwrap_or(Path::new("/"))
                 .join(n.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
-            let import_file = import_file.canonicalize().unwrap_or(import_file);
+            let import_file = dunce::canonicalize(&import_file).unwrap_or(import_file);
             let doc = document_cache.documents.get_document(&import_file)?;
             let doc_node = doc.node.clone()?;
             return goto_node(document_cache, &*doc_node);
