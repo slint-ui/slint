@@ -8,12 +8,11 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 cmake_minimum_required(VERSION 3.14)
-project(sixtyfps_cpptest LANGUAGES CXX)
 
 if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
 endif()
 
-add_executable(printerdemo main.cpp)
-target_link_libraries(printerdemo PRIVATE SixtyFPS::SixtyFPS)
-sixtyfps_target_60_sources(printerdemo ../ui/printerdemo.60)
+add_executable(printerdemo_old main.cpp)
+target_link_libraries(printerdemo_old PRIVATE SixtyFPS::SixtyFPS)
+sixtyfps_target_60_sources(printerdemo_old ../ui/printerdemo.60)
