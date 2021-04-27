@@ -36,7 +36,7 @@ struct SharedString
     {
         cbindgen_private::sixtyfps_shared_string_from_bytes(this, s.data(), s.size());
     }
-    /// Creates a new SharedString from the null-terminated string pointer \a. The underlying
+    /// Creates a new SharedString from the null-terminated string pointer \a s. The underlying
     /// string data is copied. It is assumed that the string is UTF-8 encoded.
     SharedString(const char *s) : SharedString(std::string_view(s)) { }
     /// Creates a new SharedString from \a other.
@@ -55,13 +55,21 @@ struct SharedString
         return *this;
     }
     /// Assigns the string view \s to this string and returns a reference to this string.
-    /// The underlying string data is copied.
+    /// The underlying string data is copied.  It is assumed that the string is UTF-8 encoded.
     SharedString &operator=(std::string_view s)
     {
         cbindgen_private::sixtyfps_shared_string_drop(this);
         cbindgen_private::sixtyfps_shared_string_from_bytes(this, s.data(), s.size());
         return *this;
     }
+    /// Assigns null-terminated string pointer \a s to this string and returns a reference
+    /// to this string. The underlying string data is copied. It is assumed that the string
+    /// is UTF-8 encoded.
+    SharedString &operator=(const char *s)
+    {
+        return *this = std::string_view(s);
+    }
+
     /// Move-assigns \a other to this SharedString instance.
     SharedString &operator=(SharedString &&other)
     {

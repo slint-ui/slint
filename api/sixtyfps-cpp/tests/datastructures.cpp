@@ -27,6 +27,12 @@ SCENARIO("SharedString API")
         str = foo_view;
         REQUIRE(str == "Foo");
     }
+
+    SECTION("Construct from char*")
+    {
+        str = "Bar";
+        REQUIRE(str == "Bar");
+    }
 }
 
 TEST_CASE("Basic SharedVector API", "[vector]")
