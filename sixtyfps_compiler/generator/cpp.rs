@@ -1697,7 +1697,8 @@ fn compile_expression(
             format!("sixtyfps::{}::{}", value.enumeration.name, value.to_string())
         }
         Expression::ReturnStatement(Some(expr)) => format!(
-            "throw sixtyfps::private_api::ReturnWrapper({})",
+            "throw sixtyfps::private_api::ReturnWrapper<{}>({})",
+            expr.ty().cpp_type().unwrap_or_default(),
             compile_expression(expr, component)
         ),
         Expression::ReturnStatement(None) => "throw sixtyfps::private_api::ReturnWrapper<void>()".to_owned(),
