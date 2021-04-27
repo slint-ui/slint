@@ -10,7 +10,7 @@ LICENSE END */
 /*!
 # SixtyFPS interpreter library
 
-With this crate, you can load a .60 at runtime and show its UI.
+With this crate, you can load a .60 file at runtime and show its UI.
 
 You only need to use this crate if you do not want to use pre-compiled .60
 code, which is the normal way to use SixtyFPS, using the `sixtyfps` crate
@@ -27,7 +27,7 @@ executor, such as the one provided by the `spin_on` crate
 
 ## Examples
 
-This example load a `.60` dynamically from a path and show error if any
+This example loads a `.60` dynamically from a path and show errors if any:
 
 ```rust
 use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler};
@@ -43,7 +43,7 @@ if let Some(definition) = definition {
 }
 ```
 
-This example load a `.60` from a string and set some properties
+This example load a `.60` from a string and set some properties:
 
 ```rust
 use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};

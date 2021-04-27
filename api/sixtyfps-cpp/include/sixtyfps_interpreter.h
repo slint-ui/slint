@@ -30,6 +30,52 @@ struct ErasedComponentBox : vtable::Dyn
 };
 }
 
+/// The types in this namespace allow you to load a .60 file at runtime and show its UI.
+///
+/// You only need to use thyem if you do not want to use pre-compiled .60 code, which is
+/// the normal way to use SixtyFPS.
+///
+/// The entry point for this namespace is the \ref ComponentCompiler, which you can
+/// use to create \ref ComponentDefinition instances with the ComponentCompiler::build_from_source()
+/// or ComponentCompiler::build_from_path() functions.
+///
+/// Example:
+///
+/// This example loads a `.60` dynamically from a path:
+///
+/// ```
+/// #include <sixtyfps_interpreter.h>
+///
+/// sixtyfps::interpreter::ComponentCompiler compiler;
+/// auto definition =
+///     compiler.build_from_path("hello.60");
+/// if (definition)  {
+///     auto instance = definition->create();
+///     instance->run();
+/// }
+/// ```
+///
+/// This example loads a `.60` from a string and set some properties:
+///
+/// ```
+/// #include <sixtyfps_interpreter.h>
+///
+/// std::string code = R"(
+///     MyWin := Window {
+///         property <string> my_name;
+///         Text {
+///             text: "Hello, " + my_name;
+///         }
+///     }
+/// )";
+///
+/// sixtyfps::interpreter::ComponentCompiler compiler;
+/// auto definition =
+///     compiler.build_from_source(code, "");
+/// auto instance = definition->create();
+/// instance->set_property("my_name",
+/// sixtyfps::interpreter::Value(sixtyfps::SharedString("World"))); instance->run();
+/// ```
 namespace sixtyfps::interpreter {
 
 class Value;
