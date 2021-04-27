@@ -17,7 +17,6 @@ path = "lib.rs"
 
 [dependencies]
 cpp = "0.5.5"
-qttypes = { version = "0.2", default-features = false }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 sixtyfps-corelib-macros = { version = "=0.0.6", path = "../../corelib_macros" }
@@ -26,6 +25,9 @@ euclid = "0.22.1"
 pin-weak = "1"
 once_cell = "1"
 lyon_path = "0.17"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+qttypes = { version = "0.2", default-features = false }
 
 [build-dependencies]
 cpp_build = "0.5.5"
