@@ -456,6 +456,15 @@ impl GLRenderer {
     fn flush_renderer(&mut self, _renderer: GLItemRenderer) {
         self.shared_data.canvas.borrow_mut().flush();
 
+        // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
+        // avoid GPU memory leaks.
+        self.shared_data
+            .image_cache
+            .borrow_mut()
+            .retain(|_, cached_image| Rc::strong_count(cached_image) > 1);
+
+        std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             let mut ctx = self.shared_data.windowed_context.borrow_mut().take().unwrap();
@@ -463,13 +472,6 @@ impl GLRenderer {
 
             *self.shared_data.windowed_context.borrow_mut() = ctx.make_not_current().into();
         }
-
-        self.shared_data
-            .image_cache
-            .borrow_mut()
-            .retain(|_, cached_image| Rc::strong_count(cached_image) > 1);
-
-        std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
     }
 
     #[cfg(not(target_arch = "wasm32"))]
