@@ -187,47 +187,46 @@ export Demo := Window {
         div.innerHTML = "";
         div.appendChild(canvas);
         var markers = [];
-        try {
-            var compiled_component = await sixtyfps.compile_from_string(source, base_url, async (url: string): Promise<string> => {
-                let model_and_state = editor_documents.get(url);
-                if (model_and_state === undefined) {
-                    const response = await fetch(url);
-                    let doc = await response.text();
-                    let model = monaco.editor.createModel(doc, "sixtyfps");
-                    model.onDidChangeContent(function () {
-                        maybe_update_preview_automatically();
-                    });
-                    editor_documents.set(url, { model, view_state: null });
-                    addTab(model, url);
-                    return doc;
-                }
-                return model_and_state.model.getValue();
-            });
-        } catch (e) {
-            let text = document.createTextNode(e.message);
+        let { component, diagnostics, error_string } = await sixtyfps.compile_from_string(source, base_url, async (url: string): Promise<string> => {
+            let model_and_state = editor_documents.get(url);
+            if (model_and_state === undefined) {
+                const response = await fetch(url);
+                let doc = await response.text();
+                let model = monaco.editor.createModel(doc, "sixtyfps");
+                model.onDidChangeContent(function () {
+                    maybe_update_preview_automatically();
+                });
+                editor_documents.set(url, { model, view_state: null });
+                addTab(model, url);
+                return doc;
+            }
+            return model_and_state.model.getValue();
+        });
+
+        if (error_string != "") {
+            let text = document.createTextNode(error_string);
             let p = document.createElement('pre');
             p.appendChild(text);
             div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
-
-            if (e.errors) {
-                markers = e.errors.map(function (x) {
-                    return {
-                        severity: 3 - x.level,
-                        message: x.message,
-                        source: x.fileName,
-                        startLineNumber: x.lineNumber,
-                        startColumn: x.columnNumber,
-                        endLineNumber: x.lineNumber,
-                        endColumn: -1,
-                    }
-                });
-            }
-
-            throw e;
-        } finally {
-            monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", markers);
         }
-        compiled_component.run(canvas_id)
+
+
+        markers = diagnostics.map(function (x) {
+            return {
+                severity: 3 - x.level,
+                message: x.message,
+                source: x.fileName,
+                startLineNumber: x.lineNumber,
+                startColumn: x.columnNumber,
+                endLineNumber: x.lineNumber,
+                endColumn: -1,
+            }
+        });
+        monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", markers);
+
+        if (component !== undefined) {
+            component.run(canvas_id)
+        }
     }
 
     let keystroke_timeout_handle: number;

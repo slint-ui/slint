@@ -14,17 +14,17 @@
         canvas.height = 100;
         canvas.id = canvas_id;
         div.appendChild(canvas);
-        try {
-            var compiled_component = await sixtyfps.compile_from_string(source, "");
-        } catch (e) {
-            var text = document.createTextNode(e.message);
+
+        let { component, error_string } = await sixtyfps.compile_from_string(source, "");
+        if (error_string != "") {
+            var text = document.createTextNode(error_string);
             var p = document.createElement('pre');
             p.appendChild(text);
             div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
-
-            throw e;
         }
-        compiled_component.run(canvas_id);
+        if (component !== undefined) {
+            component.run(canvas_id)
+        }
     }
 
     async function run() {

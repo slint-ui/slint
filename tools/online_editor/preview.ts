@@ -44,25 +44,28 @@ export Demo := Window {
         canvas.id = canvas_id;
         div.innerHTML = "";
         div.appendChild(canvas);
-        var markers = [];
-        try {
-            var compiled_component = await sixtyfps.compile_from_string(source, base_url, async (url: string): Promise<string> => {
-                let file_source = loaded_documents.get(url);
-                if (file_source === undefined) {
-                    const response = await fetch(url);
-                    let doc = await response.text();
-                    loaded_documents.set(url, doc);
-                    return doc;
-                }
-                return file_source;
-            });
-        } catch (e) {
-            let text = document.createTextNode(e.message);
+
+        let { component, error_string } = await sixtyfps.compile_from_string(source, base_url, async (url: string): Promise<string> => {
+            let file_source = loaded_documents.get(url);
+            if (file_source === undefined) {
+                const response = await fetch(url);
+                let doc = await response.text();
+                loaded_documents.set(url, doc);
+                return doc;
+            }
+            return file_source;
+        });
+
+        if (error_string != "") {
+            let text = document.createTextNode(error_string);
             let p = document.createElement('pre');
             p.appendChild(text);
             div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
         }
-        compiled_component.run(canvas_id)
+
+        if (component !== undefined) {
+            component.run(canvas_id)
+        }
     }
 
     const params = new URLSearchParams(window.location.search);

@@ -17,6 +17,30 @@ use wasm_bindgen::prelude::*;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
+#[wasm_bindgen]
+#[allow(dead_code)]
+pub struct CompilationResult {
+    component: Option<WrappedCompiledComp>,
+    diagnostics: js_sys::Array,
+    error_string: String,
+}
+
+#[wasm_bindgen]
+impl CompilationResult {
+    #[wasm_bindgen(getter)]
+    pub fn component(&self) -> Option<WrappedCompiledComp> {
+        self.component.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn diagnostics(&self) -> js_sys::Array {
+        self.diagnostics.clone()
+    }
+    #[wasm_bindgen(getter)]
+    pub fn error_string(&self) -> String {
+        self.error_string.clone()
+    }
+}
+
 /// Compile the content of a string.
 ///
 /// Returns a promise to a compiled component which can be run with ".run()"
@@ -25,7 +49,7 @@ pub async fn compile_from_string(
     source: String,
     base_url: String,
     optional_import_callback: Option<js_sys::Function>,
-) -> Result<WrappedCompiledComp, JsValue> {
+) -> Result<CompilationResult, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
@@ -57,52 +81,47 @@ pub async fn compile_from_string(
 
     let c = compiler.build_from_source(source, base_url.into()).await;
 
-    match c {
-        Some(c) => Ok(WrappedCompiledComp(c)),
-        None => {
-            let line_key = JsValue::from_str("lineNumber");
-            let column_key = JsValue::from_str("columnNumber");
-            let message_key = JsValue::from_str("message");
-            let file_key = JsValue::from_str("fileName");
-            let level_key = JsValue::from_str("level");
-            let mut error_as_string = String::new();
-            let array = js_sys::Array::new();
-            for d in compiler.diagnostics().into_iter() {
-                let filename = d
-                    .source_file()
-                    .as_ref()
-                    .map_or(String::new(), |sf| sf.to_string_lossy().into());
+    let line_key = JsValue::from_str("lineNumber");
+    let column_key = JsValue::from_str("columnNumber");
+    let message_key = JsValue::from_str("message");
+    let file_key = JsValue::from_str("fileName");
+    let level_key = JsValue::from_str("level");
+    let mut error_as_string = String::new();
+    let array = js_sys::Array::new();
+    for d in compiler.diagnostics().into_iter() {
+        let filename =
+            d.source_file().as_ref().map_or(String::new(), |sf| sf.to_string_lossy().into());
 
-                let filename_js = JsValue::from_str(&filename);
+        let filename_js = JsValue::from_str(&filename);
+        let (line, column) = d.line_column();
 
-                if !error_as_string.is_empty() {
-                    error_as_string.push_str("\n");
-                }
-                use std::fmt::Write;
-
-                let (line, column) = d.line_column();
-                write!(&mut error_as_string, "{}:{}:{}", filename, line, d).unwrap();
-                let error_obj = js_sys::Object::new();
-                js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message()))?;
-                js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64))?;
-                js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64))?;
-                js_sys::Reflect::set(&error_obj, &file_key, &filename_js)?;
-                js_sys::Reflect::set(
-                    &error_obj,
-                    &level_key,
-                    &JsValue::from_f64(d.level() as i8 as f64),
-                )?;
-                array.push(&error_obj);
+        if d.level() == sixtyfps_interpreter::DiagnosticLevel::Error {
+            if !error_as_string.is_empty() {
+                error_as_string.push_str("\n");
             }
+            use std::fmt::Write;
 
-            let error = js_sys::Error::new(&error_as_string);
-            js_sys::Reflect::set(&error, &JsValue::from_str("errors"), &array)?;
-            Err((**error).clone())
+            write!(&mut error_as_string, "{}:{}:{}", filename, line, d).unwrap();
         }
+
+        let error_obj = js_sys::Object::new();
+        js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message()))?;
+        js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64))?;
+        js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64))?;
+        js_sys::Reflect::set(&error_obj, &file_key, &filename_js)?;
+        js_sys::Reflect::set(&error_obj, &level_key, &JsValue::from_f64(d.level() as i8 as f64))?;
+        array.push(&error_obj);
     }
+
+    Ok(CompilationResult {
+        component: c.map(|c| WrappedCompiledComp(c)),
+        diagnostics: array,
+        error_string: error_as_string,
+    })
 }
 
 #[wasm_bindgen]
+#[derive(Clone)]
 pub struct WrappedCompiledComp(sixtyfps_interpreter::ComponentDefinition);
 
 #[wasm_bindgen]
