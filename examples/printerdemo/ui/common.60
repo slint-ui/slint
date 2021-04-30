@@ -222,12 +222,18 @@ export ComboBox := Rectangle {
         }
         VerticalLayout {
             spacing: 6px;
-            padding: 12px;
-            for value[idx] in root.choices: Text {
-                text: value;
-                color: DemoPalette.text_foreground_color;
-                font-size: DemoPalette.base_font_size;
-                TouchArea {
+            padding: 3px;
+            for value[idx] in root.choices: Rectangle {
+                border-radius: 3px;
+                background: item_area.has_hover ? DemoPalette.primary_push_button_colors.hovered : #0000;
+                HorizontalLayout {
+                    Text {
+                        text: value;
+                        color: item_area.has_hover ? DemoPalette.push_button_text_color : DemoPalette.text_foreground_color;
+                        font-size: DemoPalette.base_font_size;
+                    }
+                }
+                item_area := TouchArea {
                     clicked => {
                         root.value = value;
                     }
