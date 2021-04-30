@@ -15,7 +15,8 @@ pub(crate) fn format_document(
     doc: syntax_nodes::Document,
     writer: &mut impl TokenWriter,
 ) -> Result<(), std::io::Error> {
-    format_node(&doc, writer, &mut FormatState::default())
+    let mut state = FormatState::default();
+    format_node(&doc, writer, &mut state)
 }
 
 #[derive(Default)]
@@ -26,10 +27,19 @@ struct FormatState {
     whitespace_to_add: Option<String>,
     /// The level of indentation
     indentation_level: u32,
+
+    /// A counter that is incremented when something is inserted
+    insertion_count: usize,
+
+    /// a comment has been written followed maybe by some spacing
+    after_comment: bool,
 }
 
 impl FormatState {
     fn new_line(&mut self) {
+        if self.after_comment {
+            return;
+        }
         self.skip_all_whitespace = true;
         if let Some(x) = &mut self.whitespace_to_add {
             x.insert_str(0, "\n");
@@ -40,6 +50,20 @@ impl FormatState {
             new_line += "    ";
         }
         self.whitespace_to_add = Some(new_line);
+    }
+
+    fn insert_whitespace(&mut self, arg: &str) {
+        if self.after_comment {
+            return;
+        }
+        self.skip_all_whitespace = true;
+        if !arg.is_empty() {
+            if let Some(ws) = &mut self.whitespace_to_add {
+                *ws += arg;
+            } else {
+                self.whitespace_to_add = Some(arg.into());
+            }
+        }
     }
 }
 
@@ -60,6 +84,15 @@ fn format_node(
         }
         SyntaxKind::Binding => {
             return format_binding(node, writer, state);
+        }
+        SyntaxKind::CallbackConnection => {
+            return format_callback_connection(node, writer, state);
+        }
+        SyntaxKind::CallbackDeclaration => {
+            return format_callback_declaration(node, writer, state);
+        }
+        SyntaxKind::QualifiedName => {
+            return format_qualified_name(node, writer, state);
         }
 
         _ => (),
@@ -85,12 +118,15 @@ fn fold(
                     return Ok(());
                 }
             } else {
+                state.after_comment = t.kind() == SyntaxKind::Comment;
                 state.skip_all_whitespace = false;
                 if let Some(x) = state.whitespace_to_add.take() {
+                    state.insertion_count += 1;
                     writer.insert_before(t, x.as_ref())?;
                     return Ok(());
                 }
             }
+            state.insertion_count += 1;
             writer.no_change(t)
         }
     }
@@ -103,15 +139,7 @@ fn whitespace_to(
     state: &mut FormatState,
     arg: &str,
 ) -> Result<bool, std::io::Error> {
-    state.skip_all_whitespace = true;
-    if !arg.is_empty() {
-        if let Some(ws) = &mut state.whitespace_to_add {
-            *ws += arg;
-        } else {
-            state.whitespace_to_add = Some(arg.into());
-        }
-    }
-
+    state.insert_whitespace(arg);
     for n in sub {
         match n.kind() {
             SyntaxKind::Whitespace | SyntaxKind::Comment => (),
@@ -121,6 +149,7 @@ fn whitespace_to(
             }
             _ => {
                 eprintln!("Inconsistancy: expected {:?},  found {:?}", element, n);
+                fold(n, writer, state)?;
                 return Ok(false);
             }
         }
@@ -166,7 +195,8 @@ fn format_element(
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
     if !(whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?
-        && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?)
+        // note: QualifiedName is already adding one space
+        && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")?)
     {
         finish_node(sub, writer, state)?;
         return Ok(());
@@ -174,12 +204,17 @@ fn format_element(
 
     state.indentation_level += 1;
     state.new_line();
+    let ins_ctn = state.insertion_count;
 
     for n in sub {
         if n.kind() == SyntaxKind::RBrace {
             state.indentation_level -= 1;
             state.whitespace_to_add = None;
-            state.new_line();
+            if ins_ctn == state.insertion_count {
+                state.insert_whitespace(" ");
+            } else {
+                state.new_line();
+            }
             fold(n, writer, state)?;
             state.new_line();
         } else {
@@ -224,5 +259,96 @@ fn format_binding(
         fold(s, writer, state)?;
     }
     state.new_line();
+    Ok(())
+}
+
+fn format_callback_declaration(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+        && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+
+    while let Some(n) = sub.next() {
+        state.skip_all_whitespace = true;
+        match n.kind() {
+            // SyntaxKind::LParent => {
+            //     fold(n, writer, state)?;
+            //     state.skip_all_whitespace = true;
+            // }
+            SyntaxKind::Comma => {
+                fold(n, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            SyntaxKind::Arrow => {
+                state.insert_whitespace(" ");
+                fold(n, writer, state)?;
+                whitespace_to(&mut sub, SyntaxKind::ReturnType, writer, state, " ")?;
+            }
+            _ => {
+                fold(n, writer, state)?;
+            }
+        }
+    }
+    state.new_line();
+    Ok(())
+}
+
+fn format_callback_connection(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+
+    for s in sub {
+        state.skip_all_whitespace = true;
+        match s.kind() {
+            SyntaxKind::FatArrow => {
+                state.insert_whitespace(" ");
+                fold(s, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            SyntaxKind::Comma => {
+                fold(s, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            _ => fold(s, writer, state)?,
+        }
+    }
+    state.new_line();
+    Ok(())
+}
+
+fn format_qualified_name(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    for n in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
+        fold(n, writer, state)?;
+    }
+    /*if !node
+        .last_token()
+        .and_then(|x| x.next_token())
+        .map(|x| {
+            matches!(
+                x.kind(),
+                SyntaxKind::LParent
+                    | SyntaxKind::RParent
+                    | SyntaxKind::Semicolon
+                    | SyntaxKind::Comma
+            )
+        })
+        .unwrap_or(false)
+    {
+        state.insert_whitespace(" ");
+    } else {
+        state.skip_all_whitespace = true;
+    }*/
     Ok(())
 }
