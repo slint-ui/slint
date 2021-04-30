@@ -507,11 +507,11 @@ export ComboBox := Rectangle {
         VerticalLayout {
             spacing: 0px;
             for value[idx] in root.model: Rectangle {
-                background: idx == root.current_index ? Palette.highlight_background : Palette.base_background_color;
+                background: item_area.has_hover ? Palette.highlight_background : Palette.base_background_color;
                 VerticalLayout { // FIXME: ideally this layout shouldn't be required
                     Text {
                         text: value;
-                        TouchArea {
+                        item_area := TouchArea {
                             width: 100%;
                             height: 100%;
                             clicked => {
