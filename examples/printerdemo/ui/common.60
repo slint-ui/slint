@@ -247,10 +247,11 @@ export CheckBox := Rectangle {
     property <bool> checked;
     property <string> text;
 
+    height: 32px;
+
     HorizontalLayout {
         spacing: 12px;
         padding: 0;
-        height: 32px;
         SquareButton {
             img: checked ? @image-url("images/check.svg") : @image-url("");
             clicked => { checked = !checked; }
