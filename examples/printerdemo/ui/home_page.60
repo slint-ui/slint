@@ -85,6 +85,9 @@ export HomePage := Page {
         x: parent.width - width;
         width: 313px;
         printer_queue: root.printer_queue;
+        show_job_details(idx) => {
+            current_subpage = 1; // Not nice to hard-code the index here...
+        }
     }
 
     PrintPage {

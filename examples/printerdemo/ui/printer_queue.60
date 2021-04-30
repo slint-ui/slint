@@ -95,6 +95,7 @@ PrintDetails := GridLayout {
 
 NarrowPrintQueueElement := Rectangle {
     property <PrinterQueueItem> queue_item;
+    callback show_job_details();
 
     border-color: DemoPalette.control_outline_color;
     border-radius: 14px;
@@ -122,6 +123,12 @@ NarrowPrintQueueElement := Rectangle {
             animate expanded_opacity { duration: 200ms; }
         }
     ]
+
+    TouchArea {
+        clicked => {
+            expanded = !expanded;
+        }
+    }
 
     Rectangle {
         height: 100%;
@@ -173,6 +180,9 @@ NarrowPrintQueueElement := Rectangle {
                 PushButton {
                     opacity: expanded_opacity;
                     text: "More   ";
+                    clicked => {
+                        root.show_job_details();
+                    }
                 }
                 Rectangle {
                     horizontal-stretch: 0;
@@ -181,15 +191,10 @@ NarrowPrintQueueElement := Rectangle {
             }
         }
     }
-
-    TouchArea {
-        clicked => {
-            expanded = !expanded;
-        }
-    }
 }
 
 NarrowPrinterQueueList := Flickable {
+    callback show_job_details(int);
     property <[PrinterQueueItem]> printer_queue;
     VerticalLayout {
         alignment: start;
@@ -199,6 +204,9 @@ NarrowPrinterQueueList := Flickable {
         for queue_item[idx] in root.printer_queue: NarrowPrintQueueElement {
             width: root.width;
             queue_item: queue_item;
+            show_job_details => {
+                root.show_job_details(idx)
+            }
         }
     }
 }
@@ -333,6 +341,7 @@ export WidePrinterQueueList := Flickable {
 
 export PrinterQueue := Rectangle {
     property <[PrinterQueueItem]> printer_queue <=> queue_list.printer_queue;
+    callback show_job_details(int);
 
     border-radius: 27px;
     background: DemoPalette.night_mode ? DemoPalette.printer_action_background_color : #F4F6FF;
@@ -350,6 +359,9 @@ export PrinterQueue := Rectangle {
 
         queue_list := NarrowPrinterQueueList {
             width: root.width - 2*parent.padding; // FIXME why do we need this? bug in layout?
+            show_job_details(idx) => {
+                root.show_job_details(idx)
+            }
         }
     }
 }
