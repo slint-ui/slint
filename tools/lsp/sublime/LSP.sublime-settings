@@ -1,0 +1,21 @@
+{
+	"clients":
+	{
+		"sixtyfps":
+		{
+			"command":
+			[
+				"/home/YOUR_USER/.cargo/bin/sixtyfps-lsp"
+			],
+			"languageId": "sixtyfps",
+			"scopes":
+			[
+				"source.sixtyfps"
+			],
+			"syntaxes":
+			[
+				"Packages/User/SixtyFPS.sublime-syntax"
+			]
+		}
+	}
+}

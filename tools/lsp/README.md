@@ -42,7 +42,7 @@ mkdir -p ~/.local/share/org.kde.syntax-highlighting/syntax/
 wget https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sixtyfps.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/sixtyfps.xml
 ```
 
-The, to setup the LSP, install the sixtyfps-lsp binary
+Then, to setup the LSP, install the sixtyfps-lsp binary
 
 ```
 cargo install sixtyfps-lsp
@@ -118,3 +118,28 @@ exists under the `language` server section:
   }
 }
 ```
+
+## Sublime Text
+
+To setup the lsp:
+1. Install the sixtyfps-lsp binary with `cargo install` as explained in the *Generic Usage* section above.
+2. Using Package Control in Sublime Text, install the LSP package (sublimelsp/LSP)
+3. Download the SixtyFPS syntax highlighting file into your User Package folder,
+   e.g. on macOS `~/Library/Application Support/Sublime Text 3/Packages/User/` :
+   https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/SixtyFPS.sublime-syntax
+4. Download the LSP package settings file into your User Package folder:
+   https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/LSP.sublime-settings
+5. Modify the sixtyfps command path in `LSP.sublime-settings` to point to the cargo instalation path in your home folder (**Replace YOUR_USER by your username**):
+   `"command": ["/home/YOUR_USER/.cargo/bin/sixtyfps-lsp"]`
+6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Lanuage Server in Project" from Sublime's Command Palette to allow the server to start.
+7. Open a .60 file - if the server starts its name will be in the left side of the status bar.
+
+### Enabling Live Preview
+The Live Preview function can normally be activated using LSP "Code Actions",
+but the Sublime Text LSP plugin has limited support for actions not associated to diagnostic reports.
+
+In order to work around this limitation to start the Live Preview, it's also possible to do so through an LSP "Execute Command" request,
+for which the root .60 file path must be passed as a parameter.
+To do this, copy the provided command palette file in your User Package folder and provide an entry for each file you want to preview:
+https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/SixtyFPS.sublime-commands
+Then select that command through the command palette.
