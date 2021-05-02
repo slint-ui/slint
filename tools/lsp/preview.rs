@@ -120,6 +120,12 @@ pub fn quit_ui_event_loop() {
     sixtyfps_rendering_backend_default::backend().post_event(Box::new(|| {
         sixtyfps_rendering_backend_default::backend().quit_event_loop();
     }));
+
+    // Make sure then sender channel gets dropped
+    if let Some(cache) = CONTENT_CACHE.get() {
+        let mut cache = cache.lock().unwrap();
+        cache.sender = None;
+    };
 }
 
 pub enum PostLoadBehavior {
