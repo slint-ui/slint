@@ -15,6 +15,11 @@ directly from the market place.
 1. Build or install the lsp binary:
 
 ```sh
+cargo install sixtyfps-lsp
+```
+for the released version. Or, to install the develoment version:
+
+```sh
 cargo install sixtyfps-lsp --git https://github.com/sixtyfpsui/sixtyfps
 ```
 
@@ -40,7 +45,7 @@ wget https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sixt
 The, to setup the LSP, install the sixtyfps-lsp binary
 
 ```
-cargo install sixtyfps-lsp --git https://github.com/sixtyfpsui/sixtyfps
+cargo install sixtyfps-lsp
 ```
 
 Go to *Settings > Configure Kate*. In the *Plugins* section, enable the *LSP-Client* plugin.

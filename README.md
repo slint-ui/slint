@@ -19,7 +19,7 @@ Our design goals are:
 
 It's possible to create user interfaces from C++, Rust, or NodeJS. These user interfaces can be compiled and
 shown on Linux, macOS, Windows, and in Web Browsers (using WebAssembly). You can also try out SixtyFPS using
-our [experimental online editor](https://sixtyfps.io/editor).
+our [online editor](https://sixtyfps.io/editor).
 
 We plan to support the development of this project through dual-licensing and services. We seek feedback
 from potential customers or users.
@@ -33,6 +33,7 @@ from potential customers or users.
 - [Architecture](#architecture)
   - [Compiler](#compiler)
   - [Runtime](#runtime)
+  - [Tooling](#tooling)
 - [Contributions](#contributions)
 - [License](#license)
 - [Frequently Asked Questions](#frequently-asked-questions)
@@ -117,6 +118,17 @@ Rendering backends and styles are configurable at compile time. Current there ar
  * The `gl` backend uses OpenGL ES 2.0 for rendering.
  * The `qt` backend uses Qt's QStyle to achieve native looking widgets. In the future it could also use
    QPainter.
+
+### Tooling
+
+We have a few tools to help with the development of .60 files:
+ - A [**LSP Server**](./tools/lsp) that adds things like auto-complete and live preview of the .60 files to many editors
+ - It is bundled in a [**Visual Studio Code Extension**](./vscode_extension) accessible from the market place
+ - A [**viewer**](./tools/viewer) tool which display the .60 files. With the `--auto-reload` argument, makes it easy to preview
+   your UI as you are working it (when using the LSP preview is not possible)
+ - An [**online editor**](https://sixtyfps.io/editor) to try out .60 syntax without installing anything ([sources](./tools/online_editor))
+ - An [**updater**](./tools/syntax_updater) to convert the .60 files from previous version to the newer version
+ - An experimental [**Figma importer**](./tools/figma_import)
 
 ## Contributions
 
