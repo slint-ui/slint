@@ -27,10 +27,11 @@ TestCase := Window {
 
         Rectangle {
             background: blue;
+            border-radius: 10px;
             drop-shadow-offset-x: 10px;
             drop-shadow-offset-y: 10px;
             drop-shadow-color: #00000080;
-            drop-shadow-blur: 5px;
+            drop-shadow-blur: 5;
         }
 
         for r[i] in [
@@ -41,7 +42,28 @@ TestCase := Window {
             drop-shadow-offset-x: 10px;
             drop-shadow-offset-y: 10px;
             drop-shadow-color: #00000080;
-            drop-shadow-blur: 5px;
+            drop-shadow-blur: 5;
+        }
+
+        Rectangle {
+            clip: true;
+            border-color: black;
+            border-width: 1px;
+            border-radius: 2px;
+
+            Rectangle {
+                x: parent.width / 2;
+                y: parent.height / 2;
+                width: parent.width / 2;
+                height: parent.height / 4;
+
+                background: blue;
+
+                drop-shadow-offset-x: 10px;
+                drop-shadow-offset-y: 10px;
+                drop-shadow-color: #249a04;
+                drop-shadow-blur: 3;
+            }
         }
     }
 
@@ -58,7 +80,7 @@ TestCase := Window {
         drop-shadow-offset-x: 5px;
         drop-shadow-offset-y: 5px;
         drop-shadow-color: #00000080;
-        drop-shadow-blur: 5px;
+        drop-shadow-blur: 5;
     }
 }
 
