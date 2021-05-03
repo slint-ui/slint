@@ -16,6 +16,7 @@ use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem};
 use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_corelib::layout as core_layout;
+use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::ComponentWindow;
 use std::convert::TryInto;
@@ -32,6 +33,18 @@ pub(crate) fn compute_layout_info(lay: &Layout, local_context: &mut EvalLocalCon
         Layout::GridLayout(grid_layout) => {
             let (cells, padding, spacing) = grid_layout_data(grid_layout, component, &expr_eval);
             core_layout::grid_layout_info(&Slice::from(cells.as_slice()), spacing, &padding).into()
+        }
+        Layout::BoxLayout(box_layout) => {
+            let (cells, padding, spacing, alignment) =
+                box_layout_data(box_layout, component, &expr_eval, None);
+            core_layout::box_layout_info(
+                &Slice::from(cells.as_slice()),
+                spacing,
+                &padding,
+                alignment,
+                box_layout.is_horizontal,
+            )
+            .into()
         }
         _ => todo!(),
     }
@@ -72,6 +85,38 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
                 cells: Slice::from(cells.as_slice()),
             }))
         }
+        Layout::BoxLayout(box_layout) => {
+            let mut repeated_indices = Vec::new();
+            let (cells, padding, spacing, alignment) =
+                box_layout_data(box_layout, component, &expr_eval, Some(&mut repeated_indices));
+            core_layout::solve_box_layout(
+                &core_layout::BoxLayoutData {
+                    width: box_layout
+                        .geometry
+                        .rect
+                        .width_reference
+                        .as_ref()
+                        .map(expr_eval)
+                        .unwrap_or(0.),
+                    height: box_layout
+                        .geometry
+                        .rect
+                        .height_reference
+                        .as_ref()
+                        .map(expr_eval)
+                        .unwrap_or(0.),
+                    x: 0.,
+                    y: 0.,
+                    spacing,
+                    padding: &padding,
+                    alignment,
+                    cells: Slice::from(cells.as_slice()),
+                },
+                box_layout.is_horizontal,
+                Slice::from(repeated_indices.as_slice()),
+            )
+            .into()
+        }
         _ => todo!(),
     }
 }
@@ -106,6 +151,65 @@ fn grid_layout_data(
         bottom: grid_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
     };
     (cells, padding, spacing)
+}
+
+fn box_layout_data(
+    box_layout: &sixtyfps_compilerlib::layout::BoxLayout,
+    component: InstanceRef,
+    expr_eval: &impl Fn(&NamedReference) -> f32,
+    mut repeater_indices: Option<&mut Vec<u32>>,
+) -> (Vec<core_layout::BoxLayoutCellData>, core_layout::Padding, f32, core_layout::LayoutAlignment)
+{
+    let window = eval::window_ref(component).unwrap();
+    let mut cells = Vec::with_capacity(box_layout.elems.len());
+    for cell in &box_layout.elems {
+        if cell.element.borrow().repeated.is_some() {
+            generativity::make_guard!(guard);
+            let rep = crate::dynamic_component::get_repeater_by_name(
+                component,
+                cell.element.borrow().id.as_str(),
+                guard,
+            );
+            rep.0.as_ref().ensure_updated(|| {
+                let instance = crate::dynamic_component::instantiate(
+                    rep.1.clone(),
+                    Some(component.borrow()),
+                    window.clone(),
+                );
+                instance.run_setup_code();
+                instance
+            });
+            let component_vec = rep.0.as_ref().components_vec();
+            if let Some(ri) = repeater_indices.as_mut() {
+                ri.push(cells.len() as _);
+                ri.push(component_vec.len() as _);
+            }
+            cells.extend(component_vec.iter().map(|x| x.as_pin_ref().box_layout_data()));
+        } else {
+            let mut layout_info = get_layout_info(cell, component, &window);
+            fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
+            cells.push(core_layout::BoxLayoutCellData { constraint: layout_info });
+        }
+    }
+    let spacing = box_layout.geometry.spacing.as_ref().map_or(0., expr_eval);
+    let padding = core_layout::Padding {
+        left: box_layout.geometry.padding.left.as_ref().map_or(0., expr_eval),
+        right: box_layout.geometry.padding.right.as_ref().map_or(0., expr_eval),
+        top: box_layout.geometry.padding.top.as_ref().map_or(0., expr_eval),
+        bottom: box_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
+    };
+    let alignment = box_layout
+        .geometry
+        .alignment
+        .as_ref()
+        .map(|nr| {
+            eval::load_property(component, &nr.element(), nr.name())
+                .unwrap()
+                .try_into()
+                .unwrap_or_default()
+        })
+        .unwrap_or_default();
+    (cells, padding, spacing, alignment)
 }
 
 pub(crate) fn fill_layout_info_constraints(

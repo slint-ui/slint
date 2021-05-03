@@ -540,10 +540,15 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             local_context.return_value.clone().unwrap()
         }
 
-        Expression::LayoutCacheAccess { layout_cache_prop, index } => {
+        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             let cache = load_property_helper(local_context.component_instance, &layout_cache_prop.element(), layout_cache_prop.name()).unwrap();
             if let Value::LayoutCache(cache) = cache {
-                Value::Number(cache[*index].into())
+                if let Some(ri) = repeater_index {
+                    let offset : usize = eval_expression(&ri, local_context).try_into().unwrap();
+                    Value::Number(cache[(cache[*index] as usize) + offset].into())
+                } else {
+                    Value::Number(cache[*index].into())
+                }
             } else {
                 panic!("invalid layout cache")
             }

@@ -162,33 +162,8 @@ impl RepeatedComponent for ErasedComponentBox {
         }
     }
 
-    fn box_layout_data<'a>(self: Pin<&'a Self>) -> BoxLayoutCellData<'a> {
-        generativity::make_guard!(guard);
-        let s = self.unerase(guard);
-
-        let root_item = &s.component_type.original.root_element.clone();
-        let get_prop = |name: &str| {
-            let PropertyLookupResult { resolved_name, property_type } =
-                root_item.borrow().lookup_property(name);
-            if property_type == Type::LogicalLength {
-                let nr = NamedReference::new(root_item, resolved_name.as_ref());
-                let p = get_property_ptr(&nr, s.borrow_instance());
-                // Safety: assuming get_property_ptr returned a valid pointer,
-                // we know that `Type::LogicalLength` is a property of type `f32`
-                Some(unsafe { &*(p as *const Property<f32>) })
-            } else {
-                None
-            }
-        };
-
-        let root_c = &s.component_type.original.root_constraints.borrow();
-        BoxLayoutCellData {
-            constraint: self.borrow().as_ref().layout_info(),
-            x: get_prop("x"),
-            y: get_prop("y"),
-            width: if root_c.fixed_width { None } else { get_prop("width") },
-            height: if root_c.fixed_height { None } else { get_prop("height") },
-        }
+    fn box_layout_data(self: Pin<&Self>) -> BoxLayoutCellData {
+        BoxLayoutCellData { constraint: self.borrow().as_ref().layout_info() }
     }
 }
 

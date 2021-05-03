@@ -249,7 +249,6 @@ WidePrintQueueElement := Rectangle {
         spacing: 0px;
 
         VerticalLayout {
-            colspan: 2;
             padding: 0px;
             spacing: 0px;
             HorizontalLayout {
@@ -289,7 +288,6 @@ WidePrintQueueElement := Rectangle {
             Rectangle {}
 
             HorizontalLayout {
-                colspan: 2;
                 spacing: 14px;
                 padding: 0px;
                 horizontal-stretch: 1;

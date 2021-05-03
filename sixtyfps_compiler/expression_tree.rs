@@ -402,6 +402,9 @@ pub enum Expression {
     LayoutCacheAccess {
         layout_cache_prop: NamedReference,
         index: usize,
+        /// When set, this is the index within a repeater, and the index is then the location of another offset.
+        /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index]`
+        repeater_index: Option<Box<Expression>>,
     },
     ComputeLayoutInfo(crate::layout::Layout),
     SolveLayout(crate::layout::Layout),
@@ -1199,8 +1202,14 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "return ")?;
             e.as_ref().map(|e| pretty_print(f, e)).unwrap_or(Ok(()))
         }
-        Expression::LayoutCacheAccess { layout_cache_prop, index } => {
-            write!(f, "{:?}[{}]", layout_cache_prop, index)
+        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
+            write!(
+                f,
+                "{:?}[{}{}]",
+                layout_cache_prop,
+                index,
+                if repeater_index.is_some() { " + $index" } else { "" }
+            )
         }
         Expression::ComputeLayoutInfo(l) => write!(f, "info({:?})", l),
         Expression::SolveLayout(l) => write!(f, "solve({:?})", l),

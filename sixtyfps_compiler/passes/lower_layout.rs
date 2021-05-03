@@ -67,8 +67,8 @@ fn lower_element_layout(
     match base_type.name.as_str() {
         "Row" => panic!("Error caught at element lookup time"),
         "GridLayout" => lower_grid_layout(component, elem, style_metrics, diag),
-        "HorizontalLayout" => lower_grid_layout(component, elem, style_metrics, diag),
-        "VerticalLayout" => lower_grid_layout(component, elem, style_metrics, diag),
+        "HorizontalLayout" => lower_box_layout(component, elem, style_metrics, diag, true),
+        "VerticalLayout" => lower_box_layout(component, elem, style_metrics, diag, false),
         /*"HorizontalLayout" => &lower_box_layout,
         "VerticalLayout" => &lower_box_layout,
         "PathLayout" => &lower_path_layout,*/
@@ -134,9 +134,6 @@ fn lower_grid_layout(
         geometry: LayoutGeometry::new(&grid_layout_element, style_metrics),
     };
 
-    // FIXME: remove
-    let is_vertical = grid_layout_element.borrow().base_type.to_string() == "VerticalLayout";
-
     let layout_cache_prop = create_new_prop(grid_layout_element, "layout_cache", Type::LayoutCache);
     let layout_info_prop = create_new_prop(grid_layout_element, "layout_info", layout_info_type());
 
@@ -158,7 +155,7 @@ fn lower_grid_layout(
             }
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for x in row_children {
-                grid.add_element(&x, (&mut row, &mut col), diag, &layout_cache_prop);
+                grid.add_element(&x, (&mut row, &mut col), &layout_cache_prop, diag);
                 col += 1;
                 collected_children.push(x);
             }
@@ -168,12 +165,8 @@ fn lower_grid_layout(
             }
             component.optimized_elements.borrow_mut().push(layout_child);
         } else {
-            grid.add_element(&layout_child, (&mut row, &mut col), diag, &layout_cache_prop);
-            if is_vertical {
-                row += 1
-            } else {
-                col += 1
-            };
+            grid.add_element(&layout_child, (&mut row, &mut col), &layout_cache_prop, diag);
+            col += 1;
             collected_children.push(layout_child);
         }
     }
@@ -186,32 +179,82 @@ fn lower_grid_layout(
         layout_info_prop.name().into(),
         Expression::ComputeLayoutInfo(Layout::GridLayout(grid)).into(),
     );
+    grid_layout_element.borrow_mut().layout_info_prop = Some(layout_info_prop);
+}
+
+impl GridLayout {
+    fn add_element(
+        &mut self,
+        item_element: &ElementRc,
+        (row, col): (&mut u16, &mut u16),
+        layout_cache_prop: &NamedReference,
+        diag: &mut BuildDiagnostics,
+    ) {
+        let mut get_const_value = |name: &str| {
+            item_element
+                .borrow_mut()
+                .bindings
+                .remove(name)
+                .and_then(|e| eval_const_expr(&e.expression, name, &e, diag))
+        };
+        let colspan = get_const_value("colspan").unwrap_or(1);
+        let rowspan = get_const_value("rowspan").unwrap_or(1);
+        if let Some(r) = get_const_value("row") {
+            *row = r;
+            *col = 0;
+        }
+        if let Some(c) = get_const_value("col") {
+            *col = c;
+        }
+
+        let index = self.elems.len();
+        if let Some(layout_item) = create_layout_item(&item_element, index, layout_cache_prop, diag)
+        {
+            self.elems.push(GridLayoutElement {
+                col: *col,
+                row: *row,
+                colspan,
+                rowspan,
+                item: layout_item,
+            });
+        }
+    }
 }
 
 fn lower_box_layout(
-    component: &Rc<Component>,
+    _component: &Rc<Component>,
     layout_element: &ElementRc,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
-) -> Option<Layout> {
-    let is_horizontal = layout_element.borrow().base_type.to_string() == "HorizontalLayout";
+    is_horizontal: bool,
+) {
     let mut layout = BoxLayout {
         is_horizontal,
         elems: Default::default(),
         geometry: LayoutGeometry::new(&layout_element, style_metrics),
     };
+
+    let layout_cache_prop = create_new_prop(layout_element, "layout_cache", Type::LayoutCache);
+    let layout_info_prop = create_new_prop(layout_element, "layout_info", layout_info_type());
+
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
-    for layout_child in layout_children {
-        if let Some(item) = create_layout_item(&layout_child, diag) {
+    for layout_child in &layout_children {
+        if let Some(item) =
+            create_layout_item(layout_child, layout.elems.len(), &layout_cache_prop, diag)
+        {
             layout.elems.push(item)
         }
     }
-    component.optimized_elements.borrow_mut().push(layout_element.clone());
-    if !layout.elems.is_empty() {
-        Some(layout.into())
-    } else {
-        None
-    }
+    layout_element.borrow_mut().children = layout_children;
+    layout_cache_prop.element().borrow_mut().bindings.insert(
+        layout_cache_prop.name().into(),
+        Expression::SolveLayout(Layout::BoxLayout(layout.clone())).into(),
+    );
+    layout_info_prop.element().borrow_mut().bindings.insert(
+        layout_info_prop.name().into(),
+        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)).into(),
+    );
+    layout_element.borrow_mut().layout_info_prop = Some(layout_info_prop);
 }
 
 fn lower_path_layout(
@@ -259,7 +302,12 @@ fn lower_path_layout(
 }
 
 /// Create a LayoutItem for the given `item_element`  returns None is the layout is empty
-fn create_layout_item(item_element: &ElementRc, diag: &mut BuildDiagnostics) -> Option<LayoutItem> {
+fn create_layout_item(
+    item_element: &ElementRc,
+    index: usize,
+    layout_cache_prop: &NamedReference,
+    diag: &mut BuildDiagnostics,
+) -> Option<LayoutItem> {
     let fix_explicit_percent = |prop: &str, item: &ElementRc| {
         if !item.borrow().bindings.get(prop).map_or(false, |b| b.ty() == Type::Percent) {
             return;
@@ -284,7 +332,7 @@ fn create_layout_item(item_element: &ElementRc, diag: &mut BuildDiagnostics) -> 
     let constraints = LayoutConstraints::new(item_element, diag);
 
     item_element.borrow_mut().child_of_layout = true;
-    if item_element.borrow().repeated.is_some() {
+    let repeater_index = if item_element.borrow().repeated.is_some() {
         let rep_comp = item_element.borrow().base_type.as_component().clone();
         fix_explicit_percent("width", &rep_comp.root_element);
         fix_explicit_percent("height", &rep_comp.root_element);
@@ -292,66 +340,33 @@ fn create_layout_item(item_element: &ElementRc, diag: &mut BuildDiagnostics) -> 
         *rep_comp.root_constraints.borrow_mut() =
             LayoutConstraints::new(&rep_comp.root_element, diag);
         rep_comp.root_element.borrow_mut().child_of_layout = true;
+        Some(Expression::RepeaterIndexReference { element: Rc::downgrade(item_element) })
+    } else {
+        None
     };
-    Some(LayoutItem { element: item_element.clone(), constraints })
-}
 
-impl GridLayout {
-    fn add_element(
-        &mut self,
-        item_element: &ElementRc,
-        (row, col): (&mut u16, &mut u16),
-        diag: &mut BuildDiagnostics,
-        layout_cache_prop: &NamedReference,
-    ) {
-        let mut get_const_value = |name: &str| {
-            item_element
-                .borrow_mut()
-                .bindings
-                .remove(name)
-                .and_then(|e| eval_const_expr(&e.expression, name, &e, diag))
-        };
-        let colspan = get_const_value("colspan").unwrap_or(1);
-        let rowspan = get_const_value("rowspan").unwrap_or(1);
-        if let Some(r) = get_const_value("row") {
-            *row = r;
-            *col = 0;
-        }
-        if let Some(c) = get_const_value("col") {
-            *col = c;
-        }
-
-        if let Some(layout_item) = create_layout_item(&item_element, diag) {
-            let index = self.elems.len();
-            //FIXME: report errors if there is already bindings on x or y
-            let set_prop_from_cache = |prop: &str, offset: usize| {
-                item_element.borrow_mut().bindings.insert(
-                    prop.into(),
-                    Expression::LayoutCacheAccess {
-                        layout_cache_prop: layout_cache_prop.clone(),
-                        index: index * 4 + offset,
-                    }
-                    .into(),
-                );
-            };
-            set_prop_from_cache("x", 0);
-            set_prop_from_cache("y", 1);
-            if !layout_item.constraints.fixed_width {
-                set_prop_from_cache("width", 2);
+    //FIXME: report errors if there is already bindings on x or y
+    let set_prop_from_cache = |prop: &str, offset: usize| {
+        item_element.borrow_mut().bindings.insert(
+            prop.into(),
+            Expression::LayoutCacheAccess {
+                layout_cache_prop: layout_cache_prop.clone(),
+                index: index * 4 + offset,
+                repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
             }
-            if !layout_item.constraints.fixed_height {
-                set_prop_from_cache("height", 3);
-            }
-
-            self.elems.push(GridLayoutElement {
-                col: *col,
-                row: *row,
-                colspan,
-                rowspan,
-                item: layout_item,
-            });
-        }
+            .into(),
+        );
+    };
+    set_prop_from_cache("x", 0);
+    set_prop_from_cache("y", 1);
+    if !constraints.fixed_width {
+        set_prop_from_cache("width", 2);
     }
+    if !constraints.fixed_height {
+        set_prop_from_cache("height", 3);
+    }
+
+    Some(LayoutItem { element: item_element.clone(), constraints })
 }
 
 fn eval_const_expr(
