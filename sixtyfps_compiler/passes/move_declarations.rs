@@ -93,7 +93,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
 
     component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
 
-    component.layouts.borrow_mut().visit_named_references(&mut |e| fixup_reference(e));
+    component.root_constraints.borrow_mut().visit_named_references(&mut |e| fixup_reference(e));
     component.popup_windows.borrow_mut().iter_mut().for_each(|p| {
         fixup_reference(&mut p.x);
         fixup_reference(&mut p.y);

@@ -154,6 +154,7 @@ fn default_value_for_type(ty: &Type) -> Value {
         Type::Model => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathElements => Value::PathElements(Default::default()),
+        Type::LayoutCache => Value::LayoutCache(Default::default()),
         Type::ElementReference
         | Type::Builtin(_)
         | Type::Component(_)

@@ -78,6 +78,7 @@ mod api;
 mod dynamic_component;
 mod dynamic_type;
 mod eval;
+mod eval_layout;
 mod global_component;
 mod value_model;
 

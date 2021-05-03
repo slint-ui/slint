@@ -398,6 +398,13 @@ pub enum Expression {
     EnumerationValue(EnumerationValue),
 
     ReturnStatement(Option<Box<Expression>>),
+
+    LayoutCacheAccess {
+        layout_cache_prop: NamedReference,
+        index: usize,
+    },
+    ComputeLayoutInfo(crate::layout::Layout),
+    SolveLayout(crate::layout::Layout),
 }
 
 impl Default for Expression {
@@ -530,6 +537,9 @@ impl Expression {
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
+            Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
+            Expression::ComputeLayoutInfo(_) => crate::layout::layout_info_type(),
+            Expression::SolveLayout(_) => Type::LayoutCache,
         }
     }
 
@@ -613,6 +623,9 @@ impl Expression {
             Expression::ReturnStatement(expr) => {
                 expr.as_deref().map(|expr| visitor(expr));
             }
+            Expression::LayoutCacheAccess { .. } => {}
+            Expression::ComputeLayoutInfo(_) => {}
+            Expression::SolveLayout(_) => {}
         }
     }
 
@@ -695,6 +708,9 @@ impl Expression {
             Expression::ReturnStatement(expr) => {
                 expr.as_deref_mut().map(|expr| visitor(expr));
             }
+            Expression::LayoutCacheAccess { .. } => {}
+            Expression::ComputeLayoutInfo(_) => {}
+            Expression::SolveLayout(_) => {}
         }
     }
 
@@ -751,6 +767,10 @@ impl Expression {
             Expression::ReturnStatement(expr) => {
                 expr.as_ref().map_or(true, |expr| expr.is_constant())
             }
+
+            Expression::LayoutCacheAccess { .. } => false,
+            Expression::ComputeLayoutInfo(_) => false,
+            Expression::SolveLayout(_) => false,
         }
     }
 
@@ -915,7 +935,8 @@ impl Expression {
             | Type::Callback { .. }
             | Type::Function { .. }
             | Type::Void
-            | Type::ElementReference => Expression::Invalid,
+            | Type::ElementReference
+            | Type::LayoutCache => Expression::Invalid,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::Int32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(String::new()),
@@ -970,7 +991,7 @@ impl Expression {
 }
 
 /// The expression in the Element::binding hash table
-#[derive(Default, Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
+#[derive(Debug, Clone, derive_more::Deref, derive_more::DerefMut)]
 pub struct BindingExpression {
     #[deref]
     #[deref_mut]
@@ -979,6 +1000,8 @@ pub struct BindingExpression {
     pub span: Option<SourceLocation>,
     /// How deep is this binding declared in the hierarchy. When two binding are conflicting
     /// for the same priority (because of two way binding), the lower priority wins.
+    /// The priority starts at 1, and each level of inlining adds one to the priority.
+    /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
 }
 
@@ -993,7 +1016,7 @@ impl BindingExpression {
         Self {
             expression: Expression::Uncompiled(node.clone()),
             span: Some(node.to_source_location()),
-            priority: 0,
+            priority: 1,
         }
     }
 }
@@ -1176,6 +1199,11 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "return ")?;
             e.as_ref().map(|e| pretty_print(f, e)).unwrap_or(Ok(()))
         }
+        Expression::LayoutCacheAccess { layout_cache_prop, index } => {
+            write!(f, "{:?}[{}]", layout_cache_prop, index)
+        }
+        Expression::ComputeLayoutInfo(l) => write!(f, "info({:?})", l),
+        Expression::SolveLayout(l) => write!(f, "solve({:?})", l),
     }
 }
 

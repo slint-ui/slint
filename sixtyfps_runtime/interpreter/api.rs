@@ -111,6 +111,8 @@ pub enum Value {
     /// An enumation, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
     /// FIXME: consider representing that with a number?
     EnumerationValue(String, String),
+    #[doc(hidden)]
+    LayoutCache(SharedVector<f32>),
 }
 
 impl Value {
@@ -153,6 +155,7 @@ impl PartialEq for Value {
             Value::EnumerationValue(lhs_name, lhs_value) => {
                 matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
             }
+            Value::LayoutCache(lhs) => matches!(other, Value::LayoutCache(rhs) if lhs == rhs),
         }
     }
 }
@@ -172,6 +175,7 @@ impl std::fmt::Debug for Value {
             Value::PathElements(e) => write!(f, "Value::PathElements({:?})", e),
             Value::EasingCurve(c) => write!(f, "Value::EasingCurve({:?})", c),
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
+            Value::LayoutCache(v) => write!(f, "Value::LayoutCache({:?})", v),
         }
     }
 }
@@ -213,6 +217,7 @@ declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathElements => [PathData]);
 declare_value_conversion!(EasingCurve => [sixtyfps_corelib::animations::EasingCurve]);
+declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 
 /// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
 macro_rules! declare_value_struct_conversion {
@@ -245,6 +250,11 @@ declare_value_struct_conversion!(struct sixtyfps_corelib::model::StandardListVie
 declare_value_struct_conversion!(struct sixtyfps_corelib::properties::StateInfo { current_state, previous_state, change_time });
 declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyboardModifiers { control, alt, shift, meta });
 declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyEvent { event_type, text, modifiers });
+declare_value_struct_conversion!(struct sixtyfps_corelib::layout::LayoutInfo {
+    min_width, max_width, min_height, max_height,
+    min_width_percent, max_width_percent, min_height_percent, max_height_percent,
+    preferred_width, preferred_height, horizontal_stretch, vertical_stretch,
+});
 
 /// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///

@@ -11,7 +11,7 @@ LICENSE END */
 //!
 //! Currently this is a very basic implementation
 
-use crate::{slice::Slice, Property};
+use crate::{slice::Slice, Property, SharedVector};
 
 type Coord = f32;
 
@@ -257,24 +257,21 @@ pub struct GridLayoutData<'a> {
     pub y: Coord,
     pub spacing: Coord,
     pub padding: &'a Padding,
-    pub cells: Slice<'a, GridLayoutCellData<'a>>,
+    pub cells: Slice<'a, GridLayoutCellData>,
 }
 
 #[repr(C)]
 #[derive(Default, Debug)]
-pub struct GridLayoutCellData<'a> {
+pub struct GridLayoutCellData {
     pub col: u16,
     pub row: u16,
     pub colspan: u16,
     pub rowspan: u16,
     pub constraint: LayoutInfo,
-    pub x: Option<&'a Property<Coord>>,
-    pub y: Option<&'a Property<Coord>>,
-    pub width: Option<&'a Property<Coord>>,
-    pub height: Option<&'a Property<Coord>>,
 }
 
-pub fn solve_grid_layout(data: &GridLayoutData) {
+/// return, an array which is of siz `data.cells.len() * 4` which for each cell we give the x, y, width, height
+pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
     let (mut num_col, mut num_row) = (0, 0);
     for cell in data.cells.iter() {
         num_row = num_row.max(cell.row + cell.rowspan);
@@ -282,7 +279,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) {
     }
 
     if num_col < 1 || num_row < 1 {
-        return;
+        return Default::default();
     }
 
     let mut row_layout_data = vec![grid_internal::LayoutData::default(); num_row as usize];
@@ -345,30 +342,28 @@ pub fn solve_grid_layout(data: &GridLayoutData) {
         data.width - (data.padding.left + data.padding.right),
         data.spacing,
     );
+    let mut result = SharedVector::with_capacity(4 * data.cells.len());
     for cell in data.cells.iter() {
         let rdata = &row_layout_data[cell.row as usize];
         let cdata = &col_layout_data[cell.col as usize];
-        cell.x.map(|p| p.set(cdata.pos));
-        cell.width.map(|p| {
-            p.set({
-                let first_cell = &col_layout_data[cell.col as usize];
-                let last_cell = &col_layout_data[cell.col as usize + cell.colspan as usize - 1];
-                last_cell.pos + last_cell.size - first_cell.pos
-            })
+        result.push(cdata.pos);
+        result.push(rdata.pos);
+        result.push({
+            let first_cell = &col_layout_data[cell.col as usize];
+            let last_cell = &col_layout_data[cell.col as usize + cell.colspan as usize - 1];
+            last_cell.pos + last_cell.size - first_cell.pos
         });
-        cell.y.map(|p| p.set(rdata.pos));
-        cell.height.map(|p| {
-            p.set({
-                let first_cell = &row_layout_data[cell.row as usize];
-                let last_cell = &row_layout_data[cell.row as usize + cell.rowspan as usize - 1];
-                last_cell.pos + last_cell.size - first_cell.pos
-            })
+        result.push({
+            let first_cell = &row_layout_data[cell.row as usize];
+            let last_cell = &row_layout_data[cell.row as usize + cell.rowspan as usize - 1];
+            last_cell.pos + last_cell.size - first_cell.pos
         });
     }
+    result
 }
 
 pub fn grid_layout_info<'a>(
-    cells: &Slice<'a, GridLayoutCellData<'a>>,
+    cells: &Slice<'a, GridLayoutCellData>,
     spacing: Coord,
     padding: &Padding,
 ) -> LayoutInfo {

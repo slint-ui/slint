@@ -17,6 +17,7 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::PropertyLookupResult;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
+use crate::layout::LayoutConstraints;
 use crate::namedreference::NamedReference;
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
@@ -188,8 +189,8 @@ pub struct Component {
     /// generator for symbol generation.
     pub embedded_file_resources: RefCell<HashMap<String, usize>>,
 
-    /// All layouts in this component
-    pub layouts: RefCell<crate::layout::LayoutVec>,
+    /// The layout constraints of the root item
+    pub root_constraints: RefCell<LayoutConstraints>,
 
     /// When creating this component and inserting "children", append them to the children of
     /// the element pointer to by this field.
@@ -332,6 +333,8 @@ pub struct Element {
 
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
+    /// The property pointing to the layout info
+    pub layout_info_prop: Option<NamedReference>,
 
     /// true if this Element is the fake Flickable viewport
     pub is_flickable_viewport: bool,
@@ -1233,6 +1236,9 @@ pub fn visit_all_named_references_in_element(
         match expr {
             Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
             Expression::TwoWayBinding(r, _) => vis(r),
+            Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
+            Expression::SolveLayout(l) => l.visit_named_references(vis),
+            Expression::ComputeLayoutInfo(l) => l.visit_named_references(vis),
             // This is not really a named reference, but the result is the same, it need to be updated
             // FIXME: this should probably be lowered into a PropertyReference
             Expression::RepeaterModelReference { element }
@@ -1272,6 +1278,9 @@ pub fn visit_all_named_references_in_element(
         }
     }
     elem.borrow_mut().repeated = repeated;
+    let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
+    layout_info_prop.as_mut().map(vis);
+    elem.borrow_mut().layout_info_prop = layout_info_prop;
 }
 
 /// Visit all named reference in this component and sub component
@@ -1287,7 +1296,7 @@ pub fn visit_all_named_references(
             let compo = elem.borrow().enclosing_component.clone();
             if !Weak::ptr_eq(parent_compo, &compo) {
                 let compo = compo.upgrade().unwrap();
-                compo.layouts.borrow_mut().visit_named_references(vis);
+                compo.root_constraints.borrow_mut().visit_named_references(vis);
                 compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
                     vis(&mut p.x);
                     vis(&mut p.y);

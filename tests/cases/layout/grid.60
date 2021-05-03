@@ -20,7 +20,7 @@ TestCase := Rectangle {
                 rowspan: 1;
             }
             rect2 := Rectangle {
-                background: red;
+                background: blue;
             }
         }
 

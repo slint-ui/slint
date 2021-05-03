@@ -9,16 +9,14 @@
 LICENSE END */
 //! Datastructures used to represent layouts in the compiler
 
-use crate::langtype::Type;
-use crate::object_tree::{ElementRc, PropertyDeclaration};
-use crate::{diagnostics::BuildDiagnostics, langtype::PropertyLookupResult};
-use crate::{
-    expression_tree::{Expression, NamedReference, Path},
-    object_tree::Component,
-};
-use std::{borrow::Cow, rc::Rc};
+use crate::diagnostics::BuildDiagnostics;
+use crate::expression_tree::{Expression, NamedReference, Path};
+use crate::langtype::{PropertyLookupResult, Type};
+use crate::object_tree::{Component, ElementRc};
 
-#[derive(Debug, derive_more::From)]
+use std::rc::Rc;
+
+#[derive(Clone, Debug, derive_more::From)]
 pub enum Layout {
     GridLayout(GridLayout),
     PathLayout(PathLayout),
@@ -37,7 +35,7 @@ impl Layout {
 
 impl Layout {
     /// Call the visitor for each NamedReference stored in the layout
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         match self {
             Layout::GridLayout(grid) => grid.visit_named_references(visitor),
             Layout::BoxLayout(l) => l.visit_named_references(visitor),
@@ -46,65 +44,29 @@ impl Layout {
     }
 }
 
-/// Holds a list of all layout in the component
-#[derive(derive_more::Deref, derive_more::DerefMut, Default, Debug)]
-pub struct LayoutVec {
-    #[deref]
-    #[deref_mut]
-    pub layouts: Vec<Layout>,
-    /// The index within the vector of the layout which applies to the root item, if any
-    pub main_layout: Option<usize>,
-    /// The constraints that applies to the root item
-    pub root_constraints: LayoutConstraints,
-}
-
-impl LayoutVec {
-    /// Call the visitor for each NamedReference stored in the layout
-    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
-        self.root_constraints.visit_named_references(visitor);
-        for sub in &mut self.layouts {
-            sub.visit_named_references(visitor);
-        }
-    }
-}
-
 /// An Item in the layout tree
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct LayoutItem {
-    pub element: Option<ElementRc>,
-    pub layout: Option<Layout>,
+    pub element: ElementRc,
     pub constraints: LayoutConstraints,
 }
 
 impl LayoutItem {
-    pub fn rect(&self) -> Cow<LayoutRect> {
-        if let Some(e) = &self.element {
-            let p = |unresolved_name: &str| {
-                let PropertyLookupResult { resolved_name, property_type } =
-                    e.borrow().lookup_property(unresolved_name);
-                if property_type == Type::LogicalLength {
-                    Some(NamedReference::new(e, resolved_name.as_ref()))
-                } else {
-                    None
-                }
-            };
-            Cow::Owned(LayoutRect {
-                x_reference: p("x"),
-                y_reference: p("y"),
-                width_reference: if !self.constraints.fixed_width { p("width") } else { None },
-                height_reference: if !self.constraints.fixed_height { p("height") } else { None },
-            })
-        } else if let Some(l) = &self.layout {
-            let mut r = Cow::Borrowed(l.rect());
-            if r.width_reference.is_some() && self.constraints.fixed_width {
-                r.to_mut().width_reference = None;
+    pub fn rect(&self) -> LayoutRect {
+        let p = |unresolved_name: &str| {
+            let PropertyLookupResult { resolved_name, property_type } =
+                self.element.borrow().lookup_property(unresolved_name);
+            if property_type == Type::LogicalLength {
+                Some(NamedReference::new(&self.element, resolved_name.as_ref()))
+            } else {
+                None
             }
-            if r.height_reference.is_some() && self.constraints.fixed_height {
-                r.to_mut().height_reference = None;
-            }
-            r
-        } else {
-            Cow::Owned(LayoutRect::default())
+        };
+        LayoutRect {
+            x_reference: p("x"),
+            y_reference: p("y"),
+            width_reference: if !self.constraints.fixed_width { p("width") } else { None },
+            height_reference: if !self.constraints.fixed_height { p("height") } else { None },
         }
     }
 }
@@ -119,17 +81,7 @@ pub struct LayoutRect {
 
 impl LayoutRect {
     pub fn install_on_element(element: &ElementRc) -> Self {
-        let install_prop = |name: &str| {
-            element.borrow_mut().property_declarations.insert(
-                name.to_string(),
-                PropertyDeclaration {
-                    property_type: Type::LogicalLength,
-                    node: None,
-                    ..Default::default()
-                },
-            );
-            Some(NamedReference::new(element, name))
-        };
+        let install_prop = |name: &str| Some(NamedReference::new(element, name));
 
         Self {
             x_reference: install_prop("x"),
@@ -147,7 +99,7 @@ impl LayoutRect {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct LayoutConstraints {
     pub minimum_width: Option<NamedReference>,
     pub maximum_width: Option<NamedReference>,
@@ -251,7 +203,7 @@ impl LayoutConstraints {
             .chain(self.vertical_stretch.as_ref().map(|x| (x, "vertical_stretch")))
     }
 
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.maximum_width.as_mut().map(|e| visitor(&mut *e));
         self.minimum_width.as_mut().map(|e| visitor(&mut *e));
         self.maximum_height.as_mut().map(|e| visitor(&mut *e));
@@ -264,7 +216,7 @@ impl LayoutConstraints {
 }
 
 /// An element in a GridLayout
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GridLayoutElement {
     pub col: u16,
     pub row: u16,
@@ -273,7 +225,7 @@ pub struct GridLayoutElement {
     pub item: LayoutItem,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Padding {
     pub left: Option<NamedReference>,
     pub right: Option<NamedReference>,
@@ -290,15 +242,12 @@ impl Padding {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct LayoutGeometry {
     pub rect: LayoutRect,
     pub spacing: Option<NamedReference>,
     pub alignment: Option<NamedReference>,
     pub padding: Padding,
-    /// This contains the reference of properties of the materialized properties who
-    /// don't have explicit binding and must therefore need to be set
-    pub materialized_constraints: LayoutConstraints,
 }
 
 impl LayoutGeometry {
@@ -307,10 +256,10 @@ impl LayoutGeometry {
         self.spacing.as_mut().map(|e| visitor(&mut *e));
         self.alignment.as_mut().map(|e| visitor(&mut *e));
         self.padding.visit_named_references(visitor);
-        self.materialized_constraints.visit_named_references(visitor);
     }
 }
 
+/// Return a named reference to a property if a binding is set on that property
 fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
     element.borrow().bindings.contains_key(name).then(|| NamedReference::new(element, name))
 }
@@ -337,11 +286,7 @@ fn init_fake_property(
 }
 
 impl LayoutGeometry {
-    pub fn new(
-        rect: LayoutRect,
-        layout_element: &ElementRc,
-        style_metrics: &Option<Rc<Component>>,
-    ) -> Self {
+    pub fn new(layout_element: &ElementRc, style_metrics: &Option<Rc<Component>>) -> Self {
         let style_metrics_element = style_metrics.as_ref().map(|comp| comp.root_element.clone());
 
         let padding = || {
@@ -358,10 +303,6 @@ impl LayoutGeometry {
         });
         let alignment = binding_reference(layout_element, "alignment");
 
-        init_fake_property(layout_element, "width", || rect.width_reference.clone());
-        init_fake_property(layout_element, "height", || rect.height_reference.clone());
-        init_fake_property(layout_element, "x", || rect.x_reference.clone());
-        init_fake_property(layout_element, "y", || rect.y_reference.clone());
         init_fake_property(layout_element, "padding_left", padding);
         init_fake_property(layout_element, "padding_right", padding);
         init_fake_property(layout_element, "padding_top", padding);
@@ -374,31 +315,14 @@ impl LayoutGeometry {
             bottom: binding_reference(layout_element, "padding_bottom").or_else(padding),
         };
 
-        // that's kind of the opposite of binding reference
-        let fake_property_ref = |name| {
-            (layout_element.borrow().property_declarations.contains_key(name)
-                && !layout_element.borrow().bindings.contains_key(name))
-            .then(|| NamedReference::new(layout_element, name))
-        };
-        let materialized_constraints = LayoutConstraints {
-            minimum_width: fake_property_ref("minimum_width"),
-            maximum_width: fake_property_ref("maximum_width"),
-            minimum_height: fake_property_ref("minimum_height"),
-            maximum_height: fake_property_ref("maximum_height"),
-            preferred_width: fake_property_ref("preferred_width"),
-            preferred_height: fake_property_ref("preferred_height"),
-            horizontal_stretch: fake_property_ref("horizontal_stretch"),
-            vertical_stretch: fake_property_ref("vertical_stretch"),
-            // these two have booleans have no meeing in this case
-            fixed_width: false,
-            fixed_height: false,
-        };
-        Self { rect, spacing, padding, alignment, materialized_constraints }
+        let rect = LayoutRect::install_on_element(layout_element);
+
+        Self { rect, spacing, padding, alignment }
     }
 }
 
 /// Internal representation of a grid layout
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GridLayout {
     /// All the elements will be layout within that element.
     pub elems: Vec<GridLayoutElement>,
@@ -409,7 +333,6 @@ pub struct GridLayout {
 impl GridLayout {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            cell.item.layout.as_mut().map(|x| x.visit_named_references(visitor));
             cell.item.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
@@ -417,7 +340,7 @@ impl GridLayout {
 }
 
 /// Internal representation of a BoxLayout
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BoxLayout {
     /// When true, this is a HorizonalLayout, otherwise a VerticalLayout
     pub is_horizontal: bool,
@@ -428,7 +351,6 @@ pub struct BoxLayout {
 impl BoxLayout {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         for cell in &mut self.elems {
-            cell.layout.as_mut().map(|x| x.visit_named_references(visitor));
             cell.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
@@ -436,7 +358,7 @@ impl BoxLayout {
 }
 
 /// Internal representation of a path layout
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PathLayout {
     pub path: Path,
     pub elements: Vec<ElementRc>,
@@ -553,5 +475,36 @@ pub mod gen {
             Layout::PathLayout(layout) => layout_tree.push(layout.into()),
         }
         layout_tree.last().unwrap()
+    }
+}
+
+/// The [`Type`] for a runtime LayoutInfo structure
+pub fn layout_info_type() -> Type {
+    Type::Struct {
+        fields: [
+            "min_width",
+            "min_height",
+            "max_width",
+            "max_height",
+            "preferred_width",
+            "preferred_height",
+        ]
+        .iter()
+        .map(|s| (s.to_string(), Type::LogicalLength))
+        .chain(
+            [
+                "min_width_percent",
+                "min_height_percent",
+                "max_width_percent",
+                "max_height_percent",
+                "horizontal_stretch",
+                "vertical_stretch",
+            ]
+            .iter()
+            .map(|s| (s.to_string(), Type::Float32)),
+        )
+        .collect(),
+        name: Some("LayoutInfo".into()),
+        node: None,
     }
 }
