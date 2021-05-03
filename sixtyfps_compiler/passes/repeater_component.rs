@@ -23,9 +23,6 @@ pub fn process_repeater_components(component: &Rc<Component>) {
 }
 
 fn create_repeater_components(component: &Rc<Component>) {
-    // Because layout constraint which are supposed to be in the repeater will not be lowered
-    debug_assert!(component.layouts.borrow().is_empty());
-
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         if elem.borrow().repeated.is_none() {
             return;
@@ -48,6 +45,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 states: std::mem::take(&mut elem.states),
                 transitions: std::mem::take(&mut elem.transitions),
                 child_of_layout: elem.child_of_layout,
+                layout_info_prop: elem.layout_info_prop.take(),
                 is_flickable_viewport: elem.is_flickable_viewport,
                 item_index: Default::default(), // Not determined yet
             })),

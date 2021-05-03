@@ -89,7 +89,7 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedCallbackIn
 impl corelib::rtti::ValueType for Value {}
 
 #[derive(Copy, Clone)]
-enum ComponentInstance<'a, 'id> {
+pub(crate) enum ComponentInstance<'a, 'id> {
     InstanceRef(InstanceRef<'a, 'id>),
     GlobalComponent(&'a Pin<Rc<dyn crate::global_component::GlobalComponent>>),
 }
@@ -98,7 +98,7 @@ enum ComponentInstance<'a, 'id> {
 pub struct EvalLocalContext<'a, 'id> {
     local_variables: HashMap<String, Value>,
     function_arguments: Vec<Value>,
-    component_instance: ComponentInstance<'a, 'id>,
+    pub(crate) component_instance: ComponentInstance<'a, 'id>,
     /// When Some, a return statement was executed and one must stop evaluating
     return_value: Option<Value>,
 }
@@ -539,6 +539,17 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             }
             local_context.return_value.clone().unwrap()
         }
+
+        Expression::LayoutCacheAccess { layout_cache_prop, index } => {
+            let cache = load_property_helper(local_context.component_instance, &layout_cache_prop.element(), layout_cache_prop.name()).unwrap();
+            if let Value::LayoutCache(cache) = cache {
+                Value::Number(cache[*index].into())
+            } else {
+                panic!("invalid layout cache")
+            }
+        }
+        Expression::ComputeLayoutInfo(lay) => crate::eval_layout::compute_layout_info(lay, local_context),
+        Expression::SolveLayout(lay) => crate::eval_layout::solve_layout(lay, local_context),
     }
 }
 

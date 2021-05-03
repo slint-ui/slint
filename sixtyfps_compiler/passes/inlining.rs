@@ -182,6 +182,7 @@ fn duplicate_element_with_mapping(
             .map(|t| duplicate_transition(t, mapping, root_component))
             .collect(),
         child_of_layout: elem.child_of_layout,
+        layout_info_prop: elem.layout_info_prop.clone(),
         named_references: Default::default(),
         item_index: Default::default(), // Not determined yet
         is_flickable_viewport: elem.is_flickable_viewport,

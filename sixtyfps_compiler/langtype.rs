@@ -54,7 +54,7 @@ pub enum Type {
     PathElements,
     Easing,
     Brush,
-
+    /// This is usually a model
     Array(Box<Type>),
     Struct {
         fields: BTreeMap<String, Type>,
@@ -69,6 +69,9 @@ pub enum Type {
     UnitProduct(Vec<(Unit, i8)>),
 
     ElementReference,
+
+    /// This is a `SharedArray<f32>`
+    LayoutCache,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -107,6 +110,7 @@ impl core::cmp::PartialEq for Type {
             Type::Enumeration(lhs) => matches!(other, Type::Enumeration(rhs) if lhs == rhs),
             Type::UnitProduct(a) => matches!(other, Type::UnitProduct(b) if a == b),
             Type::ElementReference => matches!(other, Type::ElementReference),
+            Type::LayoutCache => matches!(other, Type::LayoutCache),
         }
     }
 }
@@ -189,6 +193,7 @@ impl Display for Type {
                 write!(f, "({})", x.join("×"))
             }
             Type::ElementReference => write!(f, "element ref"),
+            Type::LayoutCache => write!(f, "layout cache"),
         }
     }
 }
@@ -469,6 +474,7 @@ impl Type {
             Type::Enumeration(_) => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
+            Type::LayoutCache => None,
         }
     }
 
@@ -680,6 +686,12 @@ fn test_select_minimal_class_based_on_property_usage() {
 pub struct PropertyLookupResult<'a> {
     pub resolved_name: std::borrow::Cow<'a, str>,
     pub property_type: Type,
+}
+
+impl<'a> PropertyLookupResult<'a> {
+    pub fn is_valid(&self) -> bool {
+        self.property_type != Type::Invalid
+    }
 }
 
 #[derive(Debug, Clone)]

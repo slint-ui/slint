@@ -15,30 +15,139 @@ use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use crate::{diagnostics::BuildDiagnostics, typeloader::TypeLoader};
-use std::cell::RefCell;
 use std::rc::Rc;
 
-fn lower_grid_layout(
+pub async fn lower_layouts<'a>(
     component: &Rc<Component>,
-    rect: LayoutRect,
-    grid_layout_element: &ElementRc,
-    collected_children: &mut Vec<ElementRc>,
+    type_loader: &mut TypeLoader<'a>,
+    diag: &mut BuildDiagnostics,
+) {
+    // Ignore import errors
+    let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
+    let style_metrics = type_loader
+        .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
+        .await;
+    let style_metrics =
+        style_metrics.and_then(|sm| if let Type::Component(c) = sm { Some(c) } else { None });
+    lower_layouts_impl(component, &type_loader.global_type_registry.borrow(), &style_metrics, diag);
+}
+
+fn lower_layouts_impl(
+    component: &Rc<Component>,
     type_register: &TypeRegister,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
-) -> Option<Layout> {
+) {
+    // FIXME: one should enable minimum_width and minimum_height on the window, but not height and width
+    //component.layouts.borrow_mut().root_constraints =
+    //    LayoutConstraints::new(&component.root_element, diag);
+
+    recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
+        let component = elem.borrow().enclosing_component.upgrade().unwrap();
+        lower_element_layout(&component, elem, type_register, style_metrics, diag);
+        check_no_layout_properties(elem, diag);
+    });
+}
+
+fn lower_element_layout(
+    component: &Rc<Component>,
+    elem: &ElementRc,
+    type_register: &TypeRegister,
+    style_metrics: &Option<Rc<Component>>,
+    diag: &mut BuildDiagnostics,
+) {
+    //let base_type =
+    //   if let Type::Builtin(be) = &elem.borrow().base_type { be.clone() } else { return };
+
+    let base_type = if let Type::Builtin(base_type) = &elem.borrow().base_type {
+        base_type.clone()
+    } else {
+        return;
+    };
+    match base_type.name.as_str() {
+        "Row" => panic!("Error caught at element lookup time"),
+        "GridLayout" => lower_grid_layout(component, elem, style_metrics, diag),
+        "HorizontalLayout" => lower_grid_layout(component, elem, style_metrics, diag),
+        "VerticalLayout" => lower_grid_layout(component, elem, style_metrics, diag),
+        /*"HorizontalLayout" => &lower_box_layout,
+        "VerticalLayout" => &lower_box_layout,
+        "PathLayout" => &lower_path_layout,*/
+        _ => return,
+    };
+
+    {
+        let mut elem = elem.borrow_mut();
+        let elem = &mut *elem;
+        let prev_base = std::mem::replace(&mut elem.base_type, type_register.lookup("Rectangle"));
+        // Create fake properties for the layout properties
+        for p in elem.bindings.keys() {
+            if !elem.base_type.lookup_property(p).is_valid()
+                && !elem.property_declarations.contains_key(p)
+            {
+                let ty = prev_base.lookup_property(p).property_type;
+                if ty != Type::Invalid {
+                    elem.property_declarations.insert(p.into(), ty.into());
+                }
+            }
+        }
+    }
+
+    /*
+        let merge_min_max = |prop, op| {
+            let mut elem = elem.borrow_mut();
+            if let Some(old) = elem.bindings.get_mut(prop) {
+                if old.priority == 0 {
+                    old.expression = expression_tree::min_max_expression(
+                        std::mem::take(&mut old.expression),
+                        Expression::PropertyReference(NamedReference::new(&child, prop)),
+                        op,
+                    );
+                }
+            } else {
+                elem.bindings.insert(
+                    prop.to_owned(),
+                    Expression::PropertyReference(NamedReference::new(&child, prop)).into(),
+                );
+            }
+        };
+        // Instead of forwarding each property like that, one could imagine having only one LayoutInfo property that we merge
+        // instead of merging all the component separately
+        merge_min_max("minimum_width", '>');
+        merge_min_max("minimum_height", '>');
+        merge_min_max("maximum_width", '<');
+        merge_min_max("maximum_height", '<');
+        // Ideally this should be the same as "merge"
+        merge_min_max("preferred_width", '>');
+        merge_min_max("preferred_height", '>');
+        // TODO: handle the implicit constraints
+    */
+}
+
+fn lower_grid_layout(
+    component: &Rc<Component>,
+    grid_layout_element: &ElementRc,
+    style_metrics: &Option<Rc<Component>>,
+    diag: &mut BuildDiagnostics,
+) {
     let mut grid = GridLayout {
         elems: Default::default(),
-        geometry: LayoutGeometry::new(rect, &grid_layout_element, style_metrics),
+        geometry: LayoutGeometry::new(&grid_layout_element, style_metrics),
     };
+
+    // FIXME: remove
+    let is_vertical = grid_layout_element.borrow().base_type.to_string() == "VerticalLayout";
+
+    let layout_cache_prop = create_new_prop(grid_layout_element, "layout_cache", Type::LayoutCache);
+    let layout_info_prop = create_new_prop(grid_layout_element, "layout_info", layout_info_type());
 
     let mut row = 0;
     let mut col = 0;
 
     let layout_children = std::mem::take(&mut grid_layout_element.borrow_mut().children);
+    let mut collected_children = Vec::new();
     for layout_child in layout_children {
         let is_row = if let Type::Builtin(be) = &layout_child.borrow().base_type {
-            be.native_class.class_name == "Row"
+            be.name == "Row"
         } else {
             false
         };
@@ -49,49 +158,39 @@ fn lower_grid_layout(
             }
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for x in row_children {
-                grid.add_element(
-                    x,
-                    (&mut row, &mut col),
-                    diag,
-                    type_register,
-                    style_metrics,
-                    &component,
-                    collected_children,
-                );
+                grid.add_element(&x, (&mut row, &mut col), diag, &layout_cache_prop);
                 col += 1;
+                collected_children.push(x);
             }
             if col > 0 {
                 row += 1;
                 col = 0;
             }
-            component.optimized_elements.borrow_mut().push(layout_child.clone());
+            component.optimized_elements.borrow_mut().push(layout_child);
         } else {
-            grid.add_element(
-                layout_child,
-                (&mut row, &mut col),
-                diag,
-                type_register,
-                style_metrics,
-                &component,
-                collected_children,
-            );
-            col += 1;
+            grid.add_element(&layout_child, (&mut row, &mut col), diag, &layout_cache_prop);
+            if is_vertical {
+                row += 1
+            } else {
+                col += 1
+            };
+            collected_children.push(layout_child);
         }
     }
-    component.optimized_elements.borrow_mut().push(grid_layout_element.clone());
-    if !grid.elems.is_empty() {
-        Some(grid.into())
-    } else {
-        None
-    }
+    grid_layout_element.borrow_mut().children = collected_children;
+    layout_cache_prop.element().borrow_mut().bindings.insert(
+        layout_cache_prop.name().into(),
+        Expression::SolveLayout(Layout::GridLayout(grid.clone())).into(),
+    );
+    layout_info_prop.element().borrow_mut().bindings.insert(
+        layout_info_prop.name().into(),
+        Expression::ComputeLayoutInfo(Layout::GridLayout(grid)).into(),
+    );
 }
 
 fn lower_box_layout(
     component: &Rc<Component>,
-    rect: LayoutRect,
     layout_element: &ElementRc,
-    collected_children: &mut Vec<ElementRc>,
-    type_register: &TypeRegister,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) -> Option<Layout> {
@@ -99,18 +198,11 @@ fn lower_box_layout(
     let mut layout = BoxLayout {
         is_horizontal,
         elems: Default::default(),
-        geometry: LayoutGeometry::new(rect, &layout_element, style_metrics),
+        geometry: LayoutGeometry::new(&layout_element, style_metrics),
     };
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
     for layout_child in layout_children {
-        if let Some(item) = create_layout_item(
-            &layout_child,
-            component,
-            collected_children,
-            type_register,
-            style_metrics,
-            diag,
-        ) {
+        if let Some(item) = create_layout_item(&layout_child, diag) {
             layout.elems.push(item)
         }
     }
@@ -166,131 +258,8 @@ fn lower_path_layout(
     )
 }
 
-type LayoutParseFunction = dyn Fn(
-    &Rc<Component>,
-    LayoutRect,
-    &ElementRc,
-    &mut Vec<ElementRc>,
-    &TypeRegister,
-    &Option<Rc<Component>>,
-    &mut BuildDiagnostics,
-) -> Option<Layout>;
-
-fn layout_parse_function(
-    layout_element_candidate: &ElementRc,
-) -> Option<&'static LayoutParseFunction> {
-    if let Type::Builtin(be) = &layout_element_candidate.borrow().base_type {
-        match be.native_class.class_name.as_str() {
-            "Row" => panic!("Error caught at element lookup time"),
-            "GridLayout" => Some(&lower_grid_layout),
-            "HorizontalLayout" => Some(&lower_box_layout),
-            "VerticalLayout" => Some(&lower_box_layout),
-            "PathLayout" => Some(&lower_path_layout),
-            _ => None,
-        }
-    } else {
-        None
-    }
-}
-
-fn lower_element_layout(
-    component: &Rc<Component>,
-    elem: &ElementRc,
-    type_register: &TypeRegister,
-    style_metrics: &Option<Rc<Component>>,
-    diag: &mut BuildDiagnostics,
-) -> LayoutVec {
-    let old_children = {
-        let mut elem = elem.borrow_mut();
-        let new_children = Vec::with_capacity(elem.children.len());
-        std::mem::replace(&mut elem.children, new_children)
-    };
-
-    // lay out within the current element's boundaries.
-    let rect_to_layout = LayoutRect {
-        x_reference: None,
-        y_reference: None,
-        width_reference: Some(NamedReference::new(elem, "width")),
-        height_reference: Some(NamedReference::new(elem, "height")),
-    };
-
-    let mut found_layouts = LayoutVec::default();
-
-    for child in old_children {
-        if let Some(layout_parser) = layout_parse_function(&child) {
-            let mut children = std::mem::take(&mut elem.borrow_mut().children);
-            if let Some(layout) = layout_parser(
-                component,
-                rect_to_layout.clone(),
-                &child,
-                &mut children,
-                type_register,
-                style_metrics,
-                diag,
-            ) {
-                if Rc::ptr_eq(elem, &component.root_element) {
-                    found_layouts.main_layout = Some(found_layouts.len());
-                }
-                found_layouts.push(layout);
-            }
-            elem.borrow_mut().children = children;
-            continue;
-        } else {
-            elem.borrow_mut().children.push(child);
-        }
-    }
-
-    found_layouts
-}
-
-/// Currently this just removes the layout from the tree
-pub async fn lower_layouts<'a>(
-    component: &Rc<Component>,
-    type_loader: &mut TypeLoader<'a>,
-    diag: &mut BuildDiagnostics,
-) {
-    // Ignore import errors
-    let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
-    let style_metrics = type_loader
-        .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
-        .await;
-    let style_metrics =
-        style_metrics.and_then(|sm| if let Type::Component(c) = sm { Some(c) } else { None });
-    lower_layouts_impl(component, &type_loader.global_type_registry.borrow(), &style_metrics, diag);
-}
-
-fn lower_layouts_impl(
-    component: &Rc<Component>,
-    type_register: &TypeRegister,
-    style_metrics: &Option<Rc<Component>>,
-    diag: &mut BuildDiagnostics,
-) {
-    // FIXME: one should enable minimum_width and minimum_height on the window, but not height and width
-    //component.layouts.borrow_mut().root_constraints =
-    //    LayoutConstraints::new(&component.root_element, diag);
-
-    recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
-        let component = elem.borrow().enclosing_component.upgrade().unwrap();
-        let mut layouts =
-            lower_element_layout(&component, elem, type_register, style_metrics, diag);
-        let mut component_layouts = component.layouts.borrow_mut();
-        component_layouts.main_layout = component_layouts
-            .main_layout
-            .or_else(|| layouts.main_layout.map(|x| x + component_layouts.len()));
-        component_layouts.append(&mut layouts);
-        check_no_layout_properties(elem, diag);
-    });
-}
-
 /// Create a LayoutItem for the given `item_element`  returns None is the layout is empty
-fn create_layout_item(
-    item_element: &ElementRc,
-    component: &Rc<Component>,
-    collected_children: &mut Vec<ElementRc>,
-    type_register: &TypeRegister,
-    style_metrics: &Option<Rc<Component>>,
-    diag: &mut BuildDiagnostics,
-) -> Option<LayoutItem> {
+fn create_layout_item(item_element: &ElementRc, diag: &mut BuildDiagnostics) -> Option<LayoutItem> {
     let fix_explicit_percent = |prop: &str, item: &ElementRc| {
         if !item.borrow().bindings.get(prop).map_or(false, |b| b.ty() == Type::Percent) {
             return;
@@ -315,68 +284,25 @@ fn create_layout_item(
     let constraints = LayoutConstraints::new(item_element, diag);
 
     item_element.borrow_mut().child_of_layout = true;
-
     if item_element.borrow().repeated.is_some() {
         let rep_comp = item_element.borrow().base_type.as_component().clone();
         fix_explicit_percent("width", &rep_comp.root_element);
         fix_explicit_percent("height", &rep_comp.root_element);
 
-        rep_comp.layouts.borrow_mut().root_constraints =
+        *rep_comp.root_constraints.borrow_mut() =
             LayoutConstraints::new(&rep_comp.root_element, diag);
         rep_comp.root_element.borrow_mut().child_of_layout = true;
-        collected_children.push(item_element.clone());
-
-        if layout_parse_function(&rep_comp.root_element).is_some() {
-            let new_root = ElementRc::new(RefCell::new(Element {
-                id: format!("{}_rootrect", item_element.borrow().id),
-                base_type: type_register.lookup_element("Rectangle").unwrap(),
-                enclosing_component: Rc::downgrade(&rep_comp),
-                ..Default::default()
-            }));
-            drop(rep_comp);
-            crate::object_tree::inject_element_as_repeated_element(item_element, new_root);
-        }
-
-        Some(LayoutItem { element: Some(item_element.clone()), layout: None, constraints })
-    } else if let Some(nested_layout_parser) = layout_parse_function(item_element) {
-        let layout_rect = LayoutRect::install_on_element(&item_element);
-
-        nested_layout_parser(
-            component,
-            layout_rect,
-            &item_element,
-            collected_children,
-            type_register,
-            style_metrics,
-            diag,
-        )
-        .map(|x| LayoutItem { layout: Some(x), constraints, element: None })
-    } else {
-        collected_children.push(item_element.clone());
-        let element = item_element.clone();
-        let layout = {
-            let mut layouts =
-                lower_element_layout(component, &element, type_register, style_metrics, diag);
-            if layouts.is_empty() {
-                None
-            } else {
-                Some(layouts.remove(0))
-            }
-        };
-        Some(LayoutItem { element: Some(element), layout, constraints })
-    }
+    };
+    Some(LayoutItem { element: item_element.clone(), constraints })
 }
 
 impl GridLayout {
     fn add_element(
         &mut self,
-        item_element: ElementRc,
+        item_element: &ElementRc,
         (row, col): (&mut u16, &mut u16),
         diag: &mut BuildDiagnostics,
-        type_register: &TypeRegister,
-        style_metrics: &Option<Rc<Component>>,
-        component: &Rc<Component>,
-        collected_children: &mut Vec<ElementRc>,
+        layout_cache_prop: &NamedReference,
     ) {
         let mut get_const_value = |name: &str| {
             item_element
@@ -395,14 +321,28 @@ impl GridLayout {
             *col = c;
         }
 
-        if let Some(layout_item) = create_layout_item(
-            &item_element,
-            component,
-            collected_children,
-            type_register,
-            style_metrics,
-            diag,
-        ) {
+        if let Some(layout_item) = create_layout_item(&item_element, diag) {
+            let index = self.elems.len();
+            //FIXME: report errors if there is already bindings on x or y
+            let set_prop_from_cache = |prop: &str, offset: usize| {
+                item_element.borrow_mut().bindings.insert(
+                    prop.into(),
+                    Expression::LayoutCacheAccess {
+                        layout_cache_prop: layout_cache_prop.clone(),
+                        index: index * 4 + offset,
+                    }
+                    .into(),
+                );
+            };
+            set_prop_from_cache("x", 0);
+            set_prop_from_cache("y", 1);
+            if !layout_item.constraints.fixed_width {
+                set_prop_from_cache("width", 2);
+            }
+            if !layout_item.constraints.fixed_height {
+                set_prop_from_cache("height", 3);
+            }
+
             self.elems.push(GridLayoutElement {
                 col: *col,
                 row: *row,
@@ -438,6 +378,28 @@ fn eval_const_expr(
     }
 }
 
+/// Create a new property based on the name. (it might get a different name if that property exist)
+fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> NamedReference {
+    let mut e = elem.borrow_mut();
+    if !e.lookup_property(tentative_name).is_valid() {
+        e.property_declarations.insert(tentative_name.into(), ty.into());
+        drop(e);
+        NamedReference::new(elem, tentative_name)
+    } else {
+        let mut counter = 0;
+        loop {
+            counter += 1;
+            let name = format!("{}{}", tentative_name, counter);
+            if !e.lookup_property(&name).is_valid() {
+                e.property_declarations.insert(name.clone(), ty.into());
+                drop(e);
+                return NamedReference::new(elem, &name);
+            }
+        }
+    }
+}
+
+/// Checks that there is grid-layout specific properties left
 fn check_no_layout_properties(item: &ElementRc, diag: &mut BuildDiagnostics) {
     for (prop, expr) in item.borrow().bindings.iter() {
         if matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan") {

@@ -60,8 +60,6 @@ fn lower_popup_window(
     };
 
     let parent_component = parent_element.borrow().enclosing_component.upgrade().unwrap();
-    // Because layout constraint which are supposed to be in the popup will not be lowered, the layout lowering should be done after
-    debug_assert!(parent_component.layouts.borrow().is_empty());
 
     // Remove the popup_window_element from its parent
     parent_element.borrow_mut().children.retain(|child| !Rc::ptr_eq(child, popup_window_element));
