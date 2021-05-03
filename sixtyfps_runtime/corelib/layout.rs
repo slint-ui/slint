@@ -489,21 +489,21 @@ pub struct BoxLayoutData<'a> {
     pub spacing: Coord,
     pub padding: &'a Padding,
     pub alignment: LayoutAlignment,
-    pub cells: Slice<'a, BoxLayoutCellData<'a>>,
+    pub cells: Slice<'a, BoxLayoutCellData>,
 }
 
 #[repr(C)]
 #[derive(Default, Debug, Clone)]
-pub struct BoxLayoutCellData<'a> {
+pub struct BoxLayoutCellData {
     pub constraint: LayoutInfo,
-    pub x: Option<&'a Property<Coord>>,
-    pub y: Option<&'a Property<Coord>>,
-    pub width: Option<&'a Property<Coord>>,
-    pub height: Option<&'a Property<Coord>>,
 }
 
 /// Solve a BoxLayout
-pub fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
+pub fn solve_box_layout(
+    data: &BoxLayoutData,
+    is_horizontal: bool,
+    repeater_indexes: Slice<u32>,
+) -> SharedVector<Coord> {
     use stretch::geometry::*;
     use stretch::number::*;
     use stretch::style::*;
@@ -650,19 +650,56 @@ pub fn solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
     let start_pos_x = data.x + data.padding.left;
     let start_pos_y = data.y + data.padding.top;
 
-    for (cell, layout) in data.cells.iter().zip(
-        stretch.children(flex_box).unwrap().iter().map(|child| stretch.layout(*child).unwrap()),
-    ) {
-        cell.x.map(|p| p.set(start_pos_x + layout.location.x));
-        cell.y.map(|p| p.set(start_pos_y + layout.location.y));
-        cell.width.map(|p| p.set(layout.size.width));
-        cell.height.map(|p| p.set(layout.size.height));
+    let mut result = SharedVector::<f32>::default();
+    result.resize(data.cells.len() * 4 + repeater_indexes.len() * 2, 0.);
+    let res = result.as_slice_mut();
+
+    // The index/4 in result in which we should add the next repeated item
+    let mut repeat_ofst =
+        res.len() / 4 - repeater_indexes.windows(2).map(|w| w[1]).sum::<u32>() as usize;
+    // The index/2  in repeater_indexes
+    let mut next_rep = 0;
+    // The index/4 in result in which we should add the next non-repeated item
+    let mut current_ofst = 0;
+    for (idx, layout) in stretch
+        .children(flex_box)
+        .unwrap()
+        .iter()
+        .map(|child| stretch.layout(*child).unwrap())
+        .enumerate()
+    {
+        let o = loop {
+            if let Some(nr) = repeater_indexes.get(next_rep * 2) {
+                let nr = *nr as usize;
+                if nr == idx {
+                    for o in 0..4 {
+                        res[current_ofst * 4 + o] = (repeat_ofst * 4 + o) as _;
+                        current_ofst += 1;
+                    }
+                }
+                if nr >= idx {
+                    if nr - idx == repeater_indexes[next_rep * 2 + 1] as usize {
+                        next_rep += 1;
+                        continue;
+                    }
+                    repeat_ofst += 1;
+                    break repeat_ofst - 1;
+                }
+            }
+            current_ofst += 1;
+            break current_ofst - 1;
+        };
+        res[o * 4 + 0] = start_pos_x + layout.location.x;
+        res[o * 4 + 1] = start_pos_y + layout.location.y;
+        res[o * 4 + 2] = layout.size.width;
+        res[o * 4 + 3] = layout.size.height;
     }
+    result
 }
 
 /// Return the LayoutInfo for a BoxLayout with the given cells.
 pub fn box_layout_info<'a>(
-    cells: &Slice<'a, BoxLayoutCellData<'a>>,
+    cells: &Slice<'a, BoxLayoutCellData>,
     spacing: Coord,
     padding: &Padding,
     alignment: LayoutAlignment,

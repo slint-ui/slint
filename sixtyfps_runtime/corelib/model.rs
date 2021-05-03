@@ -285,7 +285,7 @@ pub trait RepeatedComponent: crate::component::Component {
     }
 
     /// Returns what's needed to perform the layout if this component is in a box layout
-    fn box_layout_data<'a>(self: Pin<&'a Self>) -> crate::layout::BoxLayoutCellData<'a> {
+    fn box_layout_data<'a>(self: Pin<&'a Self>) -> crate::layout::BoxLayoutCellData {
         crate::layout::BoxLayoutCellData::default()
     }
 }
