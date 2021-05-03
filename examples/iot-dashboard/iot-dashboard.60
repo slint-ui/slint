@@ -227,7 +227,7 @@ Box := Rectangle {
     background: Skin.palette.box;
     drop-shadow-offset-x: 6px;
     drop-shadow-offset-y: 6px;
-    drop-shadow-blur: 6px;
+    drop-shadow-blur: 6;
     drop-shadow-color: Skin.palette.shadow;
     VerticalLayout {
         if (root.title != "") : Text {

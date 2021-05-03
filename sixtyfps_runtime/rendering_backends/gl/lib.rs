@@ -989,76 +989,135 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     /// Draws a rectangular shadow shape, which is usually placed underneath another rectangular shape
-    /// with an offset (the drop-shadow-offset-x/y).
-    /// The rendering happens in two phases:
-    ///   * The (possibly round) rectangle is filled with the shadow color.
-    ///   * A blurred shadow border is drawn using femtovg's box gradient. The shadow border is the
-    ///     shape of a slightly bigger rounded rect with the inner shape subtracted. That's because
-    //      we don't want the box gradient to visually "leak" into the inside.
+    /// with an offset (the drop-shadow-offset-x/y). The algorithm follows the HTML Canvas spec 4.12.5.1.18:
+    ///  * Create a new image to cache the shadow rendering
+    ///  * Fill the image with transparent "black"
+    ///  * Draw the (rounded) rectangle at shadow offset_x/offset_y
+    ///  * Blur the image
+    ///  * Fill the image with the shadow color and SourceIn as composition mode
+    ///  * Draw the shadow image
     fn draw_box_shadow(&mut self, box_shadow: std::pin::Pin<&sixtyfps_corelib::items::BoxShadow>) {
-        // TODO: cache path in item to avoid re-tesselation
+        if box_shadow.color().alpha() == 0
+            || (box_shadow.blur() == 0.0
+                && box_shadow.offset_x() == 0.
+                && box_shadow.offset_y() == 0.)
+        {
+            return;
+        }
 
-        let blur = box_shadow.blur() * self.scale_factor;
-        let offset_x = box_shadow.offset_x() * self.scale_factor;
-        let offset_y = box_shadow.offset_y() * self.scale_factor;
-        let width = box_shadow.width() * self.scale_factor;
-        let height = box_shadow.height() * self.scale_factor;
+        let cache_entry = self
+            .shared_data
+            .load_item_graphics_cache_with_function(&box_shadow.cached_rendering_data, || {
+                ItemGraphicsCacheEntry::Image({
+                    let blur = box_shadow.blur();
+                    let offset_x = box_shadow.offset_x() * self.scale_factor;
+                    let offset_y = box_shadow.offset_y() * self.scale_factor;
+                    let width = box_shadow.width() * self.scale_factor;
+                    let height = box_shadow.height() * self.scale_factor;
+                    let radius = box_shadow.border_radius() * self.scale_factor;
 
-        let shadow_outer_rect: euclid::Rect<f32, euclid::UnknownUnit> =
-            euclid::rect(offset_x - blur / 2., offset_y - blur / 2., width + blur, height + blur);
+                    let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
+                        offset_x - blur / 2.,
+                        offset_y - blur / 2.,
+                        width + blur,
+                        height + blur,
+                    );
 
-        let shadow_inner_rect: euclid::Rect<f32, euclid::UnknownUnit> =
-            euclid::rect(offset_x + blur / 2., offset_y + blur / 2., width - blur, height - blur);
+                    let shadow_image_width = shadow_rect.max_x().ceil() as usize;
+                    let shadow_image_height = shadow_rect.max_y().ceil() as usize;
 
-        let shadow_fill_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
-            shadow_outer_rect.min_x() + blur / 2.,
-            shadow_outer_rect.min_y() + blur / 2.,
-            width,
-            height,
-        );
+                    let shadow_image = CachedImage::new_empty_on_gpu(
+                        &self.shared_data.canvas,
+                        shadow_image_width,
+                        shadow_image_height,
+                    );
 
-        let radius = box_shadow.border_radius() * self.scale_factor;
-        let shadow_paint = femtovg::Paint::box_gradient(
-            shadow_fill_rect.min_x(),
-            shadow_fill_rect.min_y(),
-            shadow_fill_rect.width(),
-            shadow_fill_rect.height(),
-            radius,
-            blur,
-            box_shadow.color().into(),
-            Color::from_argb_u8(0, 0, 0, 0).into(),
-        );
+                    {
+                        let mut canvas = self.shared_data.canvas.borrow_mut();
+                        canvas.save();
 
-        let mut shadow_path = femtovg::Path::new();
-        shadow_path.rounded_rect(
-            shadow_outer_rect.min_x(),
-            shadow_outer_rect.min_y(),
-            shadow_outer_rect.width(),
-            shadow_outer_rect.height(),
-            radius,
-        );
-        shadow_path.rounded_rect(
-            shadow_inner_rect.min_x(),
-            shadow_inner_rect.min_y(),
-            shadow_inner_rect.width(),
-            shadow_inner_rect.height(),
-            radius,
-        );
-        shadow_path.solidity(femtovg::Solidity::Hole);
+                        canvas.set_render_target(shadow_image.as_render_target());
 
-        let mut canvas = self.shared_data.canvas.borrow_mut();
-        let mut shadow_inner_fill_path = femtovg::Path::new();
-        shadow_inner_fill_path.rounded_rect(
-            shadow_inner_rect.min_x(),
-            shadow_inner_rect.min_y(),
-            shadow_inner_rect.width(),
-            shadow_inner_rect.height(),
-            radius - blur / 2.,
-        );
-        let fill = femtovg::Paint::color(box_shadow.color().into());
-        canvas.fill_path(&mut shadow_inner_fill_path, fill);
+                        canvas.reset();
 
-        canvas.fill_path(&mut shadow_path, shadow_paint);
+                        canvas.clear_rect(
+                            0,
+                            0,
+                            shadow_rect.max_x().ceil() as u32,
+                            shadow_rect.max_y().ceil() as u32,
+                            femtovg::Color::rgba(0, 0, 0, 0),
+                        );
+
+                        let mut shadow_path = femtovg::Path::new();
+                        shadow_path.rounded_rect(offset_x, offset_y, width, height, radius);
+                        canvas.fill_path(
+                            &mut shadow_path,
+                            femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
+                        );
+                    }
+
+                    let shadow_image = if blur > 0. {
+                        let blurred_image = shadow_image.filter(
+                            &self.shared_data.canvas,
+                            femtovg::ImageFilter::GaussianBlur { sigma: blur / 2. },
+                        );
+
+                        self.shared_data
+                            .canvas
+                            .borrow_mut()
+                            .set_render_target(blurred_image.as_render_target());
+
+                        self.shared_data
+                            .layer_images_to_delete_after_flush
+                            .borrow_mut()
+                            .push(shadow_image);
+
+                        blurred_image
+                    } else {
+                        shadow_image
+                    };
+
+                    {
+                        let mut canvas = self.shared_data.canvas.borrow_mut();
+
+                        canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
+
+                        let mut shadow_image_rect = femtovg::Path::new();
+                        shadow_image_rect.rect(
+                            0.,
+                            0.,
+                            shadow_rect.max_x().ceil(),
+                            shadow_rect.max_y().ceil(),
+                        );
+                        canvas.fill_path(
+                            &mut shadow_image_rect,
+                            femtovg::Paint::color(box_shadow.color().into()),
+                        );
+
+                        canvas.restore();
+
+                        canvas.set_render_target(self.current_render_target());
+                    }
+
+                    Rc::new(shadow_image)
+                })
+                .into()
+            })
+            .expect("internal error: creation of the cached shadow image must always succeed");
+
+        let shadow_image = cache_entry.as_image();
+
+        let shadow_image_size = match shadow_image.size() {
+            Some(size) => size,
+            None => return,
+        };
+
+        let shadow_image_paint = shadow_image.as_paint();
+
+        let mut shadow_image_rect = femtovg::Path::new();
+        shadow_image_rect.rect(0., 0., shadow_image_size.width, shadow_image_size.height);
+
+        self.shared_data.canvas.borrow_mut().fill_path(&mut shadow_image_rect, shadow_image_paint);
     }
 
     fn combine_clip(&mut self, mut clip_rect: Rect, mut radius: f32, mut border_width: f32) {
@@ -1125,14 +1184,7 @@ impl ItemRenderer for GLItemRenderer {
 
             let mut canvas = self.shared_data.canvas.borrow_mut();
 
-            let restored_rendering_target = self
-                .state
-                .last()
-                .unwrap()
-                .layer
-                .as_ref()
-                .map_or(femtovg::RenderTarget::Screen, |layer| layer.image.as_render_target());
-            canvas.set_render_target(restored_rendering_target);
+            canvas.set_render_target(self.current_render_target());
 
             // Balanced in set_clip_path, back to original drawing conditions when set_clip_path() was called.
             canvas.restore();
@@ -1323,7 +1375,7 @@ impl GLItemRenderer {
             canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
             canvas.fill_path(&mut image_rect, brush_paint);
 
-            canvas.set_render_target(femtovg::RenderTarget::Screen);
+            canvas.set_render_target(self.current_render_target());
         });
 
         ItemGraphicsCacheEntry::ColorizedImage {
@@ -1543,6 +1595,15 @@ impl GLItemRenderer {
         }
         self.state.last_mut().unwrap().layer =
             Some(Rc::new(Layer { image: clip_buffer_img, target_path: path }));
+    }
+
+    fn current_render_target(&self) -> femtovg::RenderTarget {
+        self.state
+            .last()
+            .unwrap()
+            .layer
+            .as_ref()
+            .map_or(femtovg::RenderTarget::Screen, |layer| layer.image.as_render_target())
     }
 }
 

@@ -334,6 +334,29 @@ impl CachedImage {
         }
     }
 
+    pub(crate) fn filter(&self, canvas: &CanvasRc, filter: femtovg::ImageFilter) -> Self {
+        let (image_id, size) = match &*self.0.borrow() {
+            ImageData::Texture(texture) => texture.size().map(|size| (texture.id, size)),
+            _ => None,
+        }
+        .expect("internal error: Cannot filter non-GPU images");
+
+        let filtered_image = Self::new_empty_on_gpu(
+            &canvas,
+            size.width.ceil() as usize,
+            size.height.ceil() as usize,
+        );
+
+        let filtered_image_id = match &*filtered_image.0.borrow() {
+            ImageData::Texture(tex) => tex.id,
+            _ => panic!("internal error: CachedImage::new_empty_on_gpu did not return texture!"),
+        };
+
+        canvas.borrow_mut().filter_image(filtered_image_id, filter, image_id);
+
+        filtered_image
+    }
+
     pub(crate) fn as_paint(&self) -> femtovg::Paint {
         match &*self.0.borrow() {
             ImageData::Texture(tex) => {
