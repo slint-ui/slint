@@ -14,11 +14,25 @@ include(FetchContent)
 FetchContent_Declare(
     Corrosion
     GIT_REPOSITORY https://github.com/AndrewGaspar/corrosion.git
-    GIT_TAG 946c5dd80a6ebdb84c5986e52af460e23e74394d
+    GIT_TAG 343546419f56f56780bd92f3fcd51fc02a598de6
 )
 FetchContent_MakeAvailable(Corrosion)
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
     CRATES sixtyfps-compiler sixtyfps-cpp xtask)
+
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
+    # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
+    # means usually CMAKE_PREFIX_PATH is set.
+    find_package(Qt5 QUIET COMPONENTS Core Widgets)
+    if (TARGET Qt5::qmake)
+        set_property(
+            TARGET sixtyfps-cpp
+            APPEND
+            PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+            QMAKE=$<TARGET_PROPERTY:Qt5::qmake,LOCATION>
+        )
+    endif()
+endif()
 
 add_library(SixtyFPS INTERFACE)
 add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
