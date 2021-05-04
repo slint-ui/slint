@@ -95,9 +95,6 @@ pub struct ItemVTable {
     pub layouting_info:
         extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow) -> LayoutInfo,
 
-    pub implicit_size:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow) -> Size,
-
     /// Event handler for mouse and touch event. This function is called before being called on children.
     /// Then, depending on the return value, it is called for the children, and their children, then
     /// [`Self::input_event`] is called on the children, and finaly [`Self::input_event`] is called
@@ -214,10 +211,6 @@ impl Item for Rectangle {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -283,10 +276,6 @@ impl Item for BorderRectangle {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -372,10 +361,6 @@ impl Item for TouchArea {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo::default()
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -492,10 +477,6 @@ impl Item for FocusScope {
         LayoutInfo::default()
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -587,10 +568,6 @@ impl Item for Clip {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -659,10 +636,6 @@ impl Item for Opacity {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -725,10 +698,6 @@ impl Item for Rotate {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -815,10 +784,6 @@ impl Item for Path {
         LayoutInfo::default()
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -899,10 +864,6 @@ impl Item for Flickable {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -1025,10 +986,6 @@ impl Item for Window {
         LayoutInfo::default()
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -1126,10 +1083,6 @@ impl Item for BoxShadow {
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
         LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(

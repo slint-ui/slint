@@ -72,16 +72,12 @@ impl Item for Image {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let natural_size = self.implicit_size(window);
+        let natural_size = window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self));
         LayoutInfo {
             preferred_width: natural_size.width,
             preferred_height: natural_size.height,
             ..Default::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
-        window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self))
     }
 
     fn input_event_filter_before_children(
@@ -147,16 +143,12 @@ impl Item for ClippedImage {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let natural_size = self.implicit_size(window);
+        let natural_size = window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self));
         LayoutInfo {
             preferred_width: natural_size.width,
             preferred_height: natural_size.height,
             ..Default::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
-        window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self))
     }
 
     fn input_event_filter_before_children(

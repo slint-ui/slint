@@ -159,13 +159,13 @@ fn make_default_implicit(elem: &ElementRc, property: &str) {
         Expression::StructFieldAccess {
             base: Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ImplicitItemSize,
+                    BuiltinFunction::ImplicitLayoutInfo,
                 )),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
             }
             .into(),
-            name: property.into(),
+            name: format!("preferred_{}", property),
         }
         .into()
     });
@@ -189,7 +189,7 @@ fn make_default_aspect_ratio_preserving_binding(
 
     let implicit_size_var = Box::new(Expression::ReadLocalVariable {
         name: "image_implicit_size".into(),
-        ty: match BuiltinFunction::ImplicitItemSize.ty() {
+        ty: match BuiltinFunction::ImplicitLayoutInfo.ty() {
             Type::Function { return_type, .. } => *return_type,
             _ => panic!("invalid type for ImplicitItemSize built-in function"),
         },
@@ -200,7 +200,7 @@ fn make_default_aspect_ratio_preserving_binding(
             name: "image_implicit_size".into(),
             value: Box::new(Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ImplicitItemSize,
+                    BuiltinFunction::ImplicitLayoutInfo,
                 )),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
@@ -215,13 +215,13 @@ fn make_default_aspect_ratio_preserving_binding(
                 .into(),
                 rhs: Box::new(Expression::StructFieldAccess {
                     base: implicit_size_var.clone(),
-                    name: missing_size_property.to_string(),
+                    name: format!("preferred_{}", missing_size_property),
                 }),
                 op: '*',
             }),
             rhs: Box::new(Expression::StructFieldAccess {
                 base: implicit_size_var,
-                name: given_size_property.to_string(),
+                name: format!("preferred_{}", given_size_property),
             }),
             op: '/',
         },
