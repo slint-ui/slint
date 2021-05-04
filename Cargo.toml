@@ -13,7 +13,7 @@ members = [
  #   'api/sixtyfps-rs/sixtyfps-macros',
  #   'api/sixtyfps-rs/sixtyfps-build',
  #   'api/sixtyfps-cpp',
- #   'api/sixtyfps-node/native',
+    'api/sixtyfps-node/native',
     'api/sixtyfps-wasm-interpreter',
   #  'tools/compiler',
     'tools/fmt',
@@ -35,7 +35,7 @@ members = [
    # 'tests/driver/driverlib',
    # 'tests/driver/rust',
    # 'tests/driver/cpp',
-   # 'tests/driver/nodejs',
+    'tests/driver/nodejs',
     'tests/driver/interpreter',
 ]
 
@@ -48,7 +48,7 @@ default-members = [
   #  'sixtyfps_compiler',
   #  'api/sixtyfps-rs',
   #  'api/sixtyfps-rs/sixtyfps-build',
-  #  'api/sixtyfps-node/native',
+    'api/sixtyfps-node/native',
   #  'tools/compiler',
     'tools/fmt',
     'tools/lsp',
@@ -62,7 +62,7 @@ default-members = [
   #  'examples/memory',
   #  'tests/doctests',
   #  'tests/driver/rust',
-  #  'tests/driver/nodejs',
+    'tests/driver/nodejs',
     'tests/driver/interpreter',
 ]
 

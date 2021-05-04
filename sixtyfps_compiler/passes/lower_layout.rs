@@ -329,10 +329,8 @@ fn create_layout_item(
     fix_explicit_percent("width", item_element);
     fix_explicit_percent("height", item_element);
 
-    let constraints = LayoutConstraints::new(item_element, diag);
-
     item_element.borrow_mut().child_of_layout = true;
-    let repeater_index = if item_element.borrow().repeated.is_some() {
+    let (repeater_index, actual_elem) = if item_element.borrow().repeated.is_some() {
         let rep_comp = item_element.borrow().base_type.as_component().clone();
         fix_explicit_percent("width", &rep_comp.root_element);
         fix_explicit_percent("height", &rep_comp.root_element);
@@ -340,14 +338,19 @@ fn create_layout_item(
         *rep_comp.root_constraints.borrow_mut() =
             LayoutConstraints::new(&rep_comp.root_element, diag);
         rep_comp.root_element.borrow_mut().child_of_layout = true;
-        Some(Expression::RepeaterIndexReference { element: Rc::downgrade(item_element) })
+        (
+            Some(Expression::RepeaterIndexReference { element: Rc::downgrade(item_element) }),
+            rep_comp.root_element.clone(),
+        )
     } else {
-        None
+        (None, item_element.clone())
     };
+
+    let constraints = LayoutConstraints::new(&actual_elem, diag);
 
     //FIXME: report errors if there is already bindings on x or y
     let set_prop_from_cache = |prop: &str, offset: usize| {
-        item_element.borrow_mut().bindings.insert(
+        actual_elem.borrow_mut().bindings.insert(
             prop.into(),
             Expression::LayoutCacheAccess {
                 layout_cache_prop: layout_cache_prop.clone(),

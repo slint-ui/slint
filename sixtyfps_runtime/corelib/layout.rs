@@ -656,7 +656,7 @@ pub fn solve_box_layout(
 
     // The index/4 in result in which we should add the next repeated item
     let mut repeat_ofst =
-        res.len() / 4 - repeater_indexes.windows(2).map(|w| w[1]).sum::<u32>() as usize;
+        res.len() / 4 - repeater_indexes.iter().skip(1).step_by(2).sum::<u32>() as usize;
     // The index/2  in repeater_indexes
     let mut next_rep = 0;
     // The index/4 in result in which we should add the next non-repeated item
@@ -674,11 +674,11 @@ pub fn solve_box_layout(
                 if nr == idx {
                     for o in 0..4 {
                         res[current_ofst * 4 + o] = (repeat_ofst * 4 + o) as _;
-                        current_ofst += 1;
                     }
+                    current_ofst += 1;
                 }
-                if nr >= idx {
-                    if nr - idx == repeater_indexes[next_rep * 2 + 1] as usize {
+                if idx >= nr {
+                    if idx - nr == repeater_indexes[next_rep * 2 + 1] as usize {
                         next_rep += 1;
                         continue;
                     }
