@@ -521,6 +521,9 @@ jobs:
   updater_test:
     env:
       SIXTYFPS_NO_QT: 1
+    strategy:
+      matrix:
+        from_version: ['0.0.5', '0.0.6']
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
@@ -550,15 +553,16 @@ jobs:
           override: true
     - name: Checkout old version
       run: |
-          git checkout v0.0.5 --no-overlay -- examples
-          git checkout v0.0.5 --no-overlay -- tests/cases
+          git checkout v${{ matrix.from_version }} --no-overlay -- examples
+          git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
           # Remove printerdemo_old from Cargo.toml because this directory was not there in 0.0.5
           sed -i "/printerdemo_old/d" Cargo.toml
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           git config --global user.name "${GITHUB_ACTOR}"
-          git commit -a -m "REVERT TESTS TO v0.0.5"
+          git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
     - name: run the updater
-      run: cargo run --bin syntax_updater -- --from 0.0.5 -i tests/cases/**/*.60 examples/**/*.60
+      if: matrix.from_version != '0.0.6' # We don't have an updater yet for version 0.0.6, but we should check that no compatibility is broken since then
+      run: cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/**/*.60 examples/**/*.60
     - name: Show the diff
       run: git diff
     - name: test
