@@ -119,7 +119,6 @@ SquareButton := Rectangle {
     border-radius: 3px;
     border-width: 2px;
     border-color: DemoPalette.control_outline_color;
-    width: height;
     touch := TouchArea {
         clicked => {
             root.clicked();
@@ -146,6 +145,7 @@ export SpinBox := Rectangle {
         spacing: 12px;
         padding: 0;
         SquareButton {
+            width: root.height - parent.padding * 2;
             img: @image-url("images/minus.svg");
             clicked => {
                 if (root.value > root.minimum) {
@@ -169,6 +169,7 @@ export SpinBox := Rectangle {
         }
 
         SquareButton {
+            width: root.height - parent.padding * 2;
             img: @image-url("images/plus.svg");
             clicked => {
                 if (root.value < root.maximum) {
@@ -253,6 +254,7 @@ export CheckBox := Rectangle {
         spacing: 12px;
         padding: 0;
         SquareButton {
+            width: root.height - parent.padding * 2;
             img: checked ? @image-url("images/check.svg") : @image-url("");
             clicked => { checked = !checked; }
         }
