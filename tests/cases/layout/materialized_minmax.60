@@ -13,7 +13,7 @@ TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
 
-    Rectangle {
+    rect := Rectangle {
 
         layout := HorizontalLayout {
             spacing: 0phx;
@@ -42,6 +42,11 @@ TestCase := Rectangle {
     property<int> materialized_maximum_height: layout.maximum-height / 1phx;
     property<int> materialized_minimum_width: layout.minimum-width / 1phx;
     property<int> materialized_minimum_height: layout.minimum-height / 1phx;
+
+    property<int> materialized_rect_maximum_width: rect.maximum-width / 1phx;
+    property<int> materialized_rect_maximum_height: rect.maximum-height / 1phx;
+    property<int> materialized_rect_minimum_width: rect.minimum-width / 1phx;
+    property<int> materialized_rect_minimum_height: rect.minimum-height / 1phx;
 }
 
 /*
@@ -55,6 +60,12 @@ assert_eq(instance.get_materialized_minimum_width(), 50);
 assert_eq(instance.get_materialized_minimum_height(), 25);
 // FIXME! float max is overflowing on int
 assert_eq(uint32_t(instance.get_materialized_maximum_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
+
+assert_eq(instance.get_materialized_rect_maximum_height(), 300);
+assert_eq(instance.get_materialized_rect_minimum_width(), 50);
+assert_eq(instance.get_materialized_rect_minimum_height(), 25);
+// FIXME! float max is overflowing on int
+assert_eq(uint32_t(instance.get_materialized_rect_maximum_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
 ```
 
 
@@ -65,6 +76,12 @@ assert_eq!(instance.get_materialized_maximum_height(), 300);
 assert_eq!(instance.get_materialized_minimum_width(), 50);
 assert_eq!(instance.get_materialized_minimum_height(), 25);
 assert_eq!(instance.get_materialized_maximum_width(), i32::MAX);
+
+assert_eq!(instance.get_materialized_rect_maximum_height(), 300);
+assert_eq!(instance.get_materialized_rect_minimum_width(), 50);
+assert_eq!(instance.get_materialized_rect_minimum_height(), 25);
+assert_eq!(instance.get_materialized_rect_maximum_width(), i32::MAX);
+
 ```
 
 ```js
@@ -74,6 +91,11 @@ assert.equal(instance.materialized_maximum_height, 300);
 assert.equal(instance.materialized_minimum_width, 50);
 assert.equal(instance.materialized_minimum_height, 25);
 assert.equal(instance.materialized_maximum_width, Math.pow(2, 31) - 1);
+
+assert.equal(instance.materialized_rect_maximum_height, 300);
+assert.equal(instance.materialized_rect_minimum_width, 50);
+assert.equal(instance.materialized_rect_minimum_height, 25);
+assert.equal(instance.materialized_rect_maximum_width, Math.pow(2, 31) - 1);
 ```
 
 */
