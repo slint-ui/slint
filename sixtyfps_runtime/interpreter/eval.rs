@@ -389,7 +389,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 let a: u8 = (255. * a).max(0.).min(255.) as u8;
                 Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitItemSize) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to ImplicitItemSize")
                 }
@@ -408,15 +408,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     let item_ref = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
                     let window = window_ref(component).unwrap();
-
-                    let size = item_ref.as_ref().implicit_size(&window);
-                    let values = [
-                        ("width".to_string(), Value::Number(size.width as f64)),
-                        ("height".to_string(), Value::Number(size.height as f64)),
-                    ]
-                    .iter()
-                    .map(|(name, value)| (name.clone(), value.clone())).collect();
-                    Value::Struct(values)
+                    item_ref.as_ref().layouting_info(&window).into()
                 } else {
                     panic!("internal error: argument to ImplicitItemWidth must be an element")
                 }

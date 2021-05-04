@@ -1101,7 +1101,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::ASin => quote!((|a| (a as f64).asin().to_degrees())),
             BuiltinFunction::ACos => quote!((|a| (a as f64).acos().to_degrees())),
             BuiltinFunction::ATan => quote!((|a| (a as f64).atan().to_degrees())),
-            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::ImplicitItemSize => {
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::ImplicitLayoutInfo => {
                 panic!("internal error: should be handled directly in CallFunction")
             }
             BuiltinFunction::StringToFloat => {
@@ -1225,19 +1225,19 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         panic!("internal error: argument to SetFocusItem must be an element")
                     }
                 }
-                Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitItemSize) => {
+                Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo) => {
                     if arguments.len() != 1 {
-                        panic!("internal error: incorrect argument count to ImplicitItemSize call");
+                        panic!("internal error: incorrect argument count to ImplicitLayoutInfo call");
                     }
                     if let Expression::ElementReference(item) = &arguments[0] {
                         let item = item.upgrade().unwrap();
                         let item = item.borrow();
                         let item_id = format_ident!("{}", item.id);
                         quote!(
-                            Self::FIELD_OFFSETS.#item_id.apply_pin(_self).implicit_size(&_self.window)
+                            Self::FIELD_OFFSETS.#item_id.apply_pin(_self).layouting_info(&_self.window)
                         )
                     } else {
-                        panic!("internal error: argument to ImplicitItemSize must be an element")
+                        panic!("internal error: argument to ImplicitLayoutInfo must be an element")
                     }
                 }
                 Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath) => {

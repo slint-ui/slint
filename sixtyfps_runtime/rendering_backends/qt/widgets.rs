@@ -190,10 +190,6 @@ impl Item for NativeButton {
         }
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -318,10 +314,6 @@ impl Item for NativeCheckBox {
             horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -476,10 +468,6 @@ impl Item for NativeSpinBox {
             horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -690,10 +678,6 @@ impl Item for NativeSlider {
             horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -946,10 +930,6 @@ impl Item for NativeGroupBox {
         }
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -1093,10 +1073,6 @@ impl Item for NativeLineEdit {
             horizontal_stretch: 1.,
             ..LayoutInfo::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -1252,10 +1228,6 @@ impl Item for NativeScrollView {
             vertical_stretch: 1.,
             ..LayoutInfo::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(
@@ -1581,10 +1553,6 @@ impl Item for NativeStandardListViewItem {
         result
     }
 
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
-    }
-
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
@@ -1692,10 +1660,6 @@ impl Item for NativeComboBox {
             min_height: size.height as f32,
             ..LayoutInfo::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, _window: &ComponentWindow) -> Size {
-        Default::default()
     }
 
     fn input_event_filter_before_children(

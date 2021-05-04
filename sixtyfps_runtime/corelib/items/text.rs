@@ -133,7 +133,8 @@ impl Item for Text {
             &|| self.unresolved_font_request(),
             Self::FIELD_OFFSETS.text.apply_pin(self),
         ) {
-            let mut min_size = font_metrics.text_size(&self.text());
+            let implicit_size = font_metrics.text_size(&self.text());
+            let mut min_size = implicit_size;
             match self.overflow() {
                 TextOverflow::elide => {
                     min_size.width = font_metrics.text_size("…").width;
@@ -146,23 +147,13 @@ impl Item for Text {
             LayoutInfo {
                 min_width: min_size.width.ceil(),
                 min_height: min_size.height.ceil(),
+                preferred_width: implicit_size.width.ceil(),
+                preferred_height: implicit_size.height.ceil(),
                 ..LayoutInfo::default()
             }
         } else {
             LayoutInfo::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
-        window
-            .0
-            .font_metrics(
-                &self.cached_rendering_data,
-                &|| self.unresolved_font_request(),
-                Self::FIELD_OFFSETS.text.apply_pin(self),
-            )
-            .map(|metrics| metrics.text_size(&self.text()).ceil())
-            .unwrap_or_default()
     }
 
     fn input_event_filter_before_children(
@@ -276,29 +267,19 @@ impl Item for TextInput {
             &|| self.unresolved_font_request(),
             Self::FIELD_OFFSETS.text.apply_pin(self),
         ) {
-            let size = font_metrics.text_size("********************");
+            let size = font_metrics.text_size("********************").ceil();
 
             LayoutInfo {
                 min_width: size.width,
                 min_height: size.height,
+                preferred_width: size.width,
+                preferred_height: size.height,
                 horizontal_stretch: 1.,
                 ..LayoutInfo::default()
             }
         } else {
             LayoutInfo::default()
         }
-    }
-
-    fn implicit_size(self: Pin<&Self>, window: &ComponentWindow) -> Size {
-        window
-            .0
-            .font_metrics(
-                &self.cached_rendering_data,
-                &|| self.unresolved_font_request(),
-                Self::FIELD_OFFSETS.text.apply_pin(self),
-            )
-            .map(|metrics| metrics.text_size(&self.text()).ceil())
-            .unwrap_or_default()
     }
 
     fn input_event_filter_before_children(

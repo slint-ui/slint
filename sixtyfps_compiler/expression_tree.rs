@@ -43,7 +43,7 @@ pub enum BuiltinFunction {
     ColorBrighter,
     ColorDarker,
     Rgb,
-    ImplicitItemSize,
+    ImplicitLayoutInfo,
     RegisterCustomFontByPath,
     RegisterCustomFontByMemory,
 }
@@ -97,18 +97,8 @@ impl BuiltinFunction {
             BuiltinFunction::StringIsFloat => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![Type::String] }
             }
-            BuiltinFunction::ImplicitItemSize => Type::Function {
-                return_type: Box::new(Type::Struct {
-                    fields: [
-                        ("width".to_string(), Type::LogicalLength),
-                        ("height".to_string(), Type::LogicalLength),
-                    ]
-                    .iter()
-                    .cloned()
-                    .collect(),
-                    name: Some("Size".to_string()),
-                    node: None,
-                }),
+            BuiltinFunction::ImplicitLayoutInfo => Type::Function {
+                return_type: Box::new(crate::layout::layout_info_type()),
                 args: vec![Type::ElementReference],
             },
             BuiltinFunction::ColorBrighter => Type::Function {
