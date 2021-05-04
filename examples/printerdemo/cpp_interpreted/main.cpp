@@ -9,6 +9,8 @@
 LICENSE END */
 #include <sixtyfps_interpreter.h>
 
+#include <ctime>
+
 using sixtyfps::interpreter::Value;
 
 struct InkLevelModel : sixtyfps::Model<Value>

@@ -9,6 +9,8 @@
 LICENSE END */
 #include "printerdemo.h"
 
+#include <ctime>
+
 struct InkLevelModel : sixtyfps::Model<InkLevel>
 {
     int row_count() const override { return m_data.size(); }
