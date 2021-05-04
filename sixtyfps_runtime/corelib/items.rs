@@ -28,7 +28,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use crate::component::ComponentVTable;
 use crate::graphics::PathDataIterator;
-use crate::graphics::{Brush, Color, PathData, Rect, Size};
+use crate::graphics::{Brush, Color, PathData, Rect};
 use crate::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, KeyEventType,
     MouseEvent, MouseEventType,
