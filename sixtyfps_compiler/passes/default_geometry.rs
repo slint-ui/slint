@@ -51,7 +51,10 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                                 property_type == Type::LogicalLength
                             });
 
-                            elem.borrow_mut().bindings.contains_key(property)
+                            elem.borrow_mut()
+                                .bindings
+                                .get(property)
+                                .map_or(false, |b| b.priority > 0)
                         };
 
                         let width_specified = has_length_property_binding(elem, "width");

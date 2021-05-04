@@ -24,7 +24,7 @@ TestCase := Rectangle {
         }
         image_in_layout_with_explicit_fit := Image {
             image-fit: fill;
-        }    
+        }
     }
 
     image_with_missing_height := Image {
@@ -45,6 +45,8 @@ TestCase := Rectangle {
     property <bool> image_in_layout_custom_fit_ok: image_in_layout_with_explicit_fit.image-fit == ImageFit.fill;
     property <bool> image_with_missing_height_ok <=> image_with_missing_height.expected_height_ok;
     property <bool> image_with_missing_width_ok <=> image_with_missing_width.expected_width_ok;
+
+    property <bool> test: fixed_image_default_image_fit_ok && fixed_image_image_fit_override_ok && image_in_layout_fit_ok && image_in_layout_custom_fit_ok && image_with_missing_height_ok && image_with_missing_width_ok;
 }
 
 /*
