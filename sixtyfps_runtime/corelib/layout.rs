@@ -11,7 +11,7 @@ LICENSE END */
 //!
 //! Currently this is a very basic implementation
 
-use crate::{slice::Slice, Property, SharedVector};
+use crate::{slice::Slice, SharedVector};
 
 type Coord = f32;
 
@@ -785,7 +785,7 @@ pub fn box_layout_info<'a>(
 #[repr(C)]
 pub struct PathLayoutData<'a> {
     pub elements: &'a crate::graphics::PathData,
-    pub items: Slice<'a, PathLayoutItemData<'a>>,
+    pub item_count: u32,
     pub x: Coord,
     pub y: Coord,
     pub width: Coord,
@@ -795,20 +795,14 @@ pub struct PathLayoutData<'a> {
 
 #[repr(C)]
 #[derive(Default)]
-pub struct PathLayoutItemData<'a> {
-    pub x: Option<&'a Property<Coord>>,
-    pub y: Option<&'a Property<Coord>>,
+pub struct PathLayoutItemData {
     pub width: Coord,
     pub height: Coord,
 }
 
-pub fn solve_path_layout(data: &PathLayoutData) {
+pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) -> SharedVector<f32> {
     use lyon_geom::*;
     use lyon_path::iterator::PathIterator;
-
-    if data.items.is_empty() {
-        return;
-    }
 
     // Clone of path elements is cheap because it's a clone of underlying SharedVector
     let path_iter = data.elements.clone().iter_fitted(data.width, data.height);
@@ -829,14 +823,27 @@ pub fn solve_path_layout(data: &PathLayoutData) {
 
     let path_length: Coord = segment_lengths.iter().sum();
     // the max(2) is there to put the item in the middle when there is a single item
-    let item_distance = 1. / ((data.items.len() - 1) as f32).max(2.);
+    let item_distance = 1. / ((data.item_count - 1) as f32).max(2.);
 
     let mut i = 0;
     let mut next_t: f32 = data.offset;
-    if data.items.len() == 1 {
+    if data.item_count == 1 {
         next_t += item_distance;
     }
-    'main_loop: while i < data.items.len() {
+
+    let mut result = SharedVector::<f32>::default();
+    result.resize(data.item_count as usize * 2 + repeater_indexes.len(), 0.);
+    let res = result.as_slice_mut();
+
+    // The index/2 in result in which we should add the next repeated item
+    let mut repeat_ofst =
+        res.len() / 2 - repeater_indexes.iter().skip(1).step_by(2).sum::<u32>() as usize;
+    // The index/2  in repeater_indexes
+    let mut next_rep = 0;
+    // The index/2 in result in which we should add the next non-repeated item
+    let mut current_ofst = 0;
+
+    'main_loop: while i < data.item_count {
         let mut current_length: f32 = 0.;
         next_t %= 1.;
 
@@ -851,14 +858,34 @@ pub fn solve_path_layout(data: &PathLayoutData) {
                 let local_t = ((next_t * path_length) - seg_start) / seg_len;
 
                 let item_pos = segment.sample(local_t);
-                let center_x_offset = data.items[i].width / 2.;
-                let center_y_offset = data.items[i].height / 2.;
-                data.items[i].x.map(|prop| prop.set(item_pos.x - center_x_offset + data.x));
-                data.items[i].y.map(|prop| prop.set(item_pos.y - center_y_offset + data.y));
 
+                let o = loop {
+                    if let Some(nr) = repeater_indexes.get(next_rep * 2) {
+                        let nr = *nr;
+                        if nr == i {
+                            for o in 0..4 {
+                                res[current_ofst * 4 + o] = (repeat_ofst * 4 + o) as _;
+                            }
+                            current_ofst += 1;
+                        }
+                        if i >= nr {
+                            if i - nr == repeater_indexes[next_rep * 2 + 1] {
+                                next_rep += 1;
+                                continue;
+                            }
+                            repeat_ofst += 1;
+                            break repeat_ofst - 1;
+                        }
+                    }
+                    current_ofst += 1;
+                    break current_ofst - 1;
+                };
+
+                res[o * 2 + 0] = item_pos.x + data.x;
+                res[o * 2 + 1] = item_pos.y + data.y;
                 i += 1;
                 next_t += item_distance;
-                if i >= data.items.len() {
+                if i >= data.item_count {
                     break 'main_loop;
                 }
             }
@@ -868,6 +895,8 @@ pub fn solve_path_layout(data: &PathLayoutData) {
             }
         }
     }
+
+    result
 }
 
 #[cfg(feature = "ffi")]

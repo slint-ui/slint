@@ -69,9 +69,7 @@ fn lower_element_layout(
         "GridLayout" => lower_grid_layout(component, elem, style_metrics, diag),
         "HorizontalLayout" => lower_box_layout(component, elem, style_metrics, diag, true),
         "VerticalLayout" => lower_box_layout(component, elem, style_metrics, diag, false),
-        /*"HorizontalLayout" => &lower_box_layout,
-        "VerticalLayout" => &lower_box_layout,
-        "PathLayout" => &lower_path_layout,*/
+        "PathLayout" => lower_path_layout(component, elem, diag),
         _ => return,
     };
 
@@ -91,36 +89,6 @@ fn lower_element_layout(
             }
         }
     }
-
-    /*
-        let merge_min_max = |prop, op| {
-            let mut elem = elem.borrow_mut();
-            if let Some(old) = elem.bindings.get_mut(prop) {
-                if old.priority == 0 {
-                    old.expression = expression_tree::min_max_expression(
-                        std::mem::take(&mut old.expression),
-                        Expression::PropertyReference(NamedReference::new(&child, prop)),
-                        op,
-                    );
-                }
-            } else {
-                elem.bindings.insert(
-                    prop.to_owned(),
-                    Expression::PropertyReference(NamedReference::new(&child, prop)).into(),
-                );
-            }
-        };
-        // Instead of forwarding each property like that, one could imagine having only one LayoutInfo property that we merge
-        // instead of merging all the component separately
-        merge_min_max("minimum_width", '>');
-        merge_min_max("minimum_height", '>');
-        merge_min_max("maximum_width", '<');
-        merge_min_max("maximum_height", '<');
-        // Ideally this should be the same as "merge"
-        merge_min_max("preferred_width", '>');
-        merge_min_max("preferred_height", '>');
-        // TODO: handle the implicit constraints
-    */
 }
 
 fn lower_grid_layout(
@@ -258,47 +226,75 @@ fn lower_box_layout(
 }
 
 fn lower_path_layout(
-    component: &Rc<Component>,
-    rect: LayoutRect,
-    path_layout_element: &ElementRc,
-    collected_children: &mut Vec<ElementRc>,
-    _type_register: &TypeRegister,
-    _style_metrics: &Option<Rc<Component>>,
+    _component: &Rc<Component>,
+    layout_element: &ElementRc,
     diag: &mut BuildDiagnostics,
-) -> Option<Layout> {
-    let layout_children = std::mem::take(&mut path_layout_element.borrow_mut().children);
-    collected_children.extend(layout_children.iter().cloned());
-    component.optimized_elements.borrow_mut().push(path_layout_element.clone());
-    let path_elements_expr = match path_layout_element.borrow_mut().bindings.remove("elements") {
+) {
+    let layout_cache_prop = create_new_prop(layout_element, "layout_cache", Type::LayoutCache);
+
+    let path_elements_expr = match layout_element.borrow_mut().bindings.remove("elements") {
         Some(BindingExpression { expression: Expression::PathElements { elements }, .. }) => {
             elements
         }
         _ => {
-            diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), &*path_layout_element.borrow());
-            return None;
+            diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), &*layout_element.borrow());
+            return;
         }
     };
 
-    if layout_children.is_empty() {
-        return None;
+    let elements = layout_element.borrow().children.clone();
+    if elements.is_empty() {
+        return;
     }
-
-    let rect = LayoutRect {
-        x_reference: Some(NamedReference::new(path_layout_element, "x")),
-        y_reference: Some(NamedReference::new(path_layout_element, "y")),
-        width_reference: rect.width_reference,
-        height_reference: rect.height_reference,
-    };
-
-    Some(
-        PathLayout {
-            elements: layout_children,
-            path: path_elements_expr,
-            rect,
-            offset_reference: NamedReference::new(path_layout_element, "offset"),
-        }
-        .into(),
-    )
+    for (index, e) in elements.iter().enumerate() {
+        let (repeater_index, actual_elem) = if e.borrow().repeated.is_some() {
+            (
+                Some(Expression::RepeaterIndexReference { element: Rc::downgrade(e) }),
+                e.borrow().base_type.as_component().root_element.clone(),
+            )
+        } else {
+            (None, e.clone())
+        };
+        //FIXME: report errors if there is already bindings on x or y
+        let set_prop_from_cache = |prop: &str, offset: usize, size_prop: &str| {
+            let size = NamedReference::new(&actual_elem, size_prop);
+            actual_elem.borrow_mut().bindings.insert(
+                prop.into(),
+                Expression::BinaryExpression {
+                    lhs: Box::new(Expression::LayoutCacheAccess {
+                        layout_cache_prop: layout_cache_prop.clone(),
+                        index: index * 2 + offset,
+                        repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
+                    }),
+                    op: '-',
+                    rhs: Box::new(Expression::BinaryExpression {
+                        lhs: Box::new(Expression::PropertyReference(size)),
+                        op: '/',
+                        rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
+                    }),
+                }
+                .into(),
+            );
+        };
+        set_prop_from_cache("x", 0, "width");
+        set_prop_from_cache("y", 1, "height");
+    }
+    let rect = LayoutRect::install_on_element(layout_element);
+    let path_layout = Layout::PathLayout(PathLayout {
+        elements,
+        path: path_elements_expr,
+        rect,
+        offset_reference: layout_element
+            .borrow()
+            .bindings
+            .contains_key("spacing")
+            .then(|| NamedReference::new(layout_element, "spacing")),
+    });
+    layout_cache_prop
+        .element()
+        .borrow_mut()
+        .bindings
+        .insert(layout_cache_prop.name().into(), Expression::SolveLayout(path_layout).into());
 }
 
 /// Create a LayoutItem for the given `item_element`  returns None is the layout is empty

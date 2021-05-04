@@ -15,6 +15,7 @@ use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem};
 use sixtyfps_compilerlib::namedreference::NamedReference;
+use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib::layout as core_layout;
 use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::slice::Slice;
@@ -46,7 +47,7 @@ pub(crate) fn compute_layout_info(lay: &Layout, local_context: &mut EvalLocalCon
             )
             .into()
         }
-        _ => todo!(),
+        Layout::PathLayout(_) => unimplemented!(),
     }
 }
 
@@ -117,7 +118,27 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
             )
             .into()
         }
-        _ => todo!(),
+        Layout::PathLayout(path_layout) => {
+            let repeated_indices = repeater_indices(&path_layout.elements, component);
+            core_layout::solve_path_layout(
+                &core_layout::PathLayoutData {
+                    width: path_layout.rect.width_reference.as_ref().map(expr_eval).unwrap_or(0.),
+                    height: path_layout.rect.height_reference.as_ref().map(expr_eval).unwrap_or(0.),
+                    x: 0.,
+                    y: 0.,
+                    elements: &eval::eval_expression(
+                        &Expression::PathElements { elements: path_layout.path.clone() },
+                        local_context,
+                    )
+                    .try_into()
+                    .unwrap(),
+                    offset: path_layout.offset_reference.as_ref().map_or(0., expr_eval),
+                    item_count: path_layout.elements.len() as u32,
+                },
+                Slice::from(repeated_indices.as_slice()),
+            )
+            .into()
+        }
     }
 }
 
@@ -210,6 +231,39 @@ fn box_layout_data(
         })
         .unwrap_or_default();
     (cells, padding, spacing, alignment)
+}
+
+fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> {
+    let window = eval::window_ref(component).unwrap();
+
+    let mut idx = 0;
+    let mut ri = Vec::new();
+    for e in children {
+        if e.borrow().repeated.is_some() {
+            generativity::make_guard!(guard);
+            let rep = crate::dynamic_component::get_repeater_by_name(
+                component,
+                e.borrow().id.as_str(),
+                guard,
+            );
+            rep.0.as_ref().ensure_updated(|| {
+                let instance = crate::dynamic_component::instantiate(
+                    rep.1.clone(),
+                    Some(component.borrow()),
+                    window.clone(),
+                );
+                instance.run_setup_code();
+                instance
+            });
+            let component_vec = rep.0.as_ref().components_vec();
+            ri.push(idx);
+            ri.push(component_vec.len() as _);
+            idx += component_vec.len() as u32;
+        } else {
+            idx += 1;
+        }
+    }
+    ri
 }
 
 pub(crate) fn fill_layout_info_constraints(
