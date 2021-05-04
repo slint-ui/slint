@@ -359,42 +359,67 @@ impl Spanned for Element {
 
 impl core::fmt::Debug for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(repeated) = &self.repeated {
-            write!(f, "for {}[{}] in ", repeated.model_data_id, repeated.index_id)?;
-            expression_tree::pretty_print(f, &repeated.model)?;
-            write!(f, ":")?;
-        }
-        writeln!(f, "{} := {} {{", self.id, self.base_type)?;
-        for (name, ty) in &self.property_declarations {
-            if let Some(alias) = &ty.is_alias {
-                writeln!(f, "  alias<{}> {} <=> {:?};", ty.property_type, name, alias)?
-            } else {
-                writeln!(f, "  property<{}> {};", ty.property_type, name)?
-            }
-        }
-        for (name, expr) in &self.bindings {
-            write!(f, "   {}: ", name)?;
-            expression_tree::pretty_print(f, &expr.expression)?;
-            writeln!(f, "; /*{}*/", expr.priority)?;
-        }
-        for (name, anim) in &self.property_animations {
-            writeln!(f, "  animate {} {:?}", name, anim)?;
-        }
-        if !self.states.is_empty() {
-            writeln!(f, "  states {:?}", self.states)?;
-        }
-        if !self.transitions.is_empty() {
-            writeln!(f, "  transitions {:?} ", self.transitions)?;
-        }
-        for c in &self.children {
-            writeln!(f, "  {:?}", *c.borrow())?;
-        }
-
-        if let Type::Component(base) = &self.base_type {
-            writeln!(f, "{:?}", base.root_element)?;
-        }
-        writeln!(f, "}}")
+        pretty_print(f, self, 0)
     }
+}
+
+pub fn pretty_print(
+    f: &mut impl std::fmt::Write,
+    e: &Element,
+    indentation: usize,
+) -> std::fmt::Result {
+    if let Some(repeated) = &e.repeated {
+        write!(f, "for {}[{}] in ", repeated.model_data_id, repeated.index_id)?;
+        expression_tree::pretty_print(f, &repeated.model)?;
+        write!(f, ":")?;
+    }
+    writeln!(f, "{} := {} {{", e.id, e.base_type)?;
+    let mut indentation = indentation + 1;
+    macro_rules! indent {
+        () => {
+            for _ in 0..indentation {
+                write!(f, "   ")?
+            }
+        };
+    }
+    for (name, ty) in &e.property_declarations {
+        indent!();
+        if let Some(alias) = &ty.is_alias {
+            writeln!(f, "alias<{}> {} <=> {:?};", ty.property_type, name, alias)?
+        } else {
+            writeln!(f, "property<{}> {};", ty.property_type, name)?
+        }
+    }
+    for (name, expr) in &e.bindings {
+        indent!();
+        write!(f, "{}: ", name)?;
+        expression_tree::pretty_print(f, &expr.expression)?;
+        writeln!(f, ";")?;
+        //writeln!(f, "; /*{}*/", expr.priority)?;
+    }
+    for (name, anim) in &e.property_animations {
+        indent!();
+        writeln!(f, "animate {} {:?}", name, anim)?;
+    }
+    if !e.states.is_empty() {
+        indent!();
+        writeln!(f, "states {:?}", e.states)?;
+    }
+    if !e.transitions.is_empty() {
+        indent!();
+        writeln!(f, "transitions {:?} ", e.transitions)?;
+    }
+    for c in &e.children {
+        indent!();
+        pretty_print(f, &c.borrow(), indentation)?
+    }
+
+    /*if let Type::Component(base) = &e.base_type {
+        pretty_print(f, &c.borrow(), indentation)?
+    }*/
+    indentation -= 1;
+    indent!();
+    writeln!(f, "}}")
 }
 
 #[derive(Debug, Clone)]

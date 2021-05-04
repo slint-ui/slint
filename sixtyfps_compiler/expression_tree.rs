@@ -1211,8 +1211,8 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
                 if repeater_index.is_some() { " + $index" } else { "" }
             )
         }
-        Expression::ComputeLayoutInfo(l) => write!(f, "info({:?})", l),
-        Expression::SolveLayout(l) => write!(f, "solve({:?})", l),
+        Expression::ComputeLayoutInfo(_) => write!(f, "layout_info(..)"),
+        Expression::SolveLayout(_) => write!(f, "solve_layout(..)"),
     }
 }
 
