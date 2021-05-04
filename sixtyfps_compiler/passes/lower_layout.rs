@@ -397,7 +397,7 @@ fn eval_const_expr(
 }
 
 /// Create a new property based on the name. (it might get a different name if that property exist)
-fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> NamedReference {
+pub fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> NamedReference {
     let mut e = elem.borrow_mut();
     if !e.lookup_property(tentative_name).is_valid() {
         e.property_declarations.insert(tentative_name.into(), ty.into());

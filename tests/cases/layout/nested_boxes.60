@@ -19,7 +19,7 @@ TestCase := Rectangle {
             background: orange;
             maximum_height: 10phx;
         }
-        HorizontalLayout {
+        hl_redblue := HorizontalLayout {
             spacing: 0phx;
             padding: 0phx;
 
@@ -53,7 +53,7 @@ TestCase := Rectangle {
                 spacing: 2phx;
                 padding-left: 8phx;
                 padding-right: 10phx;
-                VerticalLayout {
+                vl1 := VerticalLayout {
                     spacing: 5phx;
                     padding-top: 5phx;
                     padding-bottom: 0phx;
@@ -66,7 +66,7 @@ TestCase := Rectangle {
                         background: white;
                     }
                 }
-                VerticalLayout {
+                vl2 := VerticalLayout {
                     spacing: 5phx;
                     padding-bottom: 5phx;
                     padding-top: 0phx;
@@ -90,12 +90,12 @@ TestCase := Rectangle {
         rect_orange.height == 10phx;
     property <bool> rect_blue_ok:
         rect_blue.x == 200phx &&
-        rect_blue.y == 10phx &&
+        hl_redblue.y == 10phx && rect_blue.y == 0phx &&
         rect_blue.width == 100phx &&
         rect_blue.height == 50phx;
     property <bool> rect_red_ok:
         rect_red.x == 0phx &&
-        rect_red.y == 10phx &&
+        hl_redblue.y == 10phx && rect_red.y == 0phx &&
         rect_red.width == 200phx &&
         rect_red.height == 50phx;
     property <bool> rect_green_ok:
@@ -114,15 +114,17 @@ TestCase := Rectangle {
         rect_yellow.width == 300phx &&
         rect_yellow.height == 240phx;
     property <bool> rect_black1_ok:
-        rect_black1.x == 8phx &&
-        rect_black1.y == 1phx * (2 + 5) &&
+        rect_black1.x + vl1.x == 8phx &&
+        rect_black1.y + vl1.y == 1phx * (2 + 5) &&
         rect_black1.width == 1phx * (300 - 18 - 2)/2 &&
         rect_black1.height == 1phx * (240 - 6 - 10)/2 ;
     property <bool> rect_black2_ok:
-        rect_black2.x == 300phx - 1phx * (300 - 20) / 2 - 10phx &&
-        rect_black2.y == 2phx &&
+        rect_black2.x + vl2.x == 300phx - 1phx * (300 - 20) / 2 - 10phx &&
+        rect_black2.y + vl2.y == 2phx &&
         rect_black2.width == 1phx * (300 - 18 - 2)/2 &&
         rect_black2.height == 1phx * (240 - 6 - 10)/2 ;
+
+    property <bool> test: rect_orange_ok && rect_blue_ok && rect_red_ok && rect_green_ok && rect_pink_ok && rect_yellow_ok && rect_black1_ok && rect_black2_ok;
 }
 
 /*

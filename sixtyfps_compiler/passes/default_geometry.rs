@@ -33,6 +33,8 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
             fix_percent_size(elem, parent, "width", diag);
             fix_percent_size(elem, parent, "height", diag);
 
+            gen_layout_info_prop(elem);
+
             let base_type = elem.borrow().base_type.clone();
             if let (Some(parent), Type::Builtin(builtin_type)) = (parent, base_type) {
                 match builtin_type.default_size_binding {
@@ -106,6 +108,49 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
             Some(elem.clone())
         },
     )
+}
+
+/// Generate a layout_info_prop based on the children layouts
+fn gen_layout_info_prop(elem: &ElementRc) {
+    let children = std::mem::take(&mut elem.borrow_mut().children);
+
+    for c in &children {
+        if let Some(child_info) = c.borrow().layout_info_prop.clone() {
+            let p = elem.borrow().layout_info_prop.clone();
+            let p = if let Some(p) = p {
+                p
+            } else {
+                let p = super::lower_layout::create_new_prop(
+                    elem,
+                    "layoutinfo",
+                    crate::layout::layout_info_type(),
+                );
+
+                elem.borrow_mut().layout_info_prop = Some(p.clone());
+                p.element().borrow_mut().bindings.insert(
+                    p.name().to_owned(),
+                    Expression::FunctionCall {
+                        function: Box::new(Expression::BuiltinFunctionReference(
+                            BuiltinFunction::ImplicitLayoutInfo,
+                        )),
+                        arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+                        source_location: None,
+                    }
+                    .into(),
+                );
+                p
+            };
+            p.element().borrow_mut().bindings.get_mut(p.name()).map(|binding| {
+                binding.expression = Expression::BinaryExpression {
+                    lhs: Box::new(std::mem::take(&mut binding.expression)),
+                    rhs: Box::new(Expression::PropertyReference(child_info)),
+                    op: '+',
+                };
+            });
+        }
+    }
+
+    elem.borrow_mut().children = children;
 }
 
 /// Replace expression such as  `"width: 30%;` with `width: 0.3 * parent.width;`

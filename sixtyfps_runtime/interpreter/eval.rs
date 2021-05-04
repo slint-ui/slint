@@ -419,7 +419,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 }
                 if let Value::String(s) = eval_expression(&arguments[0], local_context) {
                     if let Some(err) = crate::register_font_from_path(&std::path::PathBuf::from(s.as_str())).err() {
-                        sixtyfps_corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
+                        corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
                     }
                     Value::Void
                 } else {
@@ -440,6 +440,15 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             match (op, lhs, rhs) {
                 ('+', Value::String(mut a), Value::String(b)) => { a.push_str(b.as_str()); Value::String(a) },
                 ('+', Value::Number(a), Value::Number(b)) => Value::Number(a + b),
+                ('+', a @ Value::Struct(_), b @ Value::Struct(_)) => {
+                    let a : Option<corelib::layout::LayoutInfo> = a.try_into().ok();
+                    let b : Option<corelib::layout::LayoutInfo> = b.try_into().ok();
+                    if let (Some(a), Some(b)) = (a, b) {
+                        a.merge(&b).into()
+                    } else {
+                        panic!("unsupported {:?} {} {:?}", a, op, b);
+                    }
+                }
                 ('-', Value::Number(a), Value::Number(b)) => Value::Number(a - b),
                 ('/', Value::Number(a), Value::Number(b)) => Value::Number(a / b),
                 ('*', Value::Number(a), Value::Number(b)) => Value::Number(a * b),
@@ -810,9 +819,7 @@ fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
     }
 }
 
-pub fn new_struct_with_bindings<
-    ElementType: 'static + Default + sixtyfps_corelib::rtti::BuiltinItem,
->(
+pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::BuiltinItem>(
     bindings: &HashMap<String, BindingExpression>,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
@@ -829,8 +836,8 @@ pub fn new_struct_with_bindings<
 fn convert_from_lyon_path<'a>(
     it: impl IntoIterator<Item = &'a lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
 ) -> PathData {
+    use corelib::graphics::PathEvent;
     use lyon_path::Event;
-    use sixtyfps_corelib::graphics::PathEvent;
 
     let mut coordinates = Vec::new();
 

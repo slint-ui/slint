@@ -263,17 +263,14 @@ fn get_layout_info<'a, 'b>(
     window: &ComponentWindow,
 ) -> core_layout::LayoutInfo {
     let elem = item.element.borrow();
-    let item = &component
-        .component_type
-        .items
-        .get(elem.id.as_str())
-        .unwrap_or_else(|| panic!("Internal error: Item {} not found", elem.id));
-    let r = unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info(window) };
     if let Some(nr) = &elem.layout_info_prop {
-        r.merge(
-            &eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap(),
-        )
+        eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     } else {
-        r
+        let item = &component
+            .component_type
+            .items
+            .get(elem.id.as_str())
+            .unwrap_or_else(|| panic!("Internal error: Item {} not found", elem.id));
+        unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info(window) }
     }
 }
