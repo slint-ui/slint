@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 use super::{Item, ItemConsts, ItemRc};
-use crate::graphics::{ImageReference, Rect, Size};
+use crate::graphics::{ImageReference, Rect};
 use crate::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };

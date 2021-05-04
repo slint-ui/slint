@@ -21,7 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 */
 
 use super::{Item, ItemConsts, ItemRc, VoidArg};
-use crate::graphics::{Brush, Color, FontRequest, Rect, Size};
+use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
     MouseEvent, MouseEventType,

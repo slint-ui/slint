@@ -27,7 +27,7 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::graphics::{Color, Rect, Size};
+use sixtyfps_corelib::graphics::{Color, Rect};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
     MouseEventType,
