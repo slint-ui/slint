@@ -363,13 +363,13 @@ pub struct PathLayout {
     pub path: Path,
     pub elements: Vec<ElementRc>,
     pub rect: LayoutRect,
-    pub offset_reference: NamedReference,
+    pub offset_reference: Option<NamedReference>,
 }
 
 impl PathLayout {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.rect.visit_named_references(visitor);
-        visitor(&mut self.offset_reference);
+        self.offset_reference.as_mut().map(visitor);
     }
 }
 
