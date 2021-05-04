@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn materialize_fake_properties(component: &Rc<Component>) {
-    recurse_elem_no_borrow(&component.root_element, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         visit_all_named_references_in_element(elem, |nr| {
             let elem = nr.element();
             let elem = elem.borrow_mut();

@@ -1173,10 +1173,17 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
     vis: &mut impl FnMut(&ElementRc, &State) -> State,
 ) {
     recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
-        if elem.borrow().repeated.is_some() {
+        let base = if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
-                recurse_elem_including_sub_components_no_borrow(base, state, vis);
+                Some(base.clone())
+            } else {
+                None
             }
+        } else {
+            None
+        };
+        if let Some(base) = base {
+            recurse_elem_including_sub_components_no_borrow(&base, state, vis);
         }
         vis(elem, state)
     });
@@ -1184,7 +1191,7 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         .popup_windows
         .borrow()
         .iter()
-        .for_each(|p| recurse_elem_including_sub_components(&p.component, state, vis))
+        .for_each(|p| recurse_elem_including_sub_components_no_borrow(&p.component, state, vis))
 }
 
 /// This visit the binding attached to this element, but does not recurse in children elements
