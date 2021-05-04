@@ -12,6 +12,8 @@ LICENSE END */
     the implicit width or aspect ratio preserving for Images.
     Also set the Image.image-fit default depending on the presence of a
     layout parent.
+
+    This pass must be run after lower_layout
 */
 
 use std::rc::Rc;
