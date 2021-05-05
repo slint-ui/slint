@@ -21,7 +21,7 @@ use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
 use crate::langtype::Type;
-use crate::layout::LayoutGeometry;
+use crate::layout::{Layout, LayoutGeometry, LayoutRect};
 use crate::object_tree::{Component, Document, ElementRc};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
@@ -55,6 +55,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             Some(quote!(sixtyfps::re_exports::#e))
         }
         Type::Brush => Some(quote!(sixtyfps::Brush)),
+        Type::LayoutCache => Some(quote!(SharedVector<f32>)),
         _ => None,
     }
 }
@@ -80,7 +81,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .borrow()
         .iter()
         .filter_map(|ty| {
-            if let Type::Struct { fields, name: Some(name), .. } = ty {
+            if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
                 Some((format_ident!("{}", name), generate_struct(name, fields, diag)))
             } else {
                 None
@@ -421,7 +422,6 @@ fn generate_component(
                     ) {
                         use sixtyfps::re_exports::*;
                         let vp_w = viewport_width.get();
-                        self.apply_layout(Rect::new(Point::new(0., *offset_y), Size::new(vp_w, 0.)));
                         #p_y.set(*offset_y);
                         *offset_y += #p_height.get();
                         let w = #p_width.get();
@@ -432,28 +432,10 @@ fn generate_component(
                 }
             } else {
                 // TODO: we could generate this code only if we know that this component is in a box layout
-                let root_id = format_ident!("{}", base_component.root_element.borrow().id);
-                let root_c = &base_component.layouts.borrow().root_constraints;
-                let width = if root_c.fixed_width {
-                    quote!(None)
-                } else {
-                    quote!(Some(&self.get_ref().#root_id.width))
-                };
-                let height = if root_c.fixed_height {
-                    quote!(None)
-                } else {
-                    quote!(Some(&self.get_ref().#root_id.height))
-                };
                 quote! {
-                    fn box_layout_data<'a>(self: ::core::pin::Pin<&'a Self>) -> sixtyfps::re_exports::BoxLayoutCellData<'a> {
+                    fn box_layout_data(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::BoxLayoutCellData {
                         use sixtyfps::re_exports::*;
-                        BoxLayoutCellData {
-                            constraint: self.layout_info(),
-                            x: Some(&self.get_ref().#root_id.x),
-                            y: Some(&self.get_ref().#root_id.y),
-                            width: #width,
-                            height: #height,
-                        }
+                        BoxLayoutCellData { constraint: self.as_ref().layout_info() }
                     }
                 }
             };
@@ -612,7 +594,7 @@ fn generate_component(
         })
         .collect();
 
-    let layouts = compute_layout(component, &repeated_element_layouts);
+    let layouts = compute_layout(component);
     let mut visibility = None;
     let mut parent_component_type = None;
     let mut has_window_impl = None;
@@ -1297,10 +1279,10 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
-                OperatorClass::ArithmeticOp => if lhs.ty() == Type::String {
-                    (None, Some(quote!(.as_str())))
-                } else {
-                    (Some(quote!(as f64)), Some(quote!(as f64)))
+                OperatorClass::ArithmeticOp => match lhs.ty() {
+                    Type::String => (None, Some(quote!(.as_str()))),
+                    Type::Struct{..} => (None, None),
+                    _ => (Some(quote!(as f64)), Some(quote!(as f64))),
                 },
                 OperatorClass::ComparisonOp
                     if matches!(
@@ -1434,6 +1416,69 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let return_expr = expr.as_ref().map(|expr| compile_expression(expr, component));
             quote!(return (#return_expr) as _;)
         },
+        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
+            let cache = access_named_reference(layout_cache_prop, component, quote!(_self));
+            if let Some(ri) = repeater_index {
+                let offset = compile_expression(&ri, component);
+                quote!({
+                    let cache = #cache.get();
+                    cache[(cache[#index] as usize) + #offset * 4]
+                })
+            } else {
+                quote!(#cache.get()[#index])
+            }
+        }
+        Expression::ComputeLayoutInfo(Layout::GridLayout(layout)) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+            let cells = grid_layout_cell_data(layout, component);
+            quote!(grid_layout_info(&Slice::from_slice(&#cells), #spacing, #padding))
+        }
+        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+            let (cells, alignment) = box_layout_data(layout, component, None);
+            let is_horizontal = layout.is_horizontal;
+            quote!(box_layout_info(&Slice::from_slice(&#cells), #spacing, #padding, #alignment, #is_horizontal))
+        }
+        Expression::ComputeLayoutInfo(Layout::PathLayout(_)) => unimplemented!(),
+        Expression::SolveLayout(Layout::GridLayout(layout)) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+            let cells = grid_layout_cell_data(layout, component);
+            let (width, height) = layout_geometry_width_height(&layout.geometry.rect, component);
+            quote!(solve_grid_layout(&GridLayoutData{
+                width: #width,
+                height: #height,
+                x: 0.,
+                y: 0.,
+                spacing: #spacing,
+                padding: #padding,
+                cells: Slice::from_slice(&#cells),
+            }))
+        }
+        Expression::SolveLayout(Layout::BoxLayout(layout)) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+            let mut repeated_indices = Default::default();
+            let mut repeated_indices_init = Default::default();
+            let (cells, alignment) = box_layout_data(layout, component, Some((&mut repeated_indices, &mut repeated_indices_init)));
+            let (width, height) = layout_geometry_width_height(&layout.geometry.rect, component);
+            let is_horizontal = layout.is_horizontal;
+            quote!({
+                #repeated_indices_init
+                solve_box_layout(
+                    &BoxLayoutData {
+                        width: #width,
+                        height: #height,
+                        x: 0.,
+                        y: 0.,
+                        spacing: #spacing,
+                        padding: #padding,
+                        alignment: #alignment,
+                        cells: Slice::from_slice(&#cells),
+                    },
+                    #is_horizontal, Slice::from_slice(&#repeated_indices),
+                )
+            })
+        }
+        Expression::SolveLayout(Layout::PathLayout(_)) => quote!(unimplemented!()),
     }
 }
 
@@ -1545,210 +1590,6 @@ fn compile_assignment(
     }
 }
 
-struct RustLanguageLayoutGen;
-impl crate::layout::gen::Language for RustLanguageLayoutGen {
-    type CompiledCode = TokenStream;
-
-    fn make_grid_layout_cell_data<'a, 'b>(
-        item: &'a crate::layout::LayoutItem,
-        col: u16,
-        row: u16,
-        colspan: u16,
-        rowspan: u16,
-        layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-        component: &Rc<Component>,
-    ) -> TokenStream {
-        let get_property_ref = |p: &Option<NamedReference>| match p {
-            Some(nr) => {
-                let p = access_named_reference(nr, component, quote!(_self));
-                quote!(Some(#p.get_ref()))
-            }
-            None => quote!(None),
-        };
-        let lay_rect = item.rect();
-        let width = get_property_ref(&lay_rect.width_reference);
-        let height = get_property_ref(&lay_rect.height_reference);
-        let x = get_property_ref(&lay_rect.x_reference);
-        let y = get_property_ref(&lay_rect.y_reference);
-        let layout_info = get_layout_info_ref(item, layout_tree, component);
-        quote!(GridLayoutCellData {
-            x: #x,
-            y: #y,
-            width: #width,
-            height: #height,
-            col: #col,
-            row: #row,
-            colspan: #colspan,
-            rowspan: #rowspan,
-            constraint: #layout_info,
-        })
-    }
-
-    fn grid_layout_tree_item<'a, 'b>(
-        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
-        geometry: &'a crate::layout::LayoutGeometry,
-        cells: Vec<Self::CompiledCode>,
-        component: &Rc<Component>,
-    ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
-        let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
-        let cell_creation_code = quote!(let #cell_ref_variable
-                = [#( #cells ),*];);
-        let (padding, spacing, spacing_creation_code) =
-            generate_layout_padding_and_spacing(&layout_tree, geometry, component);
-
-        LayoutTreeItem::GridLayout {
-            geometry,
-            var_creation_code: quote!(#cell_creation_code #spacing_creation_code),
-            cell_ref_variable: quote!(#cell_ref_variable),
-            spacing,
-            padding,
-        }
-    }
-
-    fn box_layout_tree_item<'a, 'b>(
-        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
-        box_layout: &'a crate::layout::BoxLayout,
-        component: &Rc<Component>,
-    ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
-        let is_static_array = box_layout
-            .elems
-            .iter()
-            .all(|i| i.element.as_ref().map_or(true, |x| x.borrow().repeated.is_none()));
-
-        let mut make_box_layout_cell_data = |cell: &'a crate::layout::LayoutItem| {
-            let get_property_ref = |p: &Option<NamedReference>| match p {
-                Some(nr) => {
-                    let p = access_named_reference(nr, component, quote!(_self));
-                    quote!(Some(#p.get_ref()))
-                }
-                None => quote!(None),
-            };
-            let lay_rect = cell.rect();
-            let width = get_property_ref(&lay_rect.width_reference);
-            let height = get_property_ref(&lay_rect.height_reference);
-            let x = get_property_ref(&lay_rect.x_reference);
-            let y = get_property_ref(&lay_rect.y_reference);
-            let layout_info = get_layout_info_ref(cell, layout_tree, component);
-            quote!(BoxLayoutCellData {
-                x: #x,
-                y: #y,
-                width: #width,
-                height: #height,
-                constraint: #layout_info,
-            })
-        };
-        let cell_creation_code = if is_static_array {
-            let cells: Vec<_> = box_layout.elems.iter().map(make_box_layout_cell_data).collect();
-            let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
-            quote!(let #cell_ref_variable = [#( #cells ),*];)
-        } else {
-            let mut fixed_count = 0usize;
-            let mut repeated_count = quote!();
-            let mut push_code = quote!();
-            let inner_component_id = inner_component_id(component);
-            for item in &box_layout.elems {
-                match &item.element {
-                    Some(elem) if elem.borrow().repeated.is_some() => {
-                        let repeater_id = format_ident!("repeater_{}", elem.borrow().id);
-                        let rep_inner_component_id =
-                            self::inner_component_id(&elem.borrow().base_type.as_component());
-                        repeated_count = quote!(#repeated_count + self.#repeater_id.len());
-                        push_code = quote! {
-                            #push_code
-                            #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(self).ensure_updated(
-                                || { #rep_inner_component_id::new(self.self_weak.get().unwrap().clone(), &self.window).into() }
-                            );
-                            let internal_vec = self.#repeater_id.components_vec();
-                            for sub_comp in &internal_vec {
-                                items_vec.push(sub_comp.as_pin_ref().box_layout_data())
-                            }
-                        }
-                    }
-                    _ => {
-                        let e = make_box_layout_cell_data(item);
-                        fixed_count += 1;
-                        push_code = quote! {
-                            #push_code
-                            items_vec.push(#e);
-                        }
-                    }
-                }
-            }
-            let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
-            quote! {
-                let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
-                #push_code
-                let #cell_ref_variable = items_vec;
-            }
-        };
-        let cell_ref_variable = format_ident!("cells_{}", layout_tree.len());
-
-        let (padding, spacing, spacing_creation_code) =
-            generate_layout_padding_and_spacing(&layout_tree, &box_layout.geometry, component);
-
-        let alignment = if let Some(expr) = &box_layout.geometry.alignment {
-            let p = access_named_reference(expr, component, quote!(_self));
-            quote!(#p.get())
-        } else {
-            quote!(::core::default::Default::default())
-        };
-
-        LayoutTreeItem::BoxLayout {
-            is_horizontal: box_layout.is_horizontal,
-            geometry: &box_layout.geometry,
-            var_creation_code: quote!(#cell_creation_code #spacing_creation_code),
-            cell_ref_variable: quote!(#cell_ref_variable),
-            spacing,
-            padding,
-            alignment,
-        }
-    }
-}
-
-type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, RustLanguageLayoutGen>;
-
-impl<'a> LayoutTreeItem<'a> {
-    fn layout_info(&self) -> TokenStream {
-        match self {
-            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => {
-                quote!(grid_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding))
-            }
-            LayoutTreeItem::BoxLayout {
-                cell_ref_variable,
-                spacing,
-                padding,
-                alignment,
-                is_horizontal,
-                ..
-            } => {
-                quote!(box_layout_info(&Slice::from_slice(&#cell_ref_variable), #spacing, #padding, #alignment, #is_horizontal))
-            }
-            LayoutTreeItem::PathLayout(_) => quote!(todo!("layout_info for PathLayout in rust.rs")),
-        }
-    }
-}
-
-fn get_layout_info_ref<'a, 'b>(
-    item: &'a crate::layout::LayoutItem,
-    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
-    component: &Rc<Component>,
-) -> TokenStream {
-    let layout_info = item.layout.as_ref().map(|l| {
-        crate::layout::gen::collect_layouts_recursively(layout_tree, l, component).layout_info()
-    });
-    let elem_info = item.element.as_ref().map(|elem| {
-        let e = format_ident!("{}", elem.borrow().id);
-        quote!(Self::FIELD_OFFSETS.#e.apply_pin(self).layouting_info(&window))
-    });
-    let layout_info = match (layout_info, elem_info) {
-        (None, None) => quote!(),
-        (None, Some(x)) => x,
-        (Some(x), None) => x,
-        (Some(layout_info), Some(elem_info)) => quote!(#layout_info.merge(&#elem_info)),
-    };
-    apply_layout_constraint(layout_info, &item.constraints, component)
-}
-
 fn apply_layout_constraint(
     layout_info: TokenStream,
     constraints: &crate::layout::LayoutConstraints,
@@ -1771,17 +1612,128 @@ fn apply_layout_constraint(
     }
 }
 
-fn generate_layout_padding_and_spacing<'a, 'b>(
-    layout_tree: &'b [LayoutTreeItem<'a>],
-    layout_geometry: &'a LayoutGeometry,
+fn grid_layout_cell_data(
+    layout: &crate::layout::GridLayout,
     component: &Rc<Component>,
-) -> (TokenStream, TokenStream, Option<TokenStream>) {
-    let (spacing, spacing_creation_code) = if let Some(spacing) = &layout_geometry.spacing {
-        let variable = format_ident!("spacing_{}", layout_tree.len());
-        let spacing_code = access_named_reference(spacing, component, quote!(_self));
-        (quote!(#variable), Some(quote!(let #variable = #spacing_code.get();)))
+) -> TokenStream {
+    let cells = layout.elems.iter().map(|c| {
+        let col = c.col;
+        let row = c.row;
+        let colspan = c.colspan;
+        let rowspan = c.rowspan;
+        let layout_info = apply_layout_constraint(
+            get_layout_info(&c.item.element, component),
+            &c.item.constraints,
+            component,
+        );
+        quote!(GridLayoutCellData {
+            col: #col,
+            row: #row,
+            colspan: #colspan,
+            rowspan: #rowspan,
+            constraint: #layout_info,
+        })
+    });
+    quote!([ #(#cells),* ])
+}
+
+/// Returns `(cells, alignment)`.
+/// The repeated_indices initialize the repeated_indices (var, init_code)
+fn box_layout_data(
+    layout: &crate::layout::BoxLayout,
+    component: &Rc<Component>,
+    mut repeated_indices: Option<(&mut TokenStream, &mut TokenStream)>,
+) -> (TokenStream, TokenStream) {
+    let alignment = if let Some(expr) = &layout.geometry.alignment {
+        let p = access_named_reference(expr, component, quote!(_self));
+        quote!(#p.get())
     } else {
-        (quote!(0.), None)
+        quote!(::core::default::Default::default())
+    };
+
+    let repeater_count =
+        layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
+
+    if repeater_count == 0 {
+        let cells = layout.elems.iter().map(|li| {
+            let layout_info = apply_layout_constraint(
+                get_layout_info(&li.element, component),
+                &li.constraints,
+                component,
+            );
+            quote!(BoxLayoutCellData { constraint: #layout_info })
+        });
+        if let Some((ri, _)) = &mut repeated_indices {
+            **ri = quote!([]);
+        }
+        (quote!([ #(#cells),* ]), alignment)
+    } else {
+        let mut fixed_count = 0usize;
+        let mut repeated_count = quote!();
+        let mut push_code = quote!();
+        let inner_component_id = inner_component_id(component);
+        if let Some((ri, init)) = &mut repeated_indices {
+            **ri = quote!(repeater_indices);
+            **init = quote!( let mut #ri = [ 0u32; #repeater_count * 2]; );
+        }
+        let mut repeater_idx = 0usize;
+        for item in &layout.elems {
+            if item.element.borrow().repeated.is_some() {
+                let repeater_id = format_ident!("repeater_{}", item.element.borrow().id);
+                let rep_inner_component_id =
+                    self::inner_component_id(&item.element.borrow().base_type.as_component());
+                repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
+                let ri = repeated_indices.as_ref().map(|(ri, _)| {
+                    quote!(
+                        #ri[#repeater_idx * 2] = items_vec.len() as u32;
+                        #ri[#repeater_idx * 2 + 1] = internal_vec.len() as u32;
+                    )
+                });
+                repeater_idx += 1;
+                push_code = quote! {
+                    #push_code
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window).into() }
+                    );
+                    let internal_vec = _self.#repeater_id.components_vec();
+                    #ri
+                    for sub_comp in &internal_vec {
+                        items_vec.push(sub_comp.as_pin_ref().box_layout_data())
+                    }
+                }
+            } else {
+                let layout_info = apply_layout_constraint(
+                    get_layout_info(&item.element, component),
+                    &item.constraints,
+                    component,
+                );
+                fixed_count += 1;
+                push_code = quote! {
+                    #push_code
+                    items_vec.push(BoxLayoutCellData { constraint: #layout_info });
+                }
+            }
+        }
+        (
+            quote! { {
+                let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
+                #push_code
+                items_vec
+            } },
+            alignment,
+        )
+    }
+}
+
+fn generate_layout_padding_and_spacing(
+    layout_geometry: &LayoutGeometry,
+    component: &Rc<Component>,
+) -> (TokenStream, TokenStream) {
+    let spacing = if let Some(spacing) = &layout_geometry.spacing {
+        let spacing_code = access_named_reference(spacing, component, quote!(_self));
+        quote!(#spacing_code.get())
+    } else {
+        quote!(0.)
     };
     let padding = {
         let padding_prop = |expr| {
@@ -1803,276 +1755,50 @@ fn generate_layout_padding_and_spacing<'a, 'b>(
             bottom: #bottom,
         })
     };
-
-    (padding, spacing, spacing_creation_code)
+    (padding, spacing)
 }
 
-impl<'a> LayoutTreeItem<'a> {
-    fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<TokenStream>) {
-        if let Some(geometry) = self.geometry() {
-            if geometry.materialized_constraints.has_explicit_restrictions() {
-                let info = self.layout_info();
-                let (name, expr): (Vec<_>, Vec<_>) = geometry
-                    .materialized_constraints
-                    .for_each_restrictions()
-                    .map(|(e, s)| {
-                        (
-                            format_ident!("{}", s),
-                            access_named_reference(e, component, quote!(_self)),
-                        )
-                    })
-                    .unzip();
-
-                code_stream.push(quote!({
-                    let info = #info;
-                    #(#expr.set(info.#name);)*
-                }));
-            }
-        }
-
-        let layout_prop = |p: &Option<NamedReference>| {
-            if let Some(nr) = p {
+fn layout_geometry_width_height(
+    rect: &LayoutRect,
+    component: &Rc<Component>,
+) -> (TokenStream, TokenStream) {
+    let get_prop = |nr: &Option<NamedReference>| {
+        nr.as_ref().map_or_else(
+            || quote!(::core::default::Default::default()),
+            |nr| {
                 let p = access_named_reference(nr, component, quote!(_self));
                 quote!(#p.get())
-            } else {
-                quote!(::core::default::Default::default())
-            }
-        };
-        match self {
-            LayoutTreeItem::GridLayout {
-                geometry, cell_ref_variable, spacing, padding, ..
-            } => {
-                let x_pos = layout_prop(&geometry.rect.x_reference);
-                let y_pos = layout_prop(&geometry.rect.y_reference);
-                let width = layout_prop(&geometry.rect.width_reference);
-                let height = layout_prop(&geometry.rect.height_reference);
-
-                code_stream.push(quote! {
-                    solve_grid_layout(&GridLayoutData {
-                        width: #width,
-                        height: #height,
-                        x: #x_pos,
-                        y: #y_pos,
-                        cells: Slice::from_slice(&#cell_ref_variable),
-                        spacing: #spacing,
-                        padding: #padding,
-                    });
-                });
-            }
-            LayoutTreeItem::BoxLayout {
-                geometry,
-                cell_ref_variable,
-                spacing,
-                padding,
-                alignment,
-                is_horizontal,
-                ..
-            } => {
-                let x_pos = layout_prop(&geometry.rect.x_reference);
-                let y_pos = layout_prop(&geometry.rect.y_reference);
-                let width = layout_prop(&geometry.rect.width_reference);
-                let height = layout_prop(&geometry.rect.height_reference);
-
-                code_stream.push(quote! {
-                    solve_box_layout(&BoxLayoutData {
-                        width: #width,
-                        height: #height,
-                        x: #x_pos,
-                        y: #y_pos,
-                        cells: Slice::from_slice(&#cell_ref_variable),
-                        spacing: #spacing,
-                        padding: #padding,
-                        alignment: #alignment
-                    }, #is_horizontal);
-                });
-            }
-            LayoutTreeItem::PathLayout(path_layout) => {
-                let path_layout_item_data =
-                    |elem: &ElementRc, elem_rs: TokenStream, component_rust: TokenStream| {
-                        let prop_ref = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type == Type::LogicalLength
-                            {
-                                let n = format_ident!("{}", n);
-                                quote! {Some(& #elem_rs.#n)}
-                            } else {
-                                quote! {None}
-                            }
-                        };
-                        let prop_value = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type == Type::LogicalLength
-                            {
-                                let accessor = access_member(
-                                    &elem,
-                                    n,
-                                    &elem.borrow().enclosing_component.upgrade().unwrap(),
-                                    component_rust.clone(),
-                                    false,
-                                );
-                                quote!(#accessor.get())
-                            } else {
-                                quote! {0.}
-                            }
-                        };
-                        let x = prop_ref("x");
-                        let y = prop_ref("y");
-                        let width = prop_value("width");
-                        let height = prop_value("height");
-                        quote!(PathLayoutItemData {
-                            x: #x,
-                            y: #y,
-                            width: #width,
-                            height: #height,
-                        })
-                    };
-                let path_layout_item_data_for_elem = |elem: &ElementRc| {
-                    let e = format_ident!("{}", elem.borrow().id);
-                    path_layout_item_data(elem, quote!(self.#e), quote!(self))
-                };
-
-                let is_static_array =
-                    path_layout.elements.iter().all(|elem| elem.borrow().repeated.is_none());
-
-                let slice = if is_static_array {
-                    let items = path_layout.elements.iter().map(path_layout_item_data_for_elem);
-                    quote!( Slice::from_slice(&[#( #items ),*]) )
-                } else {
-                    let mut fixed_count = 0usize;
-                    let mut repeated_count = quote!();
-                    let mut push_code = quote!();
-                    for elem in &path_layout.elements {
-                        if elem.borrow().repeated.is_some() {
-                            let repeater_id = format_ident!("repeater_{}", elem.borrow().id);
-                            repeated_count = quote!(#repeated_count + self.#repeater_id.len());
-                            let root_element =
-                                elem.borrow().base_type.as_component().root_element.clone();
-                            let root_id = format_ident!("{}", root_element.borrow().id);
-                            let e = path_layout_item_data(
-                                &root_element,
-                                quote!(sub_comp.#root_id),
-                                quote!(sub_comp.as_pin_ref()),
-                            );
-                            push_code = quote! {
-                                #push_code
-                                let internal_vec = self.#repeater_id.components_vec();
-                                for sub_comp in &internal_vec {
-                                    items_vec.push(#e)
-                                }
-                            }
-                        } else {
-                            fixed_count += 1;
-                            let e = path_layout_item_data_for_elem(elem);
-                            push_code = quote! {
-                                #push_code
-                                items_vec.push(#e);
-                            }
-                        }
-                    }
-
-                    code_stream.push(quote! {
-                        let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
-                        #push_code
-                    });
-                    quote!(Slice::from_slice(items_vec.as_slice()))
-                };
-
-                let path = compile_path(&path_layout.path, &component);
-
-                let x_pos = layout_prop(&path_layout.rect.x_reference);
-                let y_pos = layout_prop(&path_layout.rect.y_reference);
-                let width = layout_prop(&path_layout.rect.width_reference);
-                let height = layout_prop(&path_layout.rect.width_reference);
-                let offset = layout_prop(&Some(path_layout.offset_reference.clone()));
-
-                code_stream.push(quote! {
-                    solve_path_layout(&PathLayoutData {
-                        items: #slice,
-                        elements: &#path,
-                        x: #x_pos,
-                        y: #y_pos,
-                        width: #width,
-                        height: #height,
-                        offset: #offset,
-                    });
-                });
-            }
-        }
-    }
+            },
+        )
+    };
+    (get_prop(&rect.width_reference), get_prop(&rect.height_reference))
 }
 
-fn compute_layout(
-    component: &Rc<Component>,
-    repeated_element_layouts: &[TokenStream],
-) -> TokenStream {
-    let mut layouts = vec![];
-    let root_id = format_ident!("{}", component.root_element.borrow().id);
-    let inner_component_id = inner_component_id(component);
-    let mut layout_info =
-        quote!(#inner_component_id::FIELD_OFFSETS.#root_id.apply_pin(self).layouting_info(&window));
-    let component_layouts = component.layouts.borrow();
+fn compute_layout(component: &Rc<Component>) -> TokenStream {
+    let elem = &component.root_element;
+    let mut layout_info = get_layout_info(elem, component);
 
-    component_layouts.iter().enumerate().for_each(|(idx, layout)| {
-        let mut inverse_layout_tree = Vec::new();
-
-        let layout_item = crate::layout::gen::collect_layouts_recursively(
-            &mut inverse_layout_tree,
-            layout,
-            component,
-        );
-
-        if component_layouts.main_layout == Some(idx) {
-            layout_info = layout_item.layout_info()
-        }
-
-        let mut creation_code = inverse_layout_tree
-            .iter()
-            .filter_map(|layout| match layout {
-                LayoutTreeItem::GridLayout { var_creation_code, .. } => {
-                    Some(var_creation_code.clone())
-                }
-                LayoutTreeItem::BoxLayout { var_creation_code, .. } => {
-                    Some(var_creation_code.clone())
-                }
-                LayoutTreeItem::PathLayout(_) => None,
-            })
-            .collect::<Vec<_>>();
-
-        if component_layouts.main_layout == Some(idx) {
-            layout_info = quote!({#(#creation_code)* #layout_info});
-        }
-
-        layouts.append(&mut creation_code);
-
-        inverse_layout_tree
-            .iter()
-            .rev()
-            .for_each(|layout| layout.emit_solve_calls(component, &mut layouts));
-    });
-
-    layout_info = apply_layout_constraint(
-        layout_info,
-        &component.layouts.borrow().root_constraints,
-        component,
-    );
+    layout_info =
+        apply_layout_constraint(layout_info, &component.root_constraints.borrow(), component);
 
     quote! {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let _self = self;
-            let window = _self.window.clone();
             #layout_info
         }
-        fn apply_layout(self: ::core::pin::Pin<&Self>, _: sixtyfps::re_exports::Rect) {
-            #![allow(unused)]
-            use sixtyfps::re_exports::*;
-            let dummy = Property::<f32>::default();
-            let _self = self;
-            let window = _self.window.clone();
-            #(#layouts)*
+    }
+}
 
-            let _self = self;
-            #(#repeated_element_layouts)*
-        }
+fn get_layout_info(elem: &ElementRc, component: &Rc<Component>) -> TokenStream {
+    if let Some(layout_info_prop) = &elem.borrow().layout_info_prop {
+        let li = access_named_reference(layout_info_prop, component, quote!(_self));
+        quote! {#li.get()}
+    } else {
+        let elem_id = format_ident!("{}", elem.borrow().id);
+        let inner_component_id = inner_component_id(component);
+        quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(&_self.window))
     }
 }
 

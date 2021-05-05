@@ -13,7 +13,7 @@ use crate::eval::{self, ComponentInstance, EvalLocalContext};
 use crate::Value;
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints};
+use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutGeometry};
 use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib::layout as core_layout;
@@ -32,12 +32,13 @@ pub(crate) fn compute_layout_info(lay: &Layout, local_context: &mut EvalLocalCon
     };
     match lay {
         Layout::GridLayout(grid_layout) => {
-            let (cells, padding, spacing) = grid_layout_data(grid_layout, component, &expr_eval);
+            let cells = grid_layout_data(grid_layout, component, &expr_eval);
+            let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, &expr_eval);
             core_layout::grid_layout_info(&Slice::from(cells.as_slice()), spacing, &padding).into()
         }
         Layout::BoxLayout(box_layout) => {
-            let (cells, padding, spacing, alignment) =
-                box_layout_data(box_layout, component, &expr_eval, None);
+            let (cells, alignment) = box_layout_data(box_layout, component, &expr_eval, None);
+            let (padding, spacing) = padding_and_spacing(&box_layout.geometry, &expr_eval);
             core_layout::box_layout_info(
                 &Slice::from(cells.as_slice()),
                 spacing,
@@ -62,7 +63,8 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
 
     match lay {
         Layout::GridLayout(grid_layout) => {
-            let (cells, padding, spacing) = grid_layout_data(grid_layout, component, &expr_eval);
+            let cells = grid_layout_data(grid_layout, component, &expr_eval);
+            let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, &expr_eval);
 
             Value::LayoutCache(core_layout::solve_grid_layout(&core_layout::GridLayoutData {
                 width: grid_layout
@@ -88,8 +90,9 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
         }
         Layout::BoxLayout(box_layout) => {
             let mut repeated_indices = Vec::new();
-            let (cells, padding, spacing, alignment) =
+            let (cells, alignment) =
                 box_layout_data(box_layout, component, &expr_eval, Some(&mut repeated_indices));
+            let (padding, spacing) = padding_and_spacing(&box_layout.geometry, &expr_eval);
             core_layout::solve_box_layout(
                 &core_layout::BoxLayoutData {
                     width: box_layout
@@ -142,12 +145,26 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
     }
 }
 
+fn padding_and_spacing(
+    layout_geometry: &LayoutGeometry,
+    expr_eval: &impl Fn(&NamedReference) -> f32,
+) -> (core_layout::Padding, f32) {
+    let spacing = layout_geometry.spacing.as_ref().map_or(0., expr_eval);
+    let padding = core_layout::Padding {
+        left: layout_geometry.padding.left.as_ref().map_or(0., expr_eval),
+        right: layout_geometry.padding.right.as_ref().map_or(0., expr_eval),
+        top: layout_geometry.padding.top.as_ref().map_or(0., expr_eval),
+        bottom: layout_geometry.padding.bottom.as_ref().map_or(0., expr_eval),
+    };
+    (padding, spacing)
+}
+
 /// return the celldata, the padding, and the spacing of a grid layout
 fn grid_layout_data(
     grid_layout: &sixtyfps_compilerlib::layout::GridLayout,
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
-) -> (Vec<core_layout::GridLayoutCellData>, core_layout::Padding, f32) {
+) -> Vec<core_layout::GridLayoutCellData> {
     let cells = grid_layout
         .elems
         .iter()
@@ -167,14 +184,7 @@ fn grid_layout_data(
             }
         })
         .collect::<Vec<_>>();
-    let spacing = grid_layout.geometry.spacing.as_ref().map_or(0., expr_eval);
-    let padding = core_layout::Padding {
-        left: grid_layout.geometry.padding.left.as_ref().map_or(0., expr_eval),
-        right: grid_layout.geometry.padding.right.as_ref().map_or(0., expr_eval),
-        top: grid_layout.geometry.padding.top.as_ref().map_or(0., expr_eval),
-        bottom: grid_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
-    };
-    (cells, padding, spacing)
+    cells
 }
 
 fn box_layout_data(
@@ -182,8 +192,7 @@ fn box_layout_data(
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
-) -> (Vec<core_layout::BoxLayoutCellData>, core_layout::Padding, f32, core_layout::LayoutAlignment)
-{
+) -> (Vec<core_layout::BoxLayoutCellData>, core_layout::LayoutAlignment) {
     let window = eval::window_ref(component).unwrap();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
@@ -215,13 +224,6 @@ fn box_layout_data(
             cells.push(core_layout::BoxLayoutCellData { constraint: layout_info });
         }
     }
-    let spacing = box_layout.geometry.spacing.as_ref().map_or(0., expr_eval);
-    let padding = core_layout::Padding {
-        left: box_layout.geometry.padding.left.as_ref().map_or(0., expr_eval),
-        right: box_layout.geometry.padding.right.as_ref().map_or(0., expr_eval),
-        top: box_layout.geometry.padding.top.as_ref().map_or(0., expr_eval),
-        bottom: box_layout.geometry.padding.bottom.as_ref().map_or(0., expr_eval),
-    };
     let alignment = box_layout
         .geometry
         .alignment
@@ -233,7 +235,7 @@ fn box_layout_data(
                 .unwrap_or_default()
         })
         .unwrap_or_default();
-    (cells, padding, spacing, alignment)
+    (cells, alignment)
 }
 
 fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> {
