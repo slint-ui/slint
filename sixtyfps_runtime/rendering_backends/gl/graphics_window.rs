@@ -233,12 +233,11 @@ impl GraphicsWindow {
 
             runtime_window.meta_properties_tracker.as_ref().evaluate_if_dirty(|| {
                 self.apply_geometry_constraint(component.as_ref().layout_info());
-                component.as_ref().apply_layout(Default::default());
 
-                if let Some((popup, pos)) = &*self.active_popup.borrow() {
+                if let Some((popup, _)) = &*self.active_popup.borrow() {
                     let popup = ComponentRc::borrow_pin(popup);
                     let popup_root = popup.as_ref().get_item_ref(0);
-                    let size = if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
+                    if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
                         let layout_info = popup.as_ref().layout_info();
 
                         let width =
@@ -256,11 +255,7 @@ impl GraphicsWindow {
                             h = layout_info.min_height;
                             height.set(h);
                         }
-                        Size::new(h, w) * self.scale_factor()
-                    } else {
-                        Size::default()
                     };
-                    popup.as_ref().apply_layout(Rect::new(pos.clone(), size));
                 }
             });
 

@@ -37,8 +37,6 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     window: &ComponentWindow,
 ) {
     let mut state = crate::input::MouseInputState::default();
-    vtable::VRc::borrow_pin(component).as_ref().apply_layout(Default::default());
-
     let pos = euclid::point2(x, y);
 
     state = crate::input::process_mouse_input(

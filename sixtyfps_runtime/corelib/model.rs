@@ -503,7 +503,6 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 };
                 for c in self.inner.borrow().borrow().components.iter() {
                     c.1.as_ref().map(|x| {
-                        x.as_pin_ref().apply_layout(Default::default());
                         get_height_visitor(x.as_pin_ref().get_item_ref(0));
                     });
                 }
@@ -522,7 +521,6 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     self.ensure_updated_impl(&init, &model, 1);
                     if let Some(c) = self.inner.borrow().borrow().components.get(0) {
                         c.1.as_ref().map(|x| {
-                            x.as_pin_ref().apply_layout(Default::default());
                             get_height_visitor(x.as_pin_ref().get_item_ref(0));
                         });
                     } else {
@@ -630,13 +628,6 @@ impl<C: RepeatedComponent> Repeater<C> {
     /// Returns a vector containing all components
     pub fn components_vec(&self) -> Vec<ComponentRc<C>> {
         self.inner.borrow().borrow().components.iter().flat_map(|x| x.1.clone()).collect()
-    }
-
-    /// Recompute the layout of each child elements
-    pub fn compute_layout(&self) {
-        for c in self.inner.borrow().borrow().components.iter() {
-            c.1.as_ref().map(|x| x.as_pin_ref().apply_layout(Default::default()));
-        }
     }
 
     /// Same as compule_layout, but only for the ListView

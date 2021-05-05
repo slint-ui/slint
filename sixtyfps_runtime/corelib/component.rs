@@ -11,7 +11,6 @@ LICENSE END */
 
 //! This module contains the basic datastructures that are exposed to the C API
 
-use crate::graphics::Rect;
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::items::{ItemVTable, ItemWeak};
 use crate::layout::LayoutInfo;
@@ -46,9 +45,6 @@ pub struct ComponentVTable {
 
     /// Returns the layout info for this component
     pub layout_info: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> LayoutInfo,
-
-    /// Apply the layout to all the items in the component, and set the geometry of the root to the given rect
-    pub apply_layout: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, Rect),
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ComponentVTable>) -> vtable::Layout,

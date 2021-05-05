@@ -845,7 +845,6 @@ impl QtWindow {
             if runtime_window.meta_properties_tracker.as_ref().is_dirty() {
                 runtime_window.meta_properties_tracker.as_ref().evaluate(|| {
                     self.apply_geometry_constraint(component.as_ref().layout_info());
-                    component.as_ref().apply_layout(Default::default());
                 });
             }
 
@@ -953,7 +952,6 @@ impl PlatformWindow for QtWindow {
     fn show(self: Rc<Self>) {
         let component_rc = self.self_weak.upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
-        component.as_ref().apply_layout(Default::default());
         let root_item = component.as_ref().get_item_ref(0);
         if let Some(window_item) = ItemRef::downcast_pin(root_item) {
             self.apply_window_properties(window_item);

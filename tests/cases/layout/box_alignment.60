@@ -77,7 +77,6 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-TestCase::apply_layout({&TestCase::static_vtable, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
 assert(instance.get_v1());
 assert(instance.get_v2());
 assert(instance.get_v3());
@@ -90,7 +89,6 @@ assert(instance.get_c1());
 
 ```rust
 let instance = TestCase::new();
-sixtyfps::testing::apply_layout(&instance, sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
 assert!(instance.get_v1());
 assert!(instance.get_v2());
 assert!(instance.get_v3());
