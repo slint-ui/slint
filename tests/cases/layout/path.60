@@ -78,6 +78,8 @@ TestCase := Rectangle {
     }
     property <bool> test5 : single_item.x == item2.x && single_item.y == item2.y;
 
+    property <bool> test: test1 && test2 && test3 && test4 && test5;
+
 }
 
 /*
@@ -105,10 +107,9 @@ assert!(instance.get_test5());
 ```js
 var instance = new sixtyfps.TestCase({});
 assert(instance.test1);
-// FIXME : cannot be tested because the layout is not computed
-//assert(instance.test2);
-//assert(instance.test3);
-//assert(instance.test4);
+assert(instance.test2);
+assert(instance.test3);
+assert(instance.test4);
 assert(instance.test5);
 ```
 
