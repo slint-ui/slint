@@ -107,6 +107,14 @@ impl LayoutInfo {
     }
 }
 
+impl core::ops::Add for LayoutInfo {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self.merge(&rhs)
+    }
+}
+
 mod grid_internal {
     use super::*;
 
