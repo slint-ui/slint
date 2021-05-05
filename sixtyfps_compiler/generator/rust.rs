@@ -1478,7 +1478,35 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 )
             })
         }
-        Expression::SolveLayout(Layout::PathLayout(_)) => quote!(unimplemented!()),
+        Expression::SolveLayout(Layout::PathLayout(layout)) => {
+            let (width, height) = layout_geometry_width_height(&layout.rect, component);
+            let elements = compile_path(&layout.path, component);
+            let get_prop = |nr: &Option<NamedReference>| {
+                nr.as_ref().map_or_else(
+                    || quote!(::core::default::Default::default()),
+                    |nr| {
+                        let p = access_named_reference(nr, component, quote!(_self));
+                        quote!(#p.get())
+                    },
+                )
+            };
+            let offset = get_prop(&layout.offset_reference);
+            let count = layout.elements.len(); // FIXME! repeater
+            quote!(
+                solve_path_layout(
+                    &PathLayoutData {
+                        width: #width,
+                        height: #height,
+                        x: 0.,
+                        y: 0.,
+                        elements: &#elements,
+                        offset: #offset,
+                        item_count: #count as _,
+                    },
+                    Slice::from_slice(&[]),
+                )
+            )
+        }
     }
 }
 
