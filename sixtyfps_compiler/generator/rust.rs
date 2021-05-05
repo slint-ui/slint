@@ -238,7 +238,9 @@ fn handle_property_binding(
                         }
                     }
                     None => {
-                        quote! { #rust_property.set_binding(#binding_tokens); }
+                        // Note: this is in a closure because there are many of these and they blow the size of the stack frame
+                        // so this closure allow to split them in many stack frame (issue #133)
+                        quote! { (|| { #rust_property.set_binding(#binding_tokens); })() ; }
                     }
                 }
             }
