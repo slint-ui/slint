@@ -114,6 +114,10 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 
 /// Generate a layout_info_prop based on the children layouts
 fn gen_layout_info_prop(elem: &ElementRc) {
+    if elem.borrow().layout_info_prop.is_some() {
+        return;
+    }
+
     let children = std::mem::take(&mut elem.borrow_mut().children);
 
     for c in &children {

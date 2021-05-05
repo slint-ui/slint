@@ -1200,11 +1200,13 @@ extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
 
+    let result = crate::eval_layout::get_layout_info(
+        &instance_ref.component_type.original.root_element,
+        instance_ref,
+        &eval::window_ref(instance_ref).unwrap(),
+    );
+
     let constraints = instance_ref.component_type.original.root_constraints.borrow();
-
-    let result =
-        instance_ref.root_item().as_ref().layouting_info(&eval::window_ref(instance_ref).unwrap());
-
     if constraints.has_explicit_restrictions() {
         let mut info = LayoutInfo::default();
         crate::eval_layout::fill_layout_info_constraints(
@@ -1330,12 +1332,6 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
                 NonNull::from(self.instance.get_ref()).cast(),
             ))
         }
-    }
-
-    pub fn root_item(&self) -> Pin<ItemRef> {
-        let info = &self.component_type.items
-            [self.component_type.original.root_element.borrow().id.as_str()];
-        unsafe { info.item_from_component(self.as_ptr()) }
     }
 
     pub fn self_weak(
