@@ -114,7 +114,7 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 
 /// Generate a layout_info_prop based on the children layouts
 fn gen_layout_info_prop(elem: &ElementRc) {
-    if elem.borrow().layout_info_prop.is_some() {
+    if elem.borrow().layout_info_prop.is_some() || elem.borrow().is_flickable_viewport {
         return;
     }
 
