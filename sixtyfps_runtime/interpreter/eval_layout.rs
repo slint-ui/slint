@@ -13,7 +13,7 @@ use crate::eval::{self, ComponentInstance, EvalLocalContext};
 use crate::Value;
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutItem};
+use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints};
 use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib::layout as core_layout;
@@ -152,8 +152,11 @@ fn grid_layout_data(
         .elems
         .iter()
         .map(|cell| {
-            let mut layout_info =
-                get_layout_info(&cell.item, component, &eval::window_ref(component).unwrap());
+            let mut layout_info = get_layout_info(
+                &cell.item.element,
+                component,
+                &eval::window_ref(component).unwrap(),
+            );
             fill_layout_info_constraints(&mut layout_info, &cell.item.constraints, &expr_eval);
             core_layout::GridLayoutCellData {
                 col: cell.col,
@@ -207,7 +210,7 @@ fn box_layout_data(
             }
             cells.extend(component_vec.iter().map(|x| x.as_pin_ref().box_layout_data()));
         } else {
-            let mut layout_info = get_layout_info(cell, component, &window);
+            let mut layout_info = get_layout_info(&cell.element, component, &window);
             fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
             cells.push(core_layout::BoxLayoutCellData { constraint: layout_info });
         }
@@ -311,12 +314,13 @@ pub(crate) fn fill_layout_info_constraints(
     constraints.vertical_stretch.as_ref().map(|e| layout_info.vertical_stretch = expr_eval(e));
 }
 
-fn get_layout_info<'a, 'b>(
-    item: &'a LayoutItem,
-    component: InstanceRef<'a, '_>,
+/// Get the layout info for an element based on the layout_info_prop or the builtin item layouting_info
+pub(crate) fn get_layout_info(
+    elem: &ElementRc,
+    component: InstanceRef,
     window: &ComponentWindow,
 ) -> core_layout::LayoutInfo {
-    let elem = item.element.borrow();
+    let elem = elem.borrow();
     if let Some(nr) = &elem.layout_info_prop {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     } else {
