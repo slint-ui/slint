@@ -1422,7 +1422,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 let offset = compile_expression(&ri, component);
                 quote!({
                     let cache = #cache.get();
-                    cache[(cache[#index] as usize) + #offset * 4]
+                    cache[(cache[#index] as usize) + #offset as usize * 4]
                 })
             } else {
                 quote!(#cache.get()[#index])

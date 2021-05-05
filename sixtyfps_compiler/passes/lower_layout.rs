@@ -326,7 +326,7 @@ fn create_layout_item(
     fix_explicit_percent("height", item_element);
 
     item_element.borrow_mut().child_of_layout = true;
-    let (repeater_index, actual_elem) = if item_element.borrow().repeated.is_some() {
+    let (repeater_index, actual_elem) = if let Some(r) = &item_element.borrow().repeated {
         let rep_comp = item_element.borrow().base_type.as_component().clone();
         fix_explicit_percent("width", &rep_comp.root_element);
         fix_explicit_percent("height", &rep_comp.root_element);
@@ -335,7 +335,11 @@ fn create_layout_item(
             LayoutConstraints::new(&rep_comp.root_element, diag);
         rep_comp.root_element.borrow_mut().child_of_layout = true;
         (
-            Some(Expression::RepeaterIndexReference { element: Rc::downgrade(item_element) }),
+            Some(if r.is_conditional_element {
+                Expression::NumberLiteral(0., Unit::None)
+            } else {
+                Expression::RepeaterIndexReference { element: Rc::downgrade(item_element) }
+            }),
             rep_comp.root_element.clone(),
         )
     } else {
