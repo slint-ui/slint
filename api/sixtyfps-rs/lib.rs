@@ -372,18 +372,6 @@ pub mod testing {
         )
     }
 
-    /// Applies the specified rectangular constraints to the component's layout.
-    pub fn apply_layout<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
-    >(
-        component: &Component,
-        rect: sixtyfps_corelib::graphics::Rect,
-    ) {
-        let rc = component.clone_strong().into();
-        vtable::VRc::borrow_pin(&rc).as_ref().apply_layout(rect);
-    }
-
     /// Applies the specified scale factor to the window that's associated with the given component.
     /// This overrides the value provided by the windowing system.
     pub fn set_window_scale_factor<

@@ -587,15 +587,6 @@ public:
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
-    void compute_layout(cbindgen_private::Rect parent_rect) const
-    {
-        if (!inner)
-            return;
-        for (auto &x : inner->data) {
-            (*x.ptr)->apply_layout({ &C::static_vtable, const_cast<C *>(&(**x.ptr)) }, parent_rect);
-        }
-    }
-
     float compute_layout_listview(const Property<float> *viewport_width, float listview_width) const
     {
         float offset = 0;

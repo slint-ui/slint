@@ -24,13 +24,13 @@ HelloWorld := Window {
 ```cpp
 auto handle = HelloWorld::create();
 const HelloWorld &instance = *handle;
-HelloWorld::apply_layout({&HelloWorld::static_vtable, const_cast<HelloWorld*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
+sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
 ```
 
 
 ```rust
 let instance = HelloWorld::new();
-sixtyfps::testing::apply_layout(&instance, sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
+sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
 ```
 
 */

@@ -19,7 +19,7 @@ use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use sixtyfps_compilerlib::{expression_tree::Expression, langtype::PropertyLookupResult};
 use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
-use sixtyfps_corelib::graphics::{ImageReference, Rect};
+use sixtyfps_corelib::graphics::ImageReference;
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
@@ -139,7 +139,6 @@ impl RepeatedComponent for ErasedComponentBox {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
 
-        self.borrow().as_ref().apply_layout(Default::default());
         s.component_type
             .set_property(s.borrow(), "y", Value::Number(*offset_y as f64))
             .expect("cannot set y");
@@ -179,9 +178,6 @@ impl Component for ErasedComponentBox {
 
     fn layout_info(self: Pin<&Self>) -> sixtyfps_corelib::layout::LayoutInfo {
         self.borrow().as_ref().layout_info()
-    }
-    fn apply_layout(self: Pin<&Self>, r: sixtyfps_corelib::graphics::Rect) {
-        self.borrow().as_ref().apply_layout(r)
     }
     fn get_item_ref<'a>(self: Pin<&'a Self>, index: usize) -> Pin<ItemRef<'a>> {
         // We're having difficulties transferring the lifetime to a pinned reference
@@ -789,7 +785,6 @@ fn generate_component<'id>(
     let t = ComponentVTable {
         visit_children_item,
         layout_info,
-        apply_layout,
         get_item_ref,
         parent_item,
         drop_in_place,
@@ -1222,19 +1217,6 @@ extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
         result.merge(&info)
     } else {
         result
-    }
-}
-
-extern "C" fn apply_layout(component: ComponentRefPin, _r: sixtyfps_corelib::graphics::Rect) {
-    generativity::make_guard!(guard);
-    // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
-    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-
-    for rep_in_comp in &instance_ref.component_type.repeater {
-        generativity::make_guard!(g);
-        let rep_in_comp = rep_in_comp.unerase(g);
-        ensure_repeater_updated(instance_ref, rep_in_comp);
-        rep_in_comp.offset.apply_pin(instance_ref.instance).compute_layout();
     }
 }
 

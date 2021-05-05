@@ -54,7 +54,6 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-TestCase::apply_layout({&TestCase::static_vtable, const_cast<TestCase*>(&instance) }, sixtyfps::Rect{0, 0, 300, 300});
 assert(instance.get_fixed_image_default_image_fit_ok());
 assert(instance.get_fixed_image_image_fit_override_ok());
 assert(instance.get_image_in_layout_fit_ok());
@@ -66,7 +65,6 @@ assert(instance.get_image_with_missing_width_ok());
 
 ```rust
 let instance = TestCase::new();
-sixtyfps::testing::apply_layout(&instance, sixtyfps::re_exports::Rect::new(Default::default(), sixtyfps::re_exports::Size::new(300., 300.)));
 assert!(instance.get_fixed_image_default_image_fit_ok());
 assert!(instance.get_fixed_image_image_fit_override_ok());
 assert!(instance.get_image_in_layout_fit_ok());
@@ -77,7 +75,6 @@ assert!(instance.get_image_with_missing_width_ok());
 
 ```js
 var instance = new sixtyfps.TestCase();
-instance.send_mouse_click(5., 5.);
 assert(instance.fixed_image_default_image_fit_ok);
 assert(instance.fixed_image_image_fit_override_ok);
 assert(instance.image_in_layout_fit_ok);
