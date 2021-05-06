@@ -41,7 +41,15 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     if let Some((_, ty)) = component.properties().find(|x| x.0 == "test") {
         if ty == ValueType::Bool {
-            assert_eq!(instance.get_property("test"), Ok(Value::Bool(true)));
+            let result = instance.get_property("test")?;
+            if result != Value::Bool(true) {
+                eprintln!("FAIL: {}: test returned {:?}", testcase.relative_path.display(), result);
+                eprintln!("Property list:");
+                for (p, _) in component.properties() {
+                    eprintln!(" {}: {:?}", p, instance.get_property(&p));
+                }
+                panic!("Test Failed: {:?}", result);
+            }
         }
     }
 
