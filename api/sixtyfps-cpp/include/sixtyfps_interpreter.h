@@ -36,8 +36,9 @@ struct ErasedComponentBox : vtable::Dyn
 /// the normal way to use SixtyFPS.
 ///
 /// The entry point for this namespace is the \ref ComponentCompiler, which you can
-/// use to create \ref ComponentDefinition instances with the ComponentCompiler::build_from_source()
-/// or ComponentCompiler::build_from_path() functions.
+/// use to create \ref ComponentDefinition instances with the
+/// \ref ComponentCompiler::build_from_source() or \ref ComponentCompiler::build_from_path()
+/// functions.
 namespace sixtyfps::interpreter {
 
 class Value;
@@ -491,6 +492,14 @@ inline void Struct::set_field(std::string_view name, const Value &value)
     cbindgen_private::sixtyfps_interpreter_struct_set_field(&inner, name_view, &value.inner);
 }
 
+/// The ComponentInstance represents a running instance of a component.
+///
+/// You can create an instance with the ComponentDefinition::create() function.
+///
+/// Properties and callback can be accessed using the associated functions.
+///
+/// An instance can be put on screen with the ComponentInstance::show() or the
+/// ComponentInstance::run()
 class ComponentInstance : vtable::Dyn
 {
     ComponentInstance() = delete;
@@ -542,12 +551,24 @@ public:
     }
 #endif
 
+    /// Set the value for a public property of this component
+    ///
+    /// For example, if the component has a `property <string> hello;`,
+    /// we can set this property
+    /// ```
+    /// instance->set_property("hello", sixtyfps::SharedString("world"));
+    /// ```
+    ///
+    /// Returns true if the property was correctly set. Returns false if the property
+    /// could not be set because it either do not exist (was not declared in .60) or if
+    /// the value is not of the proper type for the property's type.
     bool set_property(std::string_view name, const Value &value) const
     {
         using namespace cbindgen_private;
         return sixtyfps_interpreter_component_instance_set_property(
                 inner(), sixtyfps::private_api::string_to_slice(name), &value.inner);
     }
+    /// Returns the value behind a property declared in .60.
     std::optional<Value> get_property(std::string_view name) const
     {
         using namespace cbindgen_private;
@@ -560,6 +581,21 @@ public:
         }
     }
     // FIXME! Slice in public API?  Should be std::span (c++20) or we need to improve the Slice API
+    /// Invoke the specified callback declared in .60 with the given arguments
+    ///
+    /// Example: imagine the .60 file contains the given callback declaration:
+    /// ```
+    ///     callback foo(string, int) -> string;
+    /// ```
+    /// Then one can call it with this function
+    /// ```
+    ///     sixtyfps::Value args[] = { SharedString("Hello"), 42. };
+    ///     instance->invoke_callback("foo", { args, 2 });
+    /// ```
+    ///
+    /// Returns an null optional if the callback don't exist or if the argument don't match
+    /// Otherwise return the returned value from the callback, which may be an empty Value if
+    /// the callback did not return a value.
     std::optional<Value> invoke_callback(std::string_view name, Slice<Value> args) const
     {
         using namespace cbindgen_private;
@@ -573,6 +609,27 @@ public:
         }
     }
 
+    /// Set a handler for the callback with the given name.
+    ///
+    /// A callback with that name must be defined in the document otherwise the function
+    /// returns false.
+    ///
+    /// The \a callback parameter is a functor which takes as argument a slice of Value
+    /// and must return a Value.
+    ///
+    /// Example: imagine the .60 file contains the given callback declaration:
+    /// ```
+    ///     callback foo(string, int) -> string;
+    /// ```
+    /// Then one can call it with this function
+    /// ```
+    ///   instance->set_callback("foo", [](auto args) {
+    ///      std::cout << "foo(" << *args[0].to_string() << ", " << *args[1].to_number() << ")\n";
+    ///   });
+    /// ```
+    ///
+    /// Note: Since the ComponentInstance holds the handler, the handler itself should not
+    /// capture a strong reference to the instance.
     template<typename F>
     bool set_callback(std::string_view name, F callback) const
     {
@@ -658,7 +715,8 @@ using Diagnostic = sixtyfps::cbindgen_private::CDiagnostic;
 using DiagnosticLevel = sixtyfps::cbindgen_private::CDiagnosticLevel;
 
 /// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
-/// to load .60 files or compile them on-the-fly from a string.
+/// to load .60 files or compile them on-the-fly from a string
+/// (using build_from_source()) or from a path  (using build_from_source())
 class ComponentCompiler
 {
     cbindgen_private::ComponentCompilerOpaque inner;

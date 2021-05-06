@@ -27,9 +27,10 @@ Welcome to SixtyFPS C++'s documentation!
 
    api/library_root
 
+   markdown/langref.md
    markdown/builtin_elements.md
    markdown/widgets.md
-   markdown/langref.md
+   markdown/layouting.md
 
 Indices and tables
 ==================
