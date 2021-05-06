@@ -16,6 +16,7 @@ use crate::{slice::Slice, SharedVector};
 type Coord = f32;
 
 /// The constraint that applies to an item
+// NOTE: when adding new fields, the C++ operator== also need updates
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LayoutInfo {
@@ -371,7 +372,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
 }
 
 pub fn grid_layout_info<'a>(
-    cells: &Slice<'a, GridLayoutCellData>,
+    cells: Slice<'a, GridLayoutCellData>,
     spacing: Coord,
     padding: &Padding,
 ) -> LayoutInfo {
@@ -707,7 +708,7 @@ pub fn solve_box_layout(
 
 /// Return the LayoutInfo for a BoxLayout with the given cells.
 pub fn box_layout_info<'a>(
-    cells: &Slice<'a, BoxLayoutCellData>,
+    cells: Slice<'a, BoxLayoutCellData>,
     spacing: Coord,
     padding: &Padding,
     alignment: LayoutAlignment,
@@ -914,13 +915,16 @@ pub(crate) mod ffi {
     use super::*;
 
     #[no_mangle]
-    pub extern "C" fn sixtyfps_solve_grid_layout(data: &GridLayoutData) {
-        super::solve_grid_layout(data)
+    pub extern "C" fn sixtyfps_solve_grid_layout(
+        data: &GridLayoutData,
+        result: &mut SharedVector<Coord>,
+    ) {
+        *result = super::solve_grid_layout(data)
     }
 
     #[no_mangle]
     pub extern "C" fn sixtyfps_grid_layout_info<'a>(
-        cells: &Slice<'a, GridLayoutCellData<'a>>,
+        cells: Slice<'a, GridLayoutCellData>,
         spacing: Coord,
         padding: &Padding,
     ) -> LayoutInfo {
@@ -928,14 +932,19 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub extern "C" fn sixtyfps_solve_box_layout(data: &BoxLayoutData, is_horizontal: bool) {
-        super::solve_box_layout(data, is_horizontal)
+    pub extern "C" fn sixtyfps_solve_box_layout(
+        data: &BoxLayoutData,
+        is_horizontal: bool,
+        repeater_indexes: Slice<u32>,
+        result: &mut SharedVector<Coord>,
+    ) {
+        *result = super::solve_box_layout(data, is_horizontal, repeater_indexes)
     }
 
     #[no_mangle]
     /// Return the LayoutInfo for a BoxLayout with the given cells.
     pub extern "C" fn sixtyfps_box_layout_info<'a>(
-        cells: &Slice<'a, BoxLayoutCellData<'a>>,
+        cells: Slice<'a, BoxLayoutCellData>,
         spacing: Coord,
         padding: &Padding,
         alignment: LayoutAlignment,
@@ -945,7 +954,11 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub extern "C" fn sixtyfps_solve_path_layout(data: &PathLayoutData) {
-        super::solve_path_layout(data)
+    pub extern "C" fn sixtyfps_solve_path_layout(
+        data: &PathLayoutData,
+        repeater_indexes: Slice<u32>,
+        result: &mut SharedVector<Coord>,
+    ) {
+        *result = super::solve_path_layout(data, repeater_indexes)
     }
 }

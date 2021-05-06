@@ -34,13 +34,13 @@ pub(crate) fn compute_layout_info(lay: &Layout, local_context: &mut EvalLocalCon
         Layout::GridLayout(grid_layout) => {
             let cells = grid_layout_data(grid_layout, component, &expr_eval);
             let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, &expr_eval);
-            core_layout::grid_layout_info(&Slice::from(cells.as_slice()), spacing, &padding).into()
+            core_layout::grid_layout_info(Slice::from(cells.as_slice()), spacing, &padding).into()
         }
         Layout::BoxLayout(box_layout) => {
             let (cells, alignment) = box_layout_data(box_layout, component, &expr_eval, None);
             let (padding, spacing) = padding_and_spacing(&box_layout.geometry, &expr_eval);
             core_layout::box_layout_info(
-                &Slice::from(cells.as_slice()),
+                Slice::from(cells.as_slice()),
                 spacing,
                 &padding,
                 alignment,
