@@ -24,9 +24,11 @@ use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::object_tree;
 use sixtyfps_compilerlib::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use std::io::Write;
+use std::path::Path;
 use structopt::StructOpt;
 
 mod from_0_0_5;
+mod from_0_0_6;
 
 #[derive(StructOpt)]
 struct Cli {
@@ -44,28 +46,25 @@ struct Cli {
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
-
-    const SUPPORTED_FROM_VERSION: &str = "0.0.5";
-
-    if args.from != SUPPORTED_FROM_VERSION {
-        eprintln!("Only version {0} is supported, use `--from {0}`", SUPPORTED_FROM_VERSION);
+    if !matches!(args.from.as_str(), "0.0.5" | "0.0.6") {
+        eprintln!("Invalid from version is supported, use `--from 0.0.5`");
         std::process::exit(1);
     }
 
-    for path in args.paths {
-        let source = std::fs::read_to_string(&path)?;
+    for path in &args.paths {
+        let source = std::fs::read_to_string(path)?;
 
         if args.inline {
-            let file = std::fs::File::create(&path)?;
-            process_file(source, path, file)?
+            let file = std::fs::File::create(path)?;
+            process_file(source, path, file, &args)?
         } else {
-            process_file(source, path, std::io::stdout())?
+            process_file(source, path, std::io::stdout(), &args)?
         }
     }
     Ok(())
 }
 
-fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()> {
+fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::io::Result<()> {
     let mut source_slice = &source[..];
     let sixtyfps_macro = format!("{}!", "sixtyfps"); // in a variable so it does not appear as is
     'l: while let Some(idx) = source_slice.find(&sixtyfps_macro) {
@@ -110,7 +109,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
         let mut diag = BuildDiagnostics::default();
         let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file, &mut State::default())?;
+        visit_node(syntax_node, &mut file, &mut State::default(), args)?;
         if diag.has_error() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
@@ -119,7 +118,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
     return file.write_all(source_slice.as_bytes());
 }
 
-fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Result<()> {
+fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> std::io::Result<()> {
     let mut source_slice = &source[..];
     const CODE_FENCE_START: &'static str = "```60\n";
     const CODE_FENCE_END: &'static str = "```\n";
@@ -139,7 +138,7 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
         let mut diag = BuildDiagnostics::default();
         let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file, &mut State::default())?;
+        visit_node(syntax_node, &mut file, &mut State::default(), args)?;
         if diag.has_error() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
@@ -150,19 +149,20 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
 
 fn process_file(
     source: String,
-    path: std::path::PathBuf,
+    path: &Path,
     mut file: impl Write,
+    args: &Cli,
 ) -> std::io::Result<()> {
     match path.extension() {
-        Some(ext) if ext == "rs" => return process_rust_file(source, file),
-        Some(ext) if ext == "md" => return process_markdown_file(source, file),
+        Some(ext) if ext == "rs" => return process_rust_file(source, file, args),
+        Some(ext) if ext == "md" => return process_markdown_file(source, file, args),
         _ => {}
     }
 
     let mut diag = BuildDiagnostics::default();
     let syntax_node = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
-    visit_node(syntax_node, &mut file, &mut State::default())?;
+    visit_node(syntax_node, &mut file, &mut State::default(), args)?;
     if diag.has_error() {
         file.write_all(&source.as_bytes()[len..])?;
         diag.print();
@@ -178,7 +178,12 @@ struct State {
     property_name: Option<String>,
 }
 
-fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<()> {
+fn visit_node(
+    node: SyntaxNode,
+    file: &mut impl Write,
+    state: &mut State,
+    args: &Cli,
+) -> std::io::Result<()> {
     let mut state = state.clone();
     match node.kind() {
         SyntaxKind::PropertyDeclaration => {
@@ -197,12 +202,12 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std
         _ => (),
     }
 
-    if fold_node(&node, file, &mut state)? {
+    if fold_node(&node, file, &mut state, &args)? {
         return Ok(());
     }
     for n in node.children_with_tokens() {
         match n {
-            NodeOrToken::Node(n) => visit_node(n, file, &mut state)?,
+            NodeOrToken::Node(n) => visit_node(n, file, &mut state, &args)?,
             NodeOrToken::Token(t) => fold_token(t, file, &mut state)?,
         };
     }
@@ -210,8 +215,18 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, state: &mut State) -> std
 }
 
 /// return false if one need to continue folding the children
-fn fold_node(node: &SyntaxNode, file: &mut impl Write, state: &mut State) -> std::io::Result<bool> {
-    from_0_0_5::fold_node(node, file, state)
+fn fold_node(
+    node: &SyntaxNode,
+    file: &mut impl Write,
+    state: &mut State,
+    args: &Cli,
+) -> std::io::Result<bool> {
+    if args.from == "0.0.5" {
+        if from_0_0_5::fold_node(node, file, state)? {
+            return Ok(true);
+        }
+    }
+    from_0_0_6::fold_node(node, file, state)
 }
 
 fn fold_token(

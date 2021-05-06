@@ -566,8 +566,11 @@ jobs:
           git config --global user.name "${GITHUB_ACTOR}"
           git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
     - name: run the updater
-      if: matrix.from_version != '0.0.6' # We don't have an updater yet for version 0.0.6, but we should check that no compatibility is broken since then
-      run: cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/**/*.60 examples/**/*.60
+      run: |
+        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*.60
+        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*/*.60
+        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*.60
+        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*/*.60
     - name: Show the diff
       run: git diff
     - name: test
