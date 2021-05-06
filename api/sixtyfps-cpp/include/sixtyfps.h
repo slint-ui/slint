@@ -309,7 +309,6 @@ using cbindgen_private::LayoutAlignment;
 using cbindgen_private::LayoutInfo;
 using cbindgen_private::Padding;
 using cbindgen_private::PathLayoutData;
-using cbindgen_private::PathLayoutItemData;
 using cbindgen_private::Rect;
 using cbindgen_private::sixtyfps_box_layout_info;
 using cbindgen_private::sixtyfps_grid_layout_info;
@@ -344,6 +343,29 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
                                              other.vertical_stretch, other.preferred_height),
                         std::min(horizontal_stretch, other.horizontal_stretch),
                         std::min(vertical_stretch, other.vertical_stretch) };
+}
+
+/// FIXME! this should be done by cbindgen
+namespace cbindgen_private {
+inline bool operator==(const LayoutInfo &a, const LayoutInfo &b)
+{
+    return a.min_width == b.min_width &&
+        a.max_width == b.max_width &&
+        a.min_height == b.min_height &&
+        a.max_height == b.max_height &&
+        a.min_width_percent == b.min_width_percent &&
+        a.max_width_percent == b.max_width_percent &&
+        a.min_height_percent == b.min_height_percent &&
+        a.max_height_percent == b.max_height_percent &&
+        a.preferred_width == b.preferred_width &&
+        a.preferred_height == b.preferred_height &&
+        a.horizontal_stretch == b.horizontal_stretch &&
+        a.vertical_stretch == b.vertical_stretch;
+}
+inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
+{
+    return !(a == b);
+}
 }
 
 // models

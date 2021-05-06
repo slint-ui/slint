@@ -274,7 +274,8 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     );
     config.export.body.insert(
         "LayoutInfo".to_owned(),
-        "    inline LayoutInfo merge(const LayoutInfo &other) const;".into(),
+        "    inline LayoutInfo merge(const LayoutInfo &other) const;
+    friend inline LayoutInfo operator+(const LayoutInfo &a, const LayoutInfo &b) { return a.merge(b); }".into(),
     );
     config
         .export

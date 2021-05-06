@@ -133,7 +133,7 @@ public:
         return a.inner == b.inner;
     }
     friend bool operator!=(const VRc &a, const VRc &b) {
-        return a.inner == b.inner;
+        return a.inner != b.inner;
     }
 };
 
@@ -169,6 +169,13 @@ public:
     }
 
     VWeak<VTable, Dyn> into_dyn() const { return *reinterpret_cast<const VWeak<VTable, Dyn> *>(this); }
+
+    friend bool operator==(const VWeak &a, const VWeak &b) {
+        return a.inner == b.inner;
+    }
+    friend bool operator!=(const VWeak &a, const VWeak &b) {
+        return a.inner != b.inner;
+    }
 };
 
 

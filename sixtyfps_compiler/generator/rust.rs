@@ -1431,13 +1431,13 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         Expression::ComputeLayoutInfo(Layout::GridLayout(layout)) => {
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
             let cells = grid_layout_cell_data(layout, component);
-            quote!(grid_layout_info(&Slice::from_slice(&#cells), #spacing, #padding))
+            quote!(grid_layout_info(Slice::from_slice(&#cells), #spacing, #padding))
         }
         Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)) => {
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
             let (cells, alignment) = box_layout_data(layout, component, None);
             let is_horizontal = layout.is_horizontal;
-            quote!(box_layout_info(&Slice::from_slice(&#cells), #spacing, #padding, #alignment, #is_horizontal))
+            quote!(box_layout_info(Slice::from_slice(&#cells), #spacing, #padding, #alignment, #is_horizontal))
         }
         Expression::ComputeLayoutInfo(Layout::PathLayout(_)) => unimplemented!(),
         Expression::SolveLayout(Layout::GridLayout(layout)) => {
@@ -1618,28 +1618,6 @@ fn compile_assignment(
     }
 }
 
-fn apply_layout_constraint(
-    layout_info: TokenStream,
-    constraints: &crate::layout::LayoutConstraints,
-    component: &Rc<Component>,
-) -> TokenStream {
-    if constraints.has_explicit_restrictions() {
-        let (name, expr): (Vec<_>, Vec<_>) = constraints
-            .for_each_restrictions()
-            .map(|(e, s)| {
-                (format_ident!("{}", s), access_named_reference(e, component, quote!(_self)))
-            })
-            .unzip();
-        quote!({
-            let mut layout_info = #layout_info;
-                #(layout_info.#name = #expr.get();)*
-            layout_info
-        })
-    } else {
-        layout_info
-    }
-}
-
 fn grid_layout_cell_data(
     layout: &crate::layout::GridLayout,
     component: &Rc<Component>,
@@ -1649,11 +1627,7 @@ fn grid_layout_cell_data(
         let row = c.row;
         let colspan = c.colspan;
         let rowspan = c.rowspan;
-        let layout_info = apply_layout_constraint(
-            get_layout_info(&c.item.element, component),
-            &c.item.constraints,
-            component,
-        );
+        let layout_info = get_layout_info(&c.item.element, component, &c.item.constraints);
         quote!(GridLayoutCellData {
             col: #col,
             row: #row,
@@ -1684,11 +1658,7 @@ fn box_layout_data(
 
     if repeater_count == 0 {
         let cells = layout.elems.iter().map(|li| {
-            let layout_info = apply_layout_constraint(
-                get_layout_info(&li.element, component),
-                &li.constraints,
-                component,
-            );
+            let layout_info = get_layout_info(&li.element, component, &li.constraints);
             quote!(BoxLayoutCellData { constraint: #layout_info })
         });
         if let Some((ri, _)) = &mut repeated_indices {
@@ -1730,11 +1700,7 @@ fn box_layout_data(
                     }
                 }
             } else {
-                let layout_info = apply_layout_constraint(
-                    get_layout_info(&item.element, component),
-                    &item.constraints,
-                    component,
-                );
+                let layout_info = get_layout_info(&item.element, component, &item.constraints);
                 fixed_count += 1;
                 push_code = quote! {
                     #push_code
@@ -1804,11 +1770,7 @@ fn layout_geometry_width_height(
 
 fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let elem = &component.root_element;
-    let mut layout_info = get_layout_info(elem, component);
-
-    layout_info =
-        apply_layout_constraint(layout_info, &component.root_constraints.borrow(), component);
-
+    let layout_info = get_layout_info(elem, component, &component.root_constraints.borrow());
     quote! {
         fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
             #![allow(unused)]
@@ -1819,14 +1781,34 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
     }
 }
 
-fn get_layout_info(elem: &ElementRc, component: &Rc<Component>) -> TokenStream {
-    if let Some(layout_info_prop) = &elem.borrow().layout_info_prop {
+fn get_layout_info(
+    elem: &ElementRc,
+    component: &Rc<Component>,
+    constraints: &crate::layout::LayoutConstraints,
+) -> TokenStream {
+    let layout_info = if let Some(layout_info_prop) = &elem.borrow().layout_info_prop {
         let li = access_named_reference(layout_info_prop, component, quote!(_self));
         quote! {#li.get()}
     } else {
         let elem_id = format_ident!("{}", elem.borrow().id);
         let inner_component_id = inner_component_id(component);
         quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(&_self.window))
+    };
+
+    if constraints.has_explicit_restrictions() {
+        let (name, expr): (Vec<_>, Vec<_>) = constraints
+            .for_each_restrictions()
+            .map(|(e, s)| {
+                (format_ident!("{}", s), access_named_reference(e, component, quote!(_self)))
+            })
+            .unzip();
+        quote!({
+            let mut layout_info = #layout_info;
+                #(layout_info.#name = #expr.get();)*
+            layout_info
+        })
+    } else {
+        layout_info
     }
 }
 

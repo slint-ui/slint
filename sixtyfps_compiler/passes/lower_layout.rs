@@ -103,7 +103,7 @@ fn lower_grid_layout(
     };
 
     let layout_cache_prop = create_new_prop(grid_layout_element, "layout_cache", Type::LayoutCache);
-    let layout_info_prop = create_new_prop(grid_layout_element, "layout_info", layout_info_type());
+    let layout_info_prop = create_new_prop(grid_layout_element, "layoutinfo", layout_info_type());
 
     let mut row = 0;
     let mut col = 0;
@@ -203,7 +203,7 @@ fn lower_box_layout(
     };
 
     let layout_cache_prop = create_new_prop(layout_element, "layout_cache", Type::LayoutCache);
-    let layout_info_prop = create_new_prop(layout_element, "layout_info", layout_info_type());
+    let layout_info_prop = create_new_prop(layout_element, "layoutinfo", layout_info_type());
 
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
     for layout_child in &layout_children {

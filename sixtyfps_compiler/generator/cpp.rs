@@ -221,7 +221,7 @@ use crate::expression_tree::{
     BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference,
 };
 use crate::langtype::Type;
-use crate::layout::LayoutGeometry;
+use crate::layout::{Layout, LayoutGeometry, LayoutRect};
 use crate::object_tree::{
     Component, Document, Element, ElementRc, PropertyDeclaration, RepeatedElementInfo,
 };
@@ -244,20 +244,22 @@ impl CppType for Type {
             Type::LogicalLength => Some("float".to_owned()),
             Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
-            Type::Struct { fields, name, .. } => {
-                if let Some(name) = name {
-                    Some(name.clone())
-                } else {
-                    let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
-                    // This will produce a tuple
-                    Some(format!("std::tuple<{}>", elem.join(", ")))
-                }
+            Type::Struct { name: Some(name), node: Some(_), .. } => Some(name.clone()),
+            Type::Struct { name: Some(name), node: None, .. } => {
+                Some(format!("sixtyfps::{}", name))
             }
+            Type::Struct { fields, .. } => {
+                let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
+
+                Some(format!("std::tuple<{}>", elem.join(", ")))
+            }
+
             Type::Array(i) => Some(format!("std::shared_ptr<sixtyfps::Model<{}>>", i.cpp_type()?)),
             Type::Image => Some("sixtyfps::ImageReference".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),
             Type::Brush => Some("sixtyfps::Brush".to_owned()),
+            Type::LayoutCache => Some("sixtyfps::SharedVector<float>".into()),
             _ => None,
         }
     }
@@ -514,9 +516,6 @@ fn handle_repeater(
         ));
 
         layout_repeater_code.push(format!("self->{}.ensure_updated(self);", repeater_id));
-        // FIXME: we should probably pass the parent element rect?
-        layout_repeater_code
-            .push(format!("self->{}.compute_layout(sixtyfps::Rect{{  }});", repeater_id,));
     }
 
     repeated_input_branch.push(format!(
@@ -550,7 +549,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<sixtyfps.h>".into());
 
     for ty in doc.root_component.used_structs.borrow().iter() {
-        if let Type::Struct { fields, name: Some(name), .. } = ty {
+        if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
             generate_struct(&mut file, name, fields, diag);
         }
     }
@@ -834,10 +833,11 @@ fn generate_component(
         ));
         component_struct.friends.push(parent_component_id);
 
-        let p_y = access_member(&component.root_element, "y", component, "this");
-        let p_height = access_member(&component.root_element, "height", component, "this");
-        let p_width = access_member(&component.root_element, "width", component, "this");
         if parent_element.borrow().repeated.as_ref().map_or(false, |r| r.is_listview.is_some()) {
+            let p_y = access_member(&component.root_element, "y", component, "this");
+            let p_height = access_member(&component.root_element, "height", component, "this");
+            let p_width = access_member(&component.root_element, "width", component, "this");
+
             component_struct.members.push((
                 Access::Public, // Because Repeater accesses it
                 Declaration::Function(Function {
@@ -847,7 +847,7 @@ fn generate_component(
                             .to_owned(),
                     statements: Some(vec![
                         "float vp_w = viewport_width->get();".to_owned(),
-                        format!("apply_layout({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}, sixtyfps::Rect{{ 0, *offset_y, vp_w, {h} }});", h = "0/*FIXME: should compute the heigth somehow*/"),
+
                         format!("{}.set(*offset_y);", p_y), // FIXME: shouldn't that be handled by apply layout?
                         format!("*offset_y += {}.get();", p_height),
                         format!("float w = {}.get();", p_width),
@@ -858,22 +858,13 @@ fn generate_component(
                 }),
             ));
         } else if parent_element.borrow().repeated.is_some() {
-            let p_x = access_member(&component.root_element, "x", component, "this");
-            let root_c = &component.layouts.borrow().root_constraints;
-
             component_struct.members.push((
                 Access::Public, // Because Repeater accesses it
                 Declaration::Function(Function {
                     name: "box_layout_data".into(),
                     signature: "() const -> sixtyfps::BoxLayoutCellData".to_owned(),
-                    statements: Some(vec![format!(
-                        "return {{ layouting_info({{&static_vtable, const_cast<void *>(static_cast<const void *>(this))}}), &{x}, &{y}, {w}, {h} }};",
-                        x = p_x,
-                        y = p_y,
-                        w = if root_c.fixed_width  { "nullptr".into() } else { format!("&{}", p_width) },
-                        h = if root_c.fixed_height  { "nullptr".into() } else { format!("&{}", p_height) },
+                    statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}) };".into()]),
 
-                    )]),
                     ..Function::default()
                 }),
             ));
@@ -1194,30 +1185,18 @@ fn generate_component(
             }),
         ));
 
-        let (apply_layout, layout_info) = compute_layout(component, &mut repeater_layout_code);
-
-        component_struct.members.push((
-            Access::Public, // FIXME: we call this function from tests
-            Declaration::Function(Function {
-                name: "apply_layout".into(),
-                signature:
-                    "(sixtyfps::private_api::ComponentRef component, [[maybe_unused]] sixtyfps::Rect rect) -> void"
-                        .into(),
-                is_static: true,
-                statements: Some(apply_layout),
-                ..Default::default()
-            }),
-        ));
-
         component_struct.members.push((
             Access::Private,
             Declaration::Function(Function {
-                name: "layouting_info".into(),
+                name: "layout_info".into(),
                 signature:
                     "([[maybe_unused]] sixtyfps::private_api::ComponentRef component) -> sixtyfps::LayoutInfo"
                         .into(),
                 is_static: true,
-                statements: Some(layout_info),
+                statements: Some(vec![
+                    format!("[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
+                    format!("return {};", get_layout_info(&component.root_element, component, &component.root_constraints.borrow()))
+                ]),
                 ..Default::default()
             }),
         ));
@@ -1271,7 +1250,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::static_vtable", component_id),
             init: Some(format!(
-                "{{ visit_children, get_item_ref, parent_item,  layouting_info, apply_layout,  sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+                "{{ visit_children, get_item_ref, parent_item,  layout_info, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
                 component_id)
             ),
         }));
@@ -1578,7 +1557,7 @@ fn compile_expression(
                     let item = item.upgrade().unwrap();
                     let item = item.borrow();
                     let native_item = item.base_type.as_native();
-                    format!("{vt}->layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &window)",
+                    format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &window)",
                         vt = native_item.cpp_vtable_getter,
                         ty = native_item.class_name,
                         id = item.id
@@ -1710,6 +1689,98 @@ fn compile_expression(
             compile_expression(expr, component)
         ),
         Expression::ReturnStatement(None) => "throw sixtyfps::private_api::ReturnWrapper<void>()".to_owned(),
+        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
+            let cache = access_named_reference(layout_cache_prop, component, "self");
+            if let Some(ri) = repeater_index {
+                format!("[&](auto cache) {{ return cache[int(cache[{}]) + {} * 4]; }} ({}.get())", index, compile_expression(&ri, component), cache)
+            } else {
+                format!("{}.get()[{}]", cache, index)
+            }
+        }
+        Expression::ComputeLayoutInfo(Layout::GridLayout(layout)) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+            let cells = grid_layout_cell_data(layout, component);
+            format!("[&] {{ \
+                    const auto padding = {};\
+                    sixtyfps::GridLayoutCellData cells[] = {{ {} }}; \
+                    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}}; \
+                    return sixtyfps::sixtyfps_grid_layout_info(slice, {}, &padding);\
+                }}()",
+                padding, cells, spacing
+            )
+        }
+        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+            let (cells, alignment) = box_layout_data(layout, component, None);
+            format!("[&] {{ \
+                    const auto padding = {};\
+                    {}\
+                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ &*std::begin(cells), std::size(cells)}}; \
+                    return sixtyfps::sixtyfps_box_layout_info(slice, {}, &padding, {}, {});\
+                }}()",
+                padding, cells, spacing, alignment, layout.is_horizontal
+            )
+        }
+        Expression::ComputeLayoutInfo(Layout::PathLayout(_)) => unimplemented!(),
+        Expression::SolveLayout(Layout::GridLayout(layout)) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+            let cells = grid_layout_cell_data(layout, component);
+            let (width, height) = layout_geometry_width_height(&layout.geometry.rect, component);
+            format!("[&] {{ \
+                    const auto padding = {p};\
+                    sixtyfps::GridLayoutCellData cells[] = {{ {c} }}; \
+                    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}}; \
+                    const sixtyfps::GridLayoutData grid {{ {w}, {h}, 0, 0, {s}, &padding, slice }};
+                    sixtyfps::SharedVector<float> result;
+                    sixtyfps::sixtyfps_solve_grid_layout(&grid, &result);\
+                    return result;
+                }}()",
+                p = padding, c = cells, s = spacing, w = width, h = height
+            )
+        }
+        Expression::SolveLayout(Layout::BoxLayout(layout)) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+            let mut repeated_indices = Default::default();
+            let mut repeated_indices_init = Default::default();
+            let (cells, alignment) = box_layout_data(layout, component, Some((&mut repeated_indices, &mut repeated_indices_init)));
+            let (width, height) = layout_geometry_width_height(&layout.geometry.rect, component);
+            format!("[&] {{ \
+                    {ri_init}\
+                    const auto padding = {p};\
+                    {c}\
+                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ &*std::begin(cells), std::size(cells)}}; \
+                    sixtyfps::BoxLayoutData box {{ {w}, {h}, 0, 0, {s}, &padding, {a}, slice }};
+                    sixtyfps::SharedVector<float> result;
+                    sixtyfps::sixtyfps_solve_box_layout(&box, {hz}, {ri}, &result);\
+                    return result;
+                }}()",
+                ri_init = repeated_indices_init, ri = repeated_indices,
+                p = padding, c = cells, s = spacing, w = width, h = height, a = alignment,
+                hz = layout.is_horizontal
+            )
+        }
+        Expression::SolveLayout(Layout::PathLayout(layout)) => {
+            let (width, height) = layout_geometry_width_height(&layout.rect, component);
+            let elements = compile_path(&layout.path, component);
+            let prop = |expr: &Option<NamedReference>| {
+                if let Some(nr) = expr.as_ref() {
+                    format!("{}.get()", access_named_reference(nr, component, "self"))
+                } else {
+                    "0.".into()
+                }
+            };
+            // FIXME! repeater
+            format!("[&] {{ \
+                    const auto elements = {e};\
+                    sixtyfps::PathLayoutData path {{ &elements, {c}, 0, 0, {w}, {h}, {o} }};
+                    sixtyfps::SharedVector<float> result;
+                    sixtyfps::sixtyfps_solve_path_layout(&path, {{}}, &result);\
+                    return result;
+                }}()",
+                e = elements, c = layout.elements.len(), w = width, h = height, o = prop(&layout.offset_reference)
+            )
+
+        }
         Expression::Uncompiled(_) | Expression::TwoWayBinding(..) => panic!(),
         Expression::Invalid => "\n#error invalid expression\n".to_string(),
     }
@@ -1796,215 +1867,144 @@ fn compile_assignment(
     }
 }
 
-struct CppLanguageLayoutGen;
-impl crate::layout::gen::Language for CppLanguageLayoutGen {
-    type CompiledCode = String;
-
-    fn make_grid_layout_cell_data<'a, 'b>(
-        item: &'a crate::layout::LayoutItem,
-        col: u16,
-        row: u16,
-        colspan: u16,
-        rowspan: u16,
-        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
-        component: &Rc<Component>,
-    ) -> Self::CompiledCode {
-        let layout_info = get_layout_info_ref(item, layout_tree, component);
-        let lay_rect = item.rect();
-        let get_property_ref = |p: &Option<NamedReference>| match p {
-            Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
-            None => "nullptr".to_owned(),
-        };
-        format!(
-            "        {{ {c}, {r}, {cs}, {rs}, {li}, {x}, {y}, {w}, {h} }},",
-            c = col,
-            r = row,
-            cs = colspan,
-            rs = rowspan,
-            li = layout_info,
-            x = get_property_ref(&lay_rect.x_reference),
-            y = get_property_ref(&lay_rect.y_reference),
-            w = get_property_ref(&lay_rect.width_reference),
-            h = get_property_ref(&lay_rect.height_reference)
-        )
-    }
-
-    fn grid_layout_tree_item<'a, 'b>(
-        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
-        geometry: &'a LayoutGeometry,
-        cells: Vec<Self::CompiledCode>,
-        component: &Rc<Component>,
-    ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
-        let cell_ref_variable = format!("cells_{}", layout_tree.len());
-        let mut creation_code = cells;
-        creation_code.insert(
-            0,
-            format!("    sixtyfps::GridLayoutCellData {}_data[] = {{", cell_ref_variable,),
-        );
-        creation_code.push("    };".to_owned());
-        creation_code.push(format!(
-                "    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> {cv}{{{cv}_data, std::size({cv}_data)}};",
-                cv = cell_ref_variable
-            ));
-
-        let (padding, spacing) = generate_layout_padding_and_spacing(
-            &mut creation_code,
-            geometry,
-            &layout_tree,
-            component,
-        );
-
-        LayoutTreeItem::GridLayout {
-            geometry: &geometry,
-            spacing,
-            padding,
-            var_creation_code: creation_code.join("\n"),
-            cell_ref_variable,
-        }
-    }
-
-    fn box_layout_tree_item<'a, 'b>(
-        layout_tree: &'b mut Vec<crate::layout::gen::LayoutTreeItem<'a, Self>>,
-        box_layout: &'a crate::layout::BoxLayout,
-        component: &Rc<Component>,
-    ) -> crate::layout::gen::LayoutTreeItem<'a, Self> {
-        let is_static_array = box_layout
-            .elems
-            .iter()
-            .all(|i| i.element.as_ref().map_or(true, |x| x.borrow().repeated.is_none()));
-
-        let mut make_box_layout_cell_data = |cell: &'a crate::layout::LayoutItem| {
-            let layout_info = get_layout_info_ref(&cell, layout_tree, component);
-            let lay_rect = cell.rect();
-            let get_property_ref = |p: &Option<NamedReference>| match p {
-                Some(nr) => format!("&{}", access_named_reference(nr, component, "self")),
-                None => "nullptr".to_owned(),
-            };
+fn grid_layout_cell_data(layout: &crate::layout::GridLayout, component: &Rc<Component>) -> String {
+    layout
+        .elems
+        .iter()
+        .map(|c| {
             format!(
-                "    {{ {li}, {x}, {y}, {w}, {h} }}",
-                li = layout_info,
-                x = get_property_ref(&lay_rect.x_reference),
-                y = get_property_ref(&lay_rect.y_reference),
-                w = get_property_ref(&lay_rect.width_reference),
-                h = get_property_ref(&lay_rect.height_reference)
+                "sixtyfps::GridLayoutCellData {{ {col}, {row}, {cs}, {rs}, {cstr} }}",
+                col = c.col,
+                row = c.row,
+                cs = c.colspan,
+                rs = c.rowspan,
+                cstr = get_layout_info(&c.item.element, component, &c.item.constraints),
             )
-        };
-
-        let mut creation_code = if is_static_array {
-            let mut creation_code: Vec<_> =
-                box_layout.elems.iter().map(make_box_layout_cell_data).map(|s| s + ",").collect();
-            creation_code.insert(0, "sixtyfps::BoxLayoutCellData @_data[] = {".into());
-            creation_code.push("};".to_owned());
-            creation_code
-        } else {
-            let mut push_code = vec!["std::vector<sixtyfps::BoxLayoutCellData> @_data;".into()];
-            for item in &box_layout.elems {
-                match &item.element {
-                    Some(elem) if elem.borrow().repeated.is_some() => {
-                        push_code.push(format!(
-                            "self->repeater_{}.ensure_updated(self);",
-                            elem.borrow().id
-                        ));
-                        push_code.push(format!(
-                            "if (self->repeater_{id}.inner) for (auto &&sub_comp : self->repeater_{id}.inner->data)",
-                            id = elem.borrow().id
-                        ));
-                        push_code.push(
-                            "    @_data.push_back((*sub_comp.ptr)->box_layout_data());".to_owned(),
-                        );
-                    }
-                    _ => {
-                        push_code.push(format!(
-                            "@_data.push_back({});",
-                            make_box_layout_cell_data(item)
-                        ));
-                    }
-                }
-            }
-            push_code
-        };
-        let cell_ref_variable = format!("cells_{}", layout_tree.len());
-        creation_code.iter_mut().for_each(|s| *s = s.replace('@', cell_ref_variable.as_ref()));
-        creation_code.push(format!(
-               "const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> {cv}{{&*std::begin({cv}_data), std::size({cv}_data)}};",
-                cv = cell_ref_variable
-            ));
-
-        let (padding, spacing) = generate_layout_padding_and_spacing(
-            &mut creation_code,
-            &box_layout.geometry,
-            &layout_tree,
-            component,
-        );
-
-        let alignment = if let Some(nr) = &box_layout.geometry.alignment {
-            format!("{}.get()", access_named_reference(nr, component, "self"))
-        } else {
-            "{}".into()
-        };
-
-        LayoutTreeItem::BoxLayout {
-            is_horizontal: box_layout.is_horizontal,
-            geometry: &box_layout.geometry,
-            spacing,
-            padding,
-            alignment,
-            var_creation_code: creation_code.join("\n"),
-            cell_ref_variable,
-        }
-    }
+        })
+        .join(", ")
 }
 
-type LayoutTreeItem<'a> = crate::layout::gen::LayoutTreeItem<'a, CppLanguageLayoutGen>;
-
-impl<'a> LayoutTreeItem<'a> {
-    fn layout_info(&self) -> String {
-        match self {
-            LayoutTreeItem::GridLayout { cell_ref_variable, spacing, padding, .. } => format!(
-                "sixtyfps::sixtyfps_grid_layout_info(&{}, {}, &{})",
-                cell_ref_variable, spacing, padding
-            ),
-            LayoutTreeItem::BoxLayout {
-                spacing,
-                cell_ref_variable,
-                padding,
-                alignment,
-                is_horizontal,
-                ..
-            } => format!(
-                "sixtyfps::sixtyfps_box_layout_info(&{}, {}, &{}, {}, {})",
-                cell_ref_variable, spacing, padding, alignment, is_horizontal
-            ),
-            LayoutTreeItem::PathLayout(_) => "{/*layout_info for path not implemented*/}".into(),
-        }
-    }
-}
-
-fn get_layout_info_ref<'a, 'b>(
-    item: &'a crate::layout::LayoutItem,
-    layout_tree: &'b mut Vec<LayoutTreeItem<'a>>,
+/// Returns `(cells, alignment)`.
+/// The repeated_indices initialize the repeated_indices (var, init_code)
+fn box_layout_data(
+    layout: &crate::layout::BoxLayout,
     component: &Rc<Component>,
-) -> String {
-    let layout_info = item.layout.as_ref().map(|l| {
-        crate::layout::gen::collect_layouts_recursively(layout_tree, l, component).layout_info()
-    });
-    let elem_info = item.element.as_ref().map(|elem| {
+    mut repeated_indices: Option<(&mut String, &mut String)>,
+) -> (String, String) {
+    let alignment = if let Some(nr) = &layout.geometry.alignment {
+        format!("{}.get()", access_named_reference(nr, component, "self"))
+    } else {
+        "{}".into()
+    };
+
+    let repeater_count =
+        layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
+
+    if repeater_count == 0 {
+        let mut cells = layout.elems.iter().map(|li| {
             format!(
-                "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &self->window)",
-                vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
-                ty = elem.borrow().base_type.as_native().class_name,
-                id = elem.borrow().id,
+                "sixtyfps::BoxLayoutCellData{{ {} }}",
+                get_layout_info(&li.element, component, &li.constraints)
             )
         });
-    let mut layout_info = match (layout_info, elem_info) {
-        (None, None) => String::default(),
-        (None, Some(x)) => x,
-        (Some(x), None) => x,
-        (Some(layout_info), Some(elem_info)) => format!("{}.merge({})", layout_info, elem_info),
+        if let Some((ri, _)) = &mut repeated_indices {
+            **ri = "{}".into();
+        }
+        (format!("sixtyfps::BoxLayoutCellData cells[] = {{ {} }};", cells.join(", ")), alignment)
+    } else {
+        let mut push_code = "std::vector<sixtyfps::BoxLayoutCellData> cells;".to_owned();
+        if let Some((ri, init)) = &mut repeated_indices {
+            **ri =
+                "sixtyfps::Slice<unsigned int>{&*std::begin(repeater_indices), std::size(repeater_indices)}"
+                    .to_owned();
+            **init = format!("std::array<unsigned int, {}> repeater_indices;", repeater_count * 2);
+        }
+        let mut repeater_idx = 0usize;
+        for item in &layout.elems {
+            if item.element.borrow().repeated.is_some() {
+                push_code +=
+                    &format!("self->repeater_{}.ensure_updated(self);", item.element.borrow().id);
+                if repeated_indices.is_some() {
+                    push_code += &format!("repeater_indices[{}] = cells.size();", repeater_idx * 2);
+                    push_code += &format!(
+                        "repeater_indices[{c}] = self->repeater_{id}.inner ? self->repeater_{id}.inner->data.size() : 0;",
+                        c = repeater_idx * 2 + 1,
+                        id = item.element.borrow().id
+                    );
+                }
+                repeater_idx += 1;
+                push_code += &format!(
+                    "if (self->repeater_{id}.inner) \
+                        for (auto &&sub_comp : self->repeater_{id}.inner->data) \
+                           cells.push_back((*sub_comp.ptr)->box_layout_data());",
+                    id = item.element.borrow().id
+                );
+            } else {
+                push_code += &format!(
+                    "cells.push_back({{ {} }});",
+                    get_layout_info(&item.element, component, &item.constraints)
+                );
+            }
+        }
+        (push_code, alignment)
+    }
+}
+
+fn generate_layout_padding_and_spacing(
+    layout_geometry: &LayoutGeometry,
+
+    component: &Rc<Component>,
+) -> (String, String) {
+    let prop = |expr: &Option<NamedReference>| {
+        if let Some(nr) = expr.as_ref() {
+            format!("{}.get()", access_named_reference(nr, component, "self"))
+        } else {
+            "0.".into()
+        }
     };
-    if item.constraints.has_explicit_restrictions() {
+    let spacing = prop(&layout_geometry.spacing);
+    let padding = format!(
+        "sixtyfps::Padding {{ {}, {}, {}, {} }};",
+        prop(&layout_geometry.padding.left),
+        prop(&layout_geometry.padding.right),
+        prop(&layout_geometry.padding.top),
+        prop(&layout_geometry.padding.bottom),
+    );
+
+    (padding, spacing)
+}
+
+fn layout_geometry_width_height(rect: &LayoutRect, component: &Rc<Component>) -> (String, String) {
+    let prop = |expr: &Option<NamedReference>| {
+        if let Some(nr) = expr.as_ref() {
+            format!("{}.get()", access_named_reference(nr, component, "self"))
+        } else {
+            "0.".into()
+        }
+    };
+    (prop(&rect.width_reference), prop(&rect.height_reference))
+}
+
+fn get_layout_info(
+    elem: &ElementRc,
+    component: &Rc<Component>,
+    constraints: &crate::layout::LayoutConstraints,
+) -> String {
+    let mut layout_info = if let Some(layout_info_prop) = &elem.borrow().layout_info_prop {
+        format!("{}.get()", access_named_reference(layout_info_prop, component, "self"))
+    } else {
+        format!(
+            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &self->window)",
+            vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
+            ty = elem.borrow().base_type.as_native().class_name,
+            id = elem.borrow().id,
+
+        )
+    };
+
+    if constraints.has_explicit_restrictions() {
         layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
-        for (expr, name) in item.constraints.for_each_restrictions() {
+        for (expr, name) in constraints.for_each_restrictions() {
             layout_info += &format!(
                 " layout_info.{} = {}.get();",
                 name,
@@ -2014,305 +2014,6 @@ fn get_layout_info_ref<'a, 'b>(
         layout_info += " return layout_info; }()";
     }
     layout_info
-}
-
-fn generate_layout_padding_and_spacing<'a, 'b>(
-    creation_code: &mut Vec<String>,
-    layout_geometry: &LayoutGeometry,
-    layout_tree: &'b [LayoutTreeItem<'a>],
-    component: &Rc<Component>,
-) -> (String, String) {
-    let spacing = if let Some(spacing) = &layout_geometry.spacing {
-        let variable = format!("spacing_{}", layout_tree.len());
-        creation_code.push(format!(
-            "auto {} = {}.get();",
-            variable,
-            access_named_reference(spacing, component, "self")
-        ));
-        variable
-    } else {
-        "0.".into()
-    };
-
-    let padding = format!("padding_{}", layout_tree.len());
-    let padding_prop = |expr| {
-        if let Some(nr) = expr {
-            format!("{}.get()", access_named_reference(nr, component, "self"))
-        } else {
-            "0.".into()
-        }
-    };
-    creation_code.push(format!(
-        "sixtyfps::Padding {} = {{ {}, {}, {}, {} }};",
-        padding,
-        padding_prop(layout_geometry.padding.left.as_ref()),
-        padding_prop(layout_geometry.padding.right.as_ref()),
-        padding_prop(layout_geometry.padding.top.as_ref()),
-        padding_prop(layout_geometry.padding.bottom.as_ref()),
-    ));
-
-    (padding, spacing)
-}
-
-impl<'a> LayoutTreeItem<'a> {
-    fn emit_solve_calls(&self, component: &Rc<Component>, code_stream: &mut Vec<String>) {
-        if let Some(geometry) = self.geometry() {
-            if geometry.materialized_constraints.has_explicit_restrictions() {
-                code_stream.push("    {".into());
-                code_stream.push(format!("    auto layout_info = {};", self.layout_info()));
-                for (expr, name) in geometry.materialized_constraints.for_each_restrictions() {
-                    code_stream.push(format!(
-                        "    {}.set(layout_info.{});",
-                        access_named_reference(expr, component, "self"),
-                        name
-                    ));
-                }
-                code_stream.push("    }".into());
-            }
-        }
-
-        let layout_prop = |p: &Option<NamedReference>| match p {
-            Some(nr) => format!("{}.get()", access_named_reference(nr, component, "self")),
-            None => "0".into(),
-        };
-        match self {
-            LayoutTreeItem::GridLayout {
-                geometry, spacing, cell_ref_variable, padding, ..
-            } => {
-                code_stream.push("    { ".into());
-                code_stream.push("    sixtyfps::GridLayoutData grid { ".into());
-                code_stream.push(format!(
-                    "        {w}, {h}, {x}, {y}, {s}, &{p},",
-                    w = layout_prop(&geometry.rect.width_reference),
-                    h = layout_prop(&geometry.rect.height_reference),
-                    x = layout_prop(&geometry.rect.x_reference),
-                    y = layout_prop(&geometry.rect.y_reference),
-                    s = spacing,
-                    p = padding,
-                ));
-                code_stream.push(format!("        {cv}", cv = cell_ref_variable));
-                code_stream.push("    };".to_owned());
-                code_stream.push("    sixtyfps::sixtyfps_solve_grid_layout(&grid);".to_owned());
-                code_stream.push("    } ".into());
-            }
-            LayoutTreeItem::BoxLayout {
-                geometry,
-                spacing,
-                cell_ref_variable,
-                padding,
-                alignment,
-                is_horizontal,
-                ..
-            } => {
-                code_stream.push("    { ".into());
-                code_stream.push("    sixtyfps::BoxLayoutData box { ".into());
-                code_stream.push(format!(
-                    "        {w}, {h}, {x}, {y}, {s}, &{p}, {a},",
-                    w = layout_prop(&geometry.rect.width_reference),
-                    h = layout_prop(&geometry.rect.height_reference),
-                    x = layout_prop(&geometry.rect.x_reference),
-                    y = layout_prop(&geometry.rect.y_reference),
-                    s = spacing,
-                    p = padding,
-                    a = alignment
-                ));
-                code_stream.push(format!("        {cv}", cv = cell_ref_variable));
-                code_stream.push("    };".to_owned());
-                code_stream.push(format!(
-                    "    sixtyfps::sixtyfps_solve_box_layout(&box, {});",
-                    is_horizontal
-                ));
-                code_stream.push("    } ".into());
-            }
-            LayoutTreeItem::PathLayout(path_layout) => {
-                code_stream.push("{".to_owned());
-
-                let path_layout_item_data =
-                    |elem: &ElementRc, elem_cpp: &str, component_cpp: &str| {
-                        let prop_ref = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type == Type::LogicalLength
-                            {
-                                format!("&{}.{}", elem_cpp, n)
-                            } else {
-                                "nullptr".to_owned()
-                            }
-                        };
-                        let prop_value = |n: &str| {
-                            if elem.borrow().lookup_property(n).property_type == Type::LogicalLength
-                            {
-                                let value_accessor = access_member(
-                                    &elem,
-                                    n,
-                                    &elem.borrow().enclosing_component.upgrade().unwrap(),
-                                    component_cpp,
-                                );
-                                format!("{}.get()", value_accessor)
-                            } else {
-                                "0.".into()
-                            }
-                        };
-                        format!(
-                            "{{ {}, {}, {}, {} }}",
-                            prop_ref("x"),
-                            prop_ref("y"),
-                            prop_value("width"),
-                            prop_value("height")
-                        )
-                    };
-                let path_layout_item_data_for_elem = |elem: &ElementRc| {
-                    path_layout_item_data(elem, &format!("self->{}", elem.borrow().id), "self")
-                };
-
-                let is_static_array =
-                    path_layout.elements.iter().all(|elem| elem.borrow().repeated.is_none());
-
-                let slice = if is_static_array {
-                    code_stream.push("    sixtyfps::PathLayoutItemData items[] = {".to_owned());
-                    for elem in &path_layout.elements {
-                        code_stream
-                            .push(format!("        {},", path_layout_item_data_for_elem(elem)));
-                    }
-                    code_stream.push("    };".to_owned());
-                    "        {items, std::size(items)},".to_owned()
-                } else {
-                    code_stream
-                        .push("    std::vector<sixtyfps::PathLayoutItemData> items;".to_owned());
-                    for elem in &path_layout.elements {
-                        if elem.borrow().repeated.is_some() {
-                            let root_element =
-                                elem.borrow().base_type.as_component().root_element.clone();
-                            code_stream.push(format!(
-                                "    for (auto &&sub_comp : self->repeater_{}.inner->data)",
-                                elem.borrow().id
-                            ));
-                            code_stream.push(format!(
-                                "         items.push_back({});",
-                                path_layout_item_data(
-                                    &root_element,
-                                    &format!("(*sub_comp.ptr)->{}", root_element.borrow().id),
-                                    "(*sub_comp.ptr)",
-                                )
-                            ));
-                        } else {
-                            code_stream.push(format!(
-                                "     items.push_back({});",
-                                path_layout_item_data_for_elem(elem)
-                            ));
-                        }
-                    }
-                    "        {items.data(), std::size(items)},".to_owned()
-                };
-
-                code_stream.push(format!(
-                    "    auto path = {};",
-                    compile_path(&path_layout.path, component)
-                ));
-
-                code_stream
-                    .push(format!("    auto x = {};", layout_prop(&path_layout.rect.x_reference)));
-                code_stream
-                    .push(format!("    auto y = {};", layout_prop(&path_layout.rect.y_reference)));
-                code_stream.push(format!(
-                    "    auto width = {};",
-                    layout_prop(&path_layout.rect.width_reference)
-                ));
-                code_stream.push(format!(
-                    "    auto height = {};",
-                    layout_prop(&path_layout.rect.height_reference)
-                ));
-
-                code_stream.push(format!(
-                    "    auto offset = {};",
-                    layout_prop(&Some(path_layout.offset_reference.clone()))
-                ));
-
-                code_stream.push("    sixtyfps::PathLayoutData pl { ".into());
-                code_stream.push("        &path,".to_owned());
-                code_stream.push(slice);
-                code_stream.push("        x, y, width, height, offset".to_owned());
-                code_stream.push("    };".to_owned());
-                code_stream.push("    sixtyfps::sixtyfps_solve_path_layout(&pl);".to_owned());
-                code_stream.push("}".to_owned());
-            }
-        }
-    }
-}
-
-fn compute_layout(
-    component: &Rc<Component>,
-    repeater_layout_code: &mut Vec<String>,
-) -> (Vec<String>, Vec<String>) {
-    let intro = format!(
-        "[[maybe_unused]] auto self = reinterpret_cast<const {ty}*>(component.instance);",
-        ty = component_id(component)
-    );
-    let mut res = vec![intro.clone()];
-    let mut layout_info = vec![
-        intro.clone(),
-        "auto layout_info = self->root_item().vtable->layouting_info(self->root_item(), &self->window);".into(),
-    ];
-    let component_layouts = component.layouts.borrow();
-    component_layouts.iter().enumerate().for_each(|(idx, layout)| {
-        let mut inverse_layout_tree = Vec::new();
-
-        res.push("    {".into());
-        let layout_item = crate::layout::gen::collect_layouts_recursively(
-            &mut inverse_layout_tree,
-            layout,
-            component,
-        );
-
-        if component_layouts.main_layout == Some(idx) {
-            layout_info = vec![
-                intro.clone(),
-                format!("sixtyfps::LayoutInfo layout_info = {};", layout_item.layout_info()),
-            ];
-        }
-
-        let mut creation_code = inverse_layout_tree
-            .iter()
-            .filter_map(|layout| match layout {
-                LayoutTreeItem::GridLayout { var_creation_code, .. } => {
-                    Some(var_creation_code.clone())
-                }
-                LayoutTreeItem::BoxLayout { var_creation_code, .. } => {
-                    Some(var_creation_code.clone())
-                }
-                LayoutTreeItem::PathLayout(_) => None,
-            })
-            .collect::<Vec<_>>();
-
-        if component_layouts.main_layout == Some(idx) {
-            layout_info.splice(1..1, creation_code.iter().cloned());
-        }
-
-        res.append(&mut creation_code);
-
-        inverse_layout_tree
-            .iter()
-            .rev()
-            .for_each(|layout| layout.emit_solve_calls(component, &mut res));
-        res.push("    }".into());
-    });
-
-    let root_constraints = &component.layouts.borrow().root_constraints;
-    if root_constraints.has_explicit_restrictions() {
-        layout_info.push("auto layout_info_other = layout_info;".into());
-        for (expr, name) in root_constraints.for_each_restrictions() {
-            layout_info.push(format!(
-                "layout_info_other.{} = {}.get();",
-                name,
-                access_named_reference(expr, component, "self")
-            ));
-        }
-        layout_info.push("return layout_info.merge(layout_info_other);".into());
-    } else {
-        layout_info.push("return layout_info;".into());
-    }
-
-    res.append(repeater_layout_code);
-
-    (res, layout_info)
 }
 
 fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) -> String {
