@@ -62,7 +62,7 @@ macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
             let $dpr: f32 = backend.scale_factor();
-            if let Some(painter) = std::any::Any::downcast_mut::<QPainter>(backend.as_any()) {
+            if let Some(painter) = <dyn std::any::Any>::downcast_mut::<QPainter>(backend.as_any()) {
                 let $size: qttypes::QSize = get_size!(self);
                 let $this = self;
                 painter.save_state();

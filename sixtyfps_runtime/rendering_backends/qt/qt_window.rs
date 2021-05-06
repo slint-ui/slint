@@ -1060,7 +1060,7 @@ impl PlatformWindow for QtWindow {
 
         let window = sixtyfps_corelib::window::Window::new(|window| QtWindow::new(window));
         let popup_window: &QtWindow =
-            std::any::Any::downcast_ref(window.as_ref().as_any()).unwrap();
+            <dyn std::any::Any>::downcast_ref(window.as_ref().as_any()).unwrap();
         window.set_component(popup);
         let popup_ptr = popup_window.widget_ptr();
         let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
@@ -1295,7 +1295,6 @@ fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedStr
 }
 
 pub(crate) mod ffi {
-    use std::any::Any;
     use std::ffi::c_void;
 
     use super::QtWindow;
@@ -1304,8 +1303,9 @@ pub(crate) mod ffi {
     pub extern "C" fn sixtyfps_qt_get_widget(
         window: &sixtyfps_corelib::window::ComponentWindow,
     ) -> *mut c_void {
-        Any::downcast_ref(window.0.as_any()).map_or(std::ptr::null_mut(), |win: &QtWindow| {
-            win.widget_ptr().cast::<c_void>().as_ptr()
-        })
+        <dyn std::any::Any>::downcast_ref(window.0.as_any())
+            .map_or(std::ptr::null_mut(), |win: &QtWindow| {
+                win.widget_ptr().cast::<c_void>().as_ptr()
+            })
     }
 }
