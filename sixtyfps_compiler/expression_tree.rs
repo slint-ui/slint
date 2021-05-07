@@ -614,9 +614,11 @@ impl Expression {
             }
             Expression::EnumerationValue(_) => {}
             Expression::ReturnStatement(expr) => {
-                expr.as_deref().map(|expr| visitor(expr));
+                expr.as_deref().map(visitor);
             }
-            Expression::LayoutCacheAccess { .. } => {}
+            Expression::LayoutCacheAccess { repeater_index, .. } => {
+                repeater_index.as_deref().map(visitor);
+            }
             Expression::ComputeLayoutInfo(_) => {}
             Expression::SolveLayout(_) => {}
         }
@@ -699,9 +701,11 @@ impl Expression {
             }
             Expression::EnumerationValue(_) => {}
             Expression::ReturnStatement(expr) => {
-                expr.as_deref_mut().map(|expr| visitor(expr));
+                expr.as_deref_mut().map(visitor);
             }
-            Expression::LayoutCacheAccess { .. } => {}
+            Expression::LayoutCacheAccess { repeater_index, .. } => {
+                repeater_index.as_deref_mut().map(visitor);
+            }
             Expression::ComputeLayoutInfo(_) => {}
             Expression::SolveLayout(_) => {}
         }
