@@ -22,7 +22,7 @@ global Skin := {
        roundButton : #f7f7f7,
        weekdayBox : #f4f4f4,
        text : #000,
-       shadow : #000,
+       shadow : #0001, // ### added alpha
     } : {
        menuBar : #2937A7,
        mainContent : #040404,
@@ -32,18 +32,22 @@ global Skin := {
        roundButton : #0a0a0a,
        weekdayBox : #0c0c0c,
        text : #fff,
-       shadow : #fff
+       shadow : #fff1, // ### added alpha
     };
 
-    property <length> DefaultFont: 12pt;
-    property <length> TinyFont: 9pt;
-    property <length> SmallFont: 10pt;
-    property <length> MediumFont: 13pt;
-    property <length> LargeFont: 20pt;
-    property <length> HugeFont: 27pt;
-    property <length> TitleFont: 10pt;
+    property<float> f: 1.5; // FIXME: why do the font looks completely different with the same size on the QML demo
+
+    // From Skin::initHints in Skin.cpp
+    property <length> DefaultFont: 12pt * f;
+    property <length> TinyFont: 9pt * f;
+    property <length> SmallFont: 10pt * f;
+    property <length> MediumFont: 13pt * f;
+    property <length> LargeFont: 20pt * f;
+    property <length> HugeFont: 27pt * f; // (also, bold)
+    property <length> TitleFont: 10pt * f; // (also, bold)
 }
 
+// From TopBar.cpp
 TopBar := HorizontalLayout {
     for item in [
         { string: "Living Room", progress: 25, value: 175, color: #ff3122, gradient: @linear-gradient(0deg, #FF5C00, #FF3122) },
@@ -80,17 +84,196 @@ TopBar := HorizontalLayout {
         Text {
             text: "Current time";
             font_size: Skin.TitleFont;
-            font_weight: 600;
+            font_weight: 700;
         }
         Text {
-            // FIXME
+            // FIXME: actual time
             text: "10:02:45";
             font_size: Skin.HugeFont;
-            font_weight: 600;
+            font_weight: 700;
+            color: #6776FF;
         }
     }
 }
 
+// From Box.cpp
+Box := Rectangle {
+    property <string> title;
+    background: Skin.palette.box;
+    drop-shadow-offset-x: 6px;
+    drop-shadow-offset-y: 6px;
+    drop-shadow-blur: 6px;
+    drop-shadow-color: Skin.palette.shadow;
+    VerticalLayout {
+        if (root.title != "") : Text {
+            text <=> root.title;
+            font_size: Skin.TitleFont;
+        }
+        padding: 15px;
+        @children
+    }
+}
+
+// From RoundedIcon.cpp
+RoundedIcon := Rectangle {
+    property <bool> isBright;
+    property <bool> isSmall;
+    property <image> iconName <=> m_graphicLabel.source;
+    background: isBright ? @linear-gradient(180deg, #ff7d34, #ff3122) : @linear-gradient(180deg, #6776FF, #6100FF);
+    border-radius: 6px;
+    height: isSmall ? 60px : 68px;
+    width: isSmall ? 60px : 68px;
+    m_graphicLabel := Image {
+        x: (parent.width - width) / 2;
+        y: (parent.height - height) / 2;
+    }
+}
+
+//from Usage.cpp
+UsageSpacer := Text {
+    text: "_____";
+    font_size: Skin.SmallFont;
+    color: #dddddd;
+    horizontal_stretch: 2;
+}
+
+Usage := Box {
+    title: "Usage";
+    HorizontalLayout {
+        Text { text: "Usage Today"; font_size: Skin.SmallFont; }
+        UsageSpacer { }
+        Text { text: "0,5 kwH"; font_size: Skin.SmallFont; }
+    }
+    HorizontalLayout {
+        Text { text: "Usage this month"; font_size: Skin.SmallFont; }
+        UsageSpacer { }
+        Text { text: "60 kwH"; font_size: Skin.SmallFont; }
+    }
+    HorizontalLayout {
+        Text { text: "Total working hours"; font_size: Skin.SmallFont; }
+        UsageSpacer { }
+        Text { text: "125 hrs"; font_size: Skin.SmallFont; }
+    }
+}
+
+// From UpAndDownButton.cpp
+RoundButton := Image { //### QskPushButton
+    property <bool> is_up; // ### QskAspect
+    Image {
+        source: is_up ? @image-url("images/up.svg") : @image-url("images/down.svg");
+        x: (parent.width - width) / 2;
+        y: (parent.height - height) / 2;
+    }
+}
+UpAndDownButton := Rectangle {
+    // FIXME: this is actually on the RoundButton
+    border-radius: 30px;
+    width: 45px;
+    background: Skin.palette.roundButton;
+    VerticalLayout {
+        RoundButton { is_up: true; }
+        RoundButton { is_up: false; }
+    }
+}
+
+// From BoxWithButtons.cpp
+ButtonValueLabel := Text {
+    property <string> value <=> text;
+    font_size: Skin.HugeFont;
+    font_weight: 700;
+    color: #929cb2;
+}
+
+TitleAndValueBox := VerticalLayout { horizontal-stretch: 100; }
+
+BoxWithButtons := Box {
+    property <image> iconFile <=> ri.iconName; //### in original, this is derived from title
+    property <string> value <=> val.value;
+    property <bool> isBright <=> ri.isBright;
+    property <string> title_ <=> titleLabel.text;
+    HorizontalLayout {
+        padding: 8px;
+        spacing: 20px;
+        VerticalLayout {  // FIXME: there is no such layout in the original, we should so without it
+            alignment: center;
+            ri := RoundedIcon { }
+        }
+        TitleAndValueBox {
+            titleLabel := Text {
+                font_size: Skin.TitleFont;
+                font_weight: 700;
+            }
+            val := ButtonValueLabel { }
+        }
+        UpAndDownButton { }
+    }
+}
+
+IndoorTemperature := BoxWithButtons {
+    title_: "Indoor Temperature";
+    iconFile: @image-url("images/indoor-temperature.png");
+    value: "+24";
+    isBright: true;
+}
+Humidity := BoxWithButtons {
+    title_: "Humidity";
+    iconFile: @image-url("images/humidity.png");
+    value: "30%";
+    isBright: false;
+}
+
+// from MyDevices.cpp
+Device := VerticalLayout {
+    property <string> name <=> t.text;
+    property <image> iconName <=> ri.iconName; // ### based on the name in the original
+    property <bool> isBright <=> ri.isBright;
+    HorizontalLayout { // ### FIXME: this latour is not in the original
+        alignment: center;
+        ri := RoundedIcon {
+            opacity: 0.15;
+        }
+    }
+    t := Text {
+        font_size: Skin.TinyFont;
+        horizontal_alignment: center;
+    }
+}
+
+MyDevices := Box {
+    title: "My devices";
+    GridLayout {
+        spacing: 15px;
+        Row {
+            Device{
+                name: "Lamps";
+                iconName: @image-url("images/lamps.png");
+                isBright: true;
+            }
+            Device{
+                name: "Music System";
+                iconName: @image-url("images/music-system.png");
+                isBright: false;
+            }
+        }
+        Row {
+            Device{
+                name: "AC";
+                iconName: @image-url("images/ac.png");
+                isBright: false;
+            }
+            Device{
+                name: "Router";
+                iconName: @image-url("images/router.png");
+                isBright: true;
+            }
+        }
+    }
+}
+
+// ## FIXME
+UsageDiagram := Box {
+    Rectangle {}
+}
 
 MainContent := VerticalLayout {
     spacing: 24px;
@@ -102,32 +285,30 @@ MainContent := VerticalLayout {
         padding-right: 17px;
         padding-bottom: 24px;
 
-        /* Usage {
+        Usage {
             rowspan: 2;
-        }*/
-        /*IndoorTemperature {
+        }
+        IndoorTemperature {
             row: 0; col: 1;
-        }*/
-        /*Humidity {
+        }
+        Humidity {
             row: 1; col: 1;
-        }*/
-        /*MyDevices {
-            row: 2; col: 1;
+        }
+        MyDevices {
+            row: 0; col: 2;
             rowspan: 2;
-        }*/
-        /*UsageDiagram {
+        }
+        UsageDiagram {
             row: 2; col: 0;
             colspan: 2;
-        }*/
+        }
         /*LightIntensity {
             row: 2; col: 2;
         }*/
-        Rectangle {} // REMOVE
-
-
     }
 }
 
+// From MenuBar.cpp
 MenuItem := Rectangle {
     property <image> icon <=> i.source;
     property<string> name <=> t.text;
@@ -144,10 +325,11 @@ MenuItem := Rectangle {
     }
 }
 
+// From MenuBar.cpp
 MenuBar := Rectangle {
     background: Skin.palette.menuBar;
     property<int> active: 0;
-    width: 140px;
+    minimum-width: 140px;
     VerticalLayout {
         padding-left: 0px;
         padding-top: 35px;
@@ -179,7 +361,7 @@ MenuBar := Rectangle {
 MainWindow := Window {
     width: 1024px;
     height: 600px;
-    title: "IOT dashboard" + " (SixtyFPS)";
+    title: "IOT dashboard";
     HorizontalLayout {
         padding: 0; spacing: 0;
         MenuBar {}
