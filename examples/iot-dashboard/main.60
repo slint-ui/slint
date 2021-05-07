@@ -1,0 +1,188 @@
+
+struct Palette := {
+    menuBar : brush,
+    mainContent : brush,
+    box : brush,
+    lightDisplay : brush,
+    pieChart : brush,
+    roundButton : brush,
+    weekdayBox : brush,
+    text : brush,
+    shadow : brush,
+}
+
+global Skin := {
+    property<bool> day: true;
+    property<Palette> palette : day ? {
+       menuBar : #6D7BFB,
+       mainContent :  #fbfbfb,
+       box :   #ffffff,
+       lightDisplay : #ffffff,
+       pieChart : #ffffff,
+       roundButton : #f7f7f7,
+       weekdayBox : #f4f4f4,
+       text : #000,
+       shadow : #000,
+    } : {
+       menuBar : #2937A7,
+       mainContent : #040404,
+       box : #000000,
+       lightDisplay : #000000,
+       pieChart : #000000,
+       roundButton : #0a0a0a,
+       weekdayBox : #0c0c0c,
+       text : #fff,
+       shadow : #fff
+    };
+
+    property <length> DefaultFont: 12pt;
+    property <length> TinyFont: 9pt;
+    property <length> SmallFont: 10pt;
+    property <length> MediumFont: 13pt;
+    property <length> LargeFont: 20pt;
+    property <length> HugeFont: 27pt;
+    property <length> TitleFont: 10pt;
+}
+
+TopBar := HorizontalLayout {
+    for item in [
+        { string: "Living Room", progress: 25, value: 175, color: #ff3122, gradient: @linear-gradient(0deg, #FF5C00, #FF3122) },
+        { string: "Bedroom", progress: 45, value: 205, color: #6776ff, gradient: @linear-gradient(0deg, #6776FF, #6100FF) },
+        { string: "Bathroom", progress: 15, value: 115, color: #f99055, gradient: @linear-gradient(0deg, #FFCE50, #FF3122) },
+        { string: "Kitchen", progress: 86, value: 289, color: #6776ff, gradient: @linear-gradient(0deg, #6776FF, #6100FF) },
+    ] : VerticalLayout {
+        Text {
+            font_size: Skin.SmallFont;
+            text: item.string;
+        }
+        HorizontalLayout {
+            Rectangle {
+                border-color: item.gradient;
+                border-width: 5px;
+                border-radius: width/2;
+                Text {
+                    width: 100%;
+                    height: 100%;
+                    vertical_alignment: center;
+                    horizontal_alignment: center;
+                    text: item.progress + "%";
+                    color: item.color;
+                }
+            }
+            VerticalLayout {
+                Text { text: item.value; }
+                Text { text: "kwH"; }
+            }
+            Rectangle {}
+        }
+    }
+    VerticalLayout {
+        Text {
+            text: "Current time";
+            font_size: Skin.TitleFont;
+            font_weight: 600;
+        }
+        Text {
+            // FIXME
+            text: "10:02:45";
+            font_size: Skin.HugeFont;
+            font_weight: 600;
+        }
+    }
+}
+
+
+MainContent := VerticalLayout {
+    spacing: 24px;
+    TopBar { }
+
+    GridLayout {
+        padding-left: 19px;
+        padding-top: 0px;
+        padding-right: 17px;
+        padding-bottom: 24px;
+
+        /* Usage {
+            rowspan: 2;
+        }*/
+        /*IndoorTemperature {
+            row: 0; col: 1;
+        }*/
+        /*Humidity {
+            row: 1; col: 1;
+        }*/
+        /*MyDevices {
+            row: 2; col: 1;
+            rowspan: 2;
+        }*/
+        /*UsageDiagram {
+            row: 2; col: 0;
+            colspan: 2;
+        }*/
+        /*LightIntensity {
+            row: 2; col: 2;
+        }*/
+        Rectangle {} // REMOVE
+
+
+    }
+}
+
+MenuItem := Rectangle {
+    property <image> icon <=> i.source;
+    property<string> name <=> t.text;
+    property<bool> active;
+    background: active ? rgba(100%, 100%, 100%, 14%) : ma.has_hover ? rgba(100%, 100%, 100%, 9%) : transparent;
+    ma := TouchArea {}
+    HorizontalLayout {
+        alignment: start;
+        padding: 8px;
+        padding-left: 30px;
+        padding-right: 30px;
+        i := Image { }
+        t := Text { color: white; }
+    }
+}
+
+MenuBar := Rectangle {
+    background: Skin.palette.menuBar;
+    property<int> active: 0;
+    width: 140px;
+    VerticalLayout {
+        padding-left: 0px;
+        padding-top: 35px;
+        padding-right: 0px;
+        padding-bottom: 12px;
+        spacing: 8px;
+        Image {
+            source: @image-url("images/main-icon.png");
+        }
+        //###  In the original, the icon is derived from the name
+        for entry[idx] in [
+            { name: "Dashboard", icon: @image-url("images/dashboard.png") },
+            { name: "Rooms", icon: @image-url("images/rooms.png") },
+            { name: "Devices", icon: @image-url("images/devices.png") },
+            { name: "Statistics", icon: @image-url("images/statistics.png") },
+            { name: "Storage", icon: @image-url("images/storage.png") },
+            { name: "Members", icon: @image-url("images/members.png") },
+        ] : MenuItem {
+            name: entry.name;
+            icon: entry.icon;
+            active: root.active == idx;
+        }
+        Rectangle {}
+        MenuItem { name: "Logout"; icon: @image-url("images/logout.png"); }
+    }
+}
+
+
+MainWindow := Window {
+    width: 1024px;
+    height: 600px;
+    title: "IOT dashboard" + " (SixtyFPS)";
+    HorizontalLayout {
+        padding: 0; spacing: 0;
+        MenuBar {}
+        MainContent {}
+    }
+}
