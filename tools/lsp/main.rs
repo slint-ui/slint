@@ -95,17 +95,26 @@ impl<'a> DocumentCache<'a> {
 }
 
 fn main() {
-    std::thread::spawn(|| {
+    let lsp_thread = std::thread::spawn(|| {
+        /// Make sure we quit the event loop even if we panic
+        struct QuitEventLoop;
+        impl Drop for QuitEventLoop {
+            fn drop(&mut self) {
+                preview::quit_ui_event_loop();
+            }
+        }
+        let _quit_ui_loop = QuitEventLoop;
+
         match run_lsp_server() {
             Ok(_) => {}
             Err(error) => {
                 eprintln!("Error running LSP server: {}", error);
             }
         }
-        preview::quit_ui_event_loop();
     });
 
     preview::start_ui_event_loop();
+    lsp_thread.join().unwrap();
 }
 
 fn run_lsp_server() -> Result<(), Error> {
