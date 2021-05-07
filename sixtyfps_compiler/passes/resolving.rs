@@ -1042,7 +1042,10 @@ fn continue_lookup_within_element(
                 }
                 Type::Component(c) => format!("Element '{}'", c.id),
                 Type::Builtin(b) => format!("Element '{}'", b.name),
-                _ => unreachable!(),
+                _ => {
+                    assert!(ctx.diag.has_error());
+                    return;
+                }
             };
             ctx.diag.push_error(
                 format!("{} does not have a property '{}'.{}", what, second.text(), extra),
