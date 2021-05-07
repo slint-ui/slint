@@ -112,7 +112,7 @@ fn run_lsp_server() -> Result<(), Error> {
     let (connection, io_threads) = Connection::stdio();
     let capabilities = ServerCapabilities {
         completion_provider: Some(CompletionOptions {
-            resolve_provider: Some(true),
+            resolve_provider: None,
             trigger_characters: Some(vec![".".to_owned()]),
             work_done_progress_options: WorkDoneProgressOptions::default(),
         }),
