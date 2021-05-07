@@ -8,14 +8,39 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+struct Struct := { def: int, }
 
 SuperSimple := Rectangle {
     DoesNotExist {
 //  ^error{Unknown type DoesNotExist}
     }
 
-    DoesNotExist2 {
-//  ^error{Unknown type DoesNotExist2}
+    dd := DoesNotExist2 {
+//       ^error{Unknown type DoesNotExist2}
+        abc: 42;
+        Hallo {}
+//      ^error{Unknown type Hallo}
+        Rectangle {
+            background: blue;
+            foo_bar: blue;
+//          ^error{Unknown property foo_bar in Rectangle}
+        }
+    }
+
+    float {
+//  ^error{'float' cannot be used as an element}
+        abc: 42;
+        Hallo {}
+//      ^error{Unknown type Hallo}
+
+    }
+
+    s := Struct {
+//      ^error{'Struct' cannot be used as an element}
+        def: "42";
+        xyz: "42";
+        Hallo {}
+//      ^error{Unknown type Hallo}
     }
 
     Rectangle {

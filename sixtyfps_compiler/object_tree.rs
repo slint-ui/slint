@@ -428,26 +428,27 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let (base_type, name_for_looup_errors) = if let Some(base_node) = node.QualifiedName() {
+        let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_string();
-            let base_type = match parent_type.lookup_type_for_child_element(&base_string, tr) {
-                Ok(ty) => ty,
-                Err(err) => {
-                    diag.push_error(err, &base_node);
-                    return ElementRc::default();
-                }
-            };
-            assert!(base_type.is_object_type());
-            if let Type::Component(c) = &base_type {
-                if c.is_global() {
+            match parent_type.lookup_type_for_child_element(&base_string, tr) {
+                Ok(Type::Component(c)) if c.is_global() => {
                     diag.push_error(
                         "Cannot create an instance of a global component".into(),
                         &base_node,
-                    )
+                    );
+                    Type::Invalid
+                }
+                Ok(ty @ Type::Component(_)) | Ok(ty @ Type::Builtin(_)) => ty,
+                Ok(ty) => {
+                    diag.push_error(format!("'{}' cannot be used as an element", ty), &base_node);
+                    Type::Invalid
+                }
+                Err(err) => {
+                    diag.push_error(err, &base_node);
+                    Type::Invalid
                 }
             }
-            (base_type, format!(" in {}", base))
         } else {
             if parent_type != Type::Invalid {
                 // This should normally never happen because the parser does not allow for this
@@ -466,7 +467,7 @@ impl Element {
             node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
-            (Type::Void, String::new())
+            Type::Void
         };
         let mut r = Element { id, base_type, node: Some(node.clone()), ..Default::default() };
 
@@ -528,14 +529,12 @@ impl Element {
         }
 
         r.parse_bindings(
-            &name_for_looup_errors,
             node.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),
             diag,
         );
         r.parse_bindings(
-            &name_for_looup_errors,
             node.TwoWayBinding()
                 .filter_map(|b| Some((b.child_token(SyntaxKind::Identifier)?, b.into()))),
             diag,
@@ -594,7 +593,7 @@ impl Element {
                 }
             } else {
                 diag.push_error(
-                    format!("'{}' is not a callback{}", unresolved_name, name_for_looup_errors),
+                    format!("'{}' is not a callback in {}", unresolved_name, r.base_type),
                     &con_node.child_token(SyntaxKind::Identifier).unwrap(),
                 );
             }
@@ -838,7 +837,6 @@ impl Element {
 
     fn parse_bindings(
         &mut self,
-        name_for_lookup_error: &str,
         bindings: impl Iterator<Item = (crate::parser::SyntaxToken, SyntaxNode)>,
         diag: &mut BuildDiagnostics,
     ) {
@@ -850,14 +848,21 @@ impl Element {
                 diag.push_error(
                     match property_type {
                         Type::Invalid => {
-                            format!("Unknown property {}{}", unresolved_name, name_for_lookup_error)
+                            if self.base_type != Type::Invalid {
+                                format!(
+                                    "Unknown property {} in {}",
+                                    unresolved_name, self.base_type
+                                )
+                            } else {
+                                continue;
+                            }
                         }
                         Type::Callback { .. } => {
                             format!("'{}' is a callback. Use `=>` to connect", unresolved_name)
                         }
                         _ => format!(
-                            "Cannot assign to {}{} because it does not have a valid property type.",
-                            unresolved_name, name_for_lookup_error
+                            "Cannot assign to {} in {} because it does not have a valid property type.",
+                            unresolved_name, self.base_type,
                         ),
                     },
                     &name_token,
@@ -968,12 +973,9 @@ fn animation_element_from_node(
         );
         None
     } else {
-        let name_for_lookup_errors =
-            format!(" in {}", anim_type.as_builtin().native_class.class_name);
         let mut anim_element =
             Element { id: "".into(), base_type: anim_type, node: None, ..Default::default() };
         anim_element.parse_bindings(
-            &name_for_lookup_errors,
             anim.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),

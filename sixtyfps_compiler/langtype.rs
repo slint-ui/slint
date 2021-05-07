@@ -194,10 +194,6 @@ impl Display for Type {
 }
 
 impl Type {
-    pub fn is_object_type(&self) -> bool {
-        matches!(self, Self::Component(_) | Self::Builtin(_))
-    }
-
     /// valid type for properties
     pub fn is_property_type(&self) -> bool {
         matches!(
