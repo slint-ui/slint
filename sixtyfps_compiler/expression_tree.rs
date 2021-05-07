@@ -212,7 +212,7 @@ declare_units! {
     /// inches
     In = "in" -> LogicalLength * 96,
     /// Points
-    Pt = "pt" -> LogicalLength * 96/72,
+    Pt = "pt" -> LogicalLength * 96./72.,
 
     // durations
 
@@ -226,9 +226,9 @@ declare_units! {
     /// Degree
     Deg = "deg" -> Angle,
     /// Gradians
-    Grad = "grad" -> Angle * 400/360,
+    Grad = "grad" -> Angle * 400./360.,
     /// Turns
-    Turn = "turn" -> Angle * 1/360,
+    Turn = "turn" -> Angle * 1./360.,
     /// Radians
     Rad = "rad" -> Angle * std::f32::consts::TAU/360.,
 }
