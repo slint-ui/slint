@@ -32,36 +32,6 @@ struct ItemVTable;
 
 namespace sixtyfps {
 
-namespace private_api {
-extern "C" {
-extern const cbindgen_private::ItemVTable RectangleVTable;
-extern const cbindgen_private::ItemVTable BorderRectangleVTable;
-extern const cbindgen_private::ItemVTable TextVTable;
-extern const cbindgen_private::ItemVTable TouchAreaVTable;
-extern const cbindgen_private::ItemVTable FocusScopeVTable;
-extern const cbindgen_private::ItemVTable ImageVTable;
-extern const cbindgen_private::ItemVTable ClippedImageVTable;
-extern const cbindgen_private::ItemVTable PathVTable;
-extern const cbindgen_private::ItemVTable FlickableVTable;
-extern const cbindgen_private::ItemVTable WindowVTable;
-extern const cbindgen_private::ItemVTable TextInputVTable;
-extern const cbindgen_private::ItemVTable ClipVTable;
-extern const cbindgen_private::ItemVTable BoxShadowVTable;
-extern const cbindgen_private::ItemVTable RotateVTable;
-extern const cbindgen_private::ItemVTable OpacityVTable;
-
-extern const cbindgen_private::ItemVTable NativeButtonVTable;
-extern const cbindgen_private::ItemVTable NativeCheckBoxVTable;
-extern const cbindgen_private::ItemVTable NativeSpinBoxVTable;
-extern const cbindgen_private::ItemVTable NativeSliderVTable;
-extern const cbindgen_private::ItemVTable NativeGroupBoxVTable;
-extern const cbindgen_private::ItemVTable NativeLineEditVTable;
-extern const cbindgen_private::ItemVTable NativeScrollViewVTable;
-extern const cbindgen_private::ItemVTable NativeStandardListViewItemVTable;
-extern const cbindgen_private::ItemVTable NativeComboBoxVTable;
-}
-}
-
 // Bring opaque structure in scope
 namespace private_api {
 using cbindgen_private::ComponentVTable;
@@ -507,7 +477,7 @@ class Repeater
             std::optional<ComponentHandle<C>> ptr;
         };
         std::vector<ComponentWithState> data;
-        Property<bool> is_dirty{true};
+        Property<bool> is_dirty { true };
 
         void row_added(int index, int count) override
         {

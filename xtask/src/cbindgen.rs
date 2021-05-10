@@ -44,9 +44,32 @@ fn default_config() -> cbindgen::Config {
     }
 }
 
+fn gen_item_declarations(items: &[&str]) -> String {
+    format!(
+        r#"
+namespace sixtyfps::private_api {{
+#define SIXTYFPS_DECL_ITEM(ItemName) \
+    extern const cbindgen_private::ItemVTable ItemName##VTable;
+
+extern "C" {{
+{}
+}}
+
+#undef SIXTYFPS_DECL_ITEM
+}}
+"#,
+        items
+            .iter()
+            .map(|item_name| format!("SIXTYFPS_DECL_ITEM({});", item_name))
+            .collect::<Vec<_>>()
+            .join("\n")
+    )
+}
+
 fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     let mut config = default_config();
-    config.export.include = [
+
+    let items = [
         "Rectangle",
         "BorderRectangle",
         "Image",
@@ -56,6 +79,15 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "Flickable",
         "Text",
         "Path",
+        "Window",
+        "TextInput",
+        "Clip",
+        "BoxShadow",
+        "Rotate",
+        "Opacity",
+    ];
+
+    config.export.include = [
         "ComponentVTable",
         "Slice",
         "ComponentWindowOpaque",
@@ -66,15 +98,10 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "TextOverflow",
         "TextWrap",
         "ImageFit",
-        "Window",
-        "TextInput",
-        "Clip",
-        "BoxShadow",
         "FillRule",
-        "Rotate",
-        "Opacity",
     ]
     .iter()
+    .chain(items.iter())
     .map(|x| x.to_string())
     .collect();
 
@@ -275,6 +302,7 @@ namespace sixtyfps {{
 }}",
             0, 0, 6,
         ))
+        .with_trailer(gen_item_declarations(&items))
         .generate()
         .expect("Unable to generate bindings")
         .write_to_file(include_dir.join("sixtyfps_internal.h"));
@@ -284,7 +312,8 @@ namespace sixtyfps {{
 
 fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     let mut config = default_config();
-    config.export.include = [
+
+    let items = [
         "NativeButton",
         "NativeSpinBox",
         "NativeCheckBox",
@@ -294,10 +323,9 @@ fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "NativeScrollView",
         "NativeStandardListViewItem",
         "NativeComboBox",
-    ]
-    .iter()
-    .map(|x| x.to_string())
-    .collect();
+    ];
+
+    config.export.include = items.iter().map(|x| x.to_string()).collect();
 
     config
         .export
@@ -310,6 +338,7 @@ fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .with_config(config)
         .with_crate(crate_dir)
         .with_include("sixtyfps_internal.h")
+        .with_trailer(gen_item_declarations(&items))
         .generate()
         .context("Unable to generate bindings for sixtyfps_qt_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_qt_internal.h"));
