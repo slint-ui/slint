@@ -57,6 +57,22 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 pub type VoidArg = ();
 type KeyEventArg = (KeyEvent,);
 
+#[macro_export]
+macro_rules! declare_item_vtable {
+    (fn $getter:ident() -> $item_vtable_ty:ident for $item_ty:ty) => {
+        ItemVTable_static! {
+            /// The VTable for `$ty`
+            #[no_mangle]
+            pub static $item_vtable_ty for $item_ty
+        }
+        #[no_mangle]
+        pub extern "C" fn $getter() -> *const ItemVTable {
+            use vtable::HasStaticVTable;
+            <$item_ty>::static_vtable()
+        }
+    };
+}
+
 /// Items are the nodes in the render tree.
 #[vtable]
 #[repr(C)]
@@ -238,10 +254,8 @@ impl ItemConsts for Rectangle {
     > = Rectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `Rectangle`
-    #[no_mangle]
-    pub static RectangleVTable for Rectangle
+declare_item_vtable! {
+    fn sixtyfps_get_RectangleVTable() -> RectangleVTable for Rectangle
 }
 
 #[repr(C)]
@@ -311,22 +325,16 @@ impl ItemConsts for BorderRectangle {
     > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `BorderRectangle`
-    #[no_mangle]
-    pub static BorderRectangleVTable for BorderRectangle
+declare_item_vtable! {
+    fn sixtyfps_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
 }
 
-ItemVTable_static! {
-    /// The VTable for `Image`
-    #[no_mangle]
-    pub static ImageVTable for Image
+declare_item_vtable! {
+    fn sixtyfps_get_ImageVTable() -> ImageVTable for Image
 }
 
-ItemVTable_static! {
-    /// The VTable for `ClippedImage`
-    #[no_mangle]
-    pub static ClippedImageVTable for ClippedImage
+declare_item_vtable! {
+    fn sixtyfps_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
 }
 
 /// The implementation of the `TouchArea` element
@@ -438,10 +446,8 @@ impl ItemConsts for TouchArea {
     > = TouchArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `TouchArea`
-    #[no_mangle]
-    pub static TouchAreaVTable for TouchArea
+declare_item_vtable! {
+    fn sixtyfps_get_TouchAreaVTable() -> TouchAreaVTable for TouchArea
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
@@ -552,10 +558,8 @@ impl ItemConsts for FocusScope {
     > = FocusScope::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `FocusScope`
-    #[no_mangle]
-    pub static FocusScopeVTable for FocusScope
+declare_item_vtable! {
+    fn sixtyfps_get_FocusScopeVTable() -> FocusScopeVTable for FocusScope
 }
 
 #[repr(C)]
@@ -626,10 +630,8 @@ impl ItemConsts for Clip {
         Clip::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `Clip`
-    #[no_mangle]
-    pub static ClipVTable for Clip
+declare_item_vtable! {
+    fn sixtyfps_get_ClipVTable() -> ClipVTable for Clip
 }
 
 #[repr(C)]
@@ -697,10 +699,8 @@ impl ItemConsts for Opacity {
     > = Opacity::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `Opacity`
-    #[no_mangle]
-    pub static OpacityVTable for Opacity
+declare_item_vtable! {
+    fn sixtyfps_get_OpacityVTable() -> OpacityVTable for Opacity
 }
 
 #[repr(C)]
@@ -769,10 +769,8 @@ impl ItemConsts for Rotate {
     > = Rotate::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `Rotate`
-    #[no_mangle]
-    pub static RotateVTable for Rotate
+declare_item_vtable! {
+    fn sixtyfps_get_RotateVTable() -> RotateVTable for Rotate
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
@@ -871,10 +869,8 @@ impl ItemConsts for Path {
         Path::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `Path`
-    #[no_mangle]
-    pub static PathVTable for Path
+declare_item_vtable! {
+    fn sixtyfps_get_PathVTable() -> PathVTable for Path
 }
 
 /// The implementation of the `Flickable` element
@@ -950,10 +946,8 @@ impl ItemConsts for Flickable {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `Flickable`
-    #[no_mangle]
-    pub static FlickableVTable for Flickable
+declare_item_vtable! {
+    fn sixtyfps_get_FlickableVTable() -> FlickableVTable for Flickable
 }
 
 pub use crate::SharedVector;
@@ -1100,10 +1094,8 @@ impl ItemConsts for Window {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `Window`
-    #[no_mangle]
-    pub static WindowVTable for Window
+declare_item_vtable! {
+    fn sixtyfps_get_WindowVTable() -> WindowVTable for Window
 }
 
 /// The implementation of the `BoxShadow` element
@@ -1174,20 +1166,14 @@ impl ItemConsts for BoxShadow {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! {
-    /// The VTable for `BoxShadow`
-    #[no_mangle]
-    pub static BoxShadowVTable for BoxShadow
+declare_item_vtable! {
+    fn sixtyfps_get_BoxShadowVTable() -> BoxShadowVTable for BoxShadow
 }
 
-ItemVTable_static! {
-    /// The VTable for `Text`
-    #[no_mangle]
-    pub static TextVTable for Text
+declare_item_vtable! {
+    fn sixtyfps_get_TextVTable() -> TextVTable for Text
 }
 
-ItemVTable_static! {
-    /// The VTable for `TextInput`
-    #[no_mangle]
-    pub static TextInputVTable for TextInput
+declare_item_vtable! {
+    fn sixtyfps_get_TextInputVTable() -> TextInputVTable for TextInput
 }
