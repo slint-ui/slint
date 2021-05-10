@@ -76,7 +76,7 @@ pub struct TestFunction<'a> {
 /// Extract the test functions from
 pub fn extract_test_functions(source: &str) -> impl Iterator<Item = TestFunction<'_>> {
     lazy_static::lazy_static! {
-        static ref RX: Regex = Regex::new(r"(?sU)\n```([a-z]+)\n(.+)\n```\n").unwrap();
+        static ref RX: Regex = Regex::new(r"(?sU)\r?\n```([a-z]+)\r?\n(.+)\r?\n```\r?\n").unwrap();
     }
     RX.captures_iter(source).map(|mat| TestFunction {
         language_id: mat.get(1).unwrap().as_str(),
@@ -108,6 +108,15 @@ let yy = 0;
     let r2 = r.next().unwrap();
     assert_eq!(r2.language_id, "rust");
     assert_eq!(r2.source, "let xx = 0;\nlet yy = 0;");
+}
+
+#[test]
+fn test_extract_test_functions_win() {
+    let source = "/*\r\n```cpp\r\nfoo\r\nbar\r\n```\r\n*/\r\n";
+    let mut r = extract_test_functions(source);
+    let r1 = r.next().unwrap();
+    assert_eq!(r1.language_id, "cpp");
+    assert_eq!(r1.source, "foo\r\nbar");
 }
 
 /// Extract extra include paths from a comment in the source if present.
