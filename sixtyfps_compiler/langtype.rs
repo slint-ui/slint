@@ -492,7 +492,7 @@ impl Default for Type {
 pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
     pub class_name: String,
-    pub vtable_symbol: String,
+    pub cpp_vtable_getter: String,
     pub properties: HashMap<String, Type>,
     pub deprecated_aliases: HashMap<String, String>,
     pub cpp_type: Option<String>,
@@ -501,10 +501,13 @@ pub struct NativeClass {
 
 impl NativeClass {
     pub fn new(class_name: &str) -> Self {
-        let vtable_symbol = format!("{}VTable", class_name);
+        let cpp_vtable_getter = format!(
+            "sixtyfps::private_api::get_vtable(&sixtyfps::private_api::{}VTable)",
+            class_name
+        );
         Self {
             class_name: class_name.into(),
-            vtable_symbol,
+            cpp_vtable_getter,
             properties: Default::default(),
             ..Default::default()
         }
