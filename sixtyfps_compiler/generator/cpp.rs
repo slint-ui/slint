@@ -1044,10 +1044,10 @@ fn generate_component(
                 ));
             } else {
                 tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node(offsetof({}, {}), &sixtyfps::private_api::{}, {}, {}, {})",
+                    "sixtyfps::private_api::make_item_node(offsetof({}, {}), {}, {}, {}, {})",
                     component_id,
                     item.id,
-                    item.base_type.as_native().vtable_symbol,
+                    item.base_type.as_native().cpp_vtable_getter,
                     item.children.len(),
                     children_offset,
                     parent_index,
@@ -1055,7 +1055,7 @@ fn generate_component(
             }
             handle_item(item_rc, &mut component_struct, &mut init);
             item_names_and_vt_symbols
-                .push((item.id.clone(), item.base_type.as_native().vtable_symbol.clone()));
+                .push((item.id.clone(), item.base_type.as_native().cpp_vtable_getter.clone()));
         }
     });
 
@@ -1089,10 +1089,18 @@ fn generate_component(
         }
         if !item_names_and_vt_symbols.is_empty() {
             destructor.push("sixtyfps::private_api::ItemRef items[] = {".into());
-            destructor.push(item_names_and_vt_symbols.iter()
-                .map(|(item_name, vt_symbol)|
-                    format!("{{ &sixtyfps::private_api::{vt}, const_cast<decltype(this->{id})*>(&this->{id}) }}", id = item_name, vt = vt_symbol)
-                ).join(","));
+            destructor.push(
+                item_names_and_vt_symbols
+                    .iter()
+                    .map(|(item_name, vt_symbol)| {
+                        format!(
+                            "{{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }}",
+                            id = item_name,
+                            vt = vt_symbol
+                        )
+                    })
+                    .join(","),
+            );
             destructor.push("};".into());
             destructor.push("window.free_graphics_resources(sixtyfps::Slice<sixtyfps::private_api::ItemRef>{items, std::size(items)});".into());
         }
@@ -1230,8 +1238,8 @@ fn generate_component(
                 name: "root_item".into(),
                 signature: "() const -> sixtyfps::private_api::ItemRef".into(),
                 statements: Some(vec![format!(
-                    "return {{ &sixtyfps::private_api::{vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
-                    vt = root_elem.base_type.as_native().vtable_symbol,
+                    "return {{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
+                    vt = root_elem.base_type.as_native().cpp_vtable_getter,
                     id = root_elem.id
                 )]),
                 ..Default::default()
@@ -1570,8 +1578,8 @@ fn compile_expression(
                     let item = item.upgrade().unwrap();
                     let item = item.borrow();
                     let native_item = item.base_type.as_native();
-                    format!("sixtyfps::private_api::{vt}.implicit_size({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &window)",
-                        vt = native_item.vtable_symbol,
+                    format!("{vt}->implicit_size({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &window)",
+                        vt = native_item.cpp_vtable_getter,
                         ty = native_item.class_name,
                         id = item.id
                     )
@@ -1982,8 +1990,8 @@ fn get_layout_info_ref<'a, 'b>(
     });
     let elem_info = item.element.as_ref().map(|elem| {
             format!(
-                "sixtyfps::private_api::{vt}.layouting_info({{&sixtyfps::private_api::{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &self->window)",
-                vt = elem.borrow().base_type.as_native().vtable_symbol,
+                "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &self->window)",
+                vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
                 ty = elem.borrow().base_type.as_native().class_name,
                 id = elem.borrow().id,
             )

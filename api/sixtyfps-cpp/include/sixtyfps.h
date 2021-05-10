@@ -204,6 +204,12 @@ inline vtable::Layout drop_in_place(ComponentRef component)
     return vtable::Layout { sizeof(T), alignof(T) };
 }
 
+template<typename VTableType>
+constexpr inline const VTableType *get_vtable(const VTableType *vtable_symbol)
+{
+    return vtable_symbol;
+}
+
 template<typename T>
 struct ReturnWrapper
 {
