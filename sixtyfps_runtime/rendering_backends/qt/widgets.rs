@@ -37,7 +37,9 @@ use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
 use sixtyfps_corelib::layout::LayoutInfo;
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::window::ComponentWindow;
-use sixtyfps_corelib::{Callback, ItemVTable_static, Property, SharedString, SharedVector};
+use sixtyfps_corelib::{
+    declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
+};
 use sixtyfps_corelib_macros::*;
 use std::rc::Rc;
 
@@ -272,7 +274,9 @@ impl ItemConsts for NativeButton {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeButtonVTable for NativeButton }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeButtonVTable() -> NativeButtonVTable for NativeButton
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -383,7 +387,9 @@ impl ItemConsts for NativeCheckBox {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeCheckBoxVTable for NativeCheckBox }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeCheckBoxVTable() -> NativeCheckBoxVTable for NativeCheckBox
+}
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
@@ -595,7 +601,9 @@ impl ItemConsts for NativeSpinBox {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeSpinBoxVTable for NativeSpinBox }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeSpinBoxVTable() -> NativeSpinBoxVTable for NativeSpinBox
+}
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
@@ -804,7 +812,9 @@ impl ItemConsts for NativeSlider {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeSliderVTable for NativeSlider }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeSliderVTable() -> NativeSliderVTable for NativeSlider
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -1002,7 +1012,9 @@ impl ItemConsts for NativeGroupBox {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeGroupBoxVTable for NativeGroupBox }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeGroupBoxVTable() -> NativeGroupBoxVTable for NativeGroupBox
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -1143,7 +1155,9 @@ impl ItemConsts for NativeLineEdit {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeLineEditVTable for NativeLineEdit }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeLineEditVTable() -> NativeLineEditVTable for NativeLineEdit
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -1511,7 +1525,9 @@ impl ItemConsts for NativeScrollView {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeScrollViewVTable for NativeScrollView }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeScrollViewVTable() -> NativeScrollViewVTable for NativeScrollView
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -1632,7 +1648,9 @@ impl ItemConsts for NativeStandardListViewItem {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeStandardListViewItemVTable for NativeStandardListViewItem }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeStandardListViewItemVTable() -> NativeStandardListViewItemVTable for NativeStandardListViewItem
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -1768,7 +1786,9 @@ impl ItemConsts for NativeComboBox {
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-ItemVTable_static! { #[no_mangle] pub static NativeComboBoxVTable for NativeComboBox }
+declare_item_vtable! {
+    fn sixtyfps_get_NativeComboBoxVTable() -> NativeComboBoxVTable for NativeComboBox
+}
 
 #[repr(C)]
 #[derive(FieldOffsets, SixtyFPSElement)]
