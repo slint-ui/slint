@@ -49,7 +49,8 @@ fn gen_item_declarations(items: &[&str]) -> String {
         r#"
 namespace sixtyfps::private_api {{
 #define SIXTYFPS_DECL_ITEM(ItemName) \
-    extern const cbindgen_private::ItemVTable ItemName##VTable;
+    extern const cbindgen_private::ItemVTable ItemName##VTable; \
+    extern SIXTYFPS_DLL_IMPORT const cbindgen_private::ItemVTable* sixtyfps_get_##ItemName##VTable();
 
 extern "C" {{
 {}
