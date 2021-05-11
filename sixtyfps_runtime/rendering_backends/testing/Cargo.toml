@@ -1,0 +1,19 @@
+[package]
+name = "sixtyfps-rendering-backend-testing"
+version = "0.0.6"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2018"
+license = "GPL-3.0-only"
+description = "OpenGL rendering backend for SixtyFPS"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+sixtyfps-corelib = { version = "=0.0.6", path = "../../corelib" }
+image = "0.23"
+weak-table = "0.3"
+

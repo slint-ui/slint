@@ -6,6 +6,7 @@ members = [
     'sixtyfps_runtime/rendering_backends/gl',
     'sixtyfps_runtime/rendering_backends/qt',
     'sixtyfps_runtime/rendering_backends/default',
+    'sixtyfps_runtime/rendering_backends/testing',
     'sixtyfps_compiler',
     'sixtyfps_compiler/parser_test_macro',
     'api/sixtyfps-rs',
