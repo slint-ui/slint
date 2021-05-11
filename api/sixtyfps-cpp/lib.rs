@@ -56,3 +56,9 @@ pub unsafe extern "C" fn sixtyfps_register_font_from_path(
         },
     )
 }
+
+#[cfg(feature = "testing")]
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_testing_init_backend() {
+    sixtyfps_rendering_backend_testing::init();
+}

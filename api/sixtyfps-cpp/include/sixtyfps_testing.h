@@ -12,6 +12,11 @@ LICENSE END */
 #include <iostream>
 
 namespace sixtyfps::testing {
+
+inline void init() {
+    cbindgen_private::sixtyfps_testing_init_backend();
+}
+
 inline void mock_elapsed_time(int64_t time_in_ms)
 {
     cbindgen_private::sixtyfps_mock_elapsed_time(time_in_ms);

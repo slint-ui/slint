@@ -209,7 +209,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: build
-          args: --lib -p sixtyfps-cpp
+          args: --lib -p sixtyfps-cpp --features testing
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
