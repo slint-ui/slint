@@ -501,10 +501,7 @@ pub struct NativeClass {
 
 impl NativeClass {
     pub fn new(class_name: &str) -> Self {
-        let cpp_vtable_getter = format!(
-            "sixtyfps::private_api::get_vtable(&sixtyfps::private_api::{}VTable, &sixtyfps::private_api::sixtyfps_get_{}VTable)",
-            class_name, class_name
-        );
+        let cpp_vtable_getter = format!("SIXTYFPS_GET_ITEM_VTABLE({}VTable)", class_name);
         Self {
             class_name: class_name.into(),
             cpp_vtable_getter,

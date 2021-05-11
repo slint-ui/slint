@@ -204,23 +204,16 @@ inline vtable::Layout drop_in_place(ComponentRef component)
     return vtable::Layout { sizeof(T), alignof(T) };
 }
 
-template<typename VTableType>
-constexpr inline const VTableType *get_vtable(const VTableType *vtable_symbol,
-                                              const VTableType *(*getter)())
-{
-    // On Windows cross-dll data relocations are not supported:
-    //     https://docs.microsoft.com/en-us/cpp/c-language/rules-and-limitations-for-dllimport-dllexport?view=msvc-160
-    // so we have a relocation to a function that returns the address we seek. That
-    // relocation will be resolved to the locally linked stub library, the implementation of
-    // which will be patched.
 #if defined(_WIN32) || defined(_WIN64)
-    (void)vtable_symbol;
-    return getter();
+// On Windows cross-dll data relocations are not supported:
+//     https://docs.microsoft.com/en-us/cpp/c-language/rules-and-limitations-for-dllimport-dllexport?view=msvc-160
+// so we have a relocation to a function that returns the address we seek. That
+// relocation will be resolved to the locally linked stub library, the implementation of
+// which will be patched.
+#    define SIXTYFPS_GET_ITEM_VTABLE(VTableName) sixtyfps::private_api::sixtyfps_get_##VTableName()
 #else
-    (void)getter;
-    return vtable_symbol;
+#    define SIXTYFPS_GET_ITEM_VTABLE(VTableName) (&sixtyfps::private_api::VTableName)
 #endif
-}
 
 template<typename T>
 struct ReturnWrapper
