@@ -66,7 +66,7 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
             let cells = grid_layout_data(grid_layout, component, &expr_eval);
             let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, &expr_eval);
 
-            Value::LayoutCache(core_layout::solve_grid_layout(&core_layout::GridLayoutData {
+            core_layout::solve_grid_layout(&core_layout::GridLayoutData {
                 width: grid_layout
                     .geometry
                     .rect
@@ -86,7 +86,8 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
                 spacing,
                 padding: &padding,
                 cells: Slice::from(cells.as_slice()),
-            }))
+            })
+            .into()
         }
         Layout::BoxLayout(box_layout) => {
             let mut repeated_indices = Vec::new();
