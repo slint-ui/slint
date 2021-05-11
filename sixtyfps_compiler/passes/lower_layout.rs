@@ -56,9 +56,6 @@ fn lower_element_layout(
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
-    //let base_type =
-    //   if let Type::Builtin(be) = &elem.borrow().base_type { be.clone() } else { return };
-
     let base_type = if let Type::Builtin(base_type) = &elem.borrow().base_type {
         base_type.clone()
     } else {
