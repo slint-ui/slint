@@ -72,11 +72,3 @@ TEST_CASE("Property Tracker")
     REQUIRE(!tracker1.is_dirty());
 }
 
-TEST_CASE("C++ Timers")
-{
-    using namespace sixtyfps;
-
-    Timer testTimer(std::chrono::milliseconds(16), []() { sixtyfps::quit_event_loop(); });
-
-    sixtyfps::run_event_loop();
-}

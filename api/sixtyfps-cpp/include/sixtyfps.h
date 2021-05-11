@@ -683,6 +683,23 @@ inline void quit_event_loop()
     cbindgen_private::sixtyfps_quit_event_loop();
 }
 
+/// Adds the specified functor to an internal queue, notifies the event loop to wake up.
+/// Once woken up, any queued up functors will be invoked.
+/// This function is thread-safe and can be called from any thread, including the one
+/// running the event loop. The provided functors will only be invoked from the thread
+/// that started the event loop.
+///
+/// You can use this to set properties or use any other SixtyFPS APIs from other threads,
+/// by collecting the code in a functor and queuing it up for invocation within the event loop.
+template<typename Functor>
+void invoke_from_event_loop(Functor f) {
+    cbindgen_private::sixtyfps_post_event(
+        [](void *data) { (*reinterpret_cast<Functor *>(data))(); },
+        new Functor(std::move(f)),
+        [](void *data) { delete reinterpret_cast<Functor *>(data); }
+    );
+}
+
 namespace private_api {
 
 /// Registers a font by the specified path. The path must refer to an existing

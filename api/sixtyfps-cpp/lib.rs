@@ -9,6 +9,11 @@
 LICENSE END */
 /*! This scrates just expose the function used by the C++ integration */
 
+use core::ffi::c_void;
+use sixtyfps_corelib::window::ffi::ComponentWindowOpaque;
+use sixtyfps_corelib::window::ComponentWindow;
+use sixtyfps_rendering_backend_default::backend;
+
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() -> usize {
@@ -17,11 +22,6 @@ pub fn use_modules() -> usize {
     sixtyfps_rendering_backend_default::use_modules();
     sixtyfps_corelib::use_modules()
 }
-
-use sixtyfps_rendering_backend_default::backend;
-
-use sixtyfps_corelib::window::ffi::ComponentWindowOpaque;
-use sixtyfps_corelib::window::ComponentWindow;
 
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_component_window_init(out: *mut ComponentWindowOpaque) {
@@ -36,6 +36,33 @@ pub unsafe extern "C" fn sixtyfps_component_window_init(out: *mut ComponentWindo
 pub unsafe extern "C" fn sixtyfps_run_event_loop() {
     crate::backend()
         .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+}
+
+/// Will execute the fiven functor in the main thread
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_post_event(
+    event: extern "C" fn(user_data: *mut c_void),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+) {
+    struct UserData {
+        user_data: *mut c_void,
+        drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    }
+    impl Drop for UserData {
+        fn drop(&mut self) {
+            if let Some(x) = self.drop_user_data {
+                x(self.user_data)
+            }
+        }
+    }
+    unsafe impl Send for UserData {}
+    let ud = UserData { user_data, drop_user_data };
+
+    crate::backend().post_event(Box::new(move || {
+        let ud = &ud;
+        event(ud.user_data);
+    }));
 }
 
 #[no_mangle]

@@ -150,6 +150,8 @@ if(BUILD_TESTING)
 
     FetchContent_MakeAvailable(Catch2)
 
+    find_package(Threads REQUIRED)
+
     macro(sixtyfps_test NAME)
         add_executable(test_${NAME} tests/${NAME}.cpp)
         target_link_libraries(test_${NAME} PRIVATE SixtyFPS Catch2::Catch2)
@@ -171,5 +173,6 @@ if(BUILD_TESTING)
     endmacro(sixtyfps_test)
     sixtyfps_test(datastructures)
     sixtyfps_test(interpreter)
-
+    sixtyfps_test(eventloop)
+    target_link_libraries(test_eventloop PRIVATE Threads::Threads)
 endif()
