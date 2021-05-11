@@ -1035,7 +1035,7 @@ fn generate_component(
         } else {
             if item.is_flickable_viewport {
                 tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), sixtyfps::private_api::sixtyfps_get_RectangleVTable(), {}, {}, {})",
+                    "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
                     &component_id,
                     crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id,
                     item.children.len(),
