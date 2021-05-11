@@ -1,6 +1,24 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+ - Layout are now conceptually their own elements, meaning that the x and y property of items
+   within layout are relative to the layout and no longer to the parent element of layouts.
+
+### Added
+
+ - Show warnings in the online code editor
+ - C++ API to run a function in the UI thread
+
+### Fixed
+
+ - Fixed C++ backend on windows
+ - Many more bugfixes
+
+
 ## [0.0.6] - 2021-04-27
 
 ### Changed
