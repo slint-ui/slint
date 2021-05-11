@@ -69,7 +69,12 @@ fn main() -> std::io::Result<()> {
         {
             write!(
                 output,
-                "#[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{\n    {}\n    Ok(()) }}",
+                r"
+#[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
+    sixtyfps_rendering_backend_testing::init();
+    {}
+    Ok(())
+}}",
                 i,
                 x.source.replace('\n', "\n    ")
             )?;

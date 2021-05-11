@@ -12,6 +12,7 @@ name = "test-driver-rust"
 
 [dependencies]
 sixtyfps = { path = "../../../api/sixtyfps-rs" }
+sixtyfps-rendering-backend-testing = { path = "../../../sixtyfps_runtime/rendering_backends/testing" }
 
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }
