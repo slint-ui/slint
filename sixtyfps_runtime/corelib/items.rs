@@ -61,7 +61,6 @@ type KeyEventArg = (KeyEvent,);
 macro_rules! declare_item_vtable {
     (fn $getter:ident() -> $item_vtable_ty:ident for $item_ty:ty) => {
         ItemVTable_static! {
-            /// The VTable for `$ty`
             #[no_mangle]
             pub static $item_vtable_ty for $item_ty
         }
