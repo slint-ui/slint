@@ -28,7 +28,7 @@ TEST_CASE("C++ Timers")
 }
 
 
-SCENARIO("Quit from event")
+TEST_CASE("Quit from event")
 {
     int called = 0;
     sixtyfps::invoke_from_event_loop([&] {
@@ -41,7 +41,7 @@ SCENARIO("Quit from event")
 }
 
 
-SCENARIO("Event from thread")
+TEST_CASE("Event from thread")
 {
     std::atomic<int> called = 0;
     auto t = std::thread([&] {

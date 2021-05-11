@@ -517,7 +517,12 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
     };
 
     #[cfg(not(target_arch = "wasm32"))]
-    winit_loop.run_return(run_fn);
+    {
+        winit_loop.run_return(run_fn);
+
+        *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
+    }
+
     #[cfg(target_arch = "wasm32")]
     {
         // Since wasm does not have a run_return function that takes a non-static closure,
