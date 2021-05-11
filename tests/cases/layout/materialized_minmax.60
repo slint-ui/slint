@@ -54,7 +54,7 @@ assert_eq(instance.get_materialized_maximum_height(), 300);
 assert_eq(instance.get_materialized_minimum_width(), 50);
 assert_eq(instance.get_materialized_minimum_height(), 25);
 // FIXME! float max is overflowing on int
-assert_eq(uint(instance.get_materialized_maximum_width()), uint(std::numeric_limits<int>::max()) + 1);
+assert_eq(uint32_t(instance.get_materialized_maximum_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
 ```
 
 

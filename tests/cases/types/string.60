@@ -22,7 +22,7 @@ TestCase := Rectangle {
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_p1(), "hello");
-assert_eq(instance.get_p2(), u8"fox:🦊");
+assert_eq(instance.get_p2(), "fox:🦊");
 assert_eq(instance.get_p3(), "with\"quote\\\"\x08");
 assert(instance.get_e1());
 assert(!instance.get_e2());
