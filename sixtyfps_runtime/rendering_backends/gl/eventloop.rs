@@ -339,9 +339,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                             {
                                 pressed = false;
-                                window
-                                    .clone()
-                                    .process_mouse_input(cursor_pos, MouseEvent::MouseExit);
+                                window.clone().process_mouse_input(MouseEvent::MouseExit);
                             }
                         });
                     }
