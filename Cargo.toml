@@ -72,8 +72,6 @@ resolver = "2"
 # Pull in https://github.com/femtovg/femtovg/commit/14424393276f23a5105192fdb179db2a03e42d0d to
 # shrink our (wasm) binaries (post 0.1.3)
 femtovg = { git = "https://github.com/femtovg/femtovg", rev = "14424393276f23a5105192fdb179db2a03e42d0d" }
-# Fix compilation with nightly compiler https://github.com/Diggsey/rust-field-offset/pull/17  (required for our CI)
-field-offset = { git = "https://github.com/ogoffart/rust-field-offset", branch = "fix-nightly" }
 
 [profile.release]
 lto = true
