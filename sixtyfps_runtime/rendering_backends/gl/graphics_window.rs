@@ -479,10 +479,7 @@ impl PlatformWindow for GraphicsWindow {
         }
     }
 
-    fn image_size(
-        &self,
-        source: Pin<&sixtyfps_corelib::properties::Property<ImageReference>>,
-    ) -> sixtyfps_corelib::graphics::Size {
+    fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => Default::default(),
             GraphicsWindowBackendState::Mapped(window) => {

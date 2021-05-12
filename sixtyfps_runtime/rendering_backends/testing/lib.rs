@@ -125,14 +125,11 @@ impl PlatformWindow for TestingWindow {
         Some(Box::new(TestingFontMetrics::default()))
     }
 
-    fn image_size(
-        &self,
-        source: std::pin::Pin<&sixtyfps_corelib::Property<ImageReference>>,
-    ) -> Size {
-        match source.get() {
+    fn image_size(&self, source: &ImageReference) -> Size {
+        match source {
             ImageReference::None => Default::default(),
             ImageReference::EmbeddedRgbaImage { width, height, .. } => {
-                Size::new(width as _, height as _)
+                Size::new(*width as _, *height as _)
             }
             ImageReference::AbsoluteFilePath(path) => image::open(Path::new(path.as_str()))
                 .map(|img| {

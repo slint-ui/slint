@@ -69,10 +69,7 @@ pub trait PlatformWindow {
 
     /// Return the size of the image referenced by the specified resource, multiplied by the window
     /// scale factor.
-    fn image_size(
-        &self,
-        source: Pin<&crate::properties::Property<ImageReference>>,
-    ) -> crate::graphics::Size;
+    fn image_size(&self, source: &ImageReference) -> crate::graphics::Size;
 
     /// Return self as any so the backend can upcast
     fn as_any(&self) -> &dyn core::any::Any;

@@ -252,11 +252,11 @@ impl GLRendererData {
     }
 
     // Try to load the image the given resource points to
-    fn load_image_resource(&self, resource: ImageReference) -> Option<Rc<CachedImage>> {
-        let cache_key = ImageCacheKey::new(&resource)?;
+    fn load_image_resource(&self, resource: &ImageReference) -> Option<Rc<CachedImage>> {
+        let cache_key = ImageCacheKey::new(resource)?;
 
         self.lookup_image_in_cache_or_create(cache_key, || {
-            CachedImage::new_from_resource(&resource, self)
+            CachedImage::new_from_resource(resource, self)
         })
     }
 
@@ -517,12 +517,9 @@ impl GLRenderer {
 
     /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted
     /// to the window scale factor.
-    fn image_size(
-        &self,
-        source: core::pin::Pin<&sixtyfps_corelib::properties::Property<ImageReference>>,
-    ) -> sixtyfps_corelib::graphics::Size {
+    fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
         self.shared_data
-            .load_image_resource(source.get())
+            .load_image_resource(source)
             .and_then(|image| image.size())
             .unwrap_or_else(|| Size::new(1., 1.))
     }
@@ -1360,7 +1357,7 @@ impl GLItemRenderer {
             let image_cache_entry =
                 self.shared_data.load_item_graphics_cache_with_function(item_cache, || {
                     self.shared_data
-                        .load_image_resource(source_property.get())
+                        .load_image_resource(&source_property.get())
                         .and_then(|cached_image| {
                             cached_image.as_renderable(
                                 // The condition at the entry of the function ensures that width/height are positive

@@ -72,7 +72,7 @@ impl Item for Image {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let natural_size = window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self));
+        let natural_size = window.0.image_size(&self.source());
         LayoutInfo {
             preferred_width: natural_size.width,
             preferred_height: natural_size.height,
@@ -143,7 +143,7 @@ impl Item for ClippedImage {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let natural_size = window.0.image_size(Self::FIELD_OFFSETS.source.apply_pin(self));
+        let natural_size = window.0.image_size(&self.source());
         LayoutInfo {
             preferred_width: natural_size.width,
             preferred_height: natural_size.height,
