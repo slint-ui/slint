@@ -89,6 +89,7 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
+            MouseEvent::MouseWheel { .. } => InputEventFilterResult::Intercept,
         }
     }
 
@@ -121,6 +122,24 @@ impl FlickableData {
                     inner.capture_events = false;
                     InputEventResult::EventIgnored
                 }
+            }
+            MouseEvent::MouseWheel { delta, .. } => {
+                let old_pos = Point::new(
+                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
+                        .apply_pin(flick)
+                        .get(),
+                    (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
+                        .apply_pin(flick)
+                        .get(),
+                );
+                let new_pos = ensure_in_bound(flick, old_pos + delta.to_vector());
+                (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
+                    .apply_pin(flick)
+                    .set(new_pos.x);
+                (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
+                    .apply_pin(flick)
+                    .set(new_pos.y);
+                InputEventResult::EventAccepted
             }
         }
     }

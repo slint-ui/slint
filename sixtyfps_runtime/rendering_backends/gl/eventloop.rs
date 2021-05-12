@@ -346,7 +346,32 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         });
                     }
                 }
-
+                winit::event::Event::WindowEvent {
+                    ref window_id,
+                    event: winit::event::WindowEvent::MouseWheel { delta, .. },
+                    ..
+                } => {
+                    corelib::animations::update_animations();
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        {
+                            let delta = match delta {
+                                winit::event::MouseScrollDelta::LineDelta(lx, ly) => {
+                                    euclid::point2(lx * 60., ly * 60.)
+                                }
+                                winit::event::MouseScrollDelta::PixelDelta(d) => {
+                                    let d = d.to_logical(window.scale_factor() as f64);
+                                    euclid::point2(d.x, d.y)
+                                }
+                            };
+                            window.clone().process_mouse_input(MouseEvent::MouseWheel {
+                                pos: cursor_pos,
+                                delta,
+                            });
+                        }
+                    });
+                }
                 winit::event::Event::WindowEvent {
                     ref window_id,
                     event: winit::event::WindowEvent::KeyboardInput { ref input, .. },

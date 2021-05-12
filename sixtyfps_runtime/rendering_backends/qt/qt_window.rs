@@ -115,6 +115,18 @@ cpp! {{
                 rust_window.mouse_event(MouseEvent::MouseMoved{pos})
             });
         }
+        void wheelEvent(QWheelEvent *event) override {
+            QPointF pos = event->position();
+            QPoint delta = event->pixelDelta();
+            if (delta.isNull()) {
+                delta = event->angleDelta();
+            }
+            rust!(SFPS_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint"] {
+                let pos = Point::new(pos.x as _, pos.y as _);
+                let delta = Point::new(delta.x as _, delta.y as _);
+                rust_window.mouse_event(MouseEvent::MouseWheel{pos, delta})
+            });
+        }
 
         void keyPressEvent(QKeyEvent *event) override {
             uint modif = uint(event->modifiers());

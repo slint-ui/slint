@@ -219,6 +219,7 @@ impl Item for NativeButton {
                     InputEventResult::EventIgnored
                 }
             }
+            MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
         });
         if matches!(event, MouseEvent::MouseReleased { .. }) {
             Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
@@ -541,6 +542,7 @@ impl Item for NativeSpinBox {
                     true
                 }
                 MouseEvent::MouseMoved { .. } => false,
+                MouseEvent::MouseWheel { .. } => false, // TODO
             };
         data.active_controls = new_control;
         if changed {
@@ -1341,6 +1343,10 @@ impl Item for NativeScrollView {
                         InputEventResult::EventAccepted
                     }
                 }
+                MouseEvent::MouseWheel { .. } => {
+                    // TODO
+                    InputEventResult::EventAccepted
+                }
             };
             self.data.set(data);
             result
@@ -1696,6 +1702,7 @@ impl Item for NativeComboBox {
                     InputEventResult::EventIgnored
                 }
             }
+            MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
         });
         if matches!(event, MouseEvent::MouseReleased { .. }) {
             Self::FIELD_OFFSETS.is_open.apply_pin(self).set(true);

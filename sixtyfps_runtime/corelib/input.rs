@@ -32,6 +32,10 @@ pub enum MouseEvent {
     MouseReleased { pos: Point },
     /// The mouse position has changed
     MouseMoved { pos: Point },
+    /// Wheel was operated.
+    /// `pos` is the position of the mouse when the event happens.
+    /// `delta` is the amount of pixel to scroll.
+    MouseWheel { pos: Point, delta: Point },
     /// The mouse exited the item or component
     MouseExit,
 }
@@ -43,6 +47,7 @@ impl MouseEvent {
             MouseEvent::MousePressed { pos } => Some(*pos),
             MouseEvent::MouseReleased { pos } => Some(*pos),
             MouseEvent::MouseMoved { pos } => Some(*pos),
+            MouseEvent::MouseWheel { pos, .. } => Some(*pos),
             MouseEvent::MouseExit => None,
         }
     }
@@ -53,6 +58,7 @@ impl MouseEvent {
             MouseEvent::MousePressed { pos } => Some(pos),
             MouseEvent::MouseReleased { pos } => Some(pos),
             MouseEvent::MouseMoved { pos } => Some(pos),
+            MouseEvent::MouseWheel { pos, .. } => Some(pos),
             MouseEvent::MouseExit => None,
         };
         if let Some(pos) = pos {

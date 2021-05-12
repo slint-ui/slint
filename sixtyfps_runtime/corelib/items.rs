@@ -406,7 +406,7 @@ impl Item for TouchArea {
                 true
             }
             MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
-            MouseEvent::MouseMoved { .. } => {
+            MouseEvent::MouseMoved { .. } | MouseEvent::MouseWheel { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
@@ -874,7 +874,7 @@ impl Item for Flickable {
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        if !self.interactive() {
+        if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
             return InputEventFilterResult::ForwardAndIgnore;
         }
         self.data.handle_mouse_filter(self, event)
@@ -886,7 +886,7 @@ impl Item for Flickable {
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
-        if !self.interactive() {
+        if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
             return InputEventResult::EventIgnored;
         }
         self.data.handle_mouse(self, event)

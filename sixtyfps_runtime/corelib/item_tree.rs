@@ -211,7 +211,12 @@ fn visit_internal<State, PostVisitState>(
                     visit_internal(component, order, visitor, post_visitor, index as isize, &state);
                 post_visitor(component, item, post_visit_state, r)
             }
-            (ItemVisitorResult::Abort, _) => VisitChildrenResult::abort(index, 0),
+            (ItemVisitorResult::Abort, post_visit_state) => post_visitor(
+                component,
+                item,
+                post_visit_state,
+                VisitChildrenResult::abort(index, 0),
+            ),
         }
     };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);

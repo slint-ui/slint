@@ -330,6 +330,7 @@ impl Item for TextInput {
                     self.as_ref().cursor_position.set(clicked_offset);
                 }
             }
+            MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
         }
         InputEventResult::EventAccepted
     }
