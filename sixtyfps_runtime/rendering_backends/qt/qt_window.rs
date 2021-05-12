@@ -615,17 +615,17 @@ impl ItemRenderer for QtItemRenderer<'_> {
 }
 
 fn load_image_from_resource(
-    resource: ImageReference,
+    resource: &ImageReference,
     source_size: Option<qttypes::QSize>,
     image_fit: ImageFit,
 ) -> Option<qttypes::QPixmap> {
-    let (is_path, data) = match &resource {
+    let (is_path, data) = match resource {
         ImageReference::None => return None,
         ImageReference::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
         ImageReference::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
         ImageReference::EmbeddedRgbaImage { .. } => todo!(),
     };
-    let size_requested = is_svg(&resource) && source_size.is_some();
+    let size_requested = is_svg(resource) && source_size.is_some();
     let source_size = source_size.unwrap_or_default();
     debug_assert_eq!(ImageFit::contain as i32, 1);
     debug_assert_eq!(ImageFit::cover as i32, 2);
@@ -747,7 +747,7 @@ impl QtItemRenderer<'_> {
                 None
             };
 
-            load_image_from_resource(source_property.get(), source_size, image_fit).map_or(
+            load_image_from_resource(&source_property.get(), source_size, image_fit).map_or(
                 QtRenderingCacheItem::Invalid,
                 |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
@@ -1100,11 +1100,8 @@ impl PlatformWindow for QtWindow {
         )))
     }
 
-    fn image_size(
-        &self,
-        source: Pin<&sixtyfps_corelib::properties::Property<ImageReference>>,
-    ) -> sixtyfps_corelib::graphics::Size {
-        load_image_from_resource(source.get(), None, ImageFit::fill)
+    fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
+        load_image_from_resource(source, None, ImageFit::fill)
             .map(|img| {
                 let qsize = img.size();
                 euclid::size2(qsize.width as f32, qsize.height as f32)
