@@ -35,7 +35,7 @@ X := Rectangle {
         height: xxx.fff;
 //              ^error{Cannot access id 'xxx'}
         background: foo.height.blue;
-//                             ^error{Cannot access fields of property}
+//                             ^error{Cannot access the field 'blue' of length}
         x: foo.blue;
 //             ^error{Element 'Rectangle' does not have a property 'blue'}
 

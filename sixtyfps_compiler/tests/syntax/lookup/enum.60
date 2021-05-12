@@ -24,10 +24,10 @@ TestCase := Text {
     }
 
     vertical_alignment: TextVerticalAlignment.top.right;
-    //                                            ^error{Cannot access fields of property}
+    //                                            ^error{Cannot access the field 'right' of enum TextVerticalAlignment}
     Text {
         horizontal-alignment: right.foo;
-        //                          ^error{Cannot access fields of property}
+        //                          ^error{Cannot access the field 'foo' of enum TextHorizontalAlignment}
         vertical_alignment: TextVerticalAlignment;
         //                  ^error{Cannot take reference to an enum}
     }

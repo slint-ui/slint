@@ -547,14 +547,14 @@ impl Expression {
         node: syntax_nodes::FunctionCallExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let mut sub_expr = node
-            .Expression()
-            .map(|n| (Self::from_expression_node(n.clone(), ctx), NodeOrToken::from((*n).clone())));
+        let mut sub_expr = node.Expression().map(|n| {
+            (Self::from_expression_node(n.clone(), ctx), Some(NodeOrToken::from((*n).clone())))
+        });
 
         let mut arguments = Vec::new();
 
         let (function, f_node) =
-            sub_expr.next().unwrap_or_else(|| (Expression::Invalid, (*node).clone().into()));
+            sub_expr.next().unwrap_or_else(|| (Expression::Invalid, Some((*node).clone().into())));
 
         let function = match function {
             Expression::BuiltinMacroReference(mac, n) => match mac {
@@ -928,7 +928,7 @@ impl Expression {
 fn min_max_macro(
     node: Option<NodeOrToken>,
     op: char,
-    args: Vec<(Expression, NodeOrToken)>,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.is_empty() {
@@ -960,7 +960,7 @@ fn min_max_macro(
 
 fn rgb_macro(
     node: Option<NodeOrToken>,
-    args: Vec<(Expression, NodeOrToken)>,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     if args.len() < 3 {
@@ -1029,7 +1029,7 @@ fn continue_lookup_within_element(
         let member = elem.borrow().base_type.lookup_member_function(&resolved_name);
         Expression::MemberFunction {
             base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
-            base_node: node.into(),
+            base_node: Some(node.into()),
             member: Box::new(member),
         }
     } else {
@@ -1071,86 +1071,28 @@ fn maybe_lookup_object(
     it: impl Iterator<Item = crate::parser::SyntaxToken>,
     ctx: &mut LookupCtx,
 ) -> Expression {
-    fn error_or_try_minus(
-        ctx: &mut LookupCtx,
-        ident: crate::parser::SyntaxToken,
-        lookup: impl Fn(&str) -> bool,
-    ) -> Expression {
-        if let Some(minus_pos) = ident.text().find('-') {
-            if lookup(&ident.text()[0..minus_pos]) {
-                ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a substraction.", ident.text()), &ident);
-                return Expression::Invalid;
-            }
-        }
-        ctx.diag.push_error(format!("Cannot access the field '{}'", ident.text()), &ident);
-        Expression::Invalid
-    }
-
     for next in it {
         let next_str = crate::parser::normalize_identifier(next.text());
-        match base.ty() {
-            Type::Struct { fields, .. } => {
-                if fields.get(next_str.as_str()).is_some() {
-                    base = Expression::StructFieldAccess {
-                        base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
-                        name: next_str,
+        ctx.current_token = Some(next.clone().into());
+        match base.lookup(ctx, &next_str) {
+            Some(result) => {
+                base = result.expression;
+            }
+            None => {
+                if let Some(minus_pos) = next.text().find('-') {
+                    if base.lookup(ctx, &next.text()[0..minus_pos]).is_some() {
+                        ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a substraction.", next.text()), &next);
+                        return Expression::Invalid;
                     }
-                } else {
-                    return error_or_try_minus(ctx, next, |x| fields.get(x).is_some());
                 }
-            }
-            Type::Component(c) => {
-                let PropertyLookupResult { resolved_name, property_type } =
-                    c.root_element.borrow().lookup_property(next_str.as_str());
-                if property_type != Type::Invalid {
-                    base = Expression::StructFieldAccess {
-                        base: Box::new(std::mem::replace(&mut base, Expression::Invalid)),
-                        name: resolved_name.to_string(),
-                    }
-                } else {
-                    return error_or_try_minus(ctx, next, |x| {
-                        c.root_element.borrow().lookup_property(x).property_type != Type::Invalid
-                    });
-                }
-            }
-            Type::String => {
-                return Expression::MemberFunction {
-                    base: Box::new(base),
-                    base_node: next.clone().into(), // Note that this is not the base_node, but the function's node
-                    member: Box::new(match next_str.as_str() {
-                        "is_float" => {
-                            Expression::BuiltinFunctionReference(BuiltinFunction::StringIsFloat)
-                        }
-                        "to_float" => {
-                            Expression::BuiltinFunctionReference(BuiltinFunction::StringToFloat)
-                        }
-                        _ => {
-                            ctx.diag.push_error("Cannot access fields of string".into(), &next);
-                            return Expression::Invalid;
-                        }
-                    }),
+                let ty_descr = match base.ty() {
+                    Type::Struct { .. } => String::new(),
+                    ty => format!(" of {}", ty),
                 };
-            }
-            Type::Color => {
-                return Expression::MemberFunction {
-                    base: Box::new(base),
-                    base_node: next.clone().into(), // Note that this is not the base_node, but the function's node
-                    member: Box::new(match next_str.as_str() {
-                        "brighter" => {
-                            Expression::BuiltinFunctionReference(BuiltinFunction::ColorBrighter)
-                        }
-                        "darker" => {
-                            Expression::BuiltinFunctionReference(BuiltinFunction::ColorDarker)
-                        }
-                        _ => {
-                            ctx.diag.push_error("Cannot access fields of color".into(), &next);
-                            return Expression::Invalid;
-                        }
-                    }),
-                };
-            }
-            _ => {
-                ctx.diag.push_error("Cannot access fields of property".into(), &next);
+                ctx.diag.push_error(
+                    format!("Cannot access the field '{}'{}", next.text(), ty_descr),
+                    &next,
+                );
                 return Expression::Invalid;
             }
         }

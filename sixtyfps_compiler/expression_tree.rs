@@ -265,7 +265,7 @@ pub enum Expression {
     /// a regular FunctionCall expression where the base becomes the first argument.
     MemberFunction {
         base: Box<Expression>,
-        base_node: NodeOrToken,
+        base_node: Option<NodeOrToken>,
         member: Box<Expression>,
     },
 

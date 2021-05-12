@@ -13,7 +13,9 @@ LICENSE END */
 use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BuiltinMacroFunction, EasingCurve, Expression, Unit};
+use crate::expression_tree::{
+    BuiltinFunction, BuiltinMacroFunction, EasingCurve, Expression, Unit,
+};
 use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{find_parent_element, ElementRc};
@@ -444,7 +446,6 @@ impl LookupObject for BuiltinFunctionLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
-        use crate::expression_tree::BuiltinFunction;
         use Expression::{BuiltinFunctionReference, BuiltinMacroReference};
         let t = &ctx.current_token;
         None.or_else(|| f("debug", BuiltinFunctionReference(BuiltinFunction::Debug)))
@@ -494,8 +495,8 @@ impl LookupObject for Expression {
                     None
                 }
             }
-            _ => {
-                if let Type::Struct { fields, .. } = self.ty() {
+            _ => match self.ty() {
+                Type::Struct { fields, .. } => {
                     for name in fields.keys() {
                         if let Some(r) = f(
                             &name,
@@ -507,9 +508,13 @@ impl LookupObject for Expression {
                             return Some(r);
                         }
                     }
+                    None
                 }
-                None
-            }
+                Type::Component(c) => c.root_element.for_each_entry(ctx, f),
+                Type::String => StringExpression(self).for_each_entry(ctx, f),
+                Type::Color => ColorExpression(self).for_each_entry(ctx, f),
+                _ => None,
+            },
         }
     }
 
@@ -523,17 +528,51 @@ impl LookupObject for Expression {
                     None
                 }
             }
-            _ => {
-                if let Type::Struct { fields, .. } = self.ty() {
-                    if fields.contains_key(name) {
-                        return Some(LookupResult::new(Expression::StructFieldAccess {
-                            base: Box::new(self.clone()),
-                            name: name.to_string(),
-                        }));
-                    }
-                }
-                None
-            }
+            _ => match self.ty() {
+                Type::Struct { fields, .. } => fields.contains_key(name).then(|| {
+                    LookupResult::new(Expression::StructFieldAccess {
+                        base: Box::new(self.clone()),
+                        name: name.to_string(),
+                    })
+                }),
+                Type::Component(c) => c.root_element.lookup(ctx, name),
+                Type::String => StringExpression(self).lookup(ctx, name),
+                Type::Color => ColorExpression(self).lookup(ctx, name),
+                _ => None,
+            },
         }
+    }
+}
+
+struct StringExpression<'a>(&'a Expression);
+impl<'a> LookupObject for StringExpression<'a> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+    ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| Expression::MemberFunction {
+            base: Box::new(self.0.clone()),
+            base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+            member: Box::new(Expression::BuiltinFunctionReference(f)),
+        };
+        None.or_else(|| f("is_float", member_function(BuiltinFunction::StringIsFloat)))
+            .or_else(|| f("to_float", member_function(BuiltinFunction::StringToFloat)))
+    }
+}
+struct ColorExpression<'a>(&'a Expression);
+impl<'a> LookupObject for ColorExpression<'a> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+    ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| Expression::MemberFunction {
+            base: Box::new(self.0.clone()),
+            base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+            member: Box::new(Expression::BuiltinFunctionReference(f)),
+        };
+        None.or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
+            .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
     }
 }
