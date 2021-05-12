@@ -93,7 +93,7 @@ impl<T> CachedGraphicsData<T> {
 /// The RenderingCache, in combination with CachedGraphicsData, allows backends to store data that's either
 /// intensive to compute or has bad CPU locality. Backends typically keep a RenderingCache instance and use
 /// the item's cached_rendering_data() integer as index in the vec_arena::Arena.
-pub type RenderingCache<T> = vec_arena::Arena<CachedGraphicsData<T>>;
+pub type RenderingCache<T> = slab::Slab<CachedGraphicsData<T>>;
 
 /// FontRequest collects all the developer-configurable properties for fonts, such as family, weight, etc.
 /// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange the

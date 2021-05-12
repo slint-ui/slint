@@ -162,7 +162,7 @@ struct ActiveTimer {
 /// determining the nearest timeout.
 #[derive(Default)]
 pub struct TimerList {
-    timers: vec_arena::Arena<TimerData>,
+    timers: slab::Slab<TimerData>,
     active_timers: Vec<ActiveTimer>,
     /// If a callback is currently running, this is the id of the currently running callback
     callback_active: Option<usize>,
