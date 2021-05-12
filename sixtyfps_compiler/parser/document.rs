@@ -534,13 +534,15 @@ fn parse_state(p: &mut impl Parser) -> bool {
             }
             SyntaxKind::Eof => return false,
             _ => {
-                let mut p = p.start_node(SyntaxKind::StatePropertyChange);
+                let checkpoint = p.checkpoint();
                 if !parse_qualified_name(&mut *p)
                     || !p.expect(SyntaxKind::Colon)
                     || !parse_binding_expression(&mut *p)
                 {
+                    p.test(SyntaxKind::RBrace);
                     return false;
                 }
+                let _ = p.start_node_at(checkpoint, SyntaxKind::StatePropertyChange);
             }
         }
     }
