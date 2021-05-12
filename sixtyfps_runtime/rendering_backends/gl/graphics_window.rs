@@ -16,7 +16,7 @@ use std::rc::{Rc, Weak};
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::*;
-use corelib::input::{KeyboardModifiers, MouseEvent, MouseEventType};
+use corelib::input::{KeyboardModifiers, MouseEvent};
 use corelib::items::ItemRef;
 use corelib::slice::Slice;
 use corelib::window::{ComponentWindow, PlatformWindow};
@@ -290,15 +290,15 @@ impl GraphicsWindow {
     /// FIXME: this is the same as Window::process_mouse_input, but this handle the popup.
     /// Ideally the popup should be handled as a different window or by theevent loop, and
     /// this function can go away
-    pub fn process_mouse_input(self: Rc<Self>, mut pos: Point, what: MouseEventType) {
+    pub fn process_mouse_input(self: Rc<Self>, mut event: MouseEvent) {
         let active_popup = (*self.active_popup.borrow()).clone();
         let component = if let Some(popup) = &active_popup {
-            pos -= popup.1.to_vector();
-            if what == MouseEventType::MousePressed {
+            event.translate(-popup.1.to_vector());
+            if let MouseEvent::MousePressed { pos } = &event {
                 // close the popup if one press outside the popup
                 let geom =
                     ComponentRc::borrow_pin(&popup.0).as_ref().get_item_ref(0).as_ref().geometry();
-                if !geom.contains(pos) {
+                if !geom.contains(*pos) {
                     self.close_popup();
                     return;
                 }
@@ -310,7 +310,7 @@ impl GraphicsWindow {
 
         self.mouse_input_state.set(corelib::input::process_mouse_input(
             component,
-            MouseEvent { pos, what },
+            event,
             &ComponentWindow::new(self.self_weak.upgrade().unwrap()),
             self.mouse_input_state.take(),
         ));
@@ -318,7 +318,7 @@ impl GraphicsWindow {
         if active_popup.is_some() {
             //FIXME: currently the ComboBox is the only thing that uses the popup, and it should close automatically
             // on release.  But ideally, there would be API to close the popup rather than always closing it on release
-            if what == MouseEventType::MouseReleased {
+            if matches!(event, MouseEvent::MouseReleased { .. }) {
                 self.close_popup();
             }
         }

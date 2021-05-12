@@ -14,7 +14,7 @@ use instant::Duration;
 use crate::animations::EasingCurve;
 use crate::animations::Instant;
 use crate::graphics::Point;
-use crate::input::{InputEventFilterResult, InputEventResult, MouseEvent, MouseEventType};
+use crate::input::{InputEventFilterResult, InputEventResult, MouseEvent};
 use crate::items::{Flickable, PropertyAnimation, Rectangle};
 use core::cell::RefCell;
 use core::pin::Pin;
@@ -47,9 +47,9 @@ impl FlickableData {
         event: MouseEvent,
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
-        match event.what {
-            MouseEventType::MousePressed => {
-                inner.pressed_pos = event.pos;
+        match event {
+            MouseEvent::MousePressed { pos } => {
+                inner.pressed_pos = pos;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = Point::new(
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
@@ -65,7 +65,7 @@ impl FlickableData {
                     InputEventFilterResult::ForwardAndInterceptGrab
                 }
             }
-            MouseEventType::MouseExit | MouseEventType::MouseReleased => {
+            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => {
                 let was_capturing = inner.capture_events;
                 Self::mouse_released(&mut inner, flick, event);
                 if was_capturing {
@@ -74,11 +74,11 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEventType::MouseMoved => {
+            MouseEvent::MouseMoved { pos } => {
                 if inner.capture_events
                     || inner.pressed_time.map_or(false, |pressed_time| {
                         crate::animations::current_tick() - pressed_time < DURATION_THRESHOLD
-                            && (event.pos - inner.pressed_pos).square_length()
+                            && (pos - inner.pressed_pos).square_length()
                                 > DISTANCE_THRESHOLD * DISTANCE_THRESHOLD
                     })
                 {
@@ -94,21 +94,21 @@ impl FlickableData {
 
     pub fn handle_mouse(&self, flick: Pin<&Flickable>, event: MouseEvent) -> InputEventResult {
         let mut inner = self.inner.borrow_mut();
-        match event.what {
-            MouseEventType::MousePressed => {
+        match event {
+            MouseEvent::MousePressed { .. } => {
                 inner.capture_events = true;
                 InputEventResult::GrabMouse
             }
-            MouseEventType::MouseExit | MouseEventType::MouseReleased => {
+            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => {
                 Self::mouse_released(&mut inner, flick, event);
                 InputEventResult::EventAccepted
             }
-            MouseEventType::MouseMoved => {
+            MouseEvent::MouseMoved { pos } => {
                 if inner.pressed_time.is_some() {
                     inner.capture_events = true;
                     let new_pos = ensure_in_bound(
                         flick,
-                        inner.pressed_viewport_pos + (event.pos - inner.pressed_pos),
+                        inner.pressed_viewport_pos + (pos - inner.pressed_pos),
                     );
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
@@ -126,8 +126,8 @@ impl FlickableData {
     }
 
     fn mouse_released(inner: &mut FlickableDataInner, flick: Pin<&Flickable>, event: MouseEvent) {
-        if let Some(pressed_time) = inner.pressed_time {
-            let dist = event.pos - inner.pressed_pos;
+        if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.pos()) {
+            let dist = pos - inner.pressed_pos;
             let speed =
                 dist / ((crate::animations::current_tick() - pressed_time).as_millis() as f32);
 

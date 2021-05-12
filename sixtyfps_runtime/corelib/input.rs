@@ -21,28 +21,44 @@ use euclid::default::Vector2D;
 use std::pin::Pin;
 use std::rc::Rc;
 
-/// The type of a MouseEvent
+/// A Mouse event
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MouseEventType {
+#[derive(Debug, Clone, Copy)]
+#[allow(missing_docs)]
+pub enum MouseEvent {
     /// The mouse was pressed
-    MousePressed,
+    MousePressed { pos: Point },
     /// The mouse was relased
-    MouseReleased,
+    MouseReleased { pos: Point },
     /// The mouse position has changed
-    MouseMoved,
+    MouseMoved { pos: Point },
     /// The mouse exited the item or component
     MouseExit,
 }
 
-/// Structur representing a mouse event
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct MouseEvent {
+impl MouseEvent {
     /// The position of the cursor
-    pub pos: Point,
-    /// The action performed (pressed/released/moced)
-    pub what: MouseEventType,
+    pub fn pos(&self) -> Option<Point> {
+        match self {
+            MouseEvent::MousePressed { pos } => Some(*pos),
+            MouseEvent::MouseReleased { pos } => Some(*pos),
+            MouseEvent::MouseMoved { pos } => Some(*pos),
+            MouseEvent::MouseExit => None,
+        }
+    }
+
+    /// Translate the position by the given value
+    pub fn translate(&mut self, vec: Vector2D<f32>) {
+        let pos = match self {
+            MouseEvent::MousePressed { pos } => Some(pos),
+            MouseEvent::MouseReleased { pos } => Some(pos),
+            MouseEvent::MouseMoved { pos } => Some(pos),
+            MouseEvent::MouseExit => None,
+        };
+        if let Some(pos) = pos {
+            *pos += vec;
+        }
+    }
 }
 
 /// This value is returned by the `input_event` function of an Item
@@ -273,15 +289,11 @@ pub fn process_mouse_input(
                 return false;
             };
             if intercept {
-                item.borrow().as_ref().input_event(
-                    MouseEvent { pos: event.pos, what: MouseEventType::MouseExit },
-                    window,
-                    &item,
-                );
+                item.borrow().as_ref().input_event(MouseEvent::MouseExit, window, &item);
                 return false;
             }
             let g = item.borrow().as_ref().geometry();
-            event.pos -= g.origin.to_vector();
+            event.translate(-g.origin.to_vector());
 
             if item.borrow().as_ref().input_event_filter_before_children(event, window, &item)
                 == InputEventFilterResult::Intercept
@@ -301,19 +313,15 @@ pub fn process_mouse_input(
         };
     }
 
+    let mut pos = mouse_event.pos();
     // Send the Exit event.
-    let mut pos = mouse_event.pos;
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.upgrade() { item } else { break };
         let g = item.borrow().as_ref().geometry();
-        let contains = g.contains(pos);
-        pos -= g.origin.to_vector();
+        let contains = pos.map_or(false, |p| g.contains(p));
+        pos.as_mut().map(|p| *p -= g.origin.to_vector());
         if !contains {
-            item.borrow().as_ref().input_event(
-                MouseEvent { pos, what: MouseEventType::MouseExit },
-                window,
-                &item,
-            );
+            item.borrow().as_ref().input_event(MouseEvent::MouseExit, window, &item);
         }
     }
 
@@ -336,9 +344,9 @@ pub fn process_mouse_input(
             // is used, but at the moment, we also use the mouse_grabber_stack to compute the offset
             mouse_grabber_stack.push(item_rc.downgrade());
 
-            let post_visit_state = if geom.contains(mouse_event.pos) {
+            let post_visit_state = if mouse_event.pos().map_or(false, |p| geom.contains(p)) {
                 let mut event2 = mouse_event.clone();
-                event2.pos -= geom.origin.to_vector();
+                event2.translate(-geom.origin.to_vector());
 
                 match item.as_ref().input_event_filter_before_children(
                     event2.clone(),

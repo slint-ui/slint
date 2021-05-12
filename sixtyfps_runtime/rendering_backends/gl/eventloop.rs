@@ -16,7 +16,7 @@ LICENSE END */
 use sixtyfps_corelib as corelib;
 
 use corelib::graphics::Point;
-use corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, KeyboardModifiers, MouseEventType};
+use corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use corelib::window::*;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -265,17 +265,17 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            let what = match state {
+                            let ev = match state {
                                 winit::event::ElementState::Pressed => {
                                     pressed = true;
-                                    MouseEventType::MousePressed
+                                    MouseEvent::MousePressed { pos: cursor_pos }
                                 }
                                 winit::event::ElementState::Released => {
                                     pressed = false;
-                                    MouseEventType::MouseReleased
+                                    MouseEvent::MouseReleased { pos: cursor_pos }
                                 }
                             };
-                            window.clone().process_mouse_input(cursor_pos, what);
+                            window.clone().process_mouse_input(ev);
                         }
                     });
                 }
@@ -290,20 +290,20 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
                             let location = touch.location.to_logical(window.scale_factor() as f64);
-                            let cursor_pos = euclid::point2(location.x, location.y);
-                            let what = match touch.phase {
+                            let pos = euclid::point2(location.x, location.y);
+                            let ev = match touch.phase {
                                 winit::event::TouchPhase::Started => {
                                     pressed = true;
-                                    MouseEventType::MousePressed
+                                    MouseEvent::MousePressed { pos }
                                 }
                                 winit::event::TouchPhase::Ended
                                 | winit::event::TouchPhase::Cancelled => {
                                     pressed = false;
-                                    MouseEventType::MouseReleased
+                                    MouseEvent::MouseReleased { pos }
                                 }
-                                winit::event::TouchPhase::Moved => MouseEventType::MouseMoved,
+                                winit::event::TouchPhase::Moved => MouseEvent::MouseMoved { pos },
                             };
-                            window.clone().process_mouse_input(cursor_pos, what);
+                            window.clone().process_mouse_input(ev);
                         }
                     });
                 }
@@ -321,7 +321,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                             cursor_pos = euclid::point2(position.x, position.y);
                             window
                                 .clone()
-                                .process_mouse_input(cursor_pos, MouseEventType::MouseMoved);
+                                .process_mouse_input(MouseEvent::MouseMoved { pos: cursor_pos });
                         }
                     });
                 }
@@ -341,7 +341,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                                 pressed = false;
                                 window
                                     .clone()
-                                    .process_mouse_input(cursor_pos, MouseEventType::MouseExit);
+                                    .process_mouse_input(cursor_pos, MouseEvent::MouseExit);
                             }
                         });
                     }

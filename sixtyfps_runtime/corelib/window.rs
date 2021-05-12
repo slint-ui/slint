@@ -11,7 +11,7 @@ LICENSE END */
 //! Exposed Window API
 
 use crate::graphics::Point;
-use crate::input::{KeyEvent, MouseEventType, MouseInputState, TextCursorBlinker};
+use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::PropertyTracker;
 use crate::slice::Slice;
@@ -196,12 +196,12 @@ impl Window {
     /// * `pos`: The position of the mouse event in window physical coordinates.
     /// * `what`: The type of mouse event.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
-    pub fn process_mouse_input(self: Rc<Self>, pos: Point, what: MouseEventType) {
+    pub fn process_mouse_input(self: Rc<Self>, event: MouseEvent) {
         crate::animations::update_animations();
         let component = self.component.borrow().upgrade().unwrap();
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
-            crate::input::MouseEvent { pos, what },
+            event,
             &ComponentWindow::new(self.clone()),
             self.mouse_input_state.take(),
         ));

@@ -31,7 +31,7 @@ use crate::graphics::PathDataIterator;
 use crate::graphics::{Brush, Color, PathData, Rect};
 use crate::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, KeyEventType,
-    MouseEvent, MouseEventType,
+    MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::layout::LayoutInfo;
@@ -372,9 +372,11 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventFilterResult::ForwardAndIgnore;
         }
-        Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(event.pos.x);
-        Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(event.pos.y);
-        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(event.what != MouseEventType::MouseExit);
+        if let Some(pos) = event.pos() {
+            Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x);
+            Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y);
+        }
+        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::MouseExit));
         InputEventFilterResult::ForwardAndInterceptGrab
     }
 
@@ -384,27 +386,27 @@ impl Item for TouchArea {
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
-        if event.what == MouseEventType::MouseExit {
+        if matches!(event, MouseEvent::MouseExit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false)
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result = if matches!(event.what, MouseEventType::MouseReleased) {
+        let result = if matches!(event, MouseEvent::MouseReleased { .. }) {
             Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse
         };
 
-        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
-            MouseEventType::MousePressed => {
-                Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(event.pos.x);
-                Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(event.pos.y);
+        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
+            MouseEvent::MousePressed { pos } => {
+                Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(pos.x);
+                Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(pos.y);
                 true
             }
-            MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
-            MouseEventType::MouseMoved => {
+            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
+            MouseEvent::MouseMoved { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
@@ -495,7 +497,7 @@ impl Item for FocusScope {
         /*if !self.enabled() {
             return InputEventResult::EventIgnored;
         }*/
-        if matches!(event.what, MouseEventType::MousePressed) {
+        if matches!(event, MouseEvent::MousePressed { .. }) {
             if !self.has_focus() {
                 window.set_focus_item(self_rc);
             }

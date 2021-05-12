@@ -11,7 +11,7 @@ LICENSE END */
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 use sixtyfps_corelib::graphics::{Brush, FontRequest, Point, Rect, RenderingCache, Size};
-use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEventType};
+use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
 use sixtyfps_corelib::slice::Slice;
@@ -90,13 +90,15 @@ cpp! {{
         void mousePressEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
             rust!(SFPS_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
-                rust_window.mouse_event(MouseEventType::MousePressed, pos)
+                let pos = Point::new(pos.x as _, pos.y as _);
+                rust_window.mouse_event(MouseEvent::MousePressed{ pos })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
             rust!(SFPS_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
-                rust_window.mouse_event(MouseEventType::MouseReleased, pos)
+                let pos = Point::new(pos.x as _, pos.y as _);
+                rust_window.mouse_event(MouseEvent::MouseReleased{ pos})
             });
             if (auto p = dynamic_cast<const SixtyFPSWidget*>(parent())) {
                 // FIXME: better way to close the popup
@@ -109,7 +111,8 @@ cpp! {{
         void mouseMoveEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
             rust!(SFPS_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
-                rust_window.mouse_event(MouseEventType::MouseMoved, pos)
+                let pos = Point::new(pos.x as _, pos.y as _);
+                rust_window.mouse_event(MouseEvent::MouseMoved{pos})
             });
         }
 
@@ -887,9 +890,8 @@ impl QtWindow {
         }
     }
 
-    fn mouse_event(&self, what: MouseEventType, pos: qttypes::QPoint) {
-        let pos = Point::new(pos.x as _, pos.y as _);
-        self.self_weak.upgrade().unwrap().process_mouse_input(pos, what);
+    fn mouse_event(&self, event: MouseEvent) {
+        self.self_weak.upgrade().unwrap().process_mouse_input(event);
         timer_event();
     }
 

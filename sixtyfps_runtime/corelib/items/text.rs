@@ -24,7 +24,7 @@ use super::{Item, ItemConsts, ItemRc, VoidArg};
 use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
-    MouseEvent, MouseEventType,
+    MouseEvent,
 };
 use crate::input::{InputEventFilterResult, InternalKeyCode};
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
@@ -310,27 +310,27 @@ impl Item for TextInput {
             Some(font) => font,
             None => return InputEventResult::EventIgnored,
         };
-        let clicked_offset = font_metrics.text_offset_for_x_position(&text, event.pos.x) as i32;
-
-        if matches!(event.what, MouseEventType::MousePressed) {
-            self.as_ref().pressed.set(true);
-            self.as_ref().anchor_position.set(clicked_offset);
-            self.as_ref().cursor_position.set(clicked_offset);
-            if !self.has_focus() {
-                window.set_focus_item(self_rc);
-            }
-        }
-
-        match event.what {
-            MouseEventType::MouseReleased => {
-                self.as_ref().pressed.set(false);
-            }
-            MouseEventType::MouseMoved if self.as_ref().pressed.get() => {
+        match event {
+            MouseEvent::MousePressed { pos } => {
+                let clicked_offset = font_metrics.text_offset_for_x_position(&text, pos.x) as i32;
+                self.as_ref().pressed.set(true);
+                self.as_ref().anchor_position.set(clicked_offset);
                 self.as_ref().cursor_position.set(clicked_offset);
+                if !self.has_focus() {
+                    window.set_focus_item(self_rc);
+                }
             }
-            _ => {}
+            MouseEvent::MouseReleased { .. } | MouseEvent::MouseExit => {
+                self.as_ref().pressed.set(false)
+            }
+            MouseEvent::MouseMoved { pos } => {
+                if self.as_ref().pressed.get() {
+                    let clicked_offset =
+                        font_metrics.text_offset_for_x_position(&text, pos.x) as i32;
+                    self.as_ref().cursor_position.set(clicked_offset);
+                }
+            }
         }
-
         InputEventResult::EventAccepted
     }
 

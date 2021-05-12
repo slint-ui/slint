@@ -11,7 +11,7 @@ LICENSE END */
 #![warn(missing_docs)]
 #![allow(unsafe_code)]
 
-use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent, MouseEventType};
+use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use crate::window::ComponentWindow;
 use crate::SharedString;
 
@@ -41,20 +41,20 @@ pub extern "C" fn sixtyfps_send_mouse_click(
 
     state = crate::input::process_mouse_input(
         component.clone(),
-        MouseEvent { pos, what: MouseEventType::MouseMoved },
+        MouseEvent::MouseMoved { pos },
         window,
         state,
     );
     state = crate::input::process_mouse_input(
         component.clone(),
-        MouseEvent { pos, what: MouseEventType::MousePressed },
+        MouseEvent::MousePressed { pos },
         window,
         state,
     );
     sixtyfps_mock_elapsed_time(50);
     crate::input::process_mouse_input(
         component.clone(),
-        MouseEvent { pos, what: MouseEventType::MouseReleased },
+        MouseEvent::MouseReleased { pos },
         window,
         state,
     );

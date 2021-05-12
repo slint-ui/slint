@@ -30,7 +30,6 @@ use cpp::cpp;
 use sixtyfps_corelib::graphics::{Color, Rect};
 use sixtyfps_corelib::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
-    MouseEventType,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
@@ -210,10 +209,10 @@ impl Item for NativeButton {
             return InputEventResult::EventIgnored;
         }
 
-        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
-            MouseEventType::MousePressed => true,
-            MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
-            MouseEventType::MouseMoved => {
+        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
+            MouseEvent::MousePressed { .. } => true,
+            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
+            MouseEvent::MouseMoved { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
@@ -221,7 +220,7 @@ impl Item for NativeButton {
                 }
             }
         });
-        if matches!(event.what, MouseEventType::MouseReleased) {
+        if matches!(event, MouseEvent::MouseReleased { .. }) {
             Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             InputEventResult::EventAccepted
         } else {
@@ -334,7 +333,7 @@ impl Item for NativeCheckBox {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        if matches!(event.what, MouseEventType::MouseReleased) {
+        if matches!(event, MouseEvent::MouseReleased { .. }) {
             Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
             Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
         }
@@ -491,7 +490,8 @@ impl Item for NativeSpinBox {
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
-        let pos = qttypes::QPoint { x: event.pos.x as _, y: event.pos.y as _ };
+        let pos =
+            event.pos().map(|p| qttypes::QPoint { x: p.x as _, y: p.y as _ }).unwrap_or_default();
 
         let new_control = cpp!(unsafe [
             pos as "QPoint",
@@ -510,16 +510,16 @@ impl Item for NativeSpinBox {
             return style->hitTestComplexControl(QStyle::CC_SpinBox, &option, pos, nullptr);
         });
         let changed = new_control != active_controls
-            || match event.what {
-                MouseEventType::MousePressed => {
+            || match event {
+                MouseEvent::MousePressed { .. } => {
                     data.pressed = true;
                     true
                 }
-                MouseEventType::MouseExit => {
+                MouseEvent::MouseExit => {
                     data.pressed = false;
                     true
                 }
-                MouseEventType::MouseReleased => {
+                MouseEvent::MouseReleased { .. } => {
                     data.pressed = false;
                     if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
                         && enabled
@@ -540,7 +540,7 @@ impl Item for NativeSpinBox {
                     }
                     true
                 }
-                MouseEventType::MouseMoved => false,
+                MouseEvent::MouseMoved { .. } => false,
             };
         data.active_controls = new_control;
         if changed {
@@ -703,7 +703,8 @@ impl Item for NativeSlider {
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed: bool = data.pressed != 0;
-        let pos = qttypes::QPoint { x: event.pos.x as _, y: event.pos.y as _ };
+        let pos =
+            event.pos().map(|p| qttypes::QPoint { x: p.x as _, y: p.y as _ }).unwrap_or_default();
 
         let new_control = cpp!(unsafe [
             pos as "QPoint",
@@ -722,22 +723,22 @@ impl Item for NativeSlider {
             option.rect = { QPoint{}, size };
             return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, nullptr);
         });
-        let result = match event.what {
-            MouseEventType::MousePressed if enabled => {
-                data.pressed_x = event.pos.x as f32;
+        let result = match event {
+            MouseEvent::MousePressed { pos } if enabled => {
+                data.pressed_x = pos.x as f32;
                 data.pressed = 1;
                 data.pressed_val = value;
                 InputEventResult::GrabMouse
             }
-            MouseEventType::MouseExit | MouseEventType::MouseReleased => {
+            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => {
                 data.pressed = 0;
                 InputEventResult::EventAccepted
             }
-            MouseEventType::MouseMoved if enabled => {
+            MouseEvent::MouseMoved { pos } if enabled => {
                 if data.pressed != 0 {
                     // FIXME: use QStyle::subControlRect to find out the actual size of the groove
                     let new_val = data.pressed_val
-                        + ((event.pos.x as f32) - data.pressed_x) * (max - min) / size.width as f32;
+                        + ((pos.x as f32) - data.pressed_x) * (max - min) / size.width as f32;
                     self.value.set(new_val.max(min).min(max));
                     InputEventResult::GrabMouse
                 } else {
@@ -1291,8 +1292,8 @@ impl Item for NativeScrollView {
 
             let (pos, size) = if horizontal { (pos.x, size.width) } else { (pos.y, size.height) };
 
-            let result = match event.what {
-                MouseEventType::MousePressed => {
+            let result = match event {
+                MouseEvent::MousePressed { .. } => {
                     data.pressed = if horizontal { 1 } else { 2 };
                     if new_control == SC_ScrollBarSlider {
                         data.pressed_x = pos as f32;
@@ -1301,11 +1302,11 @@ impl Item for NativeScrollView {
                     data.active_controls = new_control;
                     InputEventResult::GrabMouse
                 }
-                MouseEventType::MouseExit => {
+                MouseEvent::MouseExit => {
                     data.pressed = 0;
                     InputEventResult::EventIgnored
                 }
-                MouseEventType::MouseReleased => {
+                MouseEvent::MouseReleased { .. } => {
                     data.pressed = 0;
                     let new_val = cpp!(unsafe [active_controls as "int", value as "int", max as "int", page_size as "int"] -> i32 as "int" {
                         switch (active_controls) {
@@ -1328,7 +1329,7 @@ impl Item for NativeScrollView {
                     value_prop.set(-(new_val.min(max).max(0) as f32));
                     InputEventResult::EventIgnored
                 }
-                MouseEventType::MouseMoved => {
+                MouseEvent::MouseMoved { .. } => {
                     if data.pressed != 0 && data.active_controls == SC_ScrollBarSlider {
                         let max = max as f32;
                         let new_val = data.pressed_val
@@ -1345,12 +1346,14 @@ impl Item for NativeScrollView {
             result
         };
 
-        if pressed == 2 || (pressed == 0 && event.pos.x > (size.width as f32 - right)) {
+        let pos = event.pos().unwrap_or_default();
+
+        if pressed == 2 || (pressed == 0 && pos.x > (size.width as f32 - right)) {
             handle_scrollbar(
                 false,
                 qttypes::QPoint {
-                    x: (event.pos.x - (size.width as f32 - right)) as _,
-                    y: (event.pos.y - top) as _,
+                    x: (pos.x - (size.width as f32 - right)) as _,
+                    y: (pos.y - top) as _,
                 },
                 qttypes::QSize {
                     width: (right - left) as _,
@@ -1360,12 +1363,12 @@ impl Item for NativeScrollView {
                 self.vertical_page_size() as i32,
                 self.vertical_max() as i32,
             )
-        } else if pressed == 1 || event.pos.y > (size.height as f32 - bottom) {
+        } else if pressed == 1 || pos.y > (size.height as f32 - bottom) {
             handle_scrollbar(
                 true,
                 qttypes::QPoint {
-                    x: (event.pos.x - left) as _,
-                    y: (event.pos.y - (size.height as f32 - bottom)) as _,
+                    x: (pos.x - left) as _,
+                    y: (pos.y - (size.height as f32 - bottom)) as _,
                 },
                 qttypes::QSize {
                     width: (size.width as f32 - (right + left)) as _,
@@ -1683,10 +1686,10 @@ impl Item for NativeComboBox {
         }
         // FIXME: this is the input event of a button, but we need to do the proper hit test
 
-        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event.what {
-            MouseEventType::MousePressed => true,
-            MouseEventType::MouseExit | MouseEventType::MouseReleased => false,
-            MouseEventType::MouseMoved => {
+        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
+            MouseEvent::MousePressed { .. } => true,
+            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
+            MouseEvent::MouseMoved { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
@@ -1694,7 +1697,7 @@ impl Item for NativeComboBox {
                 }
             }
         });
-        if matches!(event.what, MouseEventType::MouseReleased) {
+        if matches!(event, MouseEvent::MouseReleased { .. }) {
             Self::FIELD_OFFSETS.is_open.apply_pin(self).set(true);
             Self::FIELD_OFFSETS.open_popup.apply_pin(self).call(&());
             InputEventResult::EventAccepted
