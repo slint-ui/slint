@@ -1125,8 +1125,13 @@ fn get_font(request: FontRequest) -> QFont {
             f.setFamily(family);
         if (pixel_size > 0)
             f.setPixelSize(pixel_size);
-        if (weight > 0)
+        if (weight > 0) {
+    #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
             f.setWeight(qMin((weight-100)/8, 99));
+    #else
+            f.setWeight(QFont::Weight(weight));
+    #endif
+        }
         f.setLetterSpacing(QFont::AbsoluteSpacing, letter_spacing);
         return f;
     })
