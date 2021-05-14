@@ -70,6 +70,7 @@ mod passes {
     pub mod resolving;
     pub mod transform_and_opacity;
     pub mod unique_id;
+    pub mod z_order;
 }
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
@@ -179,6 +180,7 @@ pub async fn run_passes(
     passes::repeater_component::process_repeater_components(&doc.root_component);
     passes::lower_popups::lower_popups(&doc.root_component, &doc.local_registry, diag);
     passes::lower_layout::lower_layouts(&doc.root_component, &mut type_loader, diag).await;
+    passes::z_order::reorder_by_z_order(&doc.root_component, diag);
     passes::lower_shadows::lower_shadow_properties(&doc.root_component, &doc.local_registry, diag);
     passes::clip::handle_clip(&doc.root_component, &global_type_registry.borrow(), diag);
     passes::transform_and_opacity::handle_transform_and_opacity(

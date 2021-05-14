@@ -20,6 +20,7 @@ pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] =
     ("y", Type::LogicalLength),
     ("width", Type::LogicalLength),
     ("height", Type::LogicalLength),
+    ("z", Type::Float32),
 ];
 
 const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
@@ -40,7 +41,6 @@ const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
     ("row", Type::Int32),
     ("colspan", Type::Int32),
     ("rowspan", Type::Int32),
-    ("clip", Type::Bool),
 ];
 
 const RESERVED_OTHER_PROPERTIES: &'static [(&'static str, Type)] = &[

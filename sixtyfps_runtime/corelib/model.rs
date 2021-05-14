@@ -17,6 +17,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
+use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::Property;
 
@@ -603,12 +604,13 @@ impl<C: RepeatedComponent> Repeater<C> {
     /// Call the visitor for each component
     pub fn visit(
         &self,
-        order: crate::item_tree::TraversalOrder,
+        order: TraversalOrder,
         mut visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
         // We can't keep self.inner borrowed because the event might modify the model
         let count = self.inner.borrow().borrow().components.len();
         for i in 0..count {
+            let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };
             let c = self.inner.borrow().borrow().components.get(i).and_then(|c| c.1.clone());
             if let Some(c) = c {
                 if c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
