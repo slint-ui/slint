@@ -1,0 +1,34 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+Test := Rectangle {
+
+    property <int> a: 45 + root.b;
+    //               ^error{This binding is part of a binding loop.}
+    property <float> b: root.c;
+    //                 ^error{This binding is part of a binding loop.}
+    property <int> c <=> d;
+    //               ^error{This binding is part of a binding loop.}
+    property <int> d: root.a + root.e;
+    //               ^error{This binding is part of a binding loop.}
+    property <int> e: root.b; // FIXME: should we report an error here as well?
+
+    property <int> w: root.a + root.b; // This id not part of a loopµ
+
+    property<bool> cond: xx.x == 0;
+    //                  ^error{This binding is part of a binding loop.}
+
+    xx := Rectangle {
+        x: y;
+//        ^error{This binding is part of a binding loop.}
+        y: root.cond ? 42px : 55px;
+//        ^error{This binding is part of a binding loop.}
+    }
+}
+

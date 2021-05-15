@@ -1000,11 +1000,14 @@ pub struct BindingExpression {
     /// The priority starts at 1, and each level of inlining adds one to the priority.
     /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
+
+    /// The analysis information. None before it is computed
+    pub analysis: RefCell<Option<BindingAnalysis>>,
 }
 
 impl std::convert::From<Expression> for BindingExpression {
     fn from(expression: Expression) -> Self {
-        Self { expression, span: None, priority: 0 }
+        Self { expression, span: None, priority: 0, analysis: Default::default() }
     }
 }
 
@@ -1014,6 +1017,7 @@ impl BindingExpression {
             expression: Expression::Uncompiled(node.clone()),
             span: Some(node.to_source_location()),
             priority: 1,
+            analysis: Default::default(),
         }
     }
 }
@@ -1025,6 +1029,12 @@ impl Spanned for BindingExpression {
     fn source_file(&self) -> Option<&crate::diagnostics::SourceFile> {
         self.span.as_ref().and_then(|x| x.source_file())
     }
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct BindingAnalysis {
+    /// true if that binding is part of a binding loop that already has been reported.
+    pub is_in_binding_loop: bool,
 }
 
 pub type PathEvents = Vec<lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>;

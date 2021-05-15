@@ -45,6 +45,7 @@ pub mod typeregister;
 
 mod passes {
     pub mod apply_default_properties_from_style;
+    pub mod binding_analysis;
     pub mod check_expressions;
     pub mod clip;
     pub mod collect_custom_fonts;
@@ -196,6 +197,7 @@ pub async fn run_passes(
         diag,
     )
     .await;
+    passes::binding_analysis::binding_analysis(&doc.root_component, diag);
     passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::remove_aliases::remove_aliases(&doc.root_component, diag);
