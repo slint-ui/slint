@@ -93,6 +93,22 @@ global Skin := {
     property <length> TitleFont: 10pt * f; // (also, bold)
 }
 
+export Clock :=  VerticalLayout {
+    property <string> time <=> time_label.text;
+    Text {
+        text: "Current time";
+        font_size: Skin.TitleFont;
+        font_weight: 700;
+    }
+    time_label := Text {
+        // FIXME: actual time
+        text: "10:02:45";
+        font_size: Skin.HugeFont;
+        font_weight: 700;
+        color: #6776FF;
+    }
+}
+
 // From TopBar.cpp
 export TopBar := HorizontalLayout {
     for item in [
@@ -126,20 +142,7 @@ export TopBar := HorizontalLayout {
             Rectangle {}
         }
     }
-    VerticalLayout {
-        Text {
-            text: "Current time";
-            font_size: Skin.TitleFont;
-            font_weight: 700;
-        }
-        Text {
-            // FIXME: actual time
-            text: "10:02:45";
-            font_size: Skin.HugeFont;
-            font_weight: 700;
-            color: #6776FF;
-        }
-    }
+    @children    
 }
 
 // From Box.cpp

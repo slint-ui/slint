@@ -45,12 +45,17 @@ LICENSE END */
 ****************************************************************************/
 */
 
-import { MenuBar, TopBar, Usage, IndoorTemperature, Humidity, MyDevices, UsageDiagram, LightIntensity } from "iot-dashboard.60";
+import { MenuBar, TopBar, Usage, IndoorTemperature, Humidity, MyDevices,
+    UsageDiagram, LightIntensity, Clock
+} from "iot-dashboard.60";
 
 
 MainContent := VerticalLayout {
     spacing: 24px;
-    TopBar { }
+    TopBar {
+        Clock {
+        }
+    }
 
     GridLayout {
         padding-left: 19px;
