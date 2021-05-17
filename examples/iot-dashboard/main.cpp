@@ -42,7 +42,7 @@ private:
     sixtyfps::Timer clock_update_timer;
 };
 
-ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [=]() { update_clock() })
+ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [=]() { update_clock(); })
 {
 }
 
