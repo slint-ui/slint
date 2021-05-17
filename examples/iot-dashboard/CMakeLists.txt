@@ -14,8 +14,14 @@ if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
 endif()
 
+FetchContent_Declare(fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+  GIT_TAG master
+)
+FetchContent_MakeAvailable(fmt)
+
 add_executable(iot_dashboard main.cpp)
 target_compile_definitions(iot_dashboard PRIVATE
    SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 )
-target_link_libraries(iot_dashboard PRIVATE SixtyFPS::SixtyFPS)
+target_link_libraries(iot_dashboard PRIVATE SixtyFPS::SixtyFPS fmt::fmt )
