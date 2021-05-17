@@ -20,4 +20,5 @@ add_subdirectory(examples/todo/cpp/)
 add_subdirectory(examples/gallery/)
 add_subdirectory(examples/memory/)
 add_subdirectory(examples/qt_viewer/)
+add_subdirectory(examples/iot-dashboard/)
 
