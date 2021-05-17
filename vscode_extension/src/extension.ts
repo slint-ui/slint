@@ -108,18 +108,19 @@ export function activate(context: vscode.ExtensionContext) {
         return;
     }
 
+    let options = Object.assign({}, lsp_platform.options);
+    options.env = Object.assign({}, process.env, lsp_platform.options?.env);
+
     const devBuild = serverModule !== lspSearchPaths[lspSearchPaths.length - 1];
     if (devBuild) {
-        lsp_platform.options ??= {};
-        lsp_platform.options.env ??= process.env;
-        lsp_platform.options.env["RUST_BACKTRACE"] = "1";
+        options.env["RUST_BACKTRACE"] = "1";
     }
 
     console.log(`Starting LSP server from ${serverModule}`);
 
     let serverOptions: ServerOptions = {
-        run: { command: serverModule, options: lsp_platform.options },
-        debug: { command: serverModule, options: lsp_platform.options }
+        run: { command: serverModule, options: options },
+        debug: { command: serverModule, options: options }
     };
 
     let clientOptions: LanguageClientOptions = {
