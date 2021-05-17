@@ -235,7 +235,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Debug) => {
                 let a = arguments.iter().map(|e| eval_expression(e, local_context));
-                println!("{:?}", a.collect::<Vec<_>>());
+                eprintln!("{:?}", a.collect::<Vec<_>>());
                 Value::Void
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Mod) => {
