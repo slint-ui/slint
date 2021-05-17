@@ -277,7 +277,7 @@ MainWindow := Window {{
         return {};
     }
 
-    std::cerr << source_code << std::endl;
+    // std::cerr << source_code << std::endl;
 
     auto ui = definition->create();
 
