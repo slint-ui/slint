@@ -37,15 +37,19 @@ public:
     }
 
 private:
+    void update_clock();
+
     sixtyfps::Timer clock_update_timer;
 };
 
-ClockWidget::ClockWidget()
-    : clock_update_timer(std::chrono::seconds(1), [=]() {
-          std::string current_time = fmt::format("{:%H:%M:%S}", fmt::localtime(std::time(nullptr)));
-          set_property("time", sixtyfps::SharedString(current_time));
-      })
+ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [=]() { update_clock() })
 {
+}
+
+void ClockWidget::update_clock()
+{
+    std::string current_time = fmt::format("{:%H:%M:%S}", fmt::localtime(std::time(nullptr)));
+    set_property("time", sixtyfps::SharedString(current_time));
 }
 
 int main()
