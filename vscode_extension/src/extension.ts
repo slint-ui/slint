@@ -111,7 +111,7 @@ export function activate(context: vscode.ExtensionContext) {
     const devBuild = serverModule !== lspSearchPaths[lspSearchPaths.length - 1];
     if (devBuild) {
         lsp_platform.options ??= {};
-        lsp_platform.options.env ??= {};
+        lsp_platform.options.env ??= process.env;
         lsp_platform.options.env["RUST_BACKTRACE"] = "1";
     }
 
