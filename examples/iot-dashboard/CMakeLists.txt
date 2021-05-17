@@ -20,7 +20,7 @@ FetchContent_Declare(fmt
 )
 FetchContent_MakeAvailable(fmt)
 
-add_executable(iot_dashboard main.cpp)
+add_executable(iot_dashboard main.cpp dashboard.cpp)
 target_compile_definitions(iot_dashboard PRIVATE
    SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 )
