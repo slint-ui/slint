@@ -8,7 +8,7 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 cmake_minimum_required(VERSION 3.14)
-project(sixtyfps_cpptest LANGUAGES CXX)
+project(sixtyfps_cpp_interpreter_printer_demo LANGUAGES CXX)
 
 if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
