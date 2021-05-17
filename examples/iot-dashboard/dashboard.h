@@ -22,6 +22,33 @@ struct PropertyDeclaration
     std::string type_name;
 };
 
+/**
+   The Widget base class is a wrapper around sixtyfps::interpreter::ComponentInstance that allows
+   conveniently reading and writing properties of an element of which the properties have been
+   forwarded via two-way bindings.
+
+   When an instance of a Widget sub-class is added to the DashboardBuilder, the value of
+   type_name() is used to create an element declaration in the generated .60 code ("SomeElement {
+   ... }"), the element is given an automatically generated name and all properties returned by the
+   properties() function are forwarded. For example two instances of a "Clock" element become this
+   in .60:
+
+   export MainWindow := Window {
+       ...
+       widget_1 := Clock {
+       }
+       widget_2 := Clock {
+       }
+
+       property <string> widget_1__time <=> widget_1.time;
+       property <string> widget_2__time <=> widget_2.time;
+   }
+
+   The DashboardBuilder calls connect_ui() to inform the instance about the "widget_1__" and
+   "widget_2__" prefix and passes a reference to the MainWindow as ComponentInstance. Subsequently
+   calls to set_property("time", some_value) translate to setting "widget_1__time" or
+   "widget_2__time", depending on the Widget instance.
+ */
 class Widget
 {
 public:
@@ -55,6 +82,11 @@ struct WidgetLocation
     std::string location_bindings() const;
 };
 
+/**
+   The DashboardBuilder is dynamically builds the .60 code that represents the IOT-Dashboard demo
+   and allows placing widgets into the top-bar or the main grid. All the properties of the added
+   widgets are forwarded and their name prefix is registered with the individual widget instances.
+*/
 struct DashboardBuilder
 {
     void add_grid_widget(WidgetPtr widget, const WidgetLocation &location);
