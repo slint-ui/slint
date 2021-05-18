@@ -44,19 +44,16 @@ std::string WidgetLocation::location_bindings() const
 {
     auto maybe_binding = [](std::string_view name, const auto &opt_value) -> std::string {
         if (opt_value.has_value()) {
-            return fmt::format("{}: {};", name, opt_value.value());
+            return fmt::format("               {}: {};\n", name, opt_value.value());
         } else {
             return "";
         }
     };
 
     return fmt::format(
-            R"60(
-            row: {};
-            col: {};
-            {}
-            {}
-    )60",
+            R"60(row: {};
+               col: {};
+{}{})60",
             row, column, maybe_binding("rowspan", row_span), maybe_binding("colspan", col_span));
 }
 
@@ -123,11 +120,11 @@ DashboardBuilder::build(sixtyfps::interpreter::ComponentCompiler &compiler) cons
             std::string forwarded_property_name = properties_prefix;
             forwarded_property_name.append(property.name);
 
-            main_content_properties.append(fmt::format("property <{0}> {1} <=> {2}.{3};\n",
+            main_content_properties.append(fmt::format("    property <{0}> {1} <=> {2}.{3};\n",
                                                        property.type_name, forwarded_property_name,
                                                        widget_name, property.name));
 
-            exposed_properties.append(fmt::format("property <{0}> {1} <=> main_content.{1};\n",
+            exposed_properties.append(fmt::format("    property <{0}> {1} <=> main_content.{1};\n",
                                                   property.type_name, forwarded_property_name));
         }
     }
@@ -149,7 +146,7 @@ DashboardBuilder::build(sixtyfps::interpreter::ComponentCompiler &compiler) cons
             std::string forwarded_property_name = properties_prefix;
             forwarded_property_name.append(property.name);
 
-            exposed_properties.append(fmt::format("property <{0}> {1} <=> {2}.{3};\n",
+            exposed_properties.append(fmt::format("    property <{0}> {1} <=> {2}.{3};\n",
                                                   property.type_name, forwarded_property_name,
                                                   widget_name, property.name));
         }
@@ -161,7 +158,7 @@ DashboardBuilder::build(sixtyfps::interpreter::ComponentCompiler &compiler) cons
 {0}
 
 MainContent := VerticalLayout {{
-    {4}
+{4}
 
     spacing: 24px;
     TopBar {{
@@ -181,7 +178,7 @@ MainContent := VerticalLayout {{
 MainWindow := Window {{
     title: "IOT dashboard";
 
-    {3}
+{3}
 
     HorizontalLayout {{
         padding: 0; spacing: 0;
