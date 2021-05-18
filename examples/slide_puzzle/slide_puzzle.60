@@ -421,50 +421,47 @@ export MainWindow := Window {
             y: parent.height - pieces_size / 2;
         }
 
-        Rectangle {
+        HorizontalLayout {
             height: pieces_size / 2;
             y: parent.height - pieces_size / 2;
             width: parent.width;
-
-            HorizontalLayout {
-                padding: parent.height * 25%;
-                Text {
-                    text: " ↻ ";
-                    font-size: parent.height * 50%;
-                    color: current-theme.game-highlight-color;
-                    vertical-alignment: center;
-                    TouchArea {
-                        clicked => { root.reset(); }
-                    }
+            padding: height * 25%;
+            Text {
+                text: " ↻ ";
+                font-size: parent.height * 50%;
+                color: current-theme.game-highlight-color;
+                vertical-alignment: center;
+                TouchArea {
+                    clicked => { root.reset(); }
                 }
-                Checkbox {
-                    width: height;
-                    checked <=> auto_play;
-                    toggled(checked) => { root.enable_auto_mode(checked) }
-                    checked_color: current-theme.game-highlight-color;
-                    unchecked_color: current-theme.game-text-color;
-                }
-                Rectangle {} // stretch
-                Text {
-                    text: root.moves;
-                    color: current-theme.game-highlight-color;
-                    vertical-alignment: center;
-                }
-                Text {
-                    text: "Moves ";
-                    color: current-theme.game-text-color;
-                    vertical-alignment: center;
-                }
-                Text {
-                    text: root.tiles-left;
-                    color: current-theme.game-highlight-color;
-                    vertical-alignment: center;
-                }
-                Text {
-                    text: "Tiles left";
-                    color: current-theme.game-text-color;
-                    vertical-alignment: center;
-                }
+            }
+            Checkbox {
+                width: parent.height - 2 * parent.padding;
+                checked <=> auto_play;
+                toggled(checked) => { root.enable_auto_mode(checked) }
+                checked_color: current-theme.game-highlight-color;
+                unchecked_color: current-theme.game-text-color;
+            }
+            Rectangle {} // stretch
+            Text {
+                text: root.moves;
+                color: current-theme.game-highlight-color;
+                vertical-alignment: center;
+            }
+            Text {
+                text: "Moves ";
+                color: current-theme.game-text-color;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.tiles-left;
+                color: current-theme.game-highlight-color;
+                vertical-alignment: center;
+            }
+            Text {
+                text: "Tiles left";
+                color: current-theme.game-text-color;
+                vertical-alignment: center;
             }
         }
     }
