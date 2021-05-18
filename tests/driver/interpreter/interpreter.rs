@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use itertools::Itertools;
-use sixtyfps_interpreter::{Value, ValueType};
+use sixtyfps_interpreter::{DiagnosticLevel, Value, ValueType};
 use std::error::Error;
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
@@ -30,9 +30,12 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
             match std::env::var("SIXTYFPS_INTERPRETER_ERROR_WHITELIST") {
                 Ok(wl) if !wl.is_empty() => {
-                    if !compiler.diagnostics().is_empty()
-                        && compiler.diagnostics().iter().all(|d| d.message().contains(&wl))
-                    {
+                    let errors = compiler
+                        .diagnostics()
+                        .iter()
+                        .filter(|d| d.level() == DiagnosticLevel::Error)
+                        .collect::<Vec<_>>();
+                    if !errors.is_empty() && errors.iter().all(|d| d.message().contains(&wl)) {
                         eprintln!(
                             "{}: Ignoring Error because of the error whitelist!",
                             testcase.relative_path.display()
