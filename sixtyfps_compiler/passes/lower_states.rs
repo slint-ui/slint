@@ -63,19 +63,23 @@ fn lower_state_in_element(
         for (ne, expr) in state.property_changes {
             let e = ne.element();
             let property_expr = expression_for_property(&e, ne.name());
-            e.borrow_mut().bindings.insert(
-                ne.name().to_owned(),
-                Expression::Condition {
-                    condition: Box::new(Expression::BinaryExpression {
-                        lhs: Box::new(state_property_ref.clone()),
-                        rhs: Box::new(Expression::NumberLiteral((idx + 1) as _, Unit::None)),
-                        op: '=',
-                    }),
-                    true_expr: Box::new(expr),
-                    false_expr: Box::new(property_expr),
+            let new_expr = Expression::Condition {
+                condition: Box::new(Expression::BinaryExpression {
+                    lhs: Box::new(state_property_ref.clone()),
+                    rhs: Box::new(Expression::NumberLiteral((idx + 1) as _, Unit::None)),
+                    op: '=',
+                }),
+                true_expr: Box::new(expr),
+                false_expr: Box::new(property_expr),
+            };
+            match e.borrow_mut().bindings.entry(ne.name().to_owned()) {
+                std::collections::hash_map::Entry::Occupied(mut e) => {
+                    e.get_mut().expression = new_expr
                 }
-                .into(),
-            );
+                std::collections::hash_map::Entry::Vacant(e) => {
+                    e.insert(new_expr.into());
+                }
+            };
         }
         states_id.insert(state.id, idx as i32 + 1);
     }

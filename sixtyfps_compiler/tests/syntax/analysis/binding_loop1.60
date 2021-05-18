@@ -7,6 +7,20 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+
+WithStates := Rectangle {
+    property <brush> extra_background;
+    property <bool> condition;
+    background: yellow;
+//             ^error{This binding is part of a binding loop.} //FIXME: ideally we'd keep the span within the state
+    states [
+        xxx when condition : {
+            background: extra_background;
+        }
+    ]
+}
+
 Test := Rectangle {
 
     property <int> a: 45 + root.b;
@@ -29,6 +43,11 @@ Test := Rectangle {
 //        ^error{This binding is part of a binding loop.}
         y: root.cond ? 42px : 55px;
 //        ^error{This binding is part of a binding loop.}
+    }
+
+    WithStates {
+        extra_background: background;
+//                       ^error{This binding is part of a binding loop.}
     }
 }
 
