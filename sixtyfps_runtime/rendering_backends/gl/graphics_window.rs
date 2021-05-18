@@ -446,10 +446,10 @@ impl PlatformWindow for GraphicsWindow {
                         })
                         .unwrap_or_default();
                     if w <= 0. {
-                        w = info.preferred_width;
+                        w = info.preferred_width.max(info.min_width);
                     }
                     if h <= 0. {
-                        h = info.preferred_height;
+                        h = info.preferred_height.max(info.min_height);
                     }
                 };
                 let mut apply = |r: &mut u32, v| {
