@@ -68,7 +68,7 @@ fn analyse_binding(
             }
 
             diag.push_error(
-                format!("This binding is part of a binding loop."),
+                format!("The binding for the property '{}' is part of a binding loop.", p.name()),
                 &p.element().borrow().bindings[p.name()],
             );
 
@@ -102,10 +102,13 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&NamedReference)) 
         Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
         Expression::TwoWayBinding(r, _) => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
-        Expression::SolveLayout(_l) | Expression::ComputeLayoutInfo(_l) => {
-            // FIXME! we should make sure that there is no loop in th layout, but right now there are in our demos
-            //let mut l = l.clone();
-            //l.visit_named_references(&mut |nr| vis(nr));
+        Expression::SolveLayout(l) | Expression::ComputeLayoutInfo(l) => {
+            let mut l = l.clone();
+            if matches!(expr, Expression::ComputeLayoutInfo(_)) {
+                // we should not visit the layout geometry in that case
+                *l.rect_mut() = Default::default();
+            }
+            l.visit_named_references(&mut |nr| vis(nr));
         }
         _ => {}
     }

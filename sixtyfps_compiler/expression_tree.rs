@@ -1020,6 +1020,9 @@ impl BindingExpression {
             analysis: Default::default(),
         }
     }
+    pub fn new_with_span(expression: Expression, span: SourceLocation) -> Self {
+        Self { expression, span: Some(span), priority: 0, analysis: Default::default() }
+    }
 }
 
 impl Spanned for BindingExpression {

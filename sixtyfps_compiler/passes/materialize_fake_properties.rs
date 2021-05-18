@@ -11,7 +11,8 @@ LICENSE END */
 //!
 //! Must be run after lower_layout and default_geometry passes
 
-use crate::expression_tree::{BuiltinFunction, Expression, Unit};
+use crate::diagnostics::Spanned;
+use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
 use crate::langtype::Type;
 use crate::object_tree::*;
 use std::collections::HashMap;
@@ -97,7 +98,8 @@ fn initialize(elem: ElementRc, name: &str) {
         "opacity" => Expression::NumberLiteral(1., Unit::None),
         _ => return,
     };
-    elem.borrow_mut().bindings.insert(name.into(), expr.into());
+    let b = BindingExpression::new_with_span(expr, elem.borrow().to_source_location());
+    elem.borrow_mut().bindings.insert(name.into(), b);
 }
 
 fn layout_constraint_prop(elem: &ElementRc, field: &str) -> Expression {

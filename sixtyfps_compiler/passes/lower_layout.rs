@@ -9,6 +9,7 @@
 LICENSE END */
 //! Passe that compute the layout constraint
 
+use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::layout::*;
@@ -135,13 +136,20 @@ fn lower_grid_layout(
         }
     }
     grid_layout_element.borrow_mut().children = collected_children;
+    let span = grid_layout_element.borrow().to_source_location();
     layout_cache_prop.element().borrow_mut().bindings.insert(
         layout_cache_prop.name().into(),
-        Expression::SolveLayout(Layout::GridLayout(grid.clone())).into(),
+        BindingExpression::new_with_span(
+            Expression::SolveLayout(Layout::GridLayout(grid.clone())),
+            span.clone(),
+        ),
     );
     layout_info_prop.element().borrow_mut().bindings.insert(
         layout_info_prop.name().into(),
-        Expression::ComputeLayoutInfo(Layout::GridLayout(grid)).into(),
+        BindingExpression::new_with_span(
+            Expression::ComputeLayoutInfo(Layout::GridLayout(grid)),
+            span,
+        ),
     );
     grid_layout_element.borrow_mut().layout_info_prop = Some(layout_info_prop);
 }
@@ -210,13 +218,20 @@ fn lower_box_layout(
         }
     }
     layout_element.borrow_mut().children = layout_children;
+    let span = layout_element.borrow().to_source_location();
     layout_cache_prop.element().borrow_mut().bindings.insert(
         layout_cache_prop.name().into(),
-        Expression::SolveLayout(Layout::BoxLayout(layout.clone())).into(),
+        BindingExpression::new_with_span(
+            Expression::SolveLayout(Layout::BoxLayout(layout.clone())),
+            span.clone(),
+        ),
     );
     layout_info_prop.element().borrow_mut().bindings.insert(
         layout_info_prop.name().into(),
-        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)).into(),
+        BindingExpression::new_with_span(
+            Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)),
+            span,
+        ),
     );
     layout_element.borrow_mut().layout_info_prop = Some(layout_info_prop);
 }
@@ -254,22 +269,25 @@ fn lower_path_layout(
         //FIXME: report errors if there is already bindings on x or y
         let set_prop_from_cache = |prop: &str, offset: usize, size_prop: &str| {
             let size = NamedReference::new(&actual_elem, size_prop);
+            let expression = Expression::BinaryExpression {
+                lhs: Box::new(Expression::LayoutCacheAccess {
+                    layout_cache_prop: layout_cache_prop.clone(),
+                    index: index * 2 + offset,
+                    repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
+                }),
+                op: '-',
+                rhs: Box::new(Expression::BinaryExpression {
+                    lhs: Box::new(Expression::PropertyReference(size)),
+                    op: '/',
+                    rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
+                }),
+            };
             actual_elem.borrow_mut().bindings.insert(
                 prop.into(),
-                Expression::BinaryExpression {
-                    lhs: Box::new(Expression::LayoutCacheAccess {
-                        layout_cache_prop: layout_cache_prop.clone(),
-                        index: index * 2 + offset,
-                        repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
-                    }),
-                    op: '-',
-                    rhs: Box::new(Expression::BinaryExpression {
-                        lhs: Box::new(Expression::PropertyReference(size)),
-                        op: '/',
-                        rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
-                    }),
-                }
-                .into(),
+                BindingExpression::new_with_span(
+                    expression,
+                    layout_element.borrow().to_source_location(),
+                ),
             );
         };
         set_prop_from_cache("x", 0, "width");
@@ -286,11 +304,15 @@ fn lower_path_layout(
             .contains_key("spacing")
             .then(|| NamedReference::new(layout_element, "spacing")),
     });
+    let binding = BindingExpression::new_with_span(
+        Expression::SolveLayout(path_layout),
+        layout_element.borrow().to_source_location(),
+    );
     layout_cache_prop
         .element()
         .borrow_mut()
         .bindings
-        .insert(layout_cache_prop.name().into(), Expression::SolveLayout(path_layout).into());
+        .insert(layout_cache_prop.name().into(), binding);
 }
 
 /// Create a LayoutItem for the given `item_element`  returns None is the layout is empty
@@ -348,12 +370,14 @@ fn create_layout_item(
     let set_prop_from_cache = |prop: &str, offset: usize| {
         actual_elem.borrow_mut().bindings.insert(
             prop.into(),
-            Expression::LayoutCacheAccess {
-                layout_cache_prop: layout_cache_prop.clone(),
-                index: index * 4 + offset,
-                repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
-            }
-            .into(),
+            BindingExpression::new_with_span(
+                Expression::LayoutCacheAccess {
+                    layout_cache_prop: layout_cache_prop.clone(),
+                    index: index * 4 + offset,
+                    repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
+                },
+                layout_cache_prop.element().borrow().to_source_location(),
+            ),
         );
     };
     set_prop_from_cache("x", 0);

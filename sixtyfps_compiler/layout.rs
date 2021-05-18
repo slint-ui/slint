@@ -31,6 +31,13 @@ impl Layout {
             Layout::PathLayout(p) => &p.rect,
         }
     }
+    pub fn rect_mut(&mut self) -> &mut LayoutRect {
+        match self {
+            Layout::GridLayout(g) => &mut g.geometry.rect,
+            Layout::BoxLayout(g) => &mut g.geometry.rect,
+            Layout::PathLayout(p) => &mut p.rect,
+        }
+    }
 }
 
 impl Layout {

@@ -1,0 +1,23 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+
+Test := Rectangle {
+    VerticalLayout {
+//  ^error{The binding for the property 'layoutinfo' is part of a binding loop.}  // FIXME: That's an internal property, but people might understand
+//  ^^error{The binding for the property 'minimum_width' is part of a binding loop.}
+        Rectangle {
+            width: parent.minimum_width;
+            //    ^error{The binding for the property 'width' is part of a binding loop.}
+        }
+    }
+
+}
+
