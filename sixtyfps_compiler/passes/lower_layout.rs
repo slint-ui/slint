@@ -38,9 +38,8 @@ fn lower_layouts_impl(
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
-    // FIXME: one should enable minimum_width and minimum_height on the window, but not height and width
-    //component.layouts.borrow_mut().root_constraints =
-    //    LayoutConstraints::new(&component.root_element, diag);
+    *component.root_constraints.borrow_mut() =
+        LayoutConstraints::new(&component.root_element, diag);
 
     recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
         let component = elem.borrow().enclosing_component.upgrade().unwrap();

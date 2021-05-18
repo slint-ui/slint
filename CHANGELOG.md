@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
  - Layout are now conceptually their own elements, meaning that the x and y property of items
    within layout are relative to the layout and no longer to the parent element of layouts.
+ - Setting the window `height` and `width` property are now fixed size. The `preferred-width`
+   and `preferred-height` property can be used to set the initial size.
 
 ### Added
 

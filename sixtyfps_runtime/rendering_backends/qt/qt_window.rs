@@ -147,11 +147,28 @@ cpp! {{
 
         void customEvent(QEvent *event) override {
             if (event->type() == QEvent::User) {
-               rust!(SFPS_updateWindowProps [rust_window: &QtWindow as "void*"]{
+                rust!(SFPS_updateWindowProps [rust_window: &QtWindow as "void*"]{
                    rust_window.self_weak.upgrade().map(|window| window.update_window_properties());
                 });
             } else {
                 QWidget::customEvent(event);
+            }
+        }
+
+        QSize sizeHint() const override {
+            auto preferred_size = rust!(SFPS_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
+                let component_rc = rust_window.self_weak.upgrade().unwrap().component();
+                let component = ComponentRc::borrow_pin(&component_rc);
+                let layout_info = component.as_ref().layout_info();
+                qttypes::QSize {
+                    width: layout_info.preferred_width as _,
+                    height: layout_info.preferred_height as _,
+                }
+            });
+            if (preferred_size.isValid()) {
+                return preferred_size;
+            } else {
+                return QWidget::sizeHint();
             }
         }
     };
@@ -1021,7 +1038,9 @@ impl PlatformWindow for QtWindow {
         }
         let background: u32 = window_item.background().as_argb_encoded();
         cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
-            widget_ptr->resize(size.expandedTo({1, 1}));
+            if (size != widget_ptr->size()) {
+                widget_ptr->resize(size.expandedTo({1, 1}));
+            }
             widget_ptr->setWindowTitle(title);
             auto pal = widget_ptr->palette();
             pal.setColor(QPalette::Window, QColor::fromRgba(background));

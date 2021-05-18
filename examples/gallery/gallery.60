@@ -10,8 +10,8 @@ LICENSE END */
 import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView, ComboBox } from "sixtyfps_widgets.60";
 
 App := Window {
-    width: 500px;
-    height: 550px;
+    preferred-width: 500px;
+    preferred-height: 750px;
     title: "SixtyFPS Gallery";
 
     VerticalLayout {

@@ -425,11 +425,33 @@ impl PlatformWindow for GraphicsWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                let backend = window.backend.borrow();
-                let winit_window = backend.window();
-                winit_window.set_title(&window_item.title());
-                let mut size = winit_window.inner_size().to_logical(self.scale_factor() as f64);
+                let title = window_item.title();
+                let mut size = {
+                    let backend = window.backend.borrow();
+                    let winit_window = backend.window();
+                    winit_window.set_title(&title);
+                    winit_window.inner_size().to_logical(self.scale_factor() as f64)
+                };
                 let mut must_resize = false;
+                let mut w = window_item.width();
+                let mut h = window_item.height();
+                if w <= 0. || h <= 0. {
+                    let info = self
+                        .self_weak
+                        .upgrade()
+                        .unwrap()
+                        .try_component()
+                        .map(|component_rc| {
+                            ComponentRc::borrow_pin(&component_rc).as_ref().layout_info()
+                        })
+                        .unwrap_or_default();
+                    if w <= 0. {
+                        w = info.preferred_width;
+                    }
+                    if h <= 0. {
+                        h = info.preferred_height;
+                    }
+                };
                 let mut apply = |r: &mut u32, v| {
                     if v > 0. {
                         *r = v as _
@@ -437,9 +459,9 @@ impl PlatformWindow for GraphicsWindow {
                         must_resize = true
                     }
                 };
-                apply(&mut size.width, window_item.width());
-                apply(&mut size.height, window_item.height());
-                winit_window.set_inner_size(size);
+                apply(&mut size.width, w);
+                apply(&mut size.height, h);
+                window.backend.borrow().window().set_inner_size(size);
                 if must_resize {
                     self.set_geometry(size.width as _, size.height as _)
                 }

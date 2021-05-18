@@ -11,7 +11,7 @@ LICENSE END */
 import { LineEdit } from "sixtyfps_widgets.60";
 
 TempConv := Window {
-    height: 64px;
+    preferred-height: 64px;
     layout := HorizontalLayout {
         spacing: 7px;
         padding: spacing;

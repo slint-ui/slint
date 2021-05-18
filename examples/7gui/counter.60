@@ -12,7 +12,7 @@ import { Button, LineEdit } from "sixtyfps_widgets.60";
 
 Counter := Window {
     property <int> value: 0;
-    height: 30px;
+    preferred-height: 30px;
     layout := HorizontalLayout {
         spacing: 7px;
         padding: spacing;

@@ -8,6 +8,7 @@ These properties are valid on all visible items
 * **`width`** and **`height`** (*length*): The size of the element. When set, this overrides the default size.
 * **`maximum_width`** and **`maximum_height`** (*length*): The maximum size of an element when used in a layout.
 * **`minimum_width`** and **`minimum_height`** (*length*): The minimum size of an element when used in a layout.
+* **`preferred_width`** and **`preferred_height`** (*length*): The minimum size of an element when used in a layout.
 * **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
 * **`horizontal_stretch`** and **`vertical_stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
   When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
@@ -30,6 +31,10 @@ The `drop-shadow` effect is supported for `Rectangle` and `Clip` elements.
 ## `Window`
 
 Window is the root of what is on the screen
+
+The Window geometry will be restricted by its layout contraints: setting the `width` will result in a fixed width,
+and the window manager will respect the `minimum-width` and `maximum-width` so the window can't be resized bigger
+or smaller. The initial width can be controled with the `preferred-width` property. The same applies for the height.
 
 ### Properties
 

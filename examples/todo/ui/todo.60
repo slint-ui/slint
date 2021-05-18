@@ -16,8 +16,8 @@ export struct TodoItem := {
 }
 
 MainWindow := Window {
-    width: 400px;
-    height: 600px;
+    preferred-width: 400px;
+    preferred-height: 600px;
     callback todo_added(string);
     callback remove_done();
 

@@ -159,7 +159,10 @@ impl LayoutConstraints {
         self.minimum_width.is_some()
             || self.maximum_width.is_some()
             || self.minimum_height.is_some()
+            || self.maximum_width.is_some()
             || self.maximum_height.is_some()
+            || self.preferred_height.is_some()
+            || self.preferred_width.is_some()
             || self.horizontal_stretch.is_some()
             || self.vertical_stretch.is_some()
     }
