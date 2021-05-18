@@ -27,6 +27,22 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let component = match component {
         None => {
             sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
+
+            match std::env::var("SIXTYFPS_INTERPRETER_ERROR_WHITELIST") {
+                Ok(wl) if !wl.is_empty() => {
+                    if !compiler.diagnostics().is_empty()
+                        && compiler.diagnostics().iter().all(|d| d.message().contains(&wl))
+                    {
+                        eprintln!(
+                            "{}: Ignoring Error because of the error whitelist!",
+                            testcase.relative_path.display()
+                        );
+                        return Ok(());
+                    }
+                }
+                _ => {}
+            }
+
             return Err(compiler
                 .diagnostics()
                 .into_iter()

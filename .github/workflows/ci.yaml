@@ -526,6 +526,8 @@ jobs:
     env:
       SIXTYFPS_NO_QT: 1
       CARGO_INCREMENTAL: false
+      # There were binding loops with layout in our demo, so ignore theses errors
+      SIXTYFPS_INTERPRETER_ERROR_WHITELIST: "is part of a binding loop"
     strategy:
       matrix:
         from_version: ['0.0.5', '0.0.6']
