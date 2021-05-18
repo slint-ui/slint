@@ -109,23 +109,98 @@ export Clock :=  VerticalLayout {
     }
 }
 
+PieChartPainted := Rectangle {
+    property <brush> brush <=> p.stroke;
+    property <float> progress;
+
+    back := Path {
+        width: 100%;
+        height: 100%;
+        stroke-width: parent.width / 6;
+        stroke: #aaaaaa40;
+        MoveTo {
+            x: 50;
+            y: 0;
+        }
+        ArcTo {
+            radius-x: 50;
+            radius-y: 50;
+            x: 50;
+            y: 100;
+            sweep: true;
+            large_arc: true;
+        }
+        MoveTo { x: 50; y: 100; }
+        ArcTo {
+            radius-x: 50;
+            radius-y: 50;
+            x: 50;
+            y: 0;
+            sweep: true;
+            large_arc: true;
+        }
+
+        // FIXME: would be nice if there was another way to define the bounding box of the path
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+        MoveTo {
+            x: 100;
+            y: 100;
+        }
+    }
+
+    p := Path {
+        width: 100%;
+        height: 100%;
+        stroke-width: parent.width / 6;
+        MoveTo {
+            x: 50;
+            y: 0;
+        }
+        ArcTo {
+            radius-x: 50;
+            radius-y: 50;
+            y: 50 - 50*cos(-progress * 360deg);
+            x: 50 - 50*sin(-progress * 360deg);
+            sweep: true;
+            large-arc: progress > 0.5;
+        }
+
+        // FIXME: would be nice if there was another way to define the bounding box of the path
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+        MoveTo {
+            x: 100;
+            y: 100;
+        }
+    }
+}
+
+
 // From TopBar.cpp
 export TopBar := HorizontalLayout {
+    padding: 5px;
+    spacing: 0px;
     for item in [
         { string: "Living Room", progress: 25, value: 175, color: #ff3122, gradient: @linear-gradient(0deg, #FF5C00, #FF3122) },
         { string: "Bedroom", progress: 45, value: 205, color: #6776ff, gradient: @linear-gradient(0deg, #6776FF, #6100FF) },
         { string: "Bathroom", progress: 15, value: 115, color: #f99055, gradient: @linear-gradient(0deg, #FFCE50, #FF3122) },
         { string: "Kitchen", progress: 86, value: 289, color: #6776ff, gradient: @linear-gradient(0deg, #6776FF, #6100FF) },
     ] : VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
         Text {
             font_size: Skin.SmallFont;
             text: item.string;
         }
         HorizontalLayout {
-            Rectangle {
-                border-color: item.gradient;
-                border-width: 5px;
-                border-radius: width/2;
+            PieChartPainted {
+                brush: item.gradient;
+                progress: item.progress / 100;
                 Text {
                     width: 100%;
                     height: 100%;
@@ -133,6 +208,7 @@ export TopBar := HorizontalLayout {
                     horizontal_alignment: center;
                     text: item.progress + "%";
                     color: item.color;
+                    font_size: Skin.TinyFont;
                 }
             }
             VerticalLayout {
@@ -142,7 +218,7 @@ export TopBar := HorizontalLayout {
             Rectangle {}
         }
     }
-    @children    
+    @children
 }
 
 // From Box.cpp
