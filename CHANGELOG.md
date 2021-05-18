@@ -9,15 +9,18 @@ All notable changes to this project will be documented in this file.
    within layout are relative to the layout and no longer to the parent element of layouts.
  - Setting the window `height` and `width` property are now fixed size. The `preferred-width`
    and `preferred-height` property can be used to set the initial size.
+ - Binding loop detection at compile-time instead of panic at runtime
 
 ### Added
 
  - Show warnings in the online code editor
  - C++ API to run a function in the UI thread
-
+ - `z` property on items
+ - Mouse wheel work on the Flickable and derivatives
 ### Fixed
 
  - Fixed C++ backend on windows
+ - `debug(...)` no longer break the LSP
  - Many more bugfixes
 
 

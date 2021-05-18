@@ -5,6 +5,7 @@
 These properties are valid on all visible items
 
 * **`x`** and **`y`** (*length*): the position of the element relative to its parent
+* **`z`** (*float*): Allows to specify a different order to stack the items with its siblings. (default: 0)
 * **`width`** and **`height`** (*length*): The size of the element. When set, this overrides the default size.
 * **`maximum_width`** and **`maximum_height`** (*length*): The maximum size of an element when used in a layout.
 * **`minimum_width`** and **`minimum_height`** (*length*): The minimum size of an element when used in a layout.
