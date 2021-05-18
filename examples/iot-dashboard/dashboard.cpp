@@ -179,8 +179,6 @@ MainContent := VerticalLayout {{
 }}
 
 MainWindow := Window {{
-    width: 1024px;
-    height: 600px;
     title: "IOT dashboard";
 
     {3}
