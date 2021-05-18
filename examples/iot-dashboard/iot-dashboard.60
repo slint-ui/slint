@@ -265,6 +265,7 @@ export IndoorTemperature := BoxWithButtons {
     isBright: true;
 }
 export Humidity := BoxWithButtons {
+    property <string> humidity_percent <=> value;
     title_: "Humidity";
     iconFile: @image-url("images/humidity.png");
     value: "30%";

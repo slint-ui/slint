@@ -63,6 +63,9 @@ public:
     void connect_ui(const sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance> &ui,
                     std::string_view properties_prefix);
 
+    std::pair<std::string, std::vector<PropertyDeclaration>>
+    generate_forwarding_two_way_property_bindings(std::string_view widget_name) const;
+
 private:
     std::string qualified_property_name(std::string_view name) const;
 
@@ -96,11 +99,11 @@ struct DashboardBuilder
     build(sixtyfps::interpreter::ComponentCompiler &compiler) const;
 
 private:
-    std::string register_widget(WidgetPtr widget);
+    std::size_t register_widget(WidgetPtr widget);
 
     std::unordered_set<std::string> widgets_used = { "TopBar", "MenuBar" };
-    std::string top_bar;
-    std::string main_grid;
+    std::vector<int> top_bar_widgets;
+    std::vector<std::pair<int, WidgetLocation>> grid_widgets;
 
     std::vector<std::pair<std::string, WidgetPtr>> widgets;
 };

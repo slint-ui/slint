@@ -9,10 +9,13 @@
 LICENSE END */
 
 #include "dashboard.h"
+#include <chrono>
 #include <sixtyfps_interpreter.h>
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>
+#include <random>
+#include <time.h>
 
 class PlaceholderWidget : public Widget
 {
@@ -52,13 +55,42 @@ void ClockWidget::update_clock()
     set_property("time", sixtyfps::SharedString(current_time));
 }
 
+class HumidityWidget : public Widget
+{
+public:
+    HumidityWidget();
+    std::string type_name() const override { return "Humidity"; }
+    std::vector<PropertyDeclaration> properties() const override
+    {
+        return { PropertyDeclaration { "humidity_percent", "string" } };
+    }
+
+private:
+    void update_fake_humidity();
+    sixtyfps::Timer fake_humidity_update_timer;
+    std::default_random_engine rng;
+};
+
+HumidityWidget::HumidityWidget()
+    : fake_humidity_update_timer(std::chrono::seconds(5), [=]() { update_fake_humidity(); }),
+      rng(std::chrono::system_clock::now().time_since_epoch().count())
+{
+}
+
+void HumidityWidget::update_fake_humidity()
+{
+    std::uniform_int_distribution<> humidity_range(20, 150);
+    int humidity_percent = humidity_range(rng);
+    set_property("humidity_percent", sixtyfps::SharedString(fmt::format("{}%", humidity_percent)));
+}
+
 int main()
 {
     DashboardBuilder builder;
     builder.add_top_bar_widget(std::make_shared<ClockWidget>());
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("Usage"), { 0, 0, 2 });
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("IndoorTemperature"), { 0, 1 });
-    builder.add_grid_widget(std::make_shared<PlaceholderWidget>("Humidity"), { 1, 1 });
+    builder.add_grid_widget(std::make_shared<HumidityWidget>(), { 1, 1 });
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("MyDevices"), { 0, 2, 2 });
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("UsageDiagram"), { 2, 0, {}, 2 });
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("LightIntensity"), { 2, 2 });

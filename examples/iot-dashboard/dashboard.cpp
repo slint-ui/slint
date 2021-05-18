@@ -62,30 +62,17 @@ std::string WidgetLocation::location_bindings() const
 
 void DashboardBuilder::add_grid_widget(WidgetPtr widget, const WidgetLocation &location)
 {
-    auto widget_name = register_widget(widget);
-
-    main_grid.append(fmt::format(
-            R"60(
-        {0} := {1} {{
-            {2}
-        }}
-    )60",
-            widget_name, widget->type_name(), location.location_bindings()));
+    auto widget_id = register_widget(widget);
+    grid_widgets.push_back({ widget_id, location });
 }
 
 void DashboardBuilder::add_top_bar_widget(WidgetPtr widget)
 {
-    auto widget_name = register_widget(widget);
-
-    top_bar.append(fmt::format(
-            R"60(
-        {0} := {1} {{            
-        }}
-    )60",
-            widget_name, widget->type_name()));
+    auto widget_id = register_widget(widget);
+    top_bar_widgets.push_back(widget_id);
 }
 
-std::string DashboardBuilder::register_widget(WidgetPtr widget)
+std::size_t DashboardBuilder::register_widget(WidgetPtr widget)
 {
     auto widget_type_name = widget->type_name();
     widgets_used.insert(widget_type_name);
@@ -93,7 +80,7 @@ std::string DashboardBuilder::register_widget(WidgetPtr widget)
     auto widget_id = widgets.size();
     auto widget_name = fmt::format("widget_{}", widget_id);
     widgets.push_back({ widget_name, widget });
-    return widget_name;
+    return widget_id;
 }
 
 std::optional<sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance>>
@@ -112,19 +99,59 @@ DashboardBuilder::build(sixtyfps::interpreter::ComponentCompiler &compiler) cons
         widget_imports = fmt::format("import {{ {} }} from \"iot-dashboard.60\";", widget_imports);
     }
 
+    // Vector of name/type_name of properties forwarded through the MainContent {} element.
+    std::string main_content_properties;
+    std::string main_grid;
+    std::string top_bar;
     std::string exposed_properties;
 
-    for (const auto &entry : widgets) {
-        auto [widget_name, widget_ptr] = entry;
+    for (const auto &[widget_id, location] : grid_widgets) {
+        const auto &[widget_name, widget_ptr] = widgets[widget_id];
+
+        main_grid.append(fmt::format(
+                R"60(
+            {0} := {1} {{
+                {2}
+            }}
+        )60",
+                widget_name, widget_ptr->type_name(), location.location_bindings()));
 
         std::string properties_prefix = widget_name;
-        properties_prefix += "__";
+        properties_prefix.append("__");
 
         for (const auto &property : widget_ptr->properties()) {
-            std::string qualified_prop_name = properties_prefix + property.name;
-            exposed_properties +=
-                    fmt::format("property <{0}> {1} <=> {2}.{3};\n", property.type_name,
-                                qualified_prop_name, widget_name, property.name);
+            std::string forwarded_property_name = properties_prefix;
+            forwarded_property_name.append(property.name);
+
+            main_content_properties.append(fmt::format("property <{0}> {1} <=> {2}.{3};\n",
+                                                       property.type_name, forwarded_property_name,
+                                                       widget_name, property.name));
+
+            exposed_properties.append(fmt::format("property <{0}> {1} <=> main_content.{1};\n",
+                                                  property.type_name, forwarded_property_name));
+        }
+    }
+
+    for (const auto widget_id : top_bar_widgets) {
+        const auto &[widget_name, widget_ptr] = widgets[widget_id];
+
+        top_bar.append(fmt::format(
+                R"60(
+            {0} := {1} {{
+            }}
+        )60",
+                widget_name, widget_ptr->type_name()));
+
+        std::string properties_prefix = widget_name;
+        properties_prefix.append("__");
+
+        for (const auto &property : widget_ptr->properties()) {
+            std::string forwarded_property_name = properties_prefix;
+            forwarded_property_name.append(property.name);
+
+            exposed_properties.append(fmt::format("property <{0}> {1} <=> {2}.{3};\n",
+                                                  property.type_name, forwarded_property_name,
+                                                  widget_name, property.name));
         }
     }
 
@@ -134,6 +161,8 @@ DashboardBuilder::build(sixtyfps::interpreter::ComponentCompiler &compiler) cons
 {0}
 
 MainContent := VerticalLayout {{
+    {4}
+
     spacing: 24px;
     TopBar {{
         @children
@@ -160,13 +189,13 @@ MainWindow := Window {{
         padding: 0; spacing: 0;
         MenuBar {{
         }}
-        MainContent {{
+        main_content := MainContent {{
             {1}
         }}
     }}
 }}
 )60",
-            widget_imports, top_bar, main_grid, exposed_properties);
+            widget_imports, top_bar, main_grid, exposed_properties, main_content_properties);
 
     auto definition = compiler.build_from_source(source_code, SOURCE_DIR);
 
