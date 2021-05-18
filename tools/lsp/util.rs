@@ -131,3 +131,32 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
     };
     Some((element, prop_name))
 }
+
+pub fn to_lsp_diag(d: &sixtyfps_compilerlib::diagnostics::Diagnostic) -> lsp_types::Diagnostic {
+    lsp_types::Diagnostic::new(
+        to_range(d.line_column()),
+        Some(to_lsp_diag_level(d.level())),
+        None,
+        None,
+        d.message().to_owned(),
+        None,
+        None,
+    )
+}
+
+fn to_range(span: (usize, usize)) -> lsp_types::Range {
+    let pos = lsp_types::Position::new(
+        (span.0 as u32).saturating_sub(1),
+        (span.1 as u32).saturating_sub(1),
+    );
+    lsp_types::Range::new(pos, pos)
+}
+
+fn to_lsp_diag_level(
+    level: sixtyfps_compilerlib::diagnostics::DiagnosticLevel,
+) -> lsp_types::DiagnosticSeverity {
+    match level {
+        sixtyfps_interpreter::DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::Error,
+        sixtyfps_interpreter::DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::Warning,
+    }
+}

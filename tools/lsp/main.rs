@@ -420,7 +420,7 @@ fn reload_document(
             continue;
         }
         let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags.entry(uri).or_default().push(to_lsp_diag(&d));
+        lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d));
     }
 
     for (uri, diagnostics) in lsp_diags {
@@ -431,32 +431,6 @@ fn reload_document(
     }
 
     Ok(())
-}
-
-fn to_lsp_diag_level(
-    level: sixtyfps_compilerlib::diagnostics::DiagnosticLevel,
-) -> lsp_types::DiagnosticSeverity {
-    match level {
-        sixtyfps_interpreter::DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::Error,
-        sixtyfps_interpreter::DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::Warning,
-    }
-}
-
-fn to_lsp_diag(d: &sixtyfps_compilerlib::diagnostics::Diagnostic) -> lsp_types::Diagnostic {
-    lsp_types::Diagnostic::new(
-        to_range(d.line_column()),
-        Some(to_lsp_diag_level(d.level())),
-        None,
-        None,
-        d.message().to_owned(),
-        None,
-        None,
-    )
-}
-
-fn to_range(span: (usize, usize)) -> Range {
-    let pos = Position::new((span.0 as u32).saturating_sub(1), (span.1 as u32).saturating_sub(1));
-    Range::new(pos, pos)
 }
 
 /// return the token, and the offset within the file

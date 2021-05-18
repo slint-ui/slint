@@ -236,6 +236,8 @@ _Preview := Window {{
         builder.build_from_path(preview_component.path).await
     };
 
+    notify_diagnostics(builder.diagnostics(), &sender);
+
     if let Some(compiled) = compiled {
         #[derive(Default)]
         struct PreviewState {
@@ -263,6 +265,30 @@ _Preview := Window {{
         send_notification(&sender, "Preview not upated", Health::Error);
     }
     CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().sender.replace(sender);
+}
+
+fn notify_diagnostics(
+    diagnostics: &[sixtyfps_interpreter::Diagnostic],
+    sender: &crossbeam_channel::Sender<Message>,
+) -> Option<()> {
+    let mut lsp_diags: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
+    for d in diagnostics {
+        if d.source_file().unwrap().is_relative() {
+            continue;
+        }
+        let uri = lsp_types::Url::from_file_path(d.source_file().unwrap()).unwrap();
+        lsp_diags.entry(uri).or_default().push(crate::util::to_lsp_diag(&d));
+    }
+
+    for (uri, diagnostics) in lsp_diags {
+        sender
+            .send(Message::Notification(lsp_server::Notification::new(
+                "textDocument/publishDiagnostics".into(),
+                lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
+            )))
+            .ok()?;
+    }
+    Some(())
 }
 
 fn send_notification(sender: &crossbeam_channel::Sender<Message>, arg: &str, health: Health) {
