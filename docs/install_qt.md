@@ -12,10 +12,11 @@ The Qt backend uses Qt. In addition, the Qt backend provide the implementation f
 from the `native` style.
 Qt is only needed if you want native looking widgets. Otherwise, another style will be used for widget, which does not
 look native.
-
-You will need the Qt version 5.15.x Qt 6 is not yet supported.
+In the future, we plan to have native backend using the native API, which will allow native widgets without using Qt.
 
 ## How to install Qt
+
+You will need the Qt version 5.15.x Qt 6 is not yet supported.
 
 You can just download and install Qt 5.15 from https://www.qt.io/download-qt-installer and any other sources
 
