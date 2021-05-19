@@ -9,7 +9,7 @@
 LICENSE END */
 //! This pass moves all declaration of properties or callback to the root
 
-use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
+use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::NamedReference;
 use crate::langtype::Type;
 use crate::object_tree::*;
@@ -30,18 +30,6 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
     simplify_optimized_items(component.optimized_elements.borrow().as_slice());
 
     let mut decl = Declarations::take_from_element(&mut *component.root_element.borrow_mut());
-    decl.property_declarations.values_mut().for_each(|d| {
-        if d.property_type.ok_for_public_api() {
-            d.expose_in_public_api = true
-        } else {
-            diag.push_diagnostic(
-                 format!("Properties of type {} are not supported yet for public API. The property will not be exposed.", d.property_type),
-                 &d.type_node(),
-                 DiagnosticLevel::Warning
-            );
-        }
-    });
-
     component.popup_windows.borrow().iter().for_each(|f| move_declarations(&f.component, diag));
 
     let mut new_root_bindings = HashMap::new();
