@@ -3,7 +3,7 @@
 TLDR; If you are redirected to this document because of a link in the warning that Qt was not found and
 you want to silence the warning without installing Qt, you can set this environment variable: `SIXTYFPS_NO_QT=1`
 
-## Do I need Qt to use SixtyFPS
+## Do I need Qt to use SixtyFPS?
 
 Short answer: No. Only if you want to use the Qt backend used for the native style.
 
