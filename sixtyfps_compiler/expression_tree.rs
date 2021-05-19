@@ -121,6 +121,34 @@ impl BuiltinFunction {
             }
         }
     }
+
+    /// It is pure if the return value only depends on its argument and has no side effect
+    fn is_pure(&self) -> bool {
+        match self {
+            BuiltinFunction::GetWindowScaleFactor => false,
+            // Even if it is not pure, we optimize it away anyway
+            BuiltinFunction::Debug => true,
+            BuiltinFunction::Mod
+            | BuiltinFunction::Round
+            | BuiltinFunction::Ceil
+            | BuiltinFunction::Floor
+            | BuiltinFunction::Sqrt
+            | BuiltinFunction::Cos
+            | BuiltinFunction::Sin
+            | BuiltinFunction::Tan
+            | BuiltinFunction::ACos
+            | BuiltinFunction::ASin
+            | BuiltinFunction::ATan => true,
+            BuiltinFunction::SetFocusItem => false,
+            BuiltinFunction::ShowPopupWindow => false,
+            BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
+            BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
+            BuiltinFunction::Rgb => true,
+            BuiltinFunction::ImplicitLayoutInfo => false,
+            BuiltinFunction::RegisterCustomFontByPath
+            | BuiltinFunction::RegisterCustomFontByMemory => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -721,26 +749,33 @@ impl Expression {
         match self {
             Expression::Invalid => true,
             Expression::Uncompiled(_) => false,
-            Expression::TwoWayBinding(..) => false,
+            Expression::TwoWayBinding(nr, expr) => {
+                nr.is_constant() && expr.as_ref().map_or(true, |e| e.is_constant())
+            }
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
             Expression::CallbackReference { .. } => false,
-            Expression::PropertyReference { .. } => false,
-            Expression::BuiltinFunctionReference { .. } => false,
+            Expression::PropertyReference(nr) => nr.is_constant(),
+            Expression::BuiltinFunctionReference(func) => func.is_pure(),
             Expression::MemberFunction { .. } => false,
             Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
             Expression::RepeaterModelReference { .. } => false,
             Expression::FunctionParameterReference { .. } => false,
-            Expression::BuiltinMacroReference { .. } => false,
+            Expression::BuiltinMacroReference { .. } => true,
             Expression::StructFieldAccess { base, .. } => base.is_constant(),
             Expression::Cast { from, .. } => from.is_constant(),
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
-            Expression::FunctionCall { .. } => false,
+            Expression::FunctionCall { function, arguments, .. } => {
+                // Assume that constant function are, in fact, pure
+                function.is_constant() && arguments.iter().all(|a| a.is_constant())
+            }
             Expression::SelfAssignment { .. } => false,
             Expression::ImageReference { .. } => true,
-            Expression::Condition { .. } => false,
+            Expression::Condition { condition, false_expr, true_expr } => {
+                condition.is_constant() && false_expr.is_constant() && true_expr.is_constant()
+            }
             Expression::BinaryExpression { lhs, rhs, .. } => lhs.is_constant() && rhs.is_constant(),
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
@@ -755,6 +790,7 @@ impl Expression {
                 }
             }
             Expression::StoreLocalVariable { .. } => false,
+            // we should somehow find out if this is constant or not
             Expression::ReadLocalVariable { .. } => false,
             Expression::EasingCurve(_) => true,
             Expression::LinearGradient { angle, stops } => {
@@ -764,7 +800,7 @@ impl Expression {
             Expression::ReturnStatement(expr) => {
                 expr.as_ref().map_or(true, |expr| expr.is_constant())
             }
-
+            // TODO:  detect constant property within layouts
             Expression::LayoutCacheAccess { .. } => false,
             Expression::ComputeLayoutInfo(_) => false,
             Expression::SolveLayout(_) => false,

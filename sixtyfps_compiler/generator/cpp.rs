@@ -332,6 +332,7 @@ fn handle_property_binding(
     elem: &ElementRc,
     prop_name: &str,
     binding_expression: &Expression,
+    is_constant: bool,
     init: &mut Vec<String>,
 ) {
     let item = elem.borrow();
@@ -371,7 +372,7 @@ fn handle_property_binding(
             p2 = access_named_reference(nr, &component, "this")
         ));
         if let Some(next) = next {
-            handle_property_binding(elem, prop_name, next, init)
+            handle_property_binding(elem, prop_name, next, is_constant || next.is_constant(), init)
         }
     } else {
         let component = &item.enclosing_component.upgrade().unwrap();
@@ -379,7 +380,7 @@ fn handle_property_binding(
         let init_expr = compile_expression_wrap_return(binding_expression, component);
         let cpp_prop = format!("{}{}", accessor_prefix, prop_name);
 
-        init.push(if binding_expression.is_constant() {
+        init.push(if is_constant {
             format!("{}.set({});", cpp_prop, init_expr)
         } else {
             let binding_code = format!(
@@ -437,7 +438,7 @@ fn handle_property_binding(
     }
 }
 
-fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String>) {
+fn handle_item(elem: &ElementRc, main_struct: &mut Struct) {
     let item = elem.borrow();
     main_struct.members.push((
         Access::Private,
@@ -447,10 +448,6 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct, init: &mut Vec<String
             init: Some("{}".to_owned()),
         }),
     ));
-
-    for (prop_name, binding_expression) in &item.bindings {
-        handle_property_binding(elem, prop_name, binding_expression, init);
-    }
 }
 
 fn handle_repeater(
@@ -993,9 +990,6 @@ fn generate_component(
         let item = item_rc.borrow();
         if item.base_type == Type::Void {
             assert!(component.is_global());
-            for (prop_name, binding_expression) in &item.bindings {
-                handle_property_binding(item_rc, prop_name, binding_expression, &mut init);
-            }
         } else if let Some(repeated) = &item.repeated {
             tree_array.push(format!(
                 "sixtyfps::private_api::make_dyn_node({}, {})",
@@ -1044,10 +1038,20 @@ fn generate_component(
                     parent_index,
                 ));
             }
-            handle_item(item_rc, &mut component_struct, &mut init);
+            handle_item(item_rc, &mut component_struct);
             item_names_and_vt_symbols
                 .push((item.id.clone(), item.base_type.as_native().cpp_vtable_getter.clone()));
         }
+    });
+
+    super::handle_property_bindings_init(component, |elem, prop, binding| {
+        handle_property_binding(
+            elem,
+            prop,
+            binding,
+            binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const),
+            &mut init,
+        )
     });
 
     if !component.is_global() {
