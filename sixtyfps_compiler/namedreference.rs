@@ -61,10 +61,6 @@ impl NamedReference {
     pub fn is_constant(&self) -> bool {
         let mut elem = self.element();
         let e = elem.borrow();
-        if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set) {
-            // if the property is set somewhere, it is not constant
-            return false;
-        }
         if let Some(decl) = e.property_declarations.get(self.name()) {
             if decl.expose_in_public_api {
                 // could be set by the public API
@@ -76,6 +72,11 @@ impl NamedReference {
         let mut check_binding = true;
         loop {
             let e = elem.borrow();
+            if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set) {
+                // if the property is set somewhere, it is not constant
+                return false;
+            }
+
             if check_binding {
                 if let Some(b) = e.bindings.get(self.name()) {
                     if !b.is_constant() {

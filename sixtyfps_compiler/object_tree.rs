@@ -431,6 +431,13 @@ pub struct PropertyAnalysis {
     //pub is_read: bool,
 }
 
+impl PropertyAnalysis {
+    /// Merge analysis from base element for e.g. inlining
+    pub fn merge(&mut self, other: &PropertyAnalysis) {
+        self.is_set |= other.is_set;
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ListViewInfo {
     pub viewport_y: NamedReference,

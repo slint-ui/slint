@@ -63,6 +63,11 @@ fn inline_element(
     elem_mut.property_animations.extend(
         inlined_component.root_element.borrow().property_animations.iter().map(clone_tuple),
     );
+
+    for (p, a) in inlined_component.root_element.borrow().property_analysis.borrow().iter() {
+        elem_mut.property_analysis.borrow_mut().entry(p.clone()).or_default().merge(a);
+    }
+
     // FIXME: states and transitions will be merged while inlining, this is not what we want
     elem_mut.states.extend(inlined_component.root_element.borrow().states.iter().cloned());
     elem_mut

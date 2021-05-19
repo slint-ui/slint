@@ -1,0 +1,53 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+SubElem := Rectangle {
+    property <int> value: sub.value;
+    callback change();
+    change => { sub.value += 44; }
+    sub := Rectangle {
+        property <int> value: 55;
+    }
+}
+
+TestCase := Rectangle {
+    callback change();
+    change => { sub.change() }
+    property <int> toplevel: sub.value + 1;
+    sub := SubElem { }
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_toplevel(), 56);
+instance.invoke_change();
+assert_eq!(instance.get_toplevel(), 56+44);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_toplevel(), 56);
+instance.invoke_change();
+assert_eq(instance.get_toplevel(), 56+44);
+```
+
+```js
+var instance = new sixtyfps.TestCase({});
+assert.equal(instance.toplevel, 56);
+instance.change();
+assert.equal(instance.toplevel, 56+44);
+```
+
+*/
