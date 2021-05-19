@@ -20,22 +20,39 @@ pub(crate) fn fold_node(
     state: &mut crate::State,
 ) -> std::io::Result<bool> {
     if let Some(binding) = syntax_nodes::Binding::new(node.clone()) {
-        if matches!(
-            state.property_name.as_ref().map(String::as_str).unwrap_or_default(),
-            "colspan" | "rowspan" | "row" | "col"
-        ) {
-            if let Some(elem) =
-                find_parent_element(binding.into()).and_then(|x| find_parent_element(x.into()))
-            {
-                let elem_name = elem
-                    .QualifiedName()
-                    .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string())
-                    .unwrap_or_default();
-                if !matches!(elem_name.as_str(), "GridLayout" | "Row") {
-                    write!(file, "/* {} // REMOVED BY THE SYNTAX UPDATER */", node.to_string())?;
-                    return Ok(true);
+        match state.property_name.as_ref().map(String::as_str).unwrap_or_default() {
+            "colspan" | "rowspan" | "row" | "col" => {
+                if let Some(elem) =
+                    find_parent_element(binding.into()).and_then(|x| find_parent_element(x.into()))
+                {
+                    let elem_name = elem
+                        .QualifiedName()
+                        .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string())
+                        .unwrap_or_default();
+                    if !matches!(elem_name.as_str(), "GridLayout" | "Row") {
+                        write!(
+                            file,
+                            "/* {} // REMOVED BY THE SYNTAX UPDATER */",
+                            node.to_string()
+                        )?;
+                        return Ok(true);
+                    }
                 }
             }
+            prop @ "drop-shadow-blur" => {
+                let expr = binding.BindingExpression();
+                write!(
+                    file,
+                    "{}: ({}) / 1px; // CHANGED BY SYNTAX UPDATER: drop-shadow-blur is now an abstract blur level, this is just an approximation.",
+                    prop,
+                    expr.CodeBlock()
+                        .map(|block| block.to_string())
+                        .or_else(|| expr.Expression().map(|expr| expr.to_string()))
+                        .unwrap_or_default()
+                )?;
+                return Ok(true);
+            }
+            _ => {}
         }
     };
     Ok(false)
