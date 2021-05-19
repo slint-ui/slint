@@ -12,12 +12,11 @@ use crate::{api::Value, dynamic_type, eval};
 use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
-use expression_tree::NamedReference;
-use object_tree::{Element, ElementRc};
+use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
 use sixtyfps_compilerlib::langtype::Type;
+use sixtyfps_compilerlib::object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
-use sixtyfps_compilerlib::{expression_tree::Expression, langtype::PropertyLookupResult};
 use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::graphics::ImageReference;
 use sixtyfps_corelib::item_tree::{
@@ -898,85 +897,153 @@ pub fn instantiate<'id>(
         &eval::window_ref(instance_ref).unwrap(),
     );
 
-    for item_within_component in component_type.items.values() {
-        unsafe {
+    generator::handle_property_bindings_init(
+        &component_type.original,
+        |elem, prop_name, binding| unsafe {
+            let elem = elem.borrow();
+            let item_within_component = &component_type.items[&elem.id];
             let item = item_within_component.item_from_component(instance_ref.as_ptr());
-            let elem = item_within_component.elem.borrow();
-            for (unresolved_prop_name, expr) in &elem.bindings {
-                let PropertyLookupResult { resolved_name, property_type } =
-                    elem.lookup_property(unresolved_prop_name.as_str());
-                if let Type::Callback { .. } = property_type {
-                    let expr = expr.clone();
-                    let component_type = component_type.clone();
-                    let instance = component_box.instance.as_ptr();
-                    let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                        NonNull::from(&component_type.ct).cast(),
-                        instance.cast(),
-                    ));
-                    if let Some(callback) =
-                        item_within_component.rtti.callbacks.get(resolved_name.as_ref())
-                    {
-                        callback.set_handler(
-                            item,
-                            Box::new(move |args| {
-                                generativity::make_guard!(guard);
-                                let mut local_context =
-                                    eval::EvalLocalContext::from_function_arguments(
-                                        InstanceRef::from_pin_ref(c, guard),
-                                        args.iter().cloned().collect(),
-                                    );
-                                eval::eval_expression(&expr, &mut local_context)
-                            }),
-                        )
-                    } else if let Some(callback_offset) =
-                        component_type.custom_callbacks.get(resolved_name.as_ref())
-                    {
-                        let callback = callback_offset.apply(instance_ref.as_ref());
-                        callback.set_handler(move |args| {
+
+            let property_type = elem.lookup_property(prop_name).property_type;
+            if let Type::Callback { .. } = property_type {
+                let expr = binding.expression.clone();
+                let component_type = component_type.clone();
+                let instance = component_box.instance.as_ptr();
+                let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                    NonNull::from(&component_type.ct).cast(),
+                    instance.cast(),
+                ));
+                if let Some(callback) = item_within_component.rtti.callbacks.get(prop_name) {
+                    callback.set_handler(
+                        item,
+                        Box::new(move |args| {
                             generativity::make_guard!(guard);
                             let mut local_context = eval::EvalLocalContext::from_function_arguments(
                                 InstanceRef::from_pin_ref(c, guard),
                                 args.iter().cloned().collect(),
                             );
                             eval::eval_expression(&expr, &mut local_context)
-                        })
-                    } else {
-                        panic!("unkown callback {}", unresolved_prop_name)
-                    }
+                        }),
+                    )
+                } else if let Some(callback_offset) = component_type.custom_callbacks.get(prop_name)
+                {
+                    let callback = callback_offset.apply(instance_ref.as_ref());
+                    callback.set_handler(move |args| {
+                        generativity::make_guard!(guard);
+                        let mut local_context = eval::EvalLocalContext::from_function_arguments(
+                            InstanceRef::from_pin_ref(c, guard),
+                            args.iter().cloned().collect(),
+                        );
+                        eval::eval_expression(&expr, &mut local_context)
+                    })
                 } else {
-                    if let Some(prop_rtti) =
-                        item_within_component.rtti.properties.get(resolved_name.as_ref())
-                    {
-                        let maybe_animation =
-                            animation_for_property(instance_ref, &elem, resolved_name.as_ref());
-                        let mut e = Some(&expr.expression);
-                        while let Some(Expression::TwoWayBinding(nr, next)) = &e {
-                            // Safety: The compiler must have ensured that the properties exist and are of the same type
-                            prop_rtti.link_two_ways(item, get_property_ptr(&nr, instance_ref));
-                            e = next.as_deref();
-                        }
-                        if let Some(e) = e {
-                            if e.is_constant() {
-                                prop_rtti.set(
-                                    item,
-                                    eval::eval_expression(
-                                        e,
-                                        &mut eval::EvalLocalContext::from_component_instance(
-                                            instance_ref,
-                                        ),
+                    panic!("unkown callback {}", prop_name)
+                }
+            } else {
+                if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name) {
+                    let maybe_animation = animation_for_property(instance_ref, &elem, prop_name);
+                    let mut e = Some(&binding.expression);
+                    while let Some(Expression::TwoWayBinding(nr, next)) = &e {
+                        // Safety: The compiler must have ensured that the properties exist and are of the same type
+                        prop_rtti.link_two_ways(item, get_property_ptr(&nr, instance_ref));
+                        e = next.as_deref();
+                    }
+                    if let Some(e) = e {
+                        if binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const)
+                            || e.is_constant()
+                        {
+                            prop_rtti.set(
+                                item,
+                                eval::eval_expression(
+                                    e,
+                                    &mut eval::EvalLocalContext::from_component_instance(
+                                        instance_ref,
                                     ),
-                                    maybe_animation.as_animation(),
-                                );
-                            } else {
-                                let e = e.clone();
-                                let component_type = component_type.clone();
-                                let instance = component_box.instance.as_ptr();
-                                let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                                    NonNull::from(&component_type.ct).cast(),
-                                    instance.cast(),
-                                ));
+                                ),
+                                maybe_animation.as_animation(),
+                            );
+                        } else {
+                            let e = e.clone();
+                            let component_type = component_type.clone();
+                            let instance = component_box.instance.as_ptr();
+                            let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                                NonNull::from(&component_type.ct).cast(),
+                                instance.cast(),
+                            ));
 
-                                prop_rtti.set_binding(
+                            prop_rtti.set_binding(
+                                item,
+                                Box::new(move || {
+                                    generativity::make_guard!(guard);
+                                    eval::eval_expression(
+                                        &e,
+                                        &mut eval::EvalLocalContext::from_component_instance(
+                                            InstanceRef::from_pin_ref(c, guard),
+                                        ),
+                                    )
+                                }),
+                                maybe_animation,
+                            );
+                        }
+                    }
+                } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
+                    component_type.custom_properties.get(prop_name)
+                {
+                    let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                        NonNull::from(&component_type.ct).cast(),
+                        component_box.instance.as_ptr().cast(),
+                    ));
+
+                    let is_state_info = match property_type {
+                        Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => {
+                            true
+                        }
+                        _ => false,
+                    };
+                    if is_state_info {
+                        let prop = Pin::new_unchecked(
+                            &*(instance_ref.as_ptr().add(*offset)
+                                as *const Property<sixtyfps_corelib::properties::StateInfo>),
+                        );
+                        let e = binding.expression.clone();
+                        sixtyfps_corelib::properties::set_state_binding(prop, move || {
+                            generativity::make_guard!(guard);
+                            eval::eval_expression(
+                                &e,
+                                &mut eval::EvalLocalContext::from_component_instance(
+                                    InstanceRef::from_pin_ref(c, guard),
+                                ),
+                            )
+                            .try_into()
+                            .unwrap()
+                        });
+                        return;
+                    }
+
+                    let maybe_animation = animation_for_property(
+                        instance_ref,
+                        &component_type.original.root_element.borrow(),
+                        prop_name,
+                    );
+                    let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
+
+                    let mut e = Some(&binding.expression);
+                    while let Some(Expression::TwoWayBinding(nr, next)) = &e {
+                        // Safety: The compiler must have ensured that the properties exist and are of the same type
+                        prop_info.link_two_ways(item, get_property_ptr(&nr, instance_ref));
+                        e = next.as_deref();
+                    }
+                    if let Some(e) = e {
+                        if e.is_constant() {
+                            let v = eval::eval_expression(
+                                e,
+                                &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+                            );
+                            prop_info.set(item, v, None).unwrap();
+                        } else {
+                            let e = e.clone();
+                            prop_info
+                                .set_binding(
                                     item,
                                     Box::new(move || {
                                         generativity::make_guard!(guard);
@@ -988,92 +1055,16 @@ pub fn instantiate<'id>(
                                         )
                                     }),
                                     maybe_animation,
-                                );
-                            }
-                        }
-                    } else if let Some(PropertiesWithinComponent {
-                        offset, prop: prop_info, ..
-                    }) = component_type.custom_properties.get(resolved_name.as_ref())
-                    {
-                        let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                            NonNull::from(&component_type.ct).cast(),
-                            component_box.instance.as_ptr().cast(),
-                        ));
-
-                        let is_state_info = match property_type {
-                            Type::Struct { name: Some(name), .. }
-                                if name.ends_with("::StateInfo") =>
-                            {
-                                true
-                            }
-                            _ => false,
-                        };
-                        if is_state_info {
-                            let prop = Pin::new_unchecked(
-                                &*(instance_ref.as_ptr().add(*offset)
-                                    as *const Property<sixtyfps_corelib::properties::StateInfo>),
-                            );
-                            let e = expr.expression.clone();
-                            sixtyfps_corelib::properties::set_state_binding(prop, move || {
-                                generativity::make_guard!(guard);
-                                eval::eval_expression(
-                                    &e,
-                                    &mut eval::EvalLocalContext::from_component_instance(
-                                        InstanceRef::from_pin_ref(c, guard),
-                                    ),
                                 )
-                                .try_into()
-                                .unwrap()
-                            });
-                            continue;
+                                .unwrap();
                         }
-
-                        let maybe_animation = animation_for_property(
-                            instance_ref,
-                            &component_type.original.root_element.borrow(),
-                            resolved_name.as_ref(),
-                        );
-                        let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
-
-                        let mut e = Some(&expr.expression);
-                        while let Some(Expression::TwoWayBinding(nr, next)) = &e {
-                            // Safety: The compiler must have ensured that the properties exist and are of the same type
-                            prop_info.link_two_ways(item, get_property_ptr(&nr, instance_ref));
-                            e = next.as_deref();
-                        }
-                        if let Some(e) = e {
-                            if e.is_constant() {
-                                let v = eval::eval_expression(
-                                    e,
-                                    &mut eval::EvalLocalContext::from_component_instance(
-                                        instance_ref,
-                                    ),
-                                );
-                                prop_info.set(item, v, None).unwrap();
-                            } else {
-                                let e = e.clone();
-                                prop_info
-                                    .set_binding(
-                                        item,
-                                        Box::new(move || {
-                                            generativity::make_guard!(guard);
-                                            eval::eval_expression(
-                                                &e,
-                                                &mut eval::EvalLocalContext::from_component_instance(InstanceRef::from_pin_ref(c, guard)),
-                                            )
-                                        }),
-                                        maybe_animation,
-                                    )
-                                    .unwrap();
-                            }
-                        }
-                    } else {
-                        panic!("unkown property {}", unresolved_prop_name);
                     }
+                } else {
+                    panic!("unkown property {}", prop_name);
                 }
             }
-        }
-    }
+        },
+    );
 
     for rep_in_comp in &component_type.repeater {
         generativity::make_guard!(guard);
