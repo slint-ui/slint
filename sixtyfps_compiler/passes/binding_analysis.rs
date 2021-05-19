@@ -89,7 +89,15 @@ fn analyse_binding(
         }
     });
 
-    element.borrow().bindings[name].analysis.borrow_mut().get_or_insert(Default::default());
+    {
+        let elem = element.borrow();
+        let b = &elem.bindings[name];
+        let is_const = b.expression.is_constant();
+
+        let mut analysis = b.analysis.borrow_mut();
+        let mut analysis = analysis.get_or_insert(Default::default());
+        analysis.is_const = is_const;
+    }
 
     let o = currently_analysing.pop_back();
     assert_eq!(o.unwrap(), nr);

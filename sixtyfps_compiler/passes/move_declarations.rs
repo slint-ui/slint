@@ -169,7 +169,7 @@ fn simplify_optimized_items(items: &[ElementRc]) {
                                 (
                                     k.clone(),
                                     PropertyDeclaration {
-                                        property_type: v.clone(),
+                                        property_type: v.ty.clone(),
                                         ..Default::default()
                                     },
                                 )

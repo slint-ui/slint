@@ -58,10 +58,10 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
         is_flickable_viewport: true,
         ..Element::default()
     }));
-    for (prop, ty) in &flickable.base_type.as_builtin().properties {
+    for (prop, info) in &flickable.base_type.as_builtin().properties {
         if let Some(vp_prop) = prop.strip_prefix("viewport_") {
             let nr = NamedReference::new(&viewport, vp_prop);
-            flickable.property_declarations.insert(prop.to_owned(), ty.clone().into());
+            flickable.property_declarations.insert(prop.to_owned(), info.ty.clone().into());
             match flickable.bindings.entry(prop.to_owned()) {
                 std::collections::hash_map::Entry::Occupied(entry) => {
                     let entry = entry.into_mut();

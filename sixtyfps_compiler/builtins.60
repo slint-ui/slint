@@ -13,10 +13,20 @@ LICENSE END */
    It is parsed with the normal .60 parser, but the semantic.
 
    `_` means that that this is a langtype::NativeClass with no parent.
-   Note that only the exported components are added to the type registers.
+   Exported components are added to the as BuiltinElement.
 
    comments starting by `//-` have some meanings
+
+   Properties with two way bindings (aliases) are deprecated in favor of the property they point to
+
+   Properties can have default binding which must be an expression without any reference to
+   another properties. These binding will be then set by the compiler.
+   Or they can have a binding `native_output` which mean that the property can be modified
+   by the native Item. If they don't have that, it is assumed the native item don't write
+   to that property.
  */
+
+import { _ } from ""; // just to silence many errorin the LSP
 
 Rectangle := _ {
     property <brush> background;
@@ -90,12 +100,12 @@ export TouchArea := _ {
     property <length> width;
     property <length> height;
     property <bool> enabled: true;
-    property <bool> pressed;
-    property <bool> has_hover;
-    property <length> mouse_x;
-    property <length> mouse_y;
-    property <length> pressed_x;
-    property <length> pressed_y;
+    property <bool> pressed: native_output;
+    property <bool> has_hover: native_output;
+    property <length> mouse_x: native_output;
+    property <length> mouse_y: native_output;
+    property <length> pressed_x: native_output;
+    property <length> pressed_y: native_output;
     callback clicked;
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -119,7 +129,7 @@ export FocusScope := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <bool> has_focus;
+    property <bool> has_focus: native_output;
     callback key_pressed(KeyEvent) -> EventResult;
     callback key_released(KeyEvent) -> EventResult;
     //-default_size_binding:expands_to_parent_geometry
@@ -135,15 +145,15 @@ export Flickable := _ {
                 // code generator
     property <length> viewport_height;
     property <length> viewport_width;
-    property <length> viewport_x;
-    property <length> viewport_y;
+    property <length> viewport_x: native_output;
+    property <length> viewport_y: native_output;
     property <bool> interactive: true;
     //-default_size_binding:expands_to_parent_geometry
 }
 
 export Window := _ {
-    property <length> width;
-    property <length> height;
+    property <length> width: native_output;
+    property <length> height: native_output;
     property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
     property <color> color <=> background;
     property <string> title: "SixtyFPS Window";
@@ -167,7 +177,7 @@ export BoxShadow := _ {
 }
 
 export TextInput := _ {
-    property <string> text;
+    property <string> text: native_output;
     property <string> font_family;
     property <length> font_size;
     property <int> font_weight;
@@ -182,9 +192,9 @@ export TextInput := _ {
     property <length> width;
     property <length> height;
     property <length> text_cursor_width; // StyleMetrics.text_cursor_width  set in apply_default_properties_from_style
-    property <int> cursor_position;
-    property <int> anchor_position;
-    property <bool> has_focus;
+    property <int> cursor_position: native_output;
+    property <int> anchor_position: native_output;
+    property <bool> has_focus: native_output;
     callback accepted;
     callback edited;
     property <bool> enabled: true;
@@ -376,7 +386,7 @@ export NativeButton := _ {
     property <length> width;
     property <length> height;
     property <string> text;
-    property <bool> pressed;
+    property <bool> pressed: native_output;
     callback clicked;
     property <bool> enabled: true;
     //-is_internal
@@ -389,7 +399,7 @@ export NativeCheckBox := _ {
     property <length> height;
     property <bool> enabled: true;
     property <string> text;
-    property <bool> checked;
+    property <bool> checked: native_output;
     callback toggled;
     //-is_internal
 }
@@ -400,7 +410,7 @@ export NativeSpinBox := _ {
     property <length> width;
     property <length> height;
     property <bool> enabled: true;
-    property <int> value;
+    property <int> value: native_output;
     property <int> minimum;
     property <int> maximum: 100;
     //-is_internal
@@ -412,7 +422,7 @@ export NativeSlider := _ {
     property <length> width;
     property <length> height;
     property <bool> enabled: true;
-    property <float> value;
+    property <float> value: native_output;
     property <float> minimum;
     property <float> maximum: 100;
     //-is_internal
@@ -425,10 +435,10 @@ export NativeGroupBox := _ {
     property <length> height;
     property <bool> enabled: true;
     property <string> title;
-    property <length> native_padding_left;
-    property <length> native_padding_right;
-    property <length> native_padding_top;
-    property <length> native_padding_bottom;
+    property <length> native_padding_left: native_output;
+    property <length> native_padding_right: native_output;
+    property <length> native_padding_top: native_output;
+    property <length> native_padding_bottom: native_output;
     //-is_internal
 }
 
@@ -437,11 +447,11 @@ export NativeLineEdit := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <length> native_padding_left;
-    property <length> native_padding_right;
-    property <length> native_padding_top;
-    property <length> native_padding_bottom;
-    property <bool> focused;
+    property <length> native_padding_left: native_output;
+    property <length> native_padding_right: native_output;
+    property <length> native_padding_top: native_output;
+    property <length> native_padding_bottom: native_output;
+    property <bool> focused: native_output;
     property <bool> enabled: true;
     //-is_internal
 }
@@ -456,11 +466,11 @@ export NativeScrollView := _ {
     property <length> horizontal_value;
     property <length> vertical_max;
     property <length> vertical_page_size;
-    property <length> vertical_value;
-    property <length> native_padding_left;
-    property <length> native_padding_right;
-    property <length> native_padding_top;
-    property <length> native_padding_bottom;
+    property <length> vertical_value: native_output;
+    property <length> native_padding_left: native_output;
+    property <length> native_padding_right: native_output;
+    property <length> native_padding_top: native_output;
+    property <length> native_padding_bottom: native_output;
     //-is_internal
 }
 
@@ -471,7 +481,7 @@ export NativeStandardListViewItem := _ {
     property <length> height;
     property <int> index;
     property <StandardListViewItem> item;
-    property <bool> is_selected;
+    property <bool> is_selected: native_output;
     //-is_internal
 }
 
@@ -481,7 +491,7 @@ export NativeComboBox := _ {
     property <length> width;
     property <length> height;
     property <string> current_value;
-    property <bool> is_open;
+    property <bool> is_open: native_output;
     property <bool> enabled: true;
     callback open_popup;
     //-is_internal

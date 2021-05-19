@@ -17,8 +17,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::expression_tree::Expression;
-use crate::langtype::DefaultSizeBinding;
-use crate::langtype::{BuiltinElement, NativeClass, Type};
+use crate::langtype::{BuiltinElement, DefaultSizeBinding, NativeClass, Type};
 use crate::object_tree::{self, *};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
@@ -82,15 +81,12 @@ pub fn load_builtins(register: &mut TypeRegister) {
         let mut n = NativeClass::new_with_properties(
             &id,
             e.PropertyDeclaration()
-                .flat_map(|p| {
-                    if p.TwoWayBinding().is_some() {
-                        None // aliases are handled further down
-                    } else {
-                        Some((
-                            identifier_text(&p.DeclaredIdentifier()).unwrap(),
-                            object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register),
-                        ))
-                    }
+                .filter(|p| p.TwoWayBinding().is_none()) // aliases are handled further down
+                .map(|p| {
+                    (
+                        identifier_text(&p.DeclaredIdentifier()).unwrap(),
+                        object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register),
+                    )
                 })
                 .chain(e.CallbackDeclaration().map(|s| {
                     (
@@ -141,13 +137,25 @@ pub fn load_builtins(register: &mut TypeRegister) {
         };
         let mut builtin = BuiltinElement::new(Rc::new(n));
         builtin.is_global = global;
-        let properties = &builtin.properties;
-        builtin.default_bindings.extend(e.PropertyDeclaration().filter_map(|p| {
-            let name = identifier_text(&p.DeclaredIdentifier())?;
-            let e = p.BindingExpression()?;
-            let ty = properties.get(&name).unwrap().clone();
-            Some((name, compiled(e, register, ty)))
-        }));
+        let properties = &mut builtin.properties;
+        for p in e.PropertyDeclaration() {
+            if let (Some(name), Some(e)) =
+                (identifier_text(&p.DeclaredIdentifier()), p.BindingExpression())
+            {
+                let info = properties.get_mut(&name).unwrap();
+                if e.Expression()
+                    .and_then(|e| e.QualifiedName())
+                    .and_then(|q| q.child_text(SyntaxKind::Identifier))
+                    .map(|s| s == "native_output")
+                    == Some(true)
+                {
+                    info.is_native_output = true;
+                } else {
+                    let ty = info.ty.clone();
+                    info.default_value = Some(compiled(e, register, ty));
+                }
+            }
+        }
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();
@@ -186,7 +194,8 @@ pub fn load_builtins(register: &mut TypeRegister) {
                 register.insert_type(Type::Component(glob));
             }
         } else {
-            assert!(builtin.default_bindings.is_empty()); // because they are not taken from if we inherit from it
+            // because they are not taken from if we inherit from it
+            assert!(builtin.properties.iter().all(|(_, i)| i.default_value.is_none()));
             assert!(builtin.additional_accepted_child_types.is_empty());
             natives.insert(id, Rc::new(builtin));
         }

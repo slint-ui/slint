@@ -314,6 +314,8 @@ pub struct Element {
     pub base_type: crate::langtype::Type,
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: HashMap<String, BindingExpression>,
+    pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
+
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
     pub enclosing_component: Weak<Component>,
@@ -420,6 +422,13 @@ pub fn pretty_print(
     indentation -= 1;
     indent!();
     writeln!(f, "}}")
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct PropertyAnalysis {
+    // true if somewhere in the code, there is an expression that changes this property with an assignement
+    pub is_set: bool,
+    //pub is_read: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -569,8 +578,10 @@ impl Element {
         );
 
         if let Type::Builtin(builtin_base) = &r.base_type {
-            for (prop, expr) in &builtin_base.default_bindings {
-                r.bindings.entry(prop.clone()).or_insert_with(|| expr.clone().into());
+            for (prop, info) in &builtin_base.properties {
+                if let Some(expr) = &info.default_value {
+                    r.bindings.entry(prop.clone()).or_insert_with(|| expr.clone().into());
+                }
             }
         }
 
