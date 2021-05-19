@@ -47,6 +47,7 @@ mod passes {
     pub mod apply_default_properties_from_style;
     pub mod binding_analysis;
     pub mod check_expressions;
+    pub mod check_public_api;
     pub mod clip;
     pub mod collect_custom_fonts;
     pub mod collect_globals;
@@ -166,6 +167,7 @@ pub async fn run_passes(
 ) {
     let global_type_registry = type_loader.global_type_registry.clone();
     passes::resolving::resolve_expressions(doc, &type_loader, diag);
+    passes::check_public_api::check_public_api(&doc.root_component, diag);
     passes::inlining::inline(doc);
     passes::check_expressions::check_expressions(doc, diag);
     passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
