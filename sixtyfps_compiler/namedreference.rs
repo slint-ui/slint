@@ -56,6 +56,52 @@ impl NamedReference {
     pub fn ty(&self) -> Type {
         self.element().borrow().lookup_property(self.name()).property_type
     }
+
+    /// return true if the property has a constant value for the lifetime of the program
+    pub fn is_constant(&self) -> bool {
+        let mut elem = self.element();
+        let e = elem.borrow();
+        if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set) {
+            // if the property is set somewhere, it is not constant
+            return false;
+        }
+        if let Some(decl) = e.property_declarations.get(self.name()) {
+            if decl.expose_in_public_api {
+                // could be set by the public API
+                return false;
+            }
+        }
+        drop(e);
+
+        let mut check_binding = true;
+        loop {
+            let e = elem.borrow();
+            if check_binding {
+                if let Some(b) = e.bindings.get(self.name()) {
+                    if !b.is_constant() {
+                        return false;
+                    }
+                    check_binding = false;
+                }
+            }
+            if e.property_declarations.contains_key(self.name()) {
+                return true;
+            }
+            match &e.base_type {
+                Type::Native(_) => return false, // after resolving we don't know anymore if the property can be changed natively
+                Type::Component(c) => {
+                    let next = c.root_element.clone();
+                    drop(e);
+                    elem = next;
+                    continue;
+                }
+                Type::Builtin(b) => {
+                    return b.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output)
+                }
+                _ => return true,
+            }
+        }
+    }
 }
 
 impl Eq for NamedReference {}
