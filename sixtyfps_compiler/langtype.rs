@@ -240,13 +240,15 @@ impl Type {
                         Cow::Borrowed(name)
                     };
                 let property_type =
-                    b.properties.get(resolved_name.as_ref()).cloned().unwrap_or_else(|| {
-                        if b.is_non_item_type {
-                            Type::Invalid
-                        } else {
-                            crate::typeregister::reserved_property(resolved_name.as_ref())
-                        }
-                    });
+                    b.properties.get(resolved_name.as_ref()).map(|p| p.ty.clone()).unwrap_or_else(
+                        || {
+                            if b.is_non_item_type {
+                                Type::Invalid
+                            } else {
+                                crate::typeregister::reserved_property(resolved_name.as_ref())
+                            }
+                        },
+                    );
                 PropertyLookupResult { resolved_name, property_type }
             }
             Type::Native(n) => {
@@ -279,7 +281,9 @@ impl Type {
                 );
                 r
             }
-            Type::Builtin(b) => b.properties.iter().map(|(k, t)| (k.clone(), t.clone())).collect(),
+            Type::Builtin(b) => {
+                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
+            }
             Type::Native(n) => n.properties.iter().map(|(k, t)| (k.clone(), t.clone())).collect(),
             _ => Vec::new(),
         }
@@ -494,6 +498,26 @@ impl Default for Type {
     }
 }
 
+/// Information about properties in NativeClass
+#[derive(Debug, Clone)]
+pub struct BuiltinPropertyInfo {
+    /// The property type
+    pub ty: Type,
+    /// When set, this is the initial value that we will have to set if no other binding were specified
+    pub default_value: Option<Expression>,
+    /// Most properties are just set from the .60 code and never modified by the native code.
+    /// But some properties, such as `TouchArea::pressed` are being set by the native code, these
+    /// are output properties which are meant to be read by the .60.
+    /// `is_native_output` is true if the native item can modify the property.
+    pub is_native_output: bool,
+}
+
+impl BuiltinPropertyInfo {
+    pub fn new(ty: Type) -> Self {
+        Self { ty, default_value: None, is_native_output: false }
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
@@ -527,10 +551,6 @@ impl NativeClass {
 
     pub fn property_count(&self) -> usize {
         self.properties.len() + self.parent.clone().map(|p| p.property_count()).unwrap_or_default()
-    }
-
-    pub fn local_property_iter(&self) -> impl Iterator<Item = (&String, &Type)> {
-        self.properties.iter()
     }
 
     pub fn visit_class_hierarchy(self: Rc<Self>, mut visitor: impl FnMut(&Rc<Self>)) {
@@ -618,8 +638,7 @@ impl Default for DefaultSizeBinding {
 pub struct BuiltinElement {
     pub name: String,
     pub native_class: Rc<NativeClass>,
-    pub properties: HashMap<String, Type>,
-    pub default_bindings: HashMap<String, Expression>,
+    pub properties: HashMap<String, BuiltinPropertyInfo>,
     pub additional_accepted_child_types: HashMap<String, Type>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
@@ -636,8 +655,8 @@ impl BuiltinElement {
     pub fn new(native_class: Rc<NativeClass>) -> Self {
         let mut properties = HashMap::new();
         native_class.clone().visit_class_hierarchy(|class| {
-            for (prop_name, prop_type) in class.local_property_iter() {
-                properties.insert(prop_name.clone(), prop_type.clone());
+            for (prop_name, prop_type) in &class.properties {
+                properties.insert(prop_name.clone(), BuiltinPropertyInfo::new(prop_type.clone()));
             }
         });
         Self {

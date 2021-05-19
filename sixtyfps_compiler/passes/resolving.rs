@@ -643,7 +643,7 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (lhs_n, rhs_n) = node.Expression();
-        let lhs = Self::from_expression_node(lhs_n, ctx);
+        let mut lhs = Self::from_expression_node(lhs_n, ctx);
         let op = None
             .or(node.child_token(SyntaxKind::PlusEqual).and(Some('+')))
             .or(node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
@@ -651,7 +651,7 @@ impl Expression {
             .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
             .or(node.child_token(SyntaxKind::Equal).and(Some('=')))
             .unwrap_or('_');
-        if !lhs.is_rw() && lhs.ty() != Type::Invalid {
+        if !lhs.try_set_rw() && lhs.ty() != Type::Invalid {
             ctx.diag.push_error(
                 format!(
                     "{} need to be done on a property",

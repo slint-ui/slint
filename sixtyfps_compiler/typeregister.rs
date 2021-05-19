@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::expression_tree::{BuiltinFunction, Expression};
-use crate::langtype::{Enumeration, Type};
+use crate::langtype::{BuiltinPropertyInfo, Enumeration, Type};
 use crate::object_tree::Component;
 
 pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] = &[
@@ -172,10 +172,10 @@ impl TypeRegister {
 
         match &mut register.types.get_mut("PopupWindow").unwrap() {
             Type::Builtin(ref mut b) => {
-                Rc::get_mut(b)
-                    .unwrap()
-                    .properties
-                    .insert("show".into(), BuiltinFunction::ShowPopupWindow.ty());
+                Rc::get_mut(b).unwrap().properties.insert(
+                    "show".into(),
+                    BuiltinPropertyInfo::new(BuiltinFunction::ShowPopupWindow.ty()),
+                );
                 Rc::get_mut(b).unwrap().member_functions.insert(
                     "show".into(),
                     Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow),

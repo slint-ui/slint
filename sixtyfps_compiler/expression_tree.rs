@@ -976,11 +976,22 @@ impl Expression {
         }
     }
 
+    /// Try to mark this expression to a lvalue that can be assigned to.
+    ///
     /// Return true if the expression is a "lvalue" that can be used as the left hand side of a `=` or `+=` or similar
-    pub fn is_rw(&self) -> bool {
+    pub fn try_set_rw(&mut self) -> bool {
         match self {
-            Expression::PropertyReference(_) => true,
-            Expression::StructFieldAccess { base, .. } => base.is_rw(),
+            Expression::PropertyReference(nr) => {
+                nr.element()
+                    .borrow()
+                    .property_analysis
+                    .borrow_mut()
+                    .entry(nr.name().to_owned())
+                    .or_default()
+                    .is_set = true;
+                true
+            }
+            Expression::StructFieldAccess { base, .. } => base.try_set_rw(),
             Expression::RepeaterModelReference { .. } => true,
             _ => false,
         }
@@ -1038,6 +1049,9 @@ impl Spanned for BindingExpression {
 pub struct BindingAnalysis {
     /// true if that binding is part of a binding loop that already has been reported.
     pub is_in_binding_loop: bool,
+
+    /// true if the binding is a constant value that can be set without creating a binding at runtime
+    pub is_const: bool,
 }
 
 pub type PathEvents = Vec<lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>;

@@ -167,6 +167,7 @@ fn duplicate_element_with_mapping(
             .collect(),
         // We will do the fixup of the references in bindings later
         bindings: elem.bindings.iter().map(increment_priority).collect(),
+        property_analysis: elem.property_analysis.clone(),
         children: elem
             .children
             .iter()
