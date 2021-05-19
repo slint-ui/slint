@@ -34,6 +34,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
 
     let mut new_root_bindings = HashMap::new();
     let mut new_root_property_animations = HashMap::new();
+    let mut new_root_property_analysis = HashMap::new();
 
     let move_bindings_and_animations = &mut |elem: &ElementRc| {
         visit_all_named_references_in_element(elem, fixup_reference);
@@ -75,6 +76,18 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
             }
         }
         elem.borrow_mut().property_animations = new_property_animations;
+
+        let property_analysis = elem.borrow().property_analysis.take();
+        let mut new_property_analysis = HashMap::with_capacity(property_analysis.len());
+        for (prop, a) in property_analysis {
+            let will_be_moved = elem.borrow().property_declarations.contains_key(&prop);
+            if will_be_moved {
+                new_root_property_analysis.insert(map_name(elem, prop.as_str()), a);
+            } else {
+                new_property_analysis.insert(prop, a);
+            }
+        }
+        *elem.borrow().property_analysis.borrow_mut() = new_property_analysis;
     };
 
     recurse_elem(&component.root_element, &(), &mut |e, _| move_bindings_and_animations(e));
@@ -104,6 +117,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
         r.property_declarations = decl.property_declarations;
         r.bindings.extend(new_root_bindings.into_iter());
         r.property_animations.extend(new_root_property_animations.into_iter());
+        r.property_analysis.borrow_mut().extend(new_root_property_analysis.into_iter());
     }
 
     // By now, the optimized item should be unused
