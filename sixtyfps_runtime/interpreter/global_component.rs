@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 use crate::api::{Struct, Value};
 use crate::eval;
-use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
+use sixtyfps_compilerlib::{generator, langtype::Type, object_tree::Component};
 use sixtyfps_corelib::{rtti, Callback, Property};
 
 pub trait GlobalComponent {
@@ -85,8 +85,8 @@ impl GlobalComponentInstance {
             }
         }
         let rc = Rc::pin(instance);
-        for (k, expr) in &component.root_element.borrow().bindings {
-            if expr.expression.is_constant() {
+        generator::handle_property_bindings_init(component, |_, k, expr| {
+            if expr.analysis.borrow().as_ref().map_or(false, |a| a.is_const) {
                 rc.properties[k].as_ref().set(eval::eval_expression(
                     &expr.expression,
                     &mut eval::EvalLocalContext::from_global(&(rc.clone() as _)),
@@ -103,7 +103,7 @@ impl GlobalComponentInstance {
                     )
                 });
             }
-        }
+        });
         rc
     }
 }
