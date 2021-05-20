@@ -7,6 +7,18 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+global Glob := {
+    property <physical_length> len: 45px * 5;
+//                                 ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
+    property <length> logic_len: 45phx * 5;
+//                              ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
+    property <float> ratio: allowed / 1phx;
+//                         ^error{Cannot convert between logical and physical length in a global component, because the scale factor is not known}
+    property <float> should_work: 45px / 8px;
+    property <length> allowed: 45px * 5;
+}
+
 X := Rectangle {
 
     t := Text {

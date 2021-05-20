@@ -287,7 +287,7 @@ pub enum Expression {
     PropertyReference(NamedReference),
 
     /// Reference to a function built into the run-time, implemented natively
-    BuiltinFunctionReference(BuiltinFunction),
+    BuiltinFunctionReference(BuiltinFunction, Option<SourceLocation>),
 
     /// A MemberFunction expression exists only for a short time, for example for `item.focus()` to be translated to
     /// a regular FunctionCall expression where the base becomes the first argument.
@@ -446,7 +446,7 @@ impl Expression {
             Expression::TwoWayBinding(nr, _) => nr.ty(),
             Expression::CallbackReference(nr) => nr.ty(),
             Expression::PropertyReference(nr) => nr.ty(),
-            Expression::BuiltinFunctionReference(funcref) => funcref.ty(),
+            Expression::BuiltinFunctionReference(funcref, _) => funcref.ty(),
             Expression::MemberFunction { member, .. } => member.ty(),
             Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type
             Expression::ElementReference(_) => Type::ElementReference,
@@ -757,7 +757,7 @@ impl Expression {
             Expression::BoolLiteral(_) => true,
             Expression::CallbackReference { .. } => false,
             Expression::PropertyReference(nr) => nr.is_constant(),
-            Expression::BuiltinFunctionReference(func) => func.is_pure(),
+            Expression::BuiltinFunctionReference(func, _) => func.is_pure(),
             Expression::MemberFunction { .. } => false,
             Expression::ElementReference(_) => false,
             Expression::RepeaterIndexReference { .. } => false,
@@ -899,6 +899,7 @@ impl Expression {
                                     rhs: Box::new(Expression::FunctionCall {
                                         function: Box::new(Expression::BuiltinFunctionReference(
                                             BuiltinFunction::GetWindowScaleFactor,
+                                            Some(node.to_source_location()),
                                         )),
                                         arguments: vec![],
                                         source_location: Some(node.to_source_location()),
@@ -1145,7 +1146,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::BoolLiteral(b) => write!(f, "{:?}", b),
         Expression::CallbackReference(a) => write!(f, "{:?}", a),
         Expression::PropertyReference(a) => write!(f, "{:?}", a),
-        Expression::BuiltinFunctionReference(a) => write!(f, "{:?}", a),
+        Expression::BuiltinFunctionReference(a, _) => write!(f, "{:?}", a),
         Expression::MemberFunction { base, base_node: _, member } => {
             pretty_print(f, base)?;
             write!(f, ".")?;

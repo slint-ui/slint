@@ -1077,7 +1077,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let access = access_named_reference(nr, component, quote!(_self));
             quote!(#access.get())
         }
-        Expression::BuiltinFunctionReference(funcref) => match funcref {
+        Expression::BuiltinFunctionReference(funcref, _) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
                 quote!(_self.window.scale_factor)
             }
@@ -1179,7 +1179,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         ),
         Expression::FunctionCall { function, arguments,  source_location: _ } => {
             match &**function {
-                Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
+                Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, _) => {
                     if arguments.len() != 1 {
                         panic!("internal error: incorrect argument count to SetFocusItem call");
                     }
@@ -1194,7 +1194,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         panic!("internal error: argument to SetFocusItem must be an element")
                     }
                 }
-                Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow) => {
+                Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow, _) => {
                     if arguments.len() != 1 {
                         panic!("internal error: incorrect argument count to ShowPopupWindow call");
                     }
@@ -1217,7 +1217,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         panic!("internal error: argument to SetFocusItem must be an element")
                     }
                 }
-                Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo) => {
+                Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo, _) => {
                     if arguments.len() != 1 {
                         panic!("internal error: incorrect argument count to ImplicitLayoutInfo call");
                     }
@@ -1232,7 +1232,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         panic!("internal error: argument to ImplicitLayoutInfo must be an element")
                     }
                 }
-                Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath) => {
+                Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, _) => {
                     if arguments.len() != 1 {
                         panic!("internal error: incorrect argument count to RegisterCustomFontByPath call");
                     }
@@ -1242,7 +1242,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         panic!("internal error: argument to RegisterCustomFontByPath must be a string literal")
                     }
                 }
-                Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory) => {
+                Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory, _) => {
                     if arguments.len() != 1 {
                         panic!("internal error: incorrect argument count to RegisterCustomFontByMemory call");
                     }

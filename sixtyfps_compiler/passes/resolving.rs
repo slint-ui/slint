@@ -990,7 +990,10 @@ fn rgb_macro(
         arguments.push(Expression::NumberLiteral(1., Unit::None))
     }
     Expression::FunctionCall {
-        function: Box::new(Expression::BuiltinFunctionReference(BuiltinFunction::Rgb)),
+        function: Box::new(Expression::BuiltinFunctionReference(
+            BuiltinFunction::Rgb,
+            node.as_ref().map(|t| t.to_source_location()),
+        )),
         arguments,
         source_location: Some(node.to_source_location()),
     }

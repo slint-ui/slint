@@ -81,7 +81,7 @@ pub fn reserved_property(name: &str) -> Type {
 /// These member functions are injected in every time
 pub fn reserved_member_function(name: &str) -> Expression {
     for (m, e) in [
-        ("focus", Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem)), // match for callable "focus" property
+        ("focus", Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, None)), // match for callable "focus" property
     ]
     .iter()
     {
@@ -178,7 +178,7 @@ impl TypeRegister {
                 );
                 Rc::get_mut(b).unwrap().member_functions.insert(
                     "show".into(),
-                    Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow),
+                    Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow, None),
                 );
             }
             _ => unreachable!(),

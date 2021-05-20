@@ -30,9 +30,9 @@ pub fn collect_custom_fonts<'a>(
     }
 
     let registration_function = if embed_fonts {
-        Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory)
+        Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory, None)
     } else {
-        Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath)
+        Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, None)
     };
 
     let prepare_font_registration_argument: Box<dyn Fn(&String) -> Expression> = if embed_fonts {

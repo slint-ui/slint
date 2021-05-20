@@ -12,7 +12,7 @@ LICENSE END */
 
 use std::rc::Rc;
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, BuiltinMacroFunction, EasingCurve, Expression, Unit,
 };
@@ -448,22 +448,23 @@ impl LookupObject for BuiltinFunctionLookup {
     ) -> Option<R> {
         use Expression::{BuiltinFunctionReference, BuiltinMacroReference};
         let t = &ctx.current_token;
-        None.or_else(|| f("debug", BuiltinFunctionReference(BuiltinFunction::Debug)))
-            .or_else(|| f("mod", BuiltinFunctionReference(BuiltinFunction::Mod)))
-            .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round)))
-            .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil)))
-            .or_else(|| f("floor", BuiltinFunctionReference(BuiltinFunction::Floor)))
-            .or_else(|| f("sqrt", BuiltinFunctionReference(BuiltinFunction::Sqrt)))
+        let sl = || t.as_ref().map(|t| t.to_source_location());
+        None.or_else(|| f("debug", BuiltinFunctionReference(BuiltinFunction::Debug, sl())))
+            .or_else(|| f("mod", BuiltinFunctionReference(BuiltinFunction::Mod, sl())))
+            .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
+            .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))
+            .or_else(|| f("floor", BuiltinFunctionReference(BuiltinFunction::Floor, sl())))
+            .or_else(|| f("sqrt", BuiltinFunctionReference(BuiltinFunction::Sqrt, sl())))
             .or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("max", BuiltinMacroReference(BuiltinMacroFunction::Max, t.clone())))
             .or_else(|| f("min", BuiltinMacroReference(BuiltinMacroFunction::Min, t.clone())))
-            .or_else(|| f("sin", BuiltinFunctionReference(BuiltinFunction::Sin)))
-            .or_else(|| f("cos", BuiltinFunctionReference(BuiltinFunction::Cos)))
-            .or_else(|| f("tan", BuiltinFunctionReference(BuiltinFunction::Tan)))
-            .or_else(|| f("asin", BuiltinFunctionReference(BuiltinFunction::ASin)))
-            .or_else(|| f("acos", BuiltinFunctionReference(BuiltinFunction::ACos)))
-            .or_else(|| f("atan", BuiltinFunctionReference(BuiltinFunction::ATan)))
+            .or_else(|| f("sin", BuiltinFunctionReference(BuiltinFunction::Sin, sl())))
+            .or_else(|| f("cos", BuiltinFunctionReference(BuiltinFunction::Cos, sl())))
+            .or_else(|| f("tan", BuiltinFunctionReference(BuiltinFunction::Tan, sl())))
+            .or_else(|| f("asin", BuiltinFunctionReference(BuiltinFunction::ASin, sl())))
+            .or_else(|| f("acos", BuiltinFunctionReference(BuiltinFunction::ACos, sl())))
+            .or_else(|| f("atan", BuiltinFunctionReference(BuiltinFunction::ATan, sl())))
     }
 }
 
@@ -554,7 +555,10 @@ impl<'a> LookupObject for StringExpression<'a> {
         let member_function = |f: BuiltinFunction| Expression::MemberFunction {
             base: Box::new(self.0.clone()),
             base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-            member: Box::new(Expression::BuiltinFunctionReference(f)),
+            member: Box::new(Expression::BuiltinFunctionReference(
+                f,
+                ctx.current_token.as_ref().map(|t| t.to_source_location()),
+            )),
         };
         None.or_else(|| f("is_float", member_function(BuiltinFunction::StringIsFloat)))
             .or_else(|| f("to_float", member_function(BuiltinFunction::StringToFloat)))
@@ -570,7 +574,10 @@ impl<'a> LookupObject for ColorExpression<'a> {
         let member_function = |f: BuiltinFunction| Expression::MemberFunction {
             base: Box::new(self.0.clone()),
             base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-            member: Box::new(Expression::BuiltinFunctionReference(f)),
+            member: Box::new(Expression::BuiltinFunctionReference(
+                f,
+                ctx.current_token.as_ref().map(|t| t.to_source_location()),
+            )),
         };
         None.or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))

@@ -108,6 +108,7 @@ fn layout_constraint_prop(elem: &ElementRc, field: &str) -> Expression {
         None => Expression::FunctionCall {
             function: Box::new(Expression::BuiltinFunctionReference(
                 BuiltinFunction::ImplicitLayoutInfo,
+                None,
             )),
             arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
             source_location: None,

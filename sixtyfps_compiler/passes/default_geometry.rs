@@ -136,6 +136,7 @@ fn gen_layout_info_prop(elem: &ElementRc) {
     let mut expr = Expression::FunctionCall {
         function: Box::new(Expression::BuiltinFunctionReference(
             BuiltinFunction::ImplicitLayoutInfo,
+            None,
         )),
         arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
         source_location: None,
@@ -204,6 +205,7 @@ fn make_default_implicit(elem: &ElementRc, property: &str) {
             base: Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(
                     BuiltinFunction::ImplicitLayoutInfo,
+                    None,
                 )),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
@@ -245,6 +247,7 @@ fn make_default_aspect_ratio_preserving_binding(
             value: Box::new(Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(
                     BuiltinFunction::ImplicitLayoutInfo,
+                    None,
                 )),
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,

@@ -67,7 +67,7 @@ fn find_focusable_element(
 /// any `forward-focus` chains if needed.
 fn resolve_element_reference_in_set_focus_call(expr: &mut Expression, diag: &mut BuildDiagnostics) {
     if let Expression::FunctionCall { function, arguments, source_location } = expr {
-        if let Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) =
+        if let Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, _) =
             function.as_ref()
         {
             if arguments.len() != 1 {
@@ -104,7 +104,10 @@ pub fn resolve_element_reference_in_set_focus_calls(
 pub fn determine_initial_focus_item(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     if let Some(root_focus_item) = find_focusable_element(component.root_element.clone(), diag) {
         let setup_code = Expression::FunctionCall {
-            function: Box::new(Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem)),
+            function: Box::new(Expression::BuiltinFunctionReference(
+                BuiltinFunction::SetFocusItem,
+                None,
+            )),
             arguments: vec![Expression::ElementReference(Rc::downgrade(&root_focus_item))],
             source_location: None,
         };

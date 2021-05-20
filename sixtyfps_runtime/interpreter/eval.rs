@@ -227,62 +227,62 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     }
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor, _) => {
                 match local_context.component_instance {
                     ComponentInstance::InstanceRef(component) => Value::Number(window_ref(component).unwrap().scale_factor() as _),
                     ComponentInstance::GlobalComponent(_) => panic!("Cannot get the window from a global component"),
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Debug) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Debug, _) => {
                 let a = arguments.iter().map(|e| eval_expression(e, local_context));
                 eprintln!("{:?}", a.collect::<Vec<_>>());
                 Value::Void
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Mod) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Mod, _) => {
                 let mut toint = |e| -> i32 { eval_expression(e, local_context).try_into().unwrap() };
                 Value::Number((toint(&arguments[0]) % toint(&arguments[1])) as _)
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Round) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Round, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.round())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Ceil) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Ceil, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.ceil())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Floor) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Floor, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.floor())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Sqrt) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Sqrt, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.sqrt())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Sin) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Sin, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.to_radians().sin())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Cos) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Cos, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.to_radians().cos())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Tan) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Tan, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.to_radians().tan())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ASin) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ASin, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.asin().to_degrees())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ACos) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ACos, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.acos().to_degrees())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ATan) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ATan, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.atan().to_degrees())
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, _) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to SetFocusItem")
                 }
@@ -308,7 +308,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow, _) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to ShowPopupWindow")
                 }
@@ -330,7 +330,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::StringIsFloat) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::StringIsFloat, _) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to StringIsFloat")
                 }
@@ -340,7 +340,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("Argument not a string");
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::StringToFloat) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::StringToFloat, _) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to StringToFloat")
                 }
@@ -350,7 +350,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("Argument not a string");
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ColorBrighter) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ColorBrighter, _) => {
                 if arguments.len() != 2 {
                     panic!("internal error: incorrect argument count to ColorBrighter")
                 }
@@ -364,7 +364,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("First argument not a color");
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ColorDarker) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ColorDarker, _) => {
                 if arguments.len() != 2 {
                     panic!("internal error: incorrect argument count to ColorDarker")
                 }
@@ -378,7 +378,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("First argument not a color");
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Rgb) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Rgb, _) => {
                 let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 let g: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
                 let b: i32 = eval_expression(&arguments[2], local_context).try_into().unwrap();
@@ -389,7 +389,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 let a: u8 = (255. * a).max(0.).min(255.) as u8;
                 Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo, _) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to ImplicitItemSize")
                 }
@@ -413,7 +413,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("internal error: argument to ImplicitItemWidth must be an element")
                 }
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, _) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to RegisterCustomFontByPath")
                 }
