@@ -27,7 +27,10 @@ use std::rc::{Rc, Weak};
 use crate::key_generated;
 
 cpp! {{
-    #include <QtWidgets/QWidget>
+    #include <QtWidgets/QtWidgets>
+    #include <QtWidgets/QGraphicsScene>
+    #include <QtWidgets/QGraphicsBlurEffect>
+    #include <QtWidgets/QGraphicsPixmapItem>
     #include <QtGui/QPainter>
     #include <QtGui/QPaintEngine>
     #include <QtGui/QPainterPath>
@@ -311,6 +314,12 @@ enum QtRenderingCacheItem {
     Invalid,
 }
 
+impl Default for QtRenderingCacheItem {
+    fn default() -> Self {
+        Self::Invalid
+    }
+}
+
 type QtRenderingCache = Rc<RefCell<RenderingCache<QtRenderingCacheItem>>>;
 
 struct QtItemRenderer<'a> {
@@ -330,7 +339,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn draw_border_rectangle(&mut self, rect: std::pin::Pin<&items::BorderRectangle>) {
-        self.draw_rectangle_impl(
+        Self::draw_rectangle_impl(
+            self.painter,
             get_geometry!(items::BorderRectangle, rect),
             rect.background(),
             rect.border_color(),
@@ -532,19 +542,89 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>) {
-        // This could be improved to use a guassian blur.
+        let cached_shadow_pixmap = box_shadow
+            .cached_rendering_data
+            .ensure_up_to_date(&mut self.cache.borrow_mut(), || {
+                let shadow_rect = get_geometry!(items::BoxShadow, box_shadow);
 
-        let mut shadow_rect = get_geometry!(items::BoxShadow, box_shadow);
-        shadow_rect.x += box_shadow.offset_x() as f64;
-        shadow_rect.y += box_shadow.offset_y() as f64;
+                let source_size = qttypes::QSize {
+                    width: shadow_rect.width.ceil() as _,
+                    height: shadow_rect.height.ceil() as _,
+                };
 
-        self.draw_rectangle_impl(
-            shadow_rect,
-            Brush::SolidColor(box_shadow.color()),
-            Brush::default(),
-            0.,
-            box_shadow.border_radius(),
-        );
+                let mut source_image =
+                    qttypes::QImage::new(source_size, qttypes::ImageFormat::ARGB32_Premultiplied);
+                source_image.fill(qttypes::QColor::from_rgba_f(0., 0., 0., 0.));
+
+                let img = &mut source_image;
+                let mut painter_ =
+                    cpp!(unsafe [img as "QImage*"] -> QPainter as "QPainter" { return QPainter(img); });
+
+                Self::draw_rectangle_impl(
+                    &mut painter_,
+                    qttypes::QRectF { x: 0., y: 0., width: shadow_rect.width, height: shadow_rect.height },
+                    Brush::SolidColor(box_shadow.color()),
+                    Brush::default(),
+                    0.,
+                    box_shadow.border_radius(),
+                );
+
+                drop(painter_);
+
+                let blur_radius = box_shadow.blur();
+
+                let shadow_pixmap = if blur_radius > 0. {
+                    cpp! {
+                    unsafe[img as "QImage*", blur_radius as "float"] -> qttypes::QPixmap as "QPixmap" {
+                        QGraphicsScene scene;
+
+                        auto pixmap_item = scene.addPixmap(QPixmap::fromImage(*img));
+
+                        auto blur_effect = new QGraphicsBlurEffect;
+                        blur_effect->setBlurRadius(blur_radius);
+                        blur_effect->setBlurHints(QGraphicsBlurEffect::QualityHint);
+
+                        // takes ownership of the effect
+                        pixmap_item->setGraphicsEffect(blur_effect);
+
+                        QRectF scene_rect(-blur_radius, -blur_radius, img->width() + 2. * blur_radius, img->height() + 2. * blur_radius);
+                        QImage blurred_scene(scene_rect.size().toSize(), QImage::Format_ARGB32_Premultiplied);
+                        blurred_scene.fill(Qt::transparent);
+
+                        QPainter p(&blurred_scene);
+                        scene.render(&p, QRectF(), scene_rect);
+                        p.end();
+
+                        return QPixmap::fromImage(blurred_scene);
+                    }}
+                } else {
+                    cpp! { unsafe[img as "QImage*"] -> qttypes::QPixmap as "QPixmap" {
+                        return QPixmap::fromImage(*img);
+                    }}
+                };
+                QtRenderingCacheItem::Pixmap(shadow_pixmap)
+            });
+
+        let pixmap: &qttypes::QPixmap = match &cached_shadow_pixmap {
+            QtRenderingCacheItem::Pixmap(pixmap) => pixmap,
+            _ => return,
+        };
+
+        let blur_radius = box_shadow.blur();
+
+        let shadow_offset = qttypes::QPointF {
+            x: (box_shadow.offset_x() - blur_radius) as f64,
+            y: (box_shadow.offset_y() - blur_radius) as f64,
+        };
+
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [
+                painter as "QPainter*",
+                shadow_offset as "QPointF",
+                pixmap as "QPixmap*"
+            ] {
+            painter->drawPixmap(shadow_offset, *pixmap);
+        }}
     }
 
     fn combine_clip(&mut self, rect: Rect, radius: f32, mut border_width: f32) {
@@ -801,7 +881,7 @@ impl QtItemRenderer<'_> {
     }
 
     fn draw_rectangle_impl(
-        &mut self,
+        painter: &mut QPainter,
         mut rect: qttypes::QRectF,
         brush: Brush,
         border_color: Brush,
@@ -811,7 +891,6 @@ impl QtItemRenderer<'_> {
         let brush: QBrush = brush.into();
         let border_color: QBrush = border_color.into();
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
-        let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {
             painter->setPen(border_width > 0 ? QPen(border_color, border_width) : Qt::NoPen);
             painter->setBrush(brush);
