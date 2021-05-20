@@ -903,6 +903,7 @@ pub fn instantiate<'id>(
             let elem = elem.borrow();
             let item_within_component = &component_type.items[&elem.id];
             let item = item_within_component.item_from_component(instance_ref.as_ptr());
+            let is_const = binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
 
             let property_type = elem.lookup_property(prop_name).property_type;
             if let Type::Callback { .. } = property_type {
@@ -949,9 +950,7 @@ pub fn instantiate<'id>(
                         e = next.as_deref();
                     }
                     if let Some(e) = e {
-                        if binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const)
-                            || e.is_constant()
-                        {
+                        if is_const || e.is_constant() {
                             prop_rtti.set(
                                 item,
                                 eval::eval_expression(
@@ -1034,7 +1033,7 @@ pub fn instantiate<'id>(
                         e = next.as_deref();
                     }
                     if let Some(e) = e {
-                        if e.is_constant() {
+                        if is_const || e.is_constant() {
                             let v = eval::eval_expression(
                                 e,
                                 &mut eval::EvalLocalContext::from_component_instance(instance_ref),
