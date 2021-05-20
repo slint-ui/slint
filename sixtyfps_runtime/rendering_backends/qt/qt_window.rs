@@ -165,7 +165,7 @@ cpp! {{
                     height: layout_info.preferred_height as _,
                 }
             });
-            if (preferred_size.isValid()) {
+            if (!preferred_size.isEmpty()) {
                 return preferred_size;
             } else {
                 return QWidget::sizeHint();
