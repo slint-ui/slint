@@ -16,7 +16,7 @@ You should use the `sixtyfps` crate instead.
 
 */
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
-#![recursion_limit = "512"]
+#![recursion_limit = "1024"]
 
 use sixtyfps_corelib::window::ComponentWindow;
 
