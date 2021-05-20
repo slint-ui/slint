@@ -436,7 +436,7 @@ impl GLRenderer {
             // text metrics. Since we do the entire translation from logical pixels to physical
             // pixels on our end, we don't need femtovg to scale a second time.
             canvas.set_size(size.width, size.height, 1.0);
-            canvas.clear_rect(0, 0, size.width, size.height, clear_color.into());
+            canvas.clear_rect(0, 0, size.width, size.height, to_femtovg_color(clear_color));
         }
 
         GLItemRenderer {
@@ -843,7 +843,9 @@ impl ItemRenderer for GLItemRenderer {
                 let mut canvas = self.shared_data.canvas.borrow_mut();
                 canvas.fill_path(
                     &mut rect_to_path(selection_rect),
-                    femtovg::Paint::color(text_input.selection_background_color().into()),
+                    femtovg::Paint::color(to_femtovg_color(
+                        &text_input.selection_background_color(),
+                    )),
                 );
 
                 canvas.save();
@@ -860,7 +862,7 @@ impl ItemRenderer for GLItemRenderer {
                 height,
                 sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
                 &font,
-                femtovg::Paint::color(text_input.selection_foreground_color().into()),
+                femtovg::Paint::color(to_femtovg_color(&text_input.selection_foreground_color())),
                 text_input.horizontal_alignment(),
                 text_input.vertical_alignment(),
                 letter_spacing,
@@ -1091,7 +1093,7 @@ impl ItemRenderer for GLItemRenderer {
                         );
                         canvas.fill_path(
                             &mut shadow_image_rect,
-                            femtovg::Paint::color(box_shadow.color().into()),
+                            femtovg::Paint::color(to_femtovg_color(&box_shadow.color())),
                         );
 
                         canvas.restore();
@@ -1517,7 +1519,7 @@ impl GLItemRenderer {
             return None;
         }
         Some(match brush {
-            Brush::SolidColor(color) => femtovg::Paint::color(color.into()),
+            Brush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
             Brush::LinearGradient(gradient) => {
                 // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
                 // we operate in item local coordinates with the `path` parameter as well as the resulting
@@ -1544,7 +1546,7 @@ impl GLItemRenderer {
 
                 let stops = gradient
                     .stops()
-                    .map(|stop| (stop.position, stop.color.into()))
+                    .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
                     .collect::<Vec<_>>();
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, &stops)
             }
@@ -1700,6 +1702,10 @@ impl FontMetrics for GLFontMetrics {
         }
         return text.len();
     }
+}
+
+fn to_femtovg_color(col: &Color) -> femtovg::Color {
+    femtovg::Color::rgba(col.red(), col.green(), col.blue(), col.alpha())
 }
 
 #[cfg(target_arch = "wasm32")]
