@@ -25,7 +25,8 @@ rgb = "0.8"
 imgref = "1.6.1"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 by_address = "1.0.4"
-femtovg = { version = "0.2.0", git = "https://github.com/tronical/femtovg", branch = "simon/filter" }
+# Pull in femtovg from the `simon/filter` branch until https://github.com/femtovg/femtovg/pull/40 is merged
+femtovg = { version = "0.2.0", git = "https://github.com/tronical/femtovg", rev = "a7cf9851596f9344e6ca9adeaacedbab96df1672" }
 euclid = "0.22.1"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
