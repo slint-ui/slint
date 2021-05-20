@@ -16,3 +16,4 @@ path = "main.rs"
 sixtyfps-compilerlib = { version = "=0.0.6", path = "../../sixtyfps_compiler", features = ["display-diagnostics", "cpp", "rust"]}
 structopt = "0.3.14"
 spin_on = "0.1"
+proc-macro2 = "1.0.11"

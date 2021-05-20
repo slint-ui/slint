@@ -41,6 +41,7 @@ struct Cli {
 }
 
 fn main() -> std::io::Result<()> {
+    proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     let args = Cli::from_args();
     let mut diag = BuildDiagnostics::default();
     let syntax_node = parser::parse_file(&args.path, &mut diag);
