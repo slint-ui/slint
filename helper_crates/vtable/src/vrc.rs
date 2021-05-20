@@ -52,7 +52,7 @@ impl From<core::alloc::Layout> for Layout {
 }
 
 impl core::convert::TryFrom<Layout> for core::alloc::Layout {
-    type Error = core::alloc::LayoutErr;
+    type Error = core::alloc::LayoutError;
 
     fn try_from(value: Layout) -> Result<Self, Self::Error> {
         Self::from_size_align(value.size, value.align)
