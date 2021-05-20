@@ -306,8 +306,8 @@ export MainWindow := Window {
 
             drop-shadow-offset-x: 1px;
             drop-shadow-offset-y: 1px;
-            drop-shadow-blur: 6;
-            drop-shadow-color: #00000080;
+            drop-shadow-blur: 3;
+            drop-shadow-color: #00000040;
             border-radius: current-theme.piece-radius;
             clip: true;
 
