@@ -20,5 +20,8 @@ add_subdirectory(examples/todo/cpp/)
 add_subdirectory(examples/gallery/)
 add_subdirectory(examples/memory/)
 add_subdirectory(examples/qt_viewer/)
-add_subdirectory(examples/iot-dashboard/)
-
+# iot-dashboard uses fmtlib via FetchContent and 3.16 has a bug
+# configuring it (issue #232)
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.17.0)
+    add_subdirectory(examples/iot-dashboard/)
+endif()
