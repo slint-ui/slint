@@ -31,6 +31,13 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
             PROPERTY CORROSION_ENVIRONMENT_VARIABLES
             QMAKE=$<TARGET_PROPERTY:Qt5::qmake,LOCATION>
         )
+    else()
+        set_property(
+            TARGET sixtyfps-cpp
+            APPEND
+            PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+            SIXTYFPS_NO_QT=1
+        )
     endif()
 endif()
 
