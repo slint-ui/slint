@@ -7,6 +7,12 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+global Plop :=  {
+    property <int> x: max;
+//                    ^error{Builtin function must be called}
+}
+
 SuperSimple := Rectangle {
     property <int> a: max + max() + max(45, "hello");
 //                    ^error{Builtin function must be called}

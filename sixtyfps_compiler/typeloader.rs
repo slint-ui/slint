@@ -320,6 +320,7 @@ impl<'a> TypeLoader<'a> {
             &dependency_registry,
         );
         crate::passes::resolving::resolve_expressions(&doc, &self, diagnostics);
+        crate::passes::check_expressions::check_expressions(&doc, diagnostics);
         self.all_documents.docs.insert(path.to_owned(), doc);
     }
 

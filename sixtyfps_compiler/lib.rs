@@ -167,9 +167,9 @@ pub async fn run_passes(
 ) {
     let global_type_registry = type_loader.global_type_registry.clone();
     passes::resolving::resolve_expressions(doc, &type_loader, diag);
+    passes::check_expressions::check_expressions(doc, diag);
     passes::check_public_api::check_public_api(&doc.root_component, diag);
     passes::inlining::inline(doc);
-    passes::check_expressions::check_expressions(doc, diag);
     passes::compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
     passes::unique_id::assign_unique_id(&doc.root_component);
     passes::focus_item::resolve_element_reference_in_set_focus_calls(&doc.root_component, diag);
