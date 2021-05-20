@@ -19,7 +19,18 @@ fn main() {
     if std::env::var("DEP_QT_FOUND").unwrap() != "1" {
         println!("cargo:rustc-cfg=no_qt");
         println!(
-            "cargo:warning=Could not find a Qt installation. The Qt backend will not be functional. See https://github.com/sixtyfpsui/sixtyfps/blob/master/docs/install_qt.md for more info"
+            "cargo:warning=Could not find a Qt installation. The Qt backend will not be functional. \
+            See https://github.com/sixtyfpsui/sixtyfps/blob/master/docs/install_qt.md for more info"
+        );
+        return;
+    }
+    let qt_version = std::env::var("DEP_QT_VERSION").unwrap();
+    if !qt_version.starts_with("5.15") && !qt_version.starts_with("6.") {
+        println!("cargo:rustc-cfg=no_qt");
+        println!(
+            "cargo:warning=Qt {} is not supported, you need at least Qt 5.15. The Qt backend will not be functional. \
+             See https://github.com/sixtyfpsui/sixtyfps/blob/master/docs/install_qt.md for more info",
+            qt_version
         );
         return;
     }
