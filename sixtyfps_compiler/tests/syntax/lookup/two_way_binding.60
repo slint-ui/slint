@@ -32,4 +32,11 @@ X := Rectangle {
 
     property <int> dd <=> dd;
 //                    ^error{Property cannot alias to itself}
+
+    Rectangle {
+        x <=> self.loop_on_x;
+//      ^error{The binding for the property 'x' is part of a binding loop.}
+        property <length> loop_on_x <=> x;
+//                                  ^error{The binding for the property 'loop_on_x' is part of a binding loop.}
+    }
 }
