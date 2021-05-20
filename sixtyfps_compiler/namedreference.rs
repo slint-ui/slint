@@ -79,7 +79,7 @@ impl NamedReference {
 
             if check_binding {
                 if let Some(b) = e.bindings.get(self.name()) {
-                    if !b.is_constant() {
+                    if !b.analysis.borrow().as_ref().map_or(false, |a| a.is_const) {
                         return false;
                     }
                     check_binding = false;
