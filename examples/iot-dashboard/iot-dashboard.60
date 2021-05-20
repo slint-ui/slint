@@ -118,6 +118,11 @@ PieChartPainted := Rectangle {
         height: 100%;
         stroke-width: parent.width / 6;
         stroke: #aaaaaa40;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 100;
+        viewbox-height: 100;
+
         MoveTo {
             x: 50;
             y: 0;
@@ -139,22 +144,17 @@ PieChartPainted := Rectangle {
             sweep: true;
             large_arc: true;
         }
-
-        // FIXME: would be nice if there was another way to define the bounding box of the path
-        MoveTo {
-            x: 0;
-            y: 0;
-        }
-        MoveTo {
-            x: 100;
-            y: 100;
-        }
     }
 
     p := Path {
         width: 100%;
         height: 100%;
         stroke-width: parent.width / 6;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 100;
+        viewbox-height: 100;
+
         MoveTo {
             x: 50;
             y: 0;
@@ -166,17 +166,7 @@ PieChartPainted := Rectangle {
             x: 50 - 50*sin(-progress * 360deg);
             sweep: true;
             large-arc: progress > 0.5;
-        }
-
-        // FIXME: would be nice if there was another way to define the bounding box of the path
-        MoveTo {
-            x: 0;
-            y: 0;
-        }
-        MoveTo {
-            x: 100;
-            y: 100;
-        }
+        }        
     }
 }
 

@@ -814,7 +814,8 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
     use lyon_path::iterator::PathIterator;
 
     // Clone of path elements is cheap because it's a clone of underlying SharedVector
-    let path_iter = data.elements.clone().iter_fitted(data.width, data.height);
+    let mut path_iter = data.elements.clone().iter();
+    path_iter.fit(data.width, data.height, None);
 
     let tolerance: f32 = 0.1; // lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE
 
