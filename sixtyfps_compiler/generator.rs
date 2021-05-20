@@ -134,7 +134,7 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
     }
 }
 
-/// Will wall the `handle_property` callback for every property that needs to be initialized.
+/// Will call the `handle_property` callback for every property that needs to be initialized.
 /// This function makes sure to call them in order so that if constant binding need to access
 /// constant properties, these are already initialized
 pub fn handle_property_bindings_init(
