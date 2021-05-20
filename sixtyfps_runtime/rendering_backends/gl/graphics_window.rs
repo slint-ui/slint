@@ -23,6 +23,7 @@ use corelib::window::{ComponentWindow, PlatformWindow};
 use corelib::Property;
 use corelib::SharedString;
 use sixtyfps_corelib as corelib;
+use winit::dpi::LogicalSize;
 
 /// FIXME! this is some remains from a time where the GLRenderer was called the backend
 type Backend = super::GLRenderer;
@@ -426,7 +427,7 @@ impl PlatformWindow for GraphicsWindow {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
                 let title = window_item.title();
-                let mut size = {
+                let mut size: LogicalSize<f64> = {
                     let backend = window.backend.borrow();
                     let winit_window = backend.window();
                     winit_window.set_title(&title);
@@ -435,6 +436,9 @@ impl PlatformWindow for GraphicsWindow {
                 let mut must_resize = false;
                 let mut w = window_item.width();
                 let mut h = window_item.height();
+                if (size.width as f32 - w).abs() < 1. || (size.height as f32 - h).abs() < 1. {
+                    return;
+                }
                 if w <= 0. || h <= 0. {
                     let info = self
                         .self_weak
@@ -452,7 +456,7 @@ impl PlatformWindow for GraphicsWindow {
                         h = info.preferred_height.max(info.min_height);
                     }
                 };
-                let mut apply = |r: &mut u32, v| {
+                let mut apply = |r: &mut f64, v| {
                     if v > 0. {
                         *r = v as _
                     } else {
