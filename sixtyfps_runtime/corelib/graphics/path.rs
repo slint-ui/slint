@@ -273,11 +273,15 @@ impl PathDataIterator {
         }
     }
 
-    fn fit(&mut self, width: f32, height: f32) {
+    /// Applies a transformation on the elements this iterator provides that tries to fit everything
+    /// into the specified width/height, respecting the provided viewbox. If no viewbox is specified,
+    /// the bounding rectangle of the path is used.
+    pub fn fit(&mut self, width: f32, height: f32, viewbox: Option<Rect>) {
         if width > 0. || height > 0. {
-            let br = lyon_algorithms::aabb::bounding_rect(self.iter());
+            let viewbox =
+                viewbox.unwrap_or_else(|| lyon_algorithms::aabb::bounding_rect(self.iter()));
             self.transform = lyon_algorithms::fit::fit_rectangle(
-                &br,
+                &viewbox,
                 &Rect::from_size(Size::new(width, height)),
                 lyon_algorithms::fit::FitStyle::Min,
             );
@@ -320,13 +324,6 @@ impl PathData {
             },
             transform: Default::default(),
         }
-    }
-
-    /// This function returns an iterator that allows traversing the path by means of lyon events.
-    pub fn iter_fitted(self, width: f32, height: f32) -> PathDataIterator {
-        let mut it = self.iter();
-        it.fit(width, height);
-        it
     }
 
     fn build_path(element_it: std::slice::Iter<PathElement>) -> lyon_path::Path {

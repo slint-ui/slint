@@ -772,6 +772,10 @@ pub struct Path {
     pub fill_rule: Property<FillRule>,
     pub stroke: Property<Brush>,
     pub stroke_width: Property<f32>,
+    pub viewbox_x: Property<f32>,
+    pub viewbox_y: Property<f32>,
+    pub viewbox_width: Property<f32>,
+    pub viewbox_height: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -826,8 +830,20 @@ impl Path {
         let bounds_width = (self.width() - stroke_width).max(0.);
         let bounds_height = (self.height() - stroke_width).max(0.);
         let offset = euclid::default::Vector2D::new(stroke_width / 2., stroke_width / 2.);
-        let event_iterator = self.elements().iter_fitted(bounds_width, bounds_height);
-        (offset, event_iterator)
+
+        let viewbox_width = self.viewbox_width();
+        let viewbox_height = self.viewbox_height();
+
+        let mut elements_iter = self.elements().iter();
+
+        let maybe_viewbox = if viewbox_width > 0. && viewbox_height > 0. {
+            Some(euclid::rect(self.viewbox_x(), self.viewbox_y(), viewbox_width, viewbox_height))
+        } else {
+            None
+        };
+
+        elements_iter.fit(bounds_width, bounds_height, maybe_viewbox);
+        (offset, elements_iter)
     }
 }
 

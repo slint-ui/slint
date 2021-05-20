@@ -319,6 +319,10 @@ export Path := _ {
     property <color> stroke_color <=> stroke;
     property <length> stroke_width;
     property <string> commands;
+    property <float> viewbox_x;
+    property <float> viewbox_y;
+    property <float> viewbox_width;
+    property <float> viewbox_height;
 
     //-disallow_global_types_as_child_elements
     MoveTo {}

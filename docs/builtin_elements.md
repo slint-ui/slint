@@ -227,6 +227,10 @@ accordingly.
 * **`stroke-width`** (*length*): The width of the outline.
 * **`width`** (*length*): If non-zero, the path will be scaled to fit into the specified width.
 * **`height`** (*length*): If non-zero, the path will be scaled to fit into the specified height.
+* **`viewbox-x`**/**`viewbox-y`**/**`viewbox-width`**/**`viewbox-height`** (*float*) These four properties allow
+  defining the position and size of the viewport of the path in path coordinates. In the rendered output, the
+  If the `viewport-width` or `viewport-height` is less or equal than zero, the viewbox properties are ignored
+  and instead the bounding rectangle of all path elements are used to define the view port.
 
 #### Path Using SVG commands
 
