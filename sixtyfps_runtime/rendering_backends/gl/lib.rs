@@ -427,7 +427,14 @@ impl GLRenderer {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let ctx = &mut *self.shared_data.windowed_context.borrow_mut();
-            *ctx = ctx.take().unwrap().make_current().into();
+            let current = ctx.take().unwrap().make_current();
+            match &current {
+                WindowedContextWrapper::Current(ctx) => {
+                    ctx.resize(size);
+                }
+                _ => unreachable!(),
+            }
+            *ctx = Some(current);
         }
 
         {
