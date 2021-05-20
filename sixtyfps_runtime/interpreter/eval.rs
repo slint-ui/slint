@@ -149,7 +149,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::CallbackReference { .. } => panic!("callback in expression"),
-        Expression::BuiltinFunctionReference(_) => panic!(
+        Expression::BuiltinFunctionReference(..) => panic!(
             "naked builtin function reference not allowed, should be handled by function call"
         ),
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),

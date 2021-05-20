@@ -295,7 +295,7 @@ fn completion_item_from_expression(str: &str, expr: Expression) -> CompletionIte
         Expression::BoolLiteral(_) => Some(CompletionItemKind::Constant),
         Expression::CallbackReference(_) => Some(CompletionItemKind::Method),
         Expression::PropertyReference(_) => Some(CompletionItemKind::Property),
-        Expression::BuiltinFunctionReference(_) => Some(CompletionItemKind::Function),
+        Expression::BuiltinFunctionReference(..) => Some(CompletionItemKind::Function),
         Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::Function),
         Expression::ElementReference(_) => Some(CompletionItemKind::Class),
         Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::Variable),
