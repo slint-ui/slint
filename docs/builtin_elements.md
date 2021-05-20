@@ -25,8 +25,8 @@ an element, it is possible to set the following `drop-shadow` properties:
   of the shadow from the element's frame. A negative value places the shadow left / above of the element.
 * **`drop-shadow-color`** (*color*): The base color of the shadow to use. Typically that color is the starting color
   of a gradient that fades into transparency.
-* **`drop-shadow-blur`** (*float*): The level of blur applied to the shadow. Negative values are ignored and zero means
-  no blur (default).
+* **`drop-shadow-blur`** (*length*): The radius of the shadow that also describes the level of blur applied to the shadow.
+  Negative values are ignored and zero means no blur (default).
 
 The `drop-shadow` effect is supported for `Rectangle` and `Clip` elements.
 

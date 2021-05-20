@@ -1011,7 +1011,7 @@ impl ItemRenderer for GLItemRenderer {
             .shared_data
             .load_item_graphics_cache_with_function(&box_shadow.cached_rendering_data, || {
                 ItemGraphicsCacheEntry::Image({
-                    let blur = box_shadow.blur();
+                    let blur = box_shadow.blur() * self.scale_factor;
                     let offset_x = box_shadow.offset_x() * self.scale_factor;
                     let offset_y = box_shadow.offset_y() * self.scale_factor;
                     let width = box_shadow.width() * self.scale_factor;
@@ -1019,10 +1019,10 @@ impl ItemRenderer for GLItemRenderer {
                     let radius = box_shadow.border_radius() * self.scale_factor;
 
                     let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
-                        offset_x - blur / 2.,
-                        offset_y - blur / 2.,
-                        width + blur,
-                        height + blur,
+                        offset_x - blur,
+                        offset_y - blur,
+                        width + 2. * blur,
+                        height + 2. * blur,
                     );
 
                     let shadow_image_width = shadow_rect.max_x().ceil() as usize;

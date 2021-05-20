@@ -31,7 +31,7 @@ TestCase := Window {
             drop-shadow-offset-x: 10px;
             drop-shadow-offset-y: 10px;
             drop-shadow-color: #00000080;
-            drop-shadow-blur: 5;
+            drop-shadow-blur: 5px;
         }
 
         for r[i] in [
@@ -42,7 +42,7 @@ TestCase := Window {
             drop-shadow-offset-x: 10px;
             drop-shadow-offset-y: 10px;
             drop-shadow-color: #00000080;
-            drop-shadow-blur: 5;
+            drop-shadow-blur: 5px;
         }
 
         Rectangle {
@@ -62,7 +62,7 @@ TestCase := Window {
                 drop-shadow-offset-x: 10px;
                 drop-shadow-offset-y: 10px;
                 drop-shadow-color: #249a04;
-                drop-shadow-blur: 3;
+                drop-shadow-blur: 3px;
             }
         }
     }
@@ -80,7 +80,7 @@ TestCase := Window {
         drop-shadow-offset-x: 5px;
         drop-shadow-offset-y: 5px;
         drop-shadow-color: #00000080;
-        drop-shadow-blur: 5;
+        drop-shadow-blur: 5px;
     }
 }
 

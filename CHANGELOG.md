@@ -108,7 +108,6 @@ All notable changes to this project will be documented in this file.
  - In Rust, the generated component implements `Clone` and acts like an `Rc`. `sixtyfps::Weak` can be used to hold weak references.
  - `ARGBColor` was renamed `RgbaColor`
  - `width and `height` of some builtin elements now default to 100% of the parent element.
- - `drop-shadow-blur` was changed to describe the blur level, not the size of the blur area.
 
 ### Added
  - Allow dashes in identifiers (#52)

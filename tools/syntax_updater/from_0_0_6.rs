@@ -39,19 +39,6 @@ pub(crate) fn fold_node(
                     }
                 }
             }
-            prop @ "drop_shadow_blur" | prop @ "drop-shadow-blur" => {
-                let expr = binding.BindingExpression();
-                write!(
-                    file,
-                    "{}: ({}) / 1px; /* CHANGED BY SYNTAX UPDATER: drop-shadow-blur is now an abstract blur level, this is just an approximation. */",
-                    prop,
-                    expr.CodeBlock()
-                        .map(|block| block.to_string())
-                        .or_else(|| expr.Expression().map(|expr| expr.to_string()))
-                        .unwrap_or_default()
-                )?;
-                return Ok(true);
-            }
             _ => {}
         }
     };

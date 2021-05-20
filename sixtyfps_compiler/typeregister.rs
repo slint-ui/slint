@@ -52,7 +52,7 @@ const RESERVED_OTHER_PROPERTIES: &'static [(&'static str, Type)] = &[
 pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &'static [(&'static str, Type)] = &[
     ("drop_shadow_offset_x", Type::LogicalLength),
     ("drop_shadow_offset_y", Type::LogicalLength),
-    ("drop_shadow_blur", Type::Float32),
+    ("drop_shadow_blur", Type::LogicalLength),
     ("drop_shadow_color", Type::Color),
 ];
 
