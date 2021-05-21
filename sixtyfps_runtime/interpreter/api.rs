@@ -563,6 +563,7 @@ impl ComponentDefinition {
     /// Instantiate the component for wasm using the given canvas id
     #[cfg(target_arch = "wasm32")]
     pub fn create_with_canvas_id(&self, canvas_id: &str) -> ComponentInstance {
+        generativity::make_guard!(guard);
         ComponentInstance { inner: self.inner.unerase(guard).clone().create(canvas_id.into()) }
     }
 
