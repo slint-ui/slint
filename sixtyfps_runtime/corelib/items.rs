@@ -776,6 +776,7 @@ pub struct Path {
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,
     pub viewbox_height: Property<f32>,
+    pub clip: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -783,7 +784,7 @@ impl Item for Path {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), 0., 0.)
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
@@ -815,7 +816,15 @@ impl Item for Path {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
-        (*backend).draw_path(self)
+        let clip = self.clip();
+        if clip {
+            (*backend).save_state();
+            (*backend).combine_clip(self.geometry(), 0., 0.)
+        }
+        (*backend).draw_path(self);
+        if clip {
+            (*backend).restore_state();
+        }
     }
 }
 

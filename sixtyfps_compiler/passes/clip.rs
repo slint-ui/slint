@@ -31,13 +31,22 @@ pub fn handle_clip(
         &mut |elem_rc: &ElementRc, _| {
             let mut elem = elem_rc.borrow_mut();
             if let Some(clip_prop) = elem.bindings.remove("clip") {
-                if !elem.builtin_type().map_or(false, |bt| bt.name == "Rectangle") {
-                    diag.push_error(
-                        "The 'clip' property can only be applied to a Rectangle for now".into(),
-                        &clip_prop.span,
-                    );
-                    return;
-                };
+                match elem.builtin_type().as_ref().map(|ty| ty.name.as_str()) {
+                    Some("Rectangle") => {}
+                    Some("Path") => {
+                        // it's an actual property, so keep the binding
+                        elem.bindings.insert("clip".into(), clip_prop);
+                        return;
+                    }
+                    _ => {
+                        diag.push_error(
+                            "The 'clip' property can only be applied to a Rectangle or a Path for now"
+                                .into(),
+                            &clip_prop.span,
+                        );
+                        return;
+                    }
+                }
                 // Was added by the meterialier_fake_properties pass
                 elem.property_declarations.remove("clip");
                 match &clip_prop.expression {

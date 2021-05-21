@@ -124,7 +124,7 @@ All notable changes to this project will be documented in this file.
  - Signals can have return a value
  - `has_hover` property in `TouchArea`
  - `font-weight` property on Text
- - `viewbox-x/y/width/height` properties for `Path`
+ - `viewbox-x/y/width/height` and `clip` properties for `Path`
 
 
 ## [0.0.2] - 2020-10-22

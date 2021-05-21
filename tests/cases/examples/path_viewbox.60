@@ -1,0 +1,98 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+RectPath := Path {
+    MoveTo {
+        x: 0;
+        y: 0;
+    }
+
+    LineTo {
+        x: 100;
+        y: 0;
+    }
+
+    LineTo {
+        x: 100;
+        y: 100;
+    }
+
+    LineTo {
+        x: 0;
+        y: 100;
+    }
+
+    Close {}
+}
+
+PathViewBox := Window {
+    preferred-width: 600px;
+    preferred-height: 600px;
+
+    // This is the reference path rectangle
+    RectPath {
+        x: 100px;
+        y: 100px;
+        width: 100px;
+        height: 100px;
+
+        stroke-width: 1px;
+        stroke: black;
+    }
+
+    // This path rectangle uses an unclipped viewbox and therefore
+    // draws outside the boundaries of the underlying green rectangle.
+    Rectangle {
+        background: #26e115da;
+        x: 300px;
+        y: 100px;
+        width: 100px;
+        height: 100px;
+
+        RectPath {
+            width: 100px;
+            height: 100px;
+
+            stroke-width: 1px;
+            stroke: black;
+
+            viewbox-x: 50;
+            viewbox-y: 0;
+            viewbox-width: 100;
+            viewbox-height: 100;
+        }
+    }
+
+    // This path rectangle uses an clipped viewbox and therefore
+    // draws only inside the boundaries of the underlying green rectangle.
+    Rectangle {
+        background: #26e115da;
+        x: 100px;
+        y: 300px;
+        width: 100px;
+        height: 100px;
+
+        RectPath {
+            width: 100px;
+            height: 100px;
+
+            stroke-width: 1px;
+            stroke: black;
+
+            clip: true;
+
+            viewbox-x: 50;
+            viewbox-y: 0;
+            viewbox-width: 100;
+            viewbox-height: 100;
+        }        
+    }
+}
+

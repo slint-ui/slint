@@ -231,6 +231,9 @@ accordingly.
   defining the position and size of the viewport of the path in path coordinates. In the rendered output, the
   If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are ignored
   and instead the bounding rectangle of all path elements are used to define the view port.
+* **`clip`** (*bool*): By default, when a path has a view box defined and the elements render outside of it, they are still
+    rendered. When this property is set to true, then rendering will be clipped at the boundaries of the view box.
+    This property must be a literal `true` or `false` (default: false)
 
 #### Path Using SVG commands
 
