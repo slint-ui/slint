@@ -33,12 +33,22 @@ mod key_generated;
 pub fn use_modules() -> usize {
     #[cfg(no_qt)]
     {
-        0
+        ffi::sixtyfps_qt_get_widget as usize
     }
     #[cfg(not(no_qt))]
     {
         qt_window::ffi::sixtyfps_qt_get_widget as usize
             + (&widgets::NativeButtonVTable) as *const _ as usize
+    }
+}
+
+#[cfg(no_qt)]
+mod ffi {
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_qt_get_widget(
+        _: &sixtyfps_corelib::window::ComponentWindow,
+    ) -> *mut std::ffi::c_void {
+        std::ptr::null_mut()
     }
 }
 

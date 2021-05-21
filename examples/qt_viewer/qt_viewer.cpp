@@ -60,6 +60,12 @@ int main(int argc, char **argv) {
         }
         auto instance = def->create();
         QWidget *wid = instance->qwidget();
+        if (!wid) {
+            QMessageBox::critical(&main, QApplication::translate("qt_viewer", "No Qt backend"),
+                QApplication::translate("qt_viewer", "SixtyFPS is not running with the Qt backend."),
+                QMessageBox::StandardButton::Ok);
+            return;
+        }
         wid->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
         layout.addWidget(wid);
         loaded_file = std::make_unique<LoadedFile>(LoadedFile{ instance, wid });
