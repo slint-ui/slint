@@ -17,7 +17,7 @@ SubElements := Rectangle {
     }
     Image {
         clip: false;
-//           ^error{The 'clip' property can only be applied to a Rectangle for now}
+//           ^error{The 'clip' property can only be applied to a Rectangle or a Path for now}
     }
     for a in 12 : Rectangle {
         clip: true || true;

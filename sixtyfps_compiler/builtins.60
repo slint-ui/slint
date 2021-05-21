@@ -323,6 +323,7 @@ export Path := _ {
     property <float> viewbox_y;
     property <float> viewbox_width;
     property <float> viewbox_height;
+    property <bool> clip;
 
     //-disallow_global_types_as_child_elements
     MoveTo {}
