@@ -118,8 +118,6 @@ PieChartPainted := Rectangle {
         height: 100%;
         stroke-width: parent.width / 6;
         stroke: #aaaaaa40;
-        viewbox-x: 0;
-        viewbox-y: 0;
         viewbox-width: 100;
         viewbox-height: 100;
 
@@ -150,8 +148,6 @@ PieChartPainted := Rectangle {
         width: 100%;
         height: 100%;
         stroke-width: parent.width / 6;
-        viewbox-x: 0;
-        viewbox-y: 0;
         viewbox-width: 100;
         viewbox-height: 100;
 
