@@ -124,7 +124,7 @@ Rendering backends and styles are configurable at compile time. Current there ar
 We have a few tools to help with the development of .60 files:
  - A [**LSP Server**](./tools/lsp) that adds things like auto-complete and live preview of the .60 files to many editors
  - It is bundled in a [**Visual Studio Code Extension**](./vscode_extension) accessible from the market place
- - A [**sixtyfps-viewer**](./tools/sixtyfps-viewer) tool which display the .60 files. With the `--auto-reload` argument, makes it easy to preview
+ - A [**sixtyfps-viewer**](./tools/viewer) tool which display the .60 files. With the `--auto-reload` argument, makes it easy to preview
    your UI as you are working it (when using the LSP preview is not possible)
  - An [**online editor**](https://sixtyfps.io/editor) to try out .60 syntax without installing anything ([sources](./tools/online_editor))
  - An [**updater**](./tools/syntax_updater) to convert the .60 files from previous version to the newer version
