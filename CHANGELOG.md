@@ -2,6 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+- Renames viewer to sixtyfps-viewer and publishes it on crates.io
 
 ### Changed
 
