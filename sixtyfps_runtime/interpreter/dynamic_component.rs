@@ -297,8 +297,11 @@ pub struct ComponentDescription<'id> {
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
     pub(crate) original: Rc<object_tree::Component>,
-    // Copy of original.root_element.property_declarations, without a guarded refcell
+    /// Copy of original.root_element.property_declarations, without a guarded refcell
     public_properties: HashMap<String, PropertyDeclaration>,
+
+    /// compiled globals
+    compiled_globals: Vec<crate::global_component::CompiledGlobal>,
 }
 
 impl<'id> ComponentDescription<'id> {
@@ -331,7 +334,7 @@ impl<'id> ComponentDescription<'id> {
         self: Rc<Self>,
         window: sixtyfps_corelib::window::ComponentWindow,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
-        let component_ref = instantiate(self, None, window);
+        let component_ref = instantiate(self, None, Some(window));
         component_ref
             .as_pin_ref()
             .window()
@@ -503,7 +506,7 @@ fn ensure_repeater_updated<'id>(
         let instance = instantiate(
             rep_in_comp.component_to_repeat.clone(),
             Some(instance_ref.borrow()),
-            window,
+            Some(window),
         );
         instance.run_setup_code();
         instance
@@ -594,7 +597,7 @@ pub async fn load<'id>(
     (Ok(generate_component(&doc.root_component, guard)), diag)
 }
 
-fn generate_component<'id>(
+pub(crate) fn generate_component<'id>(
     component: &Rc<object_tree::Component>,
     guard: generativity::Guard<'id>,
 ) -> Rc<ComponentDescription<'id>> {
@@ -653,7 +656,9 @@ fn generate_component<'id>(
 
     generator::build_array_helper(component, |rc_item, child_offset, parent_index| {
         let item = rc_item.borrow();
-        if let Some(repeated) = &item.repeated {
+        if item.base_type == Type::Void {
+            assert!(component.is_global());
+        } else if let Some(repeated) = &item.repeated {
             tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len(), parent_index });
             let base_component = item.base_type.as_component();
             repeater_names.insert(item.id.clone(), repeater.len());
@@ -808,6 +813,9 @@ fn generate_component<'id>(
 
     let public_properties = component.root_element.borrow().property_declarations.clone();
 
+    let compiled_globals =
+        component.used_global.borrow().iter().map(crate::global_component::generate).collect();
+
     let t = ComponentVTable {
         visit_children_item,
         layout_info,
@@ -830,6 +838,7 @@ fn generate_component<'id>(
         window_offset,
         extra_data_offset,
         public_properties,
+        compiled_globals,
     };
 
     Rc::new(t)
@@ -896,7 +905,7 @@ pub fn animation_for_property(
 pub fn instantiate<'id>(
     component_type: Rc<ComponentDescription<'id>>,
     parent_ctx: Option<ComponentRefPin>,
-    window: sixtyfps_corelib::window::ComponentWindow,
+    window: Option<sixtyfps_corelib::window::ComponentWindow>,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
 
@@ -906,30 +915,45 @@ pub fn instantiate<'id>(
     } else {
         let extra_data = component_type.extra_data_offset.apply_mut(instance.as_mut());
         extra_data.globals = component_type
-            .original
-            .used_global
-            .borrow()
+            .compiled_globals
             .iter()
-            .map(|g| (g.id.clone(), crate::global_component::instantiate(g)))
+            .map(|g| crate::global_component::instantiate(g))
             .collect();
     }
-    *component_type.window_offset.apply_mut(instance.as_mut()) = Some(window);
+    *component_type.window_offset.apply_mut(instance.as_mut()) = window;
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
     let instance_ref = component_box.borrow_instance();
 
-    sixtyfps_corelib::component::init_component_items(
-        instance_ref.instance,
-        instance_ref.component_type.item_tree.as_slice().into(),
-        &eval::window_ref(instance_ref).unwrap(),
-    );
+    if !component_type.original.is_global() {
+        sixtyfps_corelib::component::init_component_items(
+            instance_ref.instance,
+            instance_ref.component_type.item_tree.as_slice().into(),
+            &eval::window_ref(instance_ref).unwrap(),
+        );
+    }
+
+    // Some properties are generated as Value, but for which the default constructed Value must be initialized
+    for (prop_name, decl) in &component_type.original.root_element.borrow().property_declarations {
+        if !matches!(decl.property_type, Type::Struct { .. } | Type::Array(_)) {
+            continue;
+        }
+        if let Some(b) = component_type.original.root_element.borrow().bindings.get(prop_name) {
+            if !matches!(b.expression, Expression::TwoWayBinding(..)) {
+                continue;
+            }
+        }
+        let p = component_type.custom_properties.get(prop_name).unwrap();
+        unsafe {
+            let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(p.offset));
+            p.prop.set(item, eval::default_value_for_type(&decl.property_type), None).unwrap();
+        }
+    }
 
     generator::handle_property_bindings_init(
         &component_type.original,
         |elem, prop_name, binding| unsafe {
             let elem = elem.borrow();
-            let item_within_component = &component_type.items[&elem.id];
-            let item = item_within_component.item_from_component(instance_ref.as_ptr());
             let is_const = binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
 
             let property_type = elem.lookup_property(prop_name).property_type;
@@ -941,20 +965,7 @@ pub fn instantiate<'id>(
                     NonNull::from(&component_type.ct).cast(),
                     instance.cast(),
                 ));
-                if let Some(callback) = item_within_component.rtti.callbacks.get(prop_name) {
-                    callback.set_handler(
-                        item,
-                        Box::new(move |args| {
-                            generativity::make_guard!(guard);
-                            let mut local_context = eval::EvalLocalContext::from_function_arguments(
-                                InstanceRef::from_pin_ref(c, guard),
-                                args.iter().cloned().collect(),
-                            );
-                            eval::eval_expression(&expr, &mut local_context)
-                        }),
-                    )
-                } else if let Some(callback_offset) = component_type.custom_callbacks.get(prop_name)
-                {
+                if let Some(callback_offset) = component_type.custom_callbacks.get(prop_name) {
                     let callback = callback_offset.apply(instance_ref.as_ref());
                     callback.set_handler(move |args| {
                         generativity::make_guard!(guard);
@@ -965,9 +976,99 @@ pub fn instantiate<'id>(
                         eval::eval_expression(&expr, &mut local_context)
                     })
                 } else {
-                    panic!("unkown callback {}", prop_name)
+                    let item_within_component = &component_type.items[&elem.id];
+                    let item = item_within_component.item_from_component(instance_ref.as_ptr());
+                    if let Some(callback) = item_within_component.rtti.callbacks.get(prop_name) {
+                        callback.set_handler(
+                            item,
+                            Box::new(move |args| {
+                                generativity::make_guard!(guard);
+                                let mut local_context =
+                                    eval::EvalLocalContext::from_function_arguments(
+                                        InstanceRef::from_pin_ref(c, guard),
+                                        args.iter().cloned().collect(),
+                                    );
+                                eval::eval_expression(&expr, &mut local_context)
+                            }),
+                        )
+                    } else {
+                        panic!("unkown callback {}", prop_name)
+                    }
+                }
+            } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
+                component_type.custom_properties.get(prop_name)
+            {
+                let c = Pin::new_unchecked(vtable::VRef::from_raw(
+                    NonNull::from(&component_type.ct).cast(),
+                    component_box.instance.as_ptr().cast(),
+                ));
+
+                let is_state_info = match property_type {
+                    Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => true,
+                    _ => false,
+                };
+                if is_state_info {
+                    let prop = Pin::new_unchecked(
+                        &*(instance_ref.as_ptr().add(*offset)
+                            as *const Property<sixtyfps_corelib::properties::StateInfo>),
+                    );
+                    let e = binding.expression.clone();
+                    sixtyfps_corelib::properties::set_state_binding(prop, move || {
+                        generativity::make_guard!(guard);
+                        eval::eval_expression(
+                            &e,
+                            &mut eval::EvalLocalContext::from_component_instance(
+                                InstanceRef::from_pin_ref(c, guard),
+                            ),
+                        )
+                        .try_into()
+                        .unwrap()
+                    });
+                    return;
+                }
+
+                let maybe_animation = animation_for_property(
+                    instance_ref,
+                    &component_type.original.root_element.borrow(),
+                    prop_name,
+                );
+                let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
+
+                let mut e = Some(&binding.expression);
+                while let Some(Expression::TwoWayBinding(nr, next)) = &e {
+                    // Safety: The compiler must have ensured that the properties exist and are of the same type
+                    prop_info.link_two_ways(item, get_property_ptr(&nr, instance_ref));
+                    e = next.as_deref();
+                }
+                if let Some(e) = e {
+                    if is_const || e.is_constant() {
+                        let v = eval::eval_expression(
+                            e,
+                            &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+                        );
+                        prop_info.set(item, v, None).unwrap();
+                    } else {
+                        let e = e.clone();
+                        prop_info
+                            .set_binding(
+                                item,
+                                Box::new(move || {
+                                    generativity::make_guard!(guard);
+                                    eval::eval_expression(
+                                        &e,
+                                        &mut eval::EvalLocalContext::from_component_instance(
+                                            InstanceRef::from_pin_ref(c, guard),
+                                        ),
+                                    )
+                                }),
+                                maybe_animation,
+                            )
+                            .unwrap();
+                    }
                 }
             } else {
+                let item_within_component = &component_type.items[&elem.id];
+                let item = item_within_component.item_from_component(instance_ref.as_ptr());
                 if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name) {
                     let maybe_animation = animation_for_property(instance_ref, &elem, prop_name);
                     let mut e = Some(&binding.expression);
@@ -1010,79 +1111,6 @@ pub fn instantiate<'id>(
                                 }),
                                 maybe_animation,
                             );
-                        }
-                    }
-                } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
-                    component_type.custom_properties.get(prop_name)
-                {
-                    let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                        NonNull::from(&component_type.ct).cast(),
-                        component_box.instance.as_ptr().cast(),
-                    ));
-
-                    let is_state_info = match property_type {
-                        Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => {
-                            true
-                        }
-                        _ => false,
-                    };
-                    if is_state_info {
-                        let prop = Pin::new_unchecked(
-                            &*(instance_ref.as_ptr().add(*offset)
-                                as *const Property<sixtyfps_corelib::properties::StateInfo>),
-                        );
-                        let e = binding.expression.clone();
-                        sixtyfps_corelib::properties::set_state_binding(prop, move || {
-                            generativity::make_guard!(guard);
-                            eval::eval_expression(
-                                &e,
-                                &mut eval::EvalLocalContext::from_component_instance(
-                                    InstanceRef::from_pin_ref(c, guard),
-                                ),
-                            )
-                            .try_into()
-                            .unwrap()
-                        });
-                        return;
-                    }
-
-                    let maybe_animation = animation_for_property(
-                        instance_ref,
-                        &component_type.original.root_element.borrow(),
-                        prop_name,
-                    );
-                    let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
-
-                    let mut e = Some(&binding.expression);
-                    while let Some(Expression::TwoWayBinding(nr, next)) = &e {
-                        // Safety: The compiler must have ensured that the properties exist and are of the same type
-                        prop_info.link_two_ways(item, get_property_ptr(&nr, instance_ref));
-                        e = next.as_deref();
-                    }
-                    if let Some(e) = e {
-                        if is_const || e.is_constant() {
-                            let v = eval::eval_expression(
-                                e,
-                                &mut eval::EvalLocalContext::from_component_instance(instance_ref),
-                            );
-                            prop_info.set(item, v, None).unwrap();
-                        } else {
-                            let e = e.clone();
-                            prop_info
-                                .set_binding(
-                                    item,
-                                    Box::new(move || {
-                                        generativity::make_guard!(guard);
-                                        eval::eval_expression(
-                                            &e,
-                                            &mut eval::EvalLocalContext::from_component_instance(
-                                                InstanceRef::from_pin_ref(c, guard),
-                                            ),
-                                        )
-                                    }),
-                                    maybe_animation,
-                                )
-                                .unwrap();
                         }
                     }
                 } else {
@@ -1350,7 +1378,7 @@ pub fn show_popup(
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
     let window = sixtyfps_rendering_backend_default::backend().create_window();
-    let inst = instantiate(compiled, Some(parent_comp), window);
+    let inst = instantiate(compiled, Some(parent_comp), Some(window));
     inst.run_setup_code();
     parent_window
         .show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));

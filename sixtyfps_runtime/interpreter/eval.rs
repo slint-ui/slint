@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::api::Value;
+use crate::api::{Struct, Value};
 use crate::dynamic_component::InstanceRef;
 use core::convert::TryInto;
 use core::iter::FromIterator;
@@ -122,15 +122,6 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
             component_instance: ComponentInstance::InstanceRef(component),
             function_arguments,
             local_variables: Default::default(),
-            return_value: None,
-        }
-    }
-
-    pub fn from_global(global: &'a Pin<Rc<dyn crate::global_component::GlobalComponent>>) -> Self {
-        Self {
-            local_variables: Default::default(),
-            function_arguments: Default::default(),
-            component_instance: ComponentInstance::GlobalComponent(&global),
             return_value: None,
         }
     }
@@ -764,13 +755,13 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
     guard: generativity::Guard<'new_id>,
 ) -> InstanceRef<'a, 'new_id> {
     let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
-    assert!(!enclosing.is_global());
     if Rc::ptr_eq(enclosing, &component.component_type.original) {
         // Safety: new_id is an unique id
         unsafe {
             std::mem::transmute::<InstanceRef<'a, 'old_id>, InstanceRef<'a, 'new_id>>(component)
         }
     } else {
+        assert!(!enclosing.is_global());
         let parent_component = component
             .component_type
             .parent_component_offset
@@ -796,7 +787,7 @@ fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
     let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
     match component_instance {
         ComponentInstance::InstanceRef(component) => {
-            if enclosing.is_global() {
+            if enclosing.is_global() && !component.component_type.original.is_global() {
                 // we need a 'static guard in order to be able to borrow from `root` otherwise it does not work because of variance.
                 // Safety: This is the only 'static Id in scope.
                 let static_guard =
@@ -917,5 +908,41 @@ fn convert_path_element(
             "Cannot create unsupported path element {}",
             expr_element.element_type.native_class.class_name
         ),
+    }
+}
+
+/// Create a value suitable as the default value of a given type
+pub fn default_value_for_type(ty: &Type) -> Value {
+    match ty {
+        Type::Float32 | Type::Int32 => Value::Number(0.),
+        Type::String => Value::String(Default::default()),
+        Type::Color | Type::Brush => Value::Brush(Default::default()),
+        Type::Duration | Type::Angle | Type::PhysicalLength | Type::LogicalLength => {
+            Value::Number(0.)
+        }
+        Type::Image => Value::Image(Default::default()),
+        Type::Bool => Value::Bool(false),
+        Type::Callback { .. } => Value::Void,
+        Type::Struct { fields, .. } => Value::Struct(Struct::from_iter(
+            fields.iter().map(|(n, t)| (n.clone(), default_value_for_type(t))),
+        )),
+        Type::Array(_) => Value::Array(Default::default()),
+        Type::Percent => Value::Number(0.),
+        Type::Enumeration(e) => {
+            Value::EnumerationValue(e.name.clone(), e.values.get(e.default_value).unwrap().clone())
+        }
+        Type::Easing => Value::EasingCurve(Default::default()),
+        Type::Void | Type::Invalid => Value::Void,
+        Type::Model => Value::Void,
+        Type::UnitProduct(_) => Value::Number(0.),
+        Type::PathElements => Value::PathElements(Default::default()),
+        Type::LayoutCache => Value::LayoutCache(Default::default()),
+        Type::ElementReference
+        | Type::Builtin(_)
+        | Type::Component(_)
+        | Type::Native(_)
+        | Type::Function { .. } => {
+            panic!("There can't be such property")
+        }
     }
 }
