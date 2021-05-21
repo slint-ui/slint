@@ -175,14 +175,6 @@ cpp! {{
             }
         }
     };
-
-    class SixtyFPSPublicGraphicsBlurEffect : public QGraphicsBlurEffect {
-    public:
-        // Make public what's protected
-        void draw_public(QPainter *p) {
-            QGraphicsBlurEffect::draw(p);
-        }
-    };
 }}
 
 cpp_class! {pub unsafe struct QPainter as "QPainter"}
@@ -583,12 +575,18 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 let shadow_pixmap = if blur_radius > 0. {
                     cpp! {
                     unsafe[img as "QImage*", blur_radius as "float"] -> qttypes::QPixmap as "QPixmap" {
+                        class PublicGraphicsBlurEffect : public QGraphicsBlurEffect {
+                        public:
+                            // Make public what's protected
+                            using QGraphicsBlurEffect::draw;
+                        };                        
+
                         // Need a scene for the effect source private to draw()
                         QGraphicsScene scene;
 
                         auto pixmap_item = scene.addPixmap(QPixmap::fromImage(*img));
 
-                        auto blur_effect = new SixtyFPSPublicGraphicsBlurEffect;
+                        auto blur_effect = new PublicGraphicsBlurEffect;
                         blur_effect->setBlurRadius(blur_radius);
                         blur_effect->setBlurHints(QGraphicsBlurEffect::QualityHint);
 
@@ -601,7 +599,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
                         QPainter p(&blurred_scene);
                         p.translate(blur_radius, blur_radius);
-                        blur_effect->draw_public(&p);
+                        blur_effect->draw(&p);
                         p.end();
 
                         return QPixmap::fromImage(blurred_scene);
