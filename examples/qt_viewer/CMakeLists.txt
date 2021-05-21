@@ -14,7 +14,7 @@ if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
 endif()
 
-find_package(Qt5 COMPONENTS Core Widgets)
+find_package(Qt5 5.15 COMPONENTS Core Widgets)
 
 if (Qt5Widgets_FOUND)
     set(CMAKE_AUTOUIC ON)
