@@ -171,37 +171,36 @@ impl GraphicsWindow {
             };
         let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
 
-        let id = {
-            let backend = crate::eventloop::with_window_target(|event_loop| {
-                self.window_factory.as_ref()(event_loop, window_builder)
-            });
-
-            // Ideally we should be passing the initial requested size to the window builder, but those properties
-            // may be specified in logical pixels, relative to the scale factory, which we only know *after* mapping
-            // the window to the screen. So we first map the window then, propagate the scale factory and *then* the
-            // width/height properties should have the correct values calculated via their bindings that multiply with
-            // the scale factor.
-            // We could pass the logical requested size at window builder time, *if* we knew what the values are.
-            let window_id = {
-                let platform_window = backend.window();
-
-                if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
-                    platform_window
-                        .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
-                }
-
-                self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
-
-                platform_window.id()
-            };
-
-            self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-                backend: RefCell::new(backend),
-                constraints: Default::default(),
-            }));
-
-            window_id
+        let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+            window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+        } else {
+            let component_rc = self.component();
+            let component = ComponentRc::borrow_pin(&component_rc);
+            let layout_info = component.as_ref().layout_info();
+            let s = LogicalSize::new(
+                layout_info.preferred_width.max(layout_info.min_width),
+                layout_info.preferred_height.max(layout_info.min_height),
+            );
+            if s.width > 0. && s.height > 0. {
+                window_builder.with_inner_size(s)
+            } else {
+                window_builder
+            }
         };
+
+        let backend = crate::eventloop::with_window_target(|event_loop| {
+            self.window_factory.as_ref()(event_loop, window_builder)
+        });
+
+        let platform_window = backend.window();
+        self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
+        let id = platform_window.id();
+        drop(platform_window);
+
+        self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
+            backend: RefCell::new(backend),
+            constraints: Default::default(),
+        }));
 
         crate::eventloop::register_window(id, self.clone());
     }

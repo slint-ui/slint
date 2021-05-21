@@ -156,6 +156,18 @@ pub enum CustomEvent {
     Exit,
 }
 
+impl std::fmt::Debug for CustomEvent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            #[cfg(target_arch = "wasm32")]
+            Self::WakeUpAndPoll => write!(f, "WakeUpAndPoll"),
+            Self::UpdateWindowProperties(e) => write!(f, "UpdateWindowProperties({:?})", e),
+            Self::UserEvent(_) => write!(f, "UserEvent"),
+            Self::Exit => write!(f, "Exit"),
+        }
+    }
+}
+
 /// Runs the event loop and renders the items in the provided `component` in its
 /// own window.
 #[allow(unused_mut)] // mut need changes for wasm
