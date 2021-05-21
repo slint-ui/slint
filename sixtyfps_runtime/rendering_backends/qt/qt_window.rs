@@ -176,6 +176,13 @@ cpp! {{
         }
     };
 
+    class SixtyFPSPublicGraphicsBlurEffect : public QGraphicsBlurEffect {
+    public:
+        // Make public what's protected
+        void draw_public(QPainter *p) {
+            QGraphicsBlurEffect::draw(p);
+        }
+    };
 }}
 
 cpp_class! {pub unsafe struct QPainter as "QPainter"}
@@ -576,23 +583,25 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 let shadow_pixmap = if blur_radius > 0. {
                     cpp! {
                     unsafe[img as "QImage*", blur_radius as "float"] -> qttypes::QPixmap as "QPixmap" {
+                        // Need a scene for the effect source private to draw()
                         QGraphicsScene scene;
 
                         auto pixmap_item = scene.addPixmap(QPixmap::fromImage(*img));
 
-                        auto blur_effect = new QGraphicsBlurEffect;
+                        auto blur_effect = new SixtyFPSPublicGraphicsBlurEffect;
                         blur_effect->setBlurRadius(blur_radius);
                         blur_effect->setBlurHints(QGraphicsBlurEffect::QualityHint);
 
-                        // takes ownership of the effect
+                        // takes ownership of the effect and registers the item with
+                        // the effect as source.
                         pixmap_item->setGraphicsEffect(blur_effect);
 
-                        QRectF scene_rect(-blur_radius, -blur_radius, img->width() + 2. * blur_radius, img->height() + 2. * blur_radius);
-                        QImage blurred_scene(scene_rect.size().toSize(), QImage::Format_ARGB32_Premultiplied);
+                        QImage blurred_scene(img->width() + 2 * blur_radius, img->height() + 2 * blur_radius, QImage::Format_ARGB32_Premultiplied);
                         blurred_scene.fill(Qt::transparent);
 
                         QPainter p(&blurred_scene);
-                        scene.render(&p, QRectF(), scene_rect);
+                        p.translate(blur_radius, blur_radius);
+                        blur_effect->draw_public(&p);
                         p.end();
 
                         return QPixmap::fromImage(blurred_scene);
