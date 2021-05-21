@@ -1163,21 +1163,34 @@ pub fn instantiate<'id>(
 pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
     let element = nr.element();
     generativity::make_guard!(guard);
-    let enclosing_component = eval::enclosing_component_for_element(&element, instance, guard);
-    let element = element.borrow();
-    if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id {
-        if let Some(x) = enclosing_component.component_type.custom_properties.get(nr.name()) {
-            return unsafe { enclosing_component.as_ptr().add(x.offset).cast() };
-        };
-    };
-    let item_info = enclosing_component
-        .component_type
-        .items
-        .get(element.id.as_str())
-        .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, nr.name()));
-    core::mem::drop(element);
-    let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-    unsafe { item.as_ptr().add(item_info.rtti.properties.get(nr.name()).unwrap().offset()).cast() }
+    let enclosing_component = eval::enclosing_component_instance_for_element(
+        &element,
+        eval::ComponentInstance::InstanceRef(instance),
+        guard,
+    );
+    match enclosing_component {
+        eval::ComponentInstance::InstanceRef(enclosing_component) => {
+            let element = element.borrow();
+            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+            {
+                if let Some(x) = enclosing_component.component_type.custom_properties.get(nr.name())
+                {
+                    return unsafe { enclosing_component.as_ptr().add(x.offset).cast() };
+                };
+            };
+            let item_info = enclosing_component
+                .component_type
+                .items
+                .get(element.id.as_str())
+                .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, nr.name()));
+            core::mem::drop(element);
+            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+            unsafe {
+                item.as_ptr().add(item_info.rtti.properties.get(nr.name()).unwrap().offset()).cast()
+            }
+        }
+        eval::ComponentInstance::GlobalComponent(glob) => glob.as_ref().get_property_ptr(nr.name()),
+    }
 }
 
 pub struct ErasedComponentBox(ComponentBox<'static>);

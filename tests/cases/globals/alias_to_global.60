@@ -1,0 +1,42 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { StyleMetrics } from "sixtyfps_widgets.60";
+
+global Glop := {
+    property <int> hello: 42;
+}
+
+TestCase := Rectangle {
+    // This is meant to test an alias to a native global.
+    // Unfortunately, this is only a native global with the Qt backend and not with the Test backend
+    property <length> alias_to_native <=> StyleMetrics.text_cursor_width;
+    property <int> alias_to_global <=> Glop.hello;
+    property <bool> test: alias_to_native == StyleMetrics.text_cursor_width && alias_to_global == 42;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new sixtyfps.TestCase({});
+assert(instance.test);
+```
+
+*/

@@ -779,7 +779,7 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
 
 /// Return the component instance which hold the given element.
 /// The difference with enclosing_component_for_element is that it taked in account the GlobalComponent.
-fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
+pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
     element: &'a ElementRc,
     component_instance: ComponentInstance<'a, 'old_id>,
     guard: generativity::Guard<'new_id>,

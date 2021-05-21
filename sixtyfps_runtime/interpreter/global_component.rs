@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 use crate::api::Value;
 use crate::dynamic_component::{ErasedComponentBox, ErasedComponentDescription};
+use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
 use sixtyfps_corelib::component::ComponentVTable;
 use sixtyfps_corelib::rtti;
@@ -29,6 +30,8 @@ pub trait GlobalComponent {
 
     fn set_property(self: Pin<&Self>, prop_name: &str, value: Value);
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Value;
+
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const ();
 }
 
 pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalComponent>>) {
@@ -84,6 +87,15 @@ impl GlobalComponent for GlobalComponentInstance {
         let comp = self.0.unerase(guard);
         comp.description().get_property(comp.borrow(), prop_name).unwrap()
     }
+
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const () {
+        generativity::make_guard!(guard);
+        let comp = self.0.unerase(guard);
+        crate::dynamic_component::get_property_ptr(
+            &NamedReference::new(&comp.description().original.root_element, prop_name),
+            comp.borrow_instance(),
+        )
+    }
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
@@ -95,6 +107,12 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Value {
         let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
         prop.get(self).unwrap()
+    }
+
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const () {
+        let prop: &dyn rtti::PropertyInfo<Self, Value> =
+            Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
+        unsafe { (self.get_ref() as *const Self as *const u8).add(prop.offset()) as *const () }
     }
 }
 
