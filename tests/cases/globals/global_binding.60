@@ -9,6 +9,7 @@
 LICENSE END */
 
 global Glob := {
+    property <int> a_alias <=> a;
     property <int> a: 3;
     property <int> b: a + 3;
 
@@ -16,7 +17,7 @@ global Glob := {
 
 TestCase := Rectangle {
     callback set_a(int);
-    set_a(a) => { Glob.a = a; }
+    set_a(a) => { Glob.a_alias = a; }
     property <int> value1: Glob.b;
     property <bool> test: value1 == 3+3;
 }

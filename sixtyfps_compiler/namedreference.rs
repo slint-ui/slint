@@ -59,6 +59,16 @@ impl NamedReference {
 
     /// return true if the property has a constant value for the lifetime of the program
     pub fn is_constant(&self) -> bool {
+        self.is_constant_impl(true)
+    }
+
+    /// return true if we know that this property is changed by other means than its own binding
+    pub fn is_externaly_modified(&self) -> bool {
+        !self.is_constant_impl(false)
+    }
+
+    /// return true if the property has a constant value for the lifetime of the program
+    fn is_constant_impl(&self, mut check_binding: bool) -> bool {
         let mut elem = self.element();
         let e = elem.borrow();
         if let Some(decl) = e.property_declarations.get(self.name()) {
@@ -69,7 +79,6 @@ impl NamedReference {
         }
         drop(e);
 
-        let mut check_binding = true;
         loop {
             let e = elem.borrow();
             if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set) {
