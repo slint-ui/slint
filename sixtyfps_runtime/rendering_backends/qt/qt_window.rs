@@ -579,7 +579,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                         public:
                             // Make public what's protected
                             using QGraphicsBlurEffect::draw;
-                        };                        
+                        };
 
                         // Need a scene for the effect source private to draw()
                         QGraphicsScene scene;
