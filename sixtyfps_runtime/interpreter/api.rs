@@ -500,14 +500,11 @@ impl ComponentCompiler {
             }
         };
 
-        // We create here a 'static guard. That's alright because we make sure
-        // in this module that we only use erased component
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-
+        generativity::make_guard!(guard);
         let (c, diag) =
             crate::dynamic_component::load(source, path.into(), self.config.clone(), guard).await;
         self.diagnostics = diag.into_iter().collect();
-        c.ok().map(|inner| ComponentDefinition { inner })
+        c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
     }
 
     /// Compile some .60 code into a ComponentDefinition
@@ -531,14 +528,11 @@ impl ComponentCompiler {
         source_code: String,
         path: PathBuf,
     ) -> Option<ComponentDefinition> {
-        // We create here a 'static guard. That's alright because we make sure
-        // in this module that we only use erased component
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-
+        generativity::make_guard!(guard);
         let (c, diag) =
             crate::dynamic_component::load(source_code, path, self.config.clone(), guard).await;
         self.diagnostics = diag.into_iter().collect();
-        c.ok().map(|inner| ComponentDefinition { inner })
+        c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
     }
 }
 
@@ -551,14 +545,15 @@ impl ComponentCompiler {
 /// creating the instances it is safe to drop the ComponentDefinition.
 #[derive(Clone)]
 pub struct ComponentDefinition {
-    inner: Rc<crate::dynamic_component::ComponentDescription<'static>>,
+    inner: crate::dynamic_component::ErasedComponentDescription,
 }
 
 impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> ComponentInstance {
+        generativity::make_guard!(guard);
         ComponentInstance {
-            inner: self.inner.clone().create(
+            inner: self.inner.unerase(guard).clone().create(
                 #[cfg(target_arch = "wasm32")]
                 "canvas".into(),
             ),
@@ -568,7 +563,7 @@ impl ComponentDefinition {
     /// Instantiate the component for wasm using the given canvas id
     #[cfg(target_arch = "wasm32")]
     pub fn create_with_canvas_id(&self, canvas_id: &str) -> ComponentInstance {
-        ComponentInstance { inner: self.inner.clone().create(canvas_id.into()) }
+        ComponentInstance { inner: self.inner.unerase(guard).clone().create(canvas_id.into()) }
     }
 
     /// Instentiate the component using an existing window.
@@ -578,7 +573,10 @@ impl ComponentDefinition {
         &self,
         window: sixtyfps_corelib::window::ComponentWindow,
     ) -> ComponentInstance {
-        ComponentInstance { inner: self.inner.clone().create_with_existing_window(window) }
+        generativity::make_guard!(guard);
+        ComponentInstance {
+            inner: self.inner.unerase(guard).clone().create_with_existing_window(window),
+        }
     }
 
     /// List of publicly declared properties or callback.
@@ -588,12 +586,18 @@ impl ComponentDefinition {
     pub fn properties_and_callbacks(
         &self,
     ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
-        self.inner.properties()
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).properties()
     }
 
     /// List of publicly declared properties.
     pub fn properties<'a>(&'a self) -> impl Iterator<Item = (String, ValueType)> + 'a {
-        self.inner.properties().filter_map(|(prop_name, prop_type)| {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
             if prop_type.is_property_type() {
                 Some((prop_name, prop_type.into()))
             } else {
@@ -604,7 +608,10 @@ impl ComponentDefinition {
 
     /// The name of this Component as written in the .60 file
     pub fn name(&self) -> &str {
-        self.inner.id()
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).id()
     }
 }
 
@@ -640,10 +647,8 @@ pub struct ComponentInstance {
 impl ComponentInstance {
     /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
-        // We create here a 'static guard. That's alright because we make sure
-        // in this module that we only use erased component
-        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
-        ComponentDefinition { inner: self.inner.unerase(guard).description() }
+        generativity::make_guard!(guard);
+        ComponentDefinition { inner: self.inner.unerase(guard).description().into() }
     }
 
     /// Return the value for a public property of this component.

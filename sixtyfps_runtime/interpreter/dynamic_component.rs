@@ -242,6 +242,33 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
 
 type Callback = sixtyfps_corelib::Callback<[Value], Value>;
 
+#[derive(Clone)]
+pub struct ErasedComponentDescription(Rc<ComponentDescription<'static>>);
+impl ErasedComponentDescription {
+    pub fn unerase<'a, 'id>(
+        &'a self,
+        _guard: generativity::Guard<'id>,
+    ) -> &'a Rc<ComponentDescription<'id>> {
+        // Safety: we just go from 'static to an unique lifetime
+        unsafe {
+            core::mem::transmute::<
+                &'a Rc<ComponentDescription<'static>>,
+                &'a Rc<ComponentDescription<'id>>,
+            >(&self.0)
+        }
+    }
+}
+impl<'id> From<Rc<ComponentDescription<'id>>> for ErasedComponentDescription {
+    fn from(from: Rc<ComponentDescription<'id>>) -> Self {
+        // Safety: We never access the ComponentDerscription with the static lifetime, only after we unerase it
+        Self(unsafe {
+            core::mem::transmute::<Rc<ComponentDescription<'id>>, Rc<ComponentDescription<'static>>>(
+                from,
+            )
+        })
+    }
+}
+
 /// ComponentDescription is a representation of a component suitable for interpretation
 ///
 /// It contains information about how to create and destroy the Component.
