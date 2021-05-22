@@ -49,7 +49,7 @@ unsafe impl Sync for FutureRunner {}
 
 impl Wake for FutureRunner {
     fn wake(self: Arc<Self>) {
-        sixtyfps_rendering_backend_default::backend().post_event(Box::new(move || {
+        sixtyfps::invoke_from_event_loop(Box::new(move || {
             let waker = self.clone().into();
             let mut cx = std::task::Context::from_waker(&waker);
             let mut fut_opt = self.fut.lock().unwrap();
@@ -94,7 +94,7 @@ pub fn start_ui_event_loop() {
 
         if *state_requested == RequestedGuiEventLoopState::StartLoop {
             // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
-            sixtyfps_rendering_backend_default::backend().post_event(Box::new(|| {
+            sixtyfps::invoke_from_event_loop(Box::new(|| {
                 let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
                 if *state_request == RequestedGuiEventLoopState::StartLoop {
                     *state_request = RequestedGuiEventLoopState::LoopStated;
@@ -117,7 +117,7 @@ pub fn quit_ui_event_loop() {
         GUI_EVENT_LOOP_NOTIFIER.notify_one();
     }
 
-    sixtyfps_rendering_backend_default::backend().post_event(Box::new(|| {
+    sixtyfps::invoke_from_event_loop(Box::new(|| {
         sixtyfps_rendering_backend_default::backend().quit_event_loop();
     }));
 

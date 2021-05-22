@@ -150,7 +150,7 @@ unsafe impl Sync for FutureRunner {}
 
 impl Wake for FutureRunner {
     fn wake(self: Arc<Self>) {
-        sixtyfps_rendering_backend_default::backend().post_event(Box::new(move || {
+        sixtyfps::invoke_from_event_loop(Box::new(move || {
             let waker = self.clone().into();
             let mut cx = std::task::Context::from_waker(&waker);
             let mut fut_opt = self.fut.lock().unwrap();

@@ -9,9 +9,8 @@ repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.0.6", path="../../sixtyfps_runtime/corelib" }
-sixtyfps-rendering-backend-default = { version = "=0.0.6", path="../../sixtyfps_runtime/rendering_backends/default" }
 sixtyfps-interpreter = { version = "=0.0.6", path = "../../sixtyfps_runtime/interpreter", features = ["display-diagnostics"] }
+sixtyfps = { version = "=0.0.6", path="../../api/sixtyfps-rs" }
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"
