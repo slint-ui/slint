@@ -59,7 +59,7 @@ A basic memory game used as an example for the blog post tutorial. See the blog 
 Simply load the .60 file with the viewer application
 
 ```sh
-cargo run --release --bin viewer -- examples/printerdemo/ui/printerdemo.60
+cargo run --release --bin sixtyfps-viewer -- examples/printerdemo/ui/printerdemo.60
 ```
 
 ## Running the Rust Examples

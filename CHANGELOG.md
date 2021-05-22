@@ -2,7 +2,6 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
-- Renames viewer to sixtyfps-viewer and publishes it on crates.io
 
 ### Changed
 
@@ -11,6 +10,7 @@ All notable changes to this project will be documented in this file.
  - Setting the window `height` and `width` property are now fixed size. The `preferred-width`
    and `preferred-height` property can be used to set the initial size.
  - Binding loop detection at compile-time instead of panic at runtime
+ - Renamed the `viewer` binary to `sixtyfps-viewer` and published it on crates.io
 
 ### Added
 

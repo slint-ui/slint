@@ -119,8 +119,8 @@ jobs:
           rm -rf target/*/incremental
           rm -rf target/*/*/*sixtyfps*
           rm -rf target/*/*sixtyfps*
-          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/viewer* target/*/*/todo* target/*/*/slide_puzzle* target/*/*/memory*
-          rm -rf target/*/viewer target/*/printerdemo target/*/gallery target/*/todo target/*/slide_puzzle target/*/memory
+          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/sixtyfps-viewer* target/*/*/todo* target/*/*/slide_puzzle* target/*/*/memory*
+          rm -rf target/*/sixtyfps-viewer target/*/printerdemo target/*/gallery target/*/todo target/*/slide_puzzle target/*/memory
           rm -rf target/*/*test*
           du -hs target
     - name: Clean cache # Otherwise the cache is much too big
@@ -135,9 +135,9 @@ jobs:
           rm -Recurse -Force target/*/*/printerdemo*
           rm -Recurse -Force target/*/*/todo*
           rm -Recurse -Force target/*/*/slide_puzzle*
-          rm -Recurse -Force target/*/*/viewer*
+          rm -Recurse -Force target/*/*/sixtyfps-viewer*
           rm -Recurse -Force target/*/*/todo*
-          rm -Recurse -Force target/*/viewer
+          rm -Recurse -Force target/*/sixtyfps-viewer
           rm -Recurse -Force target/*/printerdemo
           rm -Recurse -Force target/*/gallery
           rm -Recurse -Force target/*/todo
