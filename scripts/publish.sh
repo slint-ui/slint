@@ -21,4 +21,5 @@ sleep 30
 cargo publish --manifest-path sixtyfps_runtime/interpreter/Cargo.toml
 cargo publish --manifest-path api/sixtyfps-rs/Cargo.toml
 cargo publish --manifest-path tools/lsp/Cargo.toml
+cargo publish --manifest-path tools/viewer/Cargo.toml
 
