@@ -247,6 +247,18 @@ pub fn run_event_loop() {
         .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
+/// Adds the specified boxed function to an internal queue, notifies the event loop to wake up.
+/// Once woken up, any queued up functors will be invoked.
+/// This function is thread-safe and can be called from any thread, including the one
+/// running the event loop. The provided functors will only be invoked from the thread
+/// that started the event loop.
+///
+/// You can use this to set properties or use any other SixtyFPS APIs from other threads,
+/// by collecting the code in a functor and queuing it up for invocation within the event loop.
+pub fn invoke_from_event_loop(func: Box<dyn FnOnce() + Send>) {
+    sixtyfps_rendering_backend_default::backend().post_event(func)
+}
+
 /// This trait describes the common public API of a strongly referenced SixtyFPS component,
 /// held by a [vtable::VRc]. It allows creating strongly-referenced clones, a conversion into
 /// a weak pointer as well as other convenience functions.
