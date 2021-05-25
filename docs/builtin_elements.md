@@ -171,8 +171,14 @@ Example := Window {
 
 ## `Text`
 
-A text simply show the text on the screen
+The `Text` element is responsible for rendering text. Besides the `text` property, that specifies which text to render,
+it also allows configuring different visual aspects through the `font-family`, `font-size`, `font-weight` and `color` properties.
 
+The `Text` element can break long text into multiple lines of text. A line feed character (`\n`) in the string of the `text`
+property will trigger a manual line break. For automatic line breaking you need to set the `wrap` property to a value other than
+`no-wrap` and it is important to specify a `width` and `height` for the `Text` element, in order to know where to break. It's
+recommended to place the `Text` element in a layout and let it set the `width` and `height` based on the available screen space
+and the text itself.
 ### Properties
 
 * **`text`** (*string*): The actual text.
@@ -190,6 +196,8 @@ A text simply show the text on the screen
 
 ### Example
 
+This example shows a just a red text label:
+
 ```60
 Example := Window {
     width: 270px;
@@ -198,6 +206,24 @@ Example := Window {
     Text {
         text: "Hello World";
         color: red;
+    }
+}
+```
+
+This example breaks a longer paragraph of text into
+multiple lines, by setting a `wrap` policy and assigning a limited `width` and
+enough `height` for the text to flow down:
+
+```60
+Example := Window {
+    width: 270px;
+    height: 300px;
+
+    Text {
+        text: "This is a longer paragraph of text that will be broken into multiple lines of text."
+        wrap: word-wrap;
+        width: 150px;
+        height: 100%;
     }
 }
 ```
