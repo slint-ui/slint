@@ -21,7 +21,6 @@ sixtyfps-compilerlib = { version = "=0.0.6", path = "../../sixtyfps_compiler"}
 sixtyfps-interpreter = { version = "=0.0.6", path = "../../sixtyfps_runtime/interpreter"}
 sixtyfps-corelib = { version = "=0.0.6", path = "../../sixtyfps_runtime/corelib"}
 sixtyfps-rendering-backend-default = { version = "=0.0.6", path="../../sixtyfps_runtime/rendering_backends/default" }
-sixtyfps = { version = "=0.0.6", path = "../../api/sixtyfps-rs"}
 lsp-server = "0.5"
 lsp-types = "0.83" # must match the version used by lsp-server
 crossbeam-channel = "0.5"  # must match the version used by lsp-server
