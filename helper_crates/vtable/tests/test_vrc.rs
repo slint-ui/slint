@@ -110,3 +110,43 @@ fn rc_dyn_test() {
     drop(rc);
     assert_eq!(Rc::strong_count(&string), 1);
 }
+
+#[derive(Debug, const_field_offset::FieldOffsets)]
+#[repr(C)]
+struct SyncStruct {
+    e: std::sync::Mutex<String>,
+}
+impl Foo for SyncStruct {
+    fn rc_string(&self) -> Rc<String> {
+        Rc::new(self.e.lock().unwrap().clone())
+    }
+}
+
+FooVTable_static!(static SYNC_STRUCT_TYPE for SyncStruct);
+#[test]
+fn rc_test_threading() {
+    let rc = VRc::new(SyncStruct { e: std::sync::Mutex::new("44".into()) });
+    let weak = VRc::downgrade(&rc);
+    assert_eq!(*rc.rc_string(), "44");
+    let mut handles = Vec::new();
+    for _ in 0..10 {
+        let rc = rc.clone();
+        handles.push(std::thread::spawn(move || {
+            let _w = VRc::downgrade(&rc.clone());
+            for _ in 0..10 {
+                let weak = VRc::downgrade(&rc);
+                let rc2 = weak.upgrade().unwrap();
+                let mut lock = rc2.e.lock().unwrap();
+                let v: u32 = lock.parse().unwrap();
+                *lock = (v + 1).to_string();
+            }
+        }));
+    }
+    for h in handles {
+        h.join().unwrap();
+    }
+    assert_eq!(*rc.rc_string(), "144");
+    let h = std::thread::spawn(move || drop(rc));
+    drop(weak);
+    h.join().unwrap();
+}
