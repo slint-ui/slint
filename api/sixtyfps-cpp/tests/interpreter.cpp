@@ -314,6 +314,23 @@ SCENARIO("Component Definition Properties")
     REQUIRE(properties[0].property_type == Value::Type::String);
 }
 
+SCENARIO("Component Definition Properties / Two-way bindings")
+{
+    using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
+
+    ComponentCompiler compiler;
+    auto comp_def = *compiler.build_from_source(
+            "export Dummy := Rectangle { property <string> test <=> sub_object.test; "
+            "    sub_object := Rectangle { property <string> test; }"
+            "}",
+            "");
+    auto properties = comp_def.properties();
+    REQUIRE(properties.size() == 1);
+    REQUIRE(properties[0].property_name == "test");
+    REQUIRE(properties[0].property_type == Value::Type::String);
+}
+
 SCENARIO("Invoke callback")
 {
     using namespace sixtyfps::interpreter;

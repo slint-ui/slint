@@ -909,6 +909,30 @@ fn component_definition_properties() {
     assert_eq!(props[0].1, ValueType::String);
 }
 
+#[test]
+fn component_definition_properties2() {
+    let mut compiler = ComponentCompiler::new();
+    let comp_def = spin_on::spin_on(
+        compiler.build_from_source(
+            r#"
+    export Dummy := Rectangle {
+        property <string> sub-text <=> sub.text;
+        sub := Text { property <int> private-not-exported; }
+        callback hello;
+    }"#
+            .into(),
+            "".into(),
+        ),
+    )
+    .unwrap();
+
+    let props = comp_def.properties().collect::<Vec<(_, _)>>();
+
+    assert_eq!(props.len(), 1);
+    assert_eq!(props[0].0, "sub_text");
+    assert_eq!(props[0].1, ValueType::String);
+}
+
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
 #[path = "ffi.rs"]

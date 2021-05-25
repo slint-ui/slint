@@ -313,8 +313,11 @@ impl<'id> ComponentDescription<'id> {
     /// List of publicly declared properties or callbacks
     pub fn properties(
         &self,
-    ) -> impl ExactSizeIterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
-        self.public_properties.iter().map(|(s, v)| (s.clone(), v.property_type.clone()))
+    ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
+        self.public_properties
+            .iter()
+            .filter(|(_, v)| v.expose_in_public_api)
+            .map(|(s, v)| (s.clone(), v.property_type.clone()))
     }
 
     /// Instantiate a runtime component from this ComponentDescription

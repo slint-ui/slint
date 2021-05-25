@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
 
  - Fixed C++ backend on windows
  - `debug(...)` no longer break the LSP
+ - ComponentDefinition::properties only expose public properties as documented
  - Many more bugfixes
 
 
