@@ -203,6 +203,8 @@ impl GraphicsWindow {
         }));
 
         crate::eventloop::register_window(id, self.clone());
+
+        self.properties.as_ref().window_map_pending.set(false);
     }
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
     /// by calling [`PlatformWindow::map_window`].
@@ -212,6 +214,7 @@ impl GraphicsWindow {
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
             existing_blinker.stop();
         }*/
+        self.properties.as_ref().window_map_pending.set(true);
     }
 
     fn component(&self) -> ComponentRc {
@@ -487,7 +490,16 @@ impl PlatformWindow for GraphicsWindow {
         reference_text: Pin<&Property<SharedString>>,
     ) -> Option<Box<dyn corelib::graphics::FontMetrics>> {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => None,
+            GraphicsWindowBackendState::Unmapped => {
+                // Temporary: Register this internal property to notify the caller when
+                // we've been mapped and then re-calculate the font metrics. To be removed
+                // when we can do text layout without a window.
+                WindowProperties::FIELD_OFFSETS
+                    .window_map_pending
+                    .apply_pin(self.properties.as_ref())
+                    .get();
+                None
+            }
             GraphicsWindowBackendState::Mapped(window) => Some(
                 window.backend.borrow_mut().font_metrics(
                     item_graphics_cache,
@@ -506,7 +518,16 @@ impl PlatformWindow for GraphicsWindow {
 
     fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => Default::default(),
+            GraphicsWindowBackendState::Unmapped => {
+                // Temporary: Register this internal property to notify the caller when
+                // we've been mapped and then re-calculate the image size. To be removed
+                // when we can do image metrics without a window.
+                WindowProperties::FIELD_OFFSETS
+                    .window_map_pending
+                    .apply_pin(self.properties.as_ref())
+                    .get();
+                Default::default()
+            }
             GraphicsWindowBackendState::Mapped(window) => {
                 window.backend.borrow().image_size(source)
             }
@@ -550,10 +571,13 @@ impl GraphicsWindowBackendState {
 #[pin]
 struct WindowProperties {
     scale_factor: Property<f32>,
+    // FIXME: remove this once we can do image_size and font_metrics
+    // without a mapped window.
+    window_map_pending: Property<bool>,
 }
 
 impl Default for WindowProperties {
     fn default() -> Self {
-        Self { scale_factor: Property::new(1.0) }
+        Self { scale_factor: Property::new(1.0), window_map_pending: Property::new(true) }
     }
 }
