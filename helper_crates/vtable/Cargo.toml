@@ -1,13 +1,12 @@
 [package]
 name = "vtable"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
 description = "Helper crate to generate ffi-friendly virtual tables"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
-
 
 [lib]
 

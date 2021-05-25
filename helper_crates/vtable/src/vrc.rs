@@ -11,8 +11,9 @@ LICENSE END */
 //! implementation of vtable::Vrc
 
 use super::*;
-use core::cell::Cell;
 use core::convert::TryInto;
+use core::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering;
 
 /// This trait is implemented by the `#[vtable]` macro.
 ///
@@ -63,10 +64,10 @@ impl core::convert::TryFrom<Layout> for core::alloc::Layout {
 struct VRcInner<'vt, VTable: VTableMeta, X> {
     vtable: &'vt VTable::VTable,
     /// The amount of VRc pointing to this object. When it reaches 0, the object will be droped
-    strong_ref: Cell<u32>,
+    strong_ref: AtomicU32,
     /// The amount of VWeak +1. When it reaches 0, the memory will be deallocated.
     /// The +1 is there such as all the VRc together hold a weak reference to the memory
-    weak_ref: Cell<u32>,
+    weak_ref: AtomicU32,
     /// offset to the data from the beginning of VRcInner. This is needed to cast a VRcInner<VT, X>
     /// to VRcInner<VT, u8> as "dyn VRc" and then still be able to get the correct data pointer,
     /// since the alignment of X may not be the same as u8.
@@ -107,8 +108,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
     fn drop(&mut self) {
         unsafe {
             let inner = self.inner.as_ref();
-            inner.strong_ref.set(inner.strong_ref.get() - 1);
-            if inner.strong_ref.get() == 0 {
+            if inner.strong_ref.fetch_sub(1, Ordering::SeqCst) == 1 {
                 let data = inner.data_ptr() as *const _ as *const u8 as *mut u8;
                 let mut layout = VTable::drop_in_place(inner.vtable, data);
                 layout = core::alloc::Layout::new::<VRcInner<VTable, ()>>()
@@ -117,12 +117,15 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
                     .0
                     .pad_to_align()
                     .into();
-                inner.weak_ref.set(inner.weak_ref.get() - 1);
-                if inner.weak_ref.get() == 0 {
+                if inner.weak_ref.load(Ordering::SeqCst) > 1 {
+                    // at this point we are sure that no other thread can access the data
+                    // since we still hold a weak reference, so the other weak references
+                    // in other thread won't start destroying the object.
+                    self.inner.cast::<VRcInner<VTable, Layout>>().as_mut().data = layout;
+                }
+                if inner.weak_ref.fetch_sub(1, Ordering::SeqCst) == 1 {
                     let vtable = inner.vtable;
                     VTable::dealloc(vtable, self.inner.cast().as_ptr(), layout);
-                } else {
-                    self.inner.cast::<VRcInner<VTable, Layout>>().as_mut().data = layout;
                 }
             }
         }
@@ -152,8 +155,8 @@ impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> VRc<VTable, X> {
         unsafe {
             mem.write(VRcInner {
                 vtable: X::static_vtable(),
-                strong_ref: Cell::new(1),
-                weak_ref: Cell::new(1), // All the VRc together hold a weak_ref to the memory
+                strong_ref: AtomicU32::new(1),
+                weak_ref: AtomicU32::new(1), // All the VRc together hold a weak_ref to the memory
                 data_offset: 0,
                 data,
             });
@@ -204,13 +207,13 @@ impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     /// Construct a [`VWeak`] pointing to this instance.
     pub fn downgrade(this: &Self) -> VWeak<VTable, X> {
         let inner = unsafe { this.inner.as_ref() };
-        inner.weak_ref.set(inner.weak_ref.get() + 1);
+        inner.weak_ref.fetch_add(1, Ordering::SeqCst);
         VWeak { inner: Some(this.inner) }
     }
 
     /// Gets the number of strong (VRc) pointers to this allocation.
     pub fn strong_count(this: &Self) -> usize {
-        unsafe { this.inner.as_ref().strong_ref.get() as usize }
+        unsafe { this.inner.as_ref().strong_ref.load(Ordering::SeqCst) as usize }
     }
 
     /// Returns true if the two VRc's point to the same allocation
@@ -222,7 +225,7 @@ impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
 impl<VTable: VTableMetaDropInPlace + 'static, X> Clone for VRc<VTable, X> {
     fn clone(&self) -> Self {
         let inner = unsafe { self.inner.as_ref() };
-        inner.strong_ref.set(inner.strong_ref.get() + 1);
+        inner.strong_ref.fetch_add(1, Ordering::SeqCst);
         Self { inner: self.inner }
     }
 }
@@ -234,6 +237,10 @@ impl<VTable: VTableMetaDropInPlace, X /*+ HasStaticVTable<VTable>*/> Deref for V
         inner.as_ref()
     }
 }
+
+// Safety: we use atomic reference count for the internal things
+unsafe impl<VTable: VTableMetaDropInPlace + 'static, X: Send + Sync> Send for VRc<VTable, X> {}
+unsafe impl<VTable: VTableMetaDropInPlace + 'static, X: Send + Sync> Sync for VRc<VTable, X> {}
 
 /// Weak pointer for the [`VRc`] where `VTable` is a VTable struct, and
 /// `X` is the type of the instance, or [`Dyn`] if it is not known
@@ -257,7 +264,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Clone for VWeak<VTable, X> {
     fn clone(&self) -> Self {
         if let Some(inner) = self.inner {
             let inner = unsafe { inner.as_ref() };
-            inner.weak_ref.set(inner.weak_ref.get() + 1);
+            inner.weak_ref.fetch_add(1, Ordering::SeqCst);
         }
         VWeak { inner: self.inner }
     }
@@ -267,8 +274,7 @@ impl<T: VTableMetaDropInPlace + 'static, X> Drop for VWeak<T, X> {
     fn drop(&mut self) {
         if let Some(i) = self.inner {
             let inner = unsafe { i.as_ref() };
-            inner.weak_ref.set(inner.weak_ref.get() - 1);
-            if inner.weak_ref.get() == 0 {
+            if inner.weak_ref.fetch_sub(1, Ordering::SeqCst) == 1 {
                 let vtable = inner.vtable;
                 unsafe {
                     // Safety: while allocating, we made sure that the size was big enough to
@@ -287,10 +293,10 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> VWeak<VTable, X> {
     pub fn upgrade(&self) -> Option<VRc<VTable, X>> {
         if let Some(i) = self.inner {
             let inner = unsafe { i.as_ref() };
-            if inner.strong_ref.get() == 0 {
+            if inner.strong_ref.load(Ordering::SeqCst) == 0 {
                 None
             } else {
-                inner.strong_ref.set(inner.strong_ref.get() + 1);
+                inner.strong_ref.fetch_add(1, Ordering::SeqCst);
                 Some(VRc { inner: i })
             }
         } else {
