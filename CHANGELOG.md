@@ -15,9 +15,10 @@ All notable changes to this project will be documented in this file.
 ### Added
 
  - Show warnings in the online code editor
- - C++ API to run a function in the UI thread
+ - C++ and Rust API to run a function in the UI thread from any thread
  - `z` property on items
  - Mouse wheel work on the Flickable and derivatives
+
 ### Fixed
 
  - Fixed C++ backend on windows
