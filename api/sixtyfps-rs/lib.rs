@@ -87,7 +87,7 @@ fn main() {
 }
 ```
 
-### Generated components
+## Generated components
 
 As of now, only the last component of a .60 source is generated. It is planned to generate all exported components.
 
@@ -97,10 +97,10 @@ For example, if you have `export MyComponent := Window { /*...*/ }` in the .60 f
 This documentation contains a documented generated component: [`docs::generated_code::SampleComponent`].
 
 The component is created using the [`fn new() -> Self`](docs::generated_code::SampleComponent::new) function. In addition
-the following convenience functions are available through the [ComponentHandle] implementation:
+the following convenience functions are available through the [`ComponentHandle`] implementation:
 
-  - [`fn clone_strong(&self)`](docs::generated_code::SampleComponent::clone_strong): to create a strongly referenced clone.
-  - [`fn as_weak(&self)`](docs::generated_code::SampleComponent::as_weak): to create a weak reference.
+  - [`fn clone_strong(&self) -> Self`](docs::generated_code::SampleComponent::clone_strong): to create a strongly referenced clone.
+  - [`fn as_weak(&self) -> Weak`](docs::generated_code::SampleComponent::as_weak): to create a [weak](Weak) reference.
   - [`fn show(&self)`](docs::generated_code::SampleComponent::show): to show the window of the component.
   - [`fn hide(&self)`](docs::generated_code::SampleComponent::hide): to hide the window of the component.
   - [`fn run(&self)`](docs::generated_code::SampleComponent::run): a convenience function that first calls `show()`,
@@ -114,11 +114,27 @@ For each top-level callback
   - [`fn invoke_<callback_name>(&self)`](docs::generated_code::SampleComponent::invoke_hello): to invoke the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
 
-After instantiating the component you can call just [`fn run(&self)`] on it, in order to show it and spin the event loop to
+After instantiating the component you can call just [`ComponentHandle::run()`] on it, in order to show it and spin the event loop to
 render and react to input events. If you want to show multiple components simultaneously, then you can also call just
-`show()` first. When you're ready to enter the event loop, just call [`run_event_loop()`].
+[`ComponentHandle::show()`] first. When you're ready to enter the event loop, just call [`run_event_loop()`].
 
-### Type Mappings
+The generated component struct act as a handle holding a strong reference (similar to a `Rc`). It does not implement
+`Clone` because we want to make explicit if we are cloning a strong reference (with [`ComponentHandle::clone_strong`]),
+or a weak reference (with  [`ComponentHandle::as_weak`]). A strong reference should not be captured by the closures
+given to a callback, as this would produce a reference loop and leak the component. Instead, the callback function
+should capture a weak component.
+
+## Threading and Event-loop
+
+For platform-specific reason, the event loop must run in the main thread, in most backend, and all the component
+must be created in the same thread as the thread the event loop is running or is going to run.
+
+Ideally, you should perform the minimum amount of work in the main thread and delegate the actual logic to another
+thread. To communicate from your worker thread to the UI thread, the [`invoke_from_event_loop`] function can be used.
+
+To run a fuction with a delay or with an interval you can use a [`Timer`].
+
+## Type Mappings
 
 The types used for properties in `.60` design markup each translate to specific types in Rust.
 The follow table summarizes the entire mapping:
@@ -247,21 +263,40 @@ pub fn run_event_loop() {
         .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
-/// Adds the specified boxed function to an internal queue, notifies the event loop to wake up.
+/// Adds the specified function to an internal queue, notifies the event loop to wake up.
 /// Once woken up, any queued up functors will be invoked.
+///
 /// This function is thread-safe and can be called from any thread, including the one
 /// running the event loop. The provided functors will only be invoked from the thread
 /// that started the event loop.
 ///
 /// You can use this to set properties or use any other SixtyFPS APIs from other threads,
 /// by collecting the code in a functor and queuing it up for invocation within the event loop.
-pub fn invoke_from_event_loop(func: Box<dyn FnOnce() + Send>) {
-    sixtyfps_rendering_backend_default::backend().post_event(func)
+///
+/// # Example
+/// ```rust
+/// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
+/// let handle = MyApp::new();
+/// let handle_weak = handle.as_weak();
+/// let thread = std::thread::spawn(move || {
+///     // ... Do some computation in the thread
+///     let foo = 42;
+///      // now forward the data to the main thread using invoke_from_event_loop
+///     let handle_copy = handle_weak.clone();
+///     sixtyfps::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
+/// });
+/// # thread.join(); return; // don't run the event loop in examples
+/// handle.run();
+/// ```
+pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
+    sixtyfps_rendering_backend_default::backend().post_event(Box::new(func))
 }
 
-/// This trait describes the common public API of a strongly referenced SixtyFPS component,
-/// held by a [vtable::VRc]. It allows creating strongly-referenced clones, a conversion into
-/// a weak pointer as well as other convenience functions.
+/// This trait describes the common public API of a strongly referenced SixtyFPS component.
+/// It allows creating strongly-referenced clones, a conversion into/ a weak pointer as well
+/// as other convenience functions.
+///
+/// This trait is implemented by the [generated component](mod@crate#generated-components)
 pub trait ComponentHandle {
     /// The type of the generated component.
     #[doc(hidden)]
@@ -293,39 +328,70 @@ pub trait ComponentHandle {
     fn run(&self);
 }
 
-/// Struct that's used to hold weak references for SixtyFPS components.
-pub struct Weak<T: ComponentHandle> {
-    inner: vtable::VWeak<re_exports::ComponentVTable, T::Inner>,
+mod weak_handle {
+
+    use super::*;
+
+    /// Struct that's used to hold weak references of [SixtyFPS component](mod@crate#generated-components)
+    ///
+    /// In order to create a Weak, you should use [`ComponentHandle::as_weak`].
+    ///
+    /// Strongs references should not be captured by the functions given to a lambda,
+    /// as this would produce a reference loop and leak the component.
+    /// Instead, the callback function should capture a weak component.
+    ///
+    /// The Weak component also implement `Send` and can be send to another thread.
+    /// but the upgrade function will only return a valid component from the same thread
+    /// as the one it has been created from.
+    /// This is usefull to use with [`invoke_from_event_loop()`].
+    pub struct Weak<T: ComponentHandle> {
+        inner: vtable::VWeak<re_exports::ComponentVTable, T::Inner>,
+        thread: std::thread::ThreadId,
+    }
+
+    impl<T: ComponentHandle> Clone for Weak<T> {
+        fn clone(&self) -> Self {
+            Self { inner: self.inner.clone(), thread: self.thread.clone() }
+        }
+    }
+
+    impl<T: ComponentHandle> Weak<T> {
+        #[doc(hidden)]
+        pub fn new(rc: &vtable::VRc<re_exports::ComponentVTable, T::Inner>) -> Self {
+            Self { inner: vtable::VRc::downgrade(&rc), thread: std::thread::current().id() }
+        }
+
+        /// Returns a new strongly referenced component if some other instance still
+        /// holds a strong reference. Otherwise, returns None.
+        ///
+        /// This also returns None if the current thread is not the thread that created
+        /// the component
+        pub fn upgrade(&self) -> Option<T>
+        where
+            T: ComponentHandle,
+        {
+            if std::thread::current().id() != self.thread {
+                return None;
+            }
+            self.inner.upgrade().map(|inner| T::from_inner(inner))
+        }
+
+        /// Convenience function that returns a new stronlyg referenced component if
+        /// some other instance still holds a strong reference and the current thread
+        /// is the thread that created this component.
+        /// Otherwise, this function panics.
+        pub fn unwrap(&self) -> T {
+            self.upgrade().unwrap()
+        }
+    }
+
+    // Safety: we make sure in upgrade that the thread is the proper one,
+    // and the VWeak only use atomic pointer so it is safe to clone and drop in another thread
+    #[allow(unsafe_code)]
+    unsafe impl<T: ComponentHandle> Send for Weak<T> {}
 }
 
-impl<T: ComponentHandle> Clone for Weak<T> {
-    fn clone(&self) -> Self {
-        Self { inner: self.inner.clone() }
-    }
-}
-
-impl<T: ComponentHandle> Weak<T> {
-    #[doc(hidden)]
-    pub fn new(rc: &vtable::VRc<re_exports::ComponentVTable, T::Inner>) -> Self {
-        Self { inner: vtable::VRc::downgrade(&rc) }
-    }
-
-    /// Returns a new strongly referenced component if some other instance still
-    /// holds a strong reference. Otherwise, returns None.
-    pub fn upgrade(&self) -> Option<T>
-    where
-        T: ComponentHandle,
-    {
-        self.inner.upgrade().map(|inner| T::from_inner(inner))
-    }
-
-    /// Convenience function that returns a new stronlyg referenced component if
-    /// some other instance still holds a strong reference. Otherwise, this function
-    /// panics.
-    pub fn unwrap(&self) -> T {
-        self.upgrade().unwrap()
-    }
-}
+pub use weak_handle::*;
 
 /// This module contains functions useful for unit tests
 pub mod testing {
