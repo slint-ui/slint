@@ -220,7 +220,7 @@ Example := Window {
     height: 300px;
 
     Text {
-        text: "This is a longer paragraph of text that will be broken into multiple lines of text.";
+        text: "This paragraph breaks into multple lines of text";
         wrap: word-wrap;
         width: 150px;
         height: 100%;
