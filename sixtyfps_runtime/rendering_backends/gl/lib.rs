@@ -128,6 +128,10 @@ mod fonts;
 pub use fonts::register_font_from_memory;
 use fonts::*;
 
+thread_local! {
+    static FONT_CACHE: RefCell<FontCache> = RefCell::new(Default::default())
+}
+
 impl FontCache {
     fn load_single_font(&mut self, request: &FontRequest) -> femtovg::FontId {
         let text_context = self.text_context.clone();
@@ -228,8 +232,6 @@ struct GLRendererData {
     // Cache used to avoid repeatedly decoding images from disk. Entries with a count
     // of 1 are drained after flushing the renderer commands to the screen.
     image_cache: RefCell<HashMap<ImageCacheKey, Rc<CachedImage>>>,
-
-    loaded_fonts: RefCell<FontCache>,
 
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
@@ -399,11 +401,11 @@ impl GLRenderer {
             (window, renderer)
         };
 
-        let font_cache = FontCache::default();
-
-        let canvas =
-            femtovg::Canvas::new_with_text_context(renderer, font_cache.text_context.clone())
-                .unwrap();
+        let canvas = femtovg::Canvas::new_with_text_context(
+            renderer,
+            FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .unwrap();
 
         let shared_data = GLRendererData {
             canvas: Rc::new(RefCell::new(canvas)),
@@ -417,7 +419,6 @@ impl GLRenderer {
 
             item_graphics_cache: Default::default(),
             image_cache: Default::default(),
-            loaded_fonts: RefCell::new(font_cache),
             layer_images_to_delete_after_flush: Default::default(),
         };
 
@@ -515,11 +516,13 @@ impl GLRenderer {
         let font = self
             .shared_data
             .load_item_graphics_cache_with_function(item_graphics_cache, || {
-                Some(ItemGraphicsCacheEntry::Font(self.shared_data.loaded_fonts.borrow_mut().font(
-                    font_request_fn(),
-                    scale_factor.get(),
-                    &reference_text.get(),
-                )))
+                Some(ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
+                    cache.borrow_mut().font(
+                        font_request_fn(),
+                        scale_factor.get(),
+                        &reference_text.get(),
+                    )
+                })))
             })
             .unwrap()
             .as_font()
@@ -696,14 +699,14 @@ impl ItemRenderer for GLItemRenderer {
         let font = self
             .shared_data
             .load_item_graphics_cache_with_function(&text.cached_rendering_data, || {
-                Some(ItemGraphicsCacheEntry::Font(
-                    self.shared_data.loaded_fonts.borrow_mut().font(
+                Some(ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
+                    cache.borrow_mut().font(
                         text.unresolved_font_request()
                             .merge(&self.default_font_properties.as_ref().get()),
                         self.scale_factor,
                         &text.text(),
-                    ),
-                ))
+                    )
+                })))
             })
             .unwrap()
             .as_font()
@@ -796,15 +799,15 @@ impl ItemRenderer for GLItemRenderer {
         let font = self
             .shared_data
             .load_item_graphics_cache_with_function(&text_input.cached_rendering_data, || {
-                Some(ItemGraphicsCacheEntry::Font(
-                    self.shared_data.loaded_fonts.borrow_mut().font(
+                Some(ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
+                    cache.borrow_mut().font(
                         text_input
                             .unresolved_font_request()
                             .merge(&self.default_font_properties.as_ref().get()),
                         self.scale_factor,
                         &text_input.text(),
-                    ),
-                ))
+                    )
+                })))
             })
             .unwrap()
             .as_font()
