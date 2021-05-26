@@ -40,18 +40,21 @@ impl CachedRenderingData {
     ) -> T {
         if self.cache_ok.get() {
             let index = self.cache_index.get();
-            let existing_entry = cache.get_mut(index).unwrap();
-            if let Some(data) =
-                existing_entry.dependency_tracker.as_ref().evaluate_if_dirty(update_fn)
-            {
-                existing_entry.data = data
+            if let Some(existing_entry) = cache.get_mut(index) {
+                if let Some(data) =
+                    existing_entry.dependency_tracker.as_ref().evaluate_if_dirty(update_fn)
+                {
+                    existing_entry.data = data
+                }
+                return existing_entry.data.clone();
             }
-            existing_entry.data.clone()
-        } else {
-            self.cache_index.set(cache.insert(crate::graphics::CachedGraphicsData::new(update_fn)));
-            self.cache_ok.set(true);
-            cache.get(self.cache_index.get()).unwrap().data.clone()
+            // We may see cache_ok == true but get() on the cache failed with our index. That can
+            // only happen when the entire cache was destroyed in the meantime (through show and hide),
+            // in which case we re-allocate.
         }
+        self.cache_index.set(cache.insert(crate::graphics::CachedGraphicsData::new(update_fn)));
+        self.cache_ok.set(true);
+        cache.get(self.cache_index.get()).unwrap().data.clone()
     }
 
     /// This function can be used to remove an entry from the rendering cache for a given item, if it
