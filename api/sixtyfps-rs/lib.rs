@@ -126,13 +126,13 @@ should capture a weak component.
 
 ## Threading and Event-loop
 
-For platform-specific reason, the event loop must run in the main thread, in most backend, and all the component
+For platform-specific reasons, the event loop must run in the main thread, in most backends, and all the components
 must be created in the same thread as the thread the event loop is running or is going to run.
 
 Ideally, you should perform the minimum amount of work in the main thread and delegate the actual logic to another
 thread. To communicate from your worker thread to the UI thread, the [`invoke_from_event_loop`] function can be used.
 
-To run a fuction with a delay or with an interval you can use a [`Timer`].
+To run a function with a delay or with an interval you can use a [`Timer`].
 
 ## Type Mappings
 
