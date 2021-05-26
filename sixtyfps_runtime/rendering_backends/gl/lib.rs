@@ -21,6 +21,8 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::Rc;
 
+use femtovg::TextContext;
+
 use sixtyfps_corelib::graphics::{
     Brush, Color, FontMetrics, FontRequest, ImageReference, IntRect, Point, Rect, RenderingCache,
     Size,
@@ -111,11 +113,14 @@ impl ItemGraphicsCacheEntry {
     }
 }
 
-struct FontCache(HashMap<FontCacheKey, femtovg::FontId>);
+struct FontCache {
+    fonts: HashMap<FontCacheKey, femtovg::FontId>,
+    text_context: TextContext,
+}
 
 impl Default for FontCache {
     fn default() -> Self {
-        Self(HashMap::new())
+        Self { fonts: HashMap::new(), text_context: Default::default() }
     }
 }
 
@@ -124,22 +129,22 @@ pub use fonts::register_font_from_memory;
 use fonts::*;
 
 impl FontCache {
-    fn load_single_font(&mut self, canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
-        self.0
+    fn load_single_font(&mut self, request: &FontRequest) -> femtovg::FontId {
+        let text_context = self.text_context.clone();
+        self.fonts
             .entry(FontCacheKey {
                 family: request.family.clone().unwrap_or_default(),
                 weight: request.weight.unwrap(),
             })
             .or_insert_with(|| {
-                try_load_app_font(canvas, &request)
-                    .unwrap_or_else(|| load_system_font(canvas, &request))
+                try_load_app_font(&text_context, &request)
+                    .unwrap_or_else(|| load_system_font(&text_context, &request))
             })
             .clone()
     }
 
     fn font(
         &mut self,
-        canvas: &CanvasRc,
         mut request: FontRequest,
         scale_factor: f32,
         reference_text: &str,
@@ -147,18 +152,20 @@ impl FontCache {
         request.pixel_size = Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor);
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
 
-        let primary_font = self.load_single_font(canvas, &request);
+        let primary_font = self.load_single_font(&request);
         let fallbacks = font_fallbacks_for_request(&request, reference_text);
 
         let fonts = core::iter::once(primary_font)
             .chain(
-                fallbacks
-                    .iter()
-                    .map(|fallback_request| self.load_single_font(canvas, &fallback_request)),
+                fallbacks.iter().map(|fallback_request| self.load_single_font(&fallback_request)),
             )
             .collect::<SharedVector<_>>();
 
-        GLFont { fonts, canvas: canvas.clone(), pixel_size: request.pixel_size.unwrap() }
+        GLFont {
+            fonts,
+            text_context: self.text_context.clone(),
+            pixel_size: request.pixel_size.unwrap(),
+        }
     }
 }
 
@@ -392,7 +399,11 @@ impl GLRenderer {
             (window, renderer)
         };
 
-        let canvas = femtovg::Canvas::new(renderer).unwrap();
+        let font_cache = FontCache::default();
+
+        let canvas =
+            femtovg::Canvas::new_with_text_context(renderer, font_cache.text_context.clone())
+                .unwrap();
 
         let shared_data = GLRendererData {
             canvas: Rc::new(RefCell::new(canvas)),
@@ -406,7 +417,7 @@ impl GLRenderer {
 
             item_graphics_cache: Default::default(),
             image_cache: Default::default(),
-            loaded_fonts: Default::default(),
+            loaded_fonts: RefCell::new(font_cache),
             layer_images_to_delete_after_flush: Default::default(),
         };
 
@@ -505,7 +516,6 @@ impl GLRenderer {
             .shared_data
             .load_item_graphics_cache_with_function(item_graphics_cache, || {
                 Some(ItemGraphicsCacheEntry::Font(self.shared_data.loaded_fonts.borrow_mut().font(
-                    &self.shared_data.canvas,
                     font_request_fn(),
                     scale_factor.get(),
                     &reference_text.get(),
@@ -688,7 +698,6 @@ impl ItemRenderer for GLItemRenderer {
             .load_item_graphics_cache_with_function(&text.cached_rendering_data, || {
                 Some(ItemGraphicsCacheEntry::Font(
                     self.shared_data.loaded_fonts.borrow_mut().font(
-                        &self.shared_data.canvas,
                         text.unresolved_font_request()
                             .merge(&self.default_font_properties.as_ref().get()),
                         self.scale_factor,
@@ -789,7 +798,6 @@ impl ItemRenderer for GLItemRenderer {
             .load_item_graphics_cache_with_function(&text_input.cached_rendering_data, || {
                 Some(ItemGraphicsCacheEntry::Font(
                     self.shared_data.loaded_fonts.borrow_mut().font(
-                        &self.shared_data.canvas,
                         text_input
                             .unresolved_font_request()
                             .merge(&self.default_font_properties.as_ref().get()),
@@ -1625,20 +1633,18 @@ struct FontCacheKey {
 struct GLFont {
     fonts: SharedVector<femtovg::FontId>,
     pixel_size: f32,
-    canvas: CanvasRc,
+    text_context: TextContext,
 }
 
 impl GLFont {
     fn measure(&self, letter_spacing: f32, text: &str) -> femtovg::TextMetrics {
-        self.canvas
-            .borrow_mut()
+        self.text_context
             .measure_text(0., 0., text, self.init_paint(letter_spacing, femtovg::Paint::default()))
             .unwrap()
     }
 
     fn height(&self) -> f32 {
-        self.canvas
-            .borrow_mut()
+        self.text_context
             .measure_font(self.init_paint(
                 /*letter spacing does not influence height*/ 0.,
                 femtovg::Paint::default(),
@@ -1657,26 +1663,26 @@ impl GLFont {
 
     fn text_size(&self, letter_spacing: f32, text: &str, max_width: Option<f32>) -> Size {
         let paint = self.init_paint(letter_spacing, femtovg::Paint::default());
-        let mut canvas = self.canvas.borrow_mut();
-        let font_metrics = canvas.measure_font(paint).unwrap();
+        let font_metrics = self.text_context.measure_font(paint).unwrap();
         let mut lines = 0;
         let mut width = 0.;
         let mut start = 0;
         if let Some(max_width) = max_width {
             while start < text.len() {
-                let index = canvas.break_text(max_width, &text[start..], paint).unwrap();
+                let index = self.text_context.break_text(max_width, &text[start..], paint).unwrap();
                 if index == 0 {
                     break;
                 }
                 let index = start + index;
-                let mesure = canvas.measure_text(0., 0., &text[start..index], paint).unwrap();
+                let mesure =
+                    self.text_context.measure_text(0., 0., &text[start..index], paint).unwrap();
                 start = index;
                 lines += 1;
                 width = mesure.width().max(width);
             }
         } else {
             for line in text.lines() {
-                let mesure = canvas.measure_text(0., 0., line, paint).unwrap();
+                let mesure = self.text_context.measure_text(0., 0., line, paint).unwrap();
                 lines += 1;
                 width = mesure.width().max(width);
             }

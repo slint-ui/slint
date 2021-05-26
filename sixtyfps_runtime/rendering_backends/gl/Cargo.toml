@@ -25,8 +25,8 @@ rgb = "0.8"
 imgref = "1.6.1"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 by_address = "1.0.4"
-# Pull in femtovg from the `master` branch until https://github.com/femtovg/femtovg/pull/40 is released on crates.io
-femtovg = { version = "0.2.0", git = "https://github.com/femtovg/femtovg", rev = "f520faa6ae7d1babd6d3120c9a3dfdb310cb1603" }
+# Pull in femtovg from the `master` branch until https://github.com/femtovg/femtovg/pull/41 is released to crates.io
+femtovg = { version = "0.2.0", git = "https://github.com/femtovg/femtovg", rev = "8cf5e6461f6a47e2932b09fcc76e4251265fcf86" }
 euclid = "0.22.1"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"

@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use super::CanvasRc;
+use femtovg::TextContext;
 #[cfg(target_os = "windows")]
 use font_kit::loader::Loader;
 use sixtyfps_corelib::graphics::FontRequest;
@@ -62,7 +62,7 @@ pub fn register_font_from_path(_path: &std::path::Path) -> Result<(), Box<dyn st
 }
 
 pub(crate) fn try_load_app_font(
-    canvas: &CanvasRc,
+    text_context: &TextContext,
     request: &FontRequest,
 ) -> Option<femtovg::FontId> {
     let family = request
@@ -80,14 +80,17 @@ pub(crate) fn try_load_app_font(
         font_db.query(&query).and_then(|id| {
             font_db.with_face_data(id, |data, _index| {
                 // pass index to femtovg once femtovg/femtovg/pull/21 is merged
-                canvas.borrow_mut().add_font_mem(&data).unwrap()
+                text_context.add_font_mem(&data).unwrap()
             })
         })
     })
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
+pub(crate) fn load_system_font(
+    text_context: &TextContext,
+    request: &FontRequest,
+) -> femtovg::FontId {
     let family_name =
         request.family.as_ref().map_or(font_kit::family_name::FamilyName::SansSerif, |family| {
             font_kit::family_name::FamilyName::Title(family.to_string())
@@ -103,18 +106,19 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
 
     // pass index to femtovg once femtovg/femtovg/pull/21 is merged
     match handle {
-        font_kit::handle::Handle::Path { path, font_index: _ } => {
-            canvas.borrow_mut().add_font(path)
-        }
+        font_kit::handle::Handle::Path { path, font_index: _ } => text_context.add_font_file(path),
         font_kit::handle::Handle::Memory { bytes, font_index: _ } => {
-            canvas.borrow_mut().add_font_mem(bytes.as_slice())
+            text_context.add_font_mem(bytes.as_slice())
         }
     }
     .unwrap()
 }
 
 #[cfg(target_arch = "wasm32")]
-pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femtovg::FontId {
+pub(crate) fn load_system_font(
+    text_context: &TextContext,
+    request: &FontRequest,
+) -> femtovg::FontId {
     WASM_FONT_REGISTERED.with(|registered| {
         if !registered.get() {
             registered.set(true);
@@ -123,7 +127,7 @@ pub(crate) fn load_system_font(canvas: &CanvasRc, request: &FontRequest) -> femt
     });
     let mut fallback_request = request.clone();
     fallback_request.family = Some("DejaVu Sans".into());
-    try_load_app_font(canvas, &fallback_request).unwrap()
+    try_load_app_font(text_context, &fallback_request).unwrap()
 }
 
 #[cfg(target_os = "macos")]
