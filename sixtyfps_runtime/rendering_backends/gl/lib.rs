@@ -277,16 +277,17 @@ pub struct GLRenderer {
 
 impl GLRenderer {
     pub(crate) fn new(
-        event_loop: &dyn crate::eventloop::EventLoopInterface,
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
     ) -> GLRenderer {
         #[cfg(not(target_arch = "wasm32"))]
         let (windowed_context, renderer) = {
-            let windowed_context = glutin::ContextBuilder::new()
-                .with_vsync(true)
-                .build_windowed(window_builder, event_loop.event_loop_target())
-                .unwrap();
+            let windowed_context = crate::eventloop::with_window_target(|event_loop| {
+                glutin::ContextBuilder::new()
+                    .with_vsync(true)
+                    .build_windowed(window_builder, event_loop.event_loop_target())
+                    .unwrap()
+            });
             let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
             let renderer = femtovg::renderer::OpenGl::new(|symbol| {
@@ -329,12 +330,12 @@ impl GLRenderer {
                 canvas.client_height() as u32,
             );
 
-            let window = Rc::new(
+            let window = Rc::new(crate::eventloop::with_window_target(|event_loop| {
                 window_builder
                     .with_canvas(Some(canvas.clone()))
                     .build(&event_loop.event_loop_target())
-                    .unwrap(),
-            );
+                    .unwrap()
+            }));
 
             // Try to maintain the existing size of the canvas element. A window created with winit
             // on the web will always have 1024x768 as size otherwise.
@@ -1716,8 +1717,8 @@ fn to_femtovg_color(col: &Color) -> femtovg::Color {
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
     let window = sixtyfps_corelib::window::Window::new(|window| {
-        GraphicsWindow::new(window, move |event_loop, window_builder| {
-            GLRenderer::new(event_loop, window_builder, &canvas_id)
+        GraphicsWindow::new(window, move |window_builder| {
+            GLRenderer::new(window_builder, &canvas_id)
         })
     });
     ComponentWindow(window)
@@ -1740,9 +1741,8 @@ pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> ComponentWindow {
         let window = sixtyfps_corelib::window::Window::new(|window| {
-            GraphicsWindow::new(window, |event_loop, window_builder| {
+            GraphicsWindow::new(window, |window_builder| {
                 GLRenderer::new(
-                    event_loop,
                     window_builder,
                     #[cfg(target_arch = "wasm32")]
                     "canvas",

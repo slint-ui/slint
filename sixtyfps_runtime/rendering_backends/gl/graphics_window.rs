@@ -28,8 +28,7 @@ use winit::dpi::LogicalSize;
 /// FIXME! this is some remains from a time where the GLRenderer was called the backend
 type Backend = super::GLRenderer;
 
-type WindowFactoryFn =
-    dyn Fn(&dyn crate::eventloop::EventLoopInterface, winit::window::WindowBuilder) -> Backend;
+type WindowFactoryFn = dyn Fn(winit::window::WindowBuilder) -> Backend;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics backends.
@@ -57,8 +56,7 @@ impl GraphicsWindow {
     ///   backing window.
     pub(crate) fn new(
         window_weak: &Weak<corelib::window::Window>,
-        graphics_backend_factory: impl Fn(&dyn crate::eventloop::EventLoopInterface, winit::window::WindowBuilder) -> Backend
-            + 'static,
+        graphics_backend_factory: impl Fn(winit::window::WindowBuilder) -> Backend + 'static,
     ) -> Rc<Self> {
         let default_font_properties_prop = Rc::pin(Property::default());
         default_font_properties_prop.set_binding({
@@ -188,9 +186,7 @@ impl GraphicsWindow {
             }
         };
 
-        let backend = crate::eventloop::with_window_target(|event_loop| {
-            self.window_factory.as_ref()(event_loop, window_builder)
-        });
+        let backend = self.window_factory.as_ref()(window_builder);
 
         let platform_window = backend.window();
         self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
