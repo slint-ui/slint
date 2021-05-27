@@ -236,81 +236,13 @@ impl OpenGLContext {
             }
         }
     }
-}
 
-struct GLRendererData {
-    canvas: CanvasRc,
-
-    opengl_context: RefCell<Option<OpenGLContext>>,
-
-    item_graphics_cache: RefCell<RenderingCache<Option<ItemGraphicsCacheEntry>>>,
-
-    // Cache used to avoid repeatedly decoding images from disk. Entries with a count
-    // of 1 are drained after flushing the renderer commands to the screen.
-    image_cache: RefCell<HashMap<ImageCacheKey, Rc<CachedImage>>>,
-
-    // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
-    // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
-    // `set_render_target` commands with image ids that have been deleted.
-    layer_images_to_delete_after_flush: RefCell<Vec<CachedImage>>,
-}
-
-impl GLRendererData {
-    // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
-    // otherwise a new image is created/loaded from the given callback.
-    fn lookup_image_in_cache_or_create(
-        &self,
-        cache_key: ImageCacheKey,
-        image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
-    ) -> Option<Rc<CachedImage>> {
-        Some(match self.image_cache.borrow_mut().entry(cache_key) {
-            std::collections::hash_map::Entry::Occupied(existing_entry) => {
-                existing_entry.get().clone()
-            }
-            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image = image_create_fn()?;
-                vacant_entry.insert(new_image.clone());
-                new_image
-            }
-        })
-    }
-
-    // Try to load the image the given resource points to
-    fn load_image_resource(&self, resource: &ImageReference) -> Option<Rc<CachedImage>> {
-        let cache_key = ImageCacheKey::new(resource)?;
-
-        self.lookup_image_in_cache_or_create(cache_key, || {
-            CachedImage::new_from_resource(resource, self)
-        })
-    }
-
-    // Load the item cache entry from the specified load factory fn, unless it was cached in the
-    // item's rendering cache.
-    fn load_item_graphics_cache_with_function(
-        &self,
-        item_cache: &CachedRenderingData,
-        load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
-    ) -> Option<ItemGraphicsCacheEntry> {
-        let mut cache = self.item_graphics_cache.borrow_mut();
-        item_cache.ensure_up_to_date(&mut cache, || load_fn())
-    }
-
-    fn window(&self) -> std::cell::Ref<winit::window::Window> {
-        std::cell::Ref::map(self.opengl_context.borrow(), |ctx| ctx.as_ref().unwrap().window())
-    }
-}
-
-pub struct GLRenderer {
-    shared_data: Rc<GLRendererData>,
-}
-
-impl GLRenderer {
-    pub(crate) fn new(
+    fn new_context_and_renderer(
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> GLRenderer {
+    ) -> (Self, femtovg::renderer::OpenGl) {
         #[cfg(not(target_arch = "wasm32"))]
-        let (windowed_context, renderer) = {
+        {
             let windowed_context = crate::eventloop::with_window_target(|event_loop| {
                 glutin::ContextBuilder::new()
                     .with_vsync(true)
@@ -335,11 +267,10 @@ impl GLRenderer {
                 }
             }
 
-            (windowed_context, renderer)
-        };
-
+            (Self::Current(windowed_context), renderer)
+        }
         #[cfg(target_arch = "wasm32")]
-        let (window, renderer) = {
+        {
             use wasm_bindgen::JsCast;
 
             let canvas = web_sys::window()
@@ -418,8 +349,87 @@ impl GLRenderer {
 
             let renderer =
                 femtovg::renderer::OpenGl::new_from_html_canvas(&window.canvas()).unwrap();
-            (window, renderer)
-        };
+            (Self::Current(window), renderer)
+        }
+    }
+}
+
+struct GLRendererData {
+    canvas: CanvasRc,
+
+    opengl_context: RefCell<Option<OpenGLContext>>,
+
+    item_graphics_cache: RefCell<RenderingCache<Option<ItemGraphicsCacheEntry>>>,
+
+    // Cache used to avoid repeatedly decoding images from disk. Entries with a count
+    // of 1 are drained after flushing the renderer commands to the screen.
+    image_cache: RefCell<HashMap<ImageCacheKey, Rc<CachedImage>>>,
+
+    // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
+    // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
+    // `set_render_target` commands with image ids that have been deleted.
+    layer_images_to_delete_after_flush: RefCell<Vec<CachedImage>>,
+}
+
+impl GLRendererData {
+    // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
+    // otherwise a new image is created/loaded from the given callback.
+    fn lookup_image_in_cache_or_create(
+        &self,
+        cache_key: ImageCacheKey,
+        image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
+    ) -> Option<Rc<CachedImage>> {
+        Some(match self.image_cache.borrow_mut().entry(cache_key) {
+            std::collections::hash_map::Entry::Occupied(existing_entry) => {
+                existing_entry.get().clone()
+            }
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                let new_image = image_create_fn()?;
+                vacant_entry.insert(new_image.clone());
+                new_image
+            }
+        })
+    }
+
+    // Try to load the image the given resource points to
+    fn load_image_resource(&self, resource: &ImageReference) -> Option<Rc<CachedImage>> {
+        let cache_key = ImageCacheKey::new(resource)?;
+
+        self.lookup_image_in_cache_or_create(cache_key, || {
+            CachedImage::new_from_resource(resource, self)
+        })
+    }
+
+    // Load the item cache entry from the specified load factory fn, unless it was cached in the
+    // item's rendering cache.
+    fn load_item_graphics_cache_with_function(
+        &self,
+        item_cache: &CachedRenderingData,
+        load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
+    ) -> Option<ItemGraphicsCacheEntry> {
+        let mut cache = self.item_graphics_cache.borrow_mut();
+        item_cache.ensure_up_to_date(&mut cache, || load_fn())
+    }
+
+    fn window(&self) -> std::cell::Ref<winit::window::Window> {
+        std::cell::Ref::map(self.opengl_context.borrow(), |ctx| ctx.as_ref().unwrap().window())
+    }
+}
+
+pub struct GLRenderer {
+    shared_data: Rc<GLRendererData>,
+}
+
+impl GLRenderer {
+    pub(crate) fn new(
+        window_builder: winit::window::WindowBuilder,
+        #[cfg(target_arch = "wasm32")] canvas_id: &str,
+    ) -> GLRenderer {
+        #[cfg(target_arch = "wasm32")]
+        let (opengl_context, renderer) =
+            OpenGLContext::new_context_and_renderer(window_builder, canvas_id);
+        #[cfg(not(target_arch = "wasm32"))]
+        let (opengl_context, renderer) = OpenGLContext::new_context_and_renderer(window_builder);
 
         let canvas = femtovg::Canvas::new_with_text_context(
             renderer,
@@ -430,12 +440,7 @@ impl GLRenderer {
         let shared_data = GLRendererData {
             canvas: Rc::new(RefCell::new(canvas)),
 
-            #[cfg(not(target_arch = "wasm32"))]
-            opengl_context: RefCell::new(Some(OpenGLContext::NotCurrent(unsafe {
-                windowed_context.make_not_current().unwrap()
-            }))),
-            #[cfg(target_arch = "wasm32")]
-            opengl_context: RefCell::new(Some(OpenGLContext::Current(window))),
+            opengl_context: RefCell::new(Some(opengl_context.make_not_current())),
 
             item_graphics_cache: Default::default(),
             image_cache: Default::default(),
