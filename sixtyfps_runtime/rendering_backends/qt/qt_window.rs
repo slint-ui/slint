@@ -1200,10 +1200,8 @@ impl PlatformWindow for QtWindow {
         _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> sixtyfps_corelib::graphics::FontRequest,
         _reference_text: Pin<&Property<SharedString>>,
-    ) -> Option<Box<dyn sixtyfps_corelib::graphics::FontMetrics>> {
-        Some(Box::new(get_font(
-            unresolved_font_request_getter().merge(&self.default_font_properties()),
-        )))
+    ) -> Box<dyn sixtyfps_corelib::graphics::FontMetrics> {
+        Box::new(get_font(unresolved_font_request_getter().merge(&self.default_font_properties())))
     }
 
     fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {

@@ -489,36 +489,33 @@ impl PlatformWindow for GraphicsWindow {
         item_graphics_cache_data: &corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> corelib::graphics::FontRequest,
         reference_text: Pin<&Property<SharedString>>,
-    ) -> Option<Box<dyn corelib::graphics::FontMetrics>> {
-        Some({
-            let font_request_fn = || {
-                unresolved_font_request_getter()
-                    .merge(&self.default_font_properties().as_ref().get())
-            };
+    ) -> Box<dyn corelib::graphics::FontMetrics> {
+        let font_request_fn = || {
+            unresolved_font_request_getter().merge(&self.default_font_properties().as_ref().get())
+        };
 
-            let scale_factor =
-                WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref());
+        let scale_factor =
+            WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref());
 
-            let font = self
-                .graphics_cache
-                .borrow_mut()
-                .load_item_graphics_cache_with_function(item_graphics_cache_data, || {
-                    Some(BackendItemGraphicsCacheEntry::Font(super::FONT_CACHE.with(|cache| {
-                        cache.borrow_mut().font(
-                            font_request_fn(),
-                            scale_factor.get(),
-                            &reference_text.get(),
-                        )
-                    })))
-                })
-                .unwrap()
-                .as_font()
-                .clone();
-            Box::new(super::GLFontMetrics {
-                font,
-                letter_spacing: font_request_fn().letter_spacing,
-                scale_factor: scale_factor.get(),
+        let font = self
+            .graphics_cache
+            .borrow_mut()
+            .load_item_graphics_cache_with_function(item_graphics_cache_data, || {
+                Some(BackendItemGraphicsCacheEntry::Font(super::FONT_CACHE.with(|cache| {
+                    cache.borrow_mut().font(
+                        font_request_fn(),
+                        scale_factor.get(),
+                        &reference_text.get(),
+                    )
+                })))
             })
+            .unwrap()
+            .as_font()
+            .clone();
+        Box::new(super::GLFontMetrics {
+            font,
+            letter_spacing: font_request_fn().letter_spacing,
+            scale_factor: scale_factor.get(),
         })
     }
 

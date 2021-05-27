@@ -128,11 +128,12 @@ impl Item for Text {
         if self.wrap() == TextWrap::word_wrap {
             // FIXME: one should limit to the size of the smaler word
             LayoutInfo::default()
-        } else if let Some(font_metrics) = window.0.font_metrics(
-            &self.cached_rendering_data,
-            &|| self.unresolved_font_request(),
-            Self::FIELD_OFFSETS.text.apply_pin(self),
-        ) {
+        } else {
+            let font_metrics = window.0.font_metrics(
+                &self.cached_rendering_data,
+                &|| self.unresolved_font_request(),
+                Self::FIELD_OFFSETS.text.apply_pin(self),
+            );
             let implicit_size = font_metrics.text_size(&self.text());
             let mut min_size = implicit_size;
             match self.overflow() {
@@ -151,8 +152,6 @@ impl Item for Text {
                 preferred_height: implicit_size.height.ceil(),
                 ..LayoutInfo::default()
             }
-        } else {
-            LayoutInfo::default()
         }
     }
 
@@ -262,23 +261,20 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        if let Some(font_metrics) = window.0.font_metrics(
+        let font_metrics = window.0.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
             Self::FIELD_OFFSETS.text.apply_pin(self),
-        ) {
-            let size = font_metrics.text_size("********************").ceil();
+        );
+        let size = font_metrics.text_size("********************").ceil();
 
-            LayoutInfo {
-                min_width: size.width,
-                min_height: size.height,
-                preferred_width: size.width,
-                preferred_height: size.height,
-                horizontal_stretch: 1.,
-                ..LayoutInfo::default()
-            }
-        } else {
-            LayoutInfo::default()
+        LayoutInfo {
+            min_width: size.width,
+            min_height: size.height,
+            preferred_width: size.width,
+            preferred_height: size.height,
+            horizontal_stretch: 1.,
+            ..LayoutInfo::default()
         }
     }
 
@@ -302,14 +298,11 @@ impl Item for TextInput {
         }
 
         let text = self.text();
-        let font_metrics = match window.0.font_metrics(
+        let font_metrics = window.0.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
             Self::FIELD_OFFSETS.text.apply_pin(self),
-        ) {
-            Some(font) => font,
-            None => return InputEventResult::EventIgnored,
-        };
+        );
         match event {
             MouseEvent::MousePressed { pos } => {
                 let clicked_offset = font_metrics.text_offset_for_x_position(&text, pos.x) as i32;

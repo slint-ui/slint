@@ -65,7 +65,7 @@ pub trait PlatformWindow {
         item_graphics_cache: &crate::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> crate::graphics::FontRequest,
         reference_text: Pin<&crate::properties::Property<SharedString>>,
-    ) -> Option<Box<dyn crate::graphics::FontMetrics>>;
+    ) -> Box<dyn crate::graphics::FontMetrics>;
 
     /// Return the size of the image referenced by the specified resource, multiplied by the window
     /// scale factor.

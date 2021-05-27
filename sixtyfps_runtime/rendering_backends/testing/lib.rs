@@ -121,8 +121,8 @@ impl PlatformWindow for TestingWindow {
         _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         _unresolved_font_request_getter: &dyn Fn() -> sixtyfps_corelib::graphics::FontRequest,
         _reference_text: std::pin::Pin<&sixtyfps_corelib::Property<sixtyfps_corelib::SharedString>>,
-    ) -> Option<Box<dyn sixtyfps_corelib::graphics::FontMetrics>> {
-        Some(Box::new(TestingFontMetrics::default()))
+    ) -> Box<dyn sixtyfps_corelib::graphics::FontMetrics> {
+        Box::new(TestingFontMetrics::default())
     }
 
     fn image_size(&self, source: &ImageReference) -> Size {
