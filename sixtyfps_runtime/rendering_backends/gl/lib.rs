@@ -21,11 +21,8 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use femtovg::TextContext;
-
 use sixtyfps_corelib::graphics::{
-    Brush, Color, FontMetrics, FontRequest, ImageReference, IntRect, Point, Rect, RenderingCache,
-    Size,
+    Brush, Color, FontRequest, ImageReference, IntRect, Point, Rect, RenderingCache, Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
@@ -34,7 +31,6 @@ use sixtyfps_corelib::items::{
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::SharedString;
-use sixtyfps_corelib::SharedVector;
 
 mod graphics_window;
 use graphics_window::*;
@@ -43,10 +39,9 @@ mod images;
 mod svg;
 use images::*;
 
-type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
+mod fonts;
 
-pub const DEFAULT_FONT_SIZE: f32 = 12.;
-pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
+type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 
 const KAPPA90: f32 = 0.5522847493;
 
@@ -90,7 +85,7 @@ enum ItemGraphicsCacheEntry {
         colorized_image: Rc<CachedImage>,
     },
     // The font selection is expensive because it is also based on the concrete rendered text, so this is cached here to speed up re-paints
-    Font(GLFont),
+    Font(fonts::Font),
 }
 
 impl ItemGraphicsCacheEntry {
@@ -105,7 +100,7 @@ impl ItemGraphicsCacheEntry {
     fn is_colorized_image(&self) -> bool {
         matches!(self, ItemGraphicsCacheEntry::ColorizedImage { .. })
     }
-    fn as_font(&self) -> &GLFont {
+    fn as_font(&self) -> &fonts::Font {
         match self {
             ItemGraphicsCacheEntry::Font(font) => font,
             _ => panic!("internal error. font requested for non-font gpu data"),
@@ -137,66 +132,6 @@ impl ItemGraphicsCache {
         load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
     ) -> Option<ItemGraphicsCacheEntry> {
         item_cache.ensure_up_to_date(&mut self.0, || load_fn())
-    }
-}
-
-struct FontCache {
-    fonts: HashMap<FontCacheKey, femtovg::FontId>,
-    text_context: TextContext,
-}
-
-impl Default for FontCache {
-    fn default() -> Self {
-        Self { fonts: HashMap::new(), text_context: Default::default() }
-    }
-}
-
-mod fonts;
-pub use fonts::register_font_from_memory;
-use fonts::*;
-
-thread_local! {
-    static FONT_CACHE: RefCell<FontCache> = RefCell::new(Default::default())
-}
-
-impl FontCache {
-    fn load_single_font(&mut self, request: &FontRequest) -> femtovg::FontId {
-        let text_context = self.text_context.clone();
-        self.fonts
-            .entry(FontCacheKey {
-                family: request.family.clone().unwrap_or_default(),
-                weight: request.weight.unwrap(),
-            })
-            .or_insert_with(|| {
-                try_load_app_font(&text_context, &request)
-                    .unwrap_or_else(|| load_system_font(&text_context, &request))
-            })
-            .clone()
-    }
-
-    fn font(
-        &mut self,
-        mut request: FontRequest,
-        scale_factor: f32,
-        reference_text: &str,
-    ) -> GLFont {
-        request.pixel_size = Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor);
-        request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
-
-        let primary_font = self.load_single_font(&request);
-        let fallbacks = font_fallbacks_for_request(&request, reference_text);
-
-        let fonts = core::iter::once(primary_font)
-            .chain(
-                fallbacks.iter().map(|fallback_request| self.load_single_font(&fallback_request)),
-            )
-            .collect::<SharedVector<_>>();
-
-        GLFont {
-            fonts,
-            text_context: self.text_context.clone(),
-            pixel_size: request.pixel_size.unwrap(),
-        }
     }
 }
 
@@ -447,7 +382,7 @@ impl GLRenderer {
 
         let canvas = femtovg::Canvas::new_with_text_context(
             renderer,
-            FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+            fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
         )
         .unwrap();
 
@@ -693,7 +628,7 @@ impl ItemRenderer for GLItemRenderer {
             .graphics_cache
             .borrow_mut()
             .load_item_graphics_cache_with_function(&text.cached_rendering_data, || {
-                Some(ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
+                Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         text.unresolved_font_request()
                             .merge(&self.default_font_properties.as_ref().get()),
@@ -795,7 +730,7 @@ impl ItemRenderer for GLItemRenderer {
             .graphics_cache
             .borrow_mut()
             .load_item_graphics_cache_with_function(&text_input.cached_rendering_data, || {
-                Some(ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
+                Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         text_input
                             .unresolved_font_request()
@@ -1306,7 +1241,7 @@ impl GLItemRenderer {
         max_width: f32,
         max_height: f32,
         text: Pin<&Property<SharedString>>,
-        font: &GLFont,
+        font: &fonts::Font,
         paint: femtovg::Paint,
         horizontal_alignment: TextHorizontalAlignment,
         vertical_alignment: TextVerticalAlignment,
@@ -1627,99 +1562,6 @@ impl GLItemRenderer {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-struct FontCacheKey {
-    family: SharedString,
-    weight: i32,
-}
-
-#[derive(Clone)]
-struct GLFont {
-    fonts: SharedVector<femtovg::FontId>,
-    pixel_size: f32,
-    text_context: TextContext,
-}
-
-impl GLFont {
-    fn measure(&self, letter_spacing: f32, text: &str) -> femtovg::TextMetrics {
-        self.text_context
-            .measure_text(0., 0., text, self.init_paint(letter_spacing, femtovg::Paint::default()))
-            .unwrap()
-    }
-
-    fn height(&self) -> f32 {
-        self.text_context
-            .measure_font(self.init_paint(
-                /*letter spacing does not influence height*/ 0.,
-                femtovg::Paint::default(),
-            ))
-            .unwrap()
-            .height()
-    }
-
-    fn init_paint(&self, letter_spacing: f32, mut paint: femtovg::Paint) -> femtovg::Paint {
-        paint.set_font(&self.fonts);
-        paint.set_font_size(self.pixel_size);
-        paint.set_text_baseline(femtovg::Baseline::Top);
-        paint.set_letter_spacing(letter_spacing);
-        paint
-    }
-
-    fn text_size(&self, letter_spacing: f32, text: &str, max_width: Option<f32>) -> Size {
-        let paint = self.init_paint(letter_spacing, femtovg::Paint::default());
-        let font_metrics = self.text_context.measure_font(paint).unwrap();
-        let mut lines = 0;
-        let mut width = 0.;
-        let mut start = 0;
-        if let Some(max_width) = max_width {
-            while start < text.len() {
-                let index = self.text_context.break_text(max_width, &text[start..], paint).unwrap();
-                if index == 0 {
-                    break;
-                }
-                let index = start + index;
-                let mesure =
-                    self.text_context.measure_text(0., 0., &text[start..index], paint).unwrap();
-                start = index;
-                lines += 1;
-                width = mesure.width().max(width);
-            }
-        } else {
-            for line in text.lines() {
-                let mesure = self.text_context.measure_text(0., 0., line, paint).unwrap();
-                lines += 1;
-                width = mesure.width().max(width);
-            }
-        }
-        euclid::size2(width, lines as f32 * font_metrics.height())
-    }
-}
-
-struct GLFontMetrics {
-    font: GLFont,
-    letter_spacing: Option<f32>,
-    scale_factor: f32,
-}
-
-impl FontMetrics for GLFontMetrics {
-    fn text_size(&self, text: &str) -> Size {
-        self.font.text_size(self.letter_spacing.unwrap_or_default(), text, None) / self.scale_factor
-    }
-
-    fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
-        let x = x * self.scale_factor;
-        let metrics = self.font.measure(self.letter_spacing.unwrap_or_default(), text);
-        let mut current_x = 0.;
-        for glyph in metrics.glyphs {
-            if current_x + glyph.advance_x / 2. >= x {
-                return glyph.byte_index;
-            }
-            current_x += glyph.advance_x;
-        }
-        return text.len();
-    }
-}
-
 fn to_femtovg_color(col: &Color) -> femtovg::Color {
     femtovg::Color::rgba(col.red(), col.green(), col.blue(), col.alpha())
 }
@@ -1776,14 +1618,14 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         &'static self,
         data: &[u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::register_font_from_memory(data)
+        self::fonts::register_font_from_memory(data)
     }
 
     fn register_font_from_path(
         &'static self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::register_font_from_path(path)
+        self::fonts::register_font_from_path(path)
     }
 
     fn set_clipboard_text(&'static self, text: String) {

@@ -10,10 +10,17 @@ LICENSE END */
 use femtovg::TextContext;
 #[cfg(target_os = "windows")]
 use font_kit::loader::Loader;
-use sixtyfps_corelib::graphics::FontRequest;
+use sixtyfps_corelib::graphics::{FontMetrics as FontMetricsTrait, FontRequest, Size};
+use sixtyfps_corelib::{SharedString, SharedVector};
 #[cfg(target_arch = "wasm32")]
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::collections::HashMap;
+
+use crate::ItemGraphicsCache;
+
+pub const DEFAULT_FONT_SIZE: f32 = 12.;
+pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 
 thread_local! {
     /// Database used to keep track of fonts added by the application
@@ -208,4 +215,182 @@ pub(crate) fn font_fallbacks_for_request(
             letter_spacing: _request.letter_spacing,
         },
     ]
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct FontCacheKey {
+    family: SharedString,
+    weight: i32,
+}
+
+#[derive(Clone)]
+pub struct Font {
+    fonts: SharedVector<femtovg::FontId>,
+    pixel_size: f32,
+    text_context: TextContext,
+}
+
+impl Font {
+    pub fn measure(&self, letter_spacing: f32, text: &str) -> femtovg::TextMetrics {
+        self.text_context
+            .measure_text(0., 0., text, self.init_paint(letter_spacing, femtovg::Paint::default()))
+            .unwrap()
+    }
+
+    pub fn height(&self) -> f32 {
+        self.text_context
+            .measure_font(self.init_paint(
+                /*letter spacing does not influence height*/ 0.,
+                femtovg::Paint::default(),
+            ))
+            .unwrap()
+            .height()
+    }
+
+    pub fn init_paint(&self, letter_spacing: f32, mut paint: femtovg::Paint) -> femtovg::Paint {
+        paint.set_font(&self.fonts);
+        paint.set_font_size(self.pixel_size);
+        paint.set_text_baseline(femtovg::Baseline::Top);
+        paint.set_letter_spacing(letter_spacing);
+        paint
+    }
+
+    pub fn text_size(&self, letter_spacing: f32, text: &str, max_width: Option<f32>) -> Size {
+        let paint = self.init_paint(letter_spacing, femtovg::Paint::default());
+        let font_metrics = self.text_context.measure_font(paint).unwrap();
+        let mut lines = 0;
+        let mut width = 0.;
+        let mut start = 0;
+        if let Some(max_width) = max_width {
+            while start < text.len() {
+                let index = self.text_context.break_text(max_width, &text[start..], paint).unwrap();
+                if index == 0 {
+                    break;
+                }
+                let index = start + index;
+                let mesure =
+                    self.text_context.measure_text(0., 0., &text[start..index], paint).unwrap();
+                start = index;
+                lines += 1;
+                width = mesure.width().max(width);
+            }
+        } else {
+            for line in text.lines() {
+                let mesure = self.text_context.measure_text(0., 0., line, paint).unwrap();
+                lines += 1;
+                width = mesure.width().max(width);
+            }
+        }
+        euclid::size2(width, lines as f32 * font_metrics.height())
+    }
+}
+
+pub struct FontMetrics {
+    font: Font,
+    letter_spacing: Option<f32>,
+    scale_factor: f32,
+}
+
+impl FontMetrics {
+    pub(crate) fn new(
+        graphics_cache: &mut ItemGraphicsCache,
+        item_graphics_cache_data: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        font_request_fn: impl Fn() -> sixtyfps_corelib::graphics::FontRequest,
+        scale_factor: core::pin::Pin<&sixtyfps_corelib::Property<f32>>,
+        reference_text: core::pin::Pin<&sixtyfps_corelib::Property<SharedString>>,
+    ) -> Self {
+        let font = graphics_cache
+            .load_item_graphics_cache_with_function(item_graphics_cache_data, || {
+                Some(super::ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
+                    cache.borrow_mut().font(
+                        font_request_fn(),
+                        scale_factor.get(),
+                        &reference_text.get(),
+                    )
+                })))
+            })
+            .unwrap()
+            .as_font()
+            .clone();
+        Self {
+            font,
+            letter_spacing: font_request_fn().letter_spacing,
+            scale_factor: scale_factor.get(),
+        }
+    }
+}
+
+impl FontMetricsTrait for FontMetrics {
+    fn text_size(&self, text: &str) -> Size {
+        self.font.text_size(self.letter_spacing.unwrap_or_default(), text, None) / self.scale_factor
+    }
+
+    fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
+        let x = x * self.scale_factor;
+        let metrics = self.font.measure(self.letter_spacing.unwrap_or_default(), text);
+        let mut current_x = 0.;
+        for glyph in metrics.glyphs {
+            if current_x + glyph.advance_x / 2. >= x {
+                return glyph.byte_index;
+            }
+            current_x += glyph.advance_x;
+        }
+        return text.len();
+    }
+}
+
+pub struct FontCache {
+    fonts: HashMap<FontCacheKey, femtovg::FontId>,
+    pub(crate) text_context: TextContext,
+}
+
+impl Default for FontCache {
+    fn default() -> Self {
+        Self { fonts: HashMap::new(), text_context: Default::default() }
+    }
+}
+
+thread_local! {
+    pub static FONT_CACHE: RefCell<FontCache> = RefCell::new(Default::default())
+}
+
+impl FontCache {
+    fn load_single_font(&mut self, request: &FontRequest) -> femtovg::FontId {
+        let text_context = self.text_context.clone();
+        self.fonts
+            .entry(FontCacheKey {
+                family: request.family.clone().unwrap_or_default(),
+                weight: request.weight.unwrap(),
+            })
+            .or_insert_with(|| {
+                try_load_app_font(&text_context, &request)
+                    .unwrap_or_else(|| load_system_font(&text_context, &request))
+            })
+            .clone()
+    }
+
+    pub fn font(
+        &mut self,
+        mut request: FontRequest,
+        scale_factor: f32,
+        reference_text: &str,
+    ) -> Font {
+        request.pixel_size = Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor);
+        request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
+
+        let primary_font = self.load_single_font(&request);
+        let fallbacks = font_fallbacks_for_request(&request, reference_text);
+
+        let fonts = core::iter::once(primary_font)
+            .chain(
+                fallbacks.iter().map(|fallback_request| self.load_single_font(&fallback_request)),
+            )
+            .collect::<SharedVector<_>>();
+
+        Font {
+            fonts,
+            text_context: self.text_context.clone(),
+            pixel_size: request.pixel_size.unwrap(),
+        }
+    }
 }

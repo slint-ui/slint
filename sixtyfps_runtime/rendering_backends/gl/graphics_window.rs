@@ -28,7 +28,6 @@ use winit::dpi::LogicalSize;
 /// FIXME! this is some remains from a time where the GLRenderer was called the backend
 type Backend = super::GLRenderer;
 type BackendItemGraphicsCache = super::ItemGraphicsCache;
-type BackendItemGraphicsCacheEntry = super::ItemGraphicsCacheEntry;
 
 type WindowFactoryFn = dyn Fn(winit::window::WindowBuilder) -> Backend;
 
@@ -497,26 +496,13 @@ impl PlatformWindow for GraphicsWindow {
         let scale_factor =
             WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref());
 
-        let font = self
-            .graphics_cache
-            .borrow_mut()
-            .load_item_graphics_cache_with_function(item_graphics_cache_data, || {
-                Some(BackendItemGraphicsCacheEntry::Font(super::FONT_CACHE.with(|cache| {
-                    cache.borrow_mut().font(
-                        font_request_fn(),
-                        scale_factor.get(),
-                        &reference_text.get(),
-                    )
-                })))
-            })
-            .unwrap()
-            .as_font()
-            .clone();
-        Box::new(super::GLFontMetrics {
-            font,
-            letter_spacing: font_request_fn().letter_spacing,
-            scale_factor: scale_factor.get(),
-        })
+        Box::new(super::fonts::FontMetrics::new(
+            &mut *self.graphics_cache.borrow_mut(),
+            item_graphics_cache_data,
+            font_request_fn,
+            scale_factor,
+            reference_text,
+        ))
     }
 
     fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
