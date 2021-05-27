@@ -194,6 +194,7 @@ impl WindowedContextWrapper {
         match self {
             Self::NotCurrent(not_current_ctx) => {
                 let current_ctx = unsafe { not_current_ctx.make_current().unwrap() };
+                current_ctx.resize(current_ctx.window().inner_size());
                 Self::Current(current_ctx)
             }
             this @ Self::Current(_) => this,
@@ -438,14 +439,7 @@ impl GLRenderer {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let ctx = &mut *self.shared_data.windowed_context.borrow_mut();
-            let current = ctx.take().unwrap().make_current();
-            match &current {
-                WindowedContextWrapper::Current(ctx) => {
-                    ctx.resize(size);
-                }
-                _ => unreachable!(),
-            }
-            *ctx = Some(current);
+            *ctx = ctx.take().unwrap().make_current().into();
         }
 
         {
