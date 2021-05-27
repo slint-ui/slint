@@ -201,20 +201,15 @@ impl CachedImage {
                 let image_id = image_id.clone();
                 let window_weak = Rc::downgrade(&renderer.window);
                 let cached_image_weak = Rc::downgrade(&cached_image);
-                let event_loop_proxy_weak = Rc::downgrade(&renderer.event_loop_proxy);
                 move || {
-                    let (canvas, window, event_loop_proxy, cached_image) = match (
+                    let (canvas, window, cached_image) = match (
                         canvas_weak.upgrade(),
                         window_weak.upgrade(),
-                        event_loop_proxy_weak.upgrade(),
                         cached_image_weak.upgrade(),
                     ) {
-                        (
-                            Some(canvas),
-                            Some(window),
-                            Some(event_loop_proxy),
-                            Some(cached_image),
-                        ) => (canvas, window, event_loop_proxy, cached_image),
+                        (Some(canvas), Some(window), Some(cached_image)) => {
+                            (canvas, window, cached_image)
+                        }
                         _ => return,
                     };
                     canvas
@@ -236,7 +231,12 @@ impl CachedImage {
                     // be dispatched as the next event. We are however not in an event loop
                     // call, so we also need to wake up the event loop.
                     window.request_redraw();
-                    event_loop_proxy.send_event(crate::eventloop::CustomEvent::WakeUpAndPoll).ok();
+                    crate::eventloop::with_window_target(|event_loop| {
+                        event_loop
+                            .event_loop_proxy()
+                            .send_event(crate::eventloop::CustomEvent::WakeUpAndPoll)
+                            .ok();
+                    });
                 }
             })
             .into(),

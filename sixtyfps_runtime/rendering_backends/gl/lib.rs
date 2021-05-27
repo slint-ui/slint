@@ -215,8 +215,7 @@ struct GLRendererData {
     window: Rc<winit::window::Window>,
     #[cfg(not(target_arch = "wasm32"))]
     windowed_context: RefCell<Option<WindowedContextWrapper>>,
-    #[cfg(target_arch = "wasm32")]
-    event_loop_proxy: Rc<winit::event_loop::EventLoopProxy<eventloop::CustomEvent>>,
+
     item_graphics_cache: RefCell<RenderingCache<Option<ItemGraphicsCacheEntry>>>,
 
     // Cache used to avoid repeatedly decoding images from disk. Entries with a count
@@ -310,9 +309,6 @@ impl GLRenderer {
         };
 
         #[cfg(target_arch = "wasm32")]
-        let event_loop_proxy = Rc::new(event_loop.event_loop_proxy().clone());
-
-        #[cfg(target_arch = "wasm32")]
         let (window, renderer) = {
             use wasm_bindgen::JsCast;
 
@@ -344,7 +340,6 @@ impl GLRenderer {
             // on the web will always have 1024x768 as size otherwise.
 
             let resize_canvas = {
-                let event_loop_proxy = event_loop_proxy.clone();
                 let window = window.clone();
                 let canvas = canvas.clone();
                 move |_: web_sys::Event| {
@@ -355,7 +350,12 @@ impl GLRenderer {
 
                     window.set_inner_size(existing_canvas_size);
                     window.request_redraw();
-                    event_loop_proxy.send_event(eventloop::CustomEvent::WakeUpAndPoll).ok();
+                    crate::eventloop::with_window_target(|event_loop| {
+                        event_loop
+                            .event_loop_proxy()
+                            .send_event(crate::eventloop::CustomEvent::WakeUpAndPoll)
+                            .ok();
+                    })
                 }
             };
 
@@ -402,8 +402,6 @@ impl GLRenderer {
             }))),
             #[cfg(target_arch = "wasm32")]
             window,
-            #[cfg(target_arch = "wasm32")]
-            event_loop_proxy,
 
             item_graphics_cache: Default::default(),
             image_cache: Default::default(),
