@@ -27,6 +27,8 @@ use winit::dpi::LogicalSize;
 
 /// FIXME! this is some remains from a time where the GLRenderer was called the backend
 type Backend = super::GLRenderer;
+type BackendItemGraphicsCache = super::ItemGraphicsCache;
+type BackendItemGraphicsCacheEntry = super::ItemGraphicsCacheEntry;
 
 type WindowFactoryFn = dyn Fn(winit::window::WindowBuilder) -> Backend;
 
@@ -45,6 +47,8 @@ pub struct GraphicsWindow {
     active_popup: std::cell::RefCell<Option<(ComponentRc, Point)>>,
 
     default_font_properties: Pin<Rc<Property<FontRequest>>>,
+
+    pub(crate) graphics_cache: RefCell<BackendItemGraphicsCache>,
 }
 
 impl GraphicsWindow {
@@ -88,6 +92,7 @@ impl GraphicsWindow {
             mouse_input_state: Default::default(),
             active_popup: Default::default(),
             default_font_properties: default_font_properties_prop,
+            graphics_cache: Default::default(),
         })
     }
 
@@ -270,6 +275,7 @@ impl GraphicsWindow {
             };
 
             let mut renderer = window.backend.borrow_mut().new_renderer(
+                self.clone(),
                 &background_color,
                 self.scale_factor(),
                 self.default_font_properties(),
@@ -380,12 +386,11 @@ impl PlatformWindow for GraphicsWindow {
     fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<ItemRef<'a>>>) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => {
+            GraphicsWindowBackendState::Mapped(_) => {
+                // FIXME: make sure context is current
                 for item in items.iter() {
                     let cached_rendering_data = item.cached_rendering_data_offset();
-                    cached_rendering_data.release(
-                        &mut window.backend.borrow().shared_data.item_graphics_cache.borrow_mut(),
-                    )
+                    self.graphics_cache.borrow_mut().release(cached_rendering_data);
                 }
             }
         }
@@ -481,35 +486,40 @@ impl PlatformWindow for GraphicsWindow {
 
     fn font_metrics(
         &self,
-        item_graphics_cache: &corelib::item_rendering::CachedRenderingData,
+        item_graphics_cache_data: &corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> corelib::graphics::FontRequest,
         reference_text: Pin<&Property<SharedString>>,
     ) -> Option<Box<dyn corelib::graphics::FontMetrics>> {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {
-                // Temporary: Register this internal property to notify the caller when
-                // we've been mapped and then re-calculate the font metrics. To be removed
-                // when we can do text layout without a window.
-                WindowProperties::FIELD_OFFSETS
-                    .window_map_pending
-                    .apply_pin(self.properties.as_ref())
-                    .get();
-                None
-            }
-            GraphicsWindowBackendState::Mapped(window) => Some(
-                window.backend.borrow_mut().font_metrics(
-                    item_graphics_cache,
-                    &|| {
-                        unresolved_font_request_getter()
-                            .merge(&self.default_font_properties().as_ref().get())
-                    },
-                    WindowProperties::FIELD_OFFSETS
-                        .scale_factor
-                        .apply_pin(self.properties.as_ref()),
-                    reference_text,
-                ),
-            ),
-        }
+        Some({
+            let font_request_fn = || {
+                unresolved_font_request_getter()
+                    .merge(&self.default_font_properties().as_ref().get())
+            };
+
+            let scale_factor =
+                WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref());
+
+            let font = self
+                .graphics_cache
+                .borrow_mut()
+                .load_item_graphics_cache_with_function(item_graphics_cache_data, || {
+                    Some(BackendItemGraphicsCacheEntry::Font(super::FONT_CACHE.with(|cache| {
+                        cache.borrow_mut().font(
+                            font_request_fn(),
+                            scale_factor.get(),
+                            &reference_text.get(),
+                        )
+                    })))
+                })
+                .unwrap()
+                .as_font()
+                .clone();
+            Box::new(super::GLFontMetrics {
+                font,
+                letter_spacing: font_request_fn().letter_spacing,
+                scale_factor: scale_factor.get(),
+            })
+        })
     }
 
     fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {

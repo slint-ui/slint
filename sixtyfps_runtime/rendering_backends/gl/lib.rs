@@ -113,6 +113,33 @@ impl ItemGraphicsCacheEntry {
     }
 }
 
+#[derive(Default)]
+struct ItemGraphicsCache(RenderingCache<Option<ItemGraphicsCacheEntry>>);
+
+impl ItemGraphicsCache {
+    fn release(&mut self, item_data: &CachedRenderingData) {
+        item_data.release(&mut self.0);
+    }
+
+    fn ensure_up_to_date(
+        &mut self,
+        item_data: &CachedRenderingData,
+        update_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
+    ) -> Option<ItemGraphicsCacheEntry> {
+        item_data.ensure_up_to_date(&mut self.0, update_fn)
+    }
+
+    // Load the item cache entry from the specified load factory fn, unless it was cached in the
+    // item's rendering cache.
+    fn load_item_graphics_cache_with_function(
+        &mut self,
+        item_cache: &CachedRenderingData,
+        load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
+    ) -> Option<ItemGraphicsCacheEntry> {
+        item_cache.ensure_up_to_date(&mut self.0, || load_fn())
+    }
+}
+
 struct FontCache {
     fonts: HashMap<FontCacheKey, femtovg::FontId>,
     text_context: TextContext,
@@ -359,8 +386,6 @@ struct GLRendererData {
 
     opengl_context: RefCell<Option<OpenGLContext>>,
 
-    item_graphics_cache: RefCell<RenderingCache<Option<ItemGraphicsCacheEntry>>>,
-
     // Cache used to avoid repeatedly decoding images from disk. Entries with a count
     // of 1 are drained after flushing the renderer commands to the screen.
     image_cache: RefCell<HashMap<ImageCacheKey, Rc<CachedImage>>>,
@@ -400,17 +425,6 @@ impl GLRendererData {
         })
     }
 
-    // Load the item cache entry from the specified load factory fn, unless it was cached in the
-    // item's rendering cache.
-    fn load_item_graphics_cache_with_function(
-        &self,
-        item_cache: &CachedRenderingData,
-        load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
-    ) -> Option<ItemGraphicsCacheEntry> {
-        let mut cache = self.item_graphics_cache.borrow_mut();
-        item_cache.ensure_up_to_date(&mut cache, || load_fn())
-    }
-
     fn window(&self) -> std::cell::Ref<winit::window::Window> {
         std::cell::Ref::map(self.opengl_context.borrow(), |ctx| ctx.as_ref().unwrap().window())
     }
@@ -442,7 +456,6 @@ impl GLRenderer {
 
             opengl_context: RefCell::new(Some(opengl_context.make_not_current())),
 
-            item_graphics_cache: Default::default(),
             image_cache: Default::default(),
             layer_images_to_delete_after_flush: Default::default(),
         };
@@ -454,6 +467,7 @@ impl GLRenderer {
     /// window background was cleared with the specified clear_color.
     fn new_renderer(
         &mut self,
+        graphics_window: Rc<GraphicsWindow>,
         clear_color: &Color,
         scale_factor: f32,
         default_font_properties: &Pin<Rc<Property<FontRequest>>>,
@@ -476,6 +490,7 @@ impl GLRenderer {
 
         GLItemRenderer {
             shared_data: self.shared_data.clone(),
+            graphics_window,
             scale_factor,
             default_font_properties: default_font_properties.clone(),
             state: vec![State {
@@ -510,36 +525,6 @@ impl GLRenderer {
         self.shared_data.window()
     }
 
-    /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as
-    /// closely as possible.
-    fn font_metrics(
-        &mut self,
-        item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
-        font_request_fn: &dyn Fn() -> FontRequest,
-        scale_factor: Pin<&Property<f32>>,
-        reference_text: Pin<&Property<SharedString>>,
-    ) -> Box<dyn FontMetrics> {
-        let font = self
-            .shared_data
-            .load_item_graphics_cache_with_function(item_graphics_cache, || {
-                Some(ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
-                    cache.borrow_mut().font(
-                        font_request_fn(),
-                        scale_factor.get(),
-                        &reference_text.get(),
-                    )
-                })))
-            })
-            .unwrap()
-            .as_font()
-            .clone();
-        Box::new(GLFontMetrics {
-            font,
-            letter_spacing: font_request_fn().letter_spacing,
-            scale_factor: scale_factor.get(),
-        })
-    }
-
     /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted
     /// to the window scale factor.
     fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
@@ -566,6 +551,7 @@ struct State {
 
 pub struct GLItemRenderer {
     shared_data: Rc<GLRendererData>,
+    graphics_window: Rc<GraphicsWindow>,
     scale_factor: f32,
     default_font_properties: Pin<Rc<Property<FontRequest>>>,
     /// track the state manually since femtovg don't have accessor for its state
@@ -703,7 +689,9 @@ impl ItemRenderer for GLItemRenderer {
         let vertical_alignment = text.vertical_alignment();
         let horizontal_alignment = text.horizontal_alignment();
         let font = self
-            .shared_data
+            .graphics_window
+            .graphics_cache
+            .borrow_mut()
             .load_item_graphics_cache_with_function(&text.cached_rendering_data, || {
                 Some(ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
@@ -803,7 +791,9 @@ impl ItemRenderer for GLItemRenderer {
         }
 
         let font = self
-            .shared_data
+            .graphics_window
+            .graphics_cache
+            .borrow_mut()
             .load_item_graphics_cache_with_function(&text_input.cached_rendering_data, || {
                 Some(ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
@@ -1031,7 +1021,9 @@ impl ItemRenderer for GLItemRenderer {
         }
 
         let cache_entry = self
-            .shared_data
+            .graphics_window
+            .graphics_cache
+            .borrow_mut()
             .load_item_graphics_cache_with_function(&box_shadow.cached_rendering_data, || {
                 ItemGraphicsCacheEntry::Image({
                     let blur = box_shadow.blur() * self.scale_factor;
@@ -1228,9 +1220,9 @@ impl ItemRenderer for GLItemRenderer {
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         let canvas = &self.shared_data.canvas;
-        let mut cache = self.shared_data.item_graphics_cache.borrow_mut();
+        let mut cache = self.graphics_window.graphics_cache.borrow_mut();
 
-        let cache_entry = item_cache.ensure_up_to_date(&mut cache, || {
+        let cache_entry = cache.ensure_up_to_date(item_cache, || {
             let mut cached_image = None;
             update_fn(&mut |width: u32, height: u32, data: &[u8]| {
                 use rgb::FromSlice;
@@ -1431,8 +1423,11 @@ impl GLItemRenderer {
         }
 
         let cached_image = loop {
-            let image_cache_entry =
-                self.shared_data.load_item_graphics_cache_with_function(item_cache, || {
+            let image_cache_entry = self
+                .graphics_window
+                .graphics_cache
+                .borrow_mut()
+                .load_item_graphics_cache_with_function(item_cache, || {
                     self.shared_data
                         .load_image_resource(&source_property.get())
                         .and_then(|cached_image| {
@@ -1463,8 +1458,8 @@ impl GLItemRenderer {
             if colorize_property.map_or(false, |prop| !prop.get().is_transparent())
                 && !cached_image.is_colorized_image()
             {
-                let mut cache = self.shared_data.item_graphics_cache.borrow_mut();
-                item_cache.release(&mut cache);
+                let mut cache = self.graphics_window.graphics_cache.borrow_mut();
+                cache.release(item_cache);
                 continue;
             }
 
