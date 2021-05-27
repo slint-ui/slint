@@ -175,23 +175,37 @@ impl FontCache {
 
 // glutin's WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
 // in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
-#[cfg(not(target_arch = "wasm32"))]
-enum WindowedContextWrapper {
+enum OpenGLContext {
+    #[cfg(not(target_arch = "wasm32"))]
     NotCurrent(glutin::WindowedContext<glutin::NotCurrent>),
+    #[cfg(not(target_arch = "wasm32"))]
     Current(glutin::WindowedContext<glutin::PossiblyCurrent>),
+    #[cfg(target_arch = "wasm32")]
+    Current(Rc<winit::window::Window>),
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-impl WindowedContextWrapper {
+impl OpenGLContext {
     fn window(&self) -> &winit::window::Window {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::NotCurrent(context) => context.window(),
+            #[cfg(not(target_arch = "wasm32"))]
             Self::Current(context) => context.window(),
+            #[cfg(target_arch = "wasm32")]
+            Self::Current(window) => window,
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn window_rc(&self) -> &Rc<winit::window::Window> {
+        match self {
+            Self::Current(window) => window,
         }
     }
 
     fn make_current(self) -> Self {
         match self {
+            #[cfg(not(target_arch = "wasm32"))]
             Self::NotCurrent(not_current_ctx) => {
                 let current_ctx = unsafe { not_current_ctx.make_current().unwrap() };
                 current_ctx.resize(current_ctx.window().inner_size());
@@ -202,18 +216,22 @@ impl WindowedContextWrapper {
     }
 
     fn make_not_current(self) -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
         match self {
             this @ Self::NotCurrent(_) => this,
             Self::Current(current_ctx_rc) => {
                 Self::NotCurrent(unsafe { current_ctx_rc.make_not_current().unwrap() })
             }
         }
+        #[cfg(target_arch = "wasm32")]
+        self
     }
 
     fn swap_buffers(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
         match self {
-            WindowedContextWrapper::NotCurrent(_) => {}
-            WindowedContextWrapper::Current(current_ctx) => {
+            OpenGLContext::NotCurrent(_) => {}
+            OpenGLContext::Current(current_ctx) => {
                 current_ctx.swap_buffers().unwrap();
             }
         }
@@ -223,10 +241,7 @@ impl WindowedContextWrapper {
 struct GLRendererData {
     canvas: CanvasRc,
 
-    #[cfg(target_arch = "wasm32")]
-    window: Rc<winit::window::Window>,
-    #[cfg(not(target_arch = "wasm32"))]
-    windowed_context: RefCell<Option<WindowedContextWrapper>>,
+    opengl_context: RefCell<Option<OpenGLContext>>,
 
     item_graphics_cache: RefCell<RenderingCache<Option<ItemGraphicsCacheEntry>>>,
 
@@ -278,6 +293,10 @@ impl GLRendererData {
     ) -> Option<ItemGraphicsCacheEntry> {
         let mut cache = self.item_graphics_cache.borrow_mut();
         item_cache.ensure_up_to_date(&mut cache, || load_fn())
+    }
+
+    fn window(&self) -> std::cell::Ref<winit::window::Window> {
+        std::cell::Ref::map(self.opengl_context.borrow(), |ctx| ctx.as_ref().unwrap().window())
     }
 }
 
@@ -412,11 +431,11 @@ impl GLRenderer {
             canvas: Rc::new(RefCell::new(canvas)),
 
             #[cfg(not(target_arch = "wasm32"))]
-            windowed_context: RefCell::new(Some(WindowedContextWrapper::NotCurrent(unsafe {
+            opengl_context: RefCell::new(Some(OpenGLContext::NotCurrent(unsafe {
                 windowed_context.make_not_current().unwrap()
             }))),
             #[cfg(target_arch = "wasm32")]
-            window,
+            opengl_context: RefCell::new(Some(OpenGLContext::Current(window))),
 
             item_graphics_cache: Default::default(),
             image_cache: Default::default(),
@@ -436,9 +455,8 @@ impl GLRenderer {
     ) -> GLItemRenderer {
         let size = self.window().inner_size();
 
-        #[cfg(not(target_arch = "wasm32"))]
         {
-            let ctx = &mut *self.shared_data.windowed_context.borrow_mut();
+            let ctx = &mut *self.shared_data.opengl_context.borrow_mut();
             *ctx = ctx.take().unwrap().make_current().into();
         }
 
@@ -477,25 +495,14 @@ impl GLRenderer {
 
         std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
 
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let mut ctx = self.shared_data.windowed_context.borrow_mut().take().unwrap();
-            ctx.swap_buffers();
+        let mut ctx = self.shared_data.opengl_context.borrow_mut().take().unwrap();
+        ctx.swap_buffers();
 
-            *self.shared_data.windowed_context.borrow_mut() = ctx.make_not_current().into();
-        }
+        *self.shared_data.opengl_context.borrow_mut() = ctx.make_not_current().into();
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     fn window(&self) -> std::cell::Ref<winit::window::Window> {
-        std::cell::Ref::map(self.shared_data.windowed_context.borrow(), |ctx| {
-            ctx.as_ref().unwrap().window()
-        })
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    fn window(&self) -> &winit::window::Window {
-        return &self.shared_data.window;
+        self.shared_data.window()
     }
 
     /// Returns a FontMetrics trait object that can be used to measure text and that matches the given font request as

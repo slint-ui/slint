@@ -199,7 +199,8 @@ impl CachedImage {
                 let canvas_weak = Rc::downgrade(&renderer.canvas);
                 let html_image = html_image.clone();
                 let image_id = image_id.clone();
-                let window_weak = Rc::downgrade(&renderer.window);
+                let window_weak =
+                    Rc::downgrade(renderer.opengl_context.borrow().as_ref().unwrap().window_rc());
                 let cached_image_weak = Rc::downgrade(&cached_image);
                 move || {
                     let (canvas, window, cached_image) = match (
