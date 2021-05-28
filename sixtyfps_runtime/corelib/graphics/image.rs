@@ -46,11 +46,14 @@ pub struct LoadImageError(());
 pub struct Image(pub ImageReference);
 
 impl Image {
-    /// Create an Image from a path to a file containing an image
+    /// Load an Image from a path to a file containing an image
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
         Ok(Image(ImageReference::AbsoluteFilePath(path.to_str().ok_or(LoadImageError(()))?.into())))
     }
-    /// Create an image from argb pixels
+    /*
+    /// Create an image from argb pixels.
+    ///
+    /// Returns an error if the `data` does not have a size of `width * height`.
     pub fn load_from_argb(
         width: u32,
         height: u32,
@@ -62,4 +65,5 @@ impl Image {
             Ok(Image(ImageReference::EmbeddedRgbaImage { width, height, data }))
         }
     }
+    */
 }
