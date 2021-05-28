@@ -25,8 +25,10 @@ use std::cell::{Cell, RefCell};
 pub struct CachedRenderingData {
     /// Used and modified by the backend, should be initialized to 0 by the user code
     pub(crate) cache_index: Cell<usize>,
-    /// Set to false initially and when changes happen that require updating the cache
-    pub(crate) cache_ok: Cell<bool>,
+    /// Used and modified by the backend, should be initilized to 0 by the user code.
+    /// The backend compares this generation against the one of the cache to verify
+    /// the validity of the cache_index field.
+    pub(crate) cache_generation: Cell<usize>,
 }
 
 impl CachedRenderingData {
@@ -38,7 +40,7 @@ impl CachedRenderingData {
         cache: &mut RenderingCache<T>,
         update_fn: impl FnOnce() -> T,
     ) -> T {
-        if self.cache_ok.get() {
+        if self.cache_generation.get() == cache.generation() {
             let index = self.cache_index.get();
             if let Some(existing_entry) = cache.get_mut(index) {
                 if let Some(data) =
@@ -48,12 +50,9 @@ impl CachedRenderingData {
                 }
                 return existing_entry.data.clone();
             }
-            // We may see cache_ok == true but get() on the cache failed with our index. That can
-            // only happen when the entire cache was destroyed in the meantime (through show and hide),
-            // in which case we re-allocate.
         }
         self.cache_index.set(cache.insert(crate::graphics::CachedGraphicsData::new(update_fn)));
-        self.cache_ok.set(true);
+        self.cache_generation.set(cache.generation());
         cache.get(self.cache_index.get()).unwrap().data.clone()
     }
 
@@ -61,10 +60,10 @@ impl CachedRenderingData {
     /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
     /// implementation of the release_item_graphics_cache function.
     pub fn release<T>(&self, cache: &mut RenderingCache<T>) {
-        if self.cache_ok.get() {
+        if self.cache_generation.get() == cache.generation() {
             let index = self.cache_index.get();
             cache.remove(index);
-            self.cache_ok.set(false);
+            self.cache_generation.set(0);
         }
     }
 }

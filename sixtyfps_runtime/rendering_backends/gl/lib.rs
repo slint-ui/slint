@@ -112,10 +112,20 @@ impl ItemGraphicsCacheEntry {
 struct ItemGraphicsCache(RenderingCache<Option<ItemGraphicsCacheEntry>>);
 
 impl ItemGraphicsCache {
+    /// Convenience method for releasing an item's cached graphics data.
     fn release(&mut self, item_data: &CachedRenderingData) {
         item_data.release(&mut self.0);
     }
 
+    /// Clears the entire graphics cache. This is needed when for example loosing
+    /// the GL context (when unmapping a window) and destroying the canvas.
+    fn clear(&mut self) {
+        self.0.clear();
+    }
+
+    /// Convenience method that will return what's in the item's graphics cache
+    /// and call update_fn if the cache is outdated and needs refreshing. If
+    /// update_fn is called, the data is persisted in the cache.
     fn ensure_up_to_date(
         &mut self,
         item_data: &CachedRenderingData,

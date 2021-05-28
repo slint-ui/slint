@@ -209,6 +209,8 @@ impl GraphicsWindow {
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
     /// by calling [`PlatformWindow::map_window`].
     fn unmap_window(self: Rc<Self>) {
+        // Release GL textures and other GPU bound resources.
+        self.graphics_cache.borrow_mut().clear();
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
         /* FIXME:
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
