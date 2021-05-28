@@ -585,13 +585,13 @@ impl ItemRenderer for GLItemRenderer {
         border_paint.map(|border_paint| canvas.stroke_path(&mut path, border_paint));
     }
 
-    fn draw_image(&mut self, image: std::pin::Pin<&sixtyfps_corelib::items::Image>) {
+    fn draw_image(&mut self, image: std::pin::Pin<&sixtyfps_corelib::items::ImageItem>) {
         self.draw_image_impl(
             &image.cached_rendering_data,
-            sixtyfps_corelib::items::Image::FIELD_OFFSETS.source.apply_pin(image),
+            sixtyfps_corelib::items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
             IntRect::default(),
-            sixtyfps_corelib::items::Image::FIELD_OFFSETS.width.apply_pin(image),
-            sixtyfps_corelib::items::Image::FIELD_OFFSETS.height.apply_pin(image),
+            sixtyfps_corelib::items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
+            sixtyfps_corelib::items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             None,
         );

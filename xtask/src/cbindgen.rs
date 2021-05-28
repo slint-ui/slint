@@ -73,7 +73,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     let items = [
         "Rectangle",
         "BorderRectangle",
-        "Image",
+        "ImageItem",
         "ClippedImage",
         "TouchArea",
         "FocusScope",

@@ -126,7 +126,7 @@ pub fn render_component_items(
 pub trait ItemRenderer {
     fn draw_rectangle(&mut self, rect: Pin<&Rectangle>);
     fn draw_border_rectangle(&mut self, rect: Pin<&BorderRectangle>);
-    fn draw_image(&mut self, image: Pin<&Image>);
+    fn draw_image(&mut self, image: Pin<&ImageItem>);
     fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>);
     fn draw_text(&mut self, text: Pin<&Text>);
     fn draw_text_input(&mut self, text_input: Pin<&TextInput>);

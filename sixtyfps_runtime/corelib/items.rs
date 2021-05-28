@@ -318,14 +318,6 @@ declare_item_vtable! {
     fn sixtyfps_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
 }
 
-declare_item_vtable! {
-    fn sixtyfps_get_ImageVTable() -> ImageVTable for Image
-}
-
-declare_item_vtable! {
-    fn sixtyfps_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
-}
-
 /// The implementation of the `TouchArea` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -1156,4 +1148,12 @@ declare_item_vtable! {
 
 declare_item_vtable! {
     fn sixtyfps_get_TextInputVTable() -> TextInputVTable for TextInput
+}
+
+declare_item_vtable! {
+    fn sixtyfps_get_ImageItemVTable() -> ImageItemVTable for ImageItem
+}
+
+declare_item_vtable! {
+    fn sixtyfps_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
 }

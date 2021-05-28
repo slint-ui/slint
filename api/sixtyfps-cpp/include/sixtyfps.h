@@ -123,7 +123,7 @@ using cbindgen_private::Clip;
 using cbindgen_private::ClippedImage;
 using cbindgen_private::Flickable;
 using cbindgen_private::FocusScope;
-using cbindgen_private::Image;
+using cbindgen_private::ImageItem;
 using cbindgen_private::Opacity;
 using cbindgen_private::Path;
 using cbindgen_private::Rectangle;

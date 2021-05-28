@@ -46,7 +46,7 @@ BorderRectangle := Rectangle {
 
 export { BorderRectangle as Rectangle }
 
-Image := _ {
+ImageItem := _ {
     property <image> source;
     property <length> x;
     property <length> y;
@@ -55,7 +55,7 @@ Image := _ {
     property <ImageFit> image_fit;
 }
 
-export ClippedImage := Image {
+export ClippedImage := ImageItem {
     property <int> source-clip-x;
     property <int> source-clip-y;
     property <int> source-clip-width;
