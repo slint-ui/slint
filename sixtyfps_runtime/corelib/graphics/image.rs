@@ -16,7 +16,7 @@ use crate::{SharedString, SharedVector};
 /// is necessary before they can be used.
 #[derive(Clone, PartialEq, Debug)]
 #[repr(u8)]
-pub enum ImageReference {
+pub enum ImageInner {
     /// A resource that does not represent any data.
     None,
     /// A resource that points to a file in the file system
@@ -29,9 +29,15 @@ pub enum ImageReference {
     EmbeddedRgbaImage { width: u32, height: u32, data: SharedVector<u32> },
 }
 
-impl Default for ImageReference {
+impl Default for ImageInner {
     fn default() -> Self {
-        ImageReference::None
+        ImageInner::None
+    }
+}
+
+impl<'a> From<&'a Image> for &'a ImageInner {
+    fn from(other: &'a Image) -> Self {
+        &other.0
     }
 }
 
@@ -41,14 +47,14 @@ pub struct LoadImageError(());
 
 /// An image type that can be displayed by the Image element
 #[repr(transparent)]
-#[derive(Default, Clone, Debug, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
 // FIXME: the inner should be private
-pub struct Image(pub ImageReference);
+pub struct Image(ImageInner);
 
 impl Image {
     /// Load an Image from a path to a file containing an image
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
-        Ok(Image(ImageReference::AbsoluteFilePath(path.to_str().ok_or(LoadImageError(()))?.into())))
+        Ok(Image(ImageInner::AbsoluteFilePath(path.to_str().ok_or(LoadImageError(()))?.into())))
     }
     /*
     /// Create an image from argb pixels.

@@ -11,7 +11,7 @@ LICENSE END */
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use sixtyfps_corelib::{graphics::Size, slice::Slice, ImageReference, Property, SharedString};
+use sixtyfps_corelib::{graphics::Size, slice::Slice, ImageInner, Property, SharedString};
 
 use super::{CanvasRc, GLItemRenderer, GLRendererData, ItemGraphicsCacheEntry};
 
@@ -115,15 +115,12 @@ impl CachedImage {
         Self(RefCell::new(ImageData::SVG(tree)))
     }
 
-    pub fn new_from_resource(
-        resource: &ImageReference,
-        renderer: &GLRendererData,
-    ) -> Option<Rc<Self>> {
+    pub fn new_from_resource(resource: &ImageInner, renderer: &GLRendererData) -> Option<Rc<Self>> {
         match resource {
-            ImageReference::None => None,
-            ImageReference::AbsoluteFilePath(path) => Self::new_from_path(path, renderer),
-            ImageReference::EmbeddedData(data) => Self::new_from_data(data).map(Rc::new),
-            ImageReference::EmbeddedRgbaImage { .. } => todo!(),
+            ImageInner::None => None,
+            ImageInner::AbsoluteFilePath(path) => Self::new_from_path(path, renderer),
+            ImageInner::EmbeddedData(data) => Self::new_from_data(data).map(Rc::new),
+            ImageInner::EmbeddedRgbaImage { .. } => todo!(),
         }
     }
 

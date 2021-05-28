@@ -11,7 +11,7 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::{ImageReference, SharedVector};
+use sixtyfps_corelib::{ImageInner, SharedVector};
 
 mod js_model;
 mod persistent_context;
@@ -247,10 +247,12 @@ fn to_js_value<'cx>(
         Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
         Value::String(s) => JsString::new(cx, s.as_str()).as_value(cx),
         Value::Bool(b) => JsBoolean::new(cx, b).as_value(cx),
-        Value::Image(r) => match r.0 {
-            ImageReference::None => JsUndefined::new().as_value(cx),
-            ImageReference::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
-            ImageReference::EmbeddedData { .. } | ImageReference::EmbeddedRgbaImage { .. } => {
+        Value::Image(r) => match (&r).into() {
+            &ImageInner::None => JsUndefined::new().as_value(cx),
+            &ImageInner::AbsoluteFilePath(ref path) => {
+                JsString::new(cx, path.as_str()).as_value(cx)
+            }
+            &ImageInner::EmbeddedData { .. } | &ImageInner::EmbeddedRgbaImage { .. } => {
                 JsNull::new().as_value(cx)
             } // TODO: maybe pass around node buffers?
         },

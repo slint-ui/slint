@@ -21,7 +21,7 @@ use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{FontMetrics, Size};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{ComponentWindow, PlatformWindow, Window};
-use sixtyfps_corelib::{ImageReference, Property};
+use sixtyfps_corelib::{ImageInner, Property};
 use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -125,19 +125,19 @@ impl PlatformWindow for TestingWindow {
         Box::new(TestingFontMetrics::default())
     }
 
-    fn image_size(&self, source: &ImageReference) -> Size {
+    fn image_size(&self, source: &ImageInner) -> Size {
         match source {
-            ImageReference::None => Default::default(),
-            ImageReference::EmbeddedRgbaImage { width, height, .. } => {
+            ImageInner::None => Default::default(),
+            ImageInner::EmbeddedRgbaImage { width, height, .. } => {
                 Size::new(*width as _, *height as _)
             }
-            ImageReference::AbsoluteFilePath(path) => image::open(Path::new(path.as_str()))
+            ImageInner::AbsoluteFilePath(path) => image::open(Path::new(path.as_str()))
                 .map(|img| {
                     let dim = img.dimensions();
                     Size::new(dim.0 as _, dim.1 as _)
                 })
                 .unwrap_or_default(),
-            ImageReference::EmbeddedData(data) => image::load_from_memory(data.as_slice())
+            ImageInner::EmbeddedData(data) => image::load_from_memory(data.as_slice())
                 .map(|img| {
                     let dim = img.dimensions();
                     Size::new(dim.0 as _, dim.1 as _)

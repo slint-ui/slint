@@ -507,7 +507,7 @@ impl PlatformWindow for GraphicsWindow {
         ))
     }
 
-    fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
+    fn image_size(&self, source: &ImageInner) -> sixtyfps_corelib::graphics::Size {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {
                 // Temporary: Register this internal property to notify the caller when

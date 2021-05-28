@@ -17,7 +17,7 @@ use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
-use sixtyfps_corelib::{ImageReference, PathData, Property};
+use sixtyfps_corelib::{ImageInner, PathData, Property};
 
 use std::cell::RefCell;
 use std::pin::Pin;
@@ -719,15 +719,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
 }
 
 fn load_image_from_resource(
-    resource: &ImageReference,
+    resource: &ImageInner,
     source_size: Option<qttypes::QSize>,
     image_fit: ImageFit,
 ) -> Option<qttypes::QPixmap> {
     let (is_path, data) = match resource {
-        ImageReference::None => return None,
-        ImageReference::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
-        ImageReference::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
-        ImageReference::EmbeddedRgbaImage { .. } => todo!(),
+        ImageInner::None => return None,
+        ImageInner::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
+        ImageInner::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
+        ImageInner::EmbeddedRgbaImage { .. } => todo!(),
     };
     let size_requested = is_svg(resource) && source_size.is_some();
     let source_size = source_size.unwrap_or_default();
@@ -807,12 +807,12 @@ fn adjust_to_image_fit(
 }
 
 /// Return true if this image is a SVG that is scalable
-fn is_svg(resource: &ImageReference) -> bool {
+fn is_svg(resource: &ImageInner) -> bool {
     match resource {
-        ImageReference::None => false,
-        ImageReference::AbsoluteFilePath(path) => path.as_str().ends_with(".svg"),
-        ImageReference::EmbeddedData(data) => data.starts_with(b"<svg"),
-        ImageReference::EmbeddedRgbaImage { .. } => false,
+        ImageInner::None => false,
+        ImageInner::AbsoluteFilePath(path) => path.as_str().ends_with(".svg"),
+        ImageInner::EmbeddedData(data) => data.starts_with(b"<svg"),
+        ImageInner::EmbeddedRgbaImage { .. } => false,
     }
 }
 
@@ -851,9 +851,8 @@ impl QtItemRenderer<'_> {
                 None
             };
 
-            load_image_from_resource(&source_property.get().0, source_size, image_fit).map_or(
-                QtRenderingCacheItem::Invalid,
-                |mut pixmap: qttypes::QPixmap| {
+            load_image_from_resource((&source_property.get()).into(), source_size, image_fit)
+                .map_or(QtRenderingCacheItem::Invalid, |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
                     if !colorize.is_transparent() {
                         let brush: QBrush = colorize.into();
@@ -864,8 +863,7 @@ impl QtItemRenderer<'_> {
                         });
                     }
                     QtRenderingCacheItem::Pixmap(pixmap)
-                },
-            )
+                })
         });
         let pixmap: &qttypes::QPixmap = match &cached {
             QtRenderingCacheItem::Pixmap(pixmap) => pixmap,
@@ -1204,7 +1202,7 @@ impl PlatformWindow for QtWindow {
         Box::new(get_font(unresolved_font_request_getter().merge(&self.default_font_properties())))
     }
 
-    fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
+    fn image_size(&self, source: &ImageInner) -> sixtyfps_corelib::graphics::Size {
         load_image_from_resource(source, None, ImageFit::fill)
             .map(|img| {
                 let qsize = img.size();
