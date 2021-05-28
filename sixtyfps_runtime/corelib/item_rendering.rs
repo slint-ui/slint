@@ -59,11 +59,13 @@ impl CachedRenderingData {
     /// This function can be used to remove an entry from the rendering cache for a given item, if it
     /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
     /// implementation of the release_item_graphics_cache function.
-    pub fn release<T>(&self, cache: &mut RenderingCache<T>) {
+    pub fn release<T>(&self, cache: &mut RenderingCache<T>) -> Option<T> {
         if self.cache_generation.get() == cache.generation() {
             let index = self.cache_index.get();
-            cache.remove(index);
             self.cache_generation.set(0);
+            Some(cache.remove(index).data)
+        } else {
+            None
         }
     }
 }

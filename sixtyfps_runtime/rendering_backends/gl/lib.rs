@@ -114,8 +114,8 @@ struct ItemGraphicsCache(RenderingCache<Option<ItemGraphicsCacheEntry>>);
 
 impl ItemGraphicsCache {
     /// Convenience method for releasing an item's cached graphics data.
-    fn release(&mut self, item_data: &CachedRenderingData) {
-        item_data.release(&mut self.0);
+    fn release(&mut self, item_data: &CachedRenderingData) -> Option<ItemGraphicsCacheEntry> {
+        item_data.release(&mut self.0).flatten()
     }
 
     /// Clears the entire graphics cache. This is needed when for example loosing
@@ -202,6 +202,17 @@ impl OpenGLContext {
                     })
                 }
             });
+        }
+    }
+
+    fn with_current_context<T>(&self, cb: impl FnOnce() -> T) -> T {
+        if matches!(self.0.borrow().as_ref().unwrap(), OpenGLContextState::Current(_)) {
+            cb()
+        } else {
+            self.make_current();
+            let result = cb();
+            self.make_not_current();
+            result
         }
     }
 
@@ -388,10 +399,6 @@ impl GLRendererData {
             CachedImage::new_from_resource(resource, self)
         })
     }
-
-    fn window(&self) -> std::cell::Ref<winit::window::Window> {
-        self.opengl_context.window()
-    }
 }
 
 pub struct GLRenderer {
@@ -419,7 +426,6 @@ impl GLRenderer {
 
         let shared_data = GLRendererData {
             canvas: Rc::new(RefCell::new(canvas)),
-
             opengl_context,
 
             image_cache: Default::default(),
@@ -484,8 +490,12 @@ impl GLRenderer {
         ctx.make_not_current();
     }
 
+    fn with_current_context<T>(&self, cb: impl FnOnce() -> T) -> T {
+        self.shared_data.opengl_context.with_current_context(cb)
+    }
+
     fn window(&self) -> std::cell::Ref<winit::window::Window> {
-        self.shared_data.window()
+        self.shared_data.opengl_context.window()
     }
 
     /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted

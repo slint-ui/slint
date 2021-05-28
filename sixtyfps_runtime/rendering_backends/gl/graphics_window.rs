@@ -149,6 +149,15 @@ impl GraphicsWindow {
         }
     }
 
+    fn with_current_context<T>(&self, cb: impl FnOnce() -> T) -> T {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => cb(),
+            GraphicsWindowBackendState::Mapped(window) => {
+                window.backend.borrow().with_current_context(cb)
+            }
+        }
+    }
+
     /// Requests for the window to be mapped to the screen.
     ///
     /// Arguments:
@@ -213,7 +222,10 @@ impl GraphicsWindow {
     /// by calling [`PlatformWindow::map_window`].
     fn unmap_window(self: Rc<Self>) {
         // Release GL textures and other GPU bound resources.
-        self.graphics_cache.borrow_mut().clear();
+        self.with_current_context(|| {
+            self.graphics_cache.borrow_mut().clear();
+        });
+
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
         /* FIXME:
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
@@ -391,10 +403,17 @@ impl PlatformWindow for GraphicsWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(_) => {
-                // FIXME: make sure context is current
-                for item in items.iter() {
-                    let cached_rendering_data = item.cached_rendering_data_offset();
-                    self.graphics_cache.borrow_mut().release(cached_rendering_data);
+                let mut cache_entries_to_clear = items
+                    .iter()
+                    .flat_map(|item| {
+                        let cached_rendering_data = item.cached_rendering_data_offset();
+                        self.graphics_cache.borrow_mut().release(cached_rendering_data)
+                    })
+                    .peekable();
+                if cache_entries_to_clear.peek().is_some() {
+                    self.with_current_context(|| {
+                        cache_entries_to_clear.for_each(drop);
+                    });
                 }
             }
         }
