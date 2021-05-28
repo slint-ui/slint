@@ -56,23 +56,25 @@ pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &'static [(&'static str, Type)
     ("drop_shadow_color", Type::Color),
 ];
 
-/// reserved property injected in every item
-pub fn reserved_property(name: &str) -> Type {
-    for (p, t) in RESERVED_GEOMETRY_PROPERTIES
+/// list of reserved property injected in every item
+pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
+    RESERVED_GEOMETRY_PROPERTIES
         .iter()
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
-        .chain(
-            [
-                ("forward_focus", Type::ElementReference),
-                ("focus", BuiltinFunction::SetFocusItem.ty()),
-            ]
-            .iter(),
-        )
-    {
-        if *p == name {
-            return t.clone();
+        .map(|(k, v)| (*k, v.clone()))
+        .chain(std::array::IntoIter::new([
+            ("forward_focus", Type::ElementReference),
+            ("focus", BuiltinFunction::SetFocusItem.ty()),
+        ]))
+}
+
+/// lookup reserved property injected in every item
+pub fn reserved_property(name: &str) -> Type {
+    for (p, t) in reserved_properties() {
+        if p == name {
+            return t;
         }
     }
     Type::Invalid

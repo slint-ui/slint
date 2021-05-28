@@ -278,6 +278,12 @@ impl LookupObject for ElementRc {
                 return Some(r);
             }
         }
+        for (name, ty) in crate::typeregister::reserved_properties() {
+            let e = expression_from_reference(NamedReference::new(self, &name), &ty);
+            if let Some(r) = f(&name, e) {
+                return Some(r);
+            }
+        }
         None
     }
 

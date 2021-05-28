@@ -265,6 +265,20 @@ fn resolve_element_scope(
                 c.kind = Some(CompletionItemKind::Method);
                 c
             }))
+            .chain(sixtyfps_compilerlib::typeregister::reserved_properties().filter_map(
+                |(k, t)| {
+                    if matches!(t, Type::Function { .. }) {
+                        return None;
+                    }
+                    let mut c = CompletionItem::new_simple(k.into(), t.to_string());
+                    c.kind = Some(if matches!(t, Type::Callback { .. }) {
+                        CompletionItemKind::Method
+                    } else {
+                        CompletionItemKind::Property
+                    });
+                    Some(c)
+                },
+            ))
             .chain(tr.all_types().into_iter().filter_map(|(k, t)| {
                 match t {
                     Type::Component(c) if !c.is_global() => (),
