@@ -148,7 +148,7 @@ impl ItemGraphicsCache {
 
 // glutin's WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
 // in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
-enum OpenGLContext {
+enum OpenGLContextState {
     #[cfg(not(target_arch = "wasm32"))]
     NotCurrent(glutin::WindowedContext<glutin::NotCurrent>),
     #[cfg(not(target_arch = "wasm32"))]
@@ -157,55 +157,72 @@ enum OpenGLContext {
     Current(Rc<winit::window::Window>),
 }
 
+pub struct OpenGLContext(RefCell<Option<OpenGLContextState>>);
+
 impl OpenGLContext {
-    fn window(&self) -> &winit::window::Window {
-        match self {
+    fn window(&self) -> std::cell::Ref<winit::window::Window> {
+        std::cell::Ref::map(self.0.borrow(), |state| match state.as_ref().unwrap() {
             #[cfg(not(target_arch = "wasm32"))]
-            Self::NotCurrent(context) => context.window(),
+            OpenGLContextState::NotCurrent(context) => context.window(),
             #[cfg(not(target_arch = "wasm32"))]
-            Self::Current(context) => context.window(),
+            OpenGLContextState::Current(context) => context.window(),
             #[cfg(target_arch = "wasm32")]
-            Self::Current(window) => window,
-        }
+            OpenGLContextState::Current(window) => window.as_ref(),
+        })
     }
 
     #[cfg(target_arch = "wasm32")]
-    fn window_rc(&self) -> &Rc<winit::window::Window> {
-        match self {
-            Self::Current(window) => window,
-        }
+    fn window_rc(&self) -> std::cell::Ref<Rc<winit::window::Window>> {
+        std::cell::Ref::map(self.0.borrow(), |state| match state.as_ref().unwrap() {
+            OpenGLContextState::Current(window) => window,
+        })
     }
 
-    fn make_current(self) -> Self {
-        match self {
+    fn make_current(&self) {
+        let mut ctx = self.0.borrow_mut();
+        *ctx = Some(match ctx.take().unwrap() {
             #[cfg(not(target_arch = "wasm32"))]
-            Self::NotCurrent(not_current_ctx) => {
+            OpenGLContextState::NotCurrent(not_current_ctx) => {
                 let current_ctx = unsafe { not_current_ctx.make_current().unwrap() };
-                current_ctx.resize(current_ctx.window().inner_size());
-                Self::Current(current_ctx)
+                OpenGLContextState::Current(current_ctx)
             }
-            this @ Self::Current(_) => this,
+            state @ OpenGLContextState::Current(_) => state,
+        });
+    }
+
+    fn make_not_current(&self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut ctx = self.0.borrow_mut();
+            *ctx = Some(match ctx.take().unwrap() {
+                state @ OpenGLContextState::NotCurrent(_) => state,
+                OpenGLContextState::Current(current_ctx_rc) => {
+                    OpenGLContextState::NotCurrent(unsafe {
+                        current_ctx_rc.make_not_current().unwrap()
+                    })
+                }
+            });
         }
     }
 
-    fn make_not_current(self) -> Self {
+    fn swap_buffers(&self) {
         #[cfg(not(target_arch = "wasm32"))]
-        match self {
-            this @ Self::NotCurrent(_) => this,
-            Self::Current(current_ctx_rc) => {
-                Self::NotCurrent(unsafe { current_ctx_rc.make_not_current().unwrap() })
-            }
-        }
-        #[cfg(target_arch = "wasm32")]
-        self
-    }
-
-    fn swap_buffers(&mut self) {
-        #[cfg(not(target_arch = "wasm32"))]
-        match self {
-            OpenGLContext::NotCurrent(_) => {}
-            OpenGLContext::Current(current_ctx) => {
+        match &self.0.borrow().as_ref().unwrap() {
+            OpenGLContextState::NotCurrent(_) => {}
+            OpenGLContextState::Current(current_ctx) => {
                 current_ctx.swap_buffers().unwrap();
+            }
+        }
+    }
+
+    fn ensure_resized(&self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        match &self.0.borrow().as_ref().unwrap() {
+            OpenGLContextState::NotCurrent(_) => {
+                sixtyfps_corelib::debug_log!("internal error: cannot call OpenGLContext::ensure_resized without context being current!")
+            }
+            OpenGLContextState::Current(_current) => {
+                _current.resize(_current.window().inner_size());
             }
         }
     }
@@ -240,7 +257,7 @@ impl OpenGLContext {
                 }
             }
 
-            (Self::Current(windowed_context), renderer)
+            (Self(RefCell::new(Some(OpenGLContextState::Current(windowed_context)))), renderer)
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -323,7 +340,7 @@ impl OpenGLContext {
 
             let renderer =
                 femtovg::renderer::OpenGl::new_from_html_canvas(&window.canvas()).unwrap();
-            (Self::Current(window), renderer)
+            (Self(RefCell::new(Some(OpenGLContextState::Current(window)))), renderer)
         }
     }
 }
@@ -331,7 +348,7 @@ impl OpenGLContext {
 struct GLRendererData {
     canvas: CanvasRc,
 
-    opengl_context: RefCell<Option<OpenGLContext>>,
+    opengl_context: OpenGLContext,
 
     // Cache used to avoid repeatedly decoding images from disk. Entries with a count
     // of 1 are drained after flushing the renderer commands to the screen.
@@ -373,7 +390,7 @@ impl GLRendererData {
     }
 
     fn window(&self) -> std::cell::Ref<winit::window::Window> {
-        std::cell::Ref::map(self.opengl_context.borrow(), |ctx| ctx.as_ref().unwrap().window())
+        self.opengl_context.window()
     }
 }
 
@@ -398,10 +415,12 @@ impl GLRenderer {
         )
         .unwrap();
 
+        opengl_context.make_not_current();
+
         let shared_data = GLRendererData {
             canvas: Rc::new(RefCell::new(canvas)),
 
-            opengl_context: RefCell::new(Some(opengl_context.make_not_current())),
+            opengl_context,
 
             image_cache: Default::default(),
             layer_images_to_delete_after_flush: Default::default(),
@@ -421,10 +440,8 @@ impl GLRenderer {
     ) -> GLItemRenderer {
         let size = self.window().inner_size();
 
-        {
-            let ctx = &mut *self.shared_data.opengl_context.borrow_mut();
-            *ctx = ctx.take().unwrap().make_current().into();
-        }
+        self.shared_data.opengl_context.make_current();
+        self.shared_data.opengl_context.ensure_resized();
 
         {
             let mut canvas = self.shared_data.canvas.borrow_mut();
@@ -462,10 +479,9 @@ impl GLRenderer {
 
         std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
 
-        let mut ctx = self.shared_data.opengl_context.borrow_mut().take().unwrap();
+        let ctx = &self.shared_data.opengl_context;
         ctx.swap_buffers();
-
-        *self.shared_data.opengl_context.borrow_mut() = ctx.make_not_current().into();
+        ctx.make_not_current();
     }
 
     fn window(&self) -> std::cell::Ref<winit::window::Window> {
