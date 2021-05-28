@@ -145,6 +145,8 @@ The follow table summarizes the entire mapping:
 | `float` | `f32` | |
 | `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
 | `color` | [`Color`] | |
+| `brush` | [`Brush`] | |
+| `image` | [`Image`] | |
 | `physicial_length` | `f32` | The unit are physical pixels. |
 | `length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
@@ -179,13 +181,13 @@ struct MyStruct {
 
 pub use sixtyfps_macros::sixtyfps;
 
+pub use sixtyfps_corelib::graphics::{Brush, Color, Image, LoadImageError, RgbaColor};
 pub use sixtyfps_corelib::model::{
     Model, ModelHandle, ModelNotify, ModelPeer, StandardListViewItem, VecModel,
 };
 pub use sixtyfps_corelib::sharedvector::SharedVector;
 pub use sixtyfps_corelib::string::SharedString;
 pub use sixtyfps_corelib::timers::{Timer, TimerMode};
-pub use sixtyfps_corelib::{Brush, Color, RgbaColor};
 
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
