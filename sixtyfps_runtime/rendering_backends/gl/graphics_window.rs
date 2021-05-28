@@ -184,6 +184,9 @@ impl GraphicsWindow {
                 layout_info.preferred_height.max(layout_info.min_height),
             );
             if s.width > 0. && s.height > 0. {
+                // Make sure that the window's inner size is in sync with the root window item's
+                // width/height.
+                self.set_geometry(s.width, s.height);
                 window_builder.with_inner_size(s)
             } else {
                 window_builder
