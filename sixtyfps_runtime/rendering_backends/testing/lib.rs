@@ -159,6 +159,10 @@ impl FontMetrics for TestingFontMetrics {
         Size::new(text.len() as f32 * 10., 10.)
     }
 
+    fn line_height(&self) -> f32 {
+        10.
+    }
+
     fn text_offset_for_x_position(&self, _text: &str, _x: f32) -> usize {
         0
     }

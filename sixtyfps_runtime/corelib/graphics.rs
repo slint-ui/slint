@@ -173,6 +173,8 @@ impl FontRequest {
 pub trait FontMetrics {
     /// Returns the size of the given string in logical pixels.
     fn text_size(&self, text: &str) -> Size;
+    /// Returns the height of a line of text.
+    fn line_height(&self) -> f32;
     /// Returns the (UTF-8) byte offset in the given text that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given x coordinate. This is used for hit-testing,
     /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"

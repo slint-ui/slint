@@ -1253,6 +1253,13 @@ impl sixtyfps_corelib::graphics::FontMetrics for QFont {
         sixtyfps_corelib::graphics::Size::new(size.width as _, size.height as _)
     }
 
+    fn line_height(&self) -> f32 {
+        cpp! { unsafe [self as "const QFont*"]
+                -> f32 as "float"{
+            return QFontMetricsF(*self).height();
+        }}
+    }
+
     fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
         let string = qttypes::QString::from(text);
         cpp! { unsafe [self as "const QFont*", string as "QString", x as "float"] -> usize as "long long" {
