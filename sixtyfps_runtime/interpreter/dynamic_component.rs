@@ -955,6 +955,10 @@ pub fn instantiate<'id>(
     generator::handle_property_bindings_init(
         &component_type.original,
         |elem, prop_name, binding| unsafe {
+            let is_root = Rc::ptr_eq(
+                elem,
+                &elem.borrow().enclosing_component.upgrade().unwrap().root_element,
+            );
             let elem = elem.borrow();
             let is_const = binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
 
@@ -967,7 +971,9 @@ pub fn instantiate<'id>(
                     NonNull::from(&component_type.ct).cast(),
                     instance.cast(),
                 ));
-                if let Some(callback_offset) = component_type.custom_callbacks.get(prop_name) {
+                if let Some(callback_offset) =
+                    component_type.custom_callbacks.get(prop_name).filter(|_| is_root)
+                {
                     let callback = callback_offset.apply(instance_ref.as_ref());
                     callback.set_handler(move |args| {
                         generativity::make_guard!(guard);
@@ -998,7 +1004,7 @@ pub fn instantiate<'id>(
                     }
                 }
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
-                component_type.custom_properties.get(prop_name)
+                component_type.custom_properties.get(prop_name).filter(|_| is_root)
             {
                 let c = Pin::new_unchecked(vtable::VRef::from_raw(
                     NonNull::from(&component_type.ct).cast(),

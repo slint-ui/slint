@@ -8,21 +8,26 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-Compo := Rectangle {
+Compo := Text {
     property <int> prop_a: 10;
     property <int> prop_b;
     prop_b: 20;
-    background: blue;
+    text: "hello";
 }
 
 TestCase := Rectangle {
+    property <string> text: "ignore_me";
     c := Compo {
         prop_a: 1;
         prop_b: 2;
+        text: "world";
     }
 
     property<int> prop_a: c.prop_a;
     property<int> prop_b: c.prop_b;
+    property<string> prop_text: c.text;
+
+    property<bool> test: prop_a == 1 && prop_b == 2 && prop_text == "world";
 }
 
 /*
@@ -30,6 +35,7 @@ TestCase := Rectangle {
 let instance = TestCase::new();
 assert_eq!(instance.get_prop_a(), 1);
 assert_eq!(instance.get_prop_b(), 2);
+assert_eq!(instance.get_prop_text(), sixtyfps::SharedString::from("world"));
 ```
 
 ```cpp
@@ -37,12 +43,14 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_prop_a(), 1);
 assert_eq(instance.get_prop_b(), 2);
+assert_eq(instance.get_prop_text(), sixtyfps::SharedString("world"));
 ```
 
 ```js
 let instance = new sixtyfps.TestCase({});
 assert.equal(instance.prop_a, 1);
 assert.equal(instance.prop_b, 2);
+assert.equal(instance.prop_text, "world");
 ```
 
 */
