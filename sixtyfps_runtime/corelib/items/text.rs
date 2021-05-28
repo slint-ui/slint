@@ -143,7 +143,7 @@ impl Item for Text {
         };
         match self.overflow() {
             TextOverflow::elide => {
-                min_size.width = font_metrics.text_size("…").width;
+                min_size.width = min_size.width.min(font_metrics.text_size("…").width);
             }
             TextOverflow::clip => {}
         }
