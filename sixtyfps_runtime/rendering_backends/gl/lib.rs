@@ -22,7 +22,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use sixtyfps_corelib::graphics::{
-    Brush, Color, FontRequest, ImageReference, IntRect, Point, Rect, RenderingCache, Size,
+    Brush, Color, FontRequest, Image, IntRect, Point, Rect, RenderingCache, Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
@@ -30,7 +30,8 @@ use sixtyfps_corelib::items::{
 };
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
-use sixtyfps_corelib::SharedString;
+
+use sixtyfps_corelib::{ImageReference, SharedString};
 
 mod graphics_window;
 use graphics_window::*;
@@ -241,6 +242,7 @@ impl OpenGLContext {
 
             (Self::Current(windowed_context), renderer)
         }
+
         #[cfg(target_arch = "wasm32")]
         {
             use wasm_bindgen::JsCast;
@@ -1353,7 +1355,7 @@ impl GLItemRenderer {
     fn draw_image_impl(
         &mut self,
         item_cache: &CachedRenderingData,
-        source_property: std::pin::Pin<&Property<ImageReference>>,
+        source_property: std::pin::Pin<&Property<Image>>,
         source_clip_rect: IntRect,
         target_width: std::pin::Pin<&Property<f32>>,
         target_height: std::pin::Pin<&Property<f32>>,
@@ -1374,7 +1376,7 @@ impl GLItemRenderer {
                 .borrow_mut()
                 .load_item_graphics_cache_with_function(item_cache, || {
                     self.shared_data
-                        .load_image_resource(&source_property.get())
+                        .load_image_resource(&source_property.get().0)
                         .and_then(|cached_image| {
                             cached_image.as_renderable(
                                 // The condition at the entry of the function ensures that width/height are positive

@@ -39,7 +39,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::LogicalLength => Some(quote!(f32)),
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
-        Type::Image => Some(quote!(sixtyfps::re_exports::ImageReference)),
+        Type::Image => Some(quote!(sixtyfps::re_exports::Image)),
         Type::Struct { fields, name: None, .. } => {
             let elem = fields.values().map(|v| rust_type(v)).collect::<Option<Vec<_>>>()?;
             // This will produce a tuple
@@ -1335,14 +1335,18 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         Expression::ImageReference(resource_ref) => {
             match resource_ref {
                 crate::expression_tree::ImageReference::None => {
-                    quote!(sixtyfps::re_exports::ImageReference::None)
+                    quote!(sixtyfps::re_exports::Image::default())
                 }
                 crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                     quote!(sixtyfps::re_exports::ImageReference::AbsoluteFilePath(sixtyfps::re_exports::SharedString::from(#path)))
+                     quote!(sixtyfps::re_exports::Image::load_from_path(sixtyfps::re_exports::SharedString::from(#path)))
                 },
                 crate::expression_tree::ImageReference::EmbeddedData(resource_id) => {
                     let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
-                    quote!(sixtyfps::re_exports::ImageReference::EmbeddedData(#symbol.into()))
+                    quote!(
+                        sixtyfps::re_exports::Image(
+                            sixtyfps::re_exports::ImageReference::EmbeddedData(#symbol.into())
+                        )
+                    )
                 }
             }
         }

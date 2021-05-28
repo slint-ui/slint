@@ -10,7 +10,7 @@ LICENSE END */
 
 use cpp::*;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::graphics::{Brush, FontRequest, Point, Rect, RenderingCache, Size};
+use sixtyfps_corelib::graphics::{Brush, FontRequest, Image, Point, Rect, RenderingCache, Size};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
@@ -820,7 +820,7 @@ impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
         item_cache: &CachedRenderingData,
-        source_property: Pin<&Property<ImageReference>>,
+        source_property: Pin<&Property<Image>>,
         dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
         target_width: std::pin::Pin<&Property<f32>>,
@@ -851,7 +851,7 @@ impl QtItemRenderer<'_> {
                 None
             };
 
-            load_image_from_resource(&source_property.get(), source_size, image_fit).map_or(
+            load_image_from_resource(&source_property.get().0, source_size, image_fit).map_or(
                 QtRenderingCacheItem::Invalid,
                 |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());

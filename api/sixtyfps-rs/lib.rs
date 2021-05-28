@@ -224,8 +224,9 @@ pub mod re_exports {
         init_component_items, Component, ComponentRefPin, ComponentVTable,
     };
     pub use sixtyfps_corelib::graphics::{
-        Brush, GradientStop, LinearGradientBrush, PathArcTo, PathCubicTo, PathData, PathElement,
-        PathEvent, PathLineTo, PathMoveTo, PathQuadraticTo, Point, Rect, Size,
+        Brush, GradientStop, Image, ImageReference, LinearGradientBrush, PathArcTo, PathCubicTo,
+        PathData, PathElement, PathEvent, PathLineTo, PathMoveTo, PathQuadraticTo, Point, Rect,
+        Size,
     };
     pub use sixtyfps_corelib::input::{
         FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
@@ -242,7 +243,6 @@ pub mod re_exports {
     pub use sixtyfps_corelib::window::ComponentWindow;
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
-    pub use sixtyfps_corelib::ImageReference;
     pub use sixtyfps_corelib::SharedString;
     pub use sixtyfps_corelib::SharedVector;
     pub use sixtyfps_rendering_backend_default::native_widgets::*;

@@ -10,7 +10,8 @@ LICENSE END */
 
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
-use sixtyfps_corelib::{Brush, ImageReference, PathData, SharedString, SharedVector};
+use sixtyfps_corelib::graphics::Image;
+use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
@@ -40,6 +41,8 @@ pub enum ValueType {
     Struct,
     /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
     Brush,
+    /// Correspond to `image` type in .60.
+    Image,
     /// The type is not a public type but something internal.
     Other = -1,
 }
@@ -92,7 +95,7 @@ pub enum Value {
     Bool(bool),
     #[doc(hidden)]
     /// Correspond to the `image` type in .60
-    Image(ImageReference),
+    Image(Image),
     /// An Array in the .60 language.
     Array(SharedVector<Value>),
     /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
@@ -212,7 +215,7 @@ macro_rules! declare_value_conversion {
 declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64, usize, isize] );
 declare_value_conversion!(String => [SharedString] );
 declare_value_conversion!(Bool => [bool] );
-declare_value_conversion!(Image => [ImageReference] );
+declare_value_conversion!(Image => [Image] );
 declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathElements => [PathData]);

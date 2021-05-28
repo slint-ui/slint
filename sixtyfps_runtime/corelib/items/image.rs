@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - Don't forget to update the documentation
 */
 use super::{Item, ItemConsts, ItemRc};
-use crate::graphics::{ImageReference, Rect};
+use crate::graphics::Rect;
 use crate::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
@@ -55,7 +55,7 @@ impl Default for ImageFit {
 #[pin]
 /// The implementation of the `Image` element
 pub struct ImageItem {
-    pub source: Property<ImageReference>,
+    pub source: Property<crate::graphics::Image>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -72,7 +72,7 @@ impl Item for ImageItem {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let natural_size = window.0.image_size(&self.source());
+        let natural_size = window.0.image_size(&self.source().0);
         LayoutInfo {
             preferred_width: natural_size.width,
             preferred_height: natural_size.height,
@@ -121,7 +121,7 @@ impl ItemConsts for ImageItem {
 #[pin]
 /// The implementation of the `ClippedImage` element
 pub struct ClippedImage {
-    pub source: Property<ImageReference>,
+    pub source: Property<crate::graphics::Image>,
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,
@@ -143,7 +143,7 @@ impl Item for ClippedImage {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        let natural_size = window.0.image_size(&self.source());
+        let natural_size = window.0.image_size(&self.source().0);
         LayoutInfo {
             preferred_width: natural_size.width,
             preferred_height: natural_size.height,

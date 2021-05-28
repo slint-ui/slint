@@ -16,7 +16,7 @@ use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::ComponentWindow;
-use corelib::{Brush, Color, ImageReference, PathData, SharedString, SharedVector};
+use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
     BindingExpression, BuiltinFunction, EasingCurve, Expression, Path as ExprPath,
     PathElement as ExprPathElement,
@@ -468,15 +468,18 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             }
         }
         Expression::ImageReference(resource_ref) => {
-            match resource_ref {
+            Value::Image(match resource_ref {
                 sixtyfps_compilerlib::expression_tree::ImageReference::None => {
-                    Value::Image(ImageReference::None)
+                    Ok(Default::default())
                 }
                 sixtyfps_compilerlib::expression_tree::ImageReference::AbsolutePath(path) => {
-                    Value::Image(ImageReference::AbsoluteFilePath(path.into()))
+                    corelib::graphics::Image::load_from_path(std::path::Path::new(path))
                 }
                 sixtyfps_compilerlib::expression_tree::ImageReference::EmbeddedData(_) => panic!("Resource embedding is not supported by the interpreter")
-            }
+            }.unwrap_or_else(|_| {
+                eprintln!("Could not load image {:?}",resource_ref );
+                Default::default()
+            }))
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             match eval_expression(&**condition, local_context).try_into()

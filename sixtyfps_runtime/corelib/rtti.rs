@@ -32,7 +32,7 @@ declare_ValueType![
     f32,
     f64,
     crate::SharedString,
-    crate::ImageReference,
+    crate::graphics::Image,
     crate::Color,
     crate::PathData,
     crate::animations::EasingCurve,
