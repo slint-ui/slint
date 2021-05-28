@@ -43,7 +43,7 @@ public:
     }
 
 private:
-    using Tag = cbindgen_private::types::ImageReference::Tag;
+    using Tag = cbindgen_private::types::ImageInner::Tag;
     using Data = cbindgen_private::types::Image;
     Data data;
 };

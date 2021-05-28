@@ -31,7 +31,7 @@ use sixtyfps_corelib::items::{
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
 
-use sixtyfps_corelib::{ImageReference, SharedString};
+use sixtyfps_corelib::{ImageInner, SharedString};
 
 mod graphics_window;
 use graphics_window::*;
@@ -53,19 +53,19 @@ enum ImageCacheKey {
 }
 
 impl ImageCacheKey {
-    fn new(resource: &ImageReference) -> Option<Self> {
+    fn new(resource: &ImageInner) -> Option<Self> {
         Some(match resource {
-            ImageReference::None => return None,
-            ImageReference::AbsoluteFilePath(path) => {
+            ImageInner::None => return None,
+            ImageInner::AbsoluteFilePath(path) => {
                 if path.is_empty() {
                     return None;
                 }
                 Self::Path(path.to_string())
             }
-            ImageReference::EmbeddedData(data) => {
+            ImageInner::EmbeddedData(data) => {
                 Self::EmbeddedData(by_address::ByAddress(data.as_slice()))
             }
-            ImageReference::EmbeddedRgbaImage { .. } => return None,
+            ImageInner::EmbeddedRgbaImage { .. } => return None,
         })
     }
 }
@@ -364,7 +364,7 @@ impl GLRendererData {
     }
 
     // Try to load the image the given resource points to
-    fn load_image_resource(&self, resource: &ImageReference) -> Option<Rc<CachedImage>> {
+    fn load_image_resource(&self, resource: &ImageInner) -> Option<Rc<CachedImage>> {
         let cache_key = ImageCacheKey::new(resource)?;
 
         self.lookup_image_in_cache_or_create(cache_key, || {
@@ -474,7 +474,7 @@ impl GLRenderer {
 
     /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted
     /// to the window scale factor.
-    fn image_size(&self, source: &ImageReference) -> sixtyfps_corelib::graphics::Size {
+    fn image_size(&self, source: &ImageInner) -> sixtyfps_corelib::graphics::Size {
         self.shared_data
             .load_image_resource(source)
             .and_then(|image| image.size())
@@ -1376,7 +1376,7 @@ impl GLItemRenderer {
                 .borrow_mut()
                 .load_item_graphics_cache_with_function(item_cache, || {
                     self.shared_data
-                        .load_image_resource(&source_property.get().0)
+                        .load_image_resource((&source_property.get()).into())
                         .and_then(|cached_image| {
                             cached_image.as_renderable(
                                 // The condition at the entry of the function ensures that width/height are positive

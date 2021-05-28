@@ -1343,8 +1343,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 crate::expression_tree::ImageReference::EmbeddedData(resource_id) => {
                     let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
                     quote!(
-                        sixtyfps::re_exports::Image(
-                            sixtyfps::re_exports::ImageReference::EmbeddedData(#symbol.into())
+                        sixtyfps::re_exports::Image::from(
+                            sixtyfps::re_exports::ImageInner::EmbeddedData(#symbol.into())
                         )
                     )
                 }

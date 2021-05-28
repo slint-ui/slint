@@ -226,7 +226,7 @@ pub mod re_exports {
         init_component_items, Component, ComponentRefPin, ComponentVTable,
     };
     pub use sixtyfps_corelib::graphics::{
-        Brush, GradientStop, Image, ImageReference, LinearGradientBrush, PathArcTo, PathCubicTo,
+        Brush, GradientStop, Image, ImageInner, LinearGradientBrush, PathArcTo, PathCubicTo,
         PathData, PathElement, PathEvent, PathLineTo, PathMoveTo, PathQuadraticTo, Point, Rect,
         Size,
     };
