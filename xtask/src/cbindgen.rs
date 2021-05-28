@@ -110,6 +110,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "SharedString",
         "SharedVector",
         "ImageReference",
+        "Image",
         "Color",
         "PathData",
         "PathElement",
@@ -179,7 +180,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
     for (rust_types, extra_excluded_types, internal_header) in [
-        (vec!["ImageReference"], vec![], "sixtyfps_image_internal.h"),
+        (vec!["ImageReference", "Image"], vec![], "sixtyfps_image_internal.h"),
         (
             vec!["Color", "sixtyfps_color_brighter", "sixtyfps_color_darker"],
             vec![],
@@ -248,6 +249,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
             .with_src(crate_dir.join("graphics/color.rs"))
             .with_src(crate_dir.join("graphics/path.rs"))
             .with_src(crate_dir.join("graphics/brush.rs"))
+            .with_src(crate_dir.join("graphics/image.rs"))
             .with_src(crate_dir.join("animations.rs"))
             //            .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))

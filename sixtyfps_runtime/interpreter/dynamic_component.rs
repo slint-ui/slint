@@ -18,7 +18,6 @@ use sixtyfps_compilerlib::object_tree::{Element, ElementRc};
 use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
-use sixtyfps_corelib::graphics::ImageReference;
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
@@ -750,7 +749,7 @@ pub(crate) fn generate_component<'id>(
             Type::Angle => animated_property_info::<f32>(),
             Type::PhysicalLength => animated_property_info::<f32>(),
             Type::LogicalLength => animated_property_info::<f32>(),
-            Type::Image => property_info::<ImageReference>(),
+            Type::Image => property_info::<sixtyfps_corelib::graphics::Image>(),
             Type::Bool => property_info::<bool>(),
             Type::Callback { .. } => {
                 custom_callbacks.insert(name.clone(), builder.add_field_type::<Callback>());

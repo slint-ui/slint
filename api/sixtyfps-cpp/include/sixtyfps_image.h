@@ -11,26 +11,39 @@ LICENSE END */
 #include <string_view>
 #include "sixtyfps_image_internal.h"
 #include "sixtyfps_string.h"
+#include "sixtyfps_sharedvector.h"
 
 namespace sixtyfps {
 
-struct ImageReference
+/// An image type that can be displayed by the Image element
+struct Image
 {
 public:
-    ImageReference() : data(Data::None()) { }
-    ImageReference(const SharedString &file_path) : data(Data::AbsoluteFilePath(file_path)) { }
+    Image() : data(Data::None()) { }
 
-    friend bool operator==(const ImageReference &a, const ImageReference &b) {
+    static Image load_from_path(const SharedString &file_path) {
+        Image img;
+        img.data = Data::AbsoluteFilePath(file_path);
+        return img;
+    }
+
+    static Image load_from_argb(int width, int height, const SharedVector<uint32_t> &data) {
+        Image img;
+        img.data = Data::EmbeddedRgbaImage(width, height, data);
+        return img;
+    }
+
+    friend bool operator==(const Image &a, const Image &b) {
         return a.data == b.data;
     }
-    friend bool operator!=(const ImageReference &a, const ImageReference &b) {
+    friend bool operator!=(const Image &a, const Image &b) {
         return a.data != b.data;
     }
 
 
 private:
     using Tag = cbindgen_private::types::ImageReference::Tag;
-    using Data = cbindgen_private::types::ImageReference;
+    using Data = cbindgen_private::types::Image;
     Data data;
 };
 

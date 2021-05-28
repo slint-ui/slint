@@ -195,7 +195,11 @@ fn to_eval_value<'cx>(
             }
         },
         Type::Image => {
-            Ok(Value::Image(ImageReference::AbsoluteFilePath(val.to_string(cx)?.value().into())))
+            let path = val.to_string(cx)?.value();
+            Ok(Value::Image(
+                sixtyfps_corelib::graphics::Image::load_from_path(std::path::Path::new(&path))
+                    .or_else(|_| cx.throw_error(format!("cannot load image {:?}", path)))?,
+            ))
         }
         Type::Bool => Ok(Value::Bool(val.downcast_or_throw::<JsBoolean, _>(cx)?.value())),
         Type::Struct { fields, .. } => {
@@ -243,7 +247,7 @@ fn to_js_value<'cx>(
         Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
         Value::String(s) => JsString::new(cx, s.as_str()).as_value(cx),
         Value::Bool(b) => JsBoolean::new(cx, b).as_value(cx),
-        Value::Image(r) => match r {
+        Value::Image(r) => match r.0 {
             ImageReference::None => JsUndefined::new().as_value(cx),
             ImageReference::AbsoluteFilePath(path) => JsString::new(cx, path.as_str()).as_value(cx),
             ImageReference::EmbeddedData { .. } | ImageReference::EmbeddedRgbaImage { .. } => {

@@ -42,31 +42,8 @@ pub use path::*;
 mod brush;
 pub use brush::*;
 
-/// A resource is a reference to binary data, for example images. They can be accessible on the file
-/// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
-/// is necessary before they can be used.
-///
-/// TODO! If we want to make this type public API, we should not make it an enum, but an opaque type instead
-#[derive(Clone, PartialEq, Debug)]
-#[repr(u8)]
-pub enum ImageReference {
-    /// A resource that does not represent any data.
-    None,
-    /// A resource that points to a file in the file system
-    AbsoluteFilePath(crate::SharedString),
-    /// A resource that is embedded in the program and accessible via pointer
-    /// The format is the same as in a file
-    EmbeddedData(super::slice::Slice<'static, u8>),
-    /// Raw ARGB
-    #[allow(missing_docs)]
-    EmbeddedRgbaImage { width: u32, height: u32, data: super::sharedvector::SharedVector<u32> },
-}
-
-impl Default for ImageReference {
-    fn default() -> Self {
-        ImageReference::None
-    }
-}
+mod image;
+pub use self::image::*;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
