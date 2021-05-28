@@ -265,7 +265,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     );
     config.export.body.insert(
         "CachedRenderingData".to_owned(),
-        "    constexpr CachedRenderingData() : cache_index{}, cache_ok{} {}".to_owned(),
+        "    constexpr CachedRenderingData() : cache_index{}, cache_generation{} {}".to_owned(),
     );
     config.export.body.insert(
         "EasingCurve".to_owned(),
