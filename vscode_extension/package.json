@@ -30,7 +30,8 @@
 				],
 				"extensions": [
 					".60"
-				]
+				],
+				"configuration": "language-configuration.json"
 			}
 		],
 		"grammars": [
