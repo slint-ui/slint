@@ -609,7 +609,7 @@ pub(crate) fn generate_component<'id>(
         use sixtyfps_corelib::items::*;
         rtti.extend(
             [
-                rtti_for::<Image>(),
+                rtti_for::<ImageItem>(),
                 rtti_for::<ClippedImage>(),
                 rtti_for::<Text>(),
                 rtti_for::<Rectangle>(),

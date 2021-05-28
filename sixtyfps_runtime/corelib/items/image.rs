@@ -54,7 +54,7 @@ impl Default for ImageFit {
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
 /// The implementation of the `Image` element
-pub struct Image {
+pub struct ImageItem {
     pub source: Property<ImageReference>,
     pub x: Property<f32>,
     pub y: Property<f32>,
@@ -64,7 +64,7 @@ pub struct Image {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for Image {
+impl Item for ImageItem {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
@@ -109,11 +109,11 @@ impl Item for Image {
     }
 }
 
-impl ItemConsts for Image {
+impl ItemConsts for ImageItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
-        Image,
+        ImageItem,
         CachedRenderingData,
-    > = Image::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ImageItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 #[repr(C)]

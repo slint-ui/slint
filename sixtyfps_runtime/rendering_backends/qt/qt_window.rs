@@ -348,15 +348,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_image(&mut self, image: Pin<&items::Image>) {
-        let dest_rect: qttypes::QRectF = get_geometry!(items::Image, image);
+    fn draw_image(&mut self, image: Pin<&items::ImageItem>) {
+        let dest_rect: qttypes::QRectF = get_geometry!(items::ImageItem, image);
         self.draw_image_impl(
             &image.cached_rendering_data,
-            items::Image::FIELD_OFFSETS.source.apply_pin(image),
+            items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
             dest_rect,
             None,
-            items::Image::FIELD_OFFSETS.width.apply_pin(image),
-            items::Image::FIELD_OFFSETS.height.apply_pin(image),
+            items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
+            items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             None,
         );
