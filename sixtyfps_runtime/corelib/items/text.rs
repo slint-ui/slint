@@ -125,33 +125,37 @@ impl Item for Text {
     }
 
     fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
-        if self.wrap() == TextWrap::word_wrap {
-            // FIXME: one should limit to the size of the smaler word
-            LayoutInfo::default()
+        let font_metrics = window.0.font_metrics(
+            &self.cached_rendering_data,
+            &|| self.unresolved_font_request(),
+            Self::FIELD_OFFSETS.text.apply_pin(self),
+        );
+        let text = self.text();
+        let implicit_size = font_metrics.text_size(&text);
+        let mut min_size = if self.wrap() != TextWrap::no_wrap {
+            // If we wrap we need *at least* the height of all forced line breaks
+            let forced_linebreaks =
+                1 + text.chars().filter(|ch| *ch == '\n' || *ch == '\u{2028}').count();
+
+            [0., (forced_linebreaks as f32) * font_metrics.line_height()].into()
         } else {
-            let font_metrics = window.0.font_metrics(
-                &self.cached_rendering_data,
-                &|| self.unresolved_font_request(),
-                Self::FIELD_OFFSETS.text.apply_pin(self),
-            );
-            let implicit_size = font_metrics.text_size(&self.text());
-            let mut min_size = implicit_size;
-            match self.overflow() {
-                TextOverflow::elide => {
-                    min_size.width = font_metrics.text_size("…").width;
-                }
-                TextOverflow::clip => {}
+            implicit_size
+        };
+        match self.overflow() {
+            TextOverflow::elide => {
+                min_size.width = font_metrics.text_size("…").width;
             }
-            // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
-            // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
-            // letters will be cut off, apply the ceiling here.
-            LayoutInfo {
-                min_width: min_size.width.ceil(),
-                min_height: min_size.height.ceil(),
-                preferred_width: implicit_size.width.ceil(),
-                preferred_height: implicit_size.height.ceil(),
-                ..LayoutInfo::default()
-            }
+            TextOverflow::clip => {}
+        }
+        // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
+        // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
+        // letters will be cut off, apply the ceiling here.
+        LayoutInfo {
+            min_width: min_size.width.ceil(),
+            min_height: min_size.height.ceil(),
+            preferred_width: implicit_size.width.ceil(),
+            preferred_height: implicit_size.height.ceil(),
+            ..LayoutInfo::default()
         }
     }
 
