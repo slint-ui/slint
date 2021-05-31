@@ -147,13 +147,6 @@ impl OpenGLContext {
         })
     }
 
-    #[cfg(target_arch = "wasm32")]
-    fn window_rc(&self) -> std::cell::Ref<Rc<winit::window::Window>> {
-        std::cell::Ref::map(self.0.borrow(), |state| match state.as_ref().unwrap() {
-            OpenGLContextState::Current(window) => window,
-        })
-    }
-
     fn make_current(&self) {
         let mut ctx = self.0.borrow_mut();
         *ctx = Some(match ctx.take().unwrap() {
@@ -292,7 +285,7 @@ impl OpenGLContext {
                     crate::eventloop::with_window_target(|event_loop| {
                         event_loop
                             .event_loop_proxy()
-                            .send_event(crate::eventloop::CustomEvent::WakeUpAndPoll)
+                            .send_event(crate::eventloop::CustomEvent::RedrawAllWindows)
                             .ok();
                     })
                 }
@@ -371,9 +364,7 @@ impl GLRendererData {
     fn load_image_resource(&self, resource: &ImageInner) -> Option<Rc<CachedImage>> {
         let cache_key = ImageCacheKey::new(resource)?;
 
-        self.lookup_image_in_cache_or_create(cache_key, || {
-            CachedImage::new_from_resource(resource, self)
-        })
+        self.lookup_image_in_cache_or_create(cache_key, || CachedImage::new_from_resource(resource))
     }
 }
 
@@ -454,10 +445,17 @@ impl GLRenderer {
 
         // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
         // avoid GPU memory leaks.
-        self.shared_data
-            .image_cache
-            .borrow_mut()
-            .retain(|_, cached_image| Rc::strong_count(cached_image) > 1);
+        self.shared_data.image_cache.borrow_mut().retain(|_, cached_image| {
+            // * Retain images that are used by elements, so that they can be effectively
+            // shared (one image element refers to foo.png, another element is created
+            // and refers to the same -> share).
+            // * Also retain images that are still loading (async HTML), where the size
+            // is not known yet. Otherwise we end up in a loop where an image is not loaded
+            // yet, we report (0, 0) to the layout, the image gets removed here, the closure
+            // still triggers a load and marks the layout as dirt, which loads the
+            // image again, etc.
+            Rc::strong_count(cached_image) > 1 || cached_image.size().is_none()
+        });
 
         std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
 

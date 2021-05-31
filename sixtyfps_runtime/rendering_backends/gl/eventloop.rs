@@ -147,10 +147,10 @@ pub fn unregister_window(id: winit::window::WindowId) {
 /// This enum captures run-time specific events that can be dispatched to the event loop in
 /// addition to the winit events.
 pub enum CustomEvent {
-    /// Request for the event loop to wake up and poll. This is used on the web for example to
-    /// request an animation frame.
+    /// Request for the event loop to wake up and redraw all windows. This is used on the
+    /// web for example to request an animation frame.
     #[cfg(target_arch = "wasm32")]
-    WakeUpAndPoll,
+    RedrawAllWindows,
     UpdateWindowProperties(winit::window::WindowId),
     UserEvent(Box<dyn FnOnce() + Send>),
     Exit,
@@ -160,7 +160,7 @@ impl std::fmt::Debug for CustomEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             #[cfg(target_arch = "wasm32")]
-            Self::WakeUpAndPoll => write!(f, "WakeUpAndPoll"),
+            Self::RedrawAllWindows => write!(f, "RedrawAllWindows"),
             Self::UpdateWindowProperties(e) => write!(f, "UpdateWindowProperties({:?})", e),
             Self::UserEvent(_) => write!(f, "UserEvent"),
             Self::Exit => write!(f, "Exit"),
@@ -520,6 +520,17 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
 
                 winit::event::Event::UserEvent(CustomEvent::UserEvent(user)) => {
                     user();
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                winit::event::Event::UserEvent(CustomEvent::RedrawAllWindows) => {
+                    ALL_WINDOWS.with(|windows| {
+                        windows.borrow().values().for_each(|window| {
+                            if let Some(window) = window.upgrade() {
+                                window.request_redraw();
+                            }
+                        })
+                    })
                 }
 
                 _ => (),

@@ -11,9 +11,11 @@ LICENSE END */
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use sixtyfps_corelib::{graphics::Size, slice::Slice, ImageInner, Property, SharedString};
+#[cfg(target_arch = "wasm32")]
+use sixtyfps_corelib::Property;
+use sixtyfps_corelib::{graphics::Size, slice::Slice, ImageInner, SharedString};
 
-use super::{CanvasRc, GLItemRenderer, GLRendererData, ItemGraphicsCacheEntry};
+use super::{CanvasRc, GLItemRenderer, ItemGraphicsCacheEntry};
 
 struct Texture {
     id: femtovg::ImageId,
@@ -48,7 +50,7 @@ struct HTMLImage {
 
 #[cfg(target_arch = "wasm32")]
 impl HTMLImage {
-    fn new(url: &str, renderer: &GLRendererData) -> Self {
+    fn new(url: &str) -> Self {
         let dom_element = web_sys::HtmlImageElement::new().unwrap();
 
         let image_load_pending = Rc::pin(Property::new(true));
@@ -60,22 +62,17 @@ impl HTMLImage {
         dom_element.set_cross_origin(Some("anonymous"));
         dom_element.set_onload(Some(
             &wasm_bindgen::closure::Closure::once_into_js({
-                let window_weak = Rc::downgrade(&renderer.opengl_context.window_rc());
                 let image_load_pending = image_load_pending.clone();
                 move || {
-                    let window = match window_weak.upgrade() {
-                        Some(window) => window,
-                        _ => return,
-                    };
-
                     image_load_pending.as_ref().set(false);
 
                     // As you can paint on a HTML canvas at any point in time, request_redraw()
                     // on a winit window only queues an additional internal event, that'll be
                     // be dispatched as the next event. We are however not in an event loop
-                    // call, so we also need to wake up the event loop.
-                    window.request_redraw();
-                    event_loop_proxy.send_event(crate::eventloop::CustomEvent::WakeUpAndPoll).ok();
+                    // call, so we also need to wake up the event loop and redraw then.
+                    event_loop_proxy
+                        .send_event(crate::eventloop::CustomEvent::RedrawAllWindows)
+                        .ok();
                 }
             })
             .into(),
@@ -159,16 +156,16 @@ impl CachedImage {
         Self(RefCell::new(ImageData::SVG(tree)))
     }
 
-    pub fn new_from_resource(resource: &ImageInner, renderer: &GLRendererData) -> Option<Self> {
+    pub fn new_from_resource(resource: &ImageInner) -> Option<Self> {
         match resource {
             ImageInner::None => None,
-            ImageInner::AbsoluteFilePath(path) => Self::new_from_path(path, renderer),
+            ImageInner::AbsoluteFilePath(path) => Self::new_from_path(path),
             ImageInner::EmbeddedData(data) => Self::new_from_data(data),
             ImageInner::EmbeddedRgbaImage { .. } => todo!(),
         }
     }
 
-    fn new_from_path(path: &SharedString, _renderer: &GLRendererData) -> Option<Self> {
+    fn new_from_path(path: &SharedString) -> Option<Self> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             #[cfg(feature = "svg")]
@@ -192,7 +189,7 @@ impl CachedImage {
             )?))
         }
         #[cfg(target_arch = "wasm32")]
-        Some(Self(RefCell::new(ImageData::HTMLImage(HTMLImage::new(path, _renderer)))))
+        Some(Self(RefCell::new(ImageData::HTMLImage(HTMLImage::new(path)))))
     }
 
     fn new_from_data(data: &Slice<u8>) -> Option<Self> {
