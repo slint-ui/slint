@@ -9,6 +9,7 @@
 LICENSE END */
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
@@ -341,6 +342,13 @@ impl CachedImage {
             _ => panic!("internal error: CachedImage::as_paint() called on non-texture image"),
         }
     }
+
+    pub(crate) fn is_on_gpu(&self) -> bool {
+        match &*self.0.borrow() {
+            ImageData::Texture(_) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Debug)]
@@ -364,5 +372,56 @@ impl ImageCacheKey {
             }
             ImageInner::EmbeddedRgbaImage { .. } => return None,
         })
+    }
+}
+
+// Cache used to avoid repeatedly decoding images from disk. Entries with a count
+// of 1 are drained after flushing the renderer commands to the screen.
+#[derive(Default)]
+pub(crate) struct ImageCache(HashMap<ImageCacheKey, Rc<CachedImage>>);
+
+impl ImageCache {
+    // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
+    // otherwise a new image is created/loaded from the given callback.
+    fn lookup_image_in_cache_or_create(
+        &mut self,
+        cache_key: ImageCacheKey,
+        image_create_fn: impl Fn() -> Option<CachedImage>,
+    ) -> Option<Rc<CachedImage>> {
+        Some(match self.0.entry(cache_key) {
+            std::collections::hash_map::Entry::Occupied(existing_entry) => {
+                existing_entry.get().clone()
+            }
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                let new_image = Rc::new(image_create_fn()?);
+                vacant_entry.insert(new_image.clone());
+                new_image
+            }
+        })
+    }
+
+    // Try to load the image the given resource points to
+    pub(crate) fn load_image_resource(&mut self, resource: &ImageInner) -> Option<Rc<CachedImage>> {
+        let cache_key = ImageCacheKey::new(resource)?;
+
+        self.lookup_image_in_cache_or_create(cache_key, || CachedImage::new_from_resource(resource))
+    }
+
+    pub(crate) fn drain(&mut self) {
+        self.0.retain(|_, cached_image| {
+            // * Retain images that are used by elements, so that they can be effectively
+            // shared (one image element refers to foo.png, another element is created
+            // and refers to the same -> share).
+            // * Also retain images that are still loading (async HTML), where the size
+            // is not known yet. Otherwise we end up in a loop where an image is not loaded
+            // yet, we report (0, 0) to the layout, the image gets removed here, the closure
+            // still triggers a load and marks the layout as dirt, which loads the
+            // image again, etc.
+            Rc::strong_count(cached_image) > 1 || cached_image.size().is_none()
+        });
+    }
+
+    pub(crate) fn remove_textures(&mut self) {
+        self.0.retain(|_, cached_image| !cached_image.is_on_gpu());
     }
 }

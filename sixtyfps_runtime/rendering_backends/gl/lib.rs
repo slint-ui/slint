@@ -17,7 +17,6 @@ You should use the `sixtyfps` crate instead.
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -31,7 +30,7 @@ use sixtyfps_corelib::items::{
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::ComponentWindow;
 
-use sixtyfps_corelib::{ImageInner, SharedString};
+use sixtyfps_corelib::SharedString;
 
 mod graphics_window;
 use graphics_window::*;
@@ -330,42 +329,10 @@ struct GLRendererData {
 
     opengl_context: OpenGLContext,
 
-    // Cache used to avoid repeatedly decoding images from disk. Entries with a count
-    // of 1 are drained after flushing the renderer commands to the screen.
-    image_cache: RefCell<HashMap<ImageCacheKey, Rc<CachedImage>>>,
-
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
     layer_images_to_delete_after_flush: RefCell<Vec<CachedImage>>,
-}
-
-impl GLRendererData {
-    // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
-    // otherwise a new image is created/loaded from the given callback.
-    fn lookup_image_in_cache_or_create(
-        &self,
-        cache_key: ImageCacheKey,
-        image_create_fn: impl Fn() -> Option<CachedImage>,
-    ) -> Option<Rc<CachedImage>> {
-        Some(match self.image_cache.borrow_mut().entry(cache_key) {
-            std::collections::hash_map::Entry::Occupied(existing_entry) => {
-                existing_entry.get().clone()
-            }
-            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image = Rc::new(image_create_fn()?);
-                vacant_entry.insert(new_image.clone());
-                new_image
-            }
-        })
-    }
-
-    // Try to load the image the given resource points to
-    fn load_image_resource(&self, resource: &ImageInner) -> Option<Rc<CachedImage>> {
-        let cache_key = ImageCacheKey::new(resource)?;
-
-        self.lookup_image_in_cache_or_create(cache_key, || CachedImage::new_from_resource(resource))
-    }
 }
 
 pub struct GLRenderer {
@@ -395,7 +362,6 @@ impl GLRenderer {
             canvas: Rc::new(RefCell::new(canvas)),
             opengl_context,
 
-            image_cache: Default::default(),
             layer_images_to_delete_after_flush: Default::default(),
         };
 
@@ -440,22 +406,12 @@ impl GLRenderer {
 
     /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
     /// commands to the underlying graphics subsystem.
-    fn flush_renderer(&mut self, _renderer: GLItemRenderer) {
+    fn flush_renderer(&mut self, renderer: GLItemRenderer) {
         self.shared_data.canvas.borrow_mut().flush();
 
         // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
         // avoid GPU memory leaks.
-        self.shared_data.image_cache.borrow_mut().retain(|_, cached_image| {
-            // * Retain images that are used by elements, so that they can be effectively
-            // shared (one image element refers to foo.png, another element is created
-            // and refers to the same -> share).
-            // * Also retain images that are still loading (async HTML), where the size
-            // is not known yet. Otherwise we end up in a loop where an image is not loaded
-            // yet, we report (0, 0) to the layout, the image gets removed here, the closure
-            // still triggers a load and marks the layout as dirt, which loads the
-            // image again, etc.
-            Rc::strong_count(cached_image) > 1 || cached_image.size().is_none()
-        });
+        renderer.graphics_window.image_cache.borrow_mut().drain();
 
         std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
 
@@ -470,15 +426,6 @@ impl GLRenderer {
 
     fn window(&self) -> std::cell::Ref<winit::window::Window> {
         self.shared_data.opengl_context.window()
-    }
-
-    /// Returns the size of image referenced by the specified resource. These are image pixels, not adjusted
-    /// to the window scale factor.
-    fn image_size(&self, source: &ImageInner) -> sixtyfps_corelib::graphics::Size {
-        self.shared_data
-            .load_image_resource(source)
-            .and_then(|image| image.size())
-            .unwrap_or_else(|| Size::new(1., 1.))
     }
 }
 
@@ -1374,7 +1321,9 @@ impl GLItemRenderer {
                 .graphics_cache
                 .borrow_mut()
                 .load_item_graphics_cache_with_function(item_cache, || {
-                    self.shared_data
+                    self.graphics_window
+                        .image_cache
+                        .borrow_mut()
                         .load_image_resource((&source_property.get()).into())
                         .and_then(|cached_image| {
                             cached_image.as_renderable(
