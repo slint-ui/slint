@@ -353,14 +353,14 @@ impl GLRendererData {
     fn lookup_image_in_cache_or_create(
         &self,
         cache_key: ImageCacheKey,
-        image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
+        image_create_fn: impl Fn() -> Option<CachedImage>,
     ) -> Option<Rc<CachedImage>> {
         Some(match self.image_cache.borrow_mut().entry(cache_key) {
             std::collections::hash_map::Entry::Occupied(existing_entry) => {
                 existing_entry.get().clone()
             }
             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image = image_create_fn()?;
+                let new_image = Rc::new(image_create_fn()?);
                 vacant_entry.insert(new_image.clone());
                 new_image
             }
@@ -1180,7 +1180,7 @@ impl ItemRenderer for GLItemRenderer {
                     canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED).ok()
                 {
                     cached_image = Some(ItemGraphicsCacheEntry::Image(Rc::new(
-                        CachedImage::new_on_gpu(canvas, image_id, None),
+                        CachedImage::new_on_gpu(canvas, image_id),
                     )))
                 };
             });
@@ -1349,7 +1349,6 @@ impl GLItemRenderer {
             colorized_image: Rc::new(CachedImage::new_on_gpu(
                 &self.shared_data.canvas,
                 colorized_image,
-                None,
             )),
         }
     }
