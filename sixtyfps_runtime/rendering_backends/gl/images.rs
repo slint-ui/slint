@@ -189,6 +189,10 @@ impl CachedImage {
             Some(Box::pin(/*upload pending*/ Property::new(true))),
         ));
 
+        let event_loop_proxy = crate::eventloop::with_window_target(|event_loop| {
+            event_loop.event_loop_proxy().clone()
+        });
+
         let html_image = web_sys::HtmlImageElement::new().unwrap();
         html_image.set_cross_origin(Some("anonymous"));
         html_image.set_onload(Some(
@@ -229,12 +233,7 @@ impl CachedImage {
                     // be dispatched as the next event. We are however not in an event loop
                     // call, so we also need to wake up the event loop.
                     window.request_redraw();
-                    crate::eventloop::with_window_target(|event_loop| {
-                        event_loop
-                            .event_loop_proxy()
-                            .send_event(crate::eventloop::CustomEvent::WakeUpAndPoll)
-                            .ok();
-                    });
+                    event_loop_proxy.send_event(crate::eventloop::CustomEvent::WakeUpAndPoll).ok();
                 }
             })
             .into(),
