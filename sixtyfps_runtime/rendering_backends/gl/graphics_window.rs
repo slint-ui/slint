@@ -458,20 +458,19 @@ impl PlatformWindow for GraphicsWindow {
                         .unwrap_or_default();
                     if w <= 0. {
                         w = info.preferred_width.max(info.min_width);
+                        must_resize = true;
                     }
                     if h <= 0. {
                         h = info.preferred_height.max(info.min_height);
+                        must_resize = true;
                     }
                 };
-                let mut apply = |r: &mut f64, v| {
-                    if v > 0. {
-                        *r = v as _
-                    } else {
-                        must_resize = true
-                    }
-                };
-                apply(&mut size.width, w);
-                apply(&mut size.height, h);
+                if w > 0. {
+                    size.width = w as _;
+                }
+                if h > 0. {
+                    size.height = h as _;
+                }
                 window.backend.borrow().window().set_inner_size(size);
                 if must_resize {
                     self.set_geometry(size.width as _, size.height as _)
