@@ -560,15 +560,6 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
 
     #[cfg(target_arch = "wasm32")]
     {
-        // Since wasm does not have a run_return function that takes a non-static closure,
-        // we use this hack to work that around
-        scoped_tls_hkt::scoped_thread_local!(static mut RUN_FN_TLS: for <'a> &'a mut dyn FnMut(
-            Event<'_, CustomEvent>,
-            &EventLoopWindowTarget<CustomEvent>,
-            &mut ControlFlow,
-        ));
-        RUN_FN_TLS.set(&mut run_fn, move || {
-            winit_loop.run(|e, t, cf| RUN_FN_TLS.with(|run_fn| run_fn(e, t, cf)))
-        });
+        winit_loop.run(run_fn)
     }
 }
