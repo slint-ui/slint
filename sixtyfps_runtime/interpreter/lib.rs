@@ -107,3 +107,6 @@ pub use sixtyfps_corelib::{Brush, Color, SharedString, SharedVector};
 pub fn use_modules() -> usize {
     crate::api::ffi::sixtyfps_interpreter_value_new as usize
 }
+
+#[cfg(test)]
+mod tests;
