@@ -365,3 +365,27 @@ impl CachedImage {
         }
     }
 }
+
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub enum ImageCacheKey {
+    Path(String),
+    EmbeddedData(by_address::ByAddress<&'static [u8]>),
+}
+
+impl ImageCacheKey {
+    pub fn new(resource: &ImageInner) -> Option<Self> {
+        Some(match resource {
+            ImageInner::None => return None,
+            ImageInner::AbsoluteFilePath(path) => {
+                if path.is_empty() {
+                    return None;
+                }
+                Self::Path(path.to_string())
+            }
+            ImageInner::EmbeddedData(data) => {
+                Self::EmbeddedData(by_address::ByAddress(data.as_slice()))
+            }
+            ImageInner::EmbeddedRgbaImage { .. } => return None,
+        })
+    }
+}

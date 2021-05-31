@@ -46,30 +46,6 @@ type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 
 const KAPPA90: f32 = 0.5522847493;
 
-#[derive(PartialEq, Eq, Hash, Debug)]
-enum ImageCacheKey {
-    Path(String),
-    EmbeddedData(by_address::ByAddress<&'static [u8]>),
-}
-
-impl ImageCacheKey {
-    fn new(resource: &ImageInner) -> Option<Self> {
-        Some(match resource {
-            ImageInner::None => return None,
-            ImageInner::AbsoluteFilePath(path) => {
-                if path.is_empty() {
-                    return None;
-                }
-                Self::Path(path.to_string())
-            }
-            ImageInner::EmbeddedData(data) => {
-                Self::EmbeddedData(by_address::ByAddress(data.as_slice()))
-            }
-            ImageInner::EmbeddedRgbaImage { .. } => return None,
-        })
-    }
-}
-
 #[derive(Clone)]
 enum ItemGraphicsCacheEntry {
     Image(Rc<CachedImage>),
