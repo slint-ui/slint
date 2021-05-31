@@ -142,6 +142,6 @@ pub(crate) mod ffi {
     /// Destroy callback
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_callback_drop(handle: *mut CallbackOpaque) {
-        core::ptr::read(handle as *mut Callback<()>);
+        core::ptr::drop_in_place(handle as *mut Callback<()>);
     }
 }

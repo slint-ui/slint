@@ -1715,7 +1715,7 @@ pub(crate) mod ffi {
     /// Destroy handle
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {
-        core::ptr::read(handle);
+        core::ptr::drop_in_place(handle);
     }
 
     fn c_set_animated_value<T: InterpolatedPropertyValue + Clone>(
@@ -1998,6 +1998,6 @@ pub(crate) mod ffi {
     /// Destroy handle
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
-        core::ptr::read(handle as *mut PropertyTracker);
+        core::ptr::drop_in_place(handle as *mut PropertyTracker);
     }
 }

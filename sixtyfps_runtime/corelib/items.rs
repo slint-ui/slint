@@ -963,7 +963,7 @@ pub unsafe extern "C" fn sixtyfps_flickable_data_init(data: *mut FlickableDataBo
 }
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBox) {
-    std::ptr::read(data);
+    std::ptr::drop_in_place(data);
 }
 
 /// The implementation of the `PropertyAnimation` element
