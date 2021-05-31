@@ -456,7 +456,7 @@ impl PropertyHandle {
     }
 
     /// Register this property as a dependency to the current binding being evaluated
-    fn register_as_dependency_to_current_binding(&self) {
+    fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
                 cur_binding.register_self_as_dependency(self.dependencies());
@@ -555,7 +555,8 @@ impl<T: Clone> Property<T> {
     /// cloning the value.
     pub fn get(self: Pin<&Self>) -> T {
         unsafe { self.handle.update(self.value.get()) };
-        self.handle.register_as_dependency_to_current_binding();
+        let handle = unsafe { Pin::new_unchecked(&self.handle) };
+        handle.register_as_dependency_to_current_binding();
         self.get_internal()
     }
 
@@ -953,7 +954,8 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
     for AnimatedBindingCallable<T, A>
 {
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
-        self.original_binding.register_as_dependency_to_current_binding();
+        let original_binding = Pin::new_unchecked(&self.original_binding);
+        original_binding.register_as_dependency_to_current_binding();
         match self.state.get() {
             AnimatedBindingState::Animating => {
                 let (val, finished) = self.animation_data.borrow_mut().compute_interpolated_value();
@@ -1326,7 +1328,7 @@ impl<ChangeHandler> Drop for PropertyTracker<ChangeHandler> {
 
 impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
     /// Register this property tracker as a dependency to the current binding/property tracker being evaluated
-    fn register_as_dependency_to_current_binding(&self) {
+    fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
                 cur_binding.register_self_as_dependency(
@@ -1578,8 +1580,9 @@ pub(crate) mod ffi {
         handle: &PropertyHandleOpaque,
         val: *mut c_void,
     ) {
-        handle.0.update(val);
-        handle.0.register_as_dependency_to_current_binding();
+        let handle = Pin::new_unchecked(&handle.0);
+        handle.update(val);
+        handle.register_as_dependency_to_current_binding();
     }
 
     /// Mark the fact that the property was changed and that its binding need to be removed, and
