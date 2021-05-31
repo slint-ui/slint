@@ -22,7 +22,7 @@ unsafe fn construct_fn<T: Default>(ptr: *mut u8) {
     core::ptr::write(ptr as *mut T, T::default());
 }
 unsafe fn drop_fn<T>(ptr: *mut u8) {
-    core::ptr::read(ptr as *const T);
+    core::ptr::drop_in_place(ptr as *mut T);
 }
 
 /// Information for type that can be added to a dynamic type.
