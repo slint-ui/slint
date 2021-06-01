@@ -18,6 +18,9 @@ use crate::expression_tree::{
 use crate::langtype::{EnumerationValue, Type};
 use crate::parser::NodeOrToken;
 
+/// Used for uniquely name some variables
+static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
+
 /// "Expand" the macro `mac` (at location `n`) with the arguments `sub_expr`
 pub fn lower_macro(
     mac: BuiltinMacroFunction,
@@ -224,7 +227,10 @@ fn to_debug_string(
             false_expr: Box::new(Expression::StringLiteral("false".into())),
         },
         Type::Struct { fields, .. } => {
-            let local_object = "debug_struct";
+            let local_object = format!(
+                "debug_struct{}",
+                COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            );
             let mut string = None;
             for (k, _) in fields {
                 let field_name =
@@ -232,7 +238,7 @@ fn to_debug_string(
                 let value = to_debug_string(
                     Expression::StructFieldAccess {
                         base: Box::new(Expression::ReadLocalVariable {
-                            name: local_object.into(),
+                            name: local_object.clone(),
                             ty: ty.clone(),
                         }),
                         name: k.clone(),
@@ -259,7 +265,7 @@ fn to_debug_string(
                 Some(string) => {
                     let mut v = Vec::new();
                     v.push(Expression::StoreLocalVariable {
-                        name: local_object.into(),
+                        name: local_object.clone(),
                         value: Box::new(expr),
                     });
                     v.push(Expression::BinaryExpression {
@@ -311,7 +317,6 @@ fn to_debug_string(
 /// The rhs and lhs of the expression must have the same numerical type
 pub fn min_max_expression(lhs: Expression, rhs: Expression, op: char) -> Expression {
     let ty = lhs.ty();
-    static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
     let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let n1 = format!("minmax_lhs{}", id);
     let n2 = format!("minmax_rhs{}", id);
