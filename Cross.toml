@@ -11,3 +11,11 @@
 image = "ghcr.io/sixtyfpsui/sixtyfps/aarch64-unknown-linux-gnu"
 [target.armv7-unknown-linux-gnueabihf]
 image = "ghcr.io/sixtyfpsui/sixtyfps/armv7-unknown-linux-gnueabihf"
+
+[build.env]
+passthrough = [
+    "SIXTYFPS_NO_QT",
+    "SIXTYFPS_STYLE",
+    "SIXTYFPS_TEST_FILTER",
+    "SIXTYFPS_INTERPRETER_ERROR_WHITELIST",
+]
