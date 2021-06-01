@@ -37,11 +37,11 @@ fn compute_inner_layout<T>(capacity: usize) -> alloc::Layout {
         .0
 }
 
-unsafe fn drop_inner<T>(inner: NonNull<SharedVectorInner<T>>) {
+unsafe fn drop_inner<T>(mut inner: NonNull<SharedVectorInner<T>>) {
     debug_assert_eq!(inner.as_ref().header.refcount.load(core::sync::atomic::Ordering::Relaxed), 0);
-    let data_ptr = inner.as_ref().data.as_ptr();
+    let data_ptr = inner.as_mut().data.as_mut_ptr();
     for x in 0..inner.as_ref().header.size {
-        drop(core::ptr::read(data_ptr.add(x)));
+        core::ptr::drop_in_place(data_ptr.add(x));
     }
     alloc::dealloc(
         inner.as_ptr() as *mut u8,
@@ -88,7 +88,14 @@ pub struct SharedVector<T> {
 impl<T> Drop for SharedVector<T> {
     fn drop(&mut self) {
         unsafe {
-            if self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) < 0 {
+            if self
+                .inner
+                .cast::<SharedVectorHeader>()
+                .as_ref()
+                .refcount
+                .load(atomic::Ordering::Relaxed)
+                < 0
+            {
                 return;
             }
             if self.inner.as_ref().header.refcount.fetch_sub(1, atomic::Ordering::SeqCst) == 1 {
@@ -101,7 +108,14 @@ impl<T> Drop for SharedVector<T> {
 impl<T> Clone for SharedVector<T> {
     fn clone(&self) -> Self {
         unsafe {
-            if self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) > 0 {
+            if self
+                .inner
+                .cast::<SharedVectorHeader>()
+                .as_ref()
+                .refcount
+                .load(atomic::Ordering::Relaxed)
+                > 0
+            {
                 self.inner.as_ref().header.refcount.fetch_add(1, atomic::Ordering::SeqCst);
             }
             return SharedVector { inner: self.inner };
@@ -121,17 +135,22 @@ impl<T> SharedVector<T> {
 
     /// Number of elements in the array
     pub fn len(&self) -> usize {
-        unsafe { self.inner.as_ref().header.size }
+        unsafe { self.inner.cast::<SharedVectorHeader>().as_ref().size }
     }
 
     /// Return a slice to the array
     pub fn as_slice(&self) -> &[T] {
-        unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len()) }
+        if self.len() == 0 {
+            &[]
+        } else {
+            // Safety: When len > 0, we know that the pointer holds an array of the size of len
+            unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len()) }
+        }
     }
 
     /// Returns the number of elements the vector can hold without reallocating, when not shared
     fn capacity(&self) -> usize {
-        unsafe { self.inner.as_ref().header.capacity }
+        unsafe { self.inner.cast::<SharedVectorHeader>().as_ref().capacity }
     }
 }
 
@@ -209,7 +228,7 @@ impl<T: Clone> SharedVector<T> {
                 inner.header.size -= 1;
                 // Safety: The array was of size inner.header.size, so there should be an element there
                 unsafe {
-                    drop(core::ptr::read(inner.data.as_mut_ptr().add(inner.header.size)));
+                    core::ptr::drop_in_place(inner.data.as_mut_ptr().add(inner.header.size));
                 }
             }
         } else {
@@ -383,11 +402,11 @@ impl<T> Drop for IntoIterInner<T> {
     fn drop(&mut self) {
         match self {
             IntoIterInner::Shared(..) => { /* drop of SharedVector takes care of it */ }
-            IntoIterInner::UnShared(inner, begin) => unsafe {
+            IntoIterInner::UnShared(mut inner, begin) => unsafe {
                 debug_assert_eq!(inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed), 0);
-                let data_ptr = inner.as_ref().data.as_ptr();
+                let data_ptr = inner.as_mut().data.as_mut_ptr();
                 for x in (*begin)..inner.as_ref().header.size {
-                    drop(core::ptr::read(data_ptr.add(x)));
+                    core::ptr::drop_in_place(data_ptr.add(x));
                 }
                 alloc::dealloc(
                     inner.as_ptr() as *mut u8,
