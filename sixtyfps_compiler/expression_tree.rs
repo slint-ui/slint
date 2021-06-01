@@ -1273,29 +1273,3 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::SolveLayout(_) => write!(f, "solve_layout(..)"),
     }
 }
-
-/// Generate an expression which is like `min(lhs, rhs)` if op is '<' or `max(lhs, rhs)` if op is '>'.
-/// counter is an unique id.
-/// The rhs and lhs of the expression must have the same numerical type
-pub fn min_max_expression(lhs: Expression, rhs: Expression, op: char) -> Expression {
-    let ty = lhs.ty();
-    static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
-    let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let n1 = format!("minmax_lhs{}", id);
-    let n2 = format!("minmax_rhs{}", id);
-    let a1 = Box::new(Expression::ReadLocalVariable { name: n1.clone(), ty: ty.clone() });
-    let a2 = Box::new(Expression::ReadLocalVariable { name: n2.clone(), ty });
-    Expression::CodeBlock(vec![
-        Expression::StoreLocalVariable { name: n1, value: Box::new(lhs) },
-        Expression::StoreLocalVariable { name: n2, value: Box::new(rhs) },
-        Expression::Condition {
-            condition: Box::new(Expression::BinaryExpression {
-                lhs: a1.clone(),
-                rhs: a2.clone(),
-                op,
-            }),
-            true_expr: a1,
-            false_expr: a2,
-        },
-    ])
-}

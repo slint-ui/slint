@@ -21,8 +21,8 @@ use crate::lookup::{LookupCtx, LookupObject};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
-
-use std::{collections::HashMap, rc::Rc};
+use std::collections::HashMap;
+use std::rc::Rc;
 
 /// This represeresent a scope for the Component, where Component is the repeated component, but
 /// does not represent a component in the .60 file
@@ -553,50 +553,19 @@ impl Expression {
 
         let mut arguments = Vec::new();
 
-        let (function, f_node) =
+        let (function, _) =
             sub_expr.next().unwrap_or_else(|| (Expression::Invalid, Some((*node).clone().into())));
 
         let function = match function {
-            Expression::BuiltinMacroReference(mac, n) => match mac {
-                BuiltinMacroFunction::Min => {
-                    return min_max_macro(n, '<', sub_expr.collect(), &mut ctx.diag);
-                }
-                BuiltinMacroFunction::Max => {
-                    return min_max_macro(n, '>', sub_expr.collect(), &mut ctx.diag);
-                }
-                BuiltinMacroFunction::CubicBezier => {
-                    let mut has_error = None;
-                    // FIXME: this is not pretty to be handling there.
-                    // Maybe "cubic_bezier" should be a function that is lowered later
-                    let mut a = || match sub_expr.next() {
-                        None => {
-                            has_error.get_or_insert((f_node.clone(), "Not enough arguments"));
-                            0.
-                        }
-                        Some((Expression::NumberLiteral(val, Unit::None), _)) => val as f32,
-                        Some((_, n)) => {
-                            has_error.get_or_insert((
-                                n,
-                                "Arguments to cubic bezier curve must be number literal",
-                            ));
-                            0.
-                        }
-                    };
-                    let expr =
-                        Expression::EasingCurve(EasingCurve::CubicBezier(a(), a(), a(), a()));
-                    if let Some((_, n)) = sub_expr.next() {
-                        has_error.get_or_insert((n, "Too many argument for bezier curve"));
-                    }
-                    if let Some((n, msg)) = has_error {
-                        ctx.diag.push_error(msg.into(), &n);
-                    }
-
-                    return expr;
-                }
-                BuiltinMacroFunction::Rgb => {
-                    return rgb_macro(n, sub_expr.collect(), &mut ctx.diag);
-                }
-            },
+            Expression::BuiltinMacroReference(mac, n) => {
+                arguments.extend(sub_expr);
+                return crate::builtin_macros::lower_macro(
+                    mac,
+                    n,
+                    arguments.into_iter(),
+                    &mut ctx.diag,
+                );
+            }
             Expression::MemberFunction { base, base_node, member } => {
                 arguments.push((*base, base_node));
                 member
@@ -922,80 +891,6 @@ impl Expression {
                 }
             }
         })
-    }
-}
-
-fn min_max_macro(
-    node: Option<NodeOrToken>,
-    op: char,
-    args: Vec<(Expression, Option<NodeOrToken>)>,
-    diag: &mut BuildDiagnostics,
-) -> Expression {
-    if args.is_empty() {
-        diag.push_error("Needs at least one argument".into(), &node);
-        return Expression::Invalid;
-    }
-    let mut args = args.into_iter();
-    let (mut base, arg_node) = args.next().unwrap();
-    let ty = match base.ty() {
-        Type::Float32 => Type::Float32,
-        // In case there are other floats, we don't want to conver tthe result to int
-        Type::Int32 => Type::Float32,
-        Type::PhysicalLength => Type::PhysicalLength,
-        Type::LogicalLength => Type::LogicalLength,
-        Type::Duration => Type::Duration,
-        Type::Angle => Type::Angle,
-        Type::Percent => Type::Float32,
-        _ => {
-            diag.push_error("Invalid argument type".into(), &arg_node);
-            return Expression::Invalid;
-        }
-    };
-    for (next, arg_node) in args {
-        let rhs = next.maybe_convert_to(ty.clone(), &arg_node, diag);
-        base = crate::expression_tree::min_max_expression(base, rhs, op);
-    }
-    base
-}
-
-fn rgb_macro(
-    node: Option<NodeOrToken>,
-    args: Vec<(Expression, Option<NodeOrToken>)>,
-    diag: &mut BuildDiagnostics,
-) -> Expression {
-    if args.len() < 3 {
-        diag.push_error("Needs 3 or 4 argument".into(), &node);
-        return Expression::Invalid;
-    }
-    let mut arguments: Vec<_> = args
-        .into_iter()
-        .enumerate()
-        .map(|(i, (expr, n))| {
-            if i < 3 {
-                if expr.ty() == Type::Percent {
-                    Expression::BinaryExpression {
-                        lhs: Box::new(expr.maybe_convert_to(Type::Float32, &n, diag)),
-                        rhs: Box::new(Expression::NumberLiteral(255., Unit::None)),
-                        op: '*',
-                    }
-                } else {
-                    expr.maybe_convert_to(Type::Int32, &n, diag)
-                }
-            } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag)
-            }
-        })
-        .collect();
-    if arguments.len() < 4 {
-        arguments.push(Expression::NumberLiteral(1., Unit::None))
-    }
-    Expression::FunctionCall {
-        function: Box::new(Expression::BuiltinFunctionReference(
-            BuiltinFunction::Rgb,
-            node.as_ref().map(|t| t.to_source_location()),
-        )),
-        arguments,
-        source_location: Some(node.to_source_location()),
     }
 }
 

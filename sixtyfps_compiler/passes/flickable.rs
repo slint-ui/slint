@@ -92,7 +92,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .iter()
                 .filter(|x| is_layout(&x.borrow().base_type))
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, prop)))
-                .fold1(|lhs, rhs| crate::expression_tree::min_max_expression(lhs, rhs, op))
+                .fold1(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, op))
         })
     };
 
@@ -114,7 +114,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "minimum_width")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "width")),
-                    |lhs, rhs| crate::expression_tree::min_max_expression(lhs, rhs, '>'),
+                    |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'),
                 ),
         )
     });
@@ -128,7 +128,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "minimum_height")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "height")),
-                    |lhs, rhs| crate::expression_tree::min_max_expression(lhs, rhs, '>'),
+                    |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'),
                 ),
         )
     });

@@ -28,6 +28,7 @@ use core::pin::Pin;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+pub mod builtin_macros;
 pub mod diagnostics;
 pub mod expression_tree;
 pub mod generator;
