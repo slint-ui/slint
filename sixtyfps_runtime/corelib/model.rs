@@ -494,13 +494,17 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let init = &init;
         if listview_geometry_tracker
             .evaluate_if_dirty(|| {
+                let listview_height = listview_height.get();
                 // Compute the element height
                 let total_height = Cell::new(0.);
+                let minimum_height = Cell::new(listview_height);
                 let count = Cell::new(0);
 
                 let get_height_visitor = |item: Pin<ItemRef>| {
                     count.set(count.get() + 1);
-                    total_height.set(total_height.get() + item.as_ref().geometry().height());
+                    let height = item.as_ref().geometry().height();
+                    total_height.set(total_height.get() + height);
+                    minimum_height.set(minimum_height.get().min(height))
                 };
                 for c in self.inner.borrow().borrow().components.iter() {
                     c.1.as_ref().map(|x| {
@@ -530,18 +534,28 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     total_height.get()
                 };
 
-                let listview_height = listview_height.get();
+                let minimum_height = minimum_height.get().min(element_height).max(1.);
+
                 viewport_height.set(element_height * row_count as f32);
                 self.inner.borrow().borrow_mut().cached_item_height = element_height;
                 if -viewport_y.get() > element_height * row_count as f32 - listview_height {
                     viewport_y.set(-(element_height * row_count as f32 - listview_height).max(0.))
                 }
-                let offset = (-viewport_y.get() / element_height).floor() as usize;
-                let count =
-                    ((listview_height / element_height).ceil() as usize).min(row_count - offset);
-                self.set_offset(offset, count);
-                self.ensure_updated_impl(init, &model, count);
-                self.compute_layout_listview(viewport_width, listview_width);
+                let offset = (-viewport_y.get_untracked() / element_height).floor() as usize;
+                let mut count =
+                    ((listview_height / minimum_height).ceil() as usize).min(row_count - offset);
+                loop {
+                    self.set_offset(offset, count);
+                    self.ensure_updated_impl(init, &model, count);
+                    let end = self.compute_layout_listview(viewport_width, listview_width);
+                    let diff = listview_height - viewport_y.get_untracked() - end;
+                    if diff > 0. && count < row_count - offset {
+                        count = (count + (diff / element_height).ceil() as usize)
+                            .min(row_count - offset);
+                        continue;
+                    }
+                    break;
+                }
             })
             .is_none()
         {
@@ -632,12 +646,14 @@ impl<C: RepeatedComponent> Repeater<C> {
         self.inner.borrow().borrow().components.iter().flat_map(|x| x.1.clone()).collect()
     }
 
-    /// Same as compule_layout, but only for the ListView
+    /// Set the position of all the element in the listview
+    ///
+    /// Returns the offset of the end of the last element
     pub fn compute_layout_listview(
         &self,
         viewport_width: Pin<&Property<f32>>,
         listview_width: f32,
-    ) {
+    ) -> f32 {
         let inner = self.inner.borrow();
         let inner = inner.borrow();
         let mut y_offset = inner.offset as f32 * inner.cached_item_height;
@@ -645,6 +661,7 @@ impl<C: RepeatedComponent> Repeater<C> {
         for c in self.inner.borrow().borrow().components.iter() {
             c.1.as_ref().map(|x| x.as_pin_ref().listview_layout(&mut y_offset, viewport_width));
         }
+        y_offset
     }
 }
 
