@@ -104,6 +104,12 @@ include(GNUInstallDirs)
 install(FILES $<TARGET_FILE:sixtyfps-cpp-shared> TYPE LIB)
 if(WIN32)
     install(FILES $<TARGET_LINKER_FILE:sixtyfps-cpp-shared> TYPE LIB)
+    # Copy the dll to the top-level bin directory, where the examples will
+    # will also be located, so that they can find the dll.
+    add_custom_target(SixtyFPS_dll_convenience ALL DEPENDS sixtyfps-cpp-shared
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:sixtyfps-cpp-shared>
+            ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
 endif()
 
 install(PROGRAMS $<TARGET_FILE:sixtyfps_compiler> TYPE BIN)

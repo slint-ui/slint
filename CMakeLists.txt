@@ -12,6 +12,12 @@ cmake_minimum_required(VERSION 3.16)
 project(SixtyFPS LANGUAGES CXX)
 include(CTest)
 
+# Place all compiled examples into the same bin directory
+# on Windows, where we'll also put the dll
+if (WIN32)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif()
+
 add_subdirectory(api/sixtyfps-cpp/)
 add_subdirectory(examples/printerdemo/cpp/)
 add_subdirectory(examples/printerdemo/cpp_interpreted/)
