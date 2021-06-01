@@ -455,7 +455,7 @@ impl LookupObject for BuiltinFunctionLookup {
         use Expression::{BuiltinFunctionReference, BuiltinMacroReference};
         let t = &ctx.current_token;
         let sl = || t.as_ref().map(|t| t.to_source_location());
-        None.or_else(|| f("debug", BuiltinFunctionReference(BuiltinFunction::Debug, sl())))
+        None.or_else(|| f("debug", BuiltinMacroReference(BuiltinMacroFunction::Debug, t.clone())))
             .or_else(|| f("mod", BuiltinFunctionReference(BuiltinFunction::Mod, sl())))
             .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
             .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))

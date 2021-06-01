@@ -15,7 +15,7 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, BuiltinMacroFunction, EasingCurve, Expression, Unit,
 };
-use crate::langtype::Type;
+use crate::langtype::{EnumerationValue, Type};
 use crate::parser::NodeOrToken;
 
 /// "Expand" the macro `mac` (at location `n`) with the arguments `sub_expr`
@@ -31,6 +31,9 @@ pub fn lower_macro(
         }
         BuiltinMacroFunction::Max => {
             return min_max_macro(n, '>', sub_expr.collect(), diag);
+        }
+        BuiltinMacroFunction::Debug => {
+            return debug_macro(n, sub_expr.collect(), diag);
         }
         BuiltinMacroFunction::CubicBezier => {
             let mut has_error = None;
@@ -135,6 +138,171 @@ fn rgb_macro(
         )),
         arguments,
         source_location: Some(node.to_source_location()),
+    }
+}
+
+fn debug_macro(
+    node: Option<NodeOrToken>,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    let mut string = None;
+    for (expr, node) in args {
+        let val = to_debug_string(expr, node, diag);
+        string = Some(match string {
+            None => val,
+            Some(string) => Expression::BinaryExpression {
+                lhs: Box::new(string),
+                op: '+',
+                rhs: Box::new(Expression::BinaryExpression {
+                    lhs: Box::new(Expression::StringLiteral(", ".into())),
+                    op: '+',
+                    rhs: Box::new(val),
+                }),
+            },
+        });
+    }
+    let sl = node.map(|node| node.to_source_location());
+    Expression::FunctionCall {
+        function: Box::new(Expression::BuiltinFunctionReference(
+            BuiltinFunction::Debug,
+            sl.clone(),
+        )),
+        arguments: vec![string.unwrap_or_else(|| Expression::default_value_for_type(&Type::String))],
+        source_location: sl,
+    }
+}
+
+fn to_debug_string(
+    expr: Expression,
+    node: Option<NodeOrToken>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    let ty = expr.ty();
+    match &ty {
+        Type::Invalid => Expression::Invalid,
+        Type::Void
+        | Type::Component(_)
+        | Type::Builtin(_)
+        | Type::Native(_)
+        | Type::Callback { .. }
+        | Type::Function { .. }
+        | Type::ElementReference
+        | Type::LayoutCache
+        | Type::Model
+        | Type::PathElements => {
+            diag.push_error("Cannot debug this expression".into(), &node);
+            Expression::Invalid
+        }
+        Type::Float32 | Type::Int32 => expr.maybe_convert_to(Type::String, &node, diag),
+        Type::String => expr,
+        // TODO
+        Type::Color | Type::Brush | Type::Image | Type::Easing | Type::Array(_) => {
+            Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())
+        }
+        Type::Duration
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Angle
+        | Type::Percent
+        | Type::UnitProduct(_) => Expression::BinaryExpression {
+            lhs: Box::new(
+                Expression::Cast { from: Box::new(expr), to: Type::Float32 }.maybe_convert_to(
+                    Type::String,
+                    &node,
+                    diag,
+                ),
+            ),
+            op: '+',
+            rhs: Box::new(Expression::StringLiteral(
+                Type::UnitProduct(ty.as_unit_product().unwrap()).to_string(),
+            )),
+        },
+        Type::Bool => Expression::Condition {
+            condition: Box::new(expr),
+            true_expr: Box::new(Expression::StringLiteral("true".into())),
+            false_expr: Box::new(Expression::StringLiteral("false".into())),
+        },
+        Type::Struct { fields, .. } => {
+            let local_object = "debug_struct";
+            let mut string = None;
+            for (k, _) in fields {
+                let field_name =
+                    if string.is_some() { format!(", {}: ", k) } else { format!("{{ {}: ", k) };
+                let value = to_debug_string(
+                    Expression::StructFieldAccess {
+                        base: Box::new(Expression::ReadLocalVariable {
+                            name: local_object.into(),
+                            ty: ty.clone(),
+                        }),
+                        name: k.clone(),
+                    },
+                    node.clone(),
+                    diag,
+                );
+                let field = Expression::BinaryExpression {
+                    lhs: Box::new(Expression::StringLiteral(field_name)),
+                    op: '+',
+                    rhs: Box::new(value),
+                };
+                string = Some(match string {
+                    None => field,
+                    Some(x) => Expression::BinaryExpression {
+                        lhs: Box::new(x),
+                        op: '+',
+                        rhs: Box::new(field),
+                    },
+                });
+            }
+            match string {
+                None => Expression::StringLiteral("{}".into()),
+                Some(string) => {
+                    let mut v = Vec::new();
+                    v.push(Expression::StoreLocalVariable {
+                        name: local_object.into(),
+                        value: Box::new(expr),
+                    });
+                    v.push(Expression::BinaryExpression {
+                        lhs: Box::new(string),
+                        op: '+',
+                        rhs: Box::new(Expression::StringLiteral(" }".into())),
+                    });
+                    Expression::CodeBlock(v)
+                }
+            }
+        }
+        Type::Enumeration(enu) => {
+            let local_object = "debug_enum";
+            let mut v = Vec::new();
+            v.push(Expression::StoreLocalVariable {
+                name: local_object.into(),
+                value: Box::new(expr),
+            });
+            let mut cond = Expression::StringLiteral(format!("Error: invalid value for {}", ty));
+            for (idx, val) in enu.values.iter().enumerate() {
+                cond = Expression::Condition {
+                    condition: Box::new(Expression::BinaryExpression {
+                        lhs: Box::new(Expression::ReadLocalVariable {
+                            name: local_object.into(),
+                            ty: ty.clone(),
+                        }),
+                        rhs: Box::new(Expression::EnumerationValue(EnumerationValue {
+                            value: idx,
+                            enumeration: enu.clone(),
+                        })),
+                        op: '=',
+                    }),
+                    true_expr: Box::new(Expression::StringLiteral(val.clone())),
+                    false_expr: Box::new(cond),
+                };
+            }
+            v.push(Expression::BinaryExpression {
+                lhs: Box::new(cond),
+                op: '+',
+                rhs: Box::new(Expression::StringLiteral(" }".into())),
+            });
+            Expression::CodeBlock(v)
+        }
     }
 }
 

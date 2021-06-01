@@ -225,8 +225,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 }
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Debug, _) => {
-                let a = arguments.iter().map(|e| eval_expression(e, local_context));
-                eprintln!("{:?}", a.collect::<Vec<_>>());
+                let to_print: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                eprintln!("{}", to_print);
                 Value::Void
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Mod, _) => {

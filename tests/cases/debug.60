@@ -14,6 +14,14 @@ TestCase := Rectangle {
     foo => {
         debug("callback");
     }
-    background: { text2; blue  }
+    background: { test; text2; blue  }
+
+    im := Image {}
+
+    property <bool> test: {
+        debug();
+        debug(42, 42px, width / 5s, { x: 42, y: im.image_fit, z: { d: im.opacity } }, root.background, im.source);
+        true;
+    }
 }
 

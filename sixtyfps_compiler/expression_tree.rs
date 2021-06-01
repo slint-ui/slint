@@ -55,6 +55,7 @@ pub enum BuiltinMacroFunction {
     Max,
     CubicBezier,
     Rgb,
+    Debug,
 }
 
 impl BuiltinFunction {
