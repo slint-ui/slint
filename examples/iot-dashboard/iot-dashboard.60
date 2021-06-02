@@ -109,6 +109,93 @@ export Clock :=  VerticalLayout {
     }
 }
 
+PieChartBackground := Path {
+    property <float> thickness;
+    property <float> inner_radius;
+
+    fill: #aaaaaa40;
+
+    viewbox-width: 100;
+    viewbox-height: 100;
+
+    MoveTo {
+        x: 50;
+        y: 0;
+    }
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        x: 50;
+        y: 100;
+        sweep: true;
+    }
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        x: 50;
+        y: 0;
+        sweep: true;
+    }
+    LineTo {
+        x: 50;
+        y: thickness;
+    }
+    ArcTo {
+        radius-x: inner_radius;
+        radius-y: inner_radius;
+        x: 50;
+        y: 100 - thickness;
+    }
+    ArcTo {
+        radius-x: inner_radius;
+        radius-y: inner_radius;
+        x: 50;
+        y: thickness;
+    }
+}
+
+PieChartFill := Path {
+    property <float> thickness;
+    property <float> inner_radius;
+    property <float> progress;
+
+    viewbox-width: 100;
+    viewbox-height: 100;
+
+    MoveTo {
+        x: 50;
+        y: 0;
+    }
+    LineTo {
+        x: 50;
+        y: thickness;
+    }
+    ArcTo {
+        radius-x: inner_radius;
+        radius-y: inner_radius;
+        y: 50 - inner_radius*cos(-progress * 360deg);
+        x: 50 - inner_radius*sin(-progress * 360deg);
+        sweep: progress > 0;
+        large-arc: progress > 0.5;
+    }
+    LineTo {
+        y: 50 - 50*cos(-progress * 360deg);
+        x: 50 - 50*sin(-progress * 360deg);
+    }
+    ArcTo {
+        radius-x: 50;
+        radius-y: 50;
+        x: 50;
+        y: 0;
+        sweep: progress < 0;
+        large-arc: progress > 0.5;
+    }
+    LineTo {
+        x: 50;
+        y: 0;
+    }
+}
+
 PieChartPainted := Rectangle {
     property <brush> brush <=> p.fill;
     property <float> progress;
@@ -116,89 +203,19 @@ PieChartPainted := Rectangle {
     property <float> thickness: 15;
     property <float> inner_radius: 50 - thickness;
 
-    back := Path {
+    back := PieChartBackground {
         width: 100%;
         height: 100%;
-
-        fill: #aaaaaa40;
-
-        viewbox-width: 100;
-        viewbox-height: 100;
-
-        MoveTo {
-            x: 50;
-            y: 0;
-        }
-        ArcTo {
-            radius-x: 50;
-            radius-y: 50;
-            x: 50;
-            y: 100;
-            sweep: true;
-        }
-        ArcTo {
-            radius-x: 50;
-            radius-y: 50;
-            x: 50;
-            y: 0;
-            sweep: true;
-        }
-        LineTo {
-            x: 50;
-            y: thickness;
-        }
-        ArcTo {
-            radius-x: inner_radius;
-            radius-y: inner_radius;
-            x: 50;
-            y: 100 - thickness;
-        }
-        ArcTo {
-            radius-x: inner_radius;
-            radius-y: inner_radius;
-            x: 50;
-            y: thickness;
-        }
+        thickness: root.thickness;
+        inner_radius: root.inner_radius;
     }
 
-    p := Path {
+    p := PieChartFill {
         width: 100%;
         height: 100%;
-
-        viewbox-width: 100;
-        viewbox-height: 100;
-
-        MoveTo {
-            x: 50;
-            y: 0;
-        }
-        LineTo {
-            x: 50;
-            y: thickness;
-        }
-        ArcTo {
-            radius-x: inner_radius;
-            radius-y: inner_radius;
-            y: 50 - inner_radius*cos(-progress * 360deg);
-            x: 50 - inner_radius*sin(-progress * 360deg);
-            sweep: true;
-            large-arc: progress > 0.5;
-        }
-        LineTo {
-            y: 50 - 50*cos(-progress * 360deg);
-            x: 50 - 50*sin(-progress * 360deg);
-        }
-        ArcTo {
-            radius-x: 50;
-            radius-y: 50;
-            x: 50;
-            y: 0;
-            large-arc: progress > 0.5;
-        }
-        LineTo {
-            x: 50;
-            y: 0;
-        }
+        thickness: root.thickness;
+        inner_radius: root.inner_radius;
+        progress: root.progress;
     }
 }
 
@@ -427,7 +444,75 @@ export UsageDiagram := Box {
 // ## FIXME
 export LightIntensity := Box {
     title: "Light intensity";
-    Rectangle {}
+
+    property <float> thickness: 8;
+    property <float> inner_radius: 50 - thickness;
+
+    Rectangle {
+        back := PieChartBackground {
+            width: 100%;
+            height: 100%;
+            thickness: root.thickness;
+            inner_radius: root.inner_radius;
+        }
+
+        warm := PieChartFill {
+            width: 100%;
+            height: 100%;
+            thickness: root.thickness;
+            inner_radius: root.inner_radius;
+            progress: 0.25;
+            fill: @linear-gradient(0deg, #ff3122, #feeeb7);
+        }
+
+        cold := PieChartFill {
+            width: 100%;
+            height: 100%;
+            thickness: root.thickness;
+            inner_radius: root.inner_radius;
+            progress: -0.25;
+            fill: @linear-gradient(0deg, #a7b0ff, #6776ff);
+        }
+
+        knob := Path {
+            width: 100%;
+            height: 100%;
+
+            fill: white;
+            stroke-width: 1px;
+            stroke: #929cb2;
+
+            viewbox-width: 100;
+            viewbox-height: 100;
+        
+            MoveTo {
+                x: 50;
+                y: - root.thickness / 4;
+            }
+            ArcTo {
+                radius-x: root.thickness / 4;
+                radius-y: root.thickness / 4;
+                x: 50;
+                y: root.thickness * 1.25;
+            }
+            ArcTo {
+                radius-x: root.thickness / 4;
+                radius-y: root.thickness / 4;
+                x: 50;
+                y: - root.thickness / 4;
+            }
+        }
+
+        Text {
+            width: 100%;
+            height: 100%;
+            color: #929cb2;
+            text: "50%";
+            font_size: Skin.MediumFont;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+    }
 }
 
 // From MenuBar.cpp
