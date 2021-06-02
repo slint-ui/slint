@@ -68,6 +68,13 @@ default-members = [
 
 resolver = "2"
 
+[patch.crates-io]
+# Pull in https://github.com/nical/lyon/pull/656 to until it is merged upstream
+lyon_path = { git = "https://github.com/tronical/lyon", branch = "relative-arc-fix" }
+lyon_svg = { git = "https://github.com/tronical/lyon", branch = "relative-arc-fix" }
+lyon_algorithms = { git = "https://github.com/tronical/lyon", branch = "relative-arc-fix" }
+lyon_geom = { git = "https://github.com/tronical/lyon", branch = "relative-arc-fix" }
+
 [profile.release]
 lto = true
 panic = "abort"

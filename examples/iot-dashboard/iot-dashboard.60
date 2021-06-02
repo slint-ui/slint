@@ -110,14 +110,18 @@ export Clock :=  VerticalLayout {
 }
 
 PieChartPainted := Rectangle {
-    property <brush> brush <=> p.stroke;
+    property <brush> brush <=> p.fill;
     property <float> progress;
+
+    property <float> thickness: 15;
+    property <float> inner_radius: 50 - thickness;
 
     back := Path {
         width: 100%;
         height: 100%;
-        stroke-width: parent.width / 6;
-        stroke: #aaaaaa40;
+
+        fill: #aaaaaa40;
+
         viewbox-width: 100;
         viewbox-height: 100;
 
@@ -131,23 +135,36 @@ PieChartPainted := Rectangle {
             x: 50;
             y: 100;
             sweep: true;
-            large_arc: true;
         }
-        MoveTo { x: 50; y: 100; }
         ArcTo {
             radius-x: 50;
             radius-y: 50;
             x: 50;
             y: 0;
             sweep: true;
-            large_arc: true;
+        }
+        LineTo {
+            x: 50;
+            y: thickness;
+        }
+        ArcTo {
+            radius-x: inner_radius;
+            radius-y: inner_radius;
+            x: 50;
+            y: 100 - thickness;
+        }
+        ArcTo {
+            radius-x: inner_radius;
+            radius-y: inner_radius;
+            x: 50;
+            y: thickness;
         }
     }
 
     p := Path {
         width: 100%;
         height: 100%;
-        stroke-width: parent.width / 6;
+
         viewbox-width: 100;
         viewbox-height: 100;
 
@@ -155,14 +172,33 @@ PieChartPainted := Rectangle {
             x: 50;
             y: 0;
         }
+        LineTo {
+            x: 50;
+            y: thickness;
+        }
+        ArcTo {
+            radius-x: inner_radius;
+            radius-y: inner_radius;
+            y: 50 - inner_radius*cos(-progress * 360deg);
+            x: 50 - inner_radius*sin(-progress * 360deg);
+            sweep: true;
+            large-arc: progress > 0.5;
+        }
+        LineTo {
+            y: 50 - 50*cos(-progress * 360deg);
+            x: 50 - 50*sin(-progress * 360deg);
+        }
         ArcTo {
             radius-x: 50;
             radius-y: 50;
-            y: 50 - 50*cos(-progress * 360deg);
-            x: 50 - 50*sin(-progress * 360deg);
-            sweep: true;
+            x: 50;
+            y: 0;
             large-arc: progress > 0.5;
-        }        
+        }
+        LineTo {
+            x: 50;
+            y: 0;
+        }
     }
 }
 
