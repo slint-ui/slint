@@ -512,6 +512,24 @@ export LightIntensity := Box {
             vertical-alignment: center;
             horizontal-alignment: center;
         }
+
+        Text {
+            width: 100%;
+            height: 100%;
+            text: "0";
+            font_size: Skin.SmallFont;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+
+        Text {
+            width: 100%;
+            height: 100%;
+            text: "100";
+            font_size: Skin.SmallFont;
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
     }
 }
 
