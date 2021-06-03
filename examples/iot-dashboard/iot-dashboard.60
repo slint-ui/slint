@@ -469,7 +469,7 @@ export UsageDiagram := Box {
                 for caption in [
                     { text: "Water", color: #6776ff, },
                     { text: "Electricity", color: #ff3122, },
-                    { text: "Gaz", color: #ff7d34, },
+                    { text: "Gas", color: #ff7d34, },
                 ] : HorizontalLayout {
                     spacing: 10px;
                     padding-top: 10px;
