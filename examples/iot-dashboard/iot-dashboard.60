@@ -717,7 +717,9 @@ MenuItem := Rectangle {
         padding: 8px;
         padding-left: 30px;
         padding-right: 30px;
-        i := Image { }
+        i := Image {
+            width: 14px; // Skin.cpp sets 14 pixels for MenuBarGraphicLabel::Graphic
+        }
         t := Text { color: white; }
     }
 }
