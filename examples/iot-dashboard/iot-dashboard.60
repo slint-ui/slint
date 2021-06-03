@@ -81,16 +81,14 @@ global Skin := {
        shadow : #fff1, // ### added alpha
     };
 
-    property<float> f: 1.5; // FIXME: why do the font looks completely different with the same size on the QML demo
-
     // From Skin::initHints in Skin.cpp
-    property <length> DefaultFont: 12pt * f;
-    property <length> TinyFont: 9pt * f;
-    property <length> SmallFont: 10pt * f;
-    property <length> MediumFont: 13pt * f;
-    property <length> LargeFont: 20pt * f;
-    property <length> HugeFont: 27pt * f; // (also, bold)
-    property <length> TitleFont: 10pt * f; // (also, bold)
+    property <length> DefaultFont: 12px;
+    property <length> TinyFont: 9px;
+    property <length> SmallFont: 10px;
+    property <length> MediumFont: 13px;
+    property <length> LargeFont: 20px;
+    property <length> HugeFont: 27px; // (also, bold)
+    property <length> TitleFont: 10px; // (also, bold)
 }
 
 export Clock :=  VerticalLayout {
