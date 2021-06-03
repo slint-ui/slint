@@ -251,8 +251,14 @@ export TopBar := HorizontalLayout {
                 }
             }
             VerticalLayout {
-                Text { text: item.value; }
-                Text { text: "kwH"; }
+                Text {
+                    text: item.value;
+                    font-size: Skin.MediumFont;
+                }
+                Text {
+                    text: "kwH";
+                    font-size: Skin.SmallFont;
+                }
             }
             Rectangle {}
         }
@@ -487,6 +493,7 @@ export UsageDiagram := Box {
                     Text {
                         text: caption.text;
                         horizontal_alignment: center;
+                        font-size: Skin.TinyFont;
                     }
                 }
             }
@@ -720,7 +727,10 @@ MenuItem := Rectangle {
         i := Image {
             width: 14px; // Skin.cpp sets 14 pixels for MenuBarGraphicLabel::Graphic
         }
-        t := Text { color: white; }
+        t := Text {
+            color: white;
+            font-size: Skin.SmallFont;
+        }
     }
 }
 
