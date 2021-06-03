@@ -510,39 +510,36 @@ export LightIntensity := Box {
     property <float> inner_radius: 50 - thickness;
 
     Rectangle {
-        dimmer := LightDimmer {
-            width: 100%;
-            height: 100%;
-            warmGradient: @linear-gradient(0deg, #ff3122, #feeeb7);
-            coldGradient: @linear-gradient(0deg, #a7b0ff, #6776ff);
+        vertical_stretch: 1;
+        HorizontalLayout {
+            leftLabel := Text {
+                text: "  0";
+                font_size: Skin.SmallFont;
+                vertical-alignment: center;
+            }
+
+            dimmer := LightDimmer {
+                warmGradient: @linear-gradient(0deg, #ff3122, #feeeb7);
+                coldGradient: @linear-gradient(0deg, #a7b0ff, #6776ff);
+            }
+
+            rightLabel := Text {
+                text: "100";
+                font_size: Skin.SmallFont;
+                vertical-alignment: center;
+            }
         }
 
         centreLabel := Text {
-            width: 100%;
-            height: 100%;
+            width: dimmer.width;
+            height: dimmer.height;
+            x: dimmer.x;
+            y: dimmer.y;
             color: #929cb2;
             text: "50%";
             font_size: Skin.MediumFont;
             vertical-alignment: center;
             horizontal-alignment: center;
-        }
-
-        leftLabel := Text {
-            width: 100%;
-            height: 100%;
-            text: "0";
-            font_size: Skin.SmallFont;
-            vertical-alignment: center;
-            horizontal-alignment: left;
-        }
-
-        rightLabel := Text {
-            width: 100%;
-            height: 100%;
-            text: "100";
-            font_size: Skin.SmallFont;
-            vertical-alignment: center;
-            horizontal-alignment: right;
         }
     }
 }
