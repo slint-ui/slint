@@ -442,6 +442,67 @@ export UsageDiagram := Box {
 
 // From LightIntensity.cpp
 // ## FIXME
+
+LightDimmer := Rectangle {
+    property <brush> coldGradient <=> cold.fill;
+    property <brush> warmGradient <=> warm.fill;
+
+    property <float> thickness: 8;
+    property <float> inner_radius: 50 - thickness;
+
+    back := PieChartBackground {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner_radius: root.inner_radius;
+    }
+
+    warm := PieChartFill {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner_radius: root.inner_radius;
+        progress: 0.25;
+    }
+
+    cold := PieChartFill {
+        width: 100%;
+        height: 100%;
+        thickness: root.thickness;
+        inner_radius: root.inner_radius;
+        progress: -0.25;
+    }
+
+    knob := Path {
+        width: 100%;
+        height: 100%;
+
+        fill: white;
+        stroke-width: 1px;
+        stroke: #929cb2;
+
+        viewbox-width: 100;
+        viewbox-height: 100;
+
+        MoveTo {
+            x: 50;
+            y: - root.thickness / 4;
+        }
+        ArcTo {
+            radius-x: root.thickness / 4;
+            radius-y: root.thickness / 4;
+            x: 50;
+            y: root.thickness * 1.25;
+        }
+        ArcTo {
+            radius-x: root.thickness / 4;
+            radius-y: root.thickness / 4;
+            x: 50;
+            y: - root.thickness / 4;
+        }
+    }    
+}
+
 export LightIntensity := Box {
     title: "Light intensity";
 
@@ -449,61 +510,14 @@ export LightIntensity := Box {
     property <float> inner_radius: 50 - thickness;
 
     Rectangle {
-        back := PieChartBackground {
+        dimmer := LightDimmer {
             width: 100%;
             height: 100%;
-            thickness: root.thickness;
-            inner_radius: root.inner_radius;
+            warmGradient: @linear-gradient(0deg, #ff3122, #feeeb7);
+            coldGradient: @linear-gradient(0deg, #a7b0ff, #6776ff);
         }
 
-        warm := PieChartFill {
-            width: 100%;
-            height: 100%;
-            thickness: root.thickness;
-            inner_radius: root.inner_radius;
-            progress: 0.25;
-            fill: @linear-gradient(0deg, #ff3122, #feeeb7);
-        }
-
-        cold := PieChartFill {
-            width: 100%;
-            height: 100%;
-            thickness: root.thickness;
-            inner_radius: root.inner_radius;
-            progress: -0.25;
-            fill: @linear-gradient(0deg, #a7b0ff, #6776ff);
-        }
-
-        knob := Path {
-            width: 100%;
-            height: 100%;
-
-            fill: white;
-            stroke-width: 1px;
-            stroke: #929cb2;
-
-            viewbox-width: 100;
-            viewbox-height: 100;
-        
-            MoveTo {
-                x: 50;
-                y: - root.thickness / 4;
-            }
-            ArcTo {
-                radius-x: root.thickness / 4;
-                radius-y: root.thickness / 4;
-                x: 50;
-                y: root.thickness * 1.25;
-            }
-            ArcTo {
-                radius-x: root.thickness / 4;
-                radius-y: root.thickness / 4;
-                x: 50;
-                y: - root.thickness / 4;
-            }
-        }
-
-        Text {
+        centreLabel := Text {
             width: 100%;
             height: 100%;
             color: #929cb2;
@@ -513,7 +527,7 @@ export LightIntensity := Box {
             horizontal-alignment: center;
         }
 
-        Text {
+        leftLabel := Text {
             width: 100%;
             height: 100%;
             text: "0";
@@ -522,7 +536,7 @@ export LightIntensity := Box {
             horizontal-alignment: left;
         }
 
-        Text {
+        rightLabel := Text {
             width: 100%;
             height: 100%;
             text: "100";
