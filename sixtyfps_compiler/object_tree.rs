@@ -132,7 +132,10 @@ impl Document {
         let custom_fonts = foreign_imports
             .into_iter()
             .filter_map(|import| {
-                if import.file.ends_with(".ttc") || import.file.ends_with(".ttf") {
+                if import.file.ends_with(".ttc")
+                    || import.file.ends_with(".ttf")
+                    || import.file.ends_with(".otf")
+                {
                     Some(import.file)
                 } else {
                     diag.push_error(
