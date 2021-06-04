@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use super::document::parse_code_block;
+use super::element::parse_code_block;
 use super::expressions::parse_expression;
 use super::prelude::*;
 
