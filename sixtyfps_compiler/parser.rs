@@ -23,6 +23,7 @@ pub use smol_str::SmolStr;
 use std::convert::TryFrom;
 
 mod document;
+mod element;
 mod expressions;
 mod statements;
 mod r#type;
