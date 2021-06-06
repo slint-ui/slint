@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
  - C++ and Rust API to run a function in the UI thread from any thread
  - `z` property on items
  - Mouse wheel work on the Flickable and derivatives
+ - One can now omit the type of a two way binding property
 
 ### Fixed
 

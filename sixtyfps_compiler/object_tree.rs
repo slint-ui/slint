@@ -262,7 +262,10 @@ impl PropertyDeclaration {
     // For diagnostics: return a node pointing to the type
     pub fn type_node(&self) -> Option<SyntaxNode> {
         self.node.as_ref().map(|x| -> crate::parser::SyntaxNode {
-            x.as_ref().either(|x| x.Type().into(), |x| x.clone().into())
+            x.as_ref().either(
+                |x| x.Type().map_or_else(|| x.clone().into(), |x| x.into()),
+                |x| x.clone().into(),
+            )
         })
     }
 }
@@ -519,27 +522,33 @@ impl Element {
         let mut r = Element { id, base_type, node: Some(node.clone()), ..Default::default() };
 
         for prop_decl in node.PropertyDeclaration() {
-            let type_node = prop_decl.Type();
-            let prop_type = type_from_node(type_node.clone(), diag, tr);
+            let prop_type = prop_decl
+                .Type()
+                .map(|type_node| {
+                    let prop_type = type_from_node(type_node.clone(), diag, tr);
+
+                    if prop_type != Type::Invalid && !prop_type.is_property_type() {
+                        diag.push_error(
+                            format!("'{}' is not a valid property type", prop_type),
+                            &type_node,
+                        );
+                    }
+                    prop_type
+                })
+                // Type::Void is used for two way bindings without type specified
+                .unwrap_or(Type::Void);
+
             let unresolved_prop_name =
                 unwrap_or_continue!(identifier_text(&prop_decl.DeclaredIdentifier()); diag);
             let PropertyLookupResult {
                 resolved_name: prop_name,
                 property_type: maybe_existing_prop_type,
             } = r.lookup_property(&unresolved_prop_name);
-
             if !matches!(maybe_existing_prop_type, Type::Invalid) {
                 diag.push_error(
                     format!("Cannot override property '{}'", prop_name),
                     &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
                 )
-            }
-
-            if prop_type != Type::Invalid && !prop_type.is_property_type() {
-                diag.push_error(
-                    format!("'{}' is not a valid property type", prop_type),
-                    &type_node,
-                );
             }
 
             r.property_declarations.insert(

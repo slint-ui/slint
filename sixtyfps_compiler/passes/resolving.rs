@@ -64,6 +64,10 @@ fn resolve_expression(
                 Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
             }
             SyntaxKind::TwoWayBinding => {
+                if lookup_ctx.property_type == Type::Invalid {
+                    assert!(diag.has_error());
+                    return;
+                }
                 Expression::from_two_way_binding(node.clone().into(), &mut lookup_ctx)
             }
             _ => {
@@ -219,12 +223,15 @@ impl Expression {
         )
     }
 
-    fn from_two_way_binding(node: syntax_nodes::TwoWayBinding, ctx: &mut LookupCtx) -> Expression {
+    pub fn from_two_way_binding(
+        node: syntax_nodes::TwoWayBinding,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
         let e = Self::from_expression_node(node.Expression(), ctx);
         let ty = e.ty();
         match e {
             Expression::PropertyReference(n) => {
-                if ty != ctx.property_type {
+                if ty != ctx.property_type && ctx.property_type != Type::Invalid {
                     ctx.diag.push_error(
                         "The property does not have the same type as the bound property".into(),
                         &node,
@@ -237,7 +244,7 @@ impl Expression {
                     "The expression in a two way binding must be a property reference".into(),
                     &node,
                 );
-                e
+                Expression::Invalid
             }
         }
     }

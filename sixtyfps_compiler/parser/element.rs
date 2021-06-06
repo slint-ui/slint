@@ -70,6 +70,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::LAngle if p.peek().as_str() == "property" => {
                     parse_property_declaration(&mut *p);
                 }
+                SyntaxKind::Identifier if p.peek().as_str() == "property" => {
+                    parse_property_declaration(&mut *p);
+                }
                 SyntaxKind::LParent if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
                 }
@@ -323,18 +326,27 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 /// property<int> foobar;
 /// property<string> text: "Something";
 /// property<string> text <=> two.way;
+/// property alias <=> two.way;
 /// ```
 fn parse_property_declaration(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "property");
     let mut p = p.start_node(SyntaxKind::PropertyDeclaration);
     p.consume(); // property
-    p.expect(SyntaxKind::LAngle);
-    parse_type(&mut *p);
-    p.expect(SyntaxKind::RAngle);
+
+    if p.test(SyntaxKind::LAngle) {
+        parse_type(&mut *p);
+        p.expect(SyntaxKind::RAngle);
+    } else if p.nth(0).kind() == SyntaxKind::Identifier
+        && p.nth(1).kind() != SyntaxKind::DoubleArrow
+    {
+        p.error("Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type.");
+    }
+
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
     }
+
     match p.nth(0).kind() {
         SyntaxKind::Colon => {
             p.consume();

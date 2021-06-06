@@ -68,11 +68,12 @@ pub fn with_lookup_ctx<R>(
             (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                 .then(|| p)
         })
-        .map(|p| object_tree::type_from_node(p.Type(), &mut Default::default(), tr));
-    let ty = ty.or_else(|| {
-        lookup_current_element_type((*element).clone(), tr)
-            .map(|el_ty| el_ty.lookup_property(&prop_name).property_type)
-    });
+        .and_then(|p| p.Type())
+        .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
+        .or_else(|| {
+            lookup_current_element_type((*element).clone(), tr)
+                .map(|el_ty| el_ty.lookup_property(&prop_name).property_type)
+        });
 
     // FIXME: we need also to fill in the repeated element
     let component = {
