@@ -331,7 +331,7 @@ declare_syntax! {
         ReturnType -> [Type],
         CallbackConnection -> [ *DeclaredIdentifier,  CodeBlock ],
         /// Declaration of a propery.
-        PropertyDeclaration-> [ Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
+        PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
         /// wraps Identifiers, like `Rectangle` or `SomeModule.SomeType`

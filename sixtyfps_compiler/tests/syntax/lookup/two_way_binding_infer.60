@@ -1,0 +1,34 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+X := Rectangle {
+
+    property infer_loop <=> infer_loop2;
+//  ^error{Could not infer type of property 'infer_loop'}
+    property infer_loop2 <=> infer_loop3;
+//  ^error{Could not infer type of property 'infer_loop2'}
+    property infer_loop3 <=> infer_loop;
+//  ^error{Could not infer type of property 'infer_loop3'}
+//                           ^^error{Unknown unqualified identifier 'infer_loop'}
+//                       ^^^error{The expression in a two way binding must be a property reference}
+
+    property infer_error <=> r.infer_error;
+//  ^error{Could not infer type of property 'infer_error'}
+    r := Rectangle {
+        property infer_error <=> 0;
+//                           ^error{The expression in a two way binding must be a property reference}
+//      ^^error{Could not infer type of property 'infer_error'}
+    }
+
+    property auto_background <=> background;
+    property <string> alias_to_background <=> auto_background;
+//                                        ^error{The property does not have the same type as the bound property}
+
+}

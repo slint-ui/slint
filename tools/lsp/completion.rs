@@ -251,7 +251,7 @@ fn resolve_element_scope(
                 let mut c = CompletionItem::new_simple(
                     sixtyfps_compilerlib::parser::identifier_text(&pr.DeclaredIdentifier())
                         .unwrap_or_default(),
-                    pr.Type().text().into(),
+                    pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
                 );
                 c.kind = Some(CompletionItemKind::Property);
                 c

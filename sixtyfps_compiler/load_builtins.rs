@@ -85,7 +85,11 @@ pub fn load_builtins(register: &mut TypeRegister) {
                 .map(|p| {
                     (
                         identifier_text(&p.DeclaredIdentifier()).unwrap(),
-                        object_tree::type_from_node(p.Type(), *diag.borrow_mut(), register),
+                        object_tree::type_from_node(
+                            p.Type().unwrap(),
+                            *diag.borrow_mut(),
+                            register,
+                        ),
                     )
                 })
                 .chain(e.CallbackDeclaration().map(|s| {

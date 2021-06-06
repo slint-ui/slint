@@ -60,6 +60,7 @@ mod passes {
     pub mod flickable;
     pub mod focus_item;
     pub mod generate_item_indices;
+    pub mod infer_aliases_types;
     pub mod inlining;
     pub mod lower_layout;
     pub mod lower_popups;
@@ -167,6 +168,7 @@ pub async fn run_passes(
     compiler_config: &CompilerConfiguration,
 ) {
     let global_type_registry = type_loader.global_type_registry.clone();
+    passes::infer_aliases_types::resolve_aliases(doc, diag);
     passes::resolving::resolve_expressions(doc, &type_loader, diag);
     passes::check_expressions::check_expressions(doc, diag);
     passes::check_public_api::check_public_api(&doc.root_component, diag);

@@ -1,0 +1,30 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+TestCase := Window {
+    ta := TouchArea { }
+
+    Rectangle {
+        property foo;
+//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type.}
+        property bar: 45;
+//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type.}
+        property hello <=> ta.pressed;
+
+        property <=> ta.pressed;
+
+        property yo yo;
+//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type.}
+//                  ^^error{Syntax error: expected Semicolon}
+//                    ^^^error{Parse error}
+
+
+    }
+}
