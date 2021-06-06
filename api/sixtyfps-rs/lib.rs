@@ -174,7 +174,6 @@ struct MyStruct {
 
 */
 
-#![cfg_attr(nightly, feature(doc_cfg, external_doc))]
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]

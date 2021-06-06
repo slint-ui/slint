@@ -21,7 +21,7 @@ LICENSE END */
 */
 
 pub mod langref {
-    #![doc(include = "docs/langref.md")]
+    #![doc = include_str!("docs/langref.md")]
     //!
     //! #
     //! Next: [Builtin Elements](super::builtin_elements)
@@ -29,7 +29,7 @@ pub mod langref {
 
 #[cfg(all(doc, nightly))]
 pub mod builtin_elements {
-    #![doc(include = "docs/builtin_elements.md")]
+    #![doc = include_str!("docs/builtin_elements.md")]
     //!
     //! #
     //! Next: [Widgets](super::widgets)
@@ -37,7 +37,7 @@ pub mod builtin_elements {
 
 #[cfg(all(doc, nightly))]
 pub mod widgets {
-    #![doc(include = "docs/widgets.md")]
+    #![doc = include_str!("docs/widgets.md")]
     //!
     //! #
     //! Next: [Layouting](super::layouting)
@@ -45,7 +45,7 @@ pub mod widgets {
 
 #[cfg(all(doc, nightly))]
 pub mod layouting {
-    #![doc(include = "docs/layouting.md")]
+    #![doc = include_str!("docs/layouting.md")]
     #![doc = ""]
 }
 
