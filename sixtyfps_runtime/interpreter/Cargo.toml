@@ -20,7 +20,7 @@ sixtyfps-corelib = { version = "=0.0.6", path = "../corelib", features = ["rtti"
 sixtyfps-rendering-backend-default = { version = "=0.0.6", path = "../../sixtyfps_runtime/rendering_backends/default", features = ["sixtyfps-rendering-backend-gl"] }
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 sixtyfps-compilerlib = { version = "=0.0.6", path = "../../sixtyfps_compiler" }
-lyon_path = { version = "0.17.1" }
+lyon_path = { version = "0.17.3" }
 derive_more = "0.99.5"
 generativity = "1"
 once_cell = "1.5"
