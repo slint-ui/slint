@@ -712,7 +712,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_clone(
     std::ptr::write(def as *mut ComponentDefinition, other.as_component_definition().clone())
 }
 
-/// Destruct the value in that memory location
+/// Destruct the component definition in that memory location
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_destructor(
     val: *mut ComponentDefinitionOpaque,
@@ -720,7 +720,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_destructor(
     drop(std::ptr::read(val as *mut ComponentDefinition))
 }
 
-/// Construct a new Value in the given memory location
+/// Construct a new component definition in the given memory location
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_properties(
     def: &ComponentDefinitionOpaque,
@@ -732,4 +732,13 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_properties(
             property_type,
         },
     ))
+}
+
+/// Return the name of the component definition
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_name(
+    def: &ComponentDefinitionOpaque,
+    name: &mut SharedString,
+) {
+    *name = (&*def).as_component_definition().name().into()
 }

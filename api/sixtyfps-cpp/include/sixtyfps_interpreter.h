@@ -709,6 +709,14 @@ public:
         cbindgen_private::sixtyfps_interpreter_component_definition_properties(&inner, &props);
         return props;
     }
+
+    /// Returns the name of this Component as written in the .60 file
+    sixtyfps::SharedString name() const
+    {
+        sixtyfps::SharedString name;
+        cbindgen_private::sixtyfps_interpreter_component_definition_name(&inner, &name);
+        return name;
+    }
 };
 
 using Diagnostic = sixtyfps::cbindgen_private::CDiagnostic;

@@ -404,3 +404,13 @@ SCENARIO("Array between .60 and C++")
         REQUIRE(actual_array == cpp_array);
     }
 }
+
+SCENARIO("Component Definition Name")
+{
+    using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
+
+    ComponentCompiler compiler;
+    auto comp_def = *compiler.build_from_source("export IHaveAName := Rectangle { }", "");
+    REQUIRE(comp_def.name() == "IHaveAName");
+}
