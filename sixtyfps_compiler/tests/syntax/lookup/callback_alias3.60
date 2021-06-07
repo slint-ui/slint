@@ -36,7 +36,7 @@ Xxx := Rectangle {
             debug(b); // FIXME: one should actually check that the connection has the right amount of arguments
 //                ^error{Unknown unqualified identifier 'b'}
             return "hello";
-//                 ^error{Cannot convert string to int}
+//          ^error{Cannot convert string to int}
         }
     }
 }
