@@ -313,7 +313,7 @@ SCENARIO("Component Definition Properties")
     REQUIRE(properties[0].property_name == "test");
     REQUIRE(properties[0].property_type == Value::Type::String);
 
-    auto callback_names = comp_def.callback_names();
+    auto callback_names = comp_def.callbacks();
     REQUIRE(callback_names.size() == 1);
     REQUIRE(callback_names[0] == "dummy");
 }

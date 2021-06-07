@@ -736,12 +736,11 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_properties(
 
 /// Returns the list of callback names of the component the component definition describes
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_callback_names(
+pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_callbacks(
     def: &ComponentDefinitionOpaque,
-    callback_names: &mut SharedVector<SharedString>,
+    callbacks: &mut SharedVector<SharedString>,
 ) {
-    callback_names
-        .extend((&*def).as_component_definition().callback_names().map(|name| name.into()))
+    callbacks.extend((&*def).as_component_definition().callbacks().map(|name| name.into()))
 }
 
 /// Return the name of the component definition

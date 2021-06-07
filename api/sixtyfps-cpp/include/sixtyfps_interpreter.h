@@ -712,12 +712,11 @@ public:
 
     /// Returns a vector of strings that describe the list of public callbacks that can be invoked
     /// using ComponentInstance::invoke_callback and set using ComponentInstance::set_callback.
-    sixtyfps::SharedVector<sixtyfps::SharedString> callback_names() const
+    sixtyfps::SharedVector<sixtyfps::SharedString> callbacks() const
     {
-        sixtyfps::SharedVector<sixtyfps::SharedString> callback_names;
-        cbindgen_private::sixtyfps_interpreter_component_definition_callback_names(&inner,
-                                                                                   &callback_names);
-        return callback_names;
+        sixtyfps::SharedVector<sixtyfps::SharedString> callbacks;
+        cbindgen_private::sixtyfps_interpreter_component_definition_callbacks(&inner, &callbacks);
+        return callbacks;
     }
 
     /// Returns the name of this Component as written in the .60 file

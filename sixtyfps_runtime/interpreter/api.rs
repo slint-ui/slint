@@ -611,7 +611,7 @@ impl ComponentDefinition {
     }
 
     /// Returns the names of all publicly declared callbacks.
-    pub fn callback_names<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
+    pub fn callbacks<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -949,7 +949,7 @@ fn component_definition_properties2() {
     assert_eq!(props[0].0, "sub_text");
     assert_eq!(props[0].1, ValueType::String);
 
-    let callbacks = comp_def.callback_names().collect::<Vec<_>>();
+    let callbacks = comp_def.callbacks().collect::<Vec<_>>();
     assert_eq!(callbacks.len(), 1);
     assert_eq!(callbacks[0], "hello");
 }
