@@ -76,6 +76,7 @@ fn resolve_alias(
                 .expect("The parser only avoid missing types for two way bindings");
             let mut lookup_ctx = LookupCtx::empty_context(type_register, diag);
             lookup_ctx.property_name = Some(prop);
+            lookup_ctx.property_type = Type::Void;
             let mut scope = scope.0.clone();
             scope.push(elem.clone());
             lookup_ctx.component_scope = &scope;

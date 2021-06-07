@@ -290,6 +290,7 @@ fn parse_two_way_binding(p: &mut impl Parser) {
 /// callback end_coma(a, b, c,);
 /// callback with_return(a, b) -> int;
 /// callback with_return2({a: string}) -> { a: string };
+/// callback foobar <=> elem.foobar;
 /// ```
 /// Must consume at least one token
 fn parse_callback_declaration(p: &mut impl Parser) {
@@ -312,12 +313,23 @@ fn parse_callback_declaration(p: &mut impl Parser) {
             let mut p = p.start_node(SyntaxKind::ReturnType);
             parse_type(&mut *p);
         }
+
+        if p.peek().kind() == SyntaxKind::DoubleArrow {
+            p.error("When declaring a callback alias, one must omit parentheses. e.g. 'callback foo <=> other.bar;'");
+        }
     } else if p.test(SyntaxKind::Arrow) {
         // Force callback with return value to also have parentheses, we could remove this
         // restriction in the future
         p.error("Callback with return value must be declared with parentheses e.g. 'callback foo() -> int;'");
         parse_type(&mut *p);
     }
+
+    if p.test(SyntaxKind::DoubleArrow) {
+        let mut p = p.start_node(SyntaxKind::TwoWayBinding);
+        p.consume();
+        parse_expression(&mut *p);
+    }
+
     p.expect(SyntaxKind::Semicolon);
 }
 
