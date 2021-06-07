@@ -221,7 +221,7 @@ impl Type {
                 | Self::Struct { .. }
                 | Self::Array(_)
                 | Self::Brush
-                | Self::Void // Void is not a valid type for property, but it is temporarily used for infered two ways bindings
+                | Self::Void // Void is not a valid type for property, but it is temporarily used for inferred two ways bindings
         )
     }
 

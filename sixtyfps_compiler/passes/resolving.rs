@@ -65,6 +65,7 @@ fn resolve_expression(
             }
             SyntaxKind::TwoWayBinding => {
                 if lookup_ctx.property_type == Type::Invalid {
+                    // An attempt to resolve this already failed when trying to resolve the property type
                     assert!(diag.has_error());
                     return;
                 }

@@ -168,13 +168,13 @@ Example := Button {
 Using the `<=>` syntax, one can create two ways binding between properties. These properties are now linked
 together.
 The right hand side of the `<=>` must be a reference to a property of the same type.
-The type can be omitted in a property declaration to have the type automatically infered.
+The type can be omitted in a property declaration to have the type automatically inferred.
 
 
 ```60
 Example := Window {
     property<brush> rect_color <=> r.background;
-    // it is allowed to omit the type to have it automatically infered
+    // it is allowed to omit the type to have it automatically inferred
     property rect_color2 <=> r.background;
     r:= Rectangle {
         width: parent.width;
