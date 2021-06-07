@@ -498,19 +498,21 @@ impl<'id> ComponentDescription<'id> {
             .get(name)
             .and_then(|d| d.is_alias.as_ref())
         {
-            Ok(eval::invoke_callback(
+            eval::invoke_callback(
                 eval::ComponentInstance::InstanceRef(c),
                 &alias.element(),
                 alias.name(),
                 args,
-            ))
+            )
+            .ok_or(())
         } else {
-            Ok(eval::invoke_callback(
+            eval::invoke_callback(
                 eval::ComponentInstance::InstanceRef(c),
                 &self.original.root_element,
                 name,
                 args,
-            ))
+            )
+            .ok_or(())
         }
     }
 }

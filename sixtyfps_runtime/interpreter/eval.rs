@@ -194,7 +194,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
             Expression::CallbackReference(nr) => {
                 let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-                invoke_callback(local_context.component_instance, &nr.element(), nr.name(), &args)
+                invoke_callback(local_context.component_instance, &nr.element(), nr.name(), &args).unwrap()
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor, _) => {
                 match local_context.component_instance {
@@ -703,7 +703,7 @@ pub(crate) fn invoke_callback(
     element: &ElementRc,
     callback_name: &str,
     args: &[Value],
-) -> Value {
+) -> Option<Value> {
     generativity::make_guard!(guard);
     match enclosing_component_instance_for_element(element, component_instance, guard) {
         ComponentInstance::InstanceRef(enclosing_component) => {
@@ -712,17 +712,17 @@ pub(crate) fn invoke_callback(
             let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
             if let Some(callback) = item_info.rtti.callbacks.get(callback_name) {
-                callback.call(item, args)
+                Some(callback.call(item, args))
             } else if let Some(callback_offset) = component_type.custom_callbacks.get(callback_name)
             {
                 let callback = callback_offset.apply(&*enclosing_component.instance);
-                callback.call(args)
+                Some(callback.call(args))
             } else {
-                panic!("unkown callback {}", callback_name)
+                None
             }
         }
         ComponentInstance::GlobalComponent(global) => {
-            global.as_ref().invoke_callback(callback_name, args)
+            Some(global.as_ref().invoke_callback(callback_name, args))
         }
     }
 }
