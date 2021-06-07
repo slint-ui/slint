@@ -193,30 +193,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         }
         Expression::FunctionCall { function, arguments, source_location: _ } => match &**function {
             Expression::CallbackReference(nr) => {
-                let element = nr.element();
-                generativity::make_guard!(guard);
-                match enclosing_component_instance_for_element(&element, local_context.component_instance, guard) {
-                    ComponentInstance::InstanceRef(enclosing_component) => {
-                        let component_type = enclosing_component.component_type;
-                        let item_info = &component_type.items[element.borrow().id.as_str()];
-                        let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-                        let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
-
-                        if let Some(callback) = item_info.rtti.callbacks.get(nr.name()) {
-                            callback.call(item, args.as_slice())
-                        } else if let Some(callback_offset) = component_type.custom_callbacks.get(nr.name())
-                        {
-                            let callback = callback_offset.apply(&*enclosing_component.instance);
-                            callback.call(args.as_slice())
-                        } else {
-                            panic!("unkown callback {}", nr.name())
-                        }
-                    }
-                    ComponentInstance::GlobalComponent(global) => {
-                        let args = arguments.iter().map(|e| eval_expression(e, local_context));
-                        global.as_ref().invoke_callback(nr.name(), args.collect::<Vec<_>>().as_slice())
-                    }
-                }
+                let args = arguments.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>();
+                invoke_callback(local_context.component_instance, &nr.element(), nr.name(), &args)
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor, _) => {
                 match local_context.component_instance {
@@ -718,6 +696,35 @@ pub fn store_property(
     let p = &item_info.rtti.properties.get(name).ok_or(())?;
     p.set(item, value, maybe_animation.as_animation());
     Ok(())
+}
+
+pub(crate) fn invoke_callback(
+    component_instance: ComponentInstance,
+    element: &ElementRc,
+    callback_name: &str,
+    args: &[Value],
+) -> Value {
+    generativity::make_guard!(guard);
+    match enclosing_component_instance_for_element(element, component_instance, guard) {
+        ComponentInstance::InstanceRef(enclosing_component) => {
+            let component_type = enclosing_component.component_type;
+            let item_info = &component_type.items[element.borrow().id.as_str()];
+            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+
+            if let Some(callback) = item_info.rtti.callbacks.get(callback_name) {
+                callback.call(item, args)
+            } else if let Some(callback_offset) = component_type.custom_callbacks.get(callback_name)
+            {
+                let callback = callback_offset.apply(&*enclosing_component.instance);
+                callback.call(args)
+            } else {
+                panic!("unkown callback {}", callback_name)
+            }
+        }
+        ComponentInstance::GlobalComponent(global) => {
+            global.as_ref().invoke_callback(callback_name, args)
+        }
+    }
 }
 
 fn root_component_instance<'a, 'old_id, 'new_id>(

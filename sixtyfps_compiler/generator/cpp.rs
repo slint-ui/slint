@@ -659,6 +659,12 @@ fn generate_component(
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
+        let access = if let Some(alias) = &property_decl.is_alias {
+            access_named_reference(alias, component, "this")
+        } else {
+            format!("this->{}", cpp_name)
+        };
+
         let ty = if let Type::Callback { args, return_type } = &property_decl.property_type {
             let param_types =
                 args.iter().map(|t| get_cpp_type(t, property_decl, diag)).collect::<Vec<_>>();
@@ -668,7 +674,7 @@ fn generate_component(
             if property_decl.expose_in_public_api && is_root {
                 let callback_emitter = vec![format!(
                     "return {}.call({});",
-                    cpp_name,
+                    access,
                     (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 )];
                 component_struct.members.push((
@@ -696,7 +702,7 @@ fn generate_component(
                         signature: "(Functor && callback_handler) const".into(),
                         statements: Some(vec![format!(
                             "{}.set_handler(std::forward<Functor>(callback_handler));",
-                            cpp_name
+                            access
                         )]),
                         ..Default::default()
                     }),
@@ -707,12 +713,6 @@ fn generate_component(
             let cpp_type = get_cpp_type(&property_decl.property_type, property_decl, diag);
 
             if property_decl.expose_in_public_api && is_root {
-                let access = if let Some(alias) = &property_decl.is_alias {
-                    access_named_reference(alias, component, "this")
-                } else {
-                    format!("this->{}", cpp_name)
-                };
-
                 let prop_getter: Vec<String> = vec![format!("return {}.get();", access)];
                 component_struct.members.push((
                     Access::Public,

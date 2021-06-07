@@ -326,7 +326,6 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 
     if p.test(SyntaxKind::DoubleArrow) {
         let mut p = p.start_node(SyntaxKind::TwoWayBinding);
-        p.consume();
         parse_expression(&mut *p);
     }
 
