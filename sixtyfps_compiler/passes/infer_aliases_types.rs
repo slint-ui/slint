@@ -81,7 +81,7 @@ fn resolve_alias(
             lookup_ctx.component_scope = &scope;
             Expression::from_two_way_binding(node, &mut lookup_ctx)
         }
-        _ => panic!("The parser should make sure that the expression is "),
+        _ => panic!("There should be a Uncompiled expression at this point."),
     };
 
     let mut ty = e.ty();
