@@ -312,6 +312,10 @@ SCENARIO("Component Definition Properties")
     REQUIRE(properties.size() == 1);
     REQUIRE(properties[0].property_name == "test");
     REQUIRE(properties[0].property_type == Value::Type::String);
+
+    auto callback_names = comp_def.callback_names();
+    REQUIRE(callback_names.size() == 1);
+    REQUIRE(callback_names[0] == "dummy");
 }
 
 SCENARIO("Component Definition Properties / Two-way bindings")

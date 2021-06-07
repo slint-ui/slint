@@ -610,6 +610,20 @@ impl ComponentDefinition {
         })
     }
 
+    /// Returns the names of all publicly declared callbacks.
+    pub fn callback_names<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).properties().filter_map(|(prop_name, prop_type)| {
+            if matches!(prop_type, LangType::Callback { .. }) {
+                Some(prop_name)
+            } else {
+                None
+            }
+        })
+    }
+
     /// The name of this Component as written in the .60 file
     pub fn name(&self) -> &str {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
@@ -934,6 +948,10 @@ fn component_definition_properties2() {
     assert_eq!(props.len(), 1);
     assert_eq!(props[0].0, "sub_text");
     assert_eq!(props[0].1, ValueType::String);
+
+    let callbacks = comp_def.callback_names().collect::<Vec<_>>();
+    assert_eq!(callbacks.len(), 1);
+    assert_eq!(callbacks[0], "hello");
 }
 
 #[cfg(feature = "ffi")]
