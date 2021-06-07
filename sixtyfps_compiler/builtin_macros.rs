@@ -185,6 +185,8 @@ fn to_debug_string(
     match &ty {
         Type::Invalid => Expression::Invalid,
         Type::Void
+        | Type::InferredCallback
+        | Type::InferredProperty
         | Type::Component(_)
         | Type::Builtin(_)
         | Type::Native(_)

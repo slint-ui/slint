@@ -536,7 +536,7 @@ impl Element {
                     prop_type
                 })
                 // Type::Void is used for two way bindings without type specified
-                .unwrap_or(Type::Void);
+                .unwrap_or(Type::InferredProperty);
 
             let unresolved_prop_name =
                 unwrap_or_continue!(identifier_text(&prop_decl.DeclaredIdentifier()); diag);
@@ -606,6 +606,20 @@ impl Element {
 
         for sig_decl in node.CallbackDeclaration() {
             let name = unwrap_or_continue!(identifier_text(&sig_decl.DeclaredIdentifier()); diag);
+
+            if let Some(csn) = sig_decl.TwoWayBinding() {
+                r.bindings.insert(name.clone(), BindingExpression::new_uncompiled(csn.into()));
+                r.property_declarations.insert(
+                    name,
+                    PropertyDeclaration {
+                        property_type: Type::InferredCallback,
+                        node: Some(Either::Right(sig_decl)),
+                        ..Default::default()
+                    },
+                );
+                continue;
+            }
+
             let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
             let return_type = sig_decl
                 .ReturnType()

@@ -232,7 +232,7 @@ impl Expression {
         let ty = e.ty();
         match e {
             Expression::PropertyReference(n) => {
-                if ty != ctx.property_type && ctx.property_type != Type::Void {
+                if ty != ctx.property_type && ctx.property_type != Type::InferredProperty {
                     ctx.diag.push_error(
                         "The property does not have the same type as the bound property".into(),
                         &node,
@@ -241,10 +241,12 @@ impl Expression {
                 Expression::TwoWayBinding(n, None)
             }
             Expression::CallbackReference(n) => {
-                if ctx.property_type != Type::Void {
+                if ctx.property_type != Type::InferredCallback {
                     ctx.diag.push_error("Cannot bind to a callback".into(), &node);
+                    Expression::Invalid
+                } else {
+                    Expression::TwoWayBinding(n, None)
                 }
-                Expression::TwoWayBinding(n, None)
             }
             _ => {
                 ctx.diag.push_error(

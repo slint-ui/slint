@@ -25,6 +25,10 @@ pub enum Type {
     Invalid,
     /// The type of an expression that return nothing
     Void,
+    /// The type of a property two way binding whose type was not yet inferred
+    InferredProperty,
+    /// The type of a callback alias whose type was not yet inferred
+    InferredCallback,
     Component(Rc<Component>),
     Builtin(Rc<BuiltinElement>),
     Native(Rc<NativeClass>),
@@ -79,6 +83,8 @@ impl core::cmp::PartialEq for Type {
         match self {
             Type::Invalid => matches!(other, Type::Invalid),
             Type::Void => matches!(other, Type::Void),
+            Type::InferredProperty => matches!(other, Type::InferredProperty),
+            Type::InferredCallback => matches!(other, Type::InferredCallback),
             Type::Component(a) => matches!(other, Type::Component(b) if Rc::ptr_eq(a, b)),
             Type::Builtin(a) => matches!(other, Type::Builtin(b) if Rc::ptr_eq(a, b)),
             Type::Native(a) => matches!(other, Type::Native(b) if Rc::ptr_eq(a, b)),
@@ -120,6 +126,8 @@ impl Display for Type {
         match self {
             Type::Invalid => write!(f, "<error>"),
             Type::Void => write!(f, "void"),
+            Type::InferredProperty => write!(f, "?"),
+            Type::InferredCallback => write!(f, "callback"),
             Type::Component(c) => c.id.fmt(f),
             Type::Builtin(b) => b.name.fmt(f),
             Type::Native(b) => b.class_name.fmt(f),
@@ -221,7 +229,7 @@ impl Type {
                 | Self::Struct { .. }
                 | Self::Array(_)
                 | Self::Brush
-                | Self::Void // Void is not a valid type for property, but it is temporarily used for inferred two ways bindings
+                | Self::InferredProperty
         )
     }
 
@@ -459,6 +467,7 @@ impl Type {
             Type::Angle => Some(Unit::Deg),
             Type::Invalid => None,
             Type::Void => None,
+            Type::InferredProperty | Type::InferredCallback => None,
             Type::Component(_) => None,
             Type::Builtin(_) => None,
             Type::Native(_) => None,
