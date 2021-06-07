@@ -1,0 +1,29 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+Xxx := Rectangle {
+
+    foo := Rectangle {
+        callback hello(int) -> int;
+    }
+
+    callback colr <=> foo.background;
+//                   ^error{The property does not have the same type as the bound property}
+    property propr <=> foo.hello;
+//                 ^error{Cannot bind to a callback}
+//  ^^error{Could not infer type of property 'propr'}
+
+    callback loop1 <=> loop2;
+    callback loop3 <=> loop1;
+//                     ^error{Unknown unqualified identifier 'loop1'}
+//                    ^^error{The expression in a two way binding must be a property reference}
+    callback loop2 <=> loop3;
+
+}

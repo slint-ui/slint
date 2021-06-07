@@ -37,7 +37,8 @@ pub fn resolve_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 }
                 let mut need_resolving = vec![];
                 for (prop, decl) in elem.borrow().property_declarations.iter() {
-                    if decl.property_type == Type::Void {
+                    if matches!(decl.property_type, Type::InferredProperty | Type::InferredCallback)
+                    {
                         need_resolving.push(prop.clone());
                     }
                 }
@@ -59,16 +60,17 @@ fn resolve_alias(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    match elem.borrow_mut().property_declarations.get_mut(prop) {
+    let old_type = match elem.borrow_mut().property_declarations.get_mut(prop) {
         Some(decl) => {
-            if decl.property_type != Type::Void {
-                return; // already processed;
-            }
+            if !matches!(decl.property_type, Type::InferredCallback | Type::InferredProperty) {
+                // already processed;
+                return;
+            };
             // mark the type as invalid now so that we catch recursion
-            decl.property_type = Type::Invalid;
+            std::mem::replace(&mut decl.property_type, Type::Invalid)
         }
         None => panic!("called with not an alias?"),
-    }
+    };
 
     let e = match &elem.borrow().bindings[prop].expression {
         Expression::Uncompiled(node) => {
@@ -76,7 +78,7 @@ fn resolve_alias(
                 .expect("The parser only avoid missing types for two way bindings");
             let mut lookup_ctx = LookupCtx::empty_context(type_register, diag);
             lookup_ctx.property_name = Some(prop);
-            lookup_ctx.property_type = Type::Void;
+            lookup_ctx.property_type = old_type.clone();
             let mut scope = scope.0.clone();
             scope.push(elem.clone());
             lookup_ctx.component_scope = &scope;
@@ -86,14 +88,14 @@ fn resolve_alias(
     };
 
     let mut ty = e.ty();
-    if ty == Type::Void {
+    if matches!(ty, Type::InferredCallback | Type::InferredProperty) {
         if let Expression::TwoWayBinding(nr, _) = &e {
             // Note that scope is might be too deep there, but it actually should work in most cases
             resolve_alias(&nr.element(), nr.name(), scope, type_register, diag);
             ty = e.ty();
         }
     }
-    if ty == Type::Void || ty == Type::Invalid {
+    if ty == Type::Invalid && old_type == Type::InferredProperty {
         diag.push_error(
             format!("Could not infer type of property '{}'", prop),
             &elem.borrow().property_declarations[prop].type_node(),

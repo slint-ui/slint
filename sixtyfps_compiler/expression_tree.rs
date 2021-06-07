@@ -970,6 +970,8 @@ impl Expression {
             | Type::Callback { .. }
             | Type::Function { .. }
             | Type::Void
+            | Type::InferredProperty
+            | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache => Expression::Invalid,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
