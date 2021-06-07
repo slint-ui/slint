@@ -8,6 +8,11 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+Sub := Rectangle {
+    callback compute(int) -> int;
+    callback compute_alias <=> compute;
+}
+
 Xxx := Rectangle {
 
     foo := Rectangle {
@@ -26,4 +31,12 @@ Xxx := Rectangle {
 //                    ^^error{The expression in a two way binding must be a property reference}
     callback loop2 <=> loop3;
 
+    Sub {
+        compute_alias(a, b, c) => {
+            debug(b); // FIXME: one should actually check that the connection has the right amount of arguments
+//                ^error{Unknown unqualified identifier 'b'}
+            return "hello";
+//                 ^error{Cannot convert string to int}
+        }
+    }
 }

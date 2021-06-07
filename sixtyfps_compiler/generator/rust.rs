@@ -280,8 +280,13 @@ fn generate_component(
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let prop_ident = format_ident!("{}", prop_name);
+        let prop = if let Some(alias) = &property_decl.is_alias {
+            access_named_reference(alias, component, quote!(_self))
+        } else {
+            quote!(#inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self))
+        };
+
         if let Type::Callback { args, return_type } = &property_decl.property_type {
-            declared_callbacks.push(prop_ident.clone());
             let callback_args = args
                 .iter()
                 .map(|a| get_rust_type(a, &property_decl.type_node(), diag))
@@ -295,16 +300,13 @@ fn generate_component(
                     .map(|i| format_ident!("arg_{}", i))
                     .collect::<Vec<_>>();
                 let caller_ident = format_ident!("invoke_{}", prop_name);
-                property_and_callback_accessors.push(
-                    quote!(
-                        #[allow(dead_code)]
-                        pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
-                            let _self = vtable::VRc::as_pin_ref(&self.0);
-                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self).call(&(#(#args_name,)*))
-                        }
-                    )
-                    ,
-                );
+                property_and_callback_accessors.push(quote!(
+                    #[allow(dead_code)]
+                    pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
+                        let _self = vtable::VRc::as_pin_ref(&self.0);
+                        #prop.call(&(#(#args_name,)*))
+                    }
+                ));
 
                 let on_ident = format_ident!("on_{}", prop_name);
                 let args_index =
@@ -315,7 +317,7 @@ fn generate_component(
                         pub fn #on_ident(&self, f: impl Fn(#(#callback_args),*) -> #return_type + 'static) {
                             let _self = vtable::VRc::as_pin_ref(&self.0);
                             #[allow(unused)]
-                            #inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self).set_handler(
+                            #prop.set_handler(
                                 // FIXME: why do i need to clone here?
                                 move |args| f(#(args.#args_index.clone()),*)
                             )
@@ -324,20 +326,17 @@ fn generate_component(
                     ,
                 );
             }
-            declared_callbacks_types.push(callback_args);
-            declared_callbacks_ret.push(return_type);
+            if property_decl.is_alias.is_none() {
+                declared_callbacks.push(prop_ident.clone());
+                declared_callbacks_types.push(callback_args);
+                declared_callbacks_ret.push(return_type);
+            }
         } else {
             let rust_property_type =
                 get_rust_type(&property_decl.property_type, &property_decl.type_node(), diag);
             if property_decl.expose_in_public_api {
                 let getter_ident = format_ident!("get_{}", prop_name);
                 let setter_ident = format_ident!("set_{}", prop_name);
-
-                let prop = if let Some(alias) = &property_decl.is_alias {
-                    access_named_reference(alias, component, quote!(_self))
-                } else {
-                    quote!(#inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self))
-                };
 
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]

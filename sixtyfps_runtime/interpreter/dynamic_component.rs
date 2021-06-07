@@ -439,9 +439,38 @@ impl<'id> ComponentDescription<'id> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
-        let x = self.custom_callbacks.get(name).ok_or(())?;
-        let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
-        sig.set_handler(handler);
+        if let Some(alias) = self
+            .original
+            .root_element
+            .borrow()
+            .property_declarations
+            .get(name)
+            .and_then(|d| d.is_alias.as_ref())
+        {
+            generativity::make_guard!(guard);
+            // Safety: we just verified that the component has the right vtable
+            let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
+            generativity::make_guard!(guard);
+            let element = alias.element();
+            let enclosing_component = eval::enclosing_component_for_element(&element, c, guard);
+            let component_type = enclosing_component.component_type;
+            let item_info = &component_type.items[element.borrow().id.as_str()];
+            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+
+            if let Some(callback) = item_info.rtti.callbacks.get(alias.name()) {
+                callback.set_handler(item, handler)
+            } else if let Some(callback_offset) = component_type.custom_callbacks.get(alias.name())
+            {
+                let callback = callback_offset.apply(&*enclosing_component.instance);
+                callback.set_handler(handler)
+            } else {
+                return Err(());
+            }
+        } else {
+            let x = self.custom_callbacks.get(name).ok_or(())?;
+            let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
+            sig.set_handler(handler);
+        }
         Ok(())
     }
 
@@ -458,9 +487,31 @@ impl<'id> ComponentDescription<'id> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
             return Err(());
         }
-        let x = self.custom_callbacks.get(name).ok_or(())?;
-        let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
-        Ok(sig.call(args))
+        generativity::make_guard!(guard);
+        // Safety: we just verified that the component has the right vtable
+        let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
+        if let Some(alias) = self
+            .original
+            .root_element
+            .borrow()
+            .property_declarations
+            .get(name)
+            .and_then(|d| d.is_alias.as_ref())
+        {
+            Ok(eval::invoke_callback(
+                eval::ComponentInstance::InstanceRef(c),
+                &alias.element(),
+                alias.name(),
+                args,
+            ))
+        } else {
+            Ok(eval::invoke_callback(
+                eval::ComponentInstance::InstanceRef(c),
+                &self.original.root_element,
+                name,
+                args,
+            ))
+        }
     }
 }
 

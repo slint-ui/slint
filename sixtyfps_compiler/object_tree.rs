@@ -638,7 +638,7 @@ impl Element {
             let unresolved_name = unwrap_or_continue!(identifier_text(&con_node); diag);
             let PropertyLookupResult { resolved_name, property_type } =
                 r.lookup_property(&unresolved_name);
-            if let Type::Callback { args, .. } = property_type {
+            if let Type::Callback { args, .. } = &property_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
                 if num_arg > args.len() {
                     diag.push_error(
@@ -651,21 +651,24 @@ impl Element {
                         &con_node.child_token(SyntaxKind::Identifier).unwrap(),
                     );
                 }
-                if r.bindings
-                    .insert(
-                        resolved_name.into_owned(),
-                        BindingExpression::new_uncompiled(con_node.clone().into()),
-                    )
-                    .is_some()
-                {
-                    diag.push_error(
-                        "Duplicated callback".into(),
-                        &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                    );
-                }
+            } else if property_type == Type::InferredCallback {
+                // argument matching will happen later
             } else {
                 diag.push_error(
                     format!("'{}' is not a callback in {}", unresolved_name, r.base_type),
+                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                );
+                continue;
+            }
+            if r.bindings
+                .insert(
+                    resolved_name.into_owned(),
+                    BindingExpression::new_uncompiled(con_node.clone().into()),
+                )
+                .is_some()
+            {
+                diag.push_error(
+                    "Duplicated callback".into(),
                     &con_node.child_token(SyntaxKind::Identifier).unwrap(),
                 );
             }

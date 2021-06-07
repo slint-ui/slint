@@ -224,6 +224,8 @@ fn to_eval_value<'cx>(
         Type::Enumeration(_) => todo!(),
         Type::Invalid
         | Type::Void
+        | Type::InferredProperty
+        | Type::InferredCallback
         | Type::Builtin(_)
         | Type::Native(_)
         | Type::Function { .. }

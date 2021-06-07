@@ -241,7 +241,7 @@ impl Expression {
                 Expression::TwoWayBinding(n, None)
             }
             Expression::CallbackReference(n) => {
-                if ctx.property_type != Type::InferredCallback {
+                if ctx.property_type != Type::InferredCallback && ty != ctx.property_type {
                     ctx.diag.push_error("Cannot bind to a callback".into(), &node);
                     Expression::Invalid
                 } else {
