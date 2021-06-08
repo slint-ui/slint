@@ -57,6 +57,7 @@ mod passes {
     pub mod deduplicate_property_read;
     pub mod default_geometry;
     pub mod embed_resources;
+    pub mod ensure_window;
     pub mod flickable;
     pub mod focus_item;
     pub mod generate_item_indices;
@@ -208,6 +209,7 @@ pub async fn run_passes(
     passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::remove_aliases::remove_aliases(&doc.root_component, diag);
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
+    passes::ensure_window::ensure_window(&doc.root_component, &doc.local_registry);
     passes::collect_structs::collect_structs(&doc.root_component, diag);
     passes::generate_item_indices::generate_item_indices(&doc.root_component);
     passes::collect_custom_fonts::collect_custom_fonts(
