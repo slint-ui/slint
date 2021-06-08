@@ -157,8 +157,6 @@ pub struct PreviewComponent {
     /// The name of the component within that file.
     /// If None, then the last component is going to be shown.
     pub component: Option<String>,
-    /// True if the component to preview is already a window
-    pub is_window: bool,
 }
 
 #[derive(Default)]
@@ -216,20 +214,7 @@ async fn reload_preview(
     let compiled = if let Some(mut from_cache) = get_file_from_cache(preview_component.path.clone())
     {
         if let Some(component) = &preview_component.component {
-            if preview_component.is_window {
-                from_cache = format!("{}\n_Preview := {} {{ }}\n", from_cache, component);
-            } else {
-                from_cache = format!(
-                    r#"{}
-_Preview := Window {{
-    {} {{
-        width <=> root.width;
-        height <=> root.height;
-    }}
-}}"#,
-                    from_cache, component
-                );
-            }
+            from_cache = format!("{}\n_Preview := {} {{ }}\n", from_cache, component);
         }
         builder.build_from_source(from_cache, preview_component.path).await
     } else {
