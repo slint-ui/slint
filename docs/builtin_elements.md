@@ -705,8 +705,8 @@ This enum describes the how the text appear if it is too wide to fit in the Text
 
 ### Values
 
-* **`TextWrap.clip`**: The text will simply be clipped.
-* **`TextWrap.elide`**: The text will be ellided with `…`.
+* **`TextOverflow.clip`**: The text will simply be clipped.
+* **`TextOverflow.elide`**: The text will be ellided with `…`.
 
 ## `EventResult`
 
