@@ -27,9 +27,13 @@ struct Cli {
     #[structopt(name = "path to .60 file", parse(from_os_str))]
     path: std::path::PathBuf,
 
-    /// The style name (empty, or 'qt')
+    /// The style name ('native', or 'ulgy')
     #[structopt(long, name = "style name", default_value)]
     style: String,
+
+    /// The rendering backend
+    #[structopt(long, name = "backend", default_value)]
+    backend: String,
 
     /// Automatically watch the file system, and reload when it changes
     #[structopt(long)]
@@ -40,6 +44,10 @@ thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInsta
 
 fn main() -> Result<()> {
     let args = Cli::from_args();
+
+    if !args.backend.is_empty() {
+        std::env::set_var("SIXTYFPS_BACKEND", &args.backend);
+    }
 
     let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };
     let mut compiler = init_compiler(&args, fswatcher);

@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{Arc, Condvar, Mutex};
 use std::task::Wake;
+use structopt::StructOpt;
 
 use lsp_server::Message;
 use lsp_types::notification::Notification;
@@ -206,6 +207,12 @@ async fn reload_preview(
     }
 
     let mut builder = sixtyfps_interpreter::ComponentCompiler::new();
+    let cli_args = super::Cli::from_args();
+    if !cli_args.style.is_empty() {
+        builder.set_style(cli_args.style)
+    };
+    builder.set_include_paths(cli_args.include_paths);
+
     builder.set_file_loader(|path| {
         let path = path.to_owned();
         Box::pin(async move { get_file_from_cache(path).map(Result::Ok) })

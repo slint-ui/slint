@@ -15,6 +15,7 @@ mod preview;
 mod util;
 
 use std::collections::HashMap;
+use structopt::StructOpt;
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
@@ -39,6 +40,24 @@ use sixtyfps_compilerlib::CompilerConfiguration;
 type Error = Box<dyn std::error::Error>;
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
+
+#[derive(StructOpt, Clone)]
+struct Cli {
+    #[structopt(
+        short = "I",
+        name = "Add include paths for the import statements",
+        number_of_values = 1
+    )]
+    include_paths: Vec<std::path::PathBuf>,
+
+    /// The style name for the preview ('native' or 'ugly')
+    #[structopt(long, name = "style name", default_value)]
+    style: String,
+
+    /// The backend used for the preview ('GL' or 'Qt')
+    #[structopt(long, name = "backend", default_value)]
+    backend: String,
+}
 
 pub struct DocumentCache<'a> {
     documents: TypeLoader<'a>,
@@ -95,6 +114,11 @@ impl<'a> DocumentCache<'a> {
 }
 
 fn main() {
+    let args: Cli = Cli::from_args();
+    if !args.backend.is_empty() {
+        std::env::set_var("SIXTYFPS_BACKEND", &args.backend);
+    }
+
     let lsp_thread = std::thread::spawn(|| {
         /// Make sure we quit the event loop even if we panic
         struct QuitEventLoop;
@@ -146,11 +170,13 @@ fn run_lsp_server() -> Result<(), Error> {
 }
 
 fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
+    let cli_args: Cli = Cli::from_args();
     let params: InitializeParams = serde_json::from_value(params).unwrap();
-    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
-        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
-    );
-    compiler_config.style = Some("ugly".into());
+    let mut compiler_config =
+        CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Interpreter);
+    compiler_config.style =
+        Some(if cli_args.style.is_empty() { "ugly".into() } else { cli_args.style });
+    compiler_config.include_paths = cli_args.include_paths;
 
     let mut document_cache = DocumentCache::new(&compiler_config);
     for msg in &connection.receiver {
