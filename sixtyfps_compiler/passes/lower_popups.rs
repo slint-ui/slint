@@ -117,14 +117,6 @@ fn create_coodiate(
         .unwrap_or(Expression::NumberLiteral(0., crate::expression_tree::Unit::Phx));
 
     for parent in parent_stack {
-        match &parent.borrow().base_type {
-            Type::Builtin(b) => {
-                if !b.properties.contains_key(coord) {
-                    continue;
-                }
-            }
-            _ => continue,
-        }
         expression = Expression::BinaryExpression {
             lhs: Box::new(expression),
             rhs: Box::new(Expression::PropertyReference(NamedReference::new(parent, coord))),
