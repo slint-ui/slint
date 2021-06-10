@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::expression_tree::{BuiltinFunction, Expression};
-use crate::langtype::{BuiltinPropertyInfo, Enumeration, Type};
+use crate::langtype::{BuiltinPropertyInfo, Enumeration, PropertyLookupResult, Type};
 use crate::object_tree::Component;
 
 pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] = &[
@@ -71,13 +71,29 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
 }
 
 /// lookup reserved property injected in every item
-pub fn reserved_property(name: &str) -> Type {
+pub fn reserved_property(name: &str) -> PropertyLookupResult {
     for (p, t) in reserved_properties() {
         if p == name {
-            return t;
+            return PropertyLookupResult { property_type: t, resolved_name: name.into() };
         }
     }
-    Type::Invalid
+
+    // Report deprecated known reserved properties (maximum_width, minimum_height, ...)
+    for pre in &["min", "max"] {
+        if let Some(a) = name.strip_prefix(pre) {
+            for suf in &["width", "height"] {
+                if let Some(b) = a.strip_suffix(suf) {
+                    if b == "imum_" {
+                        return PropertyLookupResult {
+                            property_type: Type::LogicalLength,
+                            resolved_name: format!("{}_{}", pre, suf).into(),
+                        };
+                    }
+                }
+            }
+        }
+    }
+    PropertyLookupResult { resolved_name: name.into(), property_type: Type::Invalid }
 }
 
 /// These member functions are injected in every time

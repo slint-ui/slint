@@ -248,17 +248,16 @@ impl Type {
                     } else {
                         Cow::Borrowed(name)
                     };
-                let property_type =
-                    b.properties.get(resolved_name.as_ref()).map(|p| p.ty.clone()).unwrap_or_else(
-                        || {
-                            if b.is_non_item_type {
-                                Type::Invalid
-                            } else {
-                                crate::typeregister::reserved_property(resolved_name.as_ref())
-                            }
-                        },
-                    );
-                PropertyLookupResult { resolved_name, property_type }
+                match b.properties.get(resolved_name.as_ref()) {
+                    None => {
+                        if b.is_non_item_type {
+                            PropertyLookupResult { resolved_name, property_type: Type::Invalid }
+                        } else {
+                            crate::typeregister::reserved_property(name)
+                        }
+                    }
+                    Some(p) => PropertyLookupResult { resolved_name, property_type: p.ty.clone() },
+                }
             }
             Type::Native(n) => {
                 let resolved_name = if let Some(alias_name) = n.lookup_alias(name.as_ref()) {
