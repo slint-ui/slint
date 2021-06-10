@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
    and `preferred-height` property can be used to set the initial size.
  - Binding loop detection at compile-time instead of panic at runtime
  - Renamed the `viewer` binary to `sixtyfps-viewer` and published it on crates.io
+ - Renamed `minimum-width`, `maximum-height`, ... to a shorter version `min-width`, `max-height`.
+   The old name is kept as a deprecated alias.
 
 ### Added
 
