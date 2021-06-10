@@ -106,10 +106,10 @@ NarrowPrintQueueElement := Rectangle {
     property <bool> expanded;
     property <float> expanded_opacity: 0;
 
-    height: always_visible.minimum-height + layout.padding * 2;
+    height: always_visible.min-height + layout.padding * 2;
     states [
         expanded when expanded : {
-            height: layout.minimum-height;
+            height: layout.min-height;
             expanded_opacity: 1;
         }
     ]
@@ -216,7 +216,7 @@ ProgressBar := Rectangle {
 
     // FIXME: The intermediate rectangle is needed to allow the surrounding
     // layout to freely resize the progress bar without affecting the design-intended
-    // height of 6px. The alternative of specifying a `maximum-height: 6px` will unfortunately
+    // height of 6px. The alternative of specifying a `max-height: 6px` will unfortunately
     // also affect the width calculation and make it vanish altogether.
     Rectangle {
         y: parent.height / 2 - 3px;

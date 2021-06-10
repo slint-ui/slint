@@ -279,28 +279,28 @@ pub(crate) fn fill_layout_info_constraints(
 ) {
     let is_percent =
         |nr: &NamedReference| Expression::PropertyReference(nr.clone()).ty() == Type::Percent;
-    constraints.minimum_width.as_ref().map(|e| {
+    constraints.min_width.as_ref().map(|e| {
         if !is_percent(e) {
             layout_info.min_width = expr_eval(e)
         } else {
             layout_info.min_width_percent = expr_eval(e)
         }
     });
-    constraints.maximum_width.as_ref().map(|e| {
+    constraints.max_width.as_ref().map(|e| {
         if !is_percent(e) {
             layout_info.max_width = expr_eval(e)
         } else {
             layout_info.max_width_percent = expr_eval(e)
         }
     });
-    constraints.minimum_height.as_ref().map(|e| {
+    constraints.min_height.as_ref().map(|e| {
         if !is_percent(e) {
             layout_info.min_height = expr_eval(e)
         } else {
             layout_info.min_height_percent = expr_eval(e)
         }
     });
-    constraints.maximum_height.as_ref().map(|e| {
+    constraints.max_height.as_ref().map(|e| {
         if !is_percent(e) {
             layout_info.max_height = expr_eval(e)
         } else {

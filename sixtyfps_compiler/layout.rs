@@ -108,10 +108,10 @@ impl LayoutRect {
 
 #[derive(Debug, Default, Clone)]
 pub struct LayoutConstraints {
-    pub minimum_width: Option<NamedReference>,
-    pub maximum_width: Option<NamedReference>,
-    pub minimum_height: Option<NamedReference>,
-    pub maximum_height: Option<NamedReference>,
+    pub min_width: Option<NamedReference>,
+    pub max_width: Option<NamedReference>,
+    pub min_height: Option<NamedReference>,
+    pub max_height: Option<NamedReference>,
     pub preferred_width: Option<NamedReference>,
     pub preferred_height: Option<NamedReference>,
     pub horizontal_stretch: Option<NamedReference>,
@@ -123,10 +123,10 @@ pub struct LayoutConstraints {
 impl LayoutConstraints {
     pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics) -> Self {
         let mut constraints = Self {
-            minimum_width: binding_reference(&element, "minimum_width"),
-            maximum_width: binding_reference(&element, "maximum_width"),
-            minimum_height: binding_reference(&element, "minimum_height"),
-            maximum_height: binding_reference(&element, "maximum_height"),
+            min_width: binding_reference(&element, "min_width"),
+            max_width: binding_reference(&element, "max_width"),
+            min_height: binding_reference(&element, "min_height"),
+            max_height: binding_reference(&element, "max_height"),
             preferred_width: binding_reference(&element, "preferred_width"),
             preferred_height: binding_reference(&element, "preferred_height"),
             horizontal_stretch: binding_reference(&element, "horizontal_stretch"),
@@ -146,28 +146,28 @@ impl LayoutConstraints {
         let e = element.borrow();
         e.bindings.get("height").map(|s| {
             constraints.fixed_height = true;
-            apply_size_constraint("height", s, &mut constraints.minimum_height);
-            apply_size_constraint("height", s, &mut constraints.maximum_height);
+            apply_size_constraint("height", s, &mut constraints.min_height);
+            apply_size_constraint("height", s, &mut constraints.max_height);
         });
         e.bindings.get("width").map(|s| {
             if s.expression.ty() == Type::Percent {
-                apply_size_constraint("width", s, &mut constraints.minimum_width);
+                apply_size_constraint("width", s, &mut constraints.min_width);
                 return;
             }
             constraints.fixed_width = true;
-            apply_size_constraint("width", s, &mut constraints.minimum_width);
-            apply_size_constraint("width", s, &mut constraints.maximum_width);
+            apply_size_constraint("width", s, &mut constraints.min_width);
+            apply_size_constraint("width", s, &mut constraints.max_width);
         });
 
         constraints
     }
 
     pub fn has_explicit_restrictions(&self) -> bool {
-        self.minimum_width.is_some()
-            || self.maximum_width.is_some()
-            || self.minimum_height.is_some()
-            || self.maximum_width.is_some()
-            || self.maximum_height.is_some()
+        self.min_width.is_some()
+            || self.max_width.is_some()
+            || self.min_height.is_some()
+            || self.max_width.is_some()
+            || self.max_height.is_some()
             || self.preferred_height.is_some()
             || self.preferred_width.is_some()
             || self.horizontal_stretch.is_some()
@@ -179,28 +179,28 @@ impl LayoutConstraints {
         &'a self,
     ) -> impl Iterator<Item = (&NamedReference, &'static str)> {
         std::iter::empty()
-            .chain(self.minimum_width.as_ref().map(|x| {
+            .chain(self.min_width.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "min_width")
                 } else {
                     (x, "min_width_percent")
                 }
             }))
-            .chain(self.maximum_width.as_ref().map(|x| {
+            .chain(self.max_width.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "max_width")
                 } else {
                     (x, "max_width_percent")
                 }
             }))
-            .chain(self.minimum_height.as_ref().map(|x| {
+            .chain(self.min_height.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "min_height")
                 } else {
                     (x, "min_height_percent")
                 }
             }))
-            .chain(self.maximum_height.as_ref().map(|x| {
+            .chain(self.max_height.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
                     (x, "max_height")
                 } else {
@@ -214,10 +214,10 @@ impl LayoutConstraints {
     }
 
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
-        self.maximum_width.as_mut().map(|e| visitor(&mut *e));
-        self.minimum_width.as_mut().map(|e| visitor(&mut *e));
-        self.maximum_height.as_mut().map(|e| visitor(&mut *e));
-        self.minimum_height.as_mut().map(|e| visitor(&mut *e));
+        self.max_width.as_mut().map(|e| visitor(&mut *e));
+        self.min_width.as_mut().map(|e| visitor(&mut *e));
+        self.max_height.as_mut().map(|e| visitor(&mut *e));
+        self.min_height.as_mut().map(|e| visitor(&mut *e));
         self.preferred_width.as_mut().map(|e| visitor(&mut *e));
         self.preferred_height.as_mut().map(|e| visitor(&mut *e));
         self.horizontal_stretch.as_mut().map(|e| visitor(&mut *e));

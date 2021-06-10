@@ -497,14 +497,14 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 let listview_height = listview_height.get();
                 // Compute the element height
                 let total_height = Cell::new(0.);
-                let minimum_height = Cell::new(listview_height);
+                let min_height = Cell::new(listview_height);
                 let count = Cell::new(0);
 
                 let get_height_visitor = |item: Pin<ItemRef>| {
                     count.set(count.get() + 1);
                     let height = item.as_ref().geometry().height();
                     total_height.set(total_height.get() + height);
-                    minimum_height.set(minimum_height.get().min(height))
+                    min_height.set(min_height.get().min(height))
                 };
                 for c in self.inner.borrow().borrow().components.iter() {
                     c.1.as_ref().map(|x| {
@@ -534,7 +534,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     total_height.get()
                 };
 
-                let minimum_height = minimum_height.get().min(element_height).max(1.);
+                let min_height = min_height.get().min(element_height).max(1.);
 
                 viewport_height.set(element_height * row_count as f32);
                 self.inner.borrow().borrow_mut().cached_item_height = element_height;
@@ -543,7 +543,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 }
                 let offset = (-viewport_y.get_untracked() / element_height).floor() as usize;
                 let mut count =
-                    ((listview_height / minimum_height).ceil() as usize).min(row_count - offset);
+                    ((listview_height / min_height).ceil() as usize).min(row_count - offset);
                 loop {
                     self.set_offset(offset, count);
                     self.ensure_updated_impl(init, &model, count);

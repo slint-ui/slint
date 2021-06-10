@@ -20,17 +20,17 @@ TestCase := Rectangle {
             blue-rect := Rectangle {
                 background: blue;
                 height: 100phx;
-                minimum-width: 100phx;
+                min-width: 100phx;
                 horizontal-stretch: 0;
             }
             red-rect := Rectangle {
                 width: 50px;
                 background: red;
-                minimum-height: 50phx;
+                min-height: 50phx;
             }
             green-rect := Rectangle {
                 background: green;
-                maximum-width: 20phx;
+                max-width: 20phx;
                 horizontal-stretch: 2;
             }
             orange-rect := Rectangle {
@@ -40,13 +40,13 @@ TestCase := Rectangle {
             }
             yellow-rect := Rectangle {
                 background: yellow;
-                maximum-width: 200phx;
+                max-width: 200phx;
                 horizontal-stretch: 1;
             }
             pink-rect := Rectangle {
                 background: pink;
                 horizontal-stretch: 2;
-                maximum-height: 9000phx;
+                max-height: 9000phx;
             }
 
 

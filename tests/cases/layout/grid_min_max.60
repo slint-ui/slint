@@ -19,9 +19,9 @@ TestCase := Rectangle {
         Row {
             rect1 := Rectangle {
                 background: red;
-                minimum_width: 50phx;
-                minimum_height: 20phx;
-                maximum_height: 20phx;
+                min_width: 50phx;
+                min_height: 20phx;
+                max_height: 20phx;
 
             }
             rect2 := Rectangle {
@@ -32,14 +32,14 @@ TestCase := Rectangle {
         Row {
             rect3 := Rectangle {
                 background: green;
-                maximum_width: 60phx;
+                max_width: 60phx;
             }
             rect4 := Rectangle {
                 background: red;
             }
             rect5 := Rectangle {
                 background: black;
-                maximum_width: 100phx;
+                max_width: 100phx;
             }
         }
     }

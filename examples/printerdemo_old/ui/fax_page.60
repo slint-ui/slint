@@ -84,8 +84,8 @@ export FaxPage := Page {
         y: parent.height - height - 20px;
         x: parent.width - width - 40px;
         /* FIXME: does not work with the native stylr
-        width: minimum_width;
-        height: minimum_height;
+        width: min_width;
+        height: min_height;
         */
         width: 120px;
         height: 40px;

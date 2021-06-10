@@ -97,11 +97,11 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
     };
 
     if !flickable_elem.borrow().bindings.contains_key("height") {
-        forward_minmax_of("maximum_height", '<');
+        forward_minmax_of("max_height", '<');
         forward_minmax_of("preferred_height", '<');
     }
     if !flickable_elem.borrow().bindings.contains_key("width") {
-        forward_minmax_of("maximum_width", '<');
+        forward_minmax_of("max_width", '<');
         forward_minmax_of("preferred_width", '<');
     }
     set_binding_if_not_explicit(flickable_elem, "viewport_width", || {
@@ -111,7 +111,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .children
                 .iter()
                 .filter(|x| is_layout(&x.borrow().base_type))
-                .map(|x| Expression::PropertyReference(NamedReference::new(x, "minimum_width")))
+                .map(|x| Expression::PropertyReference(NamedReference::new(x, "min_width")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "width")),
                     |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'),
@@ -125,7 +125,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .children
                 .iter()
                 .filter(|x| is_layout(&x.borrow().base_type))
-                .map(|x| Expression::PropertyReference(NamedReference::new(x, "minimum_height")))
+                .map(|x| Expression::PropertyReference(NamedReference::new(x, "min_height")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "height")),
                     |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'),

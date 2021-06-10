@@ -31,10 +31,10 @@ TestCase := Window {
             spacing: 0phx;
             padding: 0phx;
             r3 := Rectangle {
-                property<bool> ok: height == root.height/2 && width == 888phx && f3.viewport_width == 888phx && f3.minimum-width == 0phx;
+                property<bool> ok: height == root.height/2 && width == 888phx && f3.viewport_width == 888phx && f3.min-width == 0phx;
             }
             Rectangle {
-                minimum-width: 888phx;
+                min-width: 888phx;
             }
         }
     }
@@ -44,10 +44,10 @@ TestCase := Window {
             spacing: 0phx;
             padding: 0phx;
             r4 := Rectangle {
-                property<bool> ok: f4.maximum-height == 6000phx && r4.height == root.height;
+                property<bool> ok: f4.max-height == 6000phx && r4.height == root.height;
             }
             Rectangle {
-                maximum-height: 6000phx;
+                max-height: 6000phx;
             }
         }
     }

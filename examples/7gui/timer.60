@@ -20,7 +20,7 @@ Timer := Window {
         HorizontalLayout {
             Text { text: "Elapsed Time:"; }
             Rectangle {
-                maximum-height: 30px;
+                max-height: 30px;
                 background: gray;
                 Rectangle {
                     height: 100%;

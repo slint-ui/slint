@@ -34,7 +34,7 @@ export UsbPage := Page {
             row: 0;
             text: "Select File:";
             vertical-stretch: 0;
-            maximum-height: 32px;
+            max-height: 32px;
         }
 
         list_view := StandardListView {
