@@ -58,7 +58,7 @@ fn maybe_materialize(
     };
 
     if !has_declared_property {
-        let ty = crate::typeregister::reserved_property(prop);
+        let ty = crate::typeregister::reserved_property(prop).property_type;
         if ty != Type::Invalid {
             property_declarations.insert(
                 prop.to_owned(),

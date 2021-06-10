@@ -12,7 +12,7 @@ Xxx := Rectangle {
     color: white;
 //  ^warning{The property 'color' has been deprecated. Please use 'background' instead}
 
-    Rectangle {
+    r := Rectangle {
         background: root.color;
 //                       ^warning{The property 'color' has been deprecated. Please use 'background' instead}
         animate color {
@@ -20,6 +20,10 @@ Xxx := Rectangle {
             duration: 250ms;
         }
     }
+
+    minimum-height: root.maximum-width;
+//  ^warning{The property 'minimum_height' has been deprecated. Please use 'min_height' instead}
+//                       ^^warning{The property 'maximum_width' has been deprecated. Please use 'max_width' instead}
 
     callback not_called;
     not_called() => {
