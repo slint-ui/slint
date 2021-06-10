@@ -7,8 +7,8 @@ These properties are valid on all visible items
 * **`x`** and **`y`** (*length*): the position of the element relative to its parent
 * **`z`** (*float*): Allows to specify a different order to stack the items with its siblings. (default: 0)
 * **`width`** and **`height`** (*length*): The size of the element. When set, this overrides the default size.
-* **`maximum_width`** and **`maximum_height`** (*length*): The maximum size of an element when used in a layout.
-* **`minimum_width`** and **`minimum_height`** (*length*): The minimum size of an element when used in a layout.
+* **`max_width`** and **`max_height`** (*length*): The maximum size of an element when used in a layout.
+* **`min_width`** and **`min_height`** (*length*): The minimum size of an element when used in a layout.
 * **`preferred_width`** and **`preferred_height`** (*length*): The minimum size of an element when used in a layout.
 * **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
 * **`horizontal_stretch`** and **`vertical_stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
@@ -35,7 +35,7 @@ The `drop-shadow` effect is supported for `Rectangle` and `Clip` elements.
 Window is the root of what is on the screen
 
 The Window geometry will be restricted by its layout contraints: setting the `width` will result in a fixed width,
-and the window manager will respect the `minimum-width` and `maximum-width` so the window can't be resized bigger
+and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
 or smaller. The initial width can be controled with the `preferred-width` property. The same applies for the height.
 
 ### Properties
@@ -493,7 +493,7 @@ Foo := Window {
     HorizontalLayout {
         spacing: 5px;
         Rectangle { background: red; width: 10px; }
-        Rectangle { background: blue; minimum-width: 10px; }
+        Rectangle { background: blue; min-width: 10px; }
         Rectangle { background: yellow; horizontal-stretch: 1; }
         Rectangle { background: green; horizontal-stretch: 2; }
     }

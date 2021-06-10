@@ -9,8 +9,8 @@
 LICENSE END */
 
 MyWid := Rectangle {
-    minimum-width: 20phx;
-    minimum-height: 20phx;
+    min-width: 20phx;
+    min-height: 20phx;
     horizontal-stretch:0;
     vertical-stretch:0;
 }

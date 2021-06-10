@@ -12,15 +12,15 @@ Test := Rectangle {
     GridLayout {
         Rectangle {
             height: 42px;
-//                 ^error{Cannot specity both height and minimum_height.}
-            minimum-height: 42px;
-            maximum-width: 42px;
+//                 ^error{Cannot specity both height and min_height.}
+            min-height: 42px;
+            max-width: 42px;
         }
         Rectangle {
             width: 42px;
-//                ^error{Cannot specity both width and maximum_width.}
-            minimum-height: 42px;
-            maximum-width: 42px;
+//                ^error{Cannot specity both width and max_width.}
+            min-height: 42px;
+            max-width: 42px;
         }
     }
 

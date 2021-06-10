@@ -77,9 +77,9 @@ export CheckBox := Rectangle {
     property <bool> checked;
     property<bool> enabled <=> touch_area.enabled;
 
-    maximum_height: 20px;
-    minimum_height: 20px;
-    minimum_width: 120px;
+    max_height: 20px;
+    min_height: 20px;
+    min_width: 120px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
@@ -167,9 +167,9 @@ export SpinBox := Rectangle {
 
     background: white;
 
-    maximum_height: 32px;
-    minimum_height: 32px;
-    minimum_width: 120px;
+    max_height: 32px;
+    min_height: 32px;
+    min_width: 120px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
@@ -218,9 +218,9 @@ export Slider := Rectangle {
     property<float> value;
     property<bool> enabled <=> touch_area.enabled;
 
-    maximum_height: 32px;
-    minimum_height: 32px;
-    minimum_width: 120px;
+    max_height: 32px;
+    min_height: 32px;
+    min_width: 120px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
@@ -390,8 +390,8 @@ export ScrollView := Rectangle {
     property <length> viewport_y <=> fli.viewport_y;
     property <length> visible_width <=> fli.width;
     property <length> visible_height <=> fli.height;
-    minimum_height: 50px;
-    minimum_width: 50px;
+    min_height: 50px;
+    min_width: 50px;
     border_width: 1px;
     border_color: Palette.border_color;
     background: Palette.base_background_color;
@@ -444,7 +444,7 @@ export StandardListView := ListView {
                 color: Palette.text_color;
             }
         }
-        height: l.minimum_height; // FIXME: should be t.preferred_height instread, and layout not needed
+        height: l.min_height; // FIXME: should be t.preferred_height instread, and layout not needed
         width: parent.visible_width;
         background: current_item == idx ? Palette.highlight_background : transparent;
         TouchArea {
@@ -469,7 +469,7 @@ export ComboBox := Rectangle {
     animate background { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
-    minimum_width: 170px;
+    min_width: 170px;
 
     HorizontalLayout {
         padding-top: root.border_radius + 8px;

@@ -24,10 +24,10 @@ pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] =
 ];
 
 const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
-    ("minimum_width", Type::LogicalLength),
-    ("minimum_height", Type::LogicalLength),
-    ("maximum_width", Type::LogicalLength),
-    ("maximum_height", Type::LogicalLength),
+    ("min_width", Type::LogicalLength),
+    ("min_height", Type::LogicalLength),
+    ("max_width", Type::LogicalLength),
+    ("max_height", Type::LogicalLength),
     ("padding", Type::LogicalLength),
     ("padding_left", Type::LogicalLength),
     ("padding_right", Type::LogicalLength),

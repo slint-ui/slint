@@ -33,7 +33,7 @@ TestCase := Window {
 
         for x_[i] in xs: Rectangle {
             background: i == 0 ? red : i == 1 ? green : blue;
-            minimum-height: 50px;
+            min-height: 50px;
             HorizontalLayout {
                 padding: 1px;
                 TouchArea {

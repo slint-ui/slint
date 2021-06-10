@@ -736,7 +736,7 @@ MenuItem := Rectangle {
 export MenuBar := Rectangle {
     background: Skin.palette.menuBar;
     property<int> active: 0;
-    minimum-width: 140px;
+    min-width: 140px;
     VerticalLayout {
         padding-left: 0px;
         padding-top: 35px;

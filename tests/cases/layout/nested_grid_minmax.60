@@ -22,9 +22,9 @@ TestCase := Rectangle {
                 padding: 0phx;
                 rect1 := Rectangle {
                     background: red;
-                    maximum_width: 50phx;
-                    minimum_height: 20phx;
-                    maximum_height: 20phx;
+                    max_width: 50phx;
+                    min_height: 20phx;
+                    max_height: 20phx;
                 }
                 rect2 := Rectangle {
                     row: 0;

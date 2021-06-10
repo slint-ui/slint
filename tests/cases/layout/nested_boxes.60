@@ -17,7 +17,7 @@ TestCase := Rectangle {
 
         rect_orange := Rectangle {
             background: orange;
-            maximum_height: 10phx;
+            max_height: 10phx;
         }
         hl_redblue := HorizontalLayout {
             spacing: 0phx;
@@ -25,15 +25,15 @@ TestCase := Rectangle {
 
             rect_red := Rectangle {
                 background: red;
-                minimum_width: 200phx;
+                min_width: 200phx;
                 horizontal-stretch: 0;
                 HorizontalLayout {
                     spacing: 10px;
                     padding: 0phx;
                     rect_green := Rectangle {
                         background: green;
-                        maximum_width: 50phx;
-                        maximum_height: 50phx;
+                        max_width: 50phx;
+                        max_height: 50phx;
                     }
                     rect_pink := Rectangle {
                         background: pink;

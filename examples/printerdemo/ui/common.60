@@ -187,7 +187,7 @@ export ComboBox := Rectangle {
     border-width: 2px;
     border-color: DemoPalette.control_outline_color;
     height: 32px;
-    minimum-width: label.x + label.width + i.width;
+    min-width: label.x + label.width + i.width;
     label := Text {
         vertical-alignment: center;
         horizontal-alignment: left;

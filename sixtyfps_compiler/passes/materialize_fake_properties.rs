@@ -87,10 +87,10 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
 /// Initialize a sensible default binding for the now materialized property
 fn initialize(elem: ElementRc, name: &str) {
     let expr = match name {
-        "minimum_height" => layout_constraint_prop(&elem, "min_height"),
-        "minimum_width" => layout_constraint_prop(&elem, "min_width"),
-        "maximum_height" => layout_constraint_prop(&elem, "max_height"),
-        "maximum_width" => layout_constraint_prop(&elem, "max_width"),
+        "min_height" => layout_constraint_prop(&elem, "min_height"),
+        "min_width" => layout_constraint_prop(&elem, "min_width"),
+        "max_height" => layout_constraint_prop(&elem, "max_height"),
+        "max_width" => layout_constraint_prop(&elem, "max_width"),
         "preferred_height" => layout_constraint_prop(&elem, "preferred_height"),
         "preferred_width" => layout_constraint_prop(&elem, "preferred_width"),
         "horizontal_stretch" => layout_constraint_prop(&elem, "horizontal_stretch"),

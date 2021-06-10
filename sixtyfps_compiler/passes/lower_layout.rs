@@ -329,14 +329,14 @@ fn create_layout_item(
         let mut item = item.borrow_mut();
         let b = item.bindings.remove(prop).unwrap();
         // FIXME: this should be the preferred size instead, progably
-        item.bindings.insert(format!("minimum_{}", prop), b.clone());
-        item.bindings.insert(format!("maximum_{}", prop), b);
+        item.bindings.insert(format!("min_{}", prop), b.clone());
+        item.bindings.insert(format!("max_{}", prop), b);
         item.property_declarations.insert(
-            format!("minimum_{}", prop),
+            format!("min_{}", prop),
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
         );
         item.property_declarations.insert(
-            format!("maximum_{}", prop),
+            format!("max_{}", prop),
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
         );
     };
