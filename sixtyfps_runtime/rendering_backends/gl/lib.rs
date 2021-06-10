@@ -622,20 +622,22 @@ impl ItemRenderer for GLItemRenderer {
             TextVerticalAlignment::bottom => max_height - text_size.height,
         };
 
-        let mut draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str| {
-            let text_metrics = canvas.measure_text(0., 0., to_draw, paint).unwrap();
-            let translate_x = match horizontal_alignment {
-                TextHorizontalAlignment::left => 0.,
-                TextHorizontalAlignment::center => max_width / 2. - text_metrics.width() / 2.,
-                TextHorizontalAlignment::right => max_width - text_metrics.width(),
-            };
-            canvas.fill_text(translate_x, y, to_draw, paint).unwrap();
-            y += font_metrics.height();
+        let mut draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str, y: &mut f32| {
+            if *y >= 0. {
+                let text_metrics = canvas.measure_text(0., 0., to_draw, paint).unwrap();
+                let translate_x = match horizontal_alignment {
+                    TextHorizontalAlignment::left => 0.,
+                    TextHorizontalAlignment::center => max_width / 2. - text_metrics.width() / 2.,
+                    TextHorizontalAlignment::right => max_width - text_metrics.width(),
+                };
+                canvas.fill_text(translate_x, *y, to_draw, paint).unwrap();
+            }
+            *y += font_metrics.height();
         };
 
         if wrap {
             let mut start = 0;
-            while start < string.len() {
+            while start < string.len() && y + font_metrics.height() <= max_height {
                 let index = canvas.break_text(max_width, &string[start..], paint).unwrap();
                 if index == 0 {
                     // FIXME the word is too big to be shown, but we should still break, ideally
@@ -643,12 +645,15 @@ impl ItemRenderer for GLItemRenderer {
                 }
                 let index = start + index;
                 // trim is there to remove the \n
-                draw_line(&mut canvas, string[start..index].trim());
+                draw_line(&mut canvas, string[start..index].trim(), &mut y);
                 start = index;
             }
         } else {
             let elide = text.overflow() == TextOverflow::elide;
             'lines: for line in string.lines() {
+                if y + font_metrics.height() > max_height {
+                    break;
+                }
                 let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
                 if text_metrics.width() > max_width {
                     let w = max_width
@@ -664,15 +669,15 @@ impl ItemRenderer for GLItemRenderer {
                             let txt = &line[..glyph.byte_index];
                             if elide {
                                 let elided = format!("{}…", txt);
-                                draw_line(&mut canvas, &elided);
+                                draw_line(&mut canvas, &elided, &mut y);
                             } else {
-                                draw_line(&mut canvas, txt);
+                                draw_line(&mut canvas, txt, &mut y);
                             }
                             continue 'lines;
                         }
                     }
                 }
-                draw_line(&mut canvas, line);
+                draw_line(&mut canvas, line, &mut y);
             }
         }
     }
