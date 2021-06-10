@@ -622,7 +622,7 @@ impl ItemRenderer for GLItemRenderer {
             TextVerticalAlignment::bottom => max_height - text_size.height,
         };
 
-        let mut draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str, y: &mut f32| {
+        let draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str, y: &mut f32| {
             if *y >= 0. {
                 let text_metrics = canvas.measure_text(0., 0., to_draw, paint).unwrap();
                 let translate_x = match horizontal_alignment {
