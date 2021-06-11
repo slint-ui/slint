@@ -203,13 +203,13 @@ pub async fn run_passes(
         diag,
     )
     .await;
+    passes::ensure_window::ensure_window(&doc.root_component, &doc.local_registry);
     passes::collect_globals::collect_globals(&doc.root_component, diag);
     passes::binding_analysis::binding_analysis(&doc.root_component, diag);
     passes::deduplicate_property_read::deduplicate_property_read(&doc.root_component);
     passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::remove_aliases::remove_aliases(&doc.root_component, diag);
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
-    passes::ensure_window::ensure_window(&doc.root_component, &doc.local_registry);
     passes::collect_structs::collect_structs(&doc.root_component, diag);
     passes::generate_item_indices::generate_item_indices(&doc.root_component);
     passes::collect_custom_fonts::collect_custom_fonts(
