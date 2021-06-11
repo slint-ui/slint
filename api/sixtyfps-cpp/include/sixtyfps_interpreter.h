@@ -836,3 +836,18 @@ public:
 };
 
 }
+
+namespace sixtyfps::testing {
+/// Send a key events to the given component instance
+inline void send_keyboard_string_sequence(const sixtyfps::interpreter::ComponentInstance *component,
+                                          const sixtyfps::SharedString &str,
+                                          KeyboardModifiers modifiers = {})
+{
+    cbindgen_private::ComponentWindowOpaque win;
+    cbindgen_private::sixtyfps_interpreter_component_instance_window(
+            reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win);
+    cbindgen_private::send_keyboard_string_sequence(
+            &str, modifiers, reinterpret_cast<cbindgen_private::ComponentWindow *>(&win));
+    cbindgen_private::sixtyfps_component_window_drop(&win);
+}
+}

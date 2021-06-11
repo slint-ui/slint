@@ -418,3 +418,28 @@ SCENARIO("Component Definition Name")
     auto comp_def = *compiler.build_from_source("export IHaveAName := Rectangle { }", "");
     REQUIRE(comp_def.name() == "IHaveAName");
 }
+
+SCENARIO("Send key events")
+{
+    using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
+
+    ComponentCompiler compiler;
+    auto comp_def = compiler.build_from_source(R"(
+        export Dummy := Rectangle {
+            forward-focus: scope;
+            property <string> result;
+            scope := FocusScope {
+                key-pressed(event) => {
+                    result += event.text;
+                    return accept;
+                }
+            }
+        }
+    )",
+                                               "");
+    REQUIRE(comp_def.has_value());
+    auto instance = comp_def->create();
+    sixtyfps::testing::send_keyboard_string_sequence(&*instance, "Hello keys!", {});
+    REQUIRE(*instance->get_property("result")->to_string() == "Hello keys!");
+}
