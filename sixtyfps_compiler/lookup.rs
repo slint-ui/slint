@@ -460,6 +460,7 @@ impl LookupObject for BuiltinFunctionLookup {
             .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
             .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))
             .or_else(|| f("floor", BuiltinFunctionReference(BuiltinFunction::Floor, sl())))
+            .or_else(|| f("abs", BuiltinFunctionReference(BuiltinFunction::Abs, sl())))
             .or_else(|| f("sqrt", BuiltinFunctionReference(BuiltinFunction::Sqrt, sl())))
             .or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))

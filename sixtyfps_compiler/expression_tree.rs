@@ -27,6 +27,7 @@ pub enum BuiltinFunction {
     Round,
     Ceil,
     Floor,
+    Abs,
     Sqrt,
     Cos,
     Sin,
@@ -75,7 +76,7 @@ impl BuiltinFunction {
             BuiltinFunction::Round | BuiltinFunction::Ceil | BuiltinFunction::Floor => {
                 Type::Function { return_type: Box::new(Type::Int32), args: vec![Type::Float32] }
             }
-            BuiltinFunction::Sqrt => {
+            BuiltinFunction::Sqrt | BuiltinFunction::Abs => {
                 Type::Function { return_type: Box::new(Type::Float32), args: vec![Type::Float32] }
             }
             BuiltinFunction::Cos | BuiltinFunction::Sin | BuiltinFunction::Tan => {
@@ -133,6 +134,7 @@ impl BuiltinFunction {
             | BuiltinFunction::Round
             | BuiltinFunction::Ceil
             | BuiltinFunction::Floor
+            | BuiltinFunction::Abs
             | BuiltinFunction::Sqrt
             | BuiltinFunction::Cos
             | BuiltinFunction::Sin

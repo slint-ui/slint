@@ -8,33 +8,25 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
  TestCase := Rectangle {
-    property <bool> verify:
-        sin(0) == 0 &&
-        cos(0) == 1 &&
-        round(1000* cos(360deg)) == 1000 && round(1000*sin(360deg)) == 0 &&
-        round(1000* sin(180deg)) == 0 && round(1000*cos(180deg)) == -1000 &&
-        round(1000 * sin(90deg)) == 1000 && round(1000*cos(90deg)) == 0 &&
-        round(atan(tan(45deg))/0.1deg) == 450 &&
-        round(asin(sin(45deg))/0.1deg) == 450 &&
-        round(acos(cos(45deg))/0.1deg) == 450 &&
-        true;
-    property <bool> test: verify;
+    property <bool> test_sqrt: sqrt(100) == 10 && sqrt(1) == 1 && sqrt(6.25) == 2.5;
+    property <bool> test_abs: abs(100.5) == 100.5 && abs(-200.5) == 200.5 && abs(0) == 0;
+    property <bool> test: test_sqrt && test_abs;
 }
 /*
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert(instance.get_verify());
+assert(instance.get_test());
 ```
 
 
 ```rust
 let instance = TestCase::new();
-assert!(instance.get_verify());
+assert!(instance.get_test());
 ```
 
 ```js
 var instance = new sixtyfps.TestCase({});
-assert(instance.verify);
+assert(instance.test);
 ```
 */

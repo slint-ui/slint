@@ -811,6 +811,10 @@ Return the arguments with the minimum (or maximum) value. All arguments must be 
 
 Perform a modulo operation.
 
+ * **`abs(float) -> float`**
+
+Return the absolute value.
+
  * **`round(float) -> int`**
 
 Return the value rounded to the nearest integer

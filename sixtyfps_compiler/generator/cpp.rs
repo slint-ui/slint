@@ -1383,10 +1383,11 @@ fn compile_expression(
                     .into()
             }
             BuiltinFunction::Mod => "[](auto a1, auto a2){ return static_cast<int>(a1) % static_cast<int>(a2); }".into(),
-            BuiltinFunction::Round => "[](float a){ return std::round(a); }".into(),
-            BuiltinFunction::Ceil => "[](float a){ return std::ceil(a); }".into(),
-            BuiltinFunction::Floor => "[](float a){ return std::floor(a); }".into(),
-            BuiltinFunction::Sqrt => "[](float a){ return std::sqrt(a); }".into(),
+            BuiltinFunction::Round => "std::round".into(),
+            BuiltinFunction::Ceil => "std::ceil".into(),
+            BuiltinFunction::Floor => "std::floor".into(),
+            BuiltinFunction::Sqrt => "std::sqrt".into(),
+            BuiltinFunction::Abs => "std::abs".into(),
             BuiltinFunction::Sin => format!("[](float a){{ return std::sin(a * {}); }}", std::f32::consts::PI / 180.),
             BuiltinFunction::Cos => format!("[](float a){{ return std::cos(a * {}); }}", std::f32::consts::PI / 180.),
             BuiltinFunction::Tan => format!("[](float a){{ return std::tan(a * {}); }}", std::f32::consts::PI / 180.),

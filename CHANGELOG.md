@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
  - Mouse wheel work on the Flickable and derivatives
  - One can now omit the type of a two way binding property
  - One can declare callback aliases
+ - `abs()` function to get the absolute value
 
 ### Fixed
 
