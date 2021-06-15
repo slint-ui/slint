@@ -16,6 +16,12 @@ use crate::object_tree::{Component, ElementRc};
 
 use std::rc::Rc;
 
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
+pub enum Orientation {
+    Horizontal,
+    Vertical,
+}
+
 #[derive(Clone, Debug, derive_more::From)]
 pub enum Layout {
     GridLayout(GridLayout),
@@ -352,8 +358,8 @@ impl GridLayout {
 /// Internal representation of a BoxLayout
 #[derive(Debug, Clone)]
 pub struct BoxLayout {
-    /// When true, this is a HorizonalLayout, otherwise a VerticalLayout
-    pub is_horizontal: bool,
+    /// Whether, this is a HorizonalLayout, otherwise a VerticalLayout
+    pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
 }
@@ -386,29 +392,15 @@ impl PathLayout {
 /// The [`Type`] for a runtime LayoutInfo structure
 pub fn layout_info_type() -> Type {
     Type::Struct {
-        fields: [
-            "min_width",
-            "min_height",
-            "max_width",
-            "max_height",
-            "preferred_width",
-            "preferred_height",
-        ]
-        .iter()
-        .map(|s| (s.to_string(), Type::LogicalLength))
-        .chain(
-            [
-                "min_width_percent",
-                "min_height_percent",
-                "max_width_percent",
-                "max_height_percent",
-                "horizontal_stretch",
-                "vertical_stretch",
-            ]
+        fields: ["min", "max", "preferred"]
             .iter()
-            .map(|s| (s.to_string(), Type::Float32)),
-        )
-        .collect(),
+            .map(|s| (s.to_string(), Type::LogicalLength))
+            .chain(
+                ["min_percent", "max_percent", "stretch"]
+                    .iter()
+                    .map(|s| (s.to_string(), Type::Float32)),
+            )
+            .collect(),
         name: Some("LayoutInfo".into()),
         node: None,
     }

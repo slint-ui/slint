@@ -11,7 +11,7 @@ LICENSE END */
 
 Test := Rectangle {
     VerticalLayout {
-//  ^error{The binding for the property 'layoutinfo' is part of a binding loop.}  // FIXME: That's an internal property, but people might understand
+//  ^error{The binding for the property 'layoutinfo_h' is part of a binding loop.}  // FIXME: That's an internal property, but people might understand
 //  ^^error{The binding for the property 'min_width' is part of a binding loop.}
         Rectangle {
             width: parent.min_width;

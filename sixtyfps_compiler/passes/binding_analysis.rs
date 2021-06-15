@@ -115,9 +115,9 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&NamedReference)) 
         Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
         Expression::TwoWayBinding(r, _) => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
-        Expression::SolveLayout(l) | Expression::ComputeLayoutInfo(l) => {
+        Expression::SolveLayout(l, _) | Expression::ComputeLayoutInfo(l, _) => {
             let mut l = l.clone();
-            if matches!(expr, Expression::ComputeLayoutInfo(_)) {
+            if matches!(expr, Expression::ComputeLayoutInfo(..)) {
                 // we should not visit the layout geometry in that case
                 *l.rect_mut() = Default::default();
             }

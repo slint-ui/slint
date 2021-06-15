@@ -13,7 +13,8 @@ LICENSE END */
 
 use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
-use crate::langtype::Type;
+use crate::langtype::{EnumerationValue, Type};
+use crate::layout::Orientation;
 use crate::object_tree::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -87,14 +88,14 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
 /// Initialize a sensible default binding for the now materialized property
 fn initialize(elem: ElementRc, name: &str) {
     let expr = match name {
-        "min_height" => layout_constraint_prop(&elem, "min_height"),
-        "min_width" => layout_constraint_prop(&elem, "min_width"),
-        "max_height" => layout_constraint_prop(&elem, "max_height"),
-        "max_width" => layout_constraint_prop(&elem, "max_width"),
-        "preferred_height" => layout_constraint_prop(&elem, "preferred_height"),
-        "preferred_width" => layout_constraint_prop(&elem, "preferred_width"),
-        "horizontal_stretch" => layout_constraint_prop(&elem, "horizontal_stretch"),
-        "vertical_stretch" => layout_constraint_prop(&elem, "vertical_stretch"),
+        "min_height" => layout_constraint_prop(&elem, "min", Orientation::Vertical),
+        "min_width" => layout_constraint_prop(&elem, "min", Orientation::Horizontal),
+        "max_height" => layout_constraint_prop(&elem, "max", Orientation::Vertical),
+        "max_width" => layout_constraint_prop(&elem, "max", Orientation::Horizontal),
+        "preferred_height" => layout_constraint_prop(&elem, "preferred", Orientation::Vertical),
+        "preferred_width" => layout_constraint_prop(&elem, "preferred", Orientation::Horizontal),
+        "horizontal_stretch" => layout_constraint_prop(&elem, "stretch", Orientation::Horizontal),
+        "vertical_stretch" => layout_constraint_prop(&elem, "stretch", Orientation::Vertical),
         "opacity" => Expression::NumberLiteral(1., Unit::None),
         _ => return,
     };
@@ -102,17 +103,35 @@ fn initialize(elem: ElementRc, name: &str) {
     elem.borrow_mut().bindings.insert(name.into(), b);
 }
 
-fn layout_constraint_prop(elem: &ElementRc, field: &str) -> Expression {
+fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
     let expr = match &elem.borrow().layout_info_prop {
-        Some(e) => Expression::PropertyReference(e.clone()),
-        None => Expression::FunctionCall {
-            function: Box::new(Expression::BuiltinFunctionReference(
-                BuiltinFunction::ImplicitLayoutInfo,
-                None,
-            )),
-            arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
-            source_location: None,
-        },
+        Some(e) => Expression::PropertyReference(match orient {
+            Orientation::Horizontal => e.0.clone(),
+            Orientation::Vertical => e.1.clone(),
+        }),
+        None => {
+            let orientation = match BuiltinFunction::ImplicitLayoutInfo.ty() {
+                Type::Function { args, .. } => match &args[1] {
+                    Type::Enumeration(o) => EnumerationValue {
+                        enumeration: o.clone(),
+                        value: if orient == Orientation::Vertical { 1 } else { 0 },
+                    },
+                    _ => panic!("unexpected type for BuiltinFunction::ImplicitLayoutInfo"),
+                },
+                _ => panic!("unexpected type for BuiltinFunction::ImplicitLayoutInfo"),
+            };
+            Expression::FunctionCall {
+                function: Box::new(Expression::BuiltinFunctionReference(
+                    BuiltinFunction::ImplicitLayoutInfo,
+                    None,
+                )),
+                arguments: vec![
+                    Expression::ElementReference(Rc::downgrade(elem)),
+                    Expression::EnumerationValue(orientation),
+                ],
+                source_location: None,
+            }
+        }
     };
     Expression::StructFieldAccess { base: expr.into(), name: field.into() }
 }

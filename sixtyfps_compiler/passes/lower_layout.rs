@@ -64,8 +64,12 @@ fn lower_element_layout(
     match base_type.name.as_str() {
         "Row" => panic!("Error caught at element lookup time"),
         "GridLayout" => lower_grid_layout(component, elem, style_metrics, diag),
-        "HorizontalLayout" => lower_box_layout(component, elem, style_metrics, diag, true),
-        "VerticalLayout" => lower_box_layout(component, elem, style_metrics, diag, false),
+        "HorizontalLayout" => {
+            lower_box_layout(component, elem, style_metrics, diag, Orientation::Horizontal)
+        }
+        "VerticalLayout" => {
+            lower_box_layout(component, elem, style_metrics, diag, Orientation::Vertical)
+        }
         "PathLayout" => lower_path_layout(component, elem, diag),
         _ => return,
     };
@@ -99,8 +103,14 @@ fn lower_grid_layout(
         geometry: LayoutGeometry::new(&grid_layout_element, style_metrics),
     };
 
-    let layout_cache_prop = create_new_prop(grid_layout_element, "layout_cache", Type::LayoutCache);
-    let layout_info_prop = create_new_prop(grid_layout_element, "layoutinfo", layout_info_type());
+    let layout_cache_prop_h =
+        create_new_prop(grid_layout_element, "layout_cache_h", Type::LayoutCache);
+    let layout_cache_prop_v =
+        create_new_prop(grid_layout_element, "layout_cache_v", Type::LayoutCache);
+    let layout_info_prop_h =
+        create_new_prop(grid_layout_element, "layoutinfo_h", layout_info_type());
+    let layout_info_prop_v =
+        create_new_prop(grid_layout_element, "layoutinfo_v", layout_info_type());
 
     let mut row = 0;
     let mut col = 0;
@@ -120,7 +130,13 @@ fn lower_grid_layout(
             }
             let row_children = std::mem::take(&mut layout_child.borrow_mut().children);
             for x in row_children {
-                grid.add_element(&x, (&mut row, &mut col), &layout_cache_prop, diag);
+                grid.add_element(
+                    &x,
+                    (&mut row, &mut col),
+                    &layout_cache_prop_h,
+                    &layout_cache_prop_v,
+                    diag,
+                );
                 col += 1;
                 collected_children.push(x);
             }
@@ -130,28 +146,52 @@ fn lower_grid_layout(
             }
             component.optimized_elements.borrow_mut().push(layout_child);
         } else {
-            grid.add_element(&layout_child, (&mut row, &mut col), &layout_cache_prop, diag);
+            grid.add_element(
+                &layout_child,
+                (&mut row, &mut col),
+                &layout_cache_prop_h,
+                &layout_cache_prop_v,
+                diag,
+            );
             col += 1;
             collected_children.push(layout_child);
         }
     }
     grid_layout_element.borrow_mut().children = collected_children;
     let span = grid_layout_element.borrow().to_source_location();
-    layout_cache_prop.element().borrow_mut().bindings.insert(
-        layout_cache_prop.name().into(),
+    layout_cache_prop_h.element().borrow_mut().bindings.insert(
+        layout_cache_prop_h.name().into(),
         BindingExpression::new_with_span(
-            Expression::SolveLayout(Layout::GridLayout(grid.clone())),
+            Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Horizontal),
             span.clone(),
         ),
     );
-    layout_info_prop.element().borrow_mut().bindings.insert(
-        layout_info_prop.name().into(),
+    layout_cache_prop_v.element().borrow_mut().bindings.insert(
+        layout_cache_prop_v.name().into(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(Layout::GridLayout(grid)),
+            Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Vertical),
+            span.clone(),
+        ),
+    );
+    layout_info_prop_h.element().borrow_mut().bindings.insert(
+        layout_info_prop_h.name().into(),
+        BindingExpression::new_with_span(
+            Expression::ComputeLayoutInfo(
+                Layout::GridLayout(grid.clone()),
+                Orientation::Horizontal,
+            ),
+            span.clone(),
+        ),
+    );
+    layout_info_prop_v.element().borrow_mut().bindings.insert(
+        layout_info_prop_v.name().into(),
+        BindingExpression::new_with_span(
+            Expression::ComputeLayoutInfo(Layout::GridLayout(grid), Orientation::Vertical),
             span,
         ),
     );
-    grid_layout_element.borrow_mut().layout_info_prop = Some(layout_info_prop);
+    grid_layout_element.borrow_mut().layout_info_prop =
+        Some((layout_info_prop_h, layout_info_prop_v));
 }
 
 impl GridLayout {
@@ -159,7 +199,8 @@ impl GridLayout {
         &mut self,
         item_element: &ElementRc,
         (row, col): (&mut u16, &mut u16),
-        layout_cache_prop: &NamedReference,
+        layout_cache_prop_h: &NamedReference,
+        layout_cache_prop_v: &NamedReference,
         diag: &mut BuildDiagnostics,
     ) {
         let mut get_const_value = |name: &str| {
@@ -180,14 +221,23 @@ impl GridLayout {
         }
 
         let index = self.elems.len();
-        if let Some(layout_item) = create_layout_item(&item_element, index, layout_cache_prop, diag)
-        {
+        if let Some(layout_item) = create_layout_item(&item_element, diag) {
+            let e = &layout_item.elem;
+            set_prop_from_cache(e, "x", &layout_cache_prop_h, index * 2, &None);
+            if !layout_item.item.constraints.fixed_width {
+                set_prop_from_cache(e, "width", &layout_cache_prop_h, index * 2 + 1, &None);
+            }
+            set_prop_from_cache(e, "y", &layout_cache_prop_v, index * 2, &None);
+            if !layout_item.item.constraints.fixed_height {
+                set_prop_from_cache(e, "height", &layout_cache_prop_v, index * 2 + 1, &None);
+            }
+
             self.elems.push(GridLayoutElement {
                 col: *col,
                 row: *row,
                 colspan,
                 rowspan,
-                item: layout_item,
+                item: layout_item.item,
             });
         }
     }
@@ -198,23 +248,81 @@ fn lower_box_layout(
     layout_element: &ElementRc,
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
-    is_horizontal: bool,
+    orientation: Orientation,
 ) {
     let mut layout = BoxLayout {
-        is_horizontal,
+        orientation,
         elems: Default::default(),
         geometry: LayoutGeometry::new(&layout_element, style_metrics),
     };
 
     let layout_cache_prop = create_new_prop(layout_element, "layout_cache", Type::LayoutCache);
-    let layout_info_prop = create_new_prop(layout_element, "layoutinfo", layout_info_type());
+    let layout_info_prop_v = create_new_prop(layout_element, "layoutinfo_v", layout_info_type());
+    let layout_info_prop_h = create_new_prop(layout_element, "layoutinfo_h", layout_info_type());
 
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
+
+    let (begin_padding, end_padding) = match orientation {
+        Orientation::Horizontal => (&layout.geometry.padding.top, &layout.geometry.padding.bottom),
+        Orientation::Vertical => (&layout.geometry.padding.left, &layout.geometry.padding.right),
+    };
+    let (pos, size, pad, ortho) = match orientation {
+        Orientation::Horizontal => ("x", "width", "y", "height"),
+        Orientation::Vertical => ("y", "height", "x", "width"),
+    };
+    let pad_expr = begin_padding.clone().map(|pad| Expression::PropertyReference(pad));
+    let mut size_expr = Expression::PropertyReference(NamedReference::new(layout_element, ortho));
+    if let Some(p) = begin_padding {
+        size_expr = Expression::BinaryExpression {
+            lhs: Box::new(std::mem::take(&mut size_expr)),
+            rhs: Box::new(Expression::PropertyReference(p.clone())),
+            op: '-',
+        }
+    }
+    if let Some(p) = end_padding {
+        size_expr = Expression::BinaryExpression {
+            lhs: Box::new(std::mem::take(&mut size_expr)),
+            rhs: Box::new(Expression::PropertyReference(p.clone())),
+            op: '-',
+        }
+    }
+
     for layout_child in &layout_children {
-        if let Some(item) =
-            create_layout_item(layout_child, layout.elems.len(), &layout_cache_prop, diag)
-        {
-            layout.elems.push(item)
+        if let Some(item) = create_layout_item(layout_child, diag) {
+            let index = layout.elems.len() * 2;
+            let rep_idx = &item.repeater_index;
+            let (fixed_size, fixed_ortho) = match orientation {
+                Orientation::Horizontal => {
+                    (item.item.constraints.fixed_width, item.item.constraints.fixed_height)
+                }
+                Orientation::Vertical => {
+                    (item.item.constraints.fixed_height, item.item.constraints.fixed_width)
+                }
+            };
+            let actual_elem = &item.elem;
+            set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index + 0, rep_idx);
+            if !fixed_size {
+                set_prop_from_cache(actual_elem, size, &layout_cache_prop, index + 1, rep_idx);
+            }
+            if let Some(pad_expr) = pad_expr.clone() {
+                actual_elem.borrow_mut().bindings.insert(
+                    pad.into(),
+                    BindingExpression::new_with_span(
+                        pad_expr,
+                        layout_cache_prop.element().borrow().to_source_location(),
+                    ),
+                );
+            }
+            if !fixed_ortho {
+                actual_elem.borrow_mut().bindings.insert(
+                    ortho.into(),
+                    BindingExpression::new_with_span(
+                        size_expr.clone(),
+                        layout_cache_prop.element().borrow().to_source_location(),
+                    ),
+                );
+            }
+            layout.elems.push(item.item);
         }
     }
     layout_element.borrow_mut().children = layout_children;
@@ -222,18 +330,28 @@ fn lower_box_layout(
     layout_cache_prop.element().borrow_mut().bindings.insert(
         layout_cache_prop.name().into(),
         BindingExpression::new_with_span(
-            Expression::SolveLayout(Layout::BoxLayout(layout.clone())),
+            Expression::SolveLayout(Layout::BoxLayout(layout.clone()), orientation),
             span.clone(),
         ),
     );
-    layout_info_prop.element().borrow_mut().bindings.insert(
-        layout_info_prop.name().into(),
+    layout_info_prop_h.element().borrow_mut().bindings.insert(
+        layout_info_prop_h.name().into(),
         BindingExpression::new_with_span(
-            Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)),
+            Expression::ComputeLayoutInfo(
+                Layout::BoxLayout(layout.clone()),
+                Orientation::Horizontal,
+            ),
+            span.clone(),
+        ),
+    );
+    layout_info_prop_v.element().borrow_mut().bindings.insert(
+        layout_info_prop_v.name().into(),
+        BindingExpression::new_with_span(
+            Expression::ComputeLayoutInfo(Layout::BoxLayout(layout), Orientation::Vertical),
             span,
         ),
     );
-    layout_element.borrow_mut().layout_info_prop = Some(layout_info_prop);
+    layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
 }
 
 fn lower_path_layout(
@@ -266,7 +384,6 @@ fn lower_path_layout(
         } else {
             (None, e.clone())
         };
-        //FIXME: report errors if there is already bindings on x or y
         let set_prop_from_cache = |prop: &str, offset: usize, size_prop: &str| {
             let size = NamedReference::new(&actual_elem, size_prop);
             let expression = Expression::BinaryExpression {
@@ -305,7 +422,7 @@ fn lower_path_layout(
             .then(|| NamedReference::new(layout_element, "spacing")),
     });
     let binding = BindingExpression::new_with_span(
-        Expression::SolveLayout(path_layout),
+        Expression::SolveLayout(path_layout, Orientation::Horizontal),
         layout_element.borrow().to_source_location(),
     );
     layout_cache_prop
@@ -315,13 +432,17 @@ fn lower_path_layout(
         .insert(layout_cache_prop.name().into(), binding);
 }
 
+struct CreateLayoutItemResult {
+    item: LayoutItem,
+    elem: ElementRc,
+    repeater_index: Option<Expression>,
+}
+
 /// Create a LayoutItem for the given `item_element`  returns None is the layout is empty
 fn create_layout_item(
     item_element: &ElementRc,
-    index: usize,
-    layout_cache_prop: &NamedReference,
     diag: &mut BuildDiagnostics,
-) -> Option<LayoutItem> {
+) -> Option<CreateLayoutItemResult> {
     let fix_explicit_percent = |prop: &str, item: &ElementRc| {
         if !item.borrow().bindings.get(prop).map_or(false, |b| b.ty() == Type::Percent) {
             return;
@@ -365,31 +486,32 @@ fn create_layout_item(
     };
 
     let constraints = LayoutConstraints::new(&actual_elem, diag);
+    Some(CreateLayoutItemResult {
+        item: LayoutItem { element: item_element.clone(), constraints },
+        elem: actual_elem,
+        repeater_index,
+    })
+}
 
+fn set_prop_from_cache(
+    elem: &ElementRc,
+    prop: &str,
+    layout_cache_prop: &NamedReference,
+    index: usize,
+    repeater_index: &Option<Expression>,
+) {
+    let _old = elem.borrow_mut().bindings.insert(
+        prop.into(),
+        BindingExpression::new_with_span(
+            Expression::LayoutCacheAccess {
+                layout_cache_prop: layout_cache_prop.clone(),
+                index,
+                repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
+            },
+            layout_cache_prop.element().borrow().to_source_location(),
+        ),
+    );
     //FIXME: report errors if there is already bindings on x or y
-    let set_prop_from_cache = |prop: &str, offset: usize| {
-        actual_elem.borrow_mut().bindings.insert(
-            prop.into(),
-            BindingExpression::new_with_span(
-                Expression::LayoutCacheAccess {
-                    layout_cache_prop: layout_cache_prop.clone(),
-                    index: index * 4 + offset,
-                    repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
-                },
-                layout_cache_prop.element().borrow().to_source_location(),
-            ),
-        );
-    };
-    set_prop_from_cache("x", 0);
-    set_prop_from_cache("y", 1);
-    if !constraints.fixed_width {
-        set_prop_from_cache("width", 2);
-    }
-    if !constraints.fixed_height {
-        set_prop_from_cache("height", 3);
-    }
-
-    Some(LayoutItem { element: item_element.clone(), constraints })
 }
 
 fn eval_const_expr(

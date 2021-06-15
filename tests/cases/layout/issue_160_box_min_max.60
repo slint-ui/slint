@@ -41,6 +41,8 @@ export TestCase := Window {
     }
 
     property <bool> check_ok : r2.x == r1.x + 2*10px + 300px + 10px;
+
+    property <bool> test: check_ok;
 }
 
 /*

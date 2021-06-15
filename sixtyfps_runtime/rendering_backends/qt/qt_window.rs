@@ -14,6 +14,7 @@ use sixtyfps_corelib::graphics::{Brush, FontRequest, Image, Point, Rect, Renderi
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
+use sixtyfps_corelib::layout::Orientation;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::PlatformWindow;
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
@@ -162,10 +163,11 @@ cpp! {{
             auto preferred_size = rust!(SFPS_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
                 let component_rc = rust_window.self_weak.upgrade().unwrap().component();
                 let component = ComponentRc::borrow_pin(&component_rc);
-                let layout_info = component.as_ref().layout_info();
+                let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+                let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
                 qttypes::QSize {
-                    width: layout_info.preferred_width as _,
-                    height: layout_info.preferred_height as _,
+                    width: layout_info_h.preferred() as _,
+                    height: layout_info_v.preferred() as _,
                 }
             });
             if (!preferred_size.isEmpty()) {
@@ -960,7 +962,10 @@ impl QtWindow {
 
             if runtime_window.meta_properties_tracker.as_ref().is_dirty() {
                 runtime_window.meta_properties_tracker.as_ref().evaluate(|| {
-                    self.apply_geometry_constraint(component.as_ref().layout_info());
+                    self.apply_geometry_constraint(
+                        component.as_ref().layout_info(Orientation::Horizontal),
+                        component.as_ref().layout_info(Orientation::Vertical),
+                    );
                 });
             }
 
@@ -1031,12 +1036,16 @@ impl QtWindow {
     }
 
     /// Set the min/max sizes on the QWidget
-    fn apply_geometry_constraint(&self, constraints: sixtyfps_corelib::layout::LayoutInfo) {
+    fn apply_geometry_constraint(
+        &self,
+        constraints_h: sixtyfps_corelib::layout::LayoutInfo,
+        constraints_v: sixtyfps_corelib::layout::LayoutInfo,
+    ) {
         let widget_ptr = self.widget_ptr();
-        let min_width: f32 = constraints.min_width.min(constraints.max_width);
-        let min_height: f32 = constraints.min_height.min(constraints.max_height);
-        let mut max_width: f32 = constraints.max_width.max(constraints.min_width);
-        let mut max_height: f32 = constraints.max_height.max(constraints.min_height);
+        let min_width: f32 = constraints_h.min.min(constraints_h.max);
+        let min_height: f32 = constraints_v.min.min(constraints_v.max);
+        let mut max_width: f32 = constraints_h.max.max(constraints_h.min);
+        let mut max_height: f32 = constraints_v.max.max(constraints_v.min);
         cpp! {unsafe [widget_ptr as "QWidget*",  min_width as "float", min_height as "float", mut max_width as "float", mut max_height as "float"] {
             widget_ptr->setMinimumSize(QSize(min_width, min_height));
             if (max_width > QWIDGETSIZE_MAX)
@@ -1163,15 +1172,16 @@ impl PlatformWindow for QtWindow {
                 (0., 0.)
             };
 
-        let info = component.as_ref().layout_info();
+        let info_h = component.as_ref().layout_info(Orientation::Horizontal);
+        let info_v = component.as_ref().layout_info(Orientation::Vertical);
         if w <= 0. {
-            w = info.preferred_width;
+            w = info_h.preferred;
         }
         if h <= 0. {
-            h <= info.preferred_height;
+            h <= info_h.preferred;
         }
-        w = w.clamp(info.min_width, info.max_width);
-        h = h.clamp(info.min_height, info.max_height);
+        w = w.clamp(info_h.min, info_h.max);
+        h = h.clamp(info_v.min, info_v.max);
         let size = qttypes::QSize { width: w as _, height: h as _ };
 
         let window = sixtyfps_corelib::window::Window::new(|window| QtWindow::new(window));

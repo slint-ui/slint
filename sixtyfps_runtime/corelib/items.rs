@@ -34,7 +34,7 @@ use crate::input::{
     MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::layout::LayoutInfo;
+use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::ComponentWindow;
@@ -92,8 +92,11 @@ pub struct ItemVTable {
     pub cached_rendering_data_offset: usize,
 
     /// We would need max/min/preferred size, and all layout info
-    pub layouting_info:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow) -> LayoutInfo,
+    pub layouting_info: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        orientation: Orientation,
+        window: &ComponentWindow,
+    ) -> LayoutInfo,
 
     /// Event handler for mouse and touch event. This function is called before being called on children.
     /// Then, depending on the return value, it is called for the children, and their children, then
@@ -207,8 +210,12 @@ impl Item for Rectangle {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
@@ -274,8 +281,12 @@ impl Item for BorderRectangle {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
@@ -351,7 +362,11 @@ impl Item for TouchArea {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -467,7 +482,11 @@ impl Item for FocusScope {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -558,8 +577,12 @@ impl Item for Clip {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
@@ -626,8 +649,12 @@ impl Item for Opacity {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
@@ -690,8 +717,12 @@ impl Item for Rotate {
         euclid::rect(0., 0., 0., 0.)
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
@@ -779,7 +810,11 @@ impl Item for Path {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -881,8 +916,12 @@ impl Item for Flickable {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
@@ -1001,7 +1040,11 @@ impl Item for Window {
         euclid::rect(0., 0., self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -1100,8 +1143,12 @@ impl Item for BoxShadow {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        LayoutInfo { horizontal_stretch: 1., vertical_stretch: 1., ..LayoutInfo::default() }
+    fn layouting_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(

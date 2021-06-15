@@ -341,8 +341,8 @@ pub struct Element {
 
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
-    /// The property pointing to the layout info
-    pub layout_info_prop: Option<NamedReference>,
+    /// The property pointing to the layout info. `(horizontal, vertical)`
+    pub layout_info_prop: Option<(NamedReference, NamedReference)>,
 
     /// true if this Element is the fake Flickable viewport
     pub is_flickable_viewport: bool,
@@ -1316,8 +1316,8 @@ pub fn visit_all_named_references_in_element(
             Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
             Expression::TwoWayBinding(r, _) => vis(r),
             Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
-            Expression::SolveLayout(l) => l.visit_named_references(vis),
-            Expression::ComputeLayoutInfo(l) => l.visit_named_references(vis),
+            Expression::SolveLayout(l, _) => l.visit_named_references(vis),
+            Expression::ComputeLayoutInfo(l, _) => l.visit_named_references(vis),
             // This is not really a named reference, but the result is the same, it need to be updated
             // FIXME: this should probably be lowered into a PropertyReference
             Expression::RepeaterModelReference { element }
@@ -1358,7 +1358,7 @@ pub fn visit_all_named_references_in_element(
     }
     elem.borrow_mut().repeated = repeated;
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
-    layout_info_prop.as_mut().map(&mut vis);
+    layout_info_prop.as_mut().map(|(h, b)| (vis(h), vis(b)));
     elem.borrow_mut().layout_info_prop = layout_info_prop;
 
     let mut property_declarations = std::mem::take(&mut elem.borrow_mut().property_declarations);
