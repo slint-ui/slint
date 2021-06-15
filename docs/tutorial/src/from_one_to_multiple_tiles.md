@@ -67,4 +67,4 @@ using the modulo and integer division to create a 4 by 4 grid.
 
 Running this gives us a window that shows 8 tiles, which can be opened individually.
 
-<video autoplay loop muted playsinline src="htts://sixtyfps.io/blog/memory-game-tutorial/from-one-to-multiple-tiles.mp4"></video>
+<video autoplay loop muted playsinline src="https://sixtyfps.io/blog/memory-game-tutorial/from-one-to-multiple-tiles.mp4"></video>
