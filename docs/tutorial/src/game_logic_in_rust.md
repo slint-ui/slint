@@ -63,43 +63,7 @@ one cannot click anything during this time.
 Insert this code before the `main_window.run()` call:
 
 ```rust
-// ...
-    let main_window_weak = main_window.as_weak();
-    main_window.on_check_if_pair_solved(move || {
-        let mut flipped_tiles =
-            tiles_model.iter().enumerate().filter(|(_, tile)| {
-                tile.image_visible &amp;&amp; !tile.solved
-            });
-
-        if let (Some((t1_idx, mut t1)), Some((t2_idx, mut t2))) =
-            (flipped_tiles.next(), flipped_tiles.next())
-        {
-            let is_pair_solved = t1 == t2;
-            if is_pair_solved {
-                t1.solved = true;
-                tiles_model.set_row_data(t1_idx, t1.clone());
-                t2.solved = true;
-                tiles_model.set_row_data(t2_idx, t2.clone());
-            } else {
-                let main_window = main_window_weak.unwrap();
-                main_window.set_disable_tiles(true);
-                let tiles_model = tiles_model.clone();
-                sixtyfps::Timer::single_shot(
-                    std::time::Duration::from_secs(1),
-                    move || {
-                        main_window
-                            .set_disable_tiles(false);
-                        t1.image_visible = false;
-                        tiles_model.set_row_data(t1_idx, t1);
-                        t2.image_visible = false;
-                        tiles_model.set_row_data(t2_idx, t2);
-                    }
-                );
-            }
-        }
-    });
-
-    main_window.run();
+{{#include main_game_logic_in_rust.rs:game_logic}}
 ```
 
 Notice that we take a [Weak](https://sixtyfps.io/docs/rust/sixtyfps/struct.weak) pointer of our `main_window`. This is very

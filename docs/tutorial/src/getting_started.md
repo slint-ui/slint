@@ -20,17 +20,7 @@ sixtyfps = "0.0.6"
 Finally we copy the hello world program from the [SixtyFPS documentation](https://sixtyfps.io/docs/rust/sixtyfps/) into our `src/main.rs`:
 
 ```rust
-sixtyfps::sixtyfps!{
-    MainWindow := Window {
-        Text {
-            text: "hello world";
-            color: green;
-        }
-    }
-}
-fn main() {
-    MainWindow::new().run();
-}
+{{#include main_initial.rs}}
 ```
 
 We run this example with `cargo run` and a window will appear with the green "Hello World" greeting.
