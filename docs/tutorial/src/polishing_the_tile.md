@@ -55,7 +55,7 @@ MemoryTile := Rectangle {
     }
 
     TouchArea {
-        clicked =&gt; {
+        clicked => {
             // Delegate to the user of this element
             root.clicked();
         }

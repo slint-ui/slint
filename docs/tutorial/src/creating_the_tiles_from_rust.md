@@ -26,7 +26,7 @@ fn main() {
     let main_window = MainWindow::new();
 
     // Fetch the tiles from the model
-    let mut tiles: Vec&lt;TileData> =
+    let mut tiles: Vec<TileData> =
         main_window.get_memory_tiles().iter().collect();
     // Duplicate them to ensure that we have pairs
     tiles.extend(tiles.clone());
