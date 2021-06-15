@@ -18,6 +18,7 @@ use corelib::component::ComponentRc;
 use corelib::graphics::*;
 use corelib::input::{KeyboardModifiers, MouseEvent};
 use corelib::items::ItemRef;
+use corelib::layout::Orientation;
 use corelib::slice::Slice;
 use corelib::window::{ComponentWindow, PlatformWindow};
 use corelib::Property;
@@ -98,15 +99,19 @@ impl GraphicsWindow {
         })
     }
 
-    fn apply_geometry_constraint(&self, constraints: corelib::layout::LayoutInfo) {
+    fn apply_geometry_constraint(
+        &self,
+        constraints_horiz: corelib::layout::LayoutInfo,
+        constraints_vert: corelib::layout::LayoutInfo,
+    ) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                if constraints != window.constraints.get() {
-                    let min_width = constraints.min_width.min(constraints.max_width);
-                    let min_height = constraints.min_height.min(constraints.max_height);
-                    let max_width = constraints.max_width.max(constraints.min_width);
-                    let max_height = constraints.max_height.max(constraints.min_height);
+                if (constraints_horiz, constraints_vert) != window.constraints.get() {
+                    let min_width = constraints_horiz.min.min(constraints_horiz.max);
+                    let min_height = constraints_vert.min.min(constraints_vert.max);
+                    let max_width = constraints_horiz.max.max(constraints_horiz.min);
+                    let max_height = constraints_vert.max.max(constraints_vert.min);
 
                     window.backend.borrow().window().set_min_inner_size(
                         if min_width > 0. || min_height > 0. {
@@ -125,7 +130,7 @@ impl GraphicsWindow {
                             None
                         },
                     );
-                    window.constraints.set(constraints);
+                    window.constraints.set((constraints_horiz, constraints_vert));
 
                     #[cfg(target_arch = "wasm32")]
                     {
@@ -190,11 +195,9 @@ impl GraphicsWindow {
         } else {
             let component_rc = self.component();
             let component = ComponentRc::borrow_pin(&component_rc);
-            let layout_info = component.as_ref().layout_info();
-            let s = LogicalSize::new(
-                layout_info.preferred_width.max(layout_info.min_width),
-                layout_info.preferred_height.max(layout_info.min_height),
-            );
+            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+            let s = LogicalSize::new(layout_info_h.preferred(), layout_info_v.preferred());
             if s.width > 0. && s.height > 0. {
                 // Make sure that the window's inner size is in sync with the root window item's
                 // width/height.
@@ -253,27 +256,31 @@ impl GraphicsWindow {
             let component = ComponentRc::borrow_pin(&component_rc);
 
             runtime_window.meta_properties_tracker.as_ref().evaluate_if_dirty(|| {
-                self.apply_geometry_constraint(component.as_ref().layout_info());
+                self.apply_geometry_constraint(
+                    component.as_ref().layout_info(Orientation::Horizontal),
+                    component.as_ref().layout_info(Orientation::Vertical),
+                );
 
                 if let Some((popup, _)) = &*self.active_popup.borrow() {
                     let popup = ComponentRc::borrow_pin(popup);
                     let popup_root = popup.as_ref().get_item_ref(0);
                     if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
-                        let layout_info = popup.as_ref().layout_info();
+                        let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+                        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
 
                         let width =
                             corelib::items::Window::FIELD_OFFSETS.width.apply_pin(window_item);
                         let mut w = width.get();
-                        if w < layout_info.min_width {
-                            w = layout_info.min_width;
+                        if w < layout_info_h.min {
+                            w = layout_info_h.min;
                             width.set(w);
                         }
 
                         let height =
                             corelib::items::Window::FIELD_OFFSETS.height.apply_pin(window_item);
                         let mut h = height.get();
-                        if h < layout_info.min_height {
-                            h = layout_info.min_height;
+                        if h < layout_info_v.min {
+                            h = layout_info_v.min;
                             height.set(h);
                         }
                     };
@@ -467,22 +474,18 @@ impl PlatformWindow for GraphicsWindow {
                     return;
                 }
                 if w <= 0. || h <= 0. {
-                    let info = self
-                        .self_weak
-                        .upgrade()
-                        .unwrap()
-                        .try_component()
-                        .map(|component_rc| {
-                            ComponentRc::borrow_pin(&component_rc).as_ref().layout_info()
-                        })
-                        .unwrap_or_default();
-                    if w <= 0. {
-                        w = info.preferred_width.max(info.min_width);
-                        must_resize = true;
-                    }
-                    if h <= 0. {
-                        h = info.preferred_height.max(info.min_height);
-                        must_resize = true;
+                    if let Some(component_rc) = self.self_weak.upgrade().unwrap().try_component() {
+                        let component = ComponentRc::borrow_pin(&component_rc);
+                        if w <= 0. {
+                            let info = component.as_ref().layout_info(Orientation::Horizontal);
+                            w = info.preferred();
+                            must_resize = true;
+                        }
+                        if h <= 0. {
+                            let info = component.as_ref().layout_info(Orientation::Vertical);
+                            h = info.preferred();
+                            must_resize = true;
+                        }
                     }
                 };
                 if w > 0. {
@@ -544,7 +547,7 @@ impl PlatformWindow for GraphicsWindow {
 
 struct MappedWindow {
     backend: RefCell<Backend>,
-    constraints: Cell<corelib::layout::LayoutInfo>,
+    constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
 }
 
 impl Drop for MappedWindow {

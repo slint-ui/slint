@@ -14,6 +14,7 @@ use core::iter::FromIterator;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
+use corelib::layout::Orientation;
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::ComponentWindow;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
@@ -363,14 +364,12 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo, _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to ImplicitItemSize")
-                }
                 let component = match  local_context.component_instance  {
                     ComponentInstance::InstanceRef(c) => c,
                     ComponentInstance::GlobalComponent(_) => panic!("Cannot access the implicit item size from a global component")
                 };
-                if let Expression::ElementReference(item) = &arguments[0] {
+                if let [Expression::ElementReference(item), Expression::EnumerationValue(o)] = arguments.as_slice() {
+                    let o = if o.value == 0 { Orientation::Horizontal } else { Orientation::Vertical };
                     generativity::make_guard!(guard);
 
                     let item = item.upgrade().unwrap();
@@ -381,9 +380,9 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     let item_ref = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
                     let window = window_ref(component).unwrap();
-                    item_ref.as_ref().layouting_info(&window).into()
+                    item_ref.as_ref().layouting_info(o,  &window).into()
                 } else {
-                    panic!("internal error: argument to ImplicitItemWidth must be an element")
+                    panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);
                 }
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, _) => {
@@ -521,7 +520,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             if let Value::LayoutCache(cache) = cache {
                 if let Some(ri) = repeater_index {
                     let offset : usize = eval_expression(&ri, local_context).try_into().unwrap();
-                    Value::Number(cache[(cache[*index] as usize) + offset * 4].into())
+                    Value::Number(cache[(cache[*index] as usize) + offset * 2].into())
                 } else {
                     Value::Number(cache[*index].into())
                 }
@@ -529,8 +528,8 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 panic!("invalid layout cache")
             }
         }
-        Expression::ComputeLayoutInfo(lay) => crate::eval_layout::compute_layout_info(lay, local_context),
-        Expression::SolveLayout(lay) => crate::eval_layout::solve_layout(lay, local_context),
+        Expression::ComputeLayoutInfo(lay, o) => crate::eval_layout::compute_layout_info(lay, *o, local_context),
+        Expression::SolveLayout(lay, o) => crate::eval_layout::solve_layout(lay, *o, local_context),
     }
 }
 

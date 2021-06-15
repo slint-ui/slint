@@ -19,6 +19,7 @@ use std::{
 
 use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
+use crate::layout::Orientation;
 use crate::Property;
 
 type ModelPeerInner = dyn ViewAbstraction;
@@ -286,7 +287,10 @@ pub trait RepeatedComponent: crate::component::Component {
     }
 
     /// Returns what's needed to perform the layout if this component is in a box layout
-    fn box_layout_data<'a>(self: Pin<&'a Self>) -> crate::layout::BoxLayoutCellData {
+    fn box_layout_data<'a>(
+        self: Pin<&'a Self>,
+        _orientation: Orientation,
+    ) -> crate::layout::BoxLayoutCellData {
         crate::layout::BoxLayoutCellData::default()
     }
 }

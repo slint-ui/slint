@@ -13,16 +13,34 @@ use crate::eval::{self, ComponentInstance, EvalLocalContext};
 use crate::Value;
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutGeometry};
+use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutGeometry, Orientation};
 use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_compilerlib::object_tree::ElementRc;
-use sixtyfps_corelib::layout as core_layout;
+use sixtyfps_corelib::layout::{self as core_layout};
 use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::ComponentWindow;
 use std::convert::TryInto;
 
-pub(crate) fn compute_layout_info(lay: &Layout, local_context: &mut EvalLocalContext) -> Value {
+fn to_runtime(o: Orientation) -> core_layout::Orientation {
+    match o {
+        Orientation::Horizontal => core_layout::Orientation::Horizontal,
+        Orientation::Vertical => core_layout::Orientation::Vertical,
+    }
+}
+
+pub(crate) fn from_runtime(o: core_layout::Orientation) -> Orientation {
+    match o {
+        core_layout::Orientation::Horizontal => Orientation::Horizontal,
+        core_layout::Orientation::Vertical => Orientation::Vertical,
+    }
+}
+
+pub(crate) fn compute_layout_info(
+    lay: &Layout,
+    orientation: Orientation,
+    local_context: &mut EvalLocalContext,
+) -> Value {
     let component = match local_context.component_instance {
         ComponentInstance::InstanceRef(c) => c,
         ComponentInstance::GlobalComponent(_) => panic!("Cannot compute layout from a Global"),
@@ -32,27 +50,37 @@ pub(crate) fn compute_layout_info(lay: &Layout, local_context: &mut EvalLocalCon
     };
     match lay {
         Layout::GridLayout(grid_layout) => {
-            let cells = grid_layout_data(grid_layout, component, &expr_eval);
-            let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, &expr_eval);
+            let cells = grid_layout_data(grid_layout, orientation, component, &expr_eval);
+            let (padding, spacing) =
+                padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
             core_layout::grid_layout_info(Slice::from(cells.as_slice()), spacing, &padding).into()
         }
         Layout::BoxLayout(box_layout) => {
-            let (cells, alignment) = box_layout_data(box_layout, component, &expr_eval, None);
-            let (padding, spacing) = padding_and_spacing(&box_layout.geometry, &expr_eval);
-            core_layout::box_layout_info(
-                Slice::from(cells.as_slice()),
-                spacing,
-                &padding,
-                alignment,
-                box_layout.is_horizontal,
-            )
+            let (cells, alignment) =
+                box_layout_data(box_layout, orientation, component, &expr_eval, None);
+            let (padding, spacing) =
+                padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
+            if orientation == box_layout.orientation {
+                core_layout::box_layout_info(
+                    Slice::from(cells.as_slice()),
+                    spacing,
+                    &padding,
+                    alignment,
+                )
+            } else {
+                core_layout::box_layout_info_ortho(Slice::from(cells.as_slice()), &padding)
+            }
             .into()
         }
         Layout::PathLayout(_) => unimplemented!(),
     }
 }
 
-pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -> Value {
+pub(crate) fn solve_layout(
+    lay: &Layout,
+    orientation: Orientation,
+    local_context: &mut EvalLocalContext,
+) -> Value {
     let component = match local_context.component_instance {
         ComponentInstance::InstanceRef(c) => c,
         ComponentInstance::GlobalComponent(_) => panic!("Cannot compute layout from a Global"),
@@ -63,26 +91,17 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
 
     match lay {
         Layout::GridLayout(grid_layout) => {
-            let cells = grid_layout_data(grid_layout, component, &expr_eval);
-            let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, &expr_eval);
+            let cells = grid_layout_data(grid_layout, orientation, component, &expr_eval);
+            let (padding, spacing) =
+                padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
+
+            let size_ref = match orientation {
+                Orientation::Horizontal => &grid_layout.geometry.rect.width_reference,
+                Orientation::Vertical => &grid_layout.geometry.rect.height_reference,
+            };
 
             core_layout::solve_grid_layout(&core_layout::GridLayoutData {
-                width: grid_layout
-                    .geometry
-                    .rect
-                    .width_reference
-                    .as_ref()
-                    .map(expr_eval)
-                    .unwrap_or(0.),
-                height: grid_layout
-                    .geometry
-                    .rect
-                    .height_reference
-                    .as_ref()
-                    .map(expr_eval)
-                    .unwrap_or(0.),
-                x: 0.,
-                y: 0.,
+                size: size_ref.as_ref().map(expr_eval).unwrap_or(0.),
                 spacing,
                 padding: &padding,
                 cells: Slice::from(cells.as_slice()),
@@ -91,33 +110,27 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
         }
         Layout::BoxLayout(box_layout) => {
             let mut repeated_indices = Vec::new();
-            let (cells, alignment) =
-                box_layout_data(box_layout, component, &expr_eval, Some(&mut repeated_indices));
-            let (padding, spacing) = padding_and_spacing(&box_layout.geometry, &expr_eval);
+            let (cells, alignment) = box_layout_data(
+                box_layout,
+                orientation,
+                component,
+                &expr_eval,
+                Some(&mut repeated_indices),
+            );
+            let (padding, spacing) =
+                padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
+            let size_ref = match orientation {
+                Orientation::Horizontal => &box_layout.geometry.rect.width_reference,
+                Orientation::Vertical => &box_layout.geometry.rect.height_reference,
+            };
             core_layout::solve_box_layout(
                 &core_layout::BoxLayoutData {
-                    width: box_layout
-                        .geometry
-                        .rect
-                        .width_reference
-                        .as_ref()
-                        .map(expr_eval)
-                        .unwrap_or(0.),
-                    height: box_layout
-                        .geometry
-                        .rect
-                        .height_reference
-                        .as_ref()
-                        .map(expr_eval)
-                        .unwrap_or(0.),
-                    x: 0.,
-                    y: 0.,
+                    size: size_ref.as_ref().map(expr_eval).unwrap_or(0.),
                     spacing,
                     padding: &padding,
                     alignment,
                     cells: Slice::from(cells.as_slice()),
                 },
-                box_layout.is_horizontal,
                 Slice::from(repeated_indices.as_slice()),
             )
             .into()
@@ -148,14 +161,19 @@ pub(crate) fn solve_layout(lay: &Layout, local_context: &mut EvalLocalContext) -
 
 fn padding_and_spacing(
     layout_geometry: &LayoutGeometry,
+    orientation: Orientation,
     expr_eval: &impl Fn(&NamedReference) -> f32,
 ) -> (core_layout::Padding, f32) {
     let spacing = layout_geometry.spacing.as_ref().map_or(0., expr_eval);
-    let padding = core_layout::Padding {
-        left: layout_geometry.padding.left.as_ref().map_or(0., expr_eval),
-        right: layout_geometry.padding.right.as_ref().map_or(0., expr_eval),
-        top: layout_geometry.padding.top.as_ref().map_or(0., expr_eval),
-        bottom: layout_geometry.padding.bottom.as_ref().map_or(0., expr_eval),
+    let padding = match orientation {
+        Orientation::Horizontal => core_layout::Padding {
+            begin: layout_geometry.padding.left.as_ref().map_or(0., expr_eval),
+            end: layout_geometry.padding.right.as_ref().map_or(0., expr_eval),
+        },
+        Orientation::Vertical => core_layout::Padding {
+            begin: layout_geometry.padding.top.as_ref().map_or(0., expr_eval),
+            end: layout_geometry.padding.bottom.as_ref().map_or(0., expr_eval),
+        },
     };
     (padding, spacing)
 }
@@ -163,6 +181,7 @@ fn padding_and_spacing(
 /// return the celldata, the padding, and the spacing of a grid layout
 fn grid_layout_data(
     grid_layout: &sixtyfps_compilerlib::layout::GridLayout,
+    orientation: Orientation,
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
 ) -> Vec<core_layout::GridLayoutCellData> {
@@ -174,15 +193,19 @@ fn grid_layout_data(
                 &cell.item.element,
                 component,
                 &eval::window_ref(component).unwrap(),
+                orientation,
             );
-            fill_layout_info_constraints(&mut layout_info, &cell.item.constraints, &expr_eval);
-            core_layout::GridLayoutCellData {
-                col: cell.col,
-                row: cell.row,
-                colspan: cell.colspan,
-                rowspan: cell.rowspan,
-                constraint: layout_info,
-            }
+            fill_layout_info_constraints(
+                &mut layout_info,
+                &cell.item.constraints,
+                orientation,
+                &expr_eval,
+            );
+            let (col_or_row, span) = match orientation {
+                Orientation::Horizontal => (cell.col, cell.colspan),
+                Orientation::Vertical => (cell.row, cell.rowspan),
+            };
+            core_layout::GridLayoutCellData { col_or_row, span, constraint: layout_info }
         })
         .collect::<Vec<_>>();
     cells
@@ -190,6 +213,7 @@ fn grid_layout_data(
 
 fn box_layout_data(
     box_layout: &sixtyfps_compilerlib::layout::BoxLayout,
+    orientation: Orientation,
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
@@ -218,10 +242,19 @@ fn box_layout_data(
                 ri.push(cells.len() as _);
                 ri.push(component_vec.len() as _);
             }
-            cells.extend(component_vec.iter().map(|x| x.as_pin_ref().box_layout_data()));
+            cells.extend(
+                component_vec
+                    .iter()
+                    .map(|x| x.as_pin_ref().box_layout_data(to_runtime(orientation))),
+            );
         } else {
-            let mut layout_info = get_layout_info(&cell.element, component, &window);
-            fill_layout_info_constraints(&mut layout_info, &cell.constraints, &expr_eval);
+            let mut layout_info = get_layout_info(&cell.element, component, &window, orientation);
+            fill_layout_info_constraints(
+                &mut layout_info,
+                &cell.constraints,
+                orientation,
+                &expr_eval,
+            );
             cells.push(core_layout::BoxLayoutCellData { constraint: layout_info });
         }
     }
@@ -275,46 +308,54 @@ fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> 
 pub(crate) fn fill_layout_info_constraints(
     layout_info: &mut core_layout::LayoutInfo,
     constraints: &LayoutConstraints,
+    orientation: Orientation,
     expr_eval: &impl Fn(&NamedReference) -> f32,
 ) {
     let is_percent =
         |nr: &NamedReference| Expression::PropertyReference(nr.clone()).ty() == Type::Percent;
-    constraints.min_width.as_ref().map(|e| {
-        if !is_percent(e) {
-            layout_info.min_width = expr_eval(e)
-        } else {
-            layout_info.min_width_percent = expr_eval(e)
+
+    match orientation {
+        Orientation::Horizontal => {
+            constraints.min_width.as_ref().map(|e| {
+                if !is_percent(e) {
+                    layout_info.min = expr_eval(e)
+                } else {
+                    layout_info.min_percent = expr_eval(e)
+                }
+            });
+            constraints.max_width.as_ref().map(|e| {
+                if !is_percent(e) {
+                    layout_info.max = expr_eval(e)
+                } else {
+                    layout_info.max_percent = expr_eval(e)
+                }
+            });
+            constraints.preferred_width.as_ref().map(|e| {
+                layout_info.preferred = expr_eval(e);
+            });
+            constraints.horizontal_stretch.as_ref().map(|e| layout_info.stretch = expr_eval(e));
         }
-    });
-    constraints.max_width.as_ref().map(|e| {
-        if !is_percent(e) {
-            layout_info.max_width = expr_eval(e)
-        } else {
-            layout_info.max_width_percent = expr_eval(e)
+        Orientation::Vertical => {
+            constraints.min_height.as_ref().map(|e| {
+                if !is_percent(e) {
+                    layout_info.min = expr_eval(e)
+                } else {
+                    layout_info.min_percent = expr_eval(e)
+                }
+            });
+            constraints.max_height.as_ref().map(|e| {
+                if !is_percent(e) {
+                    layout_info.max = expr_eval(e)
+                } else {
+                    layout_info.max_percent = expr_eval(e)
+                }
+            });
+            constraints.preferred_height.as_ref().map(|e| {
+                layout_info.preferred = expr_eval(e);
+            });
+            constraints.vertical_stretch.as_ref().map(|e| layout_info.stretch = expr_eval(e));
         }
-    });
-    constraints.min_height.as_ref().map(|e| {
-        if !is_percent(e) {
-            layout_info.min_height = expr_eval(e)
-        } else {
-            layout_info.min_height_percent = expr_eval(e)
-        }
-    });
-    constraints.max_height.as_ref().map(|e| {
-        if !is_percent(e) {
-            layout_info.max_height = expr_eval(e)
-        } else {
-            layout_info.max_height_percent = expr_eval(e)
-        }
-    });
-    constraints.preferred_width.as_ref().map(|e| {
-        layout_info.preferred_width = expr_eval(e);
-    });
-    constraints.preferred_height.as_ref().map(|e| {
-        layout_info.preferred_height = expr_eval(e);
-    });
-    constraints.horizontal_stretch.as_ref().map(|e| layout_info.horizontal_stretch = expr_eval(e));
-    constraints.vertical_stretch.as_ref().map(|e| layout_info.vertical_stretch = expr_eval(e));
+    }
 }
 
 /// Get the layout info for an element based on the layout_info_prop or the builtin item layouting_info
@@ -322,9 +363,14 @@ pub(crate) fn get_layout_info(
     elem: &ElementRc,
     component: InstanceRef,
     window: &ComponentWindow,
+    orientation: Orientation,
 ) -> core_layout::LayoutInfo {
     let elem = elem.borrow();
     if let Some(nr) = &elem.layout_info_prop {
+        let nr = match orientation {
+            Orientation::Horizontal => &nr.0,
+            Orientation::Vertical => &nr.1,
+        };
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     } else {
         let item = &component
@@ -332,6 +378,10 @@ pub(crate) fn get_layout_info(
             .items
             .get(elem.id.as_str())
             .unwrap_or_else(|| panic!("Internal error: Item {} not found", elem.id));
-        unsafe { item.item_from_component(component.as_ptr()).as_ref().layouting_info(window) }
+        unsafe {
+            item.item_from_component(component.as_ptr())
+                .as_ref()
+                .layouting_info(to_runtime(orientation), window)
+        }
     }
 }

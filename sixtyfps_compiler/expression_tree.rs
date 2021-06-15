@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{BuiltinElement, EnumerationValue, Type};
+use crate::langtype::{BuiltinElement, Enumeration, EnumerationValue, Type};
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
@@ -101,7 +101,15 @@ impl BuiltinFunction {
             }
             BuiltinFunction::ImplicitLayoutInfo => Type::Function {
                 return_type: Box::new(crate::layout::layout_info_type()),
-                args: vec![Type::ElementReference],
+                args: vec![
+                    Type::ElementReference,
+                    // FIXME: we shouldn't be declaring the enum here
+                    Type::Enumeration(Rc::new(Enumeration {
+                        name: "Orientation".into(),
+                        values: vec!["Horizontal".into(), "Vertical".into()],
+                        default_value: 0,
+                    })),
+                ],
             },
             BuiltinFunction::ColorBrighter => Type::Function {
                 return_type: Box::new(Type::Color),
@@ -427,8 +435,10 @@ pub enum Expression {
         /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index]`
         repeater_index: Option<Box<Expression>>,
     },
-    ComputeLayoutInfo(crate::layout::Layout),
-    SolveLayout(crate::layout::Layout),
+    /// Compute the LayoutInfo for the given layout.
+    /// The orientation is the orientation of the cache, not the orientation of the layout
+    ComputeLayoutInfo(crate::layout::Layout, crate::layout::Orientation),
+    SolveLayout(crate::layout::Layout, crate::layout::Orientation),
 }
 
 impl Default for Expression {
@@ -562,8 +572,8 @@ impl Expression {
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
-            Expression::ComputeLayoutInfo(_) => crate::layout::layout_info_type(),
-            Expression::SolveLayout(_) => Type::LayoutCache,
+            Expression::ComputeLayoutInfo(..) => crate::layout::layout_info_type(),
+            Expression::SolveLayout(..) => Type::LayoutCache,
         }
     }
 
@@ -650,8 +660,8 @@ impl Expression {
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 repeater_index.as_deref().map(visitor);
             }
-            Expression::ComputeLayoutInfo(_) => {}
-            Expression::SolveLayout(_) => {}
+            Expression::ComputeLayoutInfo(..) => {}
+            Expression::SolveLayout(..) => {}
         }
     }
 
@@ -737,8 +747,8 @@ impl Expression {
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 repeater_index.as_deref_mut().map(visitor);
             }
-            Expression::ComputeLayoutInfo(_) => {}
-            Expression::SolveLayout(_) => {}
+            Expression::ComputeLayoutInfo(..) => {}
+            Expression::SolveLayout(..) => {}
         }
     }
 
@@ -805,8 +815,8 @@ impl Expression {
             }
             // TODO:  detect constant property within layouts
             Expression::LayoutCacheAccess { .. } => false,
-            Expression::ComputeLayoutInfo(_) => false,
-            Expression::SolveLayout(_) => false,
+            Expression::ComputeLayoutInfo(..) => false,
+            Expression::SolveLayout(..) => false,
         }
     }
 
@@ -1274,7 +1284,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
                 if repeater_index.is_some() { " + $index" } else { "" }
             )
         }
-        Expression::ComputeLayoutInfo(_) => write!(f, "layout_info(..)"),
-        Expression::SolveLayout(_) => write!(f, "solve_layout(..)"),
+        Expression::ComputeLayoutInfo(..) => write!(f, "layout_info(..)"),
+        Expression::SolveLayout(..) => write!(f, "solve_layout(..)"),
     }
 }

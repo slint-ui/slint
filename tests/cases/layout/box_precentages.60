@@ -20,7 +20,6 @@ TestCase := Rectangle {
             rect1 := Rectangle {
                 background: red;
                 width: 10%;
-                height: 20%;
             }
             rect2 := Rectangle {
                 background: blue;
@@ -53,7 +52,7 @@ TestCase := Rectangle {
     property <length> expected_y2: 90phx + 300phx * 0.15;
     property <length> expected_x1: 30phx;
 
-    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == expected_x1 && rect1.height == expected_y1 * 0.2;
+    property <bool> rect1_pos_ok: rect1.x == 0phx && rect1.y == 0phx && rect1.width == expected_x1 && rect1.height == expected_y1;
     property <bool> rect2_pos_ok: rect2.x == expected_x1 && rect2.y == 0phx && rect2.width == 270phx && rect2.height == expected_y1;
     property <bool> rect3_pos_ok: rect3.x == 0phx && rect3.y == expected_y1 && rect3.width == 300phx && rect3.height == 300phx * 0.15;
     property <bool> rect4_pos_ok: rect4.x == 0phx && hl2.y == expected_y2 && rect4.width == expected_x1 && rect4.height == 300phx - expected_y2;

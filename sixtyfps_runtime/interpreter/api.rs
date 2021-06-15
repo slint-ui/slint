@@ -253,11 +253,7 @@ declare_value_struct_conversion!(struct sixtyfps_corelib::model::StandardListVie
 declare_value_struct_conversion!(struct sixtyfps_corelib::properties::StateInfo { current_state, previous_state, change_time });
 declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyboardModifiers { control, alt, shift, meta });
 declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyEvent { event_type, text, modifiers });
-declare_value_struct_conversion!(struct sixtyfps_corelib::layout::LayoutInfo {
-    min_width, max_width, min_height, max_height,
-    min_width_percent, max_width_percent, min_height_percent, max_height_percent,
-    preferred_width, preferred_height, horizontal_stretch, vertical_stretch,
-});
+declare_value_struct_conversion!(struct sixtyfps_corelib::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 
 /// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///

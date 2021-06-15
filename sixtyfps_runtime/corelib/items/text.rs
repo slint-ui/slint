@@ -28,7 +28,7 @@ use crate::input::{
 };
 use crate::input::{InputEventFilterResult, InternalKeyCode};
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
-use crate::layout::LayoutInfo;
+use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::ComponentWindow;
@@ -124,7 +124,11 @@ impl Item for Text {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        window: &ComponentWindow,
+    ) -> LayoutInfo {
         let font_metrics = window.0.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
@@ -141,21 +145,29 @@ impl Item for Text {
         } else {
             implicit_size
         };
-        match self.overflow() {
-            TextOverflow::elide => {
-                min_size.width = min_size.width.min(font_metrics.text_size("…").width);
-            }
-            TextOverflow::clip => {}
-        }
+
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
         // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
         // letters will be cut off, apply the ceiling here.
-        LayoutInfo {
-            min_width: min_size.width.ceil(),
-            min_height: min_size.height.ceil(),
-            preferred_width: implicit_size.width.ceil(),
-            preferred_height: implicit_size.height.ceil(),
-            ..LayoutInfo::default()
+        match orientation {
+            Orientation::Horizontal => {
+                match self.overflow() {
+                    TextOverflow::elide => {
+                        min_size.width = min_size.width.min(font_metrics.text_size("…").width);
+                    }
+                    TextOverflow::clip => {}
+                }
+                LayoutInfo {
+                    min: min_size.width.ceil(),
+                    preferred: implicit_size.width.ceil(),
+                    ..LayoutInfo::default()
+                }
+            }
+            Orientation::Vertical => LayoutInfo {
+                min: min_size.height.ceil(),
+                preferred: implicit_size.height.ceil(),
+                ..LayoutInfo::default()
+            },
         }
     }
 
@@ -264,7 +276,11 @@ impl Item for TextInput {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        window: &ComponentWindow,
+    ) -> LayoutInfo {
         let font_metrics = window.0.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
@@ -272,13 +288,16 @@ impl Item for TextInput {
         );
         let size = font_metrics.text_size("********************").ceil();
 
-        LayoutInfo {
-            min_width: size.width,
-            min_height: size.height,
-            preferred_width: size.width,
-            preferred_height: size.height,
-            horizontal_stretch: 1.,
-            ..LayoutInfo::default()
+        match orientation {
+            Orientation::Horizontal => LayoutInfo {
+                min: size.width,
+                preferred: size.width,
+                stretch: 1.,
+                ..LayoutInfo::default()
+            },
+            Orientation::Vertical => {
+                LayoutInfo { min: size.height, preferred: size.height, ..LayoutInfo::default() }
+            }
         }
     }
 

@@ -26,7 +26,7 @@ use crate::input::{
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
-use crate::layout::LayoutInfo;
+use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::ComponentWindow;
@@ -71,11 +71,17 @@ impl Item for ImageItem {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        window: &ComponentWindow,
+    ) -> LayoutInfo {
         let natural_size = window.0.image_size((&self.source()).into());
         LayoutInfo {
-            preferred_width: natural_size.width,
-            preferred_height: natural_size.height,
+            preferred: match orientation {
+                Orientation::Horizontal => natural_size.width,
+                Orientation::Vertical => natural_size.height,
+            },
             ..Default::default()
         }
     }
@@ -142,11 +148,17 @@ impl Item for ClippedImage {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        window: &ComponentWindow,
+    ) -> LayoutInfo {
         let natural_size = window.0.image_size((&self.source()).into());
         LayoutInfo {
-            preferred_width: natural_size.width,
-            preferred_height: natural_size.height,
+            preferred: match orientation {
+                Orientation::Horizontal => natural_size.width,
+                Orientation::Vertical => natural_size.height,
+            },
             ..Default::default()
         }
     }

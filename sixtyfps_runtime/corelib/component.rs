@@ -13,7 +13,7 @@ LICENSE END */
 
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::items::{ItemVTable, ItemWeak};
-use crate::layout::LayoutInfo;
+use crate::layout::{LayoutInfo, Orientation};
 use crate::window::ComponentWindow;
 use vtable::*;
 
@@ -44,7 +44,8 @@ pub struct ComponentVTable {
         extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
 
     /// Returns the layout info for this component
-    pub layout_info: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> LayoutInfo,
+    pub layout_info:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, Orientation) -> LayoutInfo,
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ComponentVTable>) -> vtable::Layout,

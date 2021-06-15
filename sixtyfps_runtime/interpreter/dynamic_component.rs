@@ -24,7 +24,7 @@ use sixtyfps_corelib::item_tree::{
 use sixtyfps_corelib::items::{
     Flickable, ItemRc, ItemRef, ItemVTable, ItemWeak, PropertyAnimation,
 };
-use sixtyfps_corelib::layout::{BoxLayoutCellData, LayoutInfo};
+use sixtyfps_corelib::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
@@ -159,8 +159,8 @@ impl RepeatedComponent for ErasedComponentBox {
         }
     }
 
-    fn box_layout_data(self: Pin<&Self>) -> BoxLayoutCellData {
-        BoxLayoutCellData { constraint: self.borrow().as_ref().layout_info() }
+    fn box_layout_data(self: Pin<&Self>, o: Orientation) -> BoxLayoutCellData {
+        BoxLayoutCellData { constraint: self.borrow().as_ref().layout_info(o) }
     }
 }
 
@@ -174,8 +174,11 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().visit_children_item(index, order, visitor)
     }
 
-    fn layout_info(self: Pin<&Self>) -> sixtyfps_corelib::layout::LayoutInfo {
-        self.borrow().as_ref().layout_info()
+    fn layout_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+    ) -> sixtyfps_corelib::layout::LayoutInfo {
+        self.borrow().as_ref().layout_info(orientation)
     }
     fn get_item_ref<'a>(self: Pin<&'a Self>, index: usize) -> Pin<ItemRef<'a>> {
         // We're having difficulties transferring the lifetime to a pinned reference
@@ -1309,15 +1312,17 @@ pub fn get_repeater_by_name<'a, 'id>(
     (rep_in_comp.offset.apply_pin(instance_ref.instance), rep_in_comp.component_to_repeat.clone())
 }
 
-extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
+extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) -> LayoutInfo {
     generativity::make_guard!(guard);
     // This is fine since we can only be called with a component that with our vtable which is a ComponentDescription
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let orientation = crate::eval_layout::from_runtime(orientation);
 
     let mut result = crate::eval_layout::get_layout_info(
         &instance_ref.component_type.original.root_element,
         instance_ref,
         &eval::window_ref(instance_ref).unwrap(),
+        orientation,
     );
 
     let constraints = instance_ref.component_type.original.root_constraints.borrow();
@@ -1325,6 +1330,7 @@ extern "C" fn layout_info(component: ComponentRefPin) -> LayoutInfo {
         crate::eval_layout::fill_layout_info_constraints(
             &mut result,
             &constraints,
+            orientation,
             &|nr: &NamedReference| {
                 eval::load_property(instance_ref, &nr.element(), nr.name())
                     .unwrap()

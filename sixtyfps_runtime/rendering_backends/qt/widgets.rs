@@ -33,7 +33,7 @@ use sixtyfps_corelib::input::{
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
-use sixtyfps_corelib::layout::LayoutInfo;
+use sixtyfps_corelib::layout::{LayoutInfo, Orientation};
 use sixtyfps_corelib::rtti::*;
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::{
@@ -171,7 +171,11 @@ impl Item for NativeButton {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         let text: qttypes::QString = self.text().as_str().into();
         let size = cpp!(unsafe [
             text as "QString"
@@ -183,8 +187,10 @@ impl Item for NativeButton {
             return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
-            min_width: size.width as f32,
-            min_height: size.height as f32,
+            min: match orientation {
+                Orientation::Horizontal => size.width as f32,
+                Orientation::Vertical => size.height as f32,
+            },
             ..LayoutInfo::default()
         }
     }
@@ -296,7 +302,11 @@ impl Item for NativeCheckBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         let text: qttypes::QString = self.text().as_str().into();
         let size = cpp!(unsafe [
             text as "QString"
@@ -307,12 +317,15 @@ impl Item for NativeCheckBox {
             option.text = std::move(text);
             return qApp->style()->sizeFromContents(QStyle::CT_CheckBox, &option, option.rect.size(), nullptr);
         });
-        LayoutInfo {
-            min_width: size.width as f32,
-            min_height: size.height as f32,
-            max_height: size.height as f32,
-            horizontal_stretch: 1.,
-            ..LayoutInfo::default()
+        match orientation {
+            Orientation::Horizontal => {
+                LayoutInfo { min: size.width as f32, stretch: 1., ..LayoutInfo::default() }
+            }
+            Orientation::Vertical => LayoutInfo {
+                min: size.height as f32,
+                max: size.height as f32,
+                ..LayoutInfo::default()
+            },
         }
     }
 
@@ -438,7 +451,11 @@ impl Item for NativeSpinBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         //let value: i32 = self.value();
         let data = self.data();
         let active_controls = data.active_controls;
@@ -461,12 +478,15 @@ impl Item for NativeSpinBox {
 
             return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr);
         });
-        LayoutInfo {
-            min_width: size.width as f32,
-            min_height: size.height as f32,
-            max_height: size.height as f32,
-            horizontal_stretch: 1.,
-            ..LayoutInfo::default()
+        match orientation {
+            Orientation::Horizontal => {
+                LayoutInfo { min: size.width as f32, stretch: 1., ..LayoutInfo::default() }
+            }
+            Orientation::Vertical => LayoutInfo {
+                min: size.height as f32,
+                max: size.height as f32,
+                ..LayoutInfo::default()
+            },
         }
     }
 
@@ -649,7 +669,11 @@ impl Item for NativeSlider {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         let enabled = self.enabled();
         let value = self.value() as i32;
         let min = self.minimum() as i32;
@@ -673,12 +697,15 @@ impl Item for NativeSlider {
             auto thick = style->pixelMetric(QStyle::PM_SliderThickness, &option, nullptr);
             return style->sizeFromContents(QStyle::CT_Slider, &option, QSize(0, thick), nullptr);
         });
-        LayoutInfo {
-            min_width: size.width as f32,
-            min_height: size.height as f32,
-            max_height: size.height as f32,
-            horizontal_stretch: 1.,
-            ..LayoutInfo::default()
+        match orientation {
+            Orientation::Horizontal => {
+                LayoutInfo { min: size.width as f32, stretch: 1., ..LayoutInfo::default() }
+            }
+            Orientation::Vertical => LayoutInfo {
+                min: size.height as f32,
+                max: size.height as f32,
+                ..LayoutInfo::default()
+            },
         }
     }
 
@@ -919,16 +946,17 @@ impl Item for NativeGroupBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        let left = self.native_padding_left();
-        let right = self.native_padding_right();
-        let top = self.native_padding_top();
-        let bottom = self.native_padding_bottom();
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         LayoutInfo {
-            min_width: left + right,
-            min_height: top + bottom,
-            horizontal_stretch: 1.,
-            vertical_stretch: 1.,
+            min: match orientation {
+                Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
+                Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
+            },
+            stretch: 1.,
             ..LayoutInfo::default()
         }
     }
@@ -1065,15 +1093,17 @@ impl Item for NativeLineEdit {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        let left = self.native_padding_left();
-        let right = self.native_padding_right();
-        let top = self.native_padding_top();
-        let bottom = self.native_padding_bottom();
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         LayoutInfo {
-            min_width: left + right,
-            min_height: top + bottom,
-            horizontal_stretch: 1.,
+            min: match orientation {
+                Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
+                Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
+            },
+            stretch: if orientation == Orientation::Horizontal { 1. } else { 0. },
             ..LayoutInfo::default()
         }
     }
@@ -1219,16 +1249,17 @@ impl Item for NativeScrollView {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
-        let left = self.native_padding_left();
-        let right = self.native_padding_right();
-        let top = self.native_padding_top();
-        let bottom = self.native_padding_bottom();
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         LayoutInfo {
-            min_width: left + right,
-            min_height: top + bottom,
-            horizontal_stretch: 1.,
-            vertical_stretch: 1.,
+            min: match orientation {
+                Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
+                Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
+            },
+            stretch: 1.,
             ..LayoutInfo::default()
         }
     }
@@ -1531,7 +1562,11 @@ impl Item for NativeStandardListViewItem {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         let index: i32 = self.index();
         let item = self.item();
         let text: qttypes::QString = item.text.as_str().into();
@@ -1555,8 +1590,10 @@ impl Item for NativeStandardListViewItem {
             return qApp->style()->sizeFromContents(QStyle::CT_ItemViewItem, &option, QSize{}, nullptr);
         });
         let result = LayoutInfo {
-            min_width: s.width as f32,
-            min_height: s.height as f32,
+            min: match orientation {
+                Orientation::Horizontal => s.width,
+                Orientation::Vertical => s.height,
+            } as f32,
             ..LayoutInfo::default()
         };
         result
@@ -1652,7 +1689,11 @@ impl Item for NativeComboBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, _window: &ComponentWindow) -> LayoutInfo {
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &ComponentWindow,
+    ) -> LayoutInfo {
         let text: qttypes::QString = self.current_value().as_str().into();
         let size = cpp!(unsafe [
             text as "QString"
@@ -1665,8 +1706,10 @@ impl Item for NativeComboBox {
             return qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
-            min_width: size.width as f32,
-            min_height: size.height as f32,
+            min: match orientation {
+                Orientation::Horizontal => size.width,
+                Orientation::Vertical => size.height,
+            } as f32,
             ..LayoutInfo::default()
         }
     }
