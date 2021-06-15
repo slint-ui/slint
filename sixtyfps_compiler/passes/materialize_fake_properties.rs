@@ -104,11 +104,8 @@ fn initialize(elem: ElementRc, name: &str) {
 }
 
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
-    let expr = match &elem.borrow().layout_info_prop {
-        Some(e) => Expression::PropertyReference(match orient {
-            Orientation::Horizontal => e.0.clone(),
-            Orientation::Vertical => e.1.clone(),
-        }),
+    let expr = match elem.borrow().layout_info_prop(orient) {
+        Some(e) => Expression::PropertyReference(e.clone()),
         None => {
             let orientation = match BuiltinFunction::ImplicitLayoutInfo.ty() {
                 Type::Function { args, .. } => match &args[1] {

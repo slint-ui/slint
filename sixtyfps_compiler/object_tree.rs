@@ -17,7 +17,7 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::PropertyLookupResult;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
-use crate::layout::LayoutConstraints;
+use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
@@ -987,6 +987,13 @@ impl Element {
                 _ => break None,
             }
         }
+    }
+
+    pub fn layout_info_prop(&self, orientation: Orientation) -> Option<&NamedReference> {
+        self.layout_info_prop.as_ref().map(|prop| match orientation {
+            Orientation::Horizontal => &prop.0,
+            Orientation::Vertical => &prop.1,
+        })
     }
 }
 

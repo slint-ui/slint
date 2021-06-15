@@ -110,6 +110,13 @@ impl LayoutRect {
         self.x_reference.as_mut().map(&mut visitor);
         self.y_reference.as_mut().map(&mut visitor);
     }
+
+    pub fn size_reference(&self, orientation: Orientation) -> Option<&NamedReference> {
+        match orientation {
+            Orientation::Horizontal => self.width_reference.as_ref(),
+            Orientation::Vertical => self.height_reference.as_ref(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -183,40 +190,33 @@ impl LayoutConstraints {
     // Iterate over the constraint with a reference to a property, and the corresponding member in the sixtyfps_corelib::layout::LayoutInfo struct
     pub fn for_each_restrictions<'a>(
         &'a self,
+        orientation: Orientation,
     ) -> impl Iterator<Item = (&NamedReference, &'static str)> {
+        let (min, max, preferred, stretch) = match orientation {
+            Orientation::Horizontal => {
+                (&self.min_width, &self.max_width, &self.preferred_width, &self.horizontal_stretch)
+            }
+            Orientation::Vertical => {
+                (&self.min_height, &self.max_height, &self.preferred_height, &self.vertical_stretch)
+            }
+        };
         std::iter::empty()
-            .chain(self.min_width.as_ref().map(|x| {
+            .chain(min.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
-                    (x, "min_width")
+                    (x, "min")
                 } else {
-                    (x, "min_width_percent")
+                    (x, "min_percent")
                 }
             }))
-            .chain(self.max_width.as_ref().map(|x| {
+            .chain(max.as_ref().map(|x| {
                 if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
-                    (x, "max_width")
+                    (x, "max")
                 } else {
-                    (x, "max_width_percent")
+                    (x, "max_percent")
                 }
             }))
-            .chain(self.min_height.as_ref().map(|x| {
-                if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
-                    (x, "min_height")
-                } else {
-                    (x, "min_height_percent")
-                }
-            }))
-            .chain(self.max_height.as_ref().map(|x| {
-                if Expression::PropertyReference(x.clone()).ty() != Type::Percent {
-                    (x, "max_height")
-                } else {
-                    (x, "max_height_percent")
-                }
-            }))
-            .chain(self.preferred_width.as_ref().map(|x| (x, "preferred_width")))
-            .chain(self.preferred_height.as_ref().map(|x| (x, "preferred_height")))
-            .chain(self.horizontal_stretch.as_ref().map(|x| (x, "horizontal_stretch")))
-            .chain(self.vertical_stretch.as_ref().map(|x| (x, "vertical_stretch")))
+            .chain(preferred.as_ref().map(|x| (x, "preferred")))
+            .chain(stretch.as_ref().map(|x| (x, "stretch")))
     }
 
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
@@ -241,6 +241,15 @@ pub struct GridLayoutElement {
     pub item: LayoutItem,
 }
 
+impl GridLayoutElement {
+    pub fn col_or_row_and_span(&self, orientation: Orientation) -> (u16, u16) {
+        match orientation {
+            Orientation::Horizontal => (self.col, self.colspan),
+            Orientation::Vertical => (self.row, self.rowspan),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Padding {
     pub left: Option<NamedReference>,
@@ -255,6 +264,14 @@ impl Padding {
         self.right.as_mut().map(|e| visitor(&mut *e));
         self.top.as_mut().map(|e| visitor(&mut *e));
         self.bottom.as_mut().map(|e| visitor(&mut *e));
+    }
+
+    // Return reference to the begin and end padding for a given orientation
+    pub fn begin_end(&self, o: Orientation) -> (Option<&NamedReference>, Option<&NamedReference>) {
+        match o {
+            Orientation::Horizontal => (self.left.as_ref(), self.right.as_ref()),
+            Orientation::Vertical => (self.top.as_ref(), self.bottom.as_ref()),
+        }
     }
 }
 
