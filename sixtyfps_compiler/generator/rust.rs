@@ -21,11 +21,21 @@ use crate::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
 };
 use crate::langtype::Type;
-use crate::layout::{Layout, LayoutGeometry, LayoutRect};
+use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::object_tree::{Component, Document, ElementRc};
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::{collections::BTreeMap, rc::Rc};
+
+impl quote::ToTokens for Orientation {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let tks = match self {
+            Orientation::Horizontal => quote!(sixtyfps::re_exports::Orientation::Horizontal),
+            Orientation::Vertical => quote!(sixtyfps::re_exports::Orientation::Vertical),
+        };
+        tokens.extend(tks);
+    }
+}
 
 fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
@@ -437,9 +447,11 @@ fn generate_component(
             } else {
                 // TODO: we could generate this code only if we know that this component is in a box layout
                 quote! {
-                    fn box_layout_data(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::BoxLayoutCellData {
+                    fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sixtyfps::re_exports::Orientation)
+                        -> sixtyfps::re_exports::BoxLayoutCellData
+                    {
                         use sixtyfps::re_exports::*;
-                        BoxLayoutCellData { constraint: self.as_ref().layout_info() }
+                        BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
                     }
                 }
             };
@@ -1218,15 +1230,16 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     }
                 }
                 Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo, _) => {
-                    if arguments.len() != 1 {
+                    if arguments.len() != 2 {
                         panic!("internal error: incorrect argument count to ImplicitLayoutInfo call");
                     }
                     if let Expression::ElementReference(item) = &arguments[0] {
                         let item = item.upgrade().unwrap();
                         let item = item.borrow();
                         let item_id = format_ident!("{}", item.id);
+                        let orient = compile_expression(&arguments[1], component);
                         quote!(
-                            Self::FIELD_OFFSETS.#item_id.apply_pin(_self).layouting_info(&_self.window)
+                            Self::FIELD_OFFSETS.#item_id.apply_pin(_self).layouting_info(#orient, &_self.window)
                         )
                     } else {
                         panic!("internal error: argument to ImplicitLayoutInfo must be an element")
@@ -1436,64 +1449,61 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 let offset = compile_expression(&ri, component);
                 quote!({
                     let cache = #cache.get();
-                    cache[(cache[#index] as usize) + #offset as usize * 4]
+                    cache[(cache[#index] as usize) + #offset as usize * 2]
                 })
             } else {
                 quote!(#cache.get()[#index])
             }
         }
-        Expression::ComputeLayoutInfo(Layout::GridLayout(layout)) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
-            let cells = grid_layout_cell_data(layout, component);
+        Expression::ComputeLayoutInfo(Layout::GridLayout(layout), o) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
+            let cells = grid_layout_cell_data(layout, *o, component);
             quote!(grid_layout_info(Slice::from_slice(&#cells), #spacing, #padding))
         }
-        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
-            let (cells, alignment) = box_layout_data(layout, component, None);
-            let is_horizontal = layout.is_horizontal;
-            quote!(box_layout_info(Slice::from_slice(&#cells), #spacing, #padding, #alignment, #is_horizontal))
+        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout), o) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry,*o, component);
+            let (cells, alignment) = box_layout_data(layout, *o, component, None);
+            if *o == layout.orientation {
+                quote!(box_layout_info(Slice::from_slice(&#cells), #spacing, #padding, #alignment))
+            } else {
+                quote!(box_layout_info_ortho(Slice::from_slice(&#cells), #padding))
+            }
         }
-        Expression::ComputeLayoutInfo(Layout::PathLayout(_)) => unimplemented!(),
-        Expression::SolveLayout(Layout::GridLayout(layout)) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
-            let cells = grid_layout_cell_data(layout, component);
-            let (width, height) = layout_geometry_width_height(&layout.geometry.rect, component);
+        Expression::ComputeLayoutInfo(Layout::PathLayout(_), _) => unimplemented!(),
+        Expression::SolveLayout(Layout::GridLayout(layout), o) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
+            let cells = grid_layout_cell_data(layout, *o, component);
+            let size = layout_geometry_size(&layout.geometry.rect, *o, component);
             quote!(solve_grid_layout(&GridLayoutData{
-                width: #width,
-                height: #height,
-                x: 0.,
-                y: 0.,
+                size: #size,
                 spacing: #spacing,
                 padding: #padding,
                 cells: Slice::from_slice(&#cells),
             }))
         }
-        Expression::SolveLayout(Layout::BoxLayout(layout)) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+        Expression::SolveLayout(Layout::BoxLayout(layout), o) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
             let mut repeated_indices = Default::default();
             let mut repeated_indices_init = Default::default();
-            let (cells, alignment) = box_layout_data(layout, component, Some((&mut repeated_indices, &mut repeated_indices_init)));
-            let (width, height) = layout_geometry_width_height(&layout.geometry.rect, component);
-            let is_horizontal = layout.is_horizontal;
+            let (cells, alignment) = box_layout_data(layout, *o, component, Some((&mut repeated_indices, &mut repeated_indices_init)));
+            let size = layout_geometry_size(&layout.geometry.rect, *o, component);
             quote!({
                 #repeated_indices_init
                 solve_box_layout(
                     &BoxLayoutData {
-                        width: #width,
-                        height: #height,
-                        x: 0.,
-                        y: 0.,
+                        size: #size,
                         spacing: #spacing,
                         padding: #padding,
                         alignment: #alignment,
                         cells: Slice::from_slice(&#cells),
                     },
-                    #is_horizontal, Slice::from_slice(&#repeated_indices),
+                    Slice::from_slice(&#repeated_indices),
                 )
             })
         }
-        Expression::SolveLayout(Layout::PathLayout(layout)) => {
-            let (width, height) = layout_geometry_width_height(&layout.rect, component);
+        Expression::SolveLayout(Layout::PathLayout(layout), _) => {
+            let width = layout_geometry_size(&layout.rect,  Orientation::Horizontal, component);
+            let height = layout_geometry_size(&layout.rect,  Orientation::Vertical, component);
             let elements = compile_path(&layout.path, component);
             let get_prop = |nr: &Option<NamedReference>| {
                 nr.as_ref().map_or_else(
@@ -1634,19 +1644,16 @@ fn compile_assignment(
 
 fn grid_layout_cell_data(
     layout: &crate::layout::GridLayout,
+    orientation: Orientation,
     component: &Rc<Component>,
 ) -> TokenStream {
     let cells = layout.elems.iter().map(|c| {
-        let col = c.col;
-        let row = c.row;
-        let colspan = c.colspan;
-        let rowspan = c.rowspan;
-        let layout_info = get_layout_info(&c.item.element, component, &c.item.constraints);
+        let (col_or_row, span) = c.col_or_row_and_span(orientation);
+        let layout_info =
+            get_layout_info(&c.item.element, component, &c.item.constraints, orientation);
         quote!(GridLayoutCellData {
-            col: #col,
-            row: #row,
-            colspan: #colspan,
-            rowspan: #rowspan,
+            col_or_row: #col_or_row,
+            span: #span,
             constraint: #layout_info,
         })
     });
@@ -1657,6 +1664,7 @@ fn grid_layout_cell_data(
 /// The repeated_indices initialize the repeated_indices (var, init_code)
 fn box_layout_data(
     layout: &crate::layout::BoxLayout,
+    orientation: Orientation,
     component: &Rc<Component>,
     mut repeated_indices: Option<(&mut TokenStream, &mut TokenStream)>,
 ) -> (TokenStream, TokenStream) {
@@ -1672,7 +1680,7 @@ fn box_layout_data(
 
     if repeater_count == 0 {
         let cells = layout.elems.iter().map(|li| {
-            let layout_info = get_layout_info(&li.element, component, &li.constraints);
+            let layout_info = get_layout_info(&li.element, component, &li.constraints, orientation);
             quote!(BoxLayoutCellData { constraint: #layout_info })
         });
         if let Some((ri, _)) = &mut repeated_indices {
@@ -1710,11 +1718,12 @@ fn box_layout_data(
                     let internal_vec = _self.#repeater_id.components_vec();
                     #ri
                     for sub_comp in &internal_vec {
-                        items_vec.push(sub_comp.as_pin_ref().box_layout_data())
+                        items_vec.push(sub_comp.as_pin_ref().box_layout_data(#orientation))
                     }
                 }
             } else {
-                let layout_info = get_layout_info(&item.element, component, &item.constraints);
+                let layout_info =
+                    get_layout_info(&item.element, component, &item.constraints, orientation);
                 fixed_count += 1;
                 push_code = quote! {
                     #push_code
@@ -1735,62 +1744,54 @@ fn box_layout_data(
 
 fn generate_layout_padding_and_spacing(
     layout_geometry: &LayoutGeometry,
+    orientation: Orientation,
     component: &Rc<Component>,
 ) -> (TokenStream, TokenStream) {
-    let spacing = if let Some(spacing) = &layout_geometry.spacing {
-        let spacing_code = access_named_reference(spacing, component, quote!(_self));
-        quote!(#spacing_code.get())
-    } else {
-        quote!(0.)
+    let padding_prop = |expr| {
+        if let Some(expr) = expr {
+            let p = access_named_reference(expr, component, quote!(_self));
+            quote!(#p.get())
+        } else {
+            quote!(0.)
+        }
     };
-    let padding = {
-        let padding_prop = |expr| {
-            if let Some(expr) = expr {
-                let p = access_named_reference(expr, component, quote!(_self));
-                quote!(#p.get())
-            } else {
-                quote!(0.)
-            }
-        };
-        let left = padding_prop(layout_geometry.padding.left.as_ref());
-        let right = padding_prop(layout_geometry.padding.right.as_ref());
-        let top = padding_prop(layout_geometry.padding.top.as_ref());
-        let bottom = padding_prop(layout_geometry.padding.bottom.as_ref());
-        quote!(&sixtyfps::re_exports::Padding {
-            left: #left,
-            right: #right,
-            top: #top,
-            bottom: #bottom,
-        })
-    };
+    let spacing = padding_prop(layout_geometry.spacing.as_ref());
+    let (begin, end) = layout_geometry.padding.begin_end(orientation);
+    let (begin, end) = (padding_prop(begin), padding_prop(end));
+    let padding = quote!(&sixtyfps::re_exports::Padding { begin: #begin, end: #end });
+
     (padding, spacing)
 }
 
-fn layout_geometry_width_height(
+fn layout_geometry_size(
     rect: &LayoutRect,
+    orientation: Orientation,
     component: &Rc<Component>,
-) -> (TokenStream, TokenStream) {
-    let get_prop = |nr: &Option<NamedReference>| {
-        nr.as_ref().map_or_else(
-            || quote!(::core::default::Default::default()),
-            |nr| {
-                let p = access_named_reference(nr, component, quote!(_self));
-                quote!(#p.get())
-            },
-        )
-    };
-    (get_prop(&rect.width_reference), get_prop(&rect.height_reference))
+) -> TokenStream {
+    let nr = rect.size_reference(orientation);
+    nr.map_or_else(
+        || quote!(::core::default::Default::default()),
+        |nr| {
+            let p = access_named_reference(nr, component, quote!(_self));
+            quote!(#p.get())
+        },
+    )
 }
 
 fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let elem = &component.root_element;
-    let layout_info = get_layout_info(elem, component, &component.root_constraints.borrow());
+    let constraints = component.root_constraints.borrow();
+    let layout_info_h = get_layout_info(elem, component, &constraints, Orientation::Horizontal);
+    let layout_info_v = get_layout_info(elem, component, &constraints, Orientation::Vertical);
     quote! {
-        fn layout_info(self: ::core::pin::Pin<&Self>) -> sixtyfps::re_exports::LayoutInfo {
+        fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation) -> sixtyfps::re_exports::LayoutInfo {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let _self = self;
-            #layout_info
+            match orientation {
+                sixtyfps::re_exports::Orientation::Horizontal => #layout_info_h,
+                sixtyfps::re_exports::Orientation::Vertical => #layout_info_v,
+            }
         }
     }
 }
@@ -1799,19 +1800,20 @@ fn get_layout_info(
     elem: &ElementRc,
     component: &Rc<Component>,
     constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
 ) -> TokenStream {
-    let layout_info = if let Some(layout_info_prop) = &elem.borrow().layout_info_prop {
+    let layout_info = if let Some(layout_info_prop) = &elem.borrow().layout_info_prop(orientation) {
         let li = access_named_reference(layout_info_prop, component, quote!(_self));
         quote! {#li.get()}
     } else {
         let elem_id = format_ident!("{}", elem.borrow().id);
         let inner_component_id = inner_component_id(component);
-        quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(&_self.window))
+        quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(#orientation, &_self.window))
     };
 
     if constraints.has_explicit_restrictions() {
         let (name, expr): (Vec<_>, Vec<_>) = constraints
-            .for_each_restrictions()
+            .for_each_restrictions(orientation)
             .map(|(e, s)| {
                 (format_ident!("{}", s), access_named_reference(e, component, quote!(_self)))
             })

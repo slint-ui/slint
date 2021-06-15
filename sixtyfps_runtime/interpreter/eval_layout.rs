@@ -95,13 +95,9 @@ pub(crate) fn solve_layout(
             let (padding, spacing) =
                 padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
 
-            let size_ref = match orientation {
-                Orientation::Horizontal => &grid_layout.geometry.rect.width_reference,
-                Orientation::Vertical => &grid_layout.geometry.rect.height_reference,
-            };
-
+            let size_ref = grid_layout.geometry.rect.size_reference(orientation);
             core_layout::solve_grid_layout(&core_layout::GridLayoutData {
-                size: size_ref.as_ref().map(expr_eval).unwrap_or(0.),
+                size: size_ref.map(expr_eval).unwrap_or(0.),
                 spacing,
                 padding: &padding,
                 cells: Slice::from(cells.as_slice()),
@@ -165,16 +161,9 @@ fn padding_and_spacing(
     expr_eval: &impl Fn(&NamedReference) -> f32,
 ) -> (core_layout::Padding, f32) {
     let spacing = layout_geometry.spacing.as_ref().map_or(0., expr_eval);
-    let padding = match orientation {
-        Orientation::Horizontal => core_layout::Padding {
-            begin: layout_geometry.padding.left.as_ref().map_or(0., expr_eval),
-            end: layout_geometry.padding.right.as_ref().map_or(0., expr_eval),
-        },
-        Orientation::Vertical => core_layout::Padding {
-            begin: layout_geometry.padding.top.as_ref().map_or(0., expr_eval),
-            end: layout_geometry.padding.bottom.as_ref().map_or(0., expr_eval),
-        },
-    };
+    let (begin, end) = layout_geometry.padding.begin_end(orientation);
+    let padding =
+        core_layout::Padding { begin: begin.map_or(0., expr_eval), end: end.map_or(0., expr_eval) };
     (padding, spacing)
 }
 
@@ -201,10 +190,7 @@ fn grid_layout_data(
                 orientation,
                 &expr_eval,
             );
-            let (col_or_row, span) = match orientation {
-                Orientation::Horizontal => (cell.col, cell.colspan),
-                Orientation::Vertical => (cell.row, cell.rowspan),
-            };
+            let (col_or_row, span) = cell.col_or_row_and_span(orientation);
             core_layout::GridLayoutCellData { col_or_row, span, constraint: layout_info }
         })
         .collect::<Vec<_>>();
@@ -366,11 +352,7 @@ pub(crate) fn get_layout_info(
     orientation: Orientation,
 ) -> core_layout::LayoutInfo {
     let elem = elem.borrow();
-    if let Some(nr) = &elem.layout_info_prop {
-        let nr = match orientation {
-            Orientation::Horizontal => &nr.0,
-            Orientation::Vertical => &nr.1,
-        };
+    if let Some(nr) = elem.layout_info_prop(orientation) {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     } else {
         let item = &component
