@@ -6,7 +6,7 @@ src = "src"
 title = "SixtyFPS Memory Game Tutorial"
 
 [output.html]
-# additional-js = ["highlight_60.js"]
+additional-js = ["highlight_60.js"]
 
 [output.linkcheck]  # enable the "mdbook-linkcheck" renderer
 optional = true
