@@ -1,0 +1,12 @@
+[book]
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+language = "en"
+multilingual = false
+src = "src"
+title = "SixtyFPS Memory Game Tutorial"
+
+[output.html]
+# additional-js = ["highlight_60.js"]
+
+[output.linkcheck]  # enable the "mdbook-linkcheck" renderer
+optional = true
