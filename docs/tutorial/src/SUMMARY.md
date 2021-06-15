@@ -8,3 +8,5 @@
 - [Creating The Tiles From Rust](./creating_the_tiles_from_rust.md)
 - [Game Logic In Rust](./game_logic_in_rust.md)
 - [Ideas For The Reader](./ideas_for_the_reader.md)
+- [Running In A Browser Using WebAssembly](./running_in_a_browser.md)
+- [Conclusion](./conclusion.md)
