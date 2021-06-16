@@ -341,7 +341,7 @@ jobs:
         path: |
            ~/.cargo/bin/mdbook
            ~/.cargo/bin/mdbook-linkcheck
-        key: ${{ env.MDBOOK_VERSION }}-${{ env.MDBOOK_LINKCHECK_VERSION }}
+        key: ${{ runner.os }}-${{ github.job }}-mdbook-${{ env.MDBOOK_VERSION }}-${{ env.MDBOOK_LINKCHECK_VERSION }}
     - name: Install nightly
       uses: actions-rs/toolchain@v1
       with:
