@@ -85,7 +85,6 @@ sixtyfps::sixtyfps! {
         height: 326px;
 
         property <[TileData]> memory_tiles: [
-           /* Left empty for doctest
            { image: @image-url("icons/at.png") },
            { image: @image-url("icons/balance-scale.png") },
            { image: @image-url("icons/bicycle.png") },
@@ -94,7 +93,6 @@ sixtyfps::sixtyfps! {
            { image: @image-url("icons/cogs.png") },
            { image: @image-url("icons/motorcycle.png") },
            { image: @image-url("icons/video.png") },
-           */
         ];
         for tile[i] in memory_tiles : MemoryTile {
             x: mod(i, 4) * 74px;
