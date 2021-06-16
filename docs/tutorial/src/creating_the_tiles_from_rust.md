@@ -20,7 +20,7 @@ in a [`VecModel`](https://sixtyfps.io/docs/rust/sixtyfps/struct.vecmodel) which 
 We modify the main function like so:
 
 ```rust
-{{#include main_tiles_from_rust.rs}}
+{{#include main_tiles_from_rust.rs:tiles}}
 ```
 
 Note that we clone the `tiles_model` because we'll use it later to update the game logic.
