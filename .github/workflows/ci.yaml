@@ -337,6 +337,8 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
           toolchain: nightly
+    - name: Install mdbook
+      run: cargo install mdbook mdbook-linkcheck
     - name: Install doxygen
       run: sudo apt-get install doxygen
     - uses: dschep/install-pipenv-action@v1
@@ -358,6 +360,9 @@ jobs:
           command: doc
           toolchain: nightly
           args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps --all-features
+    - name: "Rust Tutorial Docs"
+      run: mdbook build
+      working-directory: docs/tutorial
     - name: "Node docs"
       run: |
           npm install --ignore-scripts
@@ -371,9 +376,10 @@ jobs:
               target/doc
               target/cppdocs/html
               api/sixtyfps-node/docs
+              docs/tutorial/book/html
     - name: Clean cache # Don't cache docs to avoid them including removed classes being published
       run: |
-          rm -rf target/doc target/cppdocs api/sixtyfps-node/docs
+          rm -rf target/doc target/cppdocs api/sixtyfps-node/docs docs/tutorial/book
 
   wasm:
     env:
@@ -654,6 +660,8 @@ jobs:
             cp -a ../target/cppdocs/html/* docs/cpp/
             mkdir -p docs/rust
             cp -a ../target/doc/* docs/rust/
+            mkdir -p docs/tutorial/rust
+            cp -a ../docs/tutorial/book/html/* docs/tutorial/rust
             mkdir -p docs/node
             cp -a ../api/sixtyfps-node/docs/* docs/node/
             git add docs
