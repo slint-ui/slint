@@ -60,6 +60,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rerun-if-changed={}", path.display());
     }
 
+    let cargo_manifest_dir = env!("CARGO_MANIFEST_DIR").replace("\\", "/");
+
     for entry in
         std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/tutorial/src"))?
     {
@@ -77,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(
             tests_file,
             "\n#[cfg(test)]\n#[path = \"{}/../../docs/tutorial/src/{}\"]\nmod {};",
-            env!("CARGO_MANIFEST_DIR"),
+            cargo_manifest_dir,
             path.file_name().unwrap().to_string_lossy(),
             stem
         )?;
