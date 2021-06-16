@@ -7,7 +7,11 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+#[allow(dead_code)]
 // ANCHOR: main
+fn main() {
+    MainWindow::new().run();
+}
 sixtyfps::sixtyfps! {
     MainWindow := Window {
         Text {
@@ -15,8 +19,5 @@ sixtyfps::sixtyfps! {
             color: green;
         }
     }
-}
-fn main() {
-    MainWindow::new().run();
 }
 // ANCHOR_END: main
