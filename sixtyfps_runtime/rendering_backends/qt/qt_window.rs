@@ -166,8 +166,8 @@ cpp! {{
                 let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
                 let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
                 qttypes::QSize {
-                    width: layout_info_h.preferred() as _,
-                    height: layout_info_v.preferred() as _,
+                    width: layout_info_h.preferred_bounded() as _,
+                    height: layout_info_v.preferred_bounded() as _,
                 }
             });
             if (!preferred_size.isEmpty()) {

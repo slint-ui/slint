@@ -87,7 +87,7 @@ impl LayoutInfo {
     }
 
     /// Helper function to return a preferred size which is within the min/max constraints
-    pub fn preferred(&self) -> f32 {
+    pub fn preferred_bounded(&self) -> f32 {
         self.preferred.min(self.max).max(self.min)
     }
 }
