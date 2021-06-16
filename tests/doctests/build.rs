@@ -74,7 +74,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .to_string_lossy()
             .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
 
-        writeln!(tests_file, "\n#[cfg(test)]\n#[path = \"{}\"]\nmod {};", path.display(), stem)?;
+        writeln!(
+            tests_file,
+            "\n#[cfg(test)]\n#[path = \"{}/../../docs/tutorial/src/{}\"]\nmod {};",
+            env!("CARGO_MANIFEST_DIR"),
+            path.file_name().unwrap().to_string_lossy(),
+            stem
+        )?;
 
         println!("cargo:rerun-if-changed={}", path.display());
     }
