@@ -309,6 +309,8 @@ jobs:
       RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/api/sixtyfps-rs/sixtyfps-docs-integration.html -D warnings -W deprecated
       SIXTYFPS_NO_QT: 1
       CARGO_INCREMENTAL: false
+      MDBOOK_VERSION: 0.4.10
+      MDBOOK_LINKCHECK_VERSION: 0.7.4
     steps:
     - uses: actions/checkout@v2
     - name: Setup Node.js
@@ -333,12 +335,21 @@ jobs:
       with:
         path: target
         key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
+    - name: Cache mdbook and mdbook-linkcheck
+      uses: actions/cache@v2
+      with:
+        path: |
+           ~/.cargo/bin/mdbook
+           ~/.cargo/bin/mdbook-linkcheck
+        key: ${{ env.MDBOOK_VERSION }}-${{ env.MDBOOK_LINKCHECK_VERSION }}
     - name: Install nightly
       uses: actions-rs/toolchain@v1
       with:
           toolchain: nightly
     - name: Install mdbook
-      run: cargo install mdbook mdbook-linkcheck
+      run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }}
+    - name: Install mdbook-linkcheck
+      run: cargo install mdbook-linkcheck --version ${{ env.MDBOOK_LINKCHECK_VERSION }}
     - name: Install doxygen
       run: sudo apt-get install doxygen
     - uses: dschep/install-pipenv-action@v1
