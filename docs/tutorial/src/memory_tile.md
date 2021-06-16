@@ -10,21 +10,7 @@ mixing values with different units attached to them.
 We copy the following code inside of the `sixtyfps!` macro:
 
 ```60
-MemoryTile := Rectangle {
-    width: 64px;
-    height: 64px;
-    background: #3960D5;
-
-    Image {
-        source: @image-url("icons/bus.png");
-        width: parent.width;
-        height: parent.height;
-    }
-}
-
-MainWindow := Window {
-    MemoryTile {}
-}
+{{#include main_memory_tile.rs:tile}}
 ```
 
 Inside the `Rectangle` we place an `Image` element that loads an icon with the `@image-url()` macro. The path is
