@@ -22,7 +22,7 @@ use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::ComponentWindow;
 use std::convert::TryInto;
 
-fn to_runtime(o: Orientation) -> core_layout::Orientation {
+pub(crate) fn to_runtime(o: Orientation) -> core_layout::Orientation {
     match o {
         Orientation::Horizontal => core_layout::Orientation::Horizontal,
         Orientation::Vertical => core_layout::Orientation::Vertical,

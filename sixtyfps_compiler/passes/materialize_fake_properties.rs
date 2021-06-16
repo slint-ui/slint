@@ -13,7 +13,7 @@ LICENSE END */
 
 use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
-use crate::langtype::{EnumerationValue, Type};
+use crate::langtype::Type;
 use crate::layout::Orientation;
 use crate::object_tree::*;
 use std::collections::HashMap;
@@ -106,29 +106,14 @@ fn initialize(elem: ElementRc, name: &str) {
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
     let expr = match elem.borrow().layout_info_prop(orient) {
         Some(e) => Expression::PropertyReference(e.clone()),
-        None => {
-            let orientation = match BuiltinFunction::ImplicitLayoutInfo.ty() {
-                Type::Function { args, .. } => match &args[1] {
-                    Type::Enumeration(o) => EnumerationValue {
-                        enumeration: o.clone(),
-                        value: if orient == Orientation::Vertical { 1 } else { 0 },
-                    },
-                    _ => panic!("unexpected type for BuiltinFunction::ImplicitLayoutInfo"),
-                },
-                _ => panic!("unexpected type for BuiltinFunction::ImplicitLayoutInfo"),
-            };
-            Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ImplicitLayoutInfo,
-                    None,
-                )),
-                arguments: vec![
-                    Expression::ElementReference(Rc::downgrade(elem)),
-                    Expression::EnumerationValue(orientation),
-                ],
-                source_location: None,
-            }
-        }
+        None => Expression::FunctionCall {
+            function: Box::new(Expression::BuiltinFunctionReference(
+                BuiltinFunction::ImplicitLayoutInfo(orient),
+                None,
+            )),
+            arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+            source_location: None,
+        },
     };
     Expression::StructFieldAccess { base: expr.into(), name: field.into() }
 }

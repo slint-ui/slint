@@ -20,8 +20,8 @@ use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::langtype::DefaultSizeBinding;
-use crate::langtype::EnumerationValue;
 use crate::langtype::Type;
+use crate::layout::Orientation;
 use crate::object_tree::{Component, ElementRc};
 use crate::{
     expression_tree::{BuiltinFunction, Expression, NamedReference},
@@ -74,18 +74,18 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                                     elem,
                                     "height",
                                     "width",
-                                    (1, 0),
+                                    (Orientation::Vertical, Orientation::Horizontal),
                                 )
                             } else if is_image && height_specified && !width_specified {
                                 make_default_aspect_ratio_preserving_binding(
                                     elem,
                                     "width",
                                     "height",
-                                    (0, 1),
+                                    (Orientation::Horizontal, Orientation::Vertical),
                                 )
                             } else {
-                                make_default_implicit(elem, "width", 0);
-                                make_default_implicit(elem, "height", 1);
+                                make_default_implicit(elem, "width", Orientation::Horizontal);
+                                make_default_implicit(elem, "height", Orientation::Vertical);
                             }
                         } else if is_image {
                             // If an image is in a layout and has no explicit width or height specified, change the default for image-fit
@@ -147,8 +147,8 @@ fn gen_layout_info_prop(elem: &ElementRc) {
         crate::layout::layout_info_type(),
     );
     elem.borrow_mut().layout_info_prop = Some((li_v.clone(), li_h.clone()));
-    let mut expr_h = implicit_layout_info_call(elem, 0);
-    let mut expr_v = implicit_layout_info_call(elem, 1);
+    let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
+    let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
 
     for child_info in child_infos {
         expr_v = Expression::BinaryExpression {
@@ -213,7 +213,7 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
     });
 }
 
-fn make_default_implicit(elem: &ElementRc, property: &str, orientation: usize) {
+fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientation) {
     elem.borrow_mut().bindings.entry(property.into()).or_insert_with(|| {
         Expression::StructFieldAccess {
             base: implicit_layout_info_call(elem, orientation).into(),
@@ -234,7 +234,7 @@ fn make_default_aspect_ratio_preserving_binding(
     elem: &ElementRc,
     missing_size_property: &str,
     given_size_property: &str,
-    (missing_orient, given_orient): (usize, usize),
+    (missing_orient, given_orient): (Orientation, Orientation),
 ) {
     if elem.borrow().bindings.contains_key(missing_size_property) {
         return;
@@ -263,27 +263,13 @@ fn make_default_aspect_ratio_preserving_binding(
     elem.borrow_mut().bindings.insert(missing_size_property.to_string(), binding.into());
 }
 
-fn implicit_layout_info_call(elem: &ElementRc, orientation: usize) -> Expression {
-    let orientation_ty = match BuiltinFunction::ImplicitLayoutInfo.ty() {
-        Type::Function { args, .. } => match &args[1] {
-            Type::Enumeration(o) => o.clone(),
-            _ => panic!("unexpected type for BuiltinFunction::ImplicitLayoutInfo"),
-        },
-        _ => panic!("unexpected type for BuiltinFunction::ImplicitLayoutInfo"),
-    };
-
+fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
     Expression::FunctionCall {
         function: Box::new(Expression::BuiltinFunctionReference(
-            BuiltinFunction::ImplicitLayoutInfo,
+            BuiltinFunction::ImplicitLayoutInfo(orientation),
             None,
         )),
-        arguments: vec![
-            Expression::ElementReference(Rc::downgrade(elem)),
-            Expression::EnumerationValue(EnumerationValue {
-                enumeration: orientation_ty.clone(),
-                value: orientation,
-            }),
-        ],
+        arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
         source_location: None,
     }
 }

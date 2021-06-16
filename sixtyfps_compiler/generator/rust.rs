@@ -1105,7 +1105,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::ASin => quote!((|a| (a as f64).asin().to_degrees())),
             BuiltinFunction::ACos => quote!((|a| (a as f64).acos().to_degrees())),
             BuiltinFunction::ATan => quote!((|a| (a as f64).atan().to_degrees())),
-            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::ImplicitLayoutInfo => {
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::ImplicitLayoutInfo(_) => {
                 panic!("internal error: should be handled directly in CallFunction")
             }
             BuiltinFunction::StringToFloat => {
@@ -1229,15 +1229,14 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         panic!("internal error: argument to SetFocusItem must be an element")
                     }
                 }
-                Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo, _) => {
-                    if arguments.len() != 2 {
+                Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo(orient), _) => {
+                    if arguments.len() != 1 {
                         panic!("internal error: incorrect argument count to ImplicitLayoutInfo call");
                     }
                     if let Expression::ElementReference(item) = &arguments[0] {
                         let item = item.upgrade().unwrap();
                         let item = item.borrow();
                         let item_id = format_ident!("{}", item.id);
-                        let orient = compile_expression(&arguments[1], component);
                         quote!(
                             Self::FIELD_OFFSETS.#item_id.apply_pin(_self).layouting_info(#orient, &_self.window)
                         )
