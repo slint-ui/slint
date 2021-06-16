@@ -317,9 +317,6 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: '12'
-    - id: nodeversion
-      run: |
-          echo "::set-output name=node-version::$(node --version)"
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
