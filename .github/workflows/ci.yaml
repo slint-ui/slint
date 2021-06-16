@@ -344,8 +344,10 @@ jobs:
       with:
           toolchain: nightly
     - name: Install mdbook
+      continue-on-error: true
       run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }}
     - name: Install mdbook-linkcheck
+      continue-on-error: true
       run: cargo install mdbook-linkcheck --version ${{ env.MDBOOK_LINKCHECK_VERSION }}
     - name: Install doxygen
       run: sudo apt-get install doxygen
