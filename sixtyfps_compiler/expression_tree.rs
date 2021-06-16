@@ -8,7 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::langtype::{BuiltinElement, Enumeration, EnumerationValue, Type};
+use crate::langtype::{BuiltinElement, EnumerationValue, Type};
+use crate::layout::Orientation;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
@@ -44,7 +45,7 @@ pub enum BuiltinFunction {
     ColorBrighter,
     ColorDarker,
     Rgb,
-    ImplicitLayoutInfo,
+    ImplicitLayoutInfo(Orientation),
     RegisterCustomFontByPath,
     RegisterCustomFontByMemory,
 }
@@ -99,17 +100,9 @@ impl BuiltinFunction {
             BuiltinFunction::StringIsFloat => {
                 Type::Function { return_type: Box::new(Type::Bool), args: vec![Type::String] }
             }
-            BuiltinFunction::ImplicitLayoutInfo => Type::Function {
+            BuiltinFunction::ImplicitLayoutInfo(_) => Type::Function {
                 return_type: Box::new(crate::layout::layout_info_type()),
-                args: vec![
-                    Type::ElementReference,
-                    // FIXME: we shouldn't be declaring the enum here
-                    Type::Enumeration(Rc::new(Enumeration {
-                        name: "Orientation".into(),
-                        values: vec!["Horizontal".into(), "Vertical".into()],
-                        default_value: 0,
-                    })),
-                ],
+                args: vec![Type::ElementReference],
             },
             BuiltinFunction::ColorBrighter => Type::Function {
                 return_type: Box::new(Type::Color),
@@ -155,7 +148,7 @@ impl BuiltinFunction {
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
             BuiltinFunction::Rgb => true,
-            BuiltinFunction::ImplicitLayoutInfo => false,
+            BuiltinFunction::ImplicitLayoutInfo(_) => false,
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory => false,
         }

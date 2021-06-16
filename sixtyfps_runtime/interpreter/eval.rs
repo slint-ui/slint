@@ -14,7 +14,6 @@ use core::iter::FromIterator;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
-use corelib::layout::Orientation;
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::ComponentWindow;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
@@ -363,13 +362,12 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                 let a: u8 = (255. * a).max(0.).min(255.) as u8;
                 Value::Brush(Brush::SolidColor(Color::from_argb_u8(a, r, g, b)))
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo, _) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo(orient), _) => {
                 let component = match  local_context.component_instance  {
                     ComponentInstance::InstanceRef(c) => c,
                     ComponentInstance::GlobalComponent(_) => panic!("Cannot access the implicit item size from a global component")
                 };
-                if let [Expression::ElementReference(item), Expression::EnumerationValue(o)] = arguments.as_slice() {
-                    let o = if o.value == 0 { Orientation::Horizontal } else { Orientation::Vertical };
+                if let [Expression::ElementReference(item)] = arguments.as_slice() {
                     generativity::make_guard!(guard);
 
                     let item = item.upgrade().unwrap();
@@ -380,7 +378,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     let item_ref = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
                     let window = window_ref(component).unwrap();
-                    item_ref.as_ref().layouting_info(o,  &window).into()
+                    item_ref.as_ref().layouting_info(crate::eval_layout::to_runtime(*orient), &window).into()
                 } else {
                     panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);
                 }
