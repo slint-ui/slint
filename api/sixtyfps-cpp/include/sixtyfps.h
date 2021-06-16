@@ -307,10 +307,12 @@ using cbindgen_private::GridLayoutCellData;
 using cbindgen_private::GridLayoutData;
 using cbindgen_private::LayoutAlignment;
 using cbindgen_private::LayoutInfo;
+using cbindgen_private::Orientation;
 using cbindgen_private::Padding;
 using cbindgen_private::PathLayoutData;
 using cbindgen_private::Rect;
 using cbindgen_private::sixtyfps_box_layout_info;
+using cbindgen_private::sixtyfps_box_layout_info_ortho;
 using cbindgen_private::sixtyfps_grid_layout_info;
 using cbindgen_private::sixtyfps_solve_box_layout;
 using cbindgen_private::sixtyfps_solve_grid_layout;
@@ -329,38 +331,25 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
             return (left_size + right_size) / 2.;
         }
     };
-    return LayoutInfo { std::max(min_width, other.min_width),
-                        std::min(max_width, other.max_width),
-                        std::max(min_height, other.min_height),
-                        std::min(max_height, other.max_height),
-                        std::max(min_width_percent, other.min_width_percent),
-                        std::min(max_width_percent, other.max_width_percent),
-                        std::max(min_height_percent, other.min_height_percent),
-                        std::min(max_height_percent, other.max_height_percent),
-                        merge_preferred_size(horizontal_stretch, preferred_width,
-                                             other.horizontal_stretch, other.preferred_width),
-                        merge_preferred_size(vertical_stretch, preferred_height,
-                                             other.vertical_stretch, other.preferred_height),
-                        std::min(horizontal_stretch, other.horizontal_stretch),
-                        std::min(vertical_stretch, other.vertical_stretch) };
+    return LayoutInfo { std::max(min, other.min),
+                        std::min(max, other.max),
+                        std::max(min_percent, other.min_percent),
+                        std::min(max_percent, other.max_percent),
+                        merge_preferred_size(stretch, preferred,
+                                             other.stretch, other.preferred),
+                        std::min(stretch, other.stretch) };
 }
 
 /// FIXME! this should be done by cbindgen
 namespace cbindgen_private {
 inline bool operator==(const LayoutInfo &a, const LayoutInfo &b)
 {
-    return a.min_width == b.min_width &&
-        a.max_width == b.max_width &&
-        a.min_height == b.min_height &&
-        a.max_height == b.max_height &&
-        a.min_width_percent == b.min_width_percent &&
-        a.max_width_percent == b.max_width_percent &&
-        a.min_height_percent == b.min_height_percent &&
-        a.max_height_percent == b.max_height_percent &&
-        a.preferred_width == b.preferred_width &&
-        a.preferred_height == b.preferred_height &&
-        a.horizontal_stretch == b.horizontal_stretch &&
-        a.vertical_stretch == b.vertical_stretch;
+    return a.min == b.min &&
+        a.max == b.max &&
+        a.min_percent == b.min_percent &&
+        a.max_percent == b.max_percent &&
+        a.preferred == b.preferred &&
+        a.stretch == b.stretch;
 }
 inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 {

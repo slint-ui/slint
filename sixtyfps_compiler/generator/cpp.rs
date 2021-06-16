@@ -221,7 +221,7 @@ use crate::expression_tree::{
     BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference,
 };
 use crate::langtype::Type;
-use crate::layout::{Layout, LayoutGeometry, LayoutRect};
+use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::object_tree::{
     Component, Document, Element, ElementRc, PropertyDeclaration, RepeatedElementInfo,
 };
@@ -270,6 +270,13 @@ fn get_cpp_type(ty: &Type, decl: &PropertyDeclaration, diag: &mut BuildDiagnosti
         diag.push_error("Cannot map property type to C++".into(), &decl.type_node());
         "".into()
     })
+}
+
+fn to_cpp_orientation(o: Orientation) -> &'static str {
+    match o {
+        Orientation::Horizontal => "sixtyfps::Orientation::Horizontal",
+        Orientation::Vertical => "sixtyfps::Orientation::Vertical",
+    }
 }
 
 /// If the expression is surrounded with parentheses, remove these parentheses
@@ -859,8 +866,8 @@ fn generate_component(
                 Access::Public, // Because Repeater accesses it
                 Declaration::Function(Function {
                     name: "box_layout_data".into(),
-                    signature: "() const -> sixtyfps::BoxLayoutCellData".to_owned(),
-                    statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}) };".into()]),
+                    signature: "(sixtyfps::Orientation o) const -> sixtyfps::BoxLayoutCellData".to_owned(),
+                    statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
 
                     ..Function::default()
                 }),
@@ -1194,12 +1201,15 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "layout_info".into(),
                 signature:
-                    "([[maybe_unused]] sixtyfps::private_api::ComponentRef component) -> sixtyfps::LayoutInfo"
+                    "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::Orientation o) -> sixtyfps::LayoutInfo"
                         .into(),
                 is_static: true,
                 statements: Some(vec![
                     format!("[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
-                    format!("return {};", get_layout_info(&component.root_element, component, &component.root_constraints.borrow()))
+                    format!("if (o == sixtyfps::Orientation::Horizontal) return {};",
+                        get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Horizontal)),
+                    format!("else return {};",
+                        get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Vertical))
                 ]),
                 ..Default::default()
             }),
@@ -1555,17 +1565,19 @@ fn compile_expression(
                 }
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo, _) => {
-                if arguments.len() != 1 {
+                if arguments.len() != 2 {
                     panic!("internal error: incorrect argument count to ImplicitLayoutInfo call");
                 }
                 if let Expression::ElementReference(item) = &arguments[0] {
                     let item = item.upgrade().unwrap();
                     let item = item.borrow();
                     let native_item = item.base_type.as_native();
-                    format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &window)",
+                    let orient = compile_expression(&arguments[1], component);
+                    format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, {o}, &window)",
                         vt = native_item.cpp_vtable_getter,
                         ty = native_item.class_name,
-                        id = item.id
+                        id = item.id,
+                        o = orient,
                     )
                 } else {
                     panic!("internal error: argument to ImplicitLayoutInfo must be an element")
@@ -1697,14 +1709,14 @@ fn compile_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             let cache = access_named_reference(layout_cache_prop, component, "self");
             if let Some(ri) = repeater_index {
-                format!("[&](auto cache) {{ return cache[int(cache[{}]) + {} * 4]; }} ({}.get())", index, compile_expression(&ri, component), cache)
+                format!("[&](auto cache) {{ return cache[int(cache[{}]) + {} * 2]; }} ({}.get())", index, compile_expression(&ri, component), cache)
             } else {
                 format!("{}.get()[{}]", cache, index)
             }
         }
-        Expression::ComputeLayoutInfo(Layout::GridLayout(layout)) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
-            let cells = grid_layout_cell_data(layout, component);
+        Expression::ComputeLayoutInfo(Layout::GridLayout(layout), o) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
+            let cells = grid_layout_cell_data(layout, *o, component);
             format!("[&] {{ \
                     const auto padding = {};\
                     sixtyfps::GridLayoutCellData cells[] = {{ {} }}; \
@@ -1714,58 +1726,63 @@ fn compile_expression(
                 padding, cells, spacing
             )
         }
-        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout)) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
-            let (cells, alignment) = box_layout_data(layout, component, None);
+        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout), o) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
+            let (cells, alignment) = box_layout_data(layout, *o, component, None);
+            let call = if *o == layout.orientation {
+                format!("sixtyfps_box_layout_info(slice, {}, &padding, {})", spacing, alignment)
+            } else {
+                format!("sixtyfps_box_layout_info_ortho(slice, &padding)")
+            };
             format!("[&] {{ \
                     const auto padding = {};\
                     {}\
                     const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ &*std::begin(cells), std::size(cells)}}; \
-                    return sixtyfps::sixtyfps_box_layout_info(slice, {}, &padding, {}, {});\
+                    return sixtyfps::{};\
                 }}()",
-                padding, cells, spacing, alignment, layout.is_horizontal
+                padding, cells, call
             )
         }
-        Expression::ComputeLayoutInfo(Layout::PathLayout(_)) => unimplemented!(),
-        Expression::SolveLayout(Layout::GridLayout(layout)) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
-            let cells = grid_layout_cell_data(layout, component);
-            let (width, height) = layout_geometry_width_height(&layout.geometry.rect, component);
+        Expression::ComputeLayoutInfo(Layout::PathLayout(_), _) => unimplemented!(),
+        Expression::SolveLayout(Layout::GridLayout(layout), o) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
+            let cells = grid_layout_cell_data(layout, *o, component);
+            let size = layout_geometry_size(&layout.geometry.rect, *o, component);
             format!("[&] {{ \
                     const auto padding = {p};\
                     sixtyfps::GridLayoutCellData cells[] = {{ {c} }}; \
                     const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}}; \
-                    const sixtyfps::GridLayoutData grid {{ {w}, {h}, 0, 0, {s}, &padding, slice }};
+                    const sixtyfps::GridLayoutData grid {{ {sz},  {s}, &padding, slice }};
                     sixtyfps::SharedVector<float> result;
                     sixtyfps::sixtyfps_solve_grid_layout(&grid, &result);\
                     return result;
                 }}()",
-                p = padding, c = cells, s = spacing, w = width, h = height
+                p = padding, c = cells, s = spacing, sz = size
             )
         }
-        Expression::SolveLayout(Layout::BoxLayout(layout)) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, component);
+        Expression::SolveLayout(Layout::BoxLayout(layout), o) => {
+            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
             let mut repeated_indices = Default::default();
             let mut repeated_indices_init = Default::default();
-            let (cells, alignment) = box_layout_data(layout, component, Some((&mut repeated_indices, &mut repeated_indices_init)));
-            let (width, height) = layout_geometry_width_height(&layout.geometry.rect, component);
+            let (cells, alignment) = box_layout_data(layout, *o, component, Some((&mut repeated_indices, &mut repeated_indices_init)));
+            let size = layout_geometry_size(&layout.geometry.rect, *o, component);
             format!("[&] {{ \
                     {ri_init}\
                     const auto padding = {p};\
                     {c}\
                     const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ &*std::begin(cells), std::size(cells)}}; \
-                    sixtyfps::BoxLayoutData box {{ {w}, {h}, 0, 0, {s}, &padding, {a}, slice }};
+                    sixtyfps::BoxLayoutData box {{ {sz}, {s}, &padding, {a}, slice }};
                     sixtyfps::SharedVector<float> result;
-                    sixtyfps::sixtyfps_solve_box_layout(&box, {hz}, {ri}, &result);\
+                    sixtyfps::sixtyfps_solve_box_layout(&box, {ri}, &result);\
                     return result;
                 }}()",
                 ri_init = repeated_indices_init, ri = repeated_indices,
-                p = padding, c = cells, s = spacing, w = width, h = height, a = alignment,
-                hz = layout.is_horizontal
+                p = padding, c = cells, s = spacing, sz = size, a = alignment,
             )
         }
-        Expression::SolveLayout(Layout::PathLayout(layout)) => {
-            let (width, height) = layout_geometry_width_height(&layout.rect, component);
+        Expression::SolveLayout(Layout::PathLayout(layout), _) => {
+            let width = layout_geometry_size(&layout.rect, Orientation::Horizontal, component);
+            let height = layout_geometry_size(&layout.rect, Orientation::Vertical, component);
             let elements = compile_path(&layout.path, component);
             let prop = |expr: &Option<NamedReference>| {
                 if let Some(nr) = expr.as_ref() {
@@ -1872,18 +1889,21 @@ fn compile_assignment(
     }
 }
 
-fn grid_layout_cell_data(layout: &crate::layout::GridLayout, component: &Rc<Component>) -> String {
+fn grid_layout_cell_data(
+    layout: &crate::layout::GridLayout,
+    orientation: Orientation,
+    component: &Rc<Component>,
+) -> String {
     layout
         .elems
         .iter()
         .map(|c| {
+            let (col_or_row, span) = c.col_or_row_and_span(orientation);
             format!(
-                "sixtyfps::GridLayoutCellData {{ {col}, {row}, {cs}, {rs}, {cstr} }}",
-                col = c.col,
-                row = c.row,
-                cs = c.colspan,
-                rs = c.rowspan,
-                cstr = get_layout_info(&c.item.element, component, &c.item.constraints),
+                "sixtyfps::GridLayoutCellData {{ {}, {}, {} }}",
+                col_or_row,
+                span,
+                get_layout_info(&c.item.element, component, &c.item.constraints, orientation),
             )
         })
         .join(", ")
@@ -1893,6 +1913,7 @@ fn grid_layout_cell_data(layout: &crate::layout::GridLayout, component: &Rc<Comp
 /// The repeated_indices initialize the repeated_indices (var, init_code)
 fn box_layout_data(
     layout: &crate::layout::BoxLayout,
+    orientation: Orientation,
     component: &Rc<Component>,
     mut repeated_indices: Option<(&mut String, &mut String)>,
 ) -> (String, String) {
@@ -1909,7 +1930,7 @@ fn box_layout_data(
         let mut cells = layout.elems.iter().map(|li| {
             format!(
                 "sixtyfps::BoxLayoutCellData{{ {} }}",
-                get_layout_info(&li.element, component, &li.constraints)
+                get_layout_info(&li.element, component, &li.constraints, orientation)
             )
         });
         if let Some((ri, _)) = &mut repeated_indices {
@@ -1941,13 +1962,14 @@ fn box_layout_data(
                 push_code += &format!(
                     "if (self->repeater_{id}.inner) \
                         for (auto &&sub_comp : self->repeater_{id}.inner->data) \
-                           cells.push_back((*sub_comp.ptr)->box_layout_data());",
-                    id = item.element.borrow().id
+                           cells.push_back((*sub_comp.ptr)->box_layout_data({o}));",
+                    id = item.element.borrow().id,
+                    o = to_cpp_orientation(orientation),
                 );
             } else {
                 push_code += &format!(
                     "cells.push_back({{ {} }});",
-                    get_layout_info(&item.element, component, &item.constraints)
+                    get_layout_info(&item.element, component, &item.constraints, orientation)
                 );
             }
         }
@@ -1957,59 +1979,56 @@ fn box_layout_data(
 
 fn generate_layout_padding_and_spacing(
     layout_geometry: &LayoutGeometry,
-
+    orientation: Orientation,
     component: &Rc<Component>,
 ) -> (String, String) {
-    let prop = |expr: &Option<NamedReference>| {
-        if let Some(nr) = expr.as_ref() {
+    let prop = |expr: Option<&NamedReference>| {
+        if let Some(nr) = expr {
             format!("{}.get()", access_named_reference(nr, component, "self"))
         } else {
             "0.".into()
         }
     };
-    let spacing = prop(&layout_geometry.spacing);
-    let padding = format!(
-        "sixtyfps::Padding {{ {}, {}, {}, {} }};",
-        prop(&layout_geometry.padding.left),
-        prop(&layout_geometry.padding.right),
-        prop(&layout_geometry.padding.top),
-        prop(&layout_geometry.padding.bottom),
-    );
-
+    let spacing = prop(layout_geometry.spacing.as_ref());
+    let (begin, end) = layout_geometry.padding.begin_end(orientation);
+    let padding = format!("sixtyfps::Padding {{ {}, {} }};", prop(begin), prop(end));
     (padding, spacing)
 }
 
-fn layout_geometry_width_height(rect: &LayoutRect, component: &Rc<Component>) -> (String, String) {
-    let prop = |expr: &Option<NamedReference>| {
-        if let Some(nr) = expr.as_ref() {
-            format!("{}.get()", access_named_reference(nr, component, "self"))
-        } else {
-            "0.".into()
-        }
-    };
-    (prop(&rect.width_reference), prop(&rect.height_reference))
+fn layout_geometry_size(
+    rect: &LayoutRect,
+    orientation: Orientation,
+    component: &Rc<Component>,
+) -> String {
+    rect.size_reference(orientation).map_or_else(
+        || "0.".into(),
+        |nr| format!("{}.get()", access_named_reference(nr, component, "self")),
+    )
 }
 
 fn get_layout_info(
     elem: &ElementRc,
     component: &Rc<Component>,
     constraints: &crate::layout::LayoutConstraints,
+    orientation: Orientation,
 ) -> String {
-    let mut layout_info = if let Some(layout_info_prop) = &elem.borrow().layout_info_prop {
+    let mut layout_info = if let Some(layout_info_prop) =
+        &elem.borrow().layout_info_prop(orientation)
+    {
         format!("{}.get()", access_named_reference(layout_info_prop, component, "self"))
     } else {
         format!(
-            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, &self->window)",
+            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, {o}, &self->window)",
             vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
             ty = elem.borrow().base_type.as_native().class_name,
             id = elem.borrow().id,
-
+            o = to_cpp_orientation(orientation),
         )
     };
 
     if constraints.has_explicit_restrictions() {
         layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
-        for (expr, name) in constraints.for_each_restrictions() {
+        for (expr, name) in constraints.for_each_restrictions(orientation) {
             layout_info += &format!(
                 " layout_info.{} = {}.get();",
                 name,
