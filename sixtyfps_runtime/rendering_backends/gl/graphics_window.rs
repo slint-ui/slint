@@ -197,7 +197,10 @@ impl GraphicsWindow {
             let component = ComponentRc::borrow_pin(&component_rc);
             let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
             let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-            let s = LogicalSize::new(layout_info_h.preferred(), layout_info_v.preferred());
+            let s = LogicalSize::new(
+                layout_info_h.preferred_bounded(),
+                layout_info_v.preferred_bounded(),
+            );
             if s.width > 0. && s.height > 0. {
                 // Make sure that the window's inner size is in sync with the root window item's
                 // width/height.
@@ -478,12 +481,12 @@ impl PlatformWindow for GraphicsWindow {
                         let component = ComponentRc::borrow_pin(&component_rc);
                         if w <= 0. {
                             let info = component.as_ref().layout_info(Orientation::Horizontal);
-                            w = info.preferred();
+                            w = info.preferred_bounded();
                             must_resize = true;
                         }
                         if h <= 0. {
                             let info = component.as_ref().layout_info(Orientation::Vertical);
-                            h = info.preferred();
+                            h = info.preferred_bounded();
                             must_resize = true;
                         }
                     }
