@@ -3,6 +3,10 @@ name = "src"
 version = "0.1.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
+license = "GPL-3.0-only"
+description = "Binaries for Rust version of Memory Tutorial of SixtyFPS"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
