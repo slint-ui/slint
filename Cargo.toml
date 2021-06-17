@@ -37,7 +37,7 @@ members = [
     'tests/driver/cpp',
     'tests/driver/nodejs',
     'tests/driver/interpreter',
-    'docs/tutorial/src',
+    'docs/tutorial/rust/src',
 ]
 
 default-members = [
