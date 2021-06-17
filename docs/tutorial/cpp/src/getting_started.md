@@ -38,26 +38,13 @@ add the `memory.60` file to the target. We must then create, in the same directo
 the `memory.60` file. Let's just fill it with a hello world for now:
 
 ```60
-// memory.60
-MainWindow := Window {
-    Text {
-        text: "hello world";
-        color: green;
-    }
-}
+{{#include memory.60:main_window}}
 ```
 
 What's still missing is the `main.cpp`:
 
 ```cpp
-// main.cpp
-
-#include "memory.h" // generated header from memory.60
-
-int main() {
-    auto main_window = MainWindow::create();
-    main_window->run();
-}
+{{#include main_initial.cpp:main}}
 ```
 
 To recap, we now have a directory with a `CMakeLists.txt`, `memory.60` and `main.cpp`.
