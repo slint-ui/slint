@@ -53,7 +53,7 @@ This is required because wasm-pack require rust to generate a `"cdylib"`.
 You also need to modity the `main.rs` by adding the `wasm_bindgen(start)`
 attribute to the main function and export it with the `pub` keyword:
 
-```rust
+```rust,noplayground
 #[cfg_attr(target_arch = "wasm32",
            wasm_bindgen::prelude::wasm_bindgen(start))]
 pub fn main() {
