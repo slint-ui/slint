@@ -1,8 +1,8 @@
 # Polishing the Tile
 
 Next, let's add a curtain like cover that opens up when clicking. We achieve this by declaring two rectangles
-below the <code class="hljs-built_in">Image</code>, so that they are drawn afterwards and thus on top of the image.
-The <code class="hljs-built_in">TouchArea</code> element declares a transparent rectangular region that allows
+below the <span class="hljs-built_in">Image</span>, so that they are drawn afterwards and thus on top of the image.
+The <span class="hljs-built_in">TouchArea</span> element declares a transparent rectangular region that allows
 reacting to user input such as a mouse click or tap. We use that to forward a callback to the <em>MainWindow</em>
 that the tile was clicked on. In the <em>MainWindow</em> we react by flipping a custom <em>open_curtain</em> property.
 That in turn is used in property bindings for the animated width and x properties. Let's look at the two states a bit
