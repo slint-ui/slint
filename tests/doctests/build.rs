@@ -62,9 +62,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cargo_manifest_dir = env!("CARGO_MANIFEST_DIR").replace("\\", "/");
 
-    for entry in
-        std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/tutorial/rust/src"))?
-    {
+    for entry in std::fs::read_dir(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/tutorial/rust/src"),
+    )? {
         let entry = entry?;
         let path = entry.path();
         if path.extension().map_or(true, |e| e != "rs") {
