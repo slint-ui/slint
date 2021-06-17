@@ -321,8 +321,12 @@ impl FontMetrics {
 }
 
 impl FontMetricsTrait for FontMetrics {
-    fn text_size(&self, text: &str) -> Size {
-        self.font.text_size(self.letter_spacing.unwrap_or_default(), text, None) / self.scale_factor
+    fn text_size(&self, text: &str, max_width: Option<f32>) -> Size {
+        self.font.text_size(
+            self.letter_spacing.unwrap_or_default(),
+            text,
+            max_width.map(|x| x * self.scale_factor),
+        ) / self.scale_factor
     }
 
     fn line_height(&self) -> f32 {

@@ -1252,11 +1252,16 @@ fn get_font(request: FontRequest) -> QFont {
 cpp_class! {pub unsafe struct QFont as "QFont"}
 
 impl sixtyfps_corelib::graphics::FontMetrics for QFont {
-    fn text_size(&self, text: &str) -> sixtyfps_corelib::graphics::Size {
+    fn text_size(&self, text: &str, max_width: Option<f32>) -> sixtyfps_corelib::graphics::Size {
         let string = qttypes::QString::from(text);
-        let size = cpp! { unsafe [self as "const QFont*",  string as "QString"]
+        let mut r = qttypes::QRectF::default();
+        if let Some(max) = max_width {
+            r.height = f32::MAX as _;
+            r.width = max as _;
+        }
+        let size = cpp! { unsafe [self as "const QFont*", string as "QString", r as "QRectF"]
                 -> qttypes::QSizeF as "QSizeF"{
-            return QFontMetricsF(*self).boundingRect(QRectF(), 0, string).size();
+            return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : Qt::TextWordWrap , string).size();
         }};
         sixtyfps_corelib::graphics::Size::new(size.width as _, size.height as _)
     }

@@ -155,7 +155,7 @@ impl PlatformWindow for TestingWindow {
 struct TestingFontMetrics {}
 
 impl FontMetrics for TestingFontMetrics {
-    fn text_size(&self, text: &str) -> Size {
+    fn text_size(&self, text: &str, _max_width: Option<f32>) -> Size {
         Size::new(text.len() as f32 * 10., 10.)
     }
 

@@ -135,39 +135,36 @@ impl Item for Text {
             Self::FIELD_OFFSETS.text.apply_pin(self),
         );
         let text = self.text();
-        let implicit_size = font_metrics.text_size(&text);
-        let mut min_size = if self.wrap() != TextWrap::no_wrap {
-            // If we wrap we need *at least* the height of all forced line breaks
-            let forced_linebreaks =
-                1 + text.chars().filter(|ch| *ch == '\n' || *ch == '\u{2028}').count();
-
-            [0., (forced_linebreaks as f32) * font_metrics.line_height()].into()
-        } else {
-            implicit_size
-        };
+        let implicit_size = font_metrics.text_size(&text, None);
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
         // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
         // letters will be cut off, apply the ceiling here.
         match orientation {
             Orientation::Horizontal => {
-                match self.overflow() {
+                let min = match self.overflow() {
                     TextOverflow::elide => {
-                        min_size.width = min_size.width.min(font_metrics.text_size("…").width);
+                        implicit_size.width.min(font_metrics.text_size("…", None).width)
                     }
-                    TextOverflow::clip => {}
-                }
+                    TextOverflow::clip => match self.wrap() {
+                        TextWrap::no_wrap => implicit_size.width,
+                        TextWrap::word_wrap => 0.,
+                    },
+                };
                 LayoutInfo {
-                    min: min_size.width.ceil(),
+                    min: min.ceil(),
                     preferred: implicit_size.width.ceil(),
                     ..LayoutInfo::default()
                 }
             }
-            Orientation::Vertical => LayoutInfo {
-                min: min_size.height.ceil(),
-                preferred: implicit_size.height.ceil(),
-                ..LayoutInfo::default()
-            },
+            Orientation::Vertical => {
+                let h = match self.wrap() {
+                    TextWrap::no_wrap => implicit_size.height,
+                    TextWrap::word_wrap => font_metrics.text_size(&text, Some(self.width())).height,
+                }
+                .ceil();
+                LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
+            }
         }
     }
 
@@ -286,7 +283,7 @@ impl Item for TextInput {
             &|| self.unresolved_font_request(),
             Self::FIELD_OFFSETS.text.apply_pin(self),
         );
-        let size = font_metrics.text_size("********************").ceil();
+        let size = font_metrics.text_size("********************", None).ceil();
 
         match orientation {
             Orientation::Horizontal => LayoutInfo {
