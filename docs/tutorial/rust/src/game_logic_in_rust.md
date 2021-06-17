@@ -71,4 +71,5 @@ important because capturing a copy of the `main_window` itself within the callba
 The `MainWindow` owns the callback handler, which itself owns a reference to the `MainWindow`, which must be weak
 instead of strong to avoid a memory leak.
 
-And that's it, now we can run the game!
+These were the last changes and running the result gives us a window on the screen that allows us
+to play the game by the rules.

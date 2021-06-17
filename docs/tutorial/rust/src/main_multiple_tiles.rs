@@ -11,8 +11,8 @@ LICENSE END */
 fn main() {
     MainWindow::new().run();
 }
-// ANCHOR: tile_data
 sixtyfps::sixtyfps! {
+// ANCHOR: tile_data
 
 // Added:
 struct TileData := {

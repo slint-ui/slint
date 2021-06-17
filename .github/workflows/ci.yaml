@@ -373,6 +373,9 @@ jobs:
     - name: "Rust Tutorial Docs"
       run: mdbook build
       working-directory: docs/tutorial/rust
+    - name: "C++ Tutorial Docs"
+      run: mdbook build
+      working-directory: docs/tutorial/cpp
     - name: "Node docs"
       run: |
           npm install --ignore-scripts
@@ -387,9 +390,10 @@ jobs:
               target/cppdocs/html
               api/sixtyfps-node/docs
               docs/tutorial/rust/book/html
+              docs/tutorial/cpp/book/html
     - name: Clean cache # Don't cache docs to avoid them including removed classes being published
       run: |
-          rm -rf target/doc target/cppdocs api/sixtyfps-node/docs docs/tutorial/rust/book
+          rm -rf target/doc target/cppdocs api/sixtyfps-node/docs docs/tutorial/rust/book docs/tutorial/cpp/book
 
   wasm:
     env:
@@ -672,6 +676,8 @@ jobs:
             cp -a ../target/doc/* docs/rust/
             mkdir -p docs/tutorial/rust
             cp -a ../docs/tutorial/rust/book/html/* docs/tutorial/rust
+            mkdir -p docs/tutorial/cpp
+            cp -a ../docs/tutorial/cpp/book/html/* docs/tutorial/cpp
             mkdir -p docs/node
             cp -a ../api/sixtyfps-node/docs/* docs/node/
             git add docs

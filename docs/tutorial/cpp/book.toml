@@ -3,7 +3,7 @@ authors = ["SixtyFPS <info@sixtyfps.io>"]
 language = "en"
 multilingual = false
 src = "src"
-title = "SixtyFPS Memory Game Tutorial (Rust)"
+title = "SixtyFPS Memory Game Tutorial (C++)"
 
 [output.html]
 additional-js = ["../shared/highlight_60.js"]
