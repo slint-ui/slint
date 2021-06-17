@@ -7,10 +7,10 @@ consider them solved and they remain open. Otherwise we wait for a little while,
 the location of the icons, and then close them again.
 
 We'll modify the `.60` markup in the `memory.60` file to signal to the C++ code when the user clicks on a tile.
-Two changes to `MainWindow` are needed: We need to add a way for the MainWindow to call to the C++ code that it should
+Two changes to <span class="hljs-title">MainWindow</span> are needed: We need to add a way for the MainWindow to call to the C++ code that it should
 check if a pair of tiles has been solved. And we need to add a property that C++ code can toggle to disable further
 tile interaction, to prevent the player from opening more tiles than allowed. No cheating allowed! First, we paste
-the callback and property declarations into `MainWindow`:
+the callback and property declarations into <span class="hljs-title">MainWindow</span>:
 
 
 ```60
@@ -27,7 +27,7 @@ MainWindow := Window {
 ...
 ```
 
-The last change to the `.60` markup is to act when the `MemoryTile` signals that it was clicked on. We add the following handler:
+The last change to the `.60` markup is to act when the <span class="hljs-title">MemoryTile</span> signals that it was clicked on. We add the following handler:
 
 ```60
 ...
