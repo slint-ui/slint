@@ -6,7 +6,7 @@ src = "src"
 title = "SixtyFPS Memory Game Tutorial (C++)"
 
 [output.html]
-additional-js = ["../shared/highlight_60.js"]
+theme = "../theme"
 
 [output.linkcheck]  # enable the "mdbook-linkcheck" renderer
 optional = true
