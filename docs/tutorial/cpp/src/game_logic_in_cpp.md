@@ -14,45 +14,14 @@ the callback and property declarations into <span class="hljs-title">MainWindow<
 
 
 ```60
-...
-MainWindow := Window {
-    callback check_if_pair_solved(); // Added
-    property <bool> disable_tiles; // Added
-
-    width: 326px;
-    height: 326px;
-
-    property <[TileData]> memory_tiles: [
-       { image: img!"icons/at.png" },
-...
+{{#include ../../rust/src/main_game_logic_in_rust.rs:mainwindow_interface}}
 ```
 
-The last change to the `.60` markup is to act when the <span class="hljs-title">MemoryTile</span> signals that it was clicked on. We add the following handler:
+The last change to the `.60` markup is to act when the <span class="hljs-title">MemoryTile</span> signals that it was clicked on.
+We add the following handler in <span class="hljs-title">MainWindow</span>:
 
 ```60
-...
-MainWindow := Window {
-    ...
-    for tile[i] in memory_tiles : MemoryTile {
-        x: mod(i, 4) * 74px;
-        y: floor(i / 4) * 74px;
-        width: 64px;
-        height: 64px;
-        icon: tile.image;
-        open_curtain: tile.image_visible || tile.solved;
-        // propagate the solved status from the model to the tile
-        solved: tile.solved;
-
-        clicked => {
-            // old: tile.image_visible = !tile.image_visible;
-            // new:
-            if (!root.disable_tiles) {
-                tile.image_visible = !tile.image_visible;
-                root.check_if_pair_solved();
-            }
-        }
-    }
-}
+{{#include ../../rust/src/main_game_logic_in_rust.rs:tile_click_logic}}
 ```
 
 On the C++ side, we can now add an handler to the `check_if_pair_solved` callback, that will check if

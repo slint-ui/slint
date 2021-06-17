@@ -109,15 +109,17 @@ sixtyfps::sixtyfps! {
             }
         }
     }
+    // ANCHOR: mainwindow_interface
     MainWindow := Window {
         width: 326px;
         height: 326px;
 
-        callback check_if_pair_solved();
-        property <bool> disable_tiles;
+        callback check_if_pair_solved(); // Added
+        property <bool> disable_tiles; // Added
 
         property <[TileData]> memory_tiles: [
            { image: @image-url("icons/at.png") },
+    // ANCHOR_END: mainwindow_interface
            { image: @image-url("icons/balance-scale.png") },
            { image: @image-url("icons/bicycle.png") },
            { image: @image-url("icons/bus.png") },
@@ -126,6 +128,7 @@ sixtyfps::sixtyfps! {
            { image: @image-url("icons/motorcycle.png") },
            { image: @image-url("icons/video.png") },
         ];
+        // ANCHOR: tile_click_logic
         for tile[i] in memory_tiles : MemoryTile {
             x: mod(i, 4) * 74px;
             y: floor(i / 4) * 74px;
@@ -136,11 +139,14 @@ sixtyfps::sixtyfps! {
             // propagate the solved status from the model to the tile
             solved: tile.solved;
             clicked => {
+                // old: tile.image_visible = !tile.image_visible;
+                // new:
                 if (!root.disable_tiles) {
                     tile.image_visible = !tile.image_visible;
                     root.check_if_pair_solved();
                 }
             }
         }
+        // ANCHOR_END: tile_click_logic
     }
 }
