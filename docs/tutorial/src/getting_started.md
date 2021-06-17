@@ -19,7 +19,7 @@ sixtyfps = "0.0.6"
 
 Finally we copy the hello world program from the [SixtyFPS documentation](https://sixtyfps.io/docs/rust/sixtyfps/) into our `src/main.rs`:
 
-```rust
+```rust,noplayground
 {{#include main_initial.rs:main}}
 ```
 

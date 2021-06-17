@@ -62,7 +62,7 @@ one cannot click anything during this time.
 
 Insert this code before the `main_window.run()` call:
 
-```rust
+```rust,noplayground
 {{#include main_game_logic_in_rust.rs:game_logic}}
 ```
 

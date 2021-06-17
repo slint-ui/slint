@@ -19,7 +19,7 @@ in a [`VecModel`](https://sixtyfps.io/docs/rust/sixtyfps/struct.vecmodel) which 
 
 We modify the main function like so:
 
-```rust
+```rust,noplayground
 {{#include main_tiles_from_rust.rs:tiles}}
 ```
 
