@@ -7,6 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+// clang-format off
 // main.cpp
 
 #include "memory_game_logic.h" // generated header from memory_game_logic.60
@@ -49,23 +50,27 @@ int main()
                     bool is_pair_solved = tile == first_visible_tile;
                     if (is_pair_solved) {
                         first_visible_tile.solved = true;
-                        tiles_model->set_row_data(first_visible_index, first_visible_tile);
+                        tiles_model->set_row_data(first_visible_index,
+                                                  first_visible_tile);
                         tile.solved = true;
                         tiles_model->set_row_data(i, tile);
                         return;
                     }
                     main_window->set_disable_tiles(true);
 
-                    sixtyfps::Timer::single_shot(std::chrono::seconds(1), [=]() mutable {
-                        main_window->set_disable_tiles(false);
-                        first_visible_tile.image_visible = false;
-                        tiles_model->set_row_data(first_visible_index, first_visible_tile);
-                        tile.image_visible = false;
-                        tiles_model->set_row_data(i, tile);
-                    });
+                    sixtyfps::Timer::single_shot(std::chrono::seconds(1),
+                        [=]() mutable {
+                            main_window->set_disable_tiles(false);
+                            first_visible_tile.image_visible = false;
+                            tiles_model->set_row_data(first_visible_index,
+                                                      first_visible_tile);
+                            tile.image_visible = false;
+                            tiles_model->set_row_data(i, tile);
+                        });
                 }
             });
 
     main_window->run();
 }
 // ANCHOR_END: game_logic
+// clang-format on
