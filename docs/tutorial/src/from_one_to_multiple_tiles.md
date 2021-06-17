@@ -15,13 +15,13 @@ index with a little bit of spacing between the tiles.
 First, we copy the tile data structure definition and paste it at top inside the `sixtyfps!` macro:
 
 ```60
-{{#include main_from_one_to_multiple_tiles.rs:tile_data}}
+{{#include main_multiple_tiles.rs:tile_data}}
 ```
 
 Next, we replace the *`MainWindow` := { ... }* section at the bottom of the `sixtyfps!` macro with the following snippet:
 
 ```60
-{{#include main_from_one_to_multiple_tiles.rs:main_window}}
+{{#include main_multiple_tiles.rs:main_window}}
 ```
 
 The `for tile[i] in memory_tiles :` syntax declares a variable `tile` which contains the data of one element from the `memory_tiles` array,

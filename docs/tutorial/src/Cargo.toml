@@ -1,0 +1,35 @@
+[package]
+name = "src"
+version = "0.1.0"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "memory_tutorial_initial"
+path = "main_initial.rs"
+
+[[bin]]
+name = "memory_tutorial_tile"
+path = "main_memory_tile.rs"
+
+[[bin]]
+name = "memory_tutorial_polishing_the_tile"
+path = "main_polishing_the_tile.rs"
+
+[[bin]]
+name = "memory_tutorial_multiple_tiles"
+path = "main_multiple_tiles.rs"
+
+[[bin]]
+name = "memory_tutorial_tiles_from_rust"
+path = "main_tiles_from_rust.rs"
+
+[[bin]]
+name = "memory_tutorial_game_logic_in_rust"
+path = "main_game_logic_in_rust.rs"
+
+[dependencies]
+sixtyfps = { path = "../../../api/sixtyfps-rs" }
+rand = "0.8"
