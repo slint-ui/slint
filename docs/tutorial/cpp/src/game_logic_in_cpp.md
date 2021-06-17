@@ -32,48 +32,7 @@ one cannot click anything during this time.
 Insert this code before the `main_window->run()` call:
 
 ```cpp
-    // ...
-    main_window->on_check_if_pair_solved([main_window_weak =
-            sixtyfps::ComponentWeakHandle(main_window)] {
-
-        auto main_window = *main_window_weak.lock();
-        auto tiles_model = main_window->get_memory_tiles();
-        int first_visible_index = -1;
-        TileData first_visible_tile;
-        for (int i = 0; i < tiles_model->row_count(); ++i) {
-            auto tile = tiles_model->row_data(i);
-            if (!tile.image_visible || tile.solved)
-                continue;
-            if (first_visible_index == -1) {
-                first_visible_index = i;
-                first_visible_tile = tile;
-                continue;
-            }
-            bool is_pair_solved = tile == first_visible_tile;
-            if (is_pair_solved) {
-                first_visible_tile.solved = true;
-                tiles_model->set_row_data(first_visible_index,
-                                          first_visible_tile);
-                tile.solved = true;
-                tiles_model->set_row_data(i, tile);
-                return;
-            }
-            main_window->set_disable_tiles(true);
-
-            sixtyfps::Timer::single_shot(std::chrono::seconds(1),
-                [=]() mutable {
-                    main_window->set_disable_tiles(false);
-                    first_visible_tile.image_visible = false;
-                    tiles_model->set_row_data(
-                        first_visible_index,
-                        first_visible_tile);
-                    tile.image_visible = false;
-                    tiles_model->set_row_data(i, tile);
-                });
-        }
-    });
-
-    main_window->run();
+{{#include main_game_logic.cpp:game_logic}}
 ```
 
 Notice that we take a weak pointer of our `main_window`. This is very
