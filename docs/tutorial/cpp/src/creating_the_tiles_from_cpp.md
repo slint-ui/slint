@@ -13,22 +13,22 @@ We modify the main function like so:
 ```cpp
  // main.cpp
 #include "memory.h"
-#include &lt;random> // Added
+#include <random> // Added
 
 int main()
 {
     auto main_window = MainWindow::create();
     auto old_tiles = main_window->get_memory_tiles();
-    std::vector&lt;TileData> new_tiles;
+    std::vector<TileData> new_tiles;
     new_tiles.reserve(old_tiles->row_count() * 2);
-    for (int i = 0; i &lt; old_tiles->row_count(); ++i) {
+    for (int i = 0; i < old_tiles->row_count(); ++i) {
         new_tiles.push_back(old_tiles->row_data(i));
         new_tiles.push_back(old_tiles->row_data(i));
     }
     std::default_random_engine rng{};
     std::shuffle(new_tiles.begin(), new_tiles.end(), rng);
-    auto tiles_model = std::make_shared&lt;
-        sixtyfps::VectorModel&lt;TileData>>(new_tiles);
+    auto tiles_model = std::make_shared<
+        sixtyfps::VectorModel<TileData>>(new_tiles);
     main_window->set_memory_tiles(tiles_model);
 
     main_window->run();
