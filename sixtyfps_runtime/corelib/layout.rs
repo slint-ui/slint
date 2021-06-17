@@ -346,8 +346,9 @@ pub fn grid_layout_info<'a>(
     let spacing_w = spacing * (num - 1) as Coord + padding.begin + padding.end;
     let min = layout_data.iter().map(|data| data.min).sum::<Coord>() + spacing_w;
     let max = layout_data.iter().map(|data| data.max).sum::<Coord>() + spacing_w;
+    let preferred = layout_data.iter().map(|data| data.pref).sum::<Coord>() + spacing_w;
     let stretch = layout_data.iter().map(|data| data.stretch).sum::<Coord>();
-    LayoutInfo { min, max, min_percent: 0., max_percent: 100., preferred: min, stretch }
+    LayoutInfo { min, max, min_percent: 0., max_percent: 100., preferred, stretch }
 }
 
 /// Enum representing the alignment property of a BoxLayout or HorizontalLayout
@@ -602,8 +603,9 @@ pub fn box_layout_info<'a>(
     } else {
         f32::MAX
     };
+    let preferred = cells.iter().map(|c| c.constraint.preferred).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
-    LayoutInfo { min, max, min_percent: 0., max_percent: 100., preferred: 0., stretch }
+    LayoutInfo { min, max, min_percent: 0., max_percent: 100., preferred, stretch }
 }
 
 pub fn box_layout_info_ortho<'a>(
