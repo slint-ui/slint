@@ -223,6 +223,7 @@ lazy_static! {
         ("^api/sixtyfps-cpp/docs/conf.py$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/_static/.+$", LicenseLocation::NoLicense),
         ("^api/sixtyfps-cpp/docs/_templates/.+$", LicenseLocation::NoLicense),
+        ("^docs/tutorial/theme/.+$", LicenseLocation::NoLicense),
         ("\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^Cargo.toml$", LicenseLocation::NoLicense),
         (".+Cargo.toml$", LicenseLocation::Crate),
