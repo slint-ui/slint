@@ -7,6 +7,8 @@ SixtyFPS.cpp is the C++ API to interact with a SixtyFPS UI from C++.
 
 The complete C++ documentation can be viewed online at https://sixtyfps.io/docs/cpp/.
 
+If you are new to SixtyFPS, you might also consider going through our [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/cpp).
+
 **Warning: Pre-Alpha**
 SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.
 

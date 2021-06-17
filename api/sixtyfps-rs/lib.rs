@@ -16,6 +16,8 @@ This crate is the main entry point for embedding user interfaces designed with
 Included in this documentation is also the [language reference](docs::langref),
 documentation of [builtin elements](docs::builtin_elements), [widgets](docs::widgets) and [layouting](docs::layouting).
 
+If you are new to SixtyFPS, you might also consider going through our [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/rust).
+
 ## How to use:
 
 The user interfaces are described in the `.60` design markup language. There are two ways
