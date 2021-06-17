@@ -10,21 +10,7 @@ mixing values with different units attached to them.
 We copy the following code into the `memory.60` file:
 
 ```60
-MemoryTile := Rectangle {
-    width: 64px;
-    height: 64px;
-    background: #3960D5;
-
-    Image {
-        source: @image-url("icons/bus.png");
-        width: parent.width;
-        height: parent.height;
-    }
-}
-
-MainWindow := Window {
-    MemoryTile {}
-}
+{{#include memory_tile.60:main_window}}
 ```
 
 Inside the <span class="hljs-built_in">Rectangle</span> we place an <span class="hljs-built_in">Image</span> element that
