@@ -27,7 +27,7 @@ MainWindow := Window {
 ...
 ```
 
-The last change to the `.60` markup is to act when the <code class="hljs-title"> signals that it was clicked on. We add the following handler:
+The last change to the `.60` markup is to act when the <span class="hljs-title">MemoryTile</span> signals that it was clicked on. We add the following handler:
 
 ```60
 ...
