@@ -344,11 +344,9 @@ jobs:
       with:
           toolchain: nightly
     - name: Install mdbook
-      continue-on-error: true
-      run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }}
+      run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }} || true
     - name: Install mdbook-linkcheck
-      continue-on-error: true
-      run: cargo install mdbook-linkcheck --version ${{ env.MDBOOK_LINKCHECK_VERSION }}
+      run: cargo install mdbook-linkcheck --version ${{ env.MDBOOK_LINKCHECK_VERSION }} || true
     - name: Install doxygen
       run: sudo apt-get install doxygen
     - uses: dschep/install-pipenv-action@v1
