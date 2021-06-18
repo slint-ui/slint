@@ -18,6 +18,9 @@ You should use the `sixtyfps` crate instead.
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![recursion_limit = "1024"]
 
+use sixtyfps_corelib::graphics::{Image, Size};
+#[cfg(not(no_qt))]
+use sixtyfps_corelib::items::ImageFit;
 use sixtyfps_corelib::window::ComponentWindow;
 
 #[cfg(not(no_qt))]
@@ -257,5 +260,19 @@ impl sixtyfps_corelib::backend::Backend for Backend {
                 QTimer::singleShot(0, qApp, EventHolder{fnbox});
             }}
         };
+    }
+
+    fn image_size(&'static self, _image: &Image) -> Size {
+        #[cfg(not(no_qt))]
+        {
+            qt_window::load_image_from_resource(_image.into(), None, ImageFit::fill)
+                .map(|img| {
+                    let qsize = img.size();
+                    euclid::size2(qsize.width as f32, qsize.height as f32)
+                })
+                .unwrap_or_default()
+        }
+        #[cfg(no_qt)]
+        return Default::default();
     }
 }

@@ -15,7 +15,6 @@ use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::PropertyTracker;
 use crate::slice::Slice;
-use crate::ImageInner;
 use crate::{
     component::{ComponentRc, ComponentWeak},
     SharedString,
@@ -66,9 +65,6 @@ pub trait PlatformWindow {
         unresolved_font_request_getter: &dyn Fn() -> crate::graphics::FontRequest,
         reference_text: Pin<&crate::properties::Property<SharedString>>,
     ) -> Box<dyn crate::graphics::FontMetrics>;
-
-    /// Return the size of the image referenced by the specified resource.
-    fn image_size(&self, source: &ImageInner) -> crate::graphics::Size;
 
     /// Return self as any so the backend can upcast
     fn as_any(&self) -> &dyn core::any::Any;

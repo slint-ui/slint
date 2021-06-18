@@ -48,12 +48,6 @@ const KAPPA90: f32 = 0.5522847493;
 #[derive(Clone)]
 enum ItemGraphicsCacheEntry {
     Image(Rc<CachedImage>),
-    ScalableImage {
-        // This variant is used for SVG images, where `scalable_source` refers to the parsed
-        // SVG tree here, just to keep it in the image cache.
-        scalable_source: Rc<CachedImage>,
-        scaled_image: Rc<CachedImage>,
-    },
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
         // changes to the colorization brush will not require re-uploading the image.
@@ -69,7 +63,6 @@ impl ItemGraphicsCacheEntry {
         match self {
             ItemGraphicsCacheEntry::Image(image) => image,
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
-            ItemGraphicsCacheEntry::ScalableImage { scaled_image, .. } => scaled_image,
             _ => panic!("internal error. image requested for non-image gpu data"),
         }
     }
@@ -411,7 +404,7 @@ impl GLRenderer {
 
         // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
         // avoid GPU memory leaks.
-        renderer.graphics_window.image_cache.borrow_mut().drain();
+        renderer.graphics_window.texture_cache.borrow_mut().drain();
 
         std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
 
@@ -1139,7 +1132,6 @@ impl ItemRenderer for GLItemRenderer {
         let image_id = match cache_entry {
             Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(&self),
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
-            Some(ItemGraphicsCacheEntry::ScalableImage { .. }) => unreachable!(),
             Some(ItemGraphicsCacheEntry::Font(_)) => unreachable!(),
             None => return,
         };
@@ -1326,20 +1318,32 @@ impl GLItemRenderer {
                 .graphics_cache
                 .borrow_mut()
                 .load_item_graphics_cache_with_function(item_cache, || {
+                    let image = source_property.get();
+                    let image_inner = (&image).into();
+                    let cache_key = ImageCacheKey::new(image_inner)?;
+
                     self.graphics_window
-                        .image_cache
+                        .texture_cache
                         .borrow_mut()
-                        .load_image_resource((&source_property.get()).into())
-                        .and_then(|cached_image| {
-                            cached_image.as_renderable(
-                                // The condition at the entry of the function ensures that width/height are positive
-                                [
-                                    (target_width.get() * self.scale_factor) as u32,
-                                    (target_height.get() * self.scale_factor) as u32,
-                                ]
-                                .into(),
-                            )
+                        .lookup_image_in_cache_or_create(cache_key, || {
+                            crate::IMAGE_CACHE
+                                .with(|global_cache| {
+                                    global_cache.borrow_mut().load_image_resource(&image_inner)
+                                })
+                                .and_then(|image| {
+                                    image
+                                        .upload_to_gpu(
+                                            &self, // The condition at the entry of the function ensures that width/height are positive
+                                            [
+                                                (target_width.get() * self.scale_factor) as u32,
+                                                (target_height.get() * self.scale_factor) as u32,
+                                            ]
+                                            .into(),
+                                        )
+                                        .map(Rc::new)
+                                })
                         })
+                        .map(|image| ItemGraphicsCacheEntry::Image(image))
                         .map(|cache_entry| self.colorize_image(cache_entry, colorize_property))
                 });
 
@@ -1552,7 +1556,9 @@ pub mod native_widgets {}
 pub const HAS_NATIVE_STYLE: bool = false;
 pub const IS_AVAILABLE: bool = true;
 
-thread_local!(pub(crate) static CLIPBOARD : std::cell::RefCell<copypasta::ClipboardContext> = std::cell::RefCell::new(copypasta::ClipboardContext::new().unwrap()));
+thread_local!(pub(crate) static CLIPBOARD : RefCell<copypasta::ClipboardContext> = std::cell::RefCell::new(copypasta::ClipboardContext::new().unwrap()));
+
+thread_local!(pub(crate) static IMAGE_CACHE: RefCell<images::ImageCache> = Default::default());
 
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
@@ -1610,6 +1616,16 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         #[cfg(target_arch = "wasm32")]
         crate::eventloop::with_window_target(|event_loop| {
             event_loop.event_loop_proxy().send_event(e).ok();
+        })
+    }
+
+    fn image_size(&'static self, image: &Image) -> Size {
+        IMAGE_CACHE.with(|image_cache| {
+            image_cache
+                .borrow_mut()
+                .load_image_resource(image.into())
+                .and_then(|image| image.size())
+                .unwrap_or_else(|| Size::new(1., 1.))
         })
     }
 }
