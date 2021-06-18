@@ -300,7 +300,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
         let cnstr = &cell.constraint;
         let max = cnstr.max.min(data.size * cnstr.max_percent / 100.);
         let min = cnstr.min.max(data.size * cnstr.min_percent / 100.) / (cell.span as f32);
-        let pref = cnstr.preferred;
+        let pref = cnstr.preferred.min(max).max(min);
 
         for c in 0..(cell.span as usize) {
             let cdata = &mut layout_data[cell.col_or_row as usize + c];

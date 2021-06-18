@@ -14,6 +14,7 @@ TestCase := Rectangle {
 
     GridLayout {
         padding: 0px;
+        spacing: 0px;
         fake-image := Rectangle {
             background: blue;
             preferred-width: 25phx;
@@ -35,6 +36,8 @@ TestCase := Rectangle {
 
     property <bool> fake-image-width-ok: fake-image.width == 25phx;
     property <bool> fake-image-height-ok: fake-image.height == 50phx;
+
+    property <bool> test: fake-image-width-ok && fake-image-height-ok;
 }
 
 /*
