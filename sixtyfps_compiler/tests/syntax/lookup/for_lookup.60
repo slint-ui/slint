@@ -31,8 +31,16 @@ Hello := Rectangle {
         //                  ^error{Cannot access id 'ccc'}
     }
 
-    Text { text: ccc.text; }
-    //           ^error{Cannot access id 'ccc'}
+    for plop in 0 : named_for := Rectangle {
+        Text { color: named_for.background; }
+    }
+
+    Text {
+        text: ccc.text;
+    //        ^error{Cannot access id 'ccc'}
+        color: named_for.background;
+    //         ^error{Cannot access id 'named_for'}
+    }
 
     for aaa in aaa.text: Rectangle {
 //            ^error{Cannot convert string to model}

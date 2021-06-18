@@ -323,9 +323,9 @@ declare_syntax! {
         Element -> [ ?QualifiedName, *PropertyDeclaration, *Binding, *CallbackConnection,
                      *CallbackDeclaration, *SubElement, *RepeatedElement, *PropertyAnimation,
                      *TwoWayBinding, *States, *Transitions, ?ChildrenPlaceholder ],
-        RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , Element],
+        RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
-        ConditionalElement -> [ Expression , Element],
+        ConditionalElement -> [ Expression , SubElement],
         CallbackDeclaration -> [ DeclaredIdentifier, *Type, ?ReturnType, ?TwoWayBinding ],
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],

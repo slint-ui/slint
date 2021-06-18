@@ -728,26 +728,14 @@ impl Element {
 
         for se in node.children() {
             if se.kind() == SyntaxKind::SubElement {
-                let id = identifier_text(&se).unwrap_or_default();
-                if matches!(id.as_ref(), "parent" | "self" | "root") {
-                    diag.push_error(
-                        format!("'{}' is a reserved id", id),
-                        &se.child_token(SyntaxKind::Identifier).unwrap(),
-                    )
-                }
-                if let Some(element_node) = se.child_node(SyntaxKind::Element) {
-                    let parent_type = r.borrow().base_type.clone();
-                    r.borrow_mut().children.push(Element::from_node(
-                        element_node.into(),
-                        id,
-                        parent_type,
-                        component_child_insertion_point,
-                        diag,
-                        tr,
-                    ));
-                } else {
-                    assert!(diag.has_error());
-                }
+                let parent_type = r.borrow().base_type.clone();
+                r.borrow_mut().children.push(Element::from_sub_element_node(
+                    se.into(),
+                    parent_type,
+                    component_child_insertion_point,
+                    diag,
+                    tr,
+                ));
             } else if se.kind() == SyntaxKind::RepeatedElement {
                 let rep = Element::from_repeated_node(
                     se.into(),
@@ -832,6 +820,30 @@ impl Element {
         r
     }
 
+    fn from_sub_element_node(
+        node: syntax_nodes::SubElement,
+        parent_type: Type,
+        component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        diag: &mut BuildDiagnostics,
+        tr: &TypeRegister,
+    ) -> ElementRc {
+        let id = identifier_text(&node).unwrap_or_default();
+        if matches!(id.as_ref(), "parent" | "self" | "root") {
+            diag.push_error(
+                format!("'{}' is a reserved id", id),
+                &node.child_token(SyntaxKind::Identifier).unwrap(),
+            )
+        }
+        Element::from_node(
+            node.Element(),
+            id,
+            parent_type,
+            component_child_insertion_point,
+            diag,
+            tr,
+        )
+    }
+
     fn from_repeated_node(
         node: syntax_nodes::RepeatedElement,
         parent: &ElementRc,
@@ -860,10 +872,9 @@ impl Element {
             is_conditional_element: false,
             is_listview,
         };
-        let e = Element::from_node(
-            node.Element(),
-            String::new(),
-            parent.borrow().base_type.to_owned(),
+        let e = Element::from_sub_element_node(
+            node.SubElement(),
+            parent.borrow().base_type.clone(),
             component_child_insertion_point,
             diag,
             tr,
@@ -886,9 +897,8 @@ impl Element {
             is_conditional_element: true,
             is_listview: None,
         };
-        let e = Element::from_node(
-            node.Element(),
-            String::new(),
+        let e = Element::from_sub_element_node(
+            node.SubElement(),
             parent_type,
             component_child_insertion_point,
             diag,

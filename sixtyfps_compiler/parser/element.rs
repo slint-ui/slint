@@ -125,7 +125,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
 fn parse_sub_element(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::SubElement);
     if p.nth(1).kind() == SyntaxKind::ColonEqual {
-        assert!(p.expect(SyntaxKind::Identifier));
+        p.expect(SyntaxKind::Identifier);
         p.expect(SyntaxKind::ColonEqual);
     }
     parse_element(&mut *p);
@@ -136,6 +136,7 @@ fn parse_sub_element(p: &mut impl Parser) {
 /// for xx in mm: Elem { }
 /// for [idx] in mm: Elem { }
 /// for xx [idx] in foo.bar: Elem { }
+/// for _ in (xxx()): blah := Elem { Elem{} }
 /// ```
 /// Must consume at least one token
 fn parse_repeated_element(p: &mut impl Parser) {
@@ -155,19 +156,20 @@ fn parse_repeated_element(p: &mut impl Parser) {
     if p.peek().as_str() != "in" {
         p.error("Invalid 'for' syntax: there should be a 'in' token");
         drop(p.start_node(SyntaxKind::Expression));
-        drop(p.start_node(SyntaxKind::Element));
+        drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
         return;
     }
     p.consume(); // "in"
     parse_expression(&mut *p);
     p.expect(SyntaxKind::Colon);
-    parse_element(&mut *p);
+    parse_sub_element(&mut *p);
 }
 
 #[cfg_attr(test, parser_test)]
 /// ```test,ConditionalElement
 /// if (condition) : Elem { }
 /// if (foo ? bar : xx) : Elem { foo:bar; Elem {}}
+/// if (true) : foo := Elem {}
 /// ```
 /// Must consume at least one token
 fn parse_if_element(p: &mut impl Parser) {
@@ -176,15 +178,15 @@ fn parse_if_element(p: &mut impl Parser) {
     p.consume(); // "if"
     if !p.expect(SyntaxKind::LParent) {
         drop(p.start_node(SyntaxKind::Expression));
-        drop(p.start_node(SyntaxKind::Element));
+        drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
         return;
     }
     parse_expression(&mut *p);
     if !p.expect(SyntaxKind::RParent) || !p.expect(SyntaxKind::Colon) {
-        drop(p.start_node(SyntaxKind::Element));
+        drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
         return;
     }
-    parse_element(&mut *p);
+    parse_sub_element(&mut *p);
 }
 
 #[cfg_attr(test, parser_test)]

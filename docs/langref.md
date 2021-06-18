@@ -546,8 +546,19 @@ clicked => { ; }
 
 ## Repetition
 
-The `for` syntax
+The `for`-`in` syntax can be used to repeat an element.
 
+The sytax look like this: `for name[index] in model : id := Element { ... }`
+
+The *model* can be of the following type:
+ - an integer, in which case the element will be repeated that amount of time
+ - an array type or a model declared natively, in which case the element will be instantiated for each element in the array or model.
+
+The *name* will be available for lookup within the element and is going to be like a pseudo-property set to the
+value of the model. The *index* is optional and will be set to the index of this element in the model.
+The *id* is also optional.
+
+### Examples
 
 ```60
 Example := Window {
@@ -559,6 +570,37 @@ Example := Window {
         x: width * index;
         background: my_color;
     }
+}
+```
+
+```60
+Example := Window {
+    height: 50px;
+    width: 50px;
+    property <[{foo: string, col: color}]> model: [
+        {foo: "abc", col: #f00 },
+        {foo: "def", col: #00f },
+    ];
+    VerticalLayout {
+        for data in root.model: my_repeated_text := Text {
+            color: data.col;
+            text: data.foo;
+        }
+    }
+}
+```
+
+## Conditional element
+
+Similar to `for`, the `if` construct can instentiate element only if a given condition is true.
+The syntax is `if (condition) : id := Element { ... }`
+
+```60
+Example := Window {
+    height: 50px;
+    width: 50px;
+    if (true) : foo := Rectangle { background: blue; }
+    if (false) : Rectangle { background: red; }
 }
 ```
 
