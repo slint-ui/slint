@@ -8,8 +8,6 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 //! Runtime support for layouting.
-//!
-//! Currently this is a very basic implementation
 
 use crate::{slice::Slice, SharedVector};
 
@@ -103,6 +101,10 @@ impl core::ops::Add for LayoutInfo {
 mod grid_internal {
     use super::*;
 
+    fn order_coord(a: &Coord, b: &Coord) -> std::cmp::Ordering {
+        a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal)
+    }
+
     #[derive(Debug, Clone)]
     pub struct LayoutData {
         // inputs
@@ -122,77 +124,100 @@ mod grid_internal {
         }
     }
 
-    pub fn layout_items(data: &mut [LayoutData], start_pos: Coord, size: Coord, spacing: Coord) {
-        use stretch::geometry::*;
-        use stretch::number::*;
-        use stretch::style::*;
+    trait Adjust {
+        fn can_grow(_: &LayoutData) -> Coord;
+        fn to_distribute(expected_size: Coord, current_size: Coord) -> Coord;
+        fn distribute(_: &mut LayoutData, val: Coord);
+    }
 
-        let mut stretch = stretch::Stretch::new();
+    struct Grow;
+    impl Adjust for Grow {
+        fn can_grow(it: &LayoutData) -> Coord {
+            it.max - it.size
+        }
 
-        let box_style = stretch::style::Style {
-            size: Size { width: Dimension::Percent(1.), height: Dimension::Percent(1.) },
-            flex_grow: 1.,
-            display: Display::Flex,
-            flex_direction: FlexDirection::Row,
-            flex_basis: Dimension::Percent(1.),
-            ..Default::default()
-        };
+        fn to_distribute(expected_size: Coord, current_size: Coord) -> Coord {
+            expected_size - current_size
+        }
 
-        let flex_box = stretch.new_node(box_style, vec![]).unwrap();
+        fn distribute(it: &mut LayoutData, val: Coord) {
+            it.size += val;
+        }
+    }
 
-        data.iter().enumerate().for_each(|(index, cell)| {
-            let min =
-                if cell.min == 0.0 { Dimension::Undefined } else { Dimension::Points(cell.min) };
-            let max = if cell.max == f32::MAX {
-                Dimension::Undefined
+    struct Shrink;
+    impl Adjust for Shrink {
+        fn can_grow(it: &LayoutData) -> Coord {
+            it.size - it.min
+        }
+
+        fn to_distribute(expected_size: Coord, current_size: Coord) -> Coord {
+            current_size - expected_size
+        }
+
+        fn distribute(it: &mut LayoutData, val: Coord) {
+            it.size -= val;
+        }
+    }
+
+    fn adjust_items<A: Adjust>(data: &mut [LayoutData], size_without_spacing: Coord) -> Option<()> {
+        loop {
+            let size_cannot_grow: Coord =
+                data.iter().filter(|it| !(A::can_grow(it) > 0.)).map(|it| it.size).sum();
+
+            let total_stretch: f32 =
+                data.iter().filter(|it| A::can_grow(it) > 0.).map(|it| it.stretch).sum();
+
+            let actual_stretch = |s: f32| if total_stretch <= 0. { 1. } else { s };
+
+            let max_grow = data
+                .iter()
+                .filter(|it| A::can_grow(it) > 0.)
+                .map(|it| A::can_grow(it) / actual_stretch(it.stretch))
+                .min_by(order_coord)?;
+
+            let current_size: Coord =
+                data.iter().filter(|it| A::can_grow(it) > 0.).map(|it| it.size).sum();
+
+            //let to_distribute = size_without_spacing - (size_cannot_grow + current_size);
+            let to_distribute =
+                A::to_distribute(size_without_spacing, size_cannot_grow + current_size);
+            if to_distribute <= 0. || max_grow <= 0. {
+                return Some(());
+            }
+
+            let grow = if total_stretch <= 0. {
+                to_distribute / (data.iter().filter(|it| A::can_grow(it) > 0.).count() as Coord)
             } else {
-                Dimension::Points(cell.max)
-            };
-            let pref =
-                if cell.pref == 0.0 { Dimension::Undefined } else { Dimension::Points(cell.pref) };
-
-            let mut margin = Rect::default();
-
-            if index != 0 {
-                margin.start = Dimension::Points(spacing / 2.);
+                to_distribute / total_stretch
             }
-            if index != data.len() - 1 {
-                margin.end = Dimension::Points(spacing / 2.);
+            .min(max_grow);
+
+            for it in data.iter_mut().filter(|it| A::can_grow(it) > 0.) {
+                A::distribute(it, grow * actual_stretch(it.stretch));
             }
+        }
+    }
 
-            let cell_style = Style {
-                min_size: Size { width: min, height: Dimension::Auto },
-                max_size: Size { width: max, height: Dimension::Auto },
-                size: Size { width: pref, height: Dimension::Auto },
-                flex_grow: cell.stretch,
-                flex_shrink: cell.stretch,
-                margin,
-                ..Default::default()
-            };
+    pub fn layout_items(data: &mut [LayoutData], start_pos: Coord, size: Coord, spacing: Coord) {
+        let size_without_spacing = size - spacing * (data.len() - 1) as Coord;
 
-            let cell_item = stretch.new_node(cell_style, vec![]).unwrap();
-            stretch.add_child(flex_box, cell_item).unwrap();
-        });
+        let mut pref = 0.;
+        for it in data.iter_mut() {
+            it.size = it.pref;
+            pref += it.pref;
+        }
+        if size_without_spacing >= pref {
+            adjust_items::<Grow>(data, size_without_spacing);
+        } else if size_without_spacing < pref {
+            adjust_items::<Shrink>(data, size_without_spacing);
+        }
 
-        stretch
-            .compute_layout(
-                flex_box,
-                Size { width: Number::Defined(size), height: Number::Undefined },
-            )
-            .unwrap();
-
-        data.iter_mut()
-            .zip(
-                stretch
-                    .children(flex_box)
-                    .unwrap()
-                    .iter()
-                    .map(|child| stretch.layout(*child).unwrap()),
-            )
-            .for_each(|(cell, layout)| {
-                cell.pos = start_pos + layout.location.x;
-                cell.size = layout.size.width;
-            });
+        let mut pos = start_pos;
+        for it in data.iter_mut() {
+            it.pos = pos;
+            pos += it.size + spacing;
+        }
     }
 
     #[test]
@@ -370,32 +395,6 @@ impl Default for LayoutAlignment {
     }
 }
 
-impl From<LayoutAlignment> for stretch::style::JustifyContent {
-    fn from(a: LayoutAlignment) -> Self {
-        match a {
-            LayoutAlignment::stretch => Self::FlexStart,
-            LayoutAlignment::center => Self::Center,
-            LayoutAlignment::start => Self::FlexStart,
-            LayoutAlignment::end => Self::FlexEnd,
-            LayoutAlignment::space_between => Self::SpaceBetween,
-            LayoutAlignment::space_around => Self::SpaceAround,
-        }
-    }
-}
-
-impl From<LayoutAlignment> for stretch::style::AlignContent {
-    fn from(a: LayoutAlignment) -> Self {
-        match a {
-            LayoutAlignment::stretch => Self::Stretch,
-            LayoutAlignment::center => Self::Center,
-            LayoutAlignment::start => Self::FlexStart,
-            LayoutAlignment::end => Self::FlexEnd,
-            LayoutAlignment::space_between => Self::SpaceBetween,
-            LayoutAlignment::space_around => Self::SpaceAround,
-        }
-    }
-}
-
 #[repr(C)]
 #[derive(Debug)]
 /// The BoxLayoutData is used to represent both a Horizontal and Vertical layout.
@@ -417,127 +416,71 @@ pub struct BoxLayoutCellData {
 
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> SharedVector<Coord> {
-    use stretch::geometry::*;
-    use stretch::number::*;
-    use stretch::style::*;
+    let mut layout_data: Vec<_> = data
+        .cells
+        .iter()
+        .map(|c| {
+            let min = c.constraint.min.max(c.constraint.min_percent * data.size / 100.);
+            let max = c.constraint.max.min(c.constraint.max_percent * data.size / 100.);
+            grid_internal::LayoutData {
+                min,
+                max,
+                pref: c.constraint.preferred.min(max).max(min),
+                stretch: c.constraint.stretch,
+                ..Default::default()
+            }
+        })
+        .collect();
 
-    let mut stretch = stretch::Stretch::new();
+    let size_without_padding = data.size - data.padding.begin - data.padding.end;
+    let pref_size: Coord = layout_data.iter().map(|it| it.pref).sum();
+    let num_spacings = (layout_data.len() - 1) as Coord;
+    let spacings = data.spacing * num_spacings;
 
-    let box_style = stretch::style::Style {
-        size: Size { width: Dimension::Percent(1.), height: Dimension::Percent(1.) },
-        flex_direction: FlexDirection::Row,
-        flex_basis: Dimension::Percent(1.),
-        justify_content: data.alignment.into(),
-        align_content: data.alignment.into(),
-        ..Default::default()
+    let align = match data.alignment {
+        LayoutAlignment::stretch => {
+            grid_internal::layout_items(
+                &mut layout_data,
+                data.padding.begin,
+                size_without_padding,
+                data.spacing,
+            );
+            None
+        }
+        _ if size_without_padding <= pref_size + spacings => {
+            grid_internal::layout_items(
+                &mut layout_data,
+                data.padding.begin,
+                size_without_padding,
+                data.spacing,
+            );
+            None
+        }
+        LayoutAlignment::center => Some((
+            data.padding.begin + (size_without_padding - pref_size - spacings) / 2.,
+            data.spacing,
+        )),
+        LayoutAlignment::start => Some((data.padding.begin, data.spacing)),
+        LayoutAlignment::end => {
+            Some((data.padding.begin + (size_without_padding - pref_size - spacings), data.spacing))
+        }
+        LayoutAlignment::space_between => {
+            Some((data.padding.begin, (size_without_padding - pref_size) / num_spacings))
+        }
+        LayoutAlignment::space_around => {
+            let spacing = (size_without_padding - pref_size) / (num_spacings + 1.);
+            Some((data.padding.begin + spacing / 2., spacing))
+        }
     };
-
-    let stretch_factor = |cell: &BoxLayoutCellData| cell.constraint.stretch;
-    let mut smaller_strecth: Option<f32> = None;
-    data.cells.iter().map(stretch_factor).for_each(|x| {
-        if x > 0. {
-            smaller_strecth = Some(smaller_strecth.map(|y| y.min(x)).unwrap_or(x))
+    if let Some((mut pos, spacing)) = align {
+        for it in &mut layout_data {
+            it.pos = pos;
+            it.size = it.pref;
+            pos += spacing + it.size;
         }
-    });
-
-    //let stretch_factor_sum = data.cells.iter().map(stretch_factor).sum::<Coord>();
-
-    let flex_box = stretch.new_node(box_style, vec![]).unwrap();
-
-    for (index, cell) in data.cells.iter().enumerate() {
-        let mut margin = Rect::default();
-        if index != 0 {
-            margin.start = Dimension::Points(data.spacing / 2.);
-        }
-        if index != data.cells.len() - 1 {
-            margin.end = Dimension::Points(data.spacing / 2.);
-        }
-        let min = |m, m_p, tot| {
-            if m_p <= 0.0 {
-                if m <= 0.0 {
-                    Dimension::Undefined
-                } else {
-                    Dimension::Points(m)
-                }
-            } else {
-                if m <= 0.0 {
-                    Dimension::Percent(m_p / 100.)
-                } else {
-                    Dimension::Points(m.min(m_p * tot / 100.))
-                }
-            }
-        };
-        let max = |m, m_p, tot| {
-            if m_p >= 100. {
-                if m == f32::MAX {
-                    Dimension::Undefined
-                } else {
-                    Dimension::Points(m)
-                }
-            } else {
-                if m == f32::MAX {
-                    Dimension::Percent(m_p / 100.)
-                } else {
-                    Dimension::Points(m.max(m_p * tot / 100.))
-                }
-            }
-        };
-        let constraint = &cell.constraint;
-        let min_size = Size {
-            width: min(constraint.min, constraint.min_percent, data.size),
-            height: Dimension::Undefined,
-        };
-        let max_size = Size {
-            width: max(constraint.max, constraint.max_percent, data.size),
-            height: Dimension::Undefined,
-        };
-
-        let flex_grow_shrink = if data.alignment != LayoutAlignment::stretch {
-            0.
-        } else if let Some(s) = smaller_strecth {
-            stretch_factor(cell) / s
-        } else {
-            1.
-        };
-
-        let convert_preferred_size = |size| {
-            if size != 0. {
-                Dimension::Points(size)
-            } else {
-                Dimension::Auto
-            }
-        };
-
-        let cell_style = Style {
-            size: Size {
-                width: convert_preferred_size(constraint.preferred),
-                height: Dimension::Auto,
-            },
-            min_size,
-            max_size,
-            flex_grow: flex_grow_shrink,
-            flex_shrink: flex_grow_shrink,
-            flex_basis: min_size.width,
-            margin,
-            align_self: AlignSelf::Stretch,
-            ..Default::default()
-        };
-
-        let cell_item = stretch.new_node(cell_style, vec![]).unwrap();
-        stretch.add_child(flex_box, cell_item).unwrap();
     }
 
-    stretch
-        .compute_layout(
-            flex_box,
-            Size {
-                width: Number::Defined(data.size - (data.padding.begin + data.padding.end)),
-                height: Number::Undefined,
-            },
-        )
-        .unwrap();
-
-    let start_pos = data.padding.begin;
+    eprintln!("{:?}", layout_data);
 
     let mut result = SharedVector::<f32>::default();
     result.resize(data.cells.len() * 2 + repeater_indexes.len(), 0.);
@@ -550,13 +493,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
     let mut next_rep = 0;
     // The index/2 in result in which we should add the next non-repeated item
     let mut current_ofst = 0;
-    for (idx, layout) in stretch
-        .children(flex_box)
-        .unwrap()
-        .iter()
-        .map(|child| stretch.layout(*child).unwrap())
-        .enumerate()
-    {
+    for (idx, layout) in layout_data.iter().enumerate() {
         let o = loop {
             if let Some(nr) = repeater_indexes.get(next_rep * 2) {
                 let nr = *nr as usize;
@@ -578,8 +515,8 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
             current_ofst += 1;
             break current_ofst - 1;
         };
-        res[o * 2 + 0] = start_pos + layout.location.x;
-        res[o * 2 + 1] = layout.size.width;
+        res[o * 2 + 0] = layout.pos;
+        res[o * 2 + 1] = layout.size;
     }
     result
 }
