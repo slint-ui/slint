@@ -24,7 +24,7 @@ fn default_config() -> cbindgen::Config {
         documentation: true,
         export: cbindgen::ExportConfig {
             rename: [
-                ("Callback".into(), "CallbackHelper".into()),
+                ("Callback".into(), "private_api::CallbackHelper".into()),
                 ("VoidArg".into(), "void".into()),
                 ("KeyEventArg".into(), "KeyEvent".into()),
             ]

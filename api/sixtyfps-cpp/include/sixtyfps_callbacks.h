@@ -83,10 +83,12 @@ private:
     cbindgen_private::CallbackOpaque inner;
 };
 
+namespace private_api {
 template<typename A, typename R> struct CallbackSignatureHelper { using Result = R(A); };
 template<typename R> struct CallbackSignatureHelper<void, R> { using Result = R(); };
 template<typename A, typename R = void> using CallbackHelper =
     Callback<typename CallbackSignatureHelper<A, R>::Result>;
+}
 
 } // namespace sixtyfps
 
