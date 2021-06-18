@@ -67,8 +67,7 @@ pub trait PlatformWindow {
         reference_text: Pin<&crate::properties::Property<SharedString>>,
     ) -> Box<dyn crate::graphics::FontMetrics>;
 
-    /// Return the size of the image referenced by the specified resource, multiplied by the window
-    /// scale factor.
+    /// Return the size of the image referenced by the specified resource.
     fn image_size(&self, source: &ImageInner) -> crate::graphics::Size;
 
     /// Return self as any so the backend can upcast
