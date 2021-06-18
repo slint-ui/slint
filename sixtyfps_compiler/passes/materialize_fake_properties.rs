@@ -20,17 +20,17 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 pub fn materialize_fake_properties(component: &Rc<Component>) {
+    let mut to_initialize = std::collections::HashSet::new();
+
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         visit_all_named_references_in_element(elem, |nr| {
             let elem = nr.element();
-            let must_initialize = {
-                let mut elem = elem.borrow_mut();
-                let elem = &mut *elem;
-                maybe_materialize(&mut elem.property_declarations, &elem.base_type, nr.name())
-                    && !elem.bindings.contains_key(nr.name())
-            };
-            if must_initialize {
-                initialize(elem, nr.name());
+            let mut elem = elem.borrow_mut();
+            let elem = &mut *elem;
+            if maybe_materialize(&mut elem.property_declarations, &elem.base_type, nr.name())
+                && !elem.bindings.contains_key(nr.name())
+            {
+                to_initialize.insert(nr.clone());
             }
         });
         let mut elem = elem.borrow_mut();
@@ -38,7 +38,14 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
         for prop in elem.bindings.keys() {
             maybe_materialize(&mut elem.property_declarations, &elem.base_type, prop);
         }
-    })
+    });
+
+    for nr in to_initialize {
+        let elem = nr.element();
+        if !elem.borrow().bindings.contains_key(nr.name()) {
+            initialize(elem, nr.name())
+        }
+    }
 }
 
 fn maybe_materialize(

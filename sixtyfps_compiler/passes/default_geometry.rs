@@ -146,18 +146,18 @@ fn gen_layout_info_prop(elem: &ElementRc) {
         "layoutinfo_h",
         crate::layout::layout_info_type(),
     );
-    elem.borrow_mut().layout_info_prop = Some((li_v.clone(), li_h.clone()));
+    elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
     let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
     let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
 
     for child_info in child_infos {
-        expr_v = Expression::BinaryExpression {
-            lhs: Box::new(std::mem::take(&mut expr_v)),
+        expr_h = Expression::BinaryExpression {
+            lhs: Box::new(std::mem::take(&mut expr_h)),
             rhs: Box::new(Expression::PropertyReference(child_info.0)),
             op: '+',
         };
-        expr_h = Expression::BinaryExpression {
-            lhs: Box::new(std::mem::take(&mut expr_h)),
+        expr_v = Expression::BinaryExpression {
+            lhs: Box::new(std::mem::take(&mut expr_v)),
             rhs: Box::new(Expression::PropertyReference(child_info.1)),
             op: '+',
         };

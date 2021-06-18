@@ -59,27 +59,12 @@ impl Default for LayoutInfo {
 impl LayoutInfo {
     // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout infos.
     pub fn merge(&self, other: &LayoutInfo) -> Self {
-        let merge_preferred_size = |left_stretch, left_size, right_stretch, right_size| {
-            if left_stretch < right_stretch {
-                left_size
-            } else if left_stretch > right_stretch {
-                right_size
-            } else {
-                (left_size + right_size) / 2.
-            }
-        };
-
         Self {
             min: self.min.max(other.min),
             max: self.max.min(other.max),
             min_percent: self.min_percent.max(other.min_percent),
             max_percent: self.max_percent.min(other.max_percent),
-            preferred: merge_preferred_size(
-                self.stretch,
-                self.preferred,
-                other.stretch,
-                other.preferred,
-            ),
+            preferred: self.preferred.max(other.preferred),
             stretch: self.stretch.min(other.stretch),
         }
     }
