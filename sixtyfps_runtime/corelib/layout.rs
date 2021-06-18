@@ -465,8 +465,6 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
         }
     }
 
-    eprintln!("{:?}", layout_data);
-
     let mut result = SharedVector::<f32>::default();
     result.resize(data.cells.len() * 2 + repeater_indexes.len(), 0.);
     let res = result.as_slice_mut();
