@@ -63,14 +63,14 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
             let nr = NamedReference::new(&viewport, vp_prop);
             flickable.property_declarations.insert(prop.to_owned(), info.ty.clone().into());
             match flickable.bindings.entry(prop.to_owned()) {
-                std::collections::hash_map::Entry::Occupied(entry) => {
+                std::collections::btree_map::Entry::Occupied(entry) => {
                     let entry = entry.into_mut();
                     entry.expression = Expression::TwoWayBinding(
                         nr,
                         Some(Box::new(std::mem::take(&mut entry.expression))),
                     )
                 }
-                std::collections::hash_map::Entry::Vacant(entry) => {
+                std::collections::btree_map::Entry::Vacant(entry) => {
                     entry.insert(Expression::TwoWayBinding(nr, None).into());
                 }
             }

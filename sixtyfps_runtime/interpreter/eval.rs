@@ -24,7 +24,7 @@ use sixtyfps_compilerlib::expression_tree::{
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib as corelib;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 pub trait ErasedPropertyInfo {
@@ -822,7 +822,7 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
 }
 
 pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::BuiltinItem>(
-    bindings: &HashMap<String, BindingExpression>,
+    bindings: &BTreeMap<String, BindingExpression>,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();

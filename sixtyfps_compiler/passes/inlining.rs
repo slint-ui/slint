@@ -113,10 +113,10 @@ fn inline_element(
 
     for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
         match elem_mut.bindings.entry(k.clone()) {
-            std::collections::hash_map::Entry::Vacant(entry) => {
+            std::collections::btree_map::Entry::Vacant(entry) => {
                 entry.insert(val.clone()).priority += 1;
             }
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
+            std::collections::btree_map::Entry::Occupied(mut entry) => {
                 let b = entry.get_mut();
                 maybe_merge_two_ways(&mut b.expression, &mut b.priority, val);
             }

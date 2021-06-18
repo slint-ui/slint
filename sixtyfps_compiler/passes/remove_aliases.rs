@@ -13,7 +13,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
 use crate::object_tree::*;
 use std::cell::RefCell;
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{btree_map::Entry, HashMap, HashSet};
 use std::rc::Rc;
 
 type Mapping = HashMap<NamedReference, NamedReference>;

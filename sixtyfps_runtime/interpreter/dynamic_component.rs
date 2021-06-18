@@ -32,6 +32,7 @@ use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInf
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::ComponentWindow;
 use sixtyfps_corelib::{Brush, Color, Property, SharedString, SharedVector};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
 
@@ -300,7 +301,7 @@ pub struct ComponentDescription<'id> {
     /// Keep the Rc alive
     pub(crate) original: Rc<object_tree::Component>,
     /// Copy of original.root_element.property_declarations, without a guarded refcell
-    public_properties: HashMap<String, PropertyDeclaration>,
+    public_properties: BTreeMap<String, PropertyDeclaration>,
 
     /// compiled globals
     compiled_globals: Vec<crate::global_component::CompiledGlobal>,

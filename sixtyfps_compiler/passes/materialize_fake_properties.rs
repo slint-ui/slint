@@ -16,7 +16,7 @@ use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Uni
 use crate::langtype::Type;
 use crate::layout::Orientation;
 use crate::object_tree::*;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 pub fn materialize_fake_properties(component: &Rc<Component>) {
@@ -49,7 +49,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 }
 
 fn maybe_materialize(
-    property_declarations: &mut HashMap<String, PropertyDeclaration>,
+    property_declarations: &mut BTreeMap<String, PropertyDeclaration>,
     base_type: &Type,
     prop: &str,
 ) -> bool {

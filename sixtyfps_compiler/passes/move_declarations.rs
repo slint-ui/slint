@@ -14,11 +14,12 @@ use crate::expression_tree::NamedReference;
 use crate::langtype::Type;
 use crate::object_tree::*;
 
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 struct Declarations {
-    property_declarations: HashMap<String, PropertyDeclaration>,
+    property_declarations: BTreeMap<String, PropertyDeclaration>,
 }
 impl Declarations {
     fn take_from_element(e: &mut Element) -> Self {
@@ -54,7 +55,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
 
         // take the bindings so we do nt keep the borrow_mut of the element
         let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
-        let mut new_bindings = HashMap::with_capacity(bindings.len());
+        let mut new_bindings = BTreeMap::new();
         for (k, e) in bindings {
             let will_be_moved = elem.borrow().property_declarations.contains_key(&k);
             if will_be_moved {

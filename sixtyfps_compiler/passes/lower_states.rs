@@ -73,10 +73,10 @@ fn lower_state_in_element(
                 false_expr: Box::new(property_expr),
             };
             match e.borrow_mut().bindings.entry(ne.name().to_owned()) {
-                std::collections::hash_map::Entry::Occupied(mut e) => {
+                std::collections::btree_map::Entry::Occupied(mut e) => {
                     e.get_mut().expression = new_expr
                 }
-                std::collections::hash_map::Entry::Vacant(e) => {
+                std::collections::btree_map::Entry::Vacant(e) => {
                     e.insert(new_expr.into());
                 }
             };

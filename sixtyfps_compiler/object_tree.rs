@@ -23,7 +23,7 @@ use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::{Rc, Weak};
 
 macro_rules! unwrap_or_continue {
@@ -319,14 +319,14 @@ pub struct Element {
     //pub base: QualifiedTypeName,
     pub base_type: crate::langtype::Type,
     /// Currently contains also the callbacks. FIXME: should that be changed?
-    pub bindings: HashMap<String, BindingExpression>,
+    pub bindings: BTreeMap<String, BindingExpression>,
     pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
 
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
     pub enclosing_component: Weak<Component>,
 
-    pub property_declarations: HashMap<String, PropertyDeclaration>,
+    pub property_declarations: BTreeMap<String, PropertyDeclaration>,
 
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,

@@ -227,7 +227,7 @@ use crate::object_tree::{
 };
 use cpp_ast::*;
 use itertools::Itertools;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 impl CppType for Type {
@@ -290,7 +290,7 @@ fn remove_parentheses(expr: &str) -> &str {
 
 fn new_struct_with_bindings(
     type_name: &str,
-    bindings: &HashMap<String, BindingExpression>,
+    bindings: &BTreeMap<String, BindingExpression>,
     component: &Rc<Component>,
 ) -> String {
     let bindings_initialization: Vec<String> = bindings
