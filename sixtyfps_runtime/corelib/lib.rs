@@ -90,6 +90,7 @@ pub fn use_modules() -> usize {
             + component::ffi::sixtyfps_component_init_items as usize
             + timers::ffi::sixtyfps_timer_start as usize
             + graphics::color::ffi::sixtyfps_color_brighter as usize
+            + graphics::image::ffi::sixtyfps_image_size as usize
     }
     #[cfg(not(feature = "ffi"))]
     {

@@ -42,7 +42,7 @@ pub use path::*;
 mod brush;
 pub use brush::*;
 
-mod image;
+pub(crate) mod image;
 pub use self::image::*;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with

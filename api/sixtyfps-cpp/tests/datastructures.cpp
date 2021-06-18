@@ -13,6 +13,7 @@ LICENSE END */
 #include "catch2/catch.hpp"
 
 #include <sixtyfps.h>
+#include <sixtyfps_image.h>
 
 SCENARIO("SharedString API")
 {
@@ -72,3 +73,24 @@ TEST_CASE("Property Tracker")
     REQUIRE(!tracker1.is_dirty());
 }
 
+TEST_CASE("Image")
+{
+    using namespace sixtyfps;
+
+    // ensure a backend exists, using private api
+    private_api::ComponentWindow wnd;
+
+    Image img;
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 0.);
+        REQUIRE(size.height == 0.);
+    }
+
+    img = Image::load_from_path(SOURCE_DIR "/../../vscode_extension/extension-logo.png");
+    {
+        auto size = img.size();
+        REQUIRE(size.width == 128.);
+        REQUIRE(size.height == 128.);
+    }
+}

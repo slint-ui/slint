@@ -130,6 +130,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "KeyEventArg",
         "sixtyfps_color_brighter",
         "sixtyfps_color_darker",
+        "sixtyfps_image_size",
     ]
     .iter()
     .map(|x| x.to_string())
@@ -180,7 +181,11 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
 
     for (rust_types, extra_excluded_types, internal_header) in [
-        (vec!["ImageInner", "Image"], vec![], "sixtyfps_image_internal.h"),
+        (
+            vec!["ImageInner", "Image", "Size", "sixtyfps_image_size"],
+            vec![],
+            "sixtyfps_image_internal.h",
+        ),
         (
             vec!["Color", "sixtyfps_color_brighter", "sixtyfps_color_darker"],
             vec![],
@@ -222,6 +227,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
             "sixtyfps_new_path_events",
             "sixtyfps_color_brighter",
             "sixtyfps_color_darker",
+            "sixtyfps_image_size",
         ]
         .iter()
         .filter(|exclusion| rust_types.iter().find(|inclusion| inclusion == exclusion).is_none())

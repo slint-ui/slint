@@ -80,3 +80,16 @@ impl Image {
         }
     }
 }
+
+#[cfg(feature = "ffi")]
+pub(crate) mod ffi {
+    #![allow(unsafe_code)]
+
+    use super::super::Size;
+    use super::*;
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_image_size(image: &Image) -> Size {
+        image.size()
+    }
+}
