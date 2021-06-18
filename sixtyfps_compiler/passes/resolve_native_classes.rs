@@ -46,7 +46,7 @@ pub fn resolve_native_classes(component: &Component) {
                 .collect();
 
             select_minimal_class_based_on_property_usage(
-                elem.base_type.as_builtin().native_class.clone(),
+                &elem.base_type.as_builtin().native_class,
                 native_properties_used.into_iter(),
             )
         };
@@ -56,7 +56,6 @@ pub fn resolve_native_classes(component: &Component) {
 }
 
 fn lookup_property_distance(mut class: Rc<NativeClass>, name: &str) -> (usize, Rc<NativeClass>) {
-    eprintln!("lookup {} {}", class.class_name, name);
     let mut distance = 0;
     loop {
         if class.properties.contains_key(name) {
@@ -68,7 +67,7 @@ fn lookup_property_distance(mut class: Rc<NativeClass>, name: &str) -> (usize, R
 }
 
 fn select_minimal_class_based_on_property_usage<'a>(
-    class: Rc<NativeClass>,
+    class: &Rc<NativeClass>,
     properties_used: impl Iterator<Item = &'a String>,
 ) -> Rc<NativeClass> {
     let mut minimal_class = class.clone();
@@ -91,41 +90,69 @@ fn select_minimal_class_based_on_property_usage<'a>(
 }
 
 #[test]
+fn test_select_minimal_class_based_on_property_usage() {
+    let first = Rc::new(NativeClass::new_with_properties(
+        "first_class",
+        [("first_prop".to_owned(), Type::Int32)].iter().cloned(),
+    ));
+
+    let mut second = NativeClass::new_with_properties(
+        "second_class",
+        [("second_prop".to_owned(), Type::Int32)].iter().cloned(),
+    );
+    second.parent = Some(first.clone());
+    let second = Rc::new(second);
+
+    let reduce_to_first =
+        select_minimal_class_based_on_property_usage(&second, ["first_prop".to_owned()].iter());
+
+    assert_eq!(reduce_to_first.class_name, first.class_name);
+
+    let reduce_to_second =
+        select_minimal_class_based_on_property_usage(&second, ["second_prop".to_owned()].iter());
+
+    assert_eq!(reduce_to_second.class_name, second.class_name);
+
+    let reduce_to_second = select_minimal_class_based_on_property_usage(
+        &second,
+        ["first_prop".to_owned(), "second_prop".to_owned()].iter(),
+    );
+
+    assert_eq!(reduce_to_second.class_name, second.class_name);
+}
+
+#[test]
 fn select_minimal_class() {
     let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
     let rect = tr.lookup("Rectangle");
     let rect = rect.as_builtin();
     assert_eq!(
-        rect.native_class
-            .clone()
-            .select_minimal_class_based_on_property_usage(
-                ["x".to_owned(), "width".to_owned()].iter()
-            )
-            .class_name,
+        select_minimal_class_based_on_property_usage(
+            &rect.native_class,
+            ["x".to_owned(), "width".to_owned()].iter()
+        )
+        .class_name,
         "Rectangle",
     );
     assert_eq!(
-        rect.native_class
-            .clone()
-            .select_minimal_class_based_on_property_usage([].iter())
-            .class_name,
+        select_minimal_class_based_on_property_usage(&rect.native_class, [].iter()).class_name,
         "Rectangle",
     );
     assert_eq!(
-        rect.native_class
-            .clone()
-            .select_minimal_class_based_on_property_usage(["border_width".to_owned()].iter())
-            .class_name,
+        select_minimal_class_based_on_property_usage(
+            &rect.native_class,
+            ["border_width".to_owned()].iter()
+        )
+        .class_name,
         "BorderRectangle",
     );
     assert_eq!(
-        rect.native_class
-            .clone()
-            .select_minimal_class_based_on_property_usage(
-                ["border_width".to_owned(), "x".to_owned()].iter()
-            )
-            .class_name,
+        select_minimal_class_based_on_property_usage(
+            &rect.native_class,
+            ["border_width".to_owned(), "x".to_owned()].iter()
+        )
+        .class_name,
         "BorderRectangle",
     );
 }

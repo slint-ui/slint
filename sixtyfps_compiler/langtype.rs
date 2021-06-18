@@ -642,39 +642,6 @@ impl BuiltinElement {
     }
 }
 
-#[test]
-fn test_select_minimal_class_based_on_property_usage() {
-    let first = Rc::new(NativeClass::new_with_properties(
-        "first_class",
-        [("first_prop".to_owned(), Type::Int32)].iter().cloned(),
-    ));
-
-    let mut second = NativeClass::new_with_properties(
-        "second_class",
-        [("second_prop".to_owned(), Type::Int32)].iter().cloned(),
-    );
-    second.parent = Some(first.clone());
-    let second = Rc::new(second);
-
-    let reduce_to_first = second
-        .clone()
-        .select_minimal_class_based_on_property_usage(["first_prop".to_owned()].iter());
-
-    assert_eq!(reduce_to_first.class_name, first.class_name);
-
-    let reduce_to_second = second
-        .clone()
-        .select_minimal_class_based_on_property_usage(["second_prop".to_owned()].iter());
-
-    assert_eq!(reduce_to_second.class_name, second.class_name);
-
-    let reduce_to_second = second.clone().select_minimal_class_based_on_property_usage(
-        ["first_prop".to_owned(), "second_prop".to_owned()].iter(),
-    );
-
-    assert_eq!(reduce_to_second.class_name, second.class_name);
-}
-
 #[derive(PartialEq, Debug)]
 pub struct PropertyLookupResult<'a> {
     pub resolved_name: std::borrow::Cow<'a, str>,
