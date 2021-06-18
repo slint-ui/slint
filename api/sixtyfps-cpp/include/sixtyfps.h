@@ -479,6 +479,7 @@ class Repeater
 {
     Property<std::shared_ptr<Model<ModelData>>> model;
 
+#if !defined(DOXYGEN) // hide from public API
     struct RepeaterInner : AbstractRepeaterView
     {
         enum class State { Clean, Dirty };
@@ -511,6 +512,7 @@ class Repeater
             }
         }
     };
+#endif // !defined(DOXYGEN) -- hide from public API
 
 public:
     // FIXME: should be private, but layouting code uses it.
