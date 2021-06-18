@@ -13,6 +13,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 use std::path::Path;
 
+use crate::graphics::{Image, Size};
 use crate::window::ComponentWindow;
 
 /// Behavior describing how the event loop should terminate.
@@ -56,6 +57,8 @@ pub trait Backend: Send + Sync {
 
     /// Send an user event to from another thread that should be run in the GUI event loop
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>);
+
+    fn image_size(&'static self, image: &Image) -> Size;
 }
 
 static PRIVATE_BACKEND_INSTANCE: once_cell::sync::OnceCell<Box<dyn Backend + 'static>> =

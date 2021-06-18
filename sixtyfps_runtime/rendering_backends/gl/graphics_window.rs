@@ -50,7 +50,8 @@ pub struct GraphicsWindow {
     default_font_properties: Pin<Rc<Property<FontRequest>>>,
 
     pub(crate) graphics_cache: RefCell<BackendItemGraphicsCache>,
-    pub(crate) image_cache: RefCell<BackendImageCache>,
+    // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
+    pub(crate) texture_cache: RefCell<BackendImageCache>,
 }
 
 impl GraphicsWindow {
@@ -95,7 +96,7 @@ impl GraphicsWindow {
             active_popup: Default::default(),
             default_font_properties: default_font_properties_prop,
             graphics_cache: Default::default(),
-            image_cache: Default::default(),
+            texture_cache: Default::default(),
         })
     }
 
@@ -231,7 +232,7 @@ impl GraphicsWindow {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|| {
             self.graphics_cache.borrow_mut().clear();
-            self.image_cache.borrow_mut().remove_textures();
+            self.texture_cache.borrow_mut().remove_textures();
         });
 
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
@@ -533,14 +534,6 @@ impl PlatformWindow for GraphicsWindow {
             scale_factor,
             reference_text,
         ))
-    }
-
-    fn image_size(&self, source: &ImageInner) -> sixtyfps_corelib::graphics::Size {
-        self.image_cache
-            .borrow_mut()
-            .load_image_resource(source)
-            .and_then(|image| image.size())
-            .unwrap_or_else(|| Size::new(1., 1.))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

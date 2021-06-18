@@ -720,7 +720,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 }
 
-fn load_image_from_resource(
+pub(crate) fn load_image_from_resource(
     resource: &ImageInner,
     source_size: Option<qttypes::QSize>,
     image_fit: ImageFit,
@@ -1210,15 +1210,6 @@ impl PlatformWindow for QtWindow {
         _reference_text: Pin<&Property<SharedString>>,
     ) -> Box<dyn sixtyfps_corelib::graphics::FontMetrics> {
         Box::new(get_font(unresolved_font_request_getter().merge(&self.default_font_properties())))
-    }
-
-    fn image_size(&self, source: &ImageInner) -> sixtyfps_corelib::graphics::Size {
-        load_image_from_resource(source, None, ImageFit::fill)
-            .map(|img| {
-                let qsize = img.size();
-                euclid::size2(qsize.width as f32, qsize.height as f32)
-            })
-            .unwrap_or_default()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

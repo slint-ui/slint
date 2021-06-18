@@ -18,7 +18,7 @@ You should use the `sixtyfps` crate instead.
 
 use image::GenericImageView;
 use sixtyfps_corelib::component::ComponentRc;
-use sixtyfps_corelib::graphics::{FontMetrics, Size};
+use sixtyfps_corelib::graphics::{FontMetrics, Image, Size};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{ComponentWindow, PlatformWindow, Window};
 use sixtyfps_corelib::{ImageInner, Property};
@@ -67,6 +67,28 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
 
     fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
         unimplemented!("event with the testing backend");
+    }
+
+    fn image_size(&'static self, image: &Image) -> Size {
+        let inner: &ImageInner = image.into();
+        match &inner {
+            ImageInner::None => Default::default(),
+            ImageInner::EmbeddedRgbaImage { width, height, .. } => {
+                Size::new(*width as _, *height as _)
+            }
+            ImageInner::AbsoluteFilePath(path) => image::open(Path::new(path.as_str()))
+                .map(|img| {
+                    let dim = img.dimensions();
+                    Size::new(dim.0 as _, dim.1 as _)
+                })
+                .unwrap_or_default(),
+            ImageInner::EmbeddedData(data) => image::load_from_memory(data.as_slice())
+                .map(|img| {
+                    let dim = img.dimensions();
+                    Size::new(dim.0 as _, dim.1 as _)
+                })
+                .unwrap_or_default(),
+        }
     }
 }
 
@@ -123,27 +145,6 @@ impl PlatformWindow for TestingWindow {
         _reference_text: std::pin::Pin<&sixtyfps_corelib::Property<sixtyfps_corelib::SharedString>>,
     ) -> Box<dyn sixtyfps_corelib::graphics::FontMetrics> {
         Box::new(TestingFontMetrics::default())
-    }
-
-    fn image_size(&self, source: &ImageInner) -> Size {
-        match source {
-            ImageInner::None => Default::default(),
-            ImageInner::EmbeddedRgbaImage { width, height, .. } => {
-                Size::new(*width as _, *height as _)
-            }
-            ImageInner::AbsoluteFilePath(path) => image::open(Path::new(path.as_str()))
-                .map(|img| {
-                    let dim = img.dimensions();
-                    Size::new(dim.0 as _, dim.1 as _)
-                })
-                .unwrap_or_default(),
-            ImageInner::EmbeddedData(data) => image::load_from_memory(data.as_slice())
-                .map(|img| {
-                    let dim = img.dimensions();
-                    Size::new(dim.0 as _, dim.1 as _)
-                })
-                .unwrap_or_default(),
-        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

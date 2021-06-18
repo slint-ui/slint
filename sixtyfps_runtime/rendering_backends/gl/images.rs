@@ -16,7 +16,7 @@ use std::rc::Rc;
 use sixtyfps_corelib::Property;
 use sixtyfps_corelib::{graphics::Size, slice::Slice, ImageInner, SharedString};
 
-use super::{CanvasRc, GLItemRenderer, ItemGraphicsCacheEntry};
+use super::{CanvasRc, GLItemRenderer};
 
 struct Texture {
     id: femtovg::ImageId,
@@ -255,6 +255,54 @@ impl CachedImage {
         }
     }
 
+    // Upload the image to the GPU. This function could take just a canvas as parameter,
+    // but since an upload requires a current context, this is "enforced" by taking
+    // a renderer instead (which implies a current context).
+    pub fn upload_to_gpu(
+        &self,
+        current_renderer: &GLItemRenderer,
+        target_size: euclid::default::Size2D<u32>,
+    ) -> Option<Self> {
+        use std::convert::TryFrom;
+
+        let canvas = &current_renderer.shared_data.canvas;
+
+        match &*self.0.borrow() {
+            ImageData::Texture(_) => None, // internal error: Cannot call upload_to_gpu on previously uploaded image,
+            ImageData::DecodedImage(decoded_image) => {
+                let image_id = match femtovg::ImageSource::try_from(&*decoded_image) {
+                    Ok(image_source) => {
+                        canvas.borrow_mut().create_image(image_source, femtovg::ImageFlags::empty())
+                    }
+                    Err(_) => {
+                        let converted = image::DynamicImage::ImageRgba8(decoded_image.to_rgba8());
+                        let image_source = femtovg::ImageSource::try_from(&converted).unwrap();
+                        canvas.borrow_mut().create_image(image_source, femtovg::ImageFlags::empty())
+                    }
+                }
+                .unwrap();
+
+                Some(Self::new_on_gpu(canvas, image_id))
+            }
+            #[cfg(feature = "svg")]
+            ImageData::SVG(svg_tree) => match super::svg::render(&svg_tree, target_size) {
+                Ok(rendered_svg_image) => Some(Self::new_on_cpu(rendered_svg_image)),
+                Err(err) => {
+                    eprintln!("Error rendering SVG: {}", err);
+                    return None;
+                }
+            },
+            #[cfg(target_arch = "wasm32")]
+            ImageData::HTMLImage(html_image) => html_image.size().map(|_| {
+                let image_id = canvas
+                    .borrow_mut()
+                    .create_image(&html_image.dom_element, femtovg::ImageFlags::empty())
+                    .unwrap();
+                Self::new_on_gpu(canvas, image_id)
+            }),
+        }
+    }
+
     pub fn size(&self) -> Option<Size> {
         use image::GenericImageView;
 
@@ -274,29 +322,6 @@ impl CachedImage {
             #[cfg(target_arch = "wasm32")]
             ImageData::HTMLImage(html_image) => html_image.size(),
         }
-    }
-
-    pub fn as_renderable(
-        self: Rc<Self>,
-        target_size: euclid::default::Size2D<u32>,
-    ) -> Option<ItemGraphicsCacheEntry> {
-        Some(match &*self.0.borrow() {
-            ImageData::Texture { .. } => ItemGraphicsCacheEntry::Image(self.clone()),
-            ImageData::DecodedImage(_) => ItemGraphicsCacheEntry::Image(self.clone()),
-            #[cfg(target_arch = "wasm32")]
-            ImageData::HTMLImage(_) => ItemGraphicsCacheEntry::Image(self.clone()),
-            #[cfg(feature = "svg")]
-            ImageData::SVG(svg_tree) => match super::svg::render(&svg_tree, target_size) {
-                Ok(rendered_svg_image) => ItemGraphicsCacheEntry::ScalableImage {
-                    scalable_source: self.clone(),
-                    scaled_image: Rc::new(Self::new_on_cpu(rendered_svg_image)),
-                },
-                Err(err) => {
-                    eprintln!("Error rendering SVG: {}", err);
-                    return None;
-                }
-            },
-        })
     }
 
     pub(crate) fn as_render_target(&self) -> femtovg::RenderTarget {
@@ -383,17 +408,17 @@ pub(crate) struct ImageCache(HashMap<ImageCacheKey, Rc<CachedImage>>);
 impl ImageCache {
     // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
     // otherwise a new image is created/loaded from the given callback.
-    fn lookup_image_in_cache_or_create(
+    pub(crate) fn lookup_image_in_cache_or_create(
         &mut self,
         cache_key: ImageCacheKey,
-        image_create_fn: impl Fn() -> Option<CachedImage>,
+        image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
     ) -> Option<Rc<CachedImage>> {
         Some(match self.0.entry(cache_key) {
             std::collections::hash_map::Entry::Occupied(existing_entry) => {
                 existing_entry.get().clone()
             }
             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image = Rc::new(image_create_fn()?);
+                let new_image = image_create_fn()?;
                 vacant_entry.insert(new_image.clone());
                 new_image
             }
@@ -404,7 +429,9 @@ impl ImageCache {
     pub(crate) fn load_image_resource(&mut self, resource: &ImageInner) -> Option<Rc<CachedImage>> {
         let cache_key = ImageCacheKey::new(resource)?;
 
-        self.lookup_image_in_cache_or_create(cache_key, || CachedImage::new_from_resource(resource))
+        self.lookup_image_in_cache_or_create(cache_key, || {
+            CachedImage::new_from_resource(resource).map(Rc::new)
+        })
     }
 
     pub(crate) fn drain(&mut self) {

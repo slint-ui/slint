@@ -74,9 +74,9 @@ impl Item for ImageItem {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        window: &ComponentWindow,
+        _window: &ComponentWindow,
     ) -> LayoutInfo {
-        let natural_size = window.0.image_size((&self.source()).into());
+        let natural_size = self.source().size();
         LayoutInfo {
             preferred: match orientation {
                 Orientation::Horizontal => natural_size.width,
@@ -151,9 +151,9 @@ impl Item for ClippedImage {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        window: &ComponentWindow,
+        _window: &ComponentWindow,
     ) -> LayoutInfo {
-        let natural_size = window.0.image_size((&self.source()).into());
+        let natural_size = self.source().size();
         LayoutInfo {
             preferred: match orientation {
                 Orientation::Horizontal => natural_size.width,
