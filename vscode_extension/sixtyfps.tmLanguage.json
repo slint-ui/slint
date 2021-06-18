@@ -56,11 +56,11 @@
                     "name": "string"
                 },
                 {
-                    "match": "#[0-9a-fA-F]+",
+                    "match": "\\b#[0-9a-fA-F]+",
                     "name": "constant.other"
                 },
                 {
-                    "match": "\\d+(\\.\\d+)?\\w*",
+                    "match": "\\b\\d+(\\.\\d+)?\\w*",
                     "name": "constant.numeric"
                 }
             ]
