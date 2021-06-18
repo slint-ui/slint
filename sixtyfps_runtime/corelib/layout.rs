@@ -525,7 +525,7 @@ pub fn box_layout_info<'a>(
     } else {
         f32::MAX
     };
-    let preferred = cells.iter().map(|c| c.constraint.preferred).sum::<Coord>() + extra_w;
+    let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
     LayoutInfo { min, max, min_percent: 0., max_percent: 100., preferred, stretch }
 }
@@ -545,6 +545,7 @@ pub fn box_layout_info_ortho<'a>(
             a.merge(&b.constraint)
         });
     fold.max = fold.max.max(fold.min);
+    fold.preferred = fold.preferred.clamp(fold.min, fold.max);
     fold.min += extra_w;
     fold.max += extra_w;
     fold.preferred += extra_w;

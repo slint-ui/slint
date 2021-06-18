@@ -1,0 +1,49 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+export Test := Window {
+    VerticalLayout {
+        padding: 7px;
+        Flickable {
+            v:= VerticalLayout {
+                padding: 0;
+                spacing: 0;
+                for i in 6: Text {
+                    height: 100px;
+                    width: 100px;
+                    text: "Test";
+                }
+            }
+        }
+    }
+
+    property <bool> test: root.min_width == 7px*2 && root.min_height == 7px*2 && root.preferred_width == 114px && root.preferred_height == 14px + 600px;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+assert(instance.test);
+```
+
+*/
