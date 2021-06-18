@@ -44,6 +44,13 @@ impl Layout {
             Layout::PathLayout(p) => &mut p.rect,
         }
     }
+    pub fn geometry(&self) -> Option<&LayoutGeometry> {
+        match self {
+            Layout::GridLayout(l) => Some(&l.geometry),
+            Layout::BoxLayout(l) => Some(&l.geometry),
+            Layout::PathLayout(_) => None,
+        }
+    }
 }
 
 impl Layout {
@@ -284,7 +291,7 @@ pub struct LayoutGeometry {
 }
 
 impl LayoutGeometry {
-    fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
+    pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.rect.visit_named_references(visitor);
         self.spacing.as_mut().map(|e| visitor(&mut *e));
         self.alignment.as_mut().map(|e| visitor(&mut *e));

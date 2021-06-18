@@ -305,22 +305,10 @@ fn lower_box_layout(
                 set_prop_from_cache(actual_elem, size, &layout_cache_prop, index + 1, rep_idx);
             }
             if let Some(pad_expr) = pad_expr.clone() {
-                actual_elem.borrow_mut().bindings.insert(
-                    pad.into(),
-                    BindingExpression::new_with_span(
-                        pad_expr,
-                        layout_cache_prop.element().borrow().to_source_location(),
-                    ),
-                );
+                actual_elem.borrow_mut().bindings.insert(pad.into(), pad_expr.into());
             }
             if !fixed_ortho {
-                actual_elem.borrow_mut().bindings.insert(
-                    ortho.into(),
-                    BindingExpression::new_with_span(
-                        size_expr.clone(),
-                        layout_cache_prop.element().borrow().to_source_location(),
-                    ),
-                );
+                actual_elem.borrow_mut().bindings.insert(ortho.into(), size_expr.clone().into());
             }
             layout.elems.push(item.item);
         }
@@ -399,13 +387,7 @@ fn lower_path_layout(
                     rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
                 }),
             };
-            actual_elem.borrow_mut().bindings.insert(
-                prop.into(),
-                BindingExpression::new_with_span(
-                    expression,
-                    layout_element.borrow().to_source_location(),
-                ),
-            );
+            actual_elem.borrow_mut().bindings.insert(prop.into(), expression.into());
         };
         set_prop_from_cache("x", 0, "width");
         set_prop_from_cache("y", 1, "height");

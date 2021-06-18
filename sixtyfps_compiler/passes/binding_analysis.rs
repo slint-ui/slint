@@ -12,8 +12,12 @@ LICENSE END */
 use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::Spanned;
+use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::Expression;
 use crate::langtype::Type;
+use crate::layout::LayoutItem;
+use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, ElementRc};
 
@@ -61,8 +65,10 @@ fn analyse_binding(
 
     if currently_analysing.contains(&nr) {
         for p in currently_analysing.iter().rev() {
+            let elem = p.element();
+            let elem = elem.borrow();
             if std::mem::replace(
-                &mut p.element().borrow().bindings[p.name()]
+                &mut elem.bindings[p.name()]
                     .analysis
                     .borrow_mut()
                     .get_or_insert(Default::default())
@@ -72,9 +78,13 @@ fn analyse_binding(
                 break;
             }
 
+            let span = elem.bindings[p.name()]
+                .span
+                .clone()
+                .or_else(|| elem.node.as_ref().map(|n| n.to_source_location()));
             diag.push_error(
                 format!("The binding for the property '{}' is part of a binding loop.", p.name()),
-                &p.element().borrow().bindings[p.name()],
+                &span,
             );
 
             if *p == nr {
@@ -122,15 +132,90 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&NamedReference)) 
         Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
         Expression::TwoWayBinding(r, _) => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
-        Expression::SolveLayout(l, _) | Expression::ComputeLayoutInfo(l, _) => {
-            let mut l = l.clone();
-            if matches!(expr, Expression::ComputeLayoutInfo(..)) {
-                // we should not visit the layout geometry in that case
-                *l.rect_mut() = Default::default();
+        Expression::SolveLayout(l, o) | Expression::ComputeLayoutInfo(l, o) => {
+            // we should only visit the layout geometry for the orientation
+            if matches!(expr, Expression::SolveLayout(..)) {
+                l.rect().size_reference(*o).map(&mut |nr| vis(nr));
             }
-            l.visit_named_references(&mut |nr| vis(nr));
+            match l {
+                crate::layout::Layout::GridLayout(l) => {
+                    visit_layout_items_dependencies(l.elems.iter().map(|it| &it.item), *o, vis)
+                }
+                crate::layout::Layout::BoxLayout(l) => {
+                    visit_layout_items_dependencies(l.elems.iter(), *o, vis)
+                }
+                crate::layout::Layout::PathLayout(l) => {
+                    for it in &l.elements {
+                        vis(&NamedReference::new(it, "width"));
+                        vis(&NamedReference::new(it, "height"));
+                    }
+                }
+            }
+            if let Some(g) = l.geometry() {
+                let mut g = g.clone();
+                g.rect = Default::default(); // already visited;
+                g.visit_named_references(&mut |nr| vis(nr))
+            }
+        }
+        Expression::FunctionCall { function, arguments, .. } => {
+            if let Expression::BuiltinFunctionReference(
+                BuiltinFunction::ImplicitLayoutInfo(orientation),
+                _,
+            ) = &**function
+            {
+                if let [Expression::ElementReference(item)] = arguments.as_slice() {
+                    visit_implicit_layout_info_dependencies(
+                        *orientation,
+                        &item.upgrade().unwrap(),
+                        vis,
+                    );
+                }
+            }
         }
         _ => {}
+    }
+}
+
+fn visit_layout_items_dependencies<'a>(
+    items: impl Iterator<Item = &'a LayoutItem>,
+    orientation: Orientation,
+    vis: &mut impl FnMut(&NamedReference),
+) {
+    for it in items {
+        if let Some(nr) = it.element.borrow().layout_info_prop(orientation) {
+            vis(nr);
+        } else {
+            visit_implicit_layout_info_dependencies(orientation, &it.element, vis);
+        }
+
+        for (nr, _) in it.constraints.for_each_restrictions(orientation) {
+            vis(nr)
+        }
+    }
+}
+
+/// The builtin function can call native code, and we need to visit the properties that are accessed by it
+fn visit_implicit_layout_info_dependencies(
+    orientation: crate::layout::Orientation,
+    item: &ElementRc,
+    vis: &mut impl FnMut(&NamedReference),
+) {
+    let base_type = item.borrow().base_type.to_string();
+    match base_type.as_str() {
+        "Image" => vis(&NamedReference::new(&item, "source")),
+        "Text" => {
+            vis(&NamedReference::new(&item, "text"));
+            vis(&NamedReference::new(&item, "font_familly"));
+            vis(&NamedReference::new(&item, "font_size"));
+            vis(&NamedReference::new(&item, "font_weight"));
+            vis(&NamedReference::new(&item, "letter_spacing"));
+            vis(&NamedReference::new(&item, "wrap"));
+            vis(&NamedReference::new(&item, "overflow"));
+            if orientation == Orientation::Vertical {
+                vis(&NamedReference::new(&item, "width"));
+            }
+        }
+        _ => (),
     }
 }
 

@@ -19,6 +19,8 @@ LICENSE END */
 use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::Spanned;
+use crate::expression_tree::BindingExpression;
 use crate::langtype::DefaultSizeBinding;
 use crate::langtype::Type;
 use crate::layout::Orientation;
@@ -163,8 +165,10 @@ fn gen_layout_info_prop(elem: &ElementRc) {
         };
     }
 
-    li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v.into());
-    li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h.into());
+    let expr_v = BindingExpression::new_with_span(expr_v, elem.borrow().to_source_location());
+    li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v);
+    let expr_h = BindingExpression::new_with_span(expr_h, elem.borrow().to_source_location());
+    li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h);
 }
 
 /// Replace expression such as  `"width: 30%;` with `width: 0.3 * parent.width;`
