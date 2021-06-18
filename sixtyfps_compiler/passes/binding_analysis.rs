@@ -86,6 +86,13 @@ fn analyse_binding(
     currently_analysing.insert(nr.clone());
 
     recurse_expression(&element.borrow().bindings[name], &mut |prop: &NamedReference| {
+        prop.element()
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(prop.name().into())
+            .or_default()
+            .is_read = true;
         if let Some(binding) = prop.element().borrow().bindings.get(prop.name()) {
             if binding.analysis.borrow().is_some() {
                 return;

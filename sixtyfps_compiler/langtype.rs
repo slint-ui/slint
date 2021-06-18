@@ -590,41 +590,6 @@ impl NativeClass {
             None
         }
     }
-
-    fn lookup_property_distance(self: Rc<Self>, name: &str) -> (usize, Rc<Self>) {
-        let mut distance = 0;
-        let mut class = self;
-        loop {
-            if class.properties.contains_key(name) {
-                return (distance, class);
-            }
-            distance += 1;
-            class = class.parent.as_ref().unwrap().clone();
-        }
-    }
-
-    pub fn select_minimal_class_based_on_property_usage<'a>(
-        self: Rc<Self>,
-        properties_used: impl Iterator<Item = &'a String>,
-    ) -> Rc<Self> {
-        let mut minimal_class = self.clone();
-        while let Some(class) = minimal_class.parent.clone() {
-            minimal_class = class;
-        }
-        let (_min_distance, minimal_class) = properties_used.fold(
-            (std::usize::MAX, minimal_class),
-            |(current_distance, current_class), prop_name| {
-                let (prop_distance, prop_class) = self.clone().lookup_property_distance(&prop_name);
-
-                if prop_distance < current_distance {
-                    (prop_distance, prop_class)
-                } else {
-                    (current_distance, current_class)
-                }
-            },
-        );
-        minimal_class
-    }
 }
 
 #[derive(Debug, Clone)]

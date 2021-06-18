@@ -432,9 +432,12 @@ pub fn pretty_print(
 
 #[derive(Clone, Default, Debug)]
 pub struct PropertyAnalysis {
-    // true if somewhere in the code, there is an expression that changes this property with an assignement
+    /// true if somewhere in the code, there is an expression that changes this property with an assignement
     pub is_set: bool,
-    //pub is_read: bool,
+
+    /// true if somewhere in the code, an expression is reading this property
+    /// Note: currently this is only set in the binding analysis pass
+    pub is_read: bool,
 }
 
 impl PropertyAnalysis {
