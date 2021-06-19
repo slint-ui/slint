@@ -1625,7 +1625,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
                 .borrow_mut()
                 .load_image_resource(image.into())
                 .and_then(|image| image.size())
-                .unwrap_or_else(|| Size::new(1., 1.))
+                .unwrap_or_default()
         })
     }
 }
