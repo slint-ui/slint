@@ -80,7 +80,7 @@ impl Item for ImageItem {
         LayoutInfo {
             preferred: match orientation {
                 Orientation::Horizontal => natural_size.width,
-                Orientation::Vertical => natural_size.height,
+                Orientation::Vertical => natural_size.height * self.width() / natural_size.width,
             },
             ..Default::default()
         }
@@ -157,7 +157,7 @@ impl Item for ClippedImage {
         LayoutInfo {
             preferred: match orientation {
                 Orientation::Horizontal => natural_size.width,
-                Orientation::Vertical => natural_size.height,
+                Orientation::Vertical => natural_size.height * self.width() / natural_size.width,
             },
             ..Default::default()
         }
