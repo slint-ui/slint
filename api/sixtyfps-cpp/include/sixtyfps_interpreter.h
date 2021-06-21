@@ -440,7 +440,7 @@ inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
 {
     using cbindgen_private::ModelAdaptorVTable;
     using vtable::VRef;
-    struct ModelWrapper : AbstractRepeaterView
+    struct ModelWrapper : private_api::AbstractRepeaterView
     {
         std::shared_ptr<sixtyfps::Model<Value>> model;
         cbindgen_private::ModelNotifyOpaque notify;

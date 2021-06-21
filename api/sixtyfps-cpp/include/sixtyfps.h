@@ -333,12 +333,9 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 namespace cbindgen_private {
 inline bool operator==(const LayoutInfo &a, const LayoutInfo &b)
 {
-    return a.min == b.min &&
-        a.max == b.max &&
-        a.min_percent == b.min_percent &&
-        a.max_percent == b.max_percent &&
-        a.preferred == b.preferred &&
-        a.stretch == b.stretch;
+    return a.min == b.min && a.max == b.max && a.min_percent == b.min_percent
+            && a.max_percent == b.max_percent && a.preferred == b.preferred
+            && a.stretch == b.stretch;
 }
 inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 {
@@ -346,6 +343,7 @@ inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 }
 }
 
+namespace private_api {
 // models
 struct AbstractRepeaterView
 {
@@ -355,6 +353,8 @@ struct AbstractRepeaterView
     virtual void row_changed(int index) = 0;
 };
 using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
+
+} // namespace private_api
 
 template<typename ModelData>
 class Model
@@ -376,8 +376,9 @@ public:
     /// row_changed.
     virtual void set_row_data(int, const ModelData &) {};
 
+    /// \private
     /// Internal function called by the view to register itself
-    void attach_peer(ModelPeer p) { peers.push_back(std::move(p)); }
+    void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
 
 protected:
     /// Notify the views that a specific row was changed
@@ -410,7 +411,7 @@ private:
                                    }),
                     peers.end());
     }
-    std::vector<ModelPeer> peers;
+    std::vector<private_api::ModelPeer> peers;
 };
 
 /// A Model backed by an array of constant size
@@ -474,12 +475,13 @@ public:
     }
 };
 
+namespace private_api {
+
 template<typename C, typename ModelData>
 class Repeater
 {
     private_api::Property<std::shared_ptr<Model<ModelData>>> model;
 
-#if !defined(DOXYGEN) // hide from public API
     struct RepeaterInner : AbstractRepeaterView
     {
         enum class State { Clean, Dirty };
@@ -512,7 +514,6 @@ class Repeater
             }
         }
     };
-#endif // !defined(DOXYGEN) -- hide from public API
 
 public:
     // FIXME: should be private, but layouting code uses it.
@@ -620,6 +621,8 @@ public:
     }
 };
 
+} // namespace private_api
+
 Flickable::Flickable()
 {
     sixtyfps_flickable_data_init(&data);
@@ -674,12 +677,11 @@ inline void quit_event_loop()
 /// You can use this to set properties or use any other SixtyFPS APIs from other threads,
 /// by collecting the code in a functor and queuing it up for invocation within the event loop.
 template<typename Functor>
-void invoke_from_event_loop(Functor f) {
+void invoke_from_event_loop(Functor f)
+{
     cbindgen_private::sixtyfps_post_event(
-        [](void *data) { (*reinterpret_cast<Functor *>(data))(); },
-        new Functor(std::move(f)),
-        [](void *data) { delete reinterpret_cast<Functor *>(data); }
-    );
+            [](void *data) { (*reinterpret_cast<Functor *>(data))(); }, new Functor(std::move(f)),
+            [](void *data) { delete reinterpret_cast<Functor *>(data); });
 }
 
 namespace private_api {
