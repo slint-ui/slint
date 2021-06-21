@@ -532,7 +532,7 @@ fn handle_repeater(
         Access::Private,
         Declaration::Var(Var {
             ty: format!(
-                "sixtyfps::Repeater<class {}, {}>",
+                "sixtyfps::private_api::Repeater<class {}, {}>",
                 component_id(base_component),
                 model_data_type(&parent_element, diag)
             ),
