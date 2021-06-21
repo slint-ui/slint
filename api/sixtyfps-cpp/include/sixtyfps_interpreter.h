@@ -645,7 +645,20 @@ public:
     }
 };
 
+#if !defined(DOXYGEN)
 using PropertyDescriptor = sixtyfps::cbindgen_private::PropertyDescriptor;
+#else
+/// PropertyDescriptor is a simple structure that's used to describe a property declared in .60
+/// code. It is returned from in a vector from
+/// sixtyfps::interpreter::ComponentDefinition::properties().
+struct PropertyDescriptor
+{
+    /// The name of the declared property.
+    SharedString property_name;
+    /// The type of the property.
+    Value::Type property_type;
+};
+#endif // else !defined(DOXYGEN)
 
 /// ComponentDefinition is a representation of a compiled component from .60 markup.
 ///
