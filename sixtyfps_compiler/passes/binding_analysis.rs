@@ -202,7 +202,12 @@ fn visit_implicit_layout_info_dependencies(
 ) {
     let base_type = item.borrow().base_type.to_string();
     match base_type.as_str() {
-        "Image" => vis(&NamedReference::new(&item, "source")),
+        "Image" => {
+            vis(&NamedReference::new(&item, "source"));
+            if orientation == Orientation::Vertical {
+                vis(&NamedReference::new(&item, "width"));
+            }
+        }
         "Text" => {
             vis(&NamedReference::new(&item, "text"));
             vis(&NamedReference::new(&item, "font_familly"));
