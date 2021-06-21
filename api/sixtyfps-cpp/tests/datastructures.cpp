@@ -53,7 +53,7 @@ TEST_CASE("Basic SharedVector API", "[vector]")
 
 TEST_CASE("Property Tracker")
 {
-    using namespace sixtyfps;
+    using namespace sixtyfps::private_api;
     PropertyTracker tracker1;
     PropertyTracker tracker2;
     Property<int> prop(42);

@@ -65,8 +65,6 @@ inline void sixtyfps_property_set_animated_binding_helper(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
-}
-
 template<typename T>
 struct Property
 {
@@ -302,5 +300,7 @@ struct PropertyTracker
 private:
     cbindgen_private::PropertyTrackerOpaque inner;
 };
+
+} // namespace private_api
 
 } // namespace sixtyfps

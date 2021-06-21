@@ -209,6 +209,8 @@ RgbaColor<float> Color::to_argb_float() const
     return RgbaColor<float>(*this);
 }
 
+namespace private_api {
+
 template<>
 inline void
 Property<Color>::set_animated_value(const Color &new_value,
@@ -218,4 +220,6 @@ Property<Color>::set_animated_value(const Color &new_value,
                                                                  &animation_data);
 }
 
-}
+} // namespace private_api
+
+} // namespace sixtyfps
