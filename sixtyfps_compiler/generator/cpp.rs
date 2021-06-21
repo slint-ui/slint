@@ -373,7 +373,7 @@ fn handle_property_binding(
         ));
     } else if let Expression::TwoWayBinding(nr, next) = &binding_expression {
         init.push(format!(
-            "sixtyfps::Property<{ty}>::link_two_way(&{p1}, &{p2});",
+            "sixtyfps::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
             ty = prop_type.cpp_type().unwrap_or_default(),
             p1 = access_member(elem, prop_name, &component, "this"),
             p2 = access_named_reference(nr, &component, "this")
@@ -400,7 +400,7 @@ fn handle_property_binding(
 
             let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
-                format!("sixtyfps::set_state_binding({}, {});", cpp_prop, binding_code)
+                format!("sixtyfps::private_api::set_state_binding({}, {});", cpp_prop, binding_code)
             } else {
                 match item.property_animations.get(prop_name) {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
@@ -754,7 +754,7 @@ fn generate_component(
                     }),
                 ));
             }
-            format!("sixtyfps::Property<{}>", cpp_type)
+            format!("sixtyfps::private_api::Property<{}>", cpp_type)
         };
 
         if property_decl.is_alias.is_none() {
@@ -775,7 +775,7 @@ fn generate_component(
             component_struct.members.push((
                 Access::Private,
                 Declaration::Var(Var {
-                    ty: "sixtyfps::Property<int>".into(),
+                    ty: "sixtyfps::private_api::Property<int>".into(),
                     name: "index".into(),
                     init: None,
                 }),
@@ -784,7 +784,7 @@ fn generate_component(
             component_struct.members.push((
                 Access::Private,
                 Declaration::Var(Var {
-                    ty: format!("sixtyfps::Property<{}>", cpp_model_data_type),
+                    ty: format!("sixtyfps::private_api::Property<{}>", cpp_model_data_type),
                     name: "model_data".into(),
                     init: None,
                 }),
@@ -847,7 +847,7 @@ fn generate_component(
                 Declaration::Function(Function {
                     name: "listview_layout".into(),
                     signature:
-                        "(float *offset_y, const sixtyfps::Property<float> *viewport_width) const -> void"
+                        "(float *offset_y, const sixtyfps::private_api::Property<float> *viewport_width) const -> void"
                             .to_owned(),
                     statements: Some(vec![
                         "float vp_w = viewport_width->get();".to_owned(),

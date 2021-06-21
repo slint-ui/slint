@@ -477,7 +477,7 @@ public:
 template<typename C, typename ModelData>
 class Repeater
 {
-    Property<std::shared_ptr<Model<ModelData>>> model;
+    private_api::Property<std::shared_ptr<Model<ModelData>>> model;
 
 #if !defined(DOXYGEN) // hide from public API
     struct RepeaterInner : AbstractRepeaterView
@@ -489,7 +489,7 @@ class Repeater
             std::optional<ComponentHandle<C>> ptr;
         };
         std::vector<ComponentWithState> data;
-        Property<bool> is_dirty { true };
+        private_api::Property<bool> is_dirty { true };
 
         void row_added(int index, int count) override
         {
@@ -559,9 +559,10 @@ public:
     }
 
     template<typename Parent>
-    void ensure_updated_listview(const Parent *parent, const Property<float> *viewport_width,
-                                 const Property<float> *viewport_height,
-                                 [[maybe_unused]] const Property<float> *viewport_y,
+    void ensure_updated_listview(const Parent *parent,
+                                 const private_api::Property<float> *viewport_width,
+                                 const private_api::Property<float> *viewport_height,
+                                 [[maybe_unused]] const private_api::Property<float> *viewport_y,
                                  float listview_width, [[maybe_unused]] float listview_height) const
     {
         // TODO: the rust code in model.rs try to only allocate as many items as visible items
@@ -589,7 +590,8 @@ public:
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
-    float compute_layout_listview(const Property<float> *viewport_width, float listview_width) const
+    float compute_layout_listview(const private_api::Property<float> *viewport_width,
+                                  float listview_width) const
     {
         float offset = 0;
         viewport_width->set(listview_width);

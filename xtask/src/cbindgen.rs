@@ -308,7 +308,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
             r"
 namespace sixtyfps {{
     namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; class ComponentWindow; }}
-    namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; using namespace vtable; struct KeyEvent; }}
+    namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; using namespace vtable; struct KeyEvent; using namespace private_api; }}
 }}",
             0, 0, 6,
         ))
