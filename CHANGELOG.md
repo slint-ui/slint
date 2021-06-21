@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
  - Layout are now conceptually their own elements, meaning that the x and y property of items
    within layout are relative to the layout and no longer to the parent element of layouts.
+ - The default spacing and padding of layouts is now 0 instead of boing specific to the style.
+   There are now `HorizontalBox`, `VerticalBox`, `GridBox` widgets which have default spacing and padding.
  - Setting the window `height` and `width` property are now fixed size. The `preferred-width`
    and `preferred-height` property can be used to set the initial size.
  - Binding loop detection at compile-time instead of panic at runtime

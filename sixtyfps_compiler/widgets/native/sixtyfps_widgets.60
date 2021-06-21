@@ -146,3 +146,16 @@ export ComboBox := NativeComboBox {
         }
     }
 }
+
+export VerticalBox := VerticalLayout {
+    spacing: NativeStyleMetrics.layout_spacing;
+    padding: NativeStyleMetrics.layout_spacing;
+}
+export HorizontalBox := HorizontalLayout {
+    spacing: NativeStyleMetrics.layout_spacing;
+    padding: NativeStyleMetrics.layout_spacing;
+}
+export GridBox := GridLayout {
+    spacing: NativeStyleMetrics.layout_spacing;
+    padding: NativeStyleMetrics.layout_spacing;
+}

@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView, HorizontalBox, VerticalBox, GridBox } from "sixtyfps_widgets.60";
 
 export struct TodoItem := {
     title: string,
@@ -32,8 +32,8 @@ MainWindow := Window {
         { title: "Profit", checked: false },
     ];
 
-    VerticalLayout {
-        HorizontalLayout {
+    VerticalBox {
+        HorizontalBox {
             text_edit := LineEdit {
                 placeholder-text: "What needs to be done?";
                 accepted(text) => {
@@ -52,7 +52,7 @@ MainWindow := Window {
         list_view := ListView {
             for todo in todo_model: Rectangle {
                 height: 22px;
-                GridLayout {
+                GridBox {
                     CheckBox {
                         text: todo.title;
                         checked: todo.checked;
@@ -63,7 +63,7 @@ MainWindow := Window {
                 }
             }
         }
-        HorizontalLayout {
+        HorizontalBox {
             alignment: end;
             Button {
                 text: "Remove Done Items";

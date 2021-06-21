@@ -12,7 +12,7 @@ LICENSE END */
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference, Path};
 use crate::langtype::{PropertyLookupResult, Type};
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::ElementRc;
 
 use std::rc::Rc;
 
@@ -326,23 +326,11 @@ fn init_fake_property(
 }
 
 impl LayoutGeometry {
-    pub fn new(layout_element: &ElementRc, style_metrics: &Option<Rc<Component>>) -> Self {
-        let style_metrics_element = style_metrics.as_ref().map(|comp| comp.root_element.clone());
-
-        let padding = || {
-            let style_metrics_element = style_metrics_element.clone();
-            binding_reference(layout_element, "padding").or_else(|| {
-                style_metrics_element.map(|metrics| NamedReference::new(&metrics, "layout_padding"))
-            })
-        };
-        let spacing = binding_reference(layout_element, "spacing").or_else({
-            let style_metrics_element = style_metrics_element.clone();
-            move || {
-                style_metrics_element.map(|metrics| NamedReference::new(&metrics, "layout_spacing"))
-            }
-        });
+    pub fn new(layout_element: &ElementRc) -> Self {
+        let spacing = binding_reference(layout_element, "spacing");
         let alignment = binding_reference(layout_element, "alignment");
 
+        let padding = || binding_reference(layout_element, "padding");
         init_fake_property(layout_element, "padding_left", padding);
         init_fake_property(layout_element, "padding_right", padding);
         init_fake_property(layout_element, "padding_top", padding);
