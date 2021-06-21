@@ -161,6 +161,7 @@ private:
 #endif
 };
 
+#if !defined(DOXYGEN) // Hide these from Doxygen as Slice is private API
 template<typename T>
 bool operator==(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b)
 {
@@ -173,5 +174,6 @@ bool operator!=(cbindgen_private::Slice<T> a, cbindgen_private::Slice<T> b)
 {
     return !(a != b);
 }
+#endif // !defined(DOXYGEN)
 
 }
