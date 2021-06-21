@@ -1120,6 +1120,10 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::ColorDarker => {
                 quote!((|x: Color, factor| -> Color { x.darker(factor as f32) }))
             }
+            BuiltinFunction::ImageSize => {
+                quote!((|x: Image| -> Size { x.size() }))
+            }
+
             BuiltinFunction::Rgb => {
                 quote!((|r: i32, g: i32, b: i32, a: f32| {
                     let r: u8 = r.max(0).min(255) as u8;

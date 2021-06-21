@@ -24,6 +24,8 @@ All notable changes to this project will be documented in this file.
  - One can declare callback aliases
  - `abs()` function to get the absolute value
  - Ability to name the root element of an `if` or `for`
+ - `sixtyfps::Image` is part of the public API in rust and C++
+ - one can access to the `width`or `height` of an `image` from the .60 files
 
 ### Fixed
 

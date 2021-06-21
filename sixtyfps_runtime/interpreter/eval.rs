@@ -351,6 +351,21 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     panic!("First argument not a color");
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ImageSize, _) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to ColorDarker")
+                }
+                if let Value::Image(img) = eval_expression(&arguments[0], local_context) {
+                    let size = img.size();
+                    let values = std::array::IntoIter::new([
+                        ("width".to_string(), Value::Number(size.width as f64)),
+                        ("height".to_string(), Value::Number(size.height as f64)),
+                    ]).collect();
+                    Value::Struct(values)
+                } else {
+                    panic!("First argument not an image");
+                }
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::Rgb, _) => {
                 let r: i32 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 let g: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();

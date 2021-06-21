@@ -492,6 +492,24 @@ Example := Rectangle {
     background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
 }
 ```
+
+### Images
+
+The `image` type is a reference to an image. It be initialized with the `@image-url("...")` construct.
+The URL within the `@image-url` function need to be known at compile time, and it is looked up
+relative to the file. In addition, it will also be looked in the include path specified to load
+.60 files via import.
+
+It is possible to access the `width` and `height` of an image.
+
+```60
+Example := Text {
+    property <image> some_image: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+    text: "The image is " + some_image.width + "x" + some_image.height;
+}
+```
+
+
 ### Arrays/Structs
 
 Arrays are currently only supported in `for` expressions. `[1, 2, 3]` is an array of integers.

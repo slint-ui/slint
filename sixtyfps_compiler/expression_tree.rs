@@ -44,6 +44,7 @@ pub enum BuiltinFunction {
     StringIsFloat,
     ColorBrighter,
     ColorDarker,
+    ImageSize,
     Rgb,
     ImplicitLayoutInfo(Orientation),
     RegisterCustomFontByPath,
@@ -112,6 +113,18 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Color, Type::Float32],
             },
+            BuiltinFunction::ImageSize => Type::Function {
+                return_type: Box::new(Type::Struct {
+                    fields: std::array::IntoIter::new([
+                        ("width".to_string(), Type::Int32),
+                        ("height".to_string(), Type::Int32),
+                    ])
+                    .collect(),
+                    name: Some("Size".to_string()),
+                    node: None,
+                }),
+                args: vec![Type::Image],
+            },
             BuiltinFunction::Rgb => Type::Function {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
@@ -147,6 +160,7 @@ impl BuiltinFunction {
             BuiltinFunction::ShowPopupWindow => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
+            BuiltinFunction::ImageSize => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
             BuiltinFunction::RegisterCustomFontByPath
