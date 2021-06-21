@@ -22,6 +22,8 @@ pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
+// NOTE: The docs for ValueType are duplicated in sixtyfps_interpreter.h, for extraction by
+// Doxygen. Keep in sync!
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i8)]
 pub enum ValueType {
@@ -35,7 +37,7 @@ pub enum ValueType {
     Bool,
     /// An Array in the .60 language.
     Array,
-    /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
+    /// A more complex model which is not created by the interpreter itself (ValueType::Array can also be used for models)
     Model,
     /// An object
     Struct,
@@ -98,7 +100,7 @@ pub enum Value {
     Image(Image),
     /// An Array in the .60 language.
     Array(SharedVector<Value>),
-    /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for model)
+    /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for models)
     Model(Rc<dyn sixtyfps_corelib::model::Model<Data = Value>>),
     /// An object
     Struct(Struct),

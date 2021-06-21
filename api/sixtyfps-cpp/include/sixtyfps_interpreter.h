@@ -279,8 +279,36 @@ public:
     /// Destroys the value.
     ~Value() { cbindgen_private::sixtyfps_interpreter_value_destructor(&inner); }
 
-    /// \private
+#if !defined(DOXYGEN)
     using Type = cbindgen_private::ValueType;
+#else
+    /// This enum describes the different types the Value class can represent.
+    enum Type {
+        /// The variant that expresses the non-type. This is the default.
+        Void,
+        /// An `int` or a `float` (this is also used for unit based type such as `length` or
+        /// `angle`)
+        Number,
+        /// Correspond to the `string` type in .60
+        String,
+        /// Correspond to the `bool` type in .60
+        Bool,
+        /// An Array in the .60 language.
+        Array,
+        /// A more complex model which is not created by the interpreter itself (Type::Array can
+        /// also be used for models)
+        Model,
+        /// An object
+        Struct,
+        /// Correspond to `brush` or `color` type in .60.  For color, this is then a
+        /// sixtyfps::Brush with just a color.
+        Brush,
+        /// Correspond to `image` type in .60.
+        Image,
+        /// The type is not a public type but something internal.
+        Other = -1,
+    };
+#endif // else !defined(DOXYGEN)
 
     // optional<int> to_int() const;
     // optional<float> to_float() const;
