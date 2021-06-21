@@ -331,7 +331,11 @@ impl<'id> ComponentDescription<'id> {
         #[cfg(not(target_arch = "wasm32"))]
         let window = sixtyfps_rendering_backend_default::backend().create_window();
         #[cfg(target_arch = "wasm32")]
-        let window = sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id);
+        let window = {
+            // Ensure that the backend is initialized
+            sixtyfps_rendering_backend_default::backend();
+            sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id)
+        };
         self.create_with_existing_window(window)
     }
 
