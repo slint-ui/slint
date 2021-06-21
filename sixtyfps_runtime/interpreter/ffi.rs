@@ -679,6 +679,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_build_from_path
     }
 }
 
+// NOTE: The C++ documentation for this exists in sixtyfps_interpreter.h. Keep in sync!
 #[derive(Clone)]
 #[repr(C)]
 pub struct PropertyDescriptor {
