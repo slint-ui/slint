@@ -120,8 +120,6 @@ All layout elements have the following properties in common:
   * `padding`: This specifies the padding within the layout, the space between the elements and the border of the
     layout.
 
-The default value for both properties is defined by the widget style SixtyFPS is configured width.
-
 For more fine grained control, the `padding` property can be split into properties for each side of the layout:
 
   * `padding-left`

@@ -528,3 +528,16 @@ export ComboBox := Rectangle {
         }
     }
 }
+
+VerticalBox := VerticalLayout {
+    spacing: StyleMetrics.layout_spacing;
+    padding: StyleMetrics.layout_spacing;
+}
+HorizontalBox := HorizontalLayout {
+    spacing: StyleMetrics.layout_spacing;
+    padding: StyleMetrics.layout_spacing;
+}
+GridBox := GridLayout {
+    spacing: StyleMetrics.layout_spacing;
+    padding: StyleMetrics.layout_spacing;
+}

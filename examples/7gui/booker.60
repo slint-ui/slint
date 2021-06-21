@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { LineEdit, Button, ComboBox } from "sixtyfps_widgets.60";
+import { LineEdit, Button, ComboBox, VerticalBox } from "sixtyfps_widgets.60";
 
 Booker := Window {
     // returns true if the string parameter is a valid date
@@ -18,9 +18,7 @@ Booker := Window {
     callback compare_date(string, string) -> bool;
     compare_date(a, b) => { a <= b }
     property <bool> message_visible;
-    VerticalLayout {
-        spacing: 7px;
-        padding: spacing;
+    VerticalBox {
         combo := ComboBox {
             model: ["one-way flight", "return flight"];
             current_value: "one-way flight";

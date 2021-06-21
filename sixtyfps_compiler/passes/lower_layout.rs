@@ -9,34 +9,18 @@
 LICENSE END */
 //! Passe that compute the layout constraint
 
+use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
-use crate::{diagnostics::BuildDiagnostics, typeloader::TypeLoader};
 use std::rc::Rc;
 
-pub async fn lower_layouts<'a>(
-    component: &Rc<Component>,
-    type_loader: &mut TypeLoader<'a>,
-    diag: &mut BuildDiagnostics,
-) {
-    // Ignore import errors
-    let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
-    let style_metrics = type_loader
-        .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
-        .await;
-    let style_metrics =
-        style_metrics.and_then(|sm| if let Type::Component(c) = sm { Some(c) } else { None });
-    lower_layouts_impl(component, &type_loader.global_type_registry.borrow(), &style_metrics, diag);
-}
-
-fn lower_layouts_impl(
+pub fn lower_layouts<'a>(
     component: &Rc<Component>,
     type_register: &TypeRegister,
-    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
     *component.root_constraints.borrow_mut() =
@@ -44,7 +28,7 @@ fn lower_layouts_impl(
 
     recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
         let component = elem.borrow().enclosing_component.upgrade().unwrap();
-        lower_element_layout(&component, elem, type_register, style_metrics, diag);
+        lower_element_layout(&component, elem, type_register, diag);
         check_no_layout_properties(elem, diag);
     });
 }
@@ -53,7 +37,6 @@ fn lower_element_layout(
     component: &Rc<Component>,
     elem: &ElementRc,
     type_register: &TypeRegister,
-    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
     let base_type = if let Type::Builtin(base_type) = &elem.borrow().base_type {
@@ -63,13 +46,9 @@ fn lower_element_layout(
     };
     match base_type.name.as_str() {
         "Row" => panic!("Error caught at element lookup time"),
-        "GridLayout" => lower_grid_layout(component, elem, style_metrics, diag),
-        "HorizontalLayout" => {
-            lower_box_layout(component, elem, style_metrics, diag, Orientation::Horizontal)
-        }
-        "VerticalLayout" => {
-            lower_box_layout(component, elem, style_metrics, diag, Orientation::Vertical)
-        }
+        "GridLayout" => lower_grid_layout(component, elem, diag),
+        "HorizontalLayout" => lower_box_layout(component, elem, diag, Orientation::Horizontal),
+        "VerticalLayout" => lower_box_layout(component, elem, diag, Orientation::Vertical),
         "PathLayout" => lower_path_layout(component, elem, diag),
         _ => return,
     };
@@ -95,12 +74,11 @@ fn lower_element_layout(
 fn lower_grid_layout(
     component: &Rc<Component>,
     grid_layout_element: &ElementRc,
-    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
     let mut grid = GridLayout {
         elems: Default::default(),
-        geometry: LayoutGeometry::new(&grid_layout_element, style_metrics),
+        geometry: LayoutGeometry::new(&grid_layout_element),
     };
 
     let layout_cache_prop_h =
@@ -246,14 +224,13 @@ impl GridLayout {
 fn lower_box_layout(
     _component: &Rc<Component>,
     layout_element: &ElementRc,
-    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
     orientation: Orientation,
 ) {
     let mut layout = BoxLayout {
         orientation,
         elems: Default::default(),
-        geometry: LayoutGeometry::new(&layout_element, style_metrics),
+        geometry: LayoutGeometry::new(&layout_element),
     };
 
     let layout_cache_prop = create_new_prop(layout_element, "layout_cache", Type::LayoutCache);

@@ -8,13 +8,11 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { LineEdit, Button, Slider, StandardListView } from "sixtyfps_widgets.60";
+import { LineEdit, Button, Slider, StandardListView, GridBox, HorizontalBox } from "sixtyfps_widgets.60";
 
 Crud := Window {
 
-    GridLayout {
-        spacing: 7px;
-        padding: spacing;
+    GridBox {
         Text { text: "Filter prefix:"; }
         LineEdit {}
 
@@ -30,10 +28,7 @@ Crud := Window {
         Text { col: 2; row: 2; text: "Surename: "; }
         LineEdit { text: "Romba"; }
 
-        HorizontalLayout {
-            row: 4;
-            colspan: 4;
-            spacing: parent.spacing;
+        HorizontalBox {
             alignment: start;
             Button { text: "Create"; }
             Button { text: "Update"; }

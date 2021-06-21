@@ -8,14 +8,12 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { Button, LineEdit } from "sixtyfps_widgets.60";
+import { Button, LineEdit, HorizontalBox } from "sixtyfps_widgets.60";
 
 Counter := Window {
     property <int> value: 0;
     preferred-height: 30px;
-    layout := HorizontalLayout {
-        spacing: 7px;
-        padding: spacing;
+    layout := HorizontalBox {
         LineEdit {
             enabled: false;
             text: value;

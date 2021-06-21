@@ -8,13 +8,11 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { LineEdit } from "sixtyfps_widgets.60";
+import { LineEdit, HorizontalBox } from "sixtyfps_widgets.60";
 
 TempConv := Window {
     preferred-height: 64px;
-    layout := HorizontalLayout {
-        spacing: 7px;
-        padding: spacing;
+    layout := HorizontalBox {
         c := LineEdit {
             text: "0";
             edited(text) => {

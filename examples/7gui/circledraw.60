@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { LineEdit, Button, Slider, StandardListView } from "sixtyfps_widgets.60";
+import { LineEdit, Button, Slider, StandardListView, VerticalBox } from "sixtyfps_widgets.60";
 
 struct Circle := { x: float, y: float, r: float }
 
@@ -24,9 +24,7 @@ CircleDraw := Window {
     property<int> clicked_idx: -1;
     property<Circle> selected_circle;
 
-    VerticalLayout {
-        spacing: 7px;
-        padding: spacing;
+    VerticalBox {
         HorizontalLayout {
             alignment: center;
             spacing: 12px;
@@ -76,7 +74,7 @@ CircleDraw := Window {
             width: 100%;
         }
 
-        VerticalLayout {
+        VerticalBox {
             Text { text: "Adjust diameter of cercle at (" + selected_circle.x + ", " +  selected_circle.y + ")."; }
             Slider {
                 maximum: 100;

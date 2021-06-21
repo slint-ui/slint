@@ -7,18 +7,16 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView, ComboBox } from "sixtyfps_widgets.60";
+import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView, ComboBox, HorizontalBox, VerticalBox, GridBox } from "sixtyfps_widgets.60";
 
 App := Window {
     preferred-width: 500px;
     preferred-height: 750px;
     title: "SixtyFPS Gallery";
 
-    VerticalLayout {
-        padding: 20px;
-        spacing: 10px;
+    VerticalBox {
 
-        HorizontalLayout {
+        HorizontalBox {
             Text {
                 text: "Below are some of the standard widgets that\napplication developers can easily re-use.";
             }
@@ -32,7 +30,7 @@ App := Window {
             }
         }
 
-        HorizontalLayout {
+        HorizontalBox {
             alignment: start;
             GroupBox {
                 title: "Button";
@@ -55,7 +53,7 @@ App := Window {
             }
         }
 
-        HorizontalLayout {
+        HorizontalBox {
             alignment: start;
             GroupBox {
                 title: "SpinBox";
