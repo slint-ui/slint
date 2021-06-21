@@ -73,17 +73,11 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                             // Add aspect-ratio preserving width or height bindings
                             if is_image && width_specified && !height_specified {
                                 make_default_aspect_ratio_preserving_binding(
-                                    elem,
-                                    "height",
-                                    "width",
-                                    (Orientation::Vertical, Orientation::Horizontal),
+                                    elem, "height", "width",
                                 )
                             } else if is_image && height_specified && !width_specified {
                                 make_default_aspect_ratio_preserving_binding(
-                                    elem,
-                                    "width",
-                                    "height",
-                                    (Orientation::Horizontal, Orientation::Vertical),
+                                    elem, "width", "height",
                                 )
                             } else {
                                 make_default_implicit(elem, "width", Orientation::Horizontal);
@@ -238,31 +232,50 @@ fn make_default_aspect_ratio_preserving_binding(
     elem: &ElementRc,
     missing_size_property: &str,
     given_size_property: &str,
-    (missing_orient, given_orient): (Orientation, Orientation),
 ) {
     if elem.borrow().bindings.contains_key(missing_size_property) {
         return;
     }
 
-    let binding = Expression::BinaryExpression {
-        lhs: Box::new(Expression::BinaryExpression {
-            lhs: Expression::PropertyReference(NamedReference::new(
-                elem,
-                &given_size_property.as_ref(),
-            ))
-            .into(),
-            rhs: Box::new(Expression::StructFieldAccess {
-                base: implicit_layout_info_call(elem, missing_orient).into(),
-                name: "preferred".into(),
+    debug_assert_eq!(elem.borrow().lookup_property("source").property_type, Type::Image);
+
+    let implicit_size_var = Box::new(Expression::ReadLocalVariable {
+        name: "image_implicit_size".into(),
+        ty: match BuiltinFunction::ImageSize.ty() {
+            Type::Function { return_type, .. } => *return_type,
+            _ => panic!("invalid type for ImplicitItemSize built-in function"),
+        },
+    });
+
+    let binding = Expression::CodeBlock(vec![
+        Expression::StoreLocalVariable {
+            name: "image_implicit_size".into(),
+            value: Box::new(Expression::FunctionCall {
+                function: Box::new(Expression::BuiltinFunctionReference(
+                    BuiltinFunction::ImageSize,
+                    None,
+                )),
+                arguments: vec![Expression::PropertyReference(NamedReference::new(elem, "source"))],
+                source_location: None,
             }),
-            op: '*',
-        }),
-        rhs: Box::new(Expression::StructFieldAccess {
-            base: implicit_layout_info_call(elem, given_orient).into(),
-            name: "preferred".into(),
-        }),
-        op: '/',
-    };
+        },
+        Expression::BinaryExpression {
+            lhs: Box::new(Expression::BinaryExpression {
+                lhs: Expression::PropertyReference(NamedReference::new(elem, given_size_property))
+                    .into(),
+                rhs: Box::new(Expression::StructFieldAccess {
+                    base: implicit_size_var.clone(),
+                    name: missing_size_property.into(),
+                }),
+                op: '*',
+            }),
+            rhs: Box::new(Expression::StructFieldAccess {
+                base: implicit_size_var,
+                name: given_size_property.into(),
+            }),
+            op: '/',
+        },
+    ]);
 
     elem.borrow_mut().bindings.insert(missing_size_property.to_string(), binding.into());
 }
