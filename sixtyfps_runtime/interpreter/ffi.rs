@@ -526,6 +526,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_model_notify_row_removed(
 }
 
 // FIXME: Figure out how to re-export the one from compilerlib
+// Note: Documented in sixtyfps.h - keep in sync!
 #[derive(Clone)]
 #[repr(C)]
 pub enum CDiagnosticLevel {
@@ -533,6 +534,7 @@ pub enum CDiagnosticLevel {
     Warning,
 }
 
+// Note: Documented in sixtyfps.h - keep in sync!
 #[derive(Clone)]
 #[repr(C)]
 pub struct CDiagnostic {

@@ -772,8 +772,34 @@ public:
     }
 };
 
-using Diagnostic = sixtyfps::cbindgen_private::CDiagnostic;
+#if !defined(DOXYGEN)
 using DiagnosticLevel = sixtyfps::cbindgen_private::CDiagnosticLevel;
+using Diagnostic = sixtyfps::cbindgen_private::CDiagnostic;
+#else
+/// DiagnosticLevel describes the severity of a diagnostic.
+enum DiagnosticLevel {
+    /// The diagnostic belongs to an error.
+    Error,
+    /// The diagnostic belongs to a warning.
+    Warning,
+};
+/// Diagnostic describes the aspects of either a warning or an error, along
+/// with its location and a description. Diagnostics are typically returned by
+/// sixtyfps::interpreter::ComponentCompiler::diagnostics() in a vector.
+struct Diagnostic
+{
+    /// The message describing the warning or error.
+    SharedString message;
+    /// The path to the source file where the warning or error is located.
+    SharedString source_file;
+    /// The line within the source file. Line numbers start at 1.
+    uintptr_t line;
+    /// The column within the source file. Column numbers start at 1.
+    uintptr_t column;
+    /// The level of the diagnostic, such as a warning or an error.
+    DiagnosticLevel level;
+};
+#endif // else !defined(DOXYGEN)
 
 /// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
 /// to load .60 files or compile them on-the-fly from a string
