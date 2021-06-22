@@ -14,7 +14,7 @@ include(FetchContent)
 FetchContent_Declare(
     Corrosion
     GIT_REPOSITORY https://github.com/AndrewGaspar/corrosion.git
-    GIT_TAG 343546419f56f56780bd92f3fcd51fc02a598de6
+    GIT_TAG 5eb66cce63a0c936228cb03d95a6742423591ae1
 )
 FetchContent_MakeAvailable(Corrosion)
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
@@ -39,6 +39,19 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
             SIXTYFPS_NO_QT=1
         )
     endif()
+endif()
+
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
+    set_property(
+        TARGET xtask
+        PROPERTY CORROSION_USE_HOST_BUILD 1
+    )
+    set_property(
+        TARGET sixtyfps_compiler
+        PROPERTY CORROSION_USE_HOST_BUILD 1
+    )
+elseif(CMAKE_CROSSCOMPILING)
+    message(FATAL_ERROR "Cross-compiling SixtyFPS requires CMake 3.19 or newer")
 endif()
 
 add_library(SixtyFPS INTERFACE)
