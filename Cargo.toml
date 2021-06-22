@@ -69,11 +69,6 @@ default-members = [
 
 resolver = "2"
 
-[patch.crates-io]
-# Pull in https://github.com/femtovg/femtovg/pull/43 to
-# fix rendering artefacts
-femtovg = { git = "https://github.com/femtovg/femtovg", rev = "1432d007248a8221387d228f737af9e58c1047f1" }
-
 [profile.release]
 lto = true
 panic = "abort"
