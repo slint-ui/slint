@@ -62,7 +62,7 @@ pub fn compile_paths(
                 return;
             }
 
-            let commands = match commands_expr.expression {
+            let commands = match &commands_expr.expression {
                 Expression::StringLiteral(commands) => commands,
                 _ => {
                     diag.push_error(
@@ -74,11 +74,11 @@ pub fn compile_paths(
             };
 
             let path_builder = lyon_path::Path::builder().with_svg();
-            let path = lyon_svg::path_utils::build_path(path_builder, &commands);
+            let path = lyon_svg::path_utils::build_path(path_builder, commands);
             match path {
                 Ok(path) => Path::Events(path.into_iter().collect()),
-                Err(err) => {
-                    diag.push_error(format!("Error parsing SVG commands: {:?}", err), &*elem);
+                Err(_) => {
+                    diag.push_error("Error parsing SVG commands".into(), &commands_expr);
                     return;
                 }
             }
