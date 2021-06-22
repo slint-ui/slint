@@ -255,7 +255,7 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
         }
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
         let is_binding_constant = expr.map_or(true, |e| e.is_constant());
-        if !is_binding_constant && !NamedReference::new(e, name).is_externaly_modified() {
+        if is_binding_constant && !NamedReference::new(e, name).is_externaly_modified() {
             return;
         }
 
