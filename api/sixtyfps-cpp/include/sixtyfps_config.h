@@ -17,14 +17,16 @@ LICENSE END */
 #    define SIXTYFPS_TARGET_64
 #endif
 
-#if defined(_MSC_VER)
-#    define SIXTYFPS_DLL_IMPORT __declspec(dllimport)
-#elif defined(__GNUC__)
-#    if defined(_WIN32) || defined(_WIN64)
+#if !defined(DOXYGEN)
+#    if defined(_MSC_VER)
 #        define SIXTYFPS_DLL_IMPORT __declspec(dllimport)
+#    elif defined(__GNUC__)
+#        if defined(_WIN32) || defined(_WIN64)
+#            define SIXTYFPS_DLL_IMPORT __declspec(dllimport)
+#        else
+#            define SIXTYFPS_DLL_IMPORT __attribute__((visibility("default")))
+#        endif
 #    else
-#        define SIXTYFPS_DLL_IMPORT __attribute__((visibility("default")))
+#        define SIXTYFPS_DLL_IMPORT
 #    endif
-#else
-#    define SIXTYFPS_DLL_IMPORT
-#endif
+#endif // !defined(DOXYGEN)

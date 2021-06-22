@@ -15,7 +15,10 @@ LICENSE END */
 
 #include <optional>
 
-#define SIXTYFPS_QT_INTEGRATION // In the future, should be defined by cmake only if this is enabled
+#if !defined(DOXYGEN)
+#    define SIXTYFPS_QT_INTEGRATION // In the future, should be defined by cmake only if this is
+                                    // enabled
+#endif
 #ifdef SIXTYFPS_QT_INTEGRATION
 class QWidget;
 #endif
@@ -564,7 +567,7 @@ public:
         cbindgen_private::sixtyfps_run_event_loop();
         hide();
     }
-#ifdef SIXTYFPS_QT_INTEGRATION
+#if defined(SIXTYFPS_QT_INTEGRATION) || defined(DOXYGEN)
     /// Return a QWidget for this instance.
     /// This function is only available if the qt graphical backend was compiled in, and
     /// it may return nullptr if the Qt backend is not used at runtime.

@@ -204,16 +204,19 @@ inline vtable::Layout drop_in_place(ComponentRef component)
     return vtable::Layout { sizeof(T), alignof(T) };
 }
 
-#if defined(_WIN32) || defined(_WIN64)
+#if !defined(DOXYGEN)
+#    if defined(_WIN32) || defined(_WIN64)
 // On Windows cross-dll data relocations are not supported:
 //     https://docs.microsoft.com/en-us/cpp/c-language/rules-and-limitations-for-dllimport-dllexport?view=msvc-160
 // so we have a relocation to a function that returns the address we seek. That
 // relocation will be resolved to the locally linked stub library, the implementation of
 // which will be patched.
-#    define SIXTYFPS_GET_ITEM_VTABLE(VTableName) sixtyfps::private_api::sixtyfps_get_##VTableName()
-#else
-#    define SIXTYFPS_GET_ITEM_VTABLE(VTableName) (&sixtyfps::private_api::VTableName)
-#endif
+#        define SIXTYFPS_GET_ITEM_VTABLE(VTableName)                                               \
+            sixtyfps::private_api::sixtyfps_get_##VTableName()
+#    else
+#        define SIXTYFPS_GET_ITEM_VTABLE(VTableName) (&sixtyfps::private_api::VTableName)
+#    endif
+#endif // !defined(DOXYGEN)
 
 template<typename T>
 struct ReturnWrapper
