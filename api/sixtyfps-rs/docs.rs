@@ -51,7 +51,6 @@ pub mod layouting {
 
 /// This module exists only to explain the API of the code generated from `.60` design markup. Its described structure
 /// is not really contained in the compiled crate.
-
 pub mod generated_code {
 
     use crate::re_exports;
@@ -148,7 +147,7 @@ pub mod generated_code {
         }
 
         /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
-        /// and [`Self::hide`].    
+        /// and [`Self::hide`].
         fn run(&self) {
             unimplemented!();
         }

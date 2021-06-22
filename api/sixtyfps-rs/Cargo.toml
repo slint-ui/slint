@@ -28,7 +28,7 @@ sixtyfps-rendering-backend-default = { version = "=0.0.6", path="../../sixtyfps_
 pin-weak = "1"
 
 [build-dependencies]
-rustc_version = "0.3"
+rustc_version = "0.4"
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "sixtyfps-docs-integration.html" ]

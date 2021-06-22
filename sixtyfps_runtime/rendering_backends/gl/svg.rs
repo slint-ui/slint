@@ -10,8 +10,10 @@ LICENSE END */
 #![cfg(feature = "svg")]
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_from_path(path: &std::path::Path) -> Result<usvg::Tree, usvg::Error> {
-    usvg::Tree::from_file(path, &Default::default())
+pub fn load_from_path(path: &std::path::Path) -> Result<usvg::Tree, std::io::Error> {
+    let svg_data = std::fs::read(path)?;
+    usvg::Tree::from_data(&svg_data, &Default::default())
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
 }
 
 pub fn load_from_data(slice: &[u8]) -> Result<usvg::Tree, usvg::Error> {
