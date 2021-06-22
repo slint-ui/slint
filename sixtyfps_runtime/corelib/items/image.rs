@@ -79,6 +79,7 @@ impl Item for ImageItem {
         let natural_size = self.source().size();
         LayoutInfo {
             preferred: match orientation {
+                _ if natural_size.width == 0. || natural_size.height == 0. => 0.,
                 Orientation::Horizontal => natural_size.width,
                 Orientation::Vertical => natural_size.height * self.width() / natural_size.width,
             },
@@ -156,6 +157,7 @@ impl Item for ClippedImage {
         let natural_size = self.source().size();
         LayoutInfo {
             preferred: match orientation {
+                _ if natural_size.width == 0. || natural_size.height == 0. => 0.,
                 Orientation::Horizontal => natural_size.width,
                 Orientation::Vertical => natural_size.height * self.width() / natural_size.width,
             },

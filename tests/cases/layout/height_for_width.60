@@ -30,6 +30,7 @@ TestCase := Rectangle {
             }
         }
         Rectangle {
+            background: pink;
             GridLayout {
                 spacing: 0;
                 padding: 0;
@@ -45,6 +46,7 @@ TestCase := Rectangle {
                 }
             }
         }
+        Image { }
     }
 
     property <length> top_image_height: top_image.height;
