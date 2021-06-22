@@ -48,6 +48,43 @@ FetchContent_MakeAvailable(SixtyFPS)
 If you prefer to treat SixtyFPS as an external CMake package, then you can also build SixtyFPS from source like a regular
 CMake project, install it into a prefix directory of your choice and use `find_package(SixtyFPS)` in your `CMakeLists.txt`.
 
+#### Cross-compiling
+
+It is possible to cross-compile SixtyFPS to a different target architecture when building with CMake. In order to complete
+that, you need to make sure that your CMake setup is ready for cross-compilation. You can find more information about
+how to set this up in the [upstream CMake documentation](https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html#cross-compiling).
+If you are building against a Yocto SDK, it is sufficient to source the SDK's environment setup file.
+
+Since SixtyFPS is implemented using the Rust programming language, you need to determine which Rust target
+matches the target architecture that you're compiling to. Please consult the [upstream Rust documentation](https://doc.rust-lang.org/nightly/rustc/platform-support.html) to find the correct target name. Now you need to install the Rust toolchain:
+
+```
+rustup target add <target-name>
+```
+
+Then you're ready to invoke CMake and you need to add `-DRust_CARGO_TARGET=<target name>` to the CMake command line.
+This ensures that the SixtyFPS library is built for the correct architecture.
+
+
+For example if you are building against an embedded Linux Yocto SDK targeting an ARM64 board, the following commands
+show how to compile:
+
+Install the Rust targe toolchain once:
+```
+rustup target add aarch64-unknown-linux-gnu
+```
+
+Set up the environment and build:
+```
+. /path/to/yocto/sdk/environment-setup-cortexa53-crypto-poky-linux
+cd sixtyfps
+mkdir build
+cd build
+cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/sixtyfps/install/path ..
+cmake --build .
+cmake --install .
+```
+
 ### Binary Packages
 
 The SixtyFPS continuous integration system is building binary packages to use with C++ so that you do not need to install a rust compiler.
