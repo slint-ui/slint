@@ -58,6 +58,7 @@ MainContent := VerticalLayout {
     }
 
     GridLayout {
+        spacing: 6px;
         padding-left: 19px;
         padding-top: 0px;
         padding-right: 17px;

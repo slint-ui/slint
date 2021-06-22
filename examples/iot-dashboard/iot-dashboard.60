@@ -353,7 +353,10 @@ ButtonValueLabel := Text {
     color: #929cb2;
 }
 
-TitleAndValueBox := VerticalLayout { horizontal-stretch: 100; }
+TitleAndValueBox := VerticalLayout {
+    spacing: 8px;
+    horizontal-stretch: 100;
+}
 
 BoxWithButtons := Box {
     property <image> iconFile <=> ri.iconName; //### in original, this is derived from title
@@ -364,6 +367,7 @@ BoxWithButtons := Box {
         padding: 8px;
         spacing: 20px;
         VerticalLayout {  // FIXME: there is no such layout in the original, we should so without it
+            spacing: 8px;
             alignment: center;
             ri := RoundedIcon { }
         }
@@ -394,6 +398,7 @@ export Humidity := BoxWithButtons {
 
 // from MyDevices.cpp
 Device := VerticalLayout {
+    spacing: 8px;
     property <string> name <=> t.text;
     property <image> iconName <=> ri.iconName; // ### based on the name in the original
     property <bool> isBright <=> ri.isBright;
@@ -719,11 +724,13 @@ MenuItem := Rectangle {
     ma := TouchArea {}
     HorizontalLayout {
         alignment: start;
+        spacing: 6px;
         padding: 8px;
         padding-left: 30px;
         padding-right: 30px;
         i := Image {
             width: 14px; // Skin.cpp sets 14 pixels for MenuBarGraphicLabel::Graphic
+            height: source.height * 1px;
         }
         t := Text {
             color: white;
@@ -745,6 +752,7 @@ export MenuBar := Rectangle {
         spacing: 8px;
         Image {
             source: @image-url("images/main-icon.png");
+            height: source.height * 1px;
         }
         //###  In the original, the icon is derived from the name
         for entry[idx] in [
