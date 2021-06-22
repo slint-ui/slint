@@ -249,12 +249,8 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
     );
 
     fn check_alias(e: &ElementRc, name: &str, binding: &Expression) -> () {
-        let mut expr = Some(binding);
-        while let Some(Expression::TwoWayBinding(_, next)) = expr {
-            expr = next.as_ref().map(|e| &**e);
-        }
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
-        let is_binding_constant = expr.map_or(true, |e| e.is_constant());
+        let is_binding_constant = binding.is_constant();
         if is_binding_constant && !NamedReference::new(e, name).is_externaly_modified() {
             return;
         }
