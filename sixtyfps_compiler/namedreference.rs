@@ -155,6 +155,7 @@ impl NamedReferenceInner {
             named_references.insert(name.to_owned(), r.clone());
             r
         };
+        drop(named_references);
         result.check_invariant();
         result
     }
