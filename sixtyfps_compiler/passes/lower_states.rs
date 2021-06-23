@@ -10,10 +10,12 @@ LICENSE END */
 //! Pass that create a state property, and change all the binding to depend on that property
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::SourceLocation;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use crate::parser::SyntaxNode;
+use std::collections::HashSet;
 use std::{collections::HashMap, rc::Rc};
 
 pub fn lower_states(
@@ -48,6 +50,7 @@ fn lower_state_in_element(
     } else {
         state_property.clone()
     };
+    let mut affected_properties = HashSet::new();
     // Maps State name string -> integer id
     let mut states_id = HashMap::new();
     let mut state_value = Expression::NumberLiteral(0., Unit::None);
@@ -61,6 +64,7 @@ fn lower_state_in_element(
             };
         }
         for (ne, expr) in state.property_changes {
+            affected_properties.insert(ne.clone());
             let e = ne.element();
             let property_expr = expression_for_property(&e, ne.name());
             let new_expr = Expression::Condition {
@@ -93,18 +97,25 @@ fn lower_state_in_element(
     );
     root_element.borrow_mut().bindings.insert(state_property_name, state_value.into());
 
-    lower_transitions_in_element(root_element, state_property, states_id, diag);
+    lower_transitions_in_element(
+        root_element,
+        state_property,
+        states_id,
+        affected_properties,
+        diag,
+    );
 }
 
 fn lower_transitions_in_element(
     elem: &ElementRc,
     state_property: Expression,
     states_id: HashMap<String, i32>,
+    affected_properties: HashSet<NamedReference>,
     diag: &mut BuildDiagnostics,
 ) {
     let transitions = std::mem::take(&mut elem.borrow_mut().transitions);
     let mut props =
-        HashMap::<NamedReference, (SyntaxNode, Vec<TransitionPropertyAnimation>)>::new();
+        HashMap::<NamedReference, (SourceLocation, Vec<TransitionPropertyAnimation>)>::new();
     for transition in transitions {
         let state = states_id.get(&transition.state_id).unwrap_or_else(|| {
             diag.push_error(
@@ -114,17 +125,23 @@ fn lower_transitions_in_element(
             &0
         });
 
-        for (p, animation) in transition.property_animations {
+        for (p, span, animation) in transition.property_animations {
+            if !affected_properties.contains(&p) {
+                diag.push_error(
+                    "The property is not changed as part of this transition.".into(),
+                    &span,
+                );
+            }
+
             let t = TransitionPropertyAnimation {
                 state_id: *state,
                 is_out: transition.is_out,
                 animation,
             };
-            let node = &transition.node;
-            props.entry(p).or_insert_with(|| (node.clone(), vec![])).1.push(t);
+            props.entry(p).or_insert_with(|| (span.clone(), vec![])).1.push(t);
         }
     }
-    for (ne, (node, animations)) in props {
+    for (ne, (span, animations)) in props {
         let e = ne.element();
         match e.borrow_mut().property_animations.entry(ne.name().to_owned()) {
             std::collections::hash_map::Entry::Occupied(e) => {
@@ -133,7 +150,7 @@ fn lower_transitions_in_element(
                     "The property '{}' cannot have transition because it already has an animation",
                     e.key()
                 ),
-                    &node,
+                    &span,
                 );
             }
             std::collections::hash_map::Entry::Vacant(e) => {

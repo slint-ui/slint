@@ -1,0 +1,39 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+
+export Demo := Window {
+    width:  300px;
+    height: 300px;
+    property <bool> toggle;
+    t:= Text {
+        text: "Hello World";
+        font-size: 24px;
+    }
+
+    states [
+        moving when toggle: {
+            t.y: 100px;
+        }
+    ]
+
+    transitions [
+        in moving: {
+            animate y { duration: 5s; }
+            //      ^error{The property is not changed as part of this transition.}
+        }
+        out moving: {
+            animate t.x { duration: 100ms; }
+            //      ^error{The property is not changed as part of this transition.}
+        }
+    ]
+}
+
+

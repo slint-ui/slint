@@ -261,8 +261,12 @@ fn duplicate_transition(
         property_animations: t
             .property_animations
             .iter()
-            .map(|(r, anim)| {
-                (r.clone(), duplicate_element_with_mapping(anim, mapping, root_component))
+            .map(|(r, loc, anim)| {
+                (
+                    r.clone(),
+                    loc.clone(),
+                    duplicate_element_with_mapping(anim, mapping, root_component),
+                )
             })
             .collect(),
         node: t.node.clone(),

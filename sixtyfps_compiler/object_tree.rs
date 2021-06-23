@@ -13,7 +13,7 @@ LICENSE END */
 
 use itertools::Either;
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
 use crate::langtype::PropertyLookupResult;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
@@ -807,7 +807,7 @@ impl Element {
                         lookup_property_from_qualified_name(qn.clone(), &r, diag).and_then(
                             |(ne, prop_type)| {
                                 animation_element_from_node(&pa, &qn, prop_type, diag, tr)
-                                    .map(|anim_element| (ne, anim_element))
+                                    .map(|anim_element| (ne, qn.to_source_location(), anim_element))
                             },
                         )
                     })
@@ -1303,7 +1303,7 @@ pub fn visit_element_expressions(
 
     let mut transitions = std::mem::take(&mut elem.borrow_mut().transitions);
     for t in &mut transitions {
-        for (_, a) in &mut t.property_animations {
+        for (_, _, a) in &mut t.property_animations {
             visit_element_expressions_simple(a, &mut vis);
         }
     }
@@ -1361,7 +1361,7 @@ pub fn visit_all_named_references_in_element(
     elem.borrow_mut().states = states;
     let mut transitions = std::mem::take(&mut elem.borrow_mut().transitions);
     for t in &mut transitions {
-        for (r, _) in &mut t.property_animations {
+        for (r, _, _) in &mut t.property_animations {
             vis(r)
         }
     }
@@ -1436,7 +1436,7 @@ pub struct Transition {
     /// false for 'to', true for 'out'
     pub is_out: bool,
     pub state_id: String,
-    pub property_animations: Vec<(NamedReference, ElementRc)>,
+    pub property_animations: Vec<(NamedReference, SourceLocation, ElementRc)>,
     /// Node pointing to the state name
     pub node: SyntaxNode,
 }
