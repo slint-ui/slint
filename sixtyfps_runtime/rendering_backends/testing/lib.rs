@@ -128,9 +128,7 @@ impl PlatformWindow for TestingWindow {
         todo!()
     }
 
-    fn close_popup(&self) {
-        todo!()
-    }
+    fn close_popup(&self) {}
 
     fn request_window_properties_update(&self) {}
 
