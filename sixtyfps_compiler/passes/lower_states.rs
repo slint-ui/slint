@@ -14,7 +14,6 @@ use crate::diagnostics::SourceLocation;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::parser::SyntaxNode;
 use std::collections::HashSet;
 use std::{collections::HashMap, rc::Rc};
 
