@@ -201,13 +201,13 @@ impl GridLayout {
         let index = self.elems.len();
         if let Some(layout_item) = create_layout_item(&item_element, diag) {
             let e = &layout_item.elem;
-            set_prop_from_cache(e, "x", &layout_cache_prop_h, index * 2, &None);
+            set_prop_from_cache(e, "x", &layout_cache_prop_h, index * 2, &None, diag);
             if !layout_item.item.constraints.fixed_width {
-                set_prop_from_cache(e, "width", &layout_cache_prop_h, index * 2 + 1, &None);
+                set_prop_from_cache(e, "width", &layout_cache_prop_h, index * 2 + 1, &None, diag);
             }
-            set_prop_from_cache(e, "y", &layout_cache_prop_v, index * 2, &None);
+            set_prop_from_cache(e, "y", &layout_cache_prop_v, index * 2, &None, diag);
             if !layout_item.item.constraints.fixed_height {
-                set_prop_from_cache(e, "height", &layout_cache_prop_v, index * 2 + 1, &None);
+                set_prop_from_cache(e, "height", &layout_cache_prop_v, index * 2 + 1, &None, diag);
             }
 
             self.elems.push(GridLayoutElement {
@@ -277,9 +277,16 @@ fn lower_box_layout(
                 }
             };
             let actual_elem = &item.elem;
-            set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index + 0, rep_idx);
+            set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index + 0, rep_idx, diag);
             if !fixed_size {
-                set_prop_from_cache(actual_elem, size, &layout_cache_prop, index + 1, rep_idx);
+                set_prop_from_cache(
+                    actual_elem,
+                    size,
+                    &layout_cache_prop,
+                    index + 1,
+                    rep_idx,
+                    diag,
+                );
             }
             if let Some(pad_expr) = pad_expr.clone() {
                 actual_elem.borrow_mut().bindings.insert(pad.into(), pad_expr.into());
@@ -408,7 +415,6 @@ fn create_layout_item(
         }
         let mut item = item.borrow_mut();
         let b = item.bindings.remove(prop).unwrap();
-        // FIXME: this should be the preferred size instead, progably
         item.bindings.insert(format!("min_{}", prop), b.clone());
         item.bindings.insert(format!("max_{}", prop), b);
         item.property_declarations.insert(
@@ -458,8 +464,9 @@ fn set_prop_from_cache(
     layout_cache_prop: &NamedReference,
     index: usize,
     repeater_index: &Option<Expression>,
+    diag: &mut BuildDiagnostics,
 ) {
-    let _old = elem.borrow_mut().bindings.insert(
+    let old = elem.borrow_mut().bindings.insert(
         prop.into(),
         BindingExpression::new_with_span(
             Expression::LayoutCacheAccess {
@@ -470,7 +477,12 @@ fn set_prop_from_cache(
             layout_cache_prop.element().borrow().to_source_location(),
         ),
     );
-    //FIXME: report errors if there is already bindings on x or y
+    if let Some(old) = old {
+        diag.push_error(
+            format!("The property '{}' cannot be set for elements placed in layout", prop),
+            &old,
+        );
+    }
 }
 
 fn eval_const_expr(

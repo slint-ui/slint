@@ -26,10 +26,15 @@ X := Rectangle {
 //                  ^error{'col' must be an integer literal}
                 rowspan: 2.2;
 //                      ^error{'rowspan' must be a positive integer}
-
+                y: 0;
+//                ^error{The property 'y' cannot be set for elements placed in layout}
             }
         }
-        Row {Text {}}
+        Row {
+            Text {
+                x: 12px;
+//                ^error{The property 'x' cannot be set for elements placed in layout}
+            }}
         Text{
             row: 200000; // that's actually bigger than 65535
 //              ^error{'row' must be a positive integer}
