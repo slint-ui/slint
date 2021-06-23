@@ -27,13 +27,13 @@ X := Rectangle {
                 rowspan: 2.2;
 //                      ^error{'rowspan' must be a positive integer}
                 y: 0;
-//                ^error{The property 'y' cannot be set for elements placed in layout}
+//                ^error{The property 'y' cannot be set for elements placed in a layout, because the layout is already setting it.}
             }
         }
         Row {
             Text {
                 x: 12px;
-//                ^error{The property 'x' cannot be set for elements placed in layout}
+//                ^error{The property 'x' cannot be set for elements placed in a layout, because the layout is already setting it.}
             }}
         Text{
             row: 200000; // that's actually bigger than 65535
