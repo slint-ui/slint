@@ -58,7 +58,7 @@ If you are building against a Yocto SDK, it is sufficient to source the SDK's en
 Since SixtyFPS is implemented using the Rust programming language, you need to determine which Rust target
 matches the target architecture that you're compiling to. Please consult the [upstream Rust documentation](https://doc.rust-lang.org/nightly/rustc/platform-support.html) to find the correct target name. Now you need to install the Rust toolchain:
 
-```
+```sh
 rustup target add <target-name>
 ```
 
@@ -70,12 +70,12 @@ For example if you are building against an embedded Linux Yocto SDK targeting an
 show how to compile:
 
 Install the Rust targe toolchain once:
-```
+```sh
 rustup target add aarch64-unknown-linux-gnu
 ```
 
 Set up the environment and build:
-```
+```sh
 . /path/to/yocto/sdk/environment-setup-cortexa53-crypto-poky-linux
 cd sixtyfps
 mkdir build
