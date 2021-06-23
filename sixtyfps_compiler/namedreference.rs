@@ -146,16 +146,15 @@ impl NamedReferenceInner {
     }
 
     pub fn from_name(element: &ElementRc, name: &str) -> Rc<Self> {
-        let result = element
-            .borrow()
-            .named_references
-            .0
-            .borrow_mut()
-            .entry(name.to_owned())
-            .or_insert_with_key(|name| {
-                Rc::new(Self { element: Rc::downgrade(element), name: name.clone() })
-            })
-            .clone();
+        let elem = element.borrow();
+        let mut named_references = elem.named_references.0.borrow_mut();
+        let result = if let Some(r) = named_references.get(name) {
+            r.clone()
+        } else {
+            let r = Rc::new(Self { element: Rc::downgrade(element), name: name.to_owned() });
+            named_references.insert(name.to_owned(), r.clone());
+            r
+        };
         result.check_invariant();
         result
     }
