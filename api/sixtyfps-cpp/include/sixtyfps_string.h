@@ -54,7 +54,7 @@ struct SharedString
         cbindgen_private::sixtyfps_shared_string_clone(this, &other);
         return *this;
     }
-    /// Assigns the string view \s to this string and returns a reference to this string.
+    /// Assigns the string view \a s to this string and returns a reference to this string.
     /// The underlying string data is copied.  It is assumed that the string is UTF-8 encoded.
     SharedString &operator=(std::string_view s)
     {
@@ -65,10 +65,7 @@ struct SharedString
     /// Assigns null-terminated string pointer \a s to this string and returns a reference
     /// to this string. The underlying string data is copied. It is assumed that the string
     /// is UTF-8 encoded.
-    SharedString &operator=(const char *s)
-    {
-        return *this = std::string_view(s);
-    }
+    SharedString &operator=(const char *s) { return *this = std::string_view(s); }
 
     /// Move-assigns \a other to this SharedString instance.
     SharedString &operator=(SharedString &&other)
@@ -123,12 +120,12 @@ struct SharedString
     /// \endcode
     static SharedString from_number(double n) { return SharedString(n); }
 
-    /// Returns true if \a is equal to \b; otherwise returns false.
+    /// Returns true if \a a is equal to \a b; otherwise returns false.
     friend bool operator==(const SharedString &a, const SharedString &b)
     {
         return std::string_view(a) == std::string_view(b);
     }
-    /// Returns true if \a is not equal to \b; otherwise returns false.
+    /// Returns true if \a a is not equal to \a b; otherwise returns false.
     friend bool operator!=(const SharedString &a, const SharedString &b)
     {
         return std::string_view(a) != std::string_view(b);
