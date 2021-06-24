@@ -133,7 +133,18 @@ public:
     /// Returns the alpha channel of the color as u8 in the range 0..255.
     uint8_t alpha() const { return inner.alpha; }
 
+    /// Returns a new version of this color that has the brightness increased
+    /// by the specified factor. This is done by converting the color to the HSV
+    /// color space and multiplying the brightness (value) with (1 + factor).
+    /// The result is converted back to RGB and the alpha channel is unchanged.
+    /// So for example `brighter(0.2)` will increase the brightness by 20%, and
+    /// calling `brighter(-0.5)` will return a color that's 50% darker.
     inline Color brighter(float factor) const;
+    /// Returns a new version of this color that has the brightness decreased
+    /// by the specified factor. This is done by converting the color to the HSV
+    /// color space and dividing the brightness (value) by (1 + factor). The
+    /// result is converted back to RGB and the alpha channel is unchanged.
+    /// So for example `darker(0.3)` will decrease the brightness by 30%.
     inline Color darker(float factor) const;
 
     /// Returns true if \a lhs has the same values for the individual color channels as \a rhs;
