@@ -35,7 +35,7 @@ struct ErasedComponentBox : vtable::Dyn
 
 /// The types in this namespace allow you to load a .60 file at runtime and show its UI.
 ///
-/// You only need to use thyem if you do not want to use pre-compiled .60 code, which is
+/// You only need to use them if you do not want to use pre-compiled .60 code, which is
 /// the normal way to use SixtyFPS.
 ///
 /// The entry point for this namespace is the \ref ComponentCompiler, which you can
