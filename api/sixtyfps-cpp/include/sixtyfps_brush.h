@@ -17,23 +17,34 @@ namespace sixtyfps {
 
 using cbindgen_private::types::GradientStop;
 
+/// LinearGradientBrush represents a gradient for a brush that is a linear sequence of color stops,
+/// that are aligned at a specific angle.
 class LinearGradientBrush
 {
 public:
+    /// Constructs an empty linear gradient with no color stops.
     LinearGradientBrush() = default;
+    /// Constructs a new linear gradient with the specified \a angle. The color stops will be
+    /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
     LinearGradientBrush(float angle, const GradientStop *firstStop, int stopCount)
         : inner(make_linear_gradient(angle, firstStop, stopCount))
     {
     }
 
+    /// Returns the linear gradient's angle in degress.
     float angle() const
     {
         // The gradient's first stop is a fake stop to store the angle
         return inner[0].position;
     }
 
-    // TODO: Add function to return span for stops?
+    /// Returns the number of gradient stops.
+    int stopCount() const { return inner.size() - 1; }
+
+    /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
     const GradientStop *stopsBegin() const { return inner.begin() + 1; }
+    /// Returns a pointer past the last gradient stop. The returned pointer cannot be dereferenced,
+    /// it can only be used for comparison.
     const GradientStop *stopsEnd() const { return inner.end(); }
 
 private:
@@ -52,16 +63,28 @@ private:
     }
 };
 
+/// Brush is used to declare how to fill or outline shapes, such as rectangles, paths or text. A
+/// brush is either a solid color or a linear gradient.
 class Brush
 {
 public:
-    Brush() : Brush(Color{}) { }
+    /// Constructs a new brush that is a transparent color.
+    Brush() : Brush(Color {}) { }
+    /// Constructs a new brush that is of color \a color.
     Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
+    /// Constructs a new brush that is the gradient \a gradient.
     Brush(const LinearGradientBrush &gradient) : data(Inner::LinearGradient(gradient.inner)) { }
 
+    /// Returns the color of the brush. If the brush is a gradient, this function returns the color
+    /// of the first stop.
     inline Color color() const;
 
+    /// Returns true if \a a is equal to \a b. If \a a holds a color, then \a b must also hold a
+    /// color that is identical to \a a's color. If it holds a gradient, then the gradients must be
+    /// identical. Returns false if the brushes differ in what they hold or their respective color
+    /// or gradient are not equal.
     friend bool operator==(const Brush &a, const Brush &b) { return a.data == b.data; }
+    /// Returns false if \a is not equal to \a b; true otherwise.
     friend bool operator!=(const Brush &a, const Brush &b) { return a.data != b.data; }
 
 private:
