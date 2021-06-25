@@ -246,7 +246,9 @@ public:
     /// internal constructor
     ComponentHandle(const vtable::VRc<private_api::ComponentVTable, T> &inner) : inner(inner) { }
 
+    /// Arrow operator that implements pointer semantics.
     const T *operator->() const { return inner.operator->(); }
+    /// Dereference operator that implements pointer semantics.
     const T &operator*() const { return inner.operator*(); }
 
     /// internal function that returns the internal handle
@@ -321,6 +323,7 @@ using cbindgen_private::sixtyfps_solve_box_layout;
 using cbindgen_private::sixtyfps_solve_grid_layout;
 using cbindgen_private::sixtyfps_solve_path_layout;
 
+#if !defined(DOXYGEN)
 inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 {
     // Note: This "logic" is duplicated from LayoutInfo::merge in layout.rs.
@@ -331,6 +334,7 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
                         std::max(preferred, other.preferred),
                         std::min(stretch, other.stretch) };
 }
+#endif
 
 /// FIXME! this should be done by cbindgen
 namespace cbindgen_private {
@@ -359,6 +363,7 @@ using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
 
 } // namespace private_api
 
+/// A Model is providing Data for the Repeater or ListView elements of the `.60` language
 template<typename ModelData>
 class Model
 {
@@ -417,13 +422,14 @@ private:
     std::vector<private_api::ModelPeer> peers;
 };
 
-/// A Model backed by an array of constant size
+/// A Model backed by a std::array of constant size
 template<int Count, typename ModelData>
 class ArrayModel : public Model<ModelData>
 {
     std::array<ModelData, Count> data;
 
 public:
+    /// Constructs a new ArrayModel by forwarding \a to the std::array constructor.
     template<typename... A>
     ArrayModel(A &&...a) : data { std::forward<A>(a)... }
     {
@@ -626,6 +632,7 @@ public:
 
 } // namespace private_api
 
+#if !defined(DOXYGEN)
 Flickable::Flickable()
 {
     sixtyfps_flickable_data_init(&data);
@@ -639,6 +646,7 @@ NativeStyleMetrics::NativeStyleMetrics()
 {
     sixtyfps_init_native_style_metrics(this);
 }
+#endif // !defined(DOXYGEN)
 
 using cbindgen_private::StandardListViewItem;
 namespace cbindgen_private {
