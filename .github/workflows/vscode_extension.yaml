@@ -46,7 +46,7 @@ jobs:
           target: ${{ matrix.toolchain }}
     - name: Install Linux Dependencies
       if: matrix.os == 'ubuntu-latest'
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
+      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
     - name: Build LSP
       uses: actions-rs/cargo@v1
       with:
