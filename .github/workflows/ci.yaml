@@ -349,6 +349,14 @@ jobs:
     - name: Install doxygen
       run: sudo apt-get install doxygen
     - uses: dschep/install-pipenv-action@v1
+    - name: Cache Pipenv virtualenv
+      uses: actions/cache@v2
+      id: pipenv-cache
+      with:
+        path: ~/.local/share/virtualenvs
+        key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile') }}
+        restore-keys: |
+          ${{ runner.os }}-pipenv-
     - name: Remove docs from cache # Avoid stale docs
       run: |
           rm -rf target/doc target/cppdocs api/sixtyfps-node/docs
