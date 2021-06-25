@@ -87,7 +87,11 @@ struct SharedString
         return cbindgen_private::sixtyfps_shared_string_bytes(this);
     }
 
+    /// Returns a pointer to the first character. It is only safe to dereference the pointer if the
+    /// string contains at least one character.
     const char *begin() const { return data(); }
+    /// Returns a point past the last character of the string. It is not safe to dereference the
+    /// pointer, but it is suitable for comparison.
     const char *end() const { return &*std::string_view(*this).end(); }
 
     /// \return true if the string contains no characters; false otherwise.
@@ -131,18 +135,22 @@ struct SharedString
         return std::string_view(a) != std::string_view(b);
     }
 
+    /// Returns true if \a a is lexicographically less than \a b; false otherwise.
     friend bool operator<(const SharedString &a, const SharedString &b)
     {
         return std::string_view(a) < std::string_view(b);
     }
+    /// Returns true if \a a is lexicographically less or equal than \a b; false otherwise.
     friend bool operator<=(const SharedString &a, const SharedString &b)
     {
         return std::string_view(a) <= std::string_view(b);
     }
+    /// Returns true if \a a is lexicographically greater than \a b; false otherwise.
     friend bool operator>(const SharedString &a, const SharedString &b)
     {
         return std::string_view(a) > std::string_view(b);
     }
+    /// Returns true if \a a is lexicographically greater or equal than \a b; false otherwise.
     friend bool operator>=(const SharedString &a, const SharedString &b)
     {
         return std::string_view(a) >= std::string_view(b);
@@ -155,16 +163,19 @@ struct SharedString
         return stream << std::string_view(shared_string);
     }
 
+    /// Concatenates \a a and \a and returns the result as a new SharedString.
     friend SharedString operator+(const SharedString &a, std::string_view b)
     {
         SharedString a2 = a;
         return a2 += b;
     }
+    /// Move-concatenates \a b to \a and returns a reference to \a a.
     friend SharedString operator+(SharedString &&a, std::string_view b)
     {
         a += b;
         return a;
     }
+    /// Appends \a other to this string and returns a reference to this.
     SharedString &operator+=(std::string_view other)
     {
         cbindgen_private::sixtyfps_shared_string_append(this, other.data(), other.size());

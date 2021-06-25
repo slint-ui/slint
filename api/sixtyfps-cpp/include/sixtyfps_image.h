@@ -54,7 +54,9 @@ public:
     /// Returns the size of the Image in pixels.
     Size size() const { return cbindgen_private::types::sixtyfps_image_size(&data); }
 
+    /// Returns true if \a a refers to the same image as \a b; false otherwise.
     friend bool operator==(const Image &a, const Image &b) { return a.data == b.data; }
+    /// Returns false if \a a refers to the same image as \a b; true otherwise.
     friend bool operator!=(const Image &a, const Image &b) { return a.data != b.data; }
 
 private:
