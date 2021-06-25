@@ -46,6 +46,7 @@ class Color
 public:
     /// Default constructs a new color that is entirely transparent.
     Color() { inner.red = inner.green = inner.blue = inner.alpha = 0; }
+    /// Constructs a new color from the given RgbaColor<uint8_t> \a col.
     Color(const RgbaColor<uint8_t> &col)
     {
         inner.red = col.red;
@@ -53,6 +54,7 @@ public:
         inner.blue = col.blue;
         inner.alpha = col.alpha;
     }
+    /// Constructs a new color from the given RgbaColor<float> \a col.
     Color(const RgbaColor<float> &col)
     {
         inner.red = col.red * 255;
@@ -169,8 +171,10 @@ public:
                       << ")";
     }
 
+#if !defined(DOXYGEN)
     // FIXME: we need this to create GradientStop
     operator const cbindgen_private::types::Color &() { return inner; }
+#endif
 
 private:
     cbindgen_private::types::Color inner;
@@ -192,6 +196,7 @@ inline Color Color::darker(float factor) const
     return result;
 }
 
+/// Constructs a new RgbaColor<uint8_t> from the color \a color.
 template<>
 inline RgbaColor<uint8_t>::RgbaColor(const Color &color)
 {
@@ -201,6 +206,7 @@ inline RgbaColor<uint8_t>::RgbaColor(const Color &color)
     alpha = color.alpha();
 }
 
+/// Constructs a new RgbaColor<float> from the color \a color.
 template<>
 inline RgbaColor<float>::RgbaColor(const Color &color)
 {
