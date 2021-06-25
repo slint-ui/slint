@@ -151,6 +151,8 @@ public:
     /// ```
     struct iterator
     {
+        /// A typedef for std::pair<std::string_view, const Value &> that's returned
+        /// when dereferencing the iterator.
         using value_type = std::pair<std::string_view, const Value &>;
 
     private:
@@ -182,16 +184,23 @@ public:
         // FIXME i believe iterator are supposed to be copy constructible
         iterator(const iterator &) = delete;
         iterator &operator=(const iterator &) = delete;
-        iterator(iterator &&) = default;
-        iterator &operator=(iterator &&) = default;
+        /// Move-constructs a new iterator from \a other.
+        iterator(iterator &&other) = default;
+        /// Move-assigns the iterator \a other to this and returns a reference to this.
+        iterator &operator=(iterator &&other) = default;
+        /// The prefix ++ operator advances the iterator to the next entry and returns
+        /// a reference to this.
         iterator &operator++()
         {
             if (v)
                 next();
             return *this;
         }
+        /// Dereferences the iterator to return a pair of the key and value.
         value_type operator*() const { return { k, *v }; }
+        /// Returns true if \a a is pointing to the same entry as \a b; false otherwise.
         friend bool operator==(const iterator &a, const iterator &b) { return a.v == b.v; }
+        /// Returns false if \a a is pointing to the same entry as \a b; true otherwise.
         friend bool operator!=(const iterator &a, const iterator &b) { return a.v != b.v; }
     };
 
