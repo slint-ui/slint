@@ -262,8 +262,13 @@ class ComponentWeakHandle
     vtable::VWeak<private_api::ComponentVTable, T> inner;
 
 public:
+    /// Constructs a null ComponentWeakHandle. lock() will always return empty.
     ComponentWeakHandle() = default;
+    /// Copy-constructs a new ComponentWeakHandle from \a other.
     ComponentWeakHandle(const ComponentHandle<T> &other) : inner(other.inner) { }
+    /// Returns a new strong ComponentHandle<T> if the component the weak handle points to is
+    /// still referenced by any other ComponentHandle<T>. An empty std::optional is returned
+    /// otherwise.
     std::optional<ComponentHandle<T>> lock() const
     {
         if (auto l = inner.lock()) {
@@ -446,7 +451,9 @@ public:
 /// Model to be used when we just want to repeat without data.
 struct IntModel : Model<int>
 {
+    /// Constructs a new IntModel with \a d rows.
     IntModel(int d) : data(d) { }
+    /// \private
     int data;
     int row_count() const override { return data; }
     int row_data(int value) const override { return value; }
@@ -459,7 +466,9 @@ class VectorModel : public Model<ModelData>
     std::vector<ModelData> data;
 
 public:
+    /// Constructs a new empty VectorModel.
     VectorModel() = default;
+    /// Constructs a new VectorModel from \a array.
     VectorModel(std::vector<ModelData> array) : data(std::move(array)) { }
     int row_count() const override { return data.size(); }
     ModelData row_data(int i) const override { return data[i]; }
