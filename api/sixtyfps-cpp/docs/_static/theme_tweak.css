@@ -10,4 +10,5 @@
 
 img.logo {
     max-height: 70px;
+    border-radius: 12% !important;
 }
