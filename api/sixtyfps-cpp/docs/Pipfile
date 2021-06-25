@@ -6,9 +6,10 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-sphinx = "*"
 breathe = "*"
-sphinx-rtd-theme = "*"
+# Upstream sphinx and sphinx-rtd-theme have a bug in not supporting html_logo urls, pull in prospective fix
+sphinx-rtd-theme = {editable = true, ref = "logo-url-fix", git = "https://github.com/tronical/sphinx_rtd_theme.git"}
+sphinx = {editable = true, ref = "logo-url-fix", git = "https://github.com/tronical/sphinx.git"}
 exhale = "*"
 recommonmark = "*"
 sphinx-markdown-tables = "*"

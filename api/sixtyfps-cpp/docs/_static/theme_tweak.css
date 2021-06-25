@@ -7,3 +7,7 @@
     max-width: 100%;
     overflow: visible;
 }
+
+img.logo {
+    max-height: 70px;
+}
