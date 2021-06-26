@@ -415,7 +415,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
         }
         Expression::SelfAssignment { lhs, rhs, op } => {
             let rhs = eval_expression(&**rhs, local_context);
-            eval_assignement(lhs, *op, rhs, local_context);
+            eval_assignment(lhs, *op, rhs, local_context);
             Value::Void
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
@@ -546,7 +546,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
     }
 }
 
-fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut EvalLocalContext) {
+fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut EvalLocalContext) {
     let eval = |lhs| match (lhs, &rhs, op) {
         (Value::String(ref mut a), Value::String(b), '+') => {
             a.push_str(b.as_str());
@@ -608,7 +608,7 @@ fn eval_assignement(lhs: &Expression, op: char, rhs: Value, local_context: &mut 
                 let mut r = o.get_field(name).unwrap().clone();
                 r = if op == '=' { rhs } else { eval(std::mem::take(&mut r)) };
                 o.set_field(name.to_owned(), r);
-                eval_assignement(base, '=', Value::Struct(o), local_context)
+                eval_assignment(base, '=', Value::Struct(o), local_context)
             }
         }
         Expression::RepeaterModelReference { element } => {
