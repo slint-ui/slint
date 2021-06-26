@@ -16,9 +16,9 @@ mod cpp_ast {
 
     use std::cell::Cell;
     use std::fmt::{Display, Error, Formatter};
-    thread_local!(static INDETATION : Cell<u32> = Cell::new(0));
+    thread_local!(static INDENTATION : Cell<u32> = Cell::new(0));
     fn indent(f: &mut Formatter<'_>) -> Result<(), Error> {
-        INDETATION.with(|i| {
+        INDENTATION.with(|i| {
             for _ in 0..(i.get()) {
                 write!(f, "    ")?;
             }
@@ -75,7 +75,7 @@ mod cpp_ast {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             indent(f)?;
             writeln!(f, "class {} {{", self.name)?;
-            INDETATION.with(|x| x.set(x.get() + 1));
+            INDENTATION.with(|x| x.set(x.get() + 1));
             let mut access = Access::Private;
             for m in &self.members {
                 if m.0 != access {
@@ -92,7 +92,7 @@ mod cpp_ast {
                 indent(f)?;
                 writeln!(f, "friend class {};", friend)?;
             }
-            INDETATION.with(|x| x.set(x.get() - 1));
+            INDENTATION.with(|x| x.set(x.get() - 1));
             indent(f)?;
             writeln!(f, "}};")
         }
