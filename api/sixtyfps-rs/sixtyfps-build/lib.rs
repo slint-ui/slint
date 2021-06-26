@@ -220,7 +220,7 @@ pub fn compile_with_config(
         );
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
-    let mut code_formater = CodeFormatter { indentation: 0, in_string: false, sink: file };
+    let mut code_formatter = CodeFormatter { indentation: 0, in_string: false, sink: file };
     let generated = match sixtyfps_compilerlib::generator::rust::generate(&doc, &mut diag) {
         Some(code) => {
             for x in &diag.all_loaded_files {
@@ -244,7 +244,7 @@ pub fn compile_with_config(
         }
     };
 
-    write!(code_formater, "{}", generated).map_err(CompileError::SaveError)?;
+    write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
     println!("cargo:rerun-if-changed={}", path.display());
 
     for resource in doc.root_component.embedded_file_resources.borrow().keys() {
