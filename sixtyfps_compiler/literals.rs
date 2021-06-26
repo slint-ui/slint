@@ -107,7 +107,7 @@ pub fn unescape_string(string: &str) -> Option<String> {
 }
 
 #[test]
-fn test_unsecape_string() {
+fn test_unescape_string() {
     assert_eq!(unescape_string(r#""foo_bar""#), Some("foo_bar".into()));
     assert_eq!(unescape_string(r#""foo\"bar""#), Some("foo\"bar".into()));
     assert_eq!(unescape_string(r#""foo\\\"bar""#), Some("foo\\\"bar".into()));
