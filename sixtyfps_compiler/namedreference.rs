@@ -63,7 +63,7 @@ impl NamedReference {
     }
 
     /// return true if we know that this property is changed by other means than its own binding
-    pub fn is_externaly_modified(&self) -> bool {
+    pub fn is_externally_modified(&self) -> bool {
         !self.is_constant_impl(false)
     }
 
