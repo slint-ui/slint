@@ -80,7 +80,7 @@ pub enum ItemTreeNode<T> {
         item: vtable::VOffset<T, ItemVTable, vtable::AllowPin>,
 
         /// number of children
-        chilren_count: u32,
+        children_count: u32,
 
         /// index of the first children within the item tree
         children_index: u32,
@@ -265,11 +265,11 @@ pub fn visit_item_tree<Base>(
         visit_at_index(0)
     } else {
         match &item_tree[index as usize] {
-            ItemTreeNode::Item { children_index, chilren_count, .. } => {
-                for c in 0..*chilren_count {
+            ItemTreeNode::Item { children_index, children_count, .. } => {
+                for c in 0..*children_count {
                     let idx = match order {
                         TraversalOrder::BackToFront => (*children_index + c),
-                        TraversalOrder::FrontToBack => (*children_index + *chilren_count - c - 1),
+                        TraversalOrder::FrontToBack => (*children_index + *children_count - c - 1),
                     } as usize;
                     let maybe_abort_index = visit_at_index(idx);
                     if maybe_abort_index.has_aborted() {
