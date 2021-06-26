@@ -238,7 +238,7 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
     /// Return a repeater with a component with a 'static lifetime
     ///
     /// Safety: one should ensure that the inner component is not mixed with other inner component
-    unsafe fn get_untaged(&self) -> &RepeaterWithinComponent<'id, 'static> {
+    unsafe fn get_untagged(&self) -> &RepeaterWithinComponent<'id, 'static> {
         &self.0
     }
 }
@@ -542,9 +542,9 @@ extern "C" fn visit_children_item(
         order,
         v,
         |_, order, visitor, index| {
-            // `ensure_updated` needs a 'static lifetime so we must call get_untaged.
+            // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
             // Safety: we do not mix the component with other component id in this function
-            let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untaged() };
+            let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
             ensure_repeater_updated(instance_ref, rep_in_comp);
             let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
             repeater.visit(order, visitor)
