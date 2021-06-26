@@ -66,11 +66,11 @@ fn process_diagnostics(
 ) -> std::io::Result<bool> {
     let mut success = true;
 
-    let path = cannonical(path);
+    let path = canonical(path);
 
     let mut diags = compile_diagnostics
         .iter()
-        .filter(|d| cannonical(d.source_file().unwrap()) == path)
+        .filter(|d| canonical(d.source_file().unwrap()) == path)
         .collect::<Vec<_>>();
 
     let lines = source
@@ -147,7 +147,7 @@ fn process_diagnostics(
     Ok(success)
 }
 
-fn cannonical(path: &Path) -> PathBuf {
+fn canonical(path: &Path) -> PathBuf {
     path.canonicalize().unwrap_or_else(|_| path.to_owned())
 }
 
