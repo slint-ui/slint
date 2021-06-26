@@ -4,7 +4,7 @@ With the skeleton in place, let's look at the first element of the game, the mem
 visual building block that consists of an underlying filled rectangle background, the icon image. Later we'll add a
 covering rectangle that acts as a curtain. The background rectangle is declared to be 64 logical pixels wide and tall,
 and it is filled with a soothing tone of blue. Note how lengths in the `.60` language have a unit, here
-the `px` suffix. That makes the code easier to read and the compiler can detect when your're accidentally
+the `px` suffix. That makes the code easier to read and the compiler can detect when your are accidentally
 mixing values with different units attached to them.
 
 We copy the following code into the `memory.60` file:
@@ -28,5 +28,5 @@ This should unpack an `icons` directory containing a bunch of icons.
 
 We compile the program with `cmake --build .` and running with the `./memory_game` gives us a
 window on the screen that shows the icon of a bus on a blue background.
-    
+
 ![Screenshot of the first tile](https://sixtyfps.io/blog/memory-game-tutorial/memory-tile.png "Memory Tile Screenshot")

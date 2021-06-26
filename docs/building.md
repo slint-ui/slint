@@ -14,16 +14,16 @@ Once this is done, you should have the ```rustc``` compiler and the ```cargo``` 
 
 For the nodejs backend, the following component are needed:
 
- * **node** (including npm)
- * **python**
+* **node** (including npm)
+* **python**
 
 It would be nice if building the nodejs backend was optional, but right now it is part of the workspace.
 You can still not build it by doing `cargo build --workspace --exclude sixtyfps-node`. But cargo test will fail.
 
 ### For the C++ dev (optional)
 
- * **cmake** (3.16 or newer)
- * A C++ compiler that can do C++17 (e.g., **MSVC 2019** on Windows)
+* **cmake** (3.16 or newer)
+* A C++ compiler that can do C++17 (e.g., **MSVC 2019** on Windows)
 
 ## Testing
 
@@ -82,6 +82,7 @@ scp target/armv7-unknown-linux-gnueabihf/release/printerdemo pi@raspberrypi.loca
 ```
 
 Finally on a shell on the Pi:
+
 ```sh
 DISPLAY=:0 ./printerdemo
 ```
@@ -118,6 +119,6 @@ RUSTDOCFLAGS="--html-in-header=$PWD/api/sixtyfps-rs/sixtyfps-docs-integration.ht
 
 To generate the C++ API documentation, one need to have doxygen installed, and run this command
 
-```
+```sh
 cargo xtask cppdocs
 ```

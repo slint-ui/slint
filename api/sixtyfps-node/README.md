@@ -74,7 +74,6 @@ console.log(component.counter);
 
 The callbacks are also exposed as property that have a setHandler function, and that can can be called.
 
-
 ```js
 // connect to a callback
 component.clicked.setHandler(function() { console.log("hello"); })
@@ -89,10 +88,10 @@ component.clicked();
 | `int` | `Number` | |
 | `float` | `Number` | |
 | `string` | `String` | |
-| `color` |`String` | Colors are represented as strings in the form `"#rrggbbaa"`. When setting a color property, any CSS compliant color is accepted as a string. |
-| `length` | `Number` |  |
+| `color` | `String` | Colors are represented as strings in the form `"#rrggbbaa"`. When setting a color property, any CSS compliant color is accepted as a string. |
+| `length` | `Number` | |
 | `physical_length` | `Number` | |
-| `duration` | `Number` |  |
+| `duration` | `Number` | |
 | structure | `Object` | Structures are mapped to JavaScrip objects with structure fields mapped to properties. |
 | array | `Array` or Model Object | |
 
@@ -110,20 +109,22 @@ component.model = component.model.concat(4);
 ```
 
 Another option is to set a model object.  A model object has the following function:
- - `rowCount()`: returns the number of element in the model.
- - `rowData(index)`: return the row at the given index
- - `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
 
- When such an object is set to a model property, it gets a new `notify` object with the following function
- - `rowDataChanged(index)`: notify the view that the row was changed.
- - `rowAdded(index, count)`: notify the view that rows were added.
- - `rowRemoved(index, count)`: notify the view that a row were removed.
+* `rowCount()`: returns the number of element in the model.
+* `rowData(index)`: return the row at the given index
+* `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
 
- As an example, here is the implementation of the `ArrayModel` (which is available on `sixtyfps.ArrayModel`)
+When such an object is set to a model property, it gets a new `notify` object with the following function
 
- ```js
- let array = [1, 2, 3];
- let model = {
+* `rowDataChanged(index)`: notify the view that the row was changed.
+* `rowAdded(index, count)`: notify the view that rows were added.
+* `rowRemoved(index, count)`: notify the view that a row were removed.
+
+As an example, here is the implementation of the `ArrayModel` (which is available on `sixtyfps.ArrayModel`)
+
+```js
+let array = [1, 2, 3];
+let model = {
     rowCount() { return a.length; },
     rowData(row) { return a[row]; },
     setRowData(row, data) { a[row] = data; this.notify.rowDataChanged(row); },
@@ -142,4 +143,3 @@ model.push(4); // this works
 // does NOT work, getting the model does not return the right object
 // component.model.push(5);
  ```
-

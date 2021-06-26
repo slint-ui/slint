@@ -1,12 +1,12 @@
 # From One To Multiple Tiles
 
 After modeling a single tile, let's create a grid of them. For the grid to be our game board, we need two features:
-    
+
 1. A data model: This shall be an array where each element describes the tile data structure, such as the
    url of the image, whether the image shall be visible and if this tile has been solved. We modify the model
    from Rust code.
 1. A way of creating many instances of the tiles, with the above `.60` markup code.
-    
+
 In SixtyFPS we can declare an array of structures using brackets, to create a model. We can use the <span class="hljs-keyword">for</span> loop
 to create many instances of the same element. In `.60` the for loop is declarative and automatically updates when
 the model changes. We instantiate all the different <span class="hljs-title">MemoryTile</span> elements and place them on a grid based on their

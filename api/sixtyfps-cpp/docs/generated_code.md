@@ -8,18 +8,18 @@ file. This header file will contain a `class` with the same name as the componen
 
 This class will have the following public member functions:
 
- - A default constructor and a destructor.
- - A `show` function, which will show the component on the screen. Note that in order to render
-   and react to user input, it's still necessary to spin the event loop, by calling `sixtyfps::run_event_loop()`
-   or using the convenience `fun` function in this class.
- - A `hide` function, which de-registers the component from the windowing system.
- - A `run` convenience function, which will show the component and starts the event loop.
- - for each properties:
-    * A getter `get_<property_name>` returning the property type.
-    * A setter `set_<property_name>` taking the new value of the property by const reference
- - for each callbacks:
-    * `invoke_<callback_name>` function which takes the callback argument as parameter and call the callback.
-    * `on_<callback_name>` functin wich takes a functor as an argument and sets the callback handler
+* A default constructor and a destructor.
+* A `show` function, which will show the component on the screen. Note that in order to render
+  and react to user input, it's still necessary to spin the event loop, by calling `sixtyfps::run_event_loop()`
+  or using the convenience `fun` function in this class.
+* A `hide` function, which de-registers the component from the windowing system.
+* A `run` convenience function, which will show the component and starts the event loop.
+* for each properties:
+  * A getter `get_<property_name>` returning the property type.
+  * A setter `set_<property_name>` taking the new value of the property by const reference
+* for each callbacks:
+  * `invoke_<callback_name>` function which takes the callback argument as parameter and call the callback.
+  * `on_<callback_name>` function which takes a functor as an argument and sets the callback handler
      for this callback. the functor must accept the type parameter of the callback
 
 ## Example

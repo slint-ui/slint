@@ -18,4 +18,3 @@ Running this gives us a window on the screen that now shows a 4 by 4 grid of rec
 the icons when clicking. There's only one last aspect missing now, the rules for the game.
 
 <video autoplay loop muted playsinline src="https://sixtyfps.io/blog/memory-game-tutorial/creating-the-tiles-from-rust.mp4"></video>
-

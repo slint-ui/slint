@@ -110,8 +110,9 @@ MyApp := Window {
 ## Comments
 
 C-style comments are supported:
- - line comments: `//` means everything to the end of the line is commented.
- - block comments: `/* .. */`.  Note that the blocks comments can be nested, so `/* this is a /* single */ comment */`
+
+* line comments: `//` means everything to the end of the line is commented.
+* block comments: `/* .. */`.  Note that the blocks comments can be nested, so `/* this is a /* single */ comment */`
 
 ## Identifiers
 
@@ -169,7 +170,6 @@ Using the `<=>` syntax, one can create two ways binding between properties. Thes
 together.
 The right hand side of the `<=>` must be a reference to a property of the same type.
 The type can be omitted in a property declaration to have the type automatically inferred.
-
 
 ```60
 Example := Window {
@@ -247,18 +247,18 @@ Example := Window {
 
 ### Conversions
 
- * `int` can be converted implicitly to `float` and vice-versa
- * `int` and `float` can be converted implicitly to `string`
- * `physical_length` and `length` can be converted implictly to eachother only in
+* `int` can be converted implicitly to `float` and vice-versa
+* `int` and `float` can be converted implicitly to `string`
+* `physical_length` and `length` can be converted implicitly to each other only in
    context where the pixel ratio is known.
- * the units type (`length`, `physical_length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
-   but they can be devided with themself to result in a number. Similarily, a number can be multiplied by one of
-   these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
- * The literal `0` can be converted to any of these types that have associated unit.
- * Struct types convert with another struct type if they have the same property names and their types can be converted.
+* the units type (`length`, `physical_length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
+  but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
+  these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
+* The literal `0` can be converted to any of these types that have associated unit.
+* Struct types convert with another struct type if they have the same property names and their types can be converted.
     The source struct can have either missing properties, or extra properties. But not both.
- * Array generaly do not convert between eachother. But array literal can be converted if the type does convert.
- * String can be converted to float by using the `to_float` function. That function returns 0 if the string is not
+* Array generally do not convert between each other. But array literal can be converted if the type does convert.
+* String can be converted to float by using the `to_float` function. That function returns 0 if the string is not
    a valid number. you can check with `is_float` if the string contains a valid number
 
 ```60
@@ -297,8 +297,8 @@ Example := Rectangle {
 This pattern of expressing the `width` or `height` in percent of the parent's property with the same name is
 common. For convenience, a short-hand syntax exists for this scenario:
 
-  - The property is `width` or `height`
-  - A binding expression evaluates to a percentage.
+* The property is `width` or `height`
+* A binding expression evaluates to a percentage.
 
 If these conditions are met, then it is not necessary to specify the parent property, instead you can simply
 use the percentage. The earlier example then looks like this:
@@ -346,7 +346,6 @@ Example := Rectangle {
     hello(aa, bb) => { /* ... */ }
 }
 ```
-
 
 And return value.
 
@@ -417,16 +416,14 @@ Some character can be escaped with slashes (`\`)
 | Escape | Result |
 | --- | --- |
 | `\"` | `"` |
-| `\\` | `\` |
+| `\\` |`\` |
 | `\n` | new line |
 | `\u{xxx}` | where `xxx` is an hexadecimal number, this expand to the unicode character represented by this number |
 | `\{expression}` | the expression is evaluated and inserted here |
 
 Anything else after a `\` is an error.
 
-
 (TODO: translations: `tr!"Hello"`)
-
 
 ```60
 Example := Text {
@@ -466,6 +463,7 @@ All colors have methods that can be called on them:
     Returns a new color that is derived from this color but has its brightness decreased by the specified factor.
     For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
     increase the brightness.
+
 #### Gradients
 
 Gradients allow creating smooth colorful surfaces. They are specified using an angle and a series of
@@ -509,13 +507,11 @@ Example := Text {
 }
 ```
 
-
 ### Arrays/Structs
 
 Arrays are currently only supported in `for` expressions. `[1, 2, 3]` is an array of integers.
 All the types in the array have to be of the same type.
 It is useful to have arrays of struct. An struct is between curly braces: `{ a: 12, b: "hello"}`.
-
 
 ## Statements
 
@@ -561,7 +557,6 @@ clicked => { }
 clicked => { ; }
 ```
 
-
 ## Repetition
 
 The `for`-`in` syntax can be used to repeat an element.
@@ -569,8 +564,9 @@ The `for`-`in` syntax can be used to repeat an element.
 The syntax look like this: `for name[index] in model : id := Element { ... }`
 
 The *model* can be of the following type:
- - an integer, in which case the element will be repeated that amount of time
- - an array type or a model declared natively, in which case the element will be instantiated for each element in the array or model.
+
+* an integer, in which case the element will be repeated that amount of time
+* an array type or a model declared natively, in which case the element will be instantiated for each element in the array or model.
 
 The *name* will be available for lookup within the element and is going to be like a pseudo-property set to the
 value of the model. The *index* is optional and will be set to the index of this element in the model.
@@ -639,9 +635,10 @@ Example := Rectangle {
 This will animate the color property for 100ms when it changes.
 
 Animation can be configured with the following parameter:
- * `duration`: the amount of time it takes for the animation to complete
- * `loop_count`: FIXME
- * `easing`: can be `linear`, `ease`, `ease_in`, `ease_out`, `ease_in_out`, `cubic_bezier(a, b, c, d)` as in CSS
+
+* `duration`: the amount of time it takes for the animation to complete
+* `loop_count`: FIXME
+* `easing`: can be `linear`, `ease`, `ease_in`, `ease_out`, `ease_in_out`, `cubic_bezier(a, b, c, d)` as in CSS
 
 It is also possible to animate several properties with the same animation:
 
@@ -859,40 +856,40 @@ the focus the very first time the window receives the focus - it becomes the ini
 
 ## Builtin functions
 
- * **`debug(string) -> string`**
+* **`debug(string) -> string`**
 
 The debug function take a string as an argument and prints it
 
- * **`min`**, **`max`**
+* **`min`**, **`max`**
 
 Return the arguments with the minimum (or maximum) value. All arguments must be of the same numeric type
 
- * **`mod(int, int) -> int`**
+* **`mod(int, int) -> int`**
 
 Perform a modulo operation.
 
- * **`abs(float) -> float`**
+* **`abs(float) -> float`**
 
 Return the absolute value.
 
- * **`round(float) -> int`**
+* **`round(float) -> int`**
 
 Return the value rounded to the nearest integer
 
- * **`ceil(float) -> int`**, **`floor(float) -> int`**
+* **`ceil(float) -> int`**, **`floor(float) -> int`**
 
- Return the ceiling or floor
+Return the ceiling or floor
 
-  * **`sin(angle) -> float`**, **`cos(angle) -> float`**, **`tan(angle) -> float`**, **`asin(float) -> angle`**, **`acos(float) -> angle`**, **`atan(float) -> angle`**
+* **`sin(angle) -> float`**, **`cos(angle) -> float`**, **`tan(angle) -> float`**, **`asin(float) -> angle`**, **`acos(float) -> angle`**, **`atan(float) -> angle`**
 
 The trigonometry function. Note that the should be typed with `deg` or `rad` unit
 (for example `cos(90deg)` or `sin(slider.value * 1deg)`).
 
-  * **`sqrt(float) -> float`**
+* **`sqrt(float) -> float`**
 
 Square root
 
- * **`rgb(int, int, int) -> color`**,  **`rgba(int, int, int, float) -> color`**
+* **`rgb(int, int, int) -> color`**,  **`rgba(int, int, int, float) -> color`**
 
 Return the color as in CSS. Like in CSS, These two functions are actually aliases that can take 3 or for parameter.
 The first 3 parameters can be either number between 0 and 255, or percentage with a `%` unit.

@@ -1,6 +1,6 @@
 # SixtyFPS-cpp
 
-**A C++ UI toolkit**
+## A C++ UI toolkit
 
 [SixtyFPS](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
 SixtyFPS.cpp is the C++ API to interact with a SixtyFPS UI from C++.
@@ -26,10 +26,10 @@ The recommended and most flexible way to use the C++ API is to build SixtyFPS fr
 
 First you need to install the prerequisites:
 
- * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). Once this is done,
-   you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
- * **cmake** (3.16 or newer)
- * A C++ compiler that supports C++17 (e.g., **MSVC 2019** on Windows)
+* Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). Once this is done,
+  you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
+* **cmake** (3.16 or newer)
+* A C++ compiler that supports C++17 (e.g., **MSVC 2019** on Windows)
 
 You can include SixtyFPS in your CMake project using CMake's `FetchContent` feature. Insert the following snippet into your
 `CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:
@@ -65,16 +65,17 @@ rustup target add <target-name>
 Then you're ready to invoke CMake and you need to add `-DRust_CARGO_TARGET=<target name>` to the CMake command line.
 This ensures that the SixtyFPS library is built for the correct architecture.
 
-
 For example if you are building against an embedded Linux Yocto SDK targeting an ARM64 board, the following commands
 show how to compile:
 
 Install the Rust targe toolchain once:
+
 ```sh
 rustup target add aarch64-unknown-linux-gnu
 ```
 
 Set up the environment and build:
+
 ```sh
 . /path/to/yocto/sdk/environment-setup-cortexa53-crypto-poky-linux
 cd sixtyfps

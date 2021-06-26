@@ -26,7 +26,7 @@ The output will be in the `book/html` subdirectory. To check it out, open it in 
 The code in the tutorial is available in separate steps in .rs and .cpp files.
 
 The .rs files are mapped to different binaries, so you if you change into the `rust/src`
-sub-directory, then `cargo run` will present you with binaries for the differen steps.
+sub-directory, then `cargo run` will present you with binaries for the different steps.
 
 The .cpp files are built using `cpp/src/CMakeLists.txt`, which is included from the top-level
 `CMakeLists.txt`.

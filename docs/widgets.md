@@ -2,7 +2,7 @@
 
 Widgets are not imported by default, and need to be imported from `"sixtyfps_widgets.60"`
 
-Their appearence can change depending on the style
+Their appearance can change depending on the style
 
 ## `Button`
 
@@ -58,7 +58,6 @@ Example := Window {
 }
 ```
 
-
 ## `SpinBox`
 
 ### Properties
@@ -82,7 +81,6 @@ Example := Window {
 }
 ```
 
-
 ## `Slider`
 
 ### Properties
@@ -105,7 +103,6 @@ Example := Window {
     }
 }
 ```
-
 
 ## `GroupBox`
 
@@ -142,7 +139,7 @@ Example := Window {
 ### Callbacks
 
 * **`accepted`**: Enter was pressed
-* **`edited`**: Emited when the text has changed because the user modified it
+* **`edited`**: Emitted when the text has changed because the user modified it
 
 ### Example
 
@@ -159,7 +156,6 @@ Example := Window {
 }
 ```
 
-
 ## `ScrollView`
 
 A Scrollview contains a viewport that is bigger than the view and can be scrolled.
@@ -170,7 +166,6 @@ It has scrollbar to interact with.
 * **`viewport_width`** and **`viewport_height`** (*length*): The `width` and `length` properties of the viewport
 * **`viewport_x`** and **`viewport_y`** (*length*): The `x` and `y` properties of the viewport. Usually these are negative
 * **`visible_width`** and **`visible_height`** (*length*): The size of the visible area of the ScrollView (not including the scrollbar)
-
 
 ### Example
 
@@ -192,12 +187,11 @@ Example := Window {
 }
 ```
 
-
 ## `ListView`
 
 A ListView is like a Scrollview but it should have a `for` element, and the content are
 automatically layed out in a list.
-Elements are only instentiated if they are visible
+Elements are only instantiated if they are visible
 
 ### Properties
 
@@ -235,7 +229,6 @@ Example := Window {
 }
 ```
 
-
 ## `StandardListView`
 
 Like ListView, but with a default delegate, and a `model` property which is a model of type
@@ -272,5 +265,3 @@ Example := Window {
 
 That's the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the spacing and padding values
  depending on the style instead of defaulting to 0.
-
-

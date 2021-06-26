@@ -7,4 +7,3 @@ see how these look like and can be used, such as the [todo example](https://gith
 
 A slightly more polished version of this memory puzzle game is [available in the SixtyFPS repository](
 https://github.com/sixtyfpsui/sixtyfps/tree/master/examples/memory). And you can <a href="https://sixtyfps.io/demos/memory/" target="_blank">play the wasm version</a> in your browser.
-

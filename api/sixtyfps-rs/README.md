@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps)
 [![Docs.rs](https://docs.rs/sixtyfps/badge.svg)](https://docs.rs/sixtyfps)
 
-**A Rust UI toolkit**
+# A Rust UI toolkit
 
 [SixtyFPS](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
 SixtyFPS-rs is the Rust API to interact with a SixtyFPS UI design from Rust.
