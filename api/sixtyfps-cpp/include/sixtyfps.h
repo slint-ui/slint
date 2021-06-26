@@ -455,6 +455,7 @@ struct IntModel : Model<int>
     IntModel(int d) : data(d) { }
     /// \private
     int data;
+    /// \copydoc Model::row_count
     int row_count() const override { return data; }
     int row_data(int value) const override { return value; }
 };
