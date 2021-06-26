@@ -132,13 +132,13 @@ struct AnimalVTable {
 }
 
 #[repr(C)]
-struct Dog{ strenght: i32, is_hungry: bool };
+struct Dog{ strength: i32, is_hungry: bool };
 
 // The #[vtable] macro created the Animal Trait
 impl Animal for Dog {
     fn make_noise(&self, intensity: i32) -> i32 {
         println!("Wof!");
-        return self.strenght * intensity;
+        return self.strength * intensity;
     }
 }
 
@@ -153,7 +153,7 @@ impl AnimalConsts for Dog {
 AnimalVTable_static!(static DOG_VT for Dog);
 
 // with that, it is possible to instantiate a vtable::VRefMut
-let mut dog = Dog { strenght: 100, is_hungry: false };
+let mut dog = Dog { strength: 100, is_hungry: false };
 {
     let mut animal_vref = VRefMut::<AnimalVTable>::new(&mut dog);
 
