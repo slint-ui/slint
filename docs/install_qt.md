@@ -35,6 +35,3 @@ adjust the LD_LIBRARY_PATH environment variable to contain a path that contains 
 
 By setting the `SIXTYFPS_NO_QT` environment variable when building SixtyFPS, the Qt backend will not be compiled and
 no attempt will be made to find Qt on the system. This will also disable the warning stating that Qt was not found.
-
-
-

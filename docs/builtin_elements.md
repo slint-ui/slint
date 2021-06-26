@@ -16,7 +16,7 @@ These properties are valid on all visible items
 * **`opacity`** (*float*): A value between 0 and 1 (or a percentage) that is used to draw the element and its
   children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
 
- ### Drop Shadows
+### Drop Shadows
 
 To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
 an element, it is possible to set the following `drop-shadow` properties:
@@ -63,8 +63,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`border_color`** (*brush*): The color of the border. (default value: transparent)
 * **`border_radius`** (*length*): The size of the radius. (default value: 0)
 * **`clip`** (*bool*): By default, when an item is bigger or outside another item, it is still shown.
-    But when this property is set to true, then the children element of this Rectangle are going to be clipped.
-    This property must be a literal `true` or `false` (default: false)
+  But when this property is set to true, then the children element of this Rectangle are going to be clipped.
+  This property must be a literal `true` or `false` (default: false)
 
 ### Example
 
@@ -128,11 +128,11 @@ An Image can be used to represent an image loaded from an image file.
 * **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (*int*): properties in source
   image coordinates that, when specified, can be used to render only a portion of the specified image.
 * **`image-fit`** (*enum*): Specifies how the source image shall be fit into the image element. Possible values are:
-   * `fill`: Scales and stretches the image to fit the width and height of the element.
-   * `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
-   * `cover`: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
+  * `fill`: Scales and stretches the image to fit the width and height of the element.
+  * `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
+  * `cover`: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
 
-   When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
+  When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
 
 * **`colorize`** (*brush*): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
 * **`width`**, **`height`** (*length*): The width and height of the image as it appears on the screen.The default values are
@@ -140,7 +140,6 @@ An Image can be used to represent an image loaded from an image file.
   specified, then the other defaults to the specified value scaled according to the aspect ratio of the **`source`** image.
 
 ### Example
-
 
 ```60
 Example := Window {
@@ -179,6 +178,7 @@ property will trigger a manual line break. For automatic line breaking you need 
 `no-wrap` and it is important to specify a `width` and `height` for the `Text` element, in order to know where to break. It's
 recommended to place the `Text` element in a layout and let it set the `width` and `height` based on the available screen space
 and the text itself.
+
 ### Properties
 
 * **`text`** (*string*): The actual text.
@@ -192,7 +192,6 @@ and the text itself.
 * **`overflow`** (*enum [`TextOverflow`](#textoverflow)*): What happens when the text overflows (default: clip).
 * **`letter_spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
-
 
 ### Example
 
@@ -237,8 +236,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 A path can be defined in two different ways:
 
-  * Using SVG path commands as a string
-  * Using path command elements in `.60` markup.
+* Using SVG path commands as a string
+* Using path command elements in `.60` markup.
 
 The coordinates used in the geometric commands are within the imaginary coordinate system of the path.
 When rendering on the screen, the shape is drawn relative to the `x` and `y` properties. If the `width`
@@ -258,8 +257,8 @@ accordingly.
   If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are ignored
   and instead the bounding rectangle of all path elements are used to define the view port.
 * **`clip`** (*bool*): By default, when a path has a view box defined and the elements render outside of it, they are still
-    rendered. When this property is set to true, then rendering will be clipped at the boundaries of the view box.
-    This property must be a literal `true` or `false` (default: false)
+  rendered. When this property is set to true, then rendering will be clipped at the boundaries of the view box.
+  This property must be a literal `true` or `false` (default: false)
 
 #### Path Using SVG commands
 
@@ -336,6 +335,7 @@ will it as their starting point, therefore this starts a new sub-path.
 
 The `LineTo` sub-element describes a line from the path's current position to the
 location specified by the `x` and `y` properties.
+
 ###### Properties
 
 * **`x`** (*float): The target x position of the line.
@@ -366,6 +366,7 @@ or angle.
 The `CubicTo` sub-element describes a smooth Bézier from the path's current position to the
 location specified by the `x` and `y` properties, using two control points specified by their
 respective properties.
+
 ###### Properties
 
 * **`x`** (*float): The target x position of the curve.
@@ -380,6 +381,7 @@ respective properties.
 The `QuadraticTo` sub-element describes a smooth Bézier from the path's current position to the
 location specified by the `x` and `y` properties, using the control points specified by the
 `control-x` and `control-y` properties.
+
 ###### Properties
 
 * **`x`** (*float): The target x position of the curve.
@@ -450,8 +452,8 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 ### Callbacks
 
-* **`key_pressed(KeyEvent) -> EventResult`**: Emited when a key is pressed, the argument is a `KeyEvent` struct
-* **`key_released(KeyEvent) -> EventResult`**: Emited when a key is released, the argument is a `KeyEvent` struct
+* **`key_pressed(KeyEvent) -> EventResult`**: Emitted when a key is pressed, the argument is a `KeyEvent` struct
+* **`key_released(KeyEvent) -> EventResult`**: Emitted when a key is released, the argument is a `KeyEvent` struct
 
 ### Example
 
@@ -477,12 +479,12 @@ they will be computed by the layout respecting the minimum and maximum sizes and
 
 ## Properties
 
- * **`spacing`** (*length*): The distance between the elements in the layout.
- * **`padding`** (*length*): the padding within the layout.
- * **`padding_left`**, **`padding_right`**, **`padding_top`** and **`padding_bottom`** (*length*):
-    override the padding in specific sides.
- * **`alignment`** (*FIXME enum*): Can be one of  `stretch`, `center`, `start`, `end`,
-    `space_between`, `space_around`. Defaults to `stretch`. Matches the CSS flex.
+* **`spacing`** (*length*): The distance between the elements in the layout.
+* **`padding`** (*length*): the padding within the layout.
+* **`padding_left`**, **`padding_right`**, **`padding_top`** and **`padding_bottom`** (*length*):
+  override the padding in specific sides.
+* **`alignment`** (*FIXME enum*): Can be one of  `stretch`, `center`, `start`, `end`,
+  `space_between`, `space_around`. Defaults to `stretch`. Matches the CSS flex.
 
 ## Example
 
@@ -500,7 +502,6 @@ Foo := Window {
 }
 ```
 
-
 ## `GridLayout`
 
 `GridLayout` places the elements in a grid. `GridLayout` adds properties to each item: `col`, `row`, `colspan`, `rowspan`.
@@ -510,10 +511,10 @@ Alternatively, the item can be put in a `Row` element.
 
 ### Properties
 
- * **`spacing`** (*length*): The distance between the elements in the layout.
- * **`padding`** (*length*): the padding within the layout.
- * **`padding_left`**, **`padding_right`**, **`padding_top`** and **`padding_bottom`** (*length*):
-    override the padding in specific sides.
+* **`spacing`** (*length*): The distance between the elements in the layout.
+* **`padding`** (*length*): the padding within the layout.
+* **`padding_left`**, **`padding_right`**, **`padding_top`** and **`padding_bottom`** (*length*):
+  override the padding in specific sides.
 
 ### Examples
 
@@ -588,8 +589,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Callbacks
 
-* **`accepted()`**: Emited when enter key is pressed
-* **`edited()`**: Emited when the text has changed because the user modified it
+* **`accepted()`**: Emitted when enter key is pressed
+* **`edited()`**: Emitted when the text has changed because the user modified it
 
 ### Example
 

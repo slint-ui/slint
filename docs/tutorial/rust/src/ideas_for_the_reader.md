@@ -12,4 +12,3 @@ The game is visually a little bare. Here are some ideas how you could make furth
 
 Let us know in the comments on Github Discussions how you polished your code, or feel free to ask questions about
 how to implement something.
-

@@ -12,7 +12,6 @@ check if a pair of tiles has been solved. And we need to add a property that Rus
 tile interaction, to prevent the player from opening more tiles than allowed. No cheating allowed! First, we paste
 the callback and property declarations into <span class="hljs-title">MainWindow</span>:
 
-
 ```60
 {{#include main_game_logic_in_rust.rs:mainwindow_interface}}
 ```
