@@ -49,7 +49,8 @@ EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api*
 EXCLUDE = ../../api/sixtyfps-cpp/include/vtable.h ../../api/sixtyfps-cpp/include/sixtyfps_testing.h
 ENABLE_PREPROCESSING = YES
 PREDEFINED += DOXYGEN
-WARN_AS_ERROR = YES'''
+CLANG_OPTIONS = -std=c++17 -Wno-pragma-once-outside-header
+CLANG_ASSISTED_PARSING = YES'''
 }
 
 # Add any paths that contain templates here, relative to this directory.
