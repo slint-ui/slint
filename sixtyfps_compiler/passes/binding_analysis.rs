@@ -210,7 +210,7 @@ fn visit_implicit_layout_info_dependencies(
         }
         "Text" => {
             vis(&NamedReference::new(&item, "text"));
-            vis(&NamedReference::new(&item, "font_familly"));
+            vis(&NamedReference::new(&item, "font_family"));
             vis(&NamedReference::new(&item, "font_size"));
             vis(&NamedReference::new(&item, "font_weight"));
             vis(&NamedReference::new(&item, "letter_spacing"));
