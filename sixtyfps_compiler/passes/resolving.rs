@@ -299,7 +299,7 @@ impl Expression {
             .or_else(|| {
                 node.FunctionCallExpression().map(|n| Self::from_function_call_node(n, ctx))
             })
-            .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignement_node(n, ctx)))
+            .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignment_node(n, ctx)))
             .or_else(|| node.BinaryExpression().map(|n| Self::from_binary_expression_node(n, ctx)))
             .or_else(|| {
                 node.UnaryOpExpression().map(|n| Self::from_unaryop_expression_node(n, ctx))
@@ -623,7 +623,7 @@ impl Expression {
         }
     }
 
-    fn from_self_assignement_node(
+    fn from_self_assignment_node(
         node: syntax_nodes::SelfAssignment,
         ctx: &mut LookupCtx,
     ) -> Expression {
