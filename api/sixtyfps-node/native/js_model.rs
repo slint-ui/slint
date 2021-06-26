@@ -58,7 +58,7 @@ impl Model for JsModel {
 
     fn row_count(&self) -> usize {
         let r = Cell::new(0usize);
-        crate::run_with_global_contect(&|cx, persistent_context| {
+        crate::run_with_global_context(&|cx, persistent_context| {
             let obj = self.get_object(cx, persistent_context).unwrap();
             let _ = obj
                 .get(cx, "rowCount")
@@ -73,7 +73,7 @@ impl Model for JsModel {
 
     fn row_data(&self, row: usize) -> Self::Data {
         let r = Cell::new(sixtyfps_interpreter::Value::default());
-        crate::run_with_global_contect(&|cx, persistent_context| {
+        crate::run_with_global_context(&|cx, persistent_context| {
             let row = JsNumber::new(cx, row as f64);
             let obj = self.get_object(cx, persistent_context).unwrap();
             let _ = obj
@@ -94,7 +94,7 @@ impl Model for JsModel {
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        crate::run_with_global_contect(&|cx, persistent_context| {
+        crate::run_with_global_context(&|cx, persistent_context| {
             let row = JsNumber::new(cx, row as f64).as_value(cx);
             let data = crate::to_js_value(data.clone(), cx).unwrap();
             let obj = self.get_object(cx, persistent_context).unwrap();

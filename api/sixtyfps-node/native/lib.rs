@@ -44,7 +44,7 @@ fn run_scoped<'cx, T>(
         .or_else(|e| cx.throw_error(e))?)
 }
 
-fn run_with_global_contect(f: &GlobalContextCallback) {
+fn run_with_global_context(f: &GlobalContextCallback) {
     GLOBAL_CONTEXT.with(|cx_fn| cx_fn(f))
 }
 
@@ -88,7 +88,7 @@ fn make_callback_handler<'cx>(
         let ret = core::cell::Cell::new(sixtyfps_interpreter::Value::Void);
         let borrow_ret = &ret;
         let return_type = &return_type;
-        run_with_global_contect(&move |cx, persistent_context| {
+        run_with_global_context(&move |cx, persistent_context| {
             let args = args.iter().map(|a| to_js_value(a.clone(), cx).unwrap()).collect::<Vec<_>>();
             let ret = persistent_context
                 .get(cx, fun_idx)
@@ -513,7 +513,7 @@ fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
     let handler_value = handler.as_value(&mut cx);
     global_object.set(&mut cx, &*unique_timer_property, handler_value).unwrap();
     let callback = move || {
-        run_with_global_contect(&move |cx, _| {
+        run_with_global_context(&move |cx, _| {
             let global_object: Handle<JsObject> = cx.global().downcast().unwrap();
 
             let callback = global_object
