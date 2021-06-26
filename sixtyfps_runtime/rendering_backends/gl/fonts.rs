@@ -268,17 +268,17 @@ impl Font {
                     break;
                 }
                 let index = start + index;
-                let mesure =
+                let measure =
                     self.text_context.measure_text(0., 0., &text[start..index], paint).unwrap();
                 start = index;
                 lines += 1;
-                width = mesure.width().max(width);
+                width = measure.width().max(width);
             }
         } else {
             for line in text.lines() {
-                let mesure = self.text_context.measure_text(0., 0., line, paint).unwrap();
+                let measure = self.text_context.measure_text(0., 0., line, paint).unwrap();
                 lines += 1;
-                width = mesure.width().max(width);
+                width = measure.width().max(width);
             }
         }
         euclid::size2(width, lines as f32 * font_metrics.height())
