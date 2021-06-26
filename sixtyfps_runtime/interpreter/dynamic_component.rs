@@ -753,7 +753,7 @@ pub(crate) fn generate_component<'id>(
             tree_array.push(ItemTreeNode::Item {
                 item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
                 children_index: child_offset,
-                chilren_count: item.children.len() as u32,
+                children_count: item.children.len() as u32,
                 parent_index,
             });
             items_types.insert(

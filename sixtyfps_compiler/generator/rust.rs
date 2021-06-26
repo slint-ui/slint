@@ -572,7 +572,7 @@ fn generate_component(
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
                     item: VOffset::new(#inner_component_id::FIELD_OFFSETS.#field_name + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
-                    chilren_count: #children_count,
+                    children_count: #children_count,
                     children_index: #children_index,
                     parent_index: #parent_index
                 }
@@ -584,7 +584,7 @@ fn generate_component(
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
                     item: VOffset::new(#inner_component_id::FIELD_OFFSETS.#field_name),
-                    chilren_count: #children_count,
+                    children_count: #children_count,
                     children_index: #children_index,
                     parent_index: #parent_index,
                 }
