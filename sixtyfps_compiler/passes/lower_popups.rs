@@ -79,8 +79,8 @@ fn lower_popup_window(
 
     // Generate a x and y property, relative to the window coordinate
     // FIXME: this is a hack that doesn't always work, perhaps should we store an item ref or something
-    let coord_x = create_coodiate(&popup_comp, parent_stack, "x");
-    let coord_y = create_coodiate(&popup_comp, parent_stack, "y");
+    let coord_x = create_coordinate(&popup_comp, parent_stack, "x");
+    let coord_y = create_coordinate(&popup_comp, parent_stack, "y");
 
     // Throw error when accessing the popup from outside
     // FIXME:
@@ -103,7 +103,7 @@ fn lower_popup_window(
     });
 }
 
-fn create_coodiate(
+fn create_coordinate(
     popup_comp: &Rc<Component>,
     parent_stack: &[ElementRc],
     coord: &str,
