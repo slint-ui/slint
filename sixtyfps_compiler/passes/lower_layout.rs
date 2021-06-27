@@ -479,7 +479,7 @@ fn set_prop_from_cache(
     );
     if let Some(old) = old {
         diag.push_error(
-            format!("The property '{}' cannot be set for elements placed in a layout, because the layout is already setting it.", prop),
+            format!("The property '{}' cannot be set for elements placed in a layout, because the layout is already setting it", prop),
             &old,
         );
     }

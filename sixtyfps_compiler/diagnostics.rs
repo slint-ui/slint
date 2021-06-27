@@ -15,7 +15,7 @@ use std::rc::Rc;
 ///
 /// Currently, it is just an offset in byte within the file.
 ///
-/// When the `proc_macro_span` feature is enabled, it may also hold a proc_maco span.
+/// When the `proc_macro_span` feature is enabled, it may also hold a proc_macro span.
 #[derive(Debug, Clone)]
 pub struct Span {
     pub offset: usize,
@@ -173,7 +173,7 @@ impl From<DiagnosticLevel> for codemap_diagnostic::Level {
     }
 }
 
-/// This structure represent a diagnostic emited while compiling .60 code.
+/// This structure represent a diagnostic emitted while compiling .60 code.
 ///
 /// It is basically a message, a level (warning or error), attached to a
 /// position in the code
@@ -425,7 +425,7 @@ impl BuildDiagnostics {
         );
         if needs_error {
             result.extend(proc_macro::TokenStream::from(quote::quote!(
-                compile_error! { "Error occured" }
+                compile_error! { "Error occurred" }
             )))
         }
         result

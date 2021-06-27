@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 /*!
-Since neon do not allow to have Persistant handle, use this hack.
+Since neon does not allow to have a persistent handle, use this hack.
 */
 
 use neon::prelude::*;
@@ -16,8 +16,8 @@ pub struct PersistentContext<'a>(Handle<'a, JsArray>);
 
 const KEY: &'static str = "$__persistent_context";
 
-/// Since neon do not allow to have Persistant handle, this allocates property in an array.
-/// And this array is gonna be kept as a property somewhere.
+/// Since neon does not allow to have a persistent handle, this allocates property in an array.
+/// This array is gonna be kept as a property somewhere.
 impl<'a> PersistentContext<'a> {
     pub fn new(cx: &mut impl Context<'a>) -> Self {
         PersistentContext(JsArray::new(cx, 0))

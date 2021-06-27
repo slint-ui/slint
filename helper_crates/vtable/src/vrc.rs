@@ -42,7 +42,7 @@ pub struct Dyn(());
 pub struct Layout {
     /// The size in bytes
     pub size: usize,
-    /// The minimum alignement in bytes
+    /// The minimum alignment in bytes
     pub align: usize,
 }
 
@@ -63,7 +63,7 @@ impl core::convert::TryFrom<Layout> for core::alloc::Layout {
 #[repr(C)]
 struct VRcInner<'vt, VTable: VTableMeta, X> {
     vtable: &'vt VTable::VTable,
-    /// The amount of VRc pointing to this object. When it reaches 0, the object will be droped
+    /// The amount of VRc pointing to this object. When it reaches 0, the object will be dropped
     strong_ref: AtomicU32,
     /// The amount of VWeak +1. When it reaches 0, the memory will be deallocated.
     /// The +1 is there such as all the VRc together hold a weak reference to the memory
@@ -98,7 +98,7 @@ impl<'vt, VTable: VTableMeta, X> VRcInner<'vt, VTable, X> {
 /// Other differences with the `std::rc::Rc` types are:
 /// - It does not allow to access mutable reference. (No `get_mut` or `make_mut`), meaning it is
 /// safe to get a Pin reference with `borrow_pin`.
-/// - It is safe to pass it accross ffi boundaries.
+/// - It is safe to pass it across ffi boundaries.
 #[repr(transparent)]
 pub struct VRc<VTable: VTableMetaDropInPlace + 'static, X = Dyn> {
     inner: NonNull<VRcInner<'static, VTable, X>>,
@@ -141,7 +141,7 @@ impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> VRc<VTable, X> {
     /// the #[vtable] macro)
     pub fn new(data: X) -> Self {
         let layout = core::alloc::Layout::new::<VRcInner<VTable, X>>().pad_to_align();
-        // We must ensure the size is enough to hold a Layout when stonr_count becomes 0
+        // We must ensure the size is enough to hold a Layout when strong_count becomes 0
         let layout_with_layout = core::alloc::Layout::new::<VRcInner<VTable, Layout>>();
         let layout = core::alloc::Layout::from_size_align(
             layout.size().max(layout_with_layout.size()),

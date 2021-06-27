@@ -45,7 +45,7 @@ This will generate a header with the following contents (edited for documentatio
 
 class SampleComponent {
 public:
-    /// Contructor
+    /// Constructor
     inline auto create () -> sixtyfps::ComponentHandle<MainWindow>;
     /// Destructor
     inline ~SampleComponent ();

@@ -157,7 +157,7 @@ impl LayoutConstraints {
         let mut apply_size_constraint = |prop, binding, op: &mut Option<NamedReference>| {
             if let Some(other_prop) = op {
                 diag.push_error(
-                    format!("Cannot specity both {} and {}.", prop, other_prop.name()),
+                    format!("Cannot specify both '{}' and '{}'", prop, other_prop.name()),
                     binding,
                 )
             }
@@ -370,7 +370,7 @@ impl GridLayout {
 /// Internal representation of a BoxLayout
 #[derive(Debug, Clone)]
 pub struct BoxLayout {
-    /// Whether, this is a HorizonalLayout, otherwise a VerticalLayout
+    /// Whether, this is a HorizontalLayout, otherwise a VerticalLayout
     pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,

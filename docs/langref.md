@@ -151,7 +151,7 @@ Example := Rectangle {
 
 The expression on the right of a binding is automatically re-evaluated when the expression changes.
 
-In the following example, the text of the button is automaticallty changed when the button is pressed, because
+In the following example, the text of the button is automatically changed when the button is pressed, because
 changing the `counter`  property automatically changes the text.
 
 ```60
@@ -197,7 +197,7 @@ All properties in elements have a type. The following types are supported:
 | `brush` | A brush is a special type that can be either initialized from a color or a gradient specification. See the [Colors Section](#colors) for more information. |
 | `physicial_length` | This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1phx`. |
 | `length` | The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
-| `duration` | Type for the duration of animations. A suffix like `ms` (milisecond) or `s` (second) is used to indicate the precision. |
+| `duration` | Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision. |
 | `angle` | Angle mesurement, corresponds to a literal like `90deg`, `1.2rad`, `0.25turn` |
 | `easing` | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions):  `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
 | `percent` | Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix. |
@@ -445,7 +445,7 @@ Example := Rectangle {
 }
 ```
 
-(TODO: currently color name are only limited to a handfull and only supported in color property)
+(TODO: currently color name are only limited to a handful and only supported in color property)
 
 In addition to plain colors, many elements have properties that are of type `brush` instead of `color`.
 A brush is a type that can be either a color or gradient. The brush is then used to fill an element or
@@ -527,7 +527,7 @@ Assignment:
 clicked => { some_property = 42; }
 ```
 
-Self-assignement with `+=` `-=` `*=` `/=`
+Self-assignment with `+=` `-=` `*=` `/=`
 
 ```
 clicked => { some_property += 42; }
@@ -566,7 +566,7 @@ clicked => { ; }
 
 The `for`-`in` syntax can be used to repeat an element.
 
-The sytax look like this: `for name[index] in model : id := Element { ... }`
+The syntax look like this: `for name[index] in model : id := Element { ... }`
 
 The *model* can be of the following type:
  - an integer, in which case the element will be repeated that amount of time
@@ -610,7 +610,7 @@ Example := Window {
 
 ## Conditional element
 
-Similar to `for`, the `if` construct can instentiate element only if a given condition is true.
+Similar to `for`, the `if` construct can instantiate element only if a given condition is true.
 The syntax is `if (condition) : id := Element { ... }`
 
 ```60
@@ -885,7 +885,7 @@ Return the value rounded to the nearest integer
 
   * **`sin(angle) -> float`**, **`cos(angle) -> float`**, **`tan(angle) -> float`**, **`asin(float) -> angle`**, **`acos(float) -> angle`**, **`atan(float) -> angle`**
 
-The trigonometry funtion. Note that the should be typed with `deg` or `rad` unit
+The trigonometry function. Note that the should be typed with `deg` or `rad` unit
 (for example `cos(90deg)` or `sin(slider.value * 1deg)`).
 
   * **`sqrt(float) -> float`**
@@ -897,7 +897,7 @@ Square root
 Return the color as in CSS. Like in CSS, These two functions are actually aliases that can take 3 or for parameter.
 The first 3 parameters can be either number between 0 and 255, or percentage with a `%` unit.
 The fourth value, if present, is an alpha value between 0 and 1.
-(Unlike in CSS, the comas are mendatory)
+(Unlike in CSS, the comas are mandatory)
 
 ## Font Handling
 

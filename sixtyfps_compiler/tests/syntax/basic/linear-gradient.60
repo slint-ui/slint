@@ -31,7 +31,7 @@ X := Rectangle {
 //                                                        ^error{Expected comma}
     property<brush> g11: @linear-gradient(20deg,);
     property<brush> g12: @linear-gradient(2, blue 45%, red 88%);
-//                                        ^error{Cannot convert float to angle. Use an unit, or multiply by 1deg to convert explicitly.}
+//                                        ^error{Cannot convert float to angle. Use an unit, or multiply by 1deg to convert explicitly}
     property<brush> g13: @linear-gradient(90deg + 0.5turn, true ? blue : red 45%, red 88% + 0.1);
 }
 

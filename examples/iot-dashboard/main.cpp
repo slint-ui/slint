@@ -89,7 +89,7 @@ int main()
     DashboardBuilder builder;
 
     // The widgets and their position is hardcoded for now, but one could imagine getting this
-    // from a config file, and istentiating the widgets with a factory function
+    // from a config file, and instantiating the widgets with a factory function
     builder.add_top_bar_widget(std::make_shared<ClockWidget>());
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("Usage"), { 0, 0, 2 });
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("IndoorTemperature"), { 0, 1 });

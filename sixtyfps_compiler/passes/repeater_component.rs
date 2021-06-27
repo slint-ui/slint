@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 /*!
-Make sure that the Repeated expression are just components without any chilodren
+Make sure that the Repeated expression are just components without any children
  */
 
 use crate::expression_tree::NamedReference;

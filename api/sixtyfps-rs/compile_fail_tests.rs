@@ -8,9 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 /**
-Test that the tokenizer properly reject tokens with spaces.
+Test that the tokenizer properly rejects tokens with spaces.
 
-This should worlk:
+This should work:
 
 ```
 mod x {

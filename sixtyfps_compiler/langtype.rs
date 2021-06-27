@@ -366,7 +366,7 @@ impl Type {
         }
     }
 
-    /// Assime it is a Component, panic if it isn't
+    /// Assume it is a Component, panic if it isn't
     pub fn as_component(&self) -> &Rc<Component> {
         match self {
             Type::Component(c) => c,

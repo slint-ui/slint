@@ -10,7 +10,7 @@ LICENSE END */
 /*! module for the C++ code generator
 */
 
-/// This module contains some datastructure that helps represent a C++ code.
+/// This module contains some data structure that helps represent a C++ code.
 /// It is then rendered into an actual C++ text using the Display trait
 mod cpp_ast {
 
@@ -1412,7 +1412,7 @@ fn compile_expression(
             }
 
            /*  std::from_chars is unfortunately not yet implemented in gcc
-            BuiltinFunction::SringIsFloat => {
+            BuiltinFunction::StringIsFloat => {
                 "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a); }"
                     .into()
             }

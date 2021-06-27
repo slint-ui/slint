@@ -13,15 +13,15 @@ TestCase := Window {
 
     Rectangle {
         property foo;
-//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type.}
+//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
         property bar: 45;
-//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type.}
+//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
         property hello <=> ta.pressed;
 
         property <=> ta.pressed;
 
         property yo yo;
-//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type.}
+//               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
 //                  ^^error{Syntax error: expected Semicolon}
 //                    ^^^error{Parse error}
 

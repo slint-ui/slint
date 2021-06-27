@@ -49,8 +49,8 @@ class Value;
 /// This type represents a runtime instance of structure in `.60`.
 ///
 /// This can either be an instance of a name structure introduced
-/// with the `struct` keyword in the .60 file, or an annonymous struct
-/// writen with the `{ key: value, }`  notation.
+/// with the `struct` keyword in the .60 file, or an anonymous struct
+/// written with the `{ key: value, }`  notation.
 ///
 /// It can be constructed with the range constructor or initializer lst,
 /// and converted into or from a Value with the Value constructor and
@@ -456,7 +456,7 @@ inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
     {
         std::shared_ptr<sixtyfps::Model<Value>> model;
         cbindgen_private::ModelNotifyOpaque notify;
-        // This kind of mean that the rust code has ownership of "this" until the drop funciton is
+        // This kind of mean that the rust code has ownership of "this" until the drop function is
         // called
         std::shared_ptr<AbstractRepeaterView> self;
         ~ModelWrapper() { cbindgen_private::sixtyfps_interpreter_model_notify_destructor(&notify); }
@@ -872,7 +872,7 @@ public:
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
-    /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
+    /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
     /// in this ComponentCompiler and can be retrieved after the call using the diagnostics()
     /// function.
     ///

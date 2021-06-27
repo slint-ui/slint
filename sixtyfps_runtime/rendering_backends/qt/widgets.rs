@@ -10,7 +10,7 @@ LICENSE END */
 
 /*!
 
-This module contains all the native Qt widgetimplementation that forwards to QStyle.
+This module contains all the native Qt widget implementation that forwards to QStyle.
 
 Same as in sixtyfps_corelib::items, when When adding an item or a property,
 it needs to be kept in sync with different place.
@@ -883,7 +883,7 @@ impl Item for NativeGroupBox {
                     if (!text.isEmpty()) {
                         option.subControls |= QStyle::SC_GroupBoxLabel;
                     }
-                     // Just some size big enough to be sure that the frame fitst in it
+                     // Just some size big enough to be sure that the frame fits in it
                     option.rect = QRect(0, 0, 10000, 10000);
                     option.textColor = QColor(qApp->style()->styleHint(
                         QStyle::SH_GroupBox_TextLabelColor, &option));
@@ -1055,7 +1055,7 @@ impl Item for NativeLineEdit {
                 option.state |= QStyle::State_Enabled;
                 option.lineWidth = 1;
                 option.midLineWidth = 0;
-                    // Just some size big enough to be sure that the frame fitst in it
+                // Just some size big enough to be sure that the frame fits in it
                 option.rect = QRect(0, 0, 10000, 10000);
                 QRect contentsRect = qApp->style()->subElementRect(
                     QStyle::SE_LineEditContents, &option);

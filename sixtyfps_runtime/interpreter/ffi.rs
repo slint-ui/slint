@@ -291,7 +291,7 @@ pub extern "C" fn sixtyfps_interpreter_struct_make_iter<'a>(
 }
 
 /// Get a property.
-/// The `out` parameter must be uninitiaized. If this function returns true, the out will be initialized
+/// The `out` parameter must be uninitialized. If this function returns true, the out will be initialized
 /// to the resulting value. If this function returns false, out is unchanged
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_get_property(
@@ -324,7 +324,7 @@ pub extern "C" fn sixtyfps_interpreter_component_instance_set_property(
 }
 
 /// Invoke a callback.
-/// The `out` parameter must be uninitiaized. If this function returns true, the out will be initialized
+/// The `out` parameter must be uninitialized. If this function returns true, the out will be initialized
 /// to the resulting value. If this function returns false, out is unchanged
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_invoke_callback(

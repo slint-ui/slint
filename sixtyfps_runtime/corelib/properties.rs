@@ -102,7 +102,7 @@ use crate::items::PropertyAnimation;
 /// The return value of a binding
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum BindingResult {
-    /// The binding is a normal binding, and we keep it to re-evaluate it ince it is dirty
+    /// The binding is a normal binding, and we keep it to re-evaluate it once it is dirty
     KeepBinding,
     /// The value of the property is now constant after the binding was evaluated, so
     /// the binding can be removed.
@@ -345,7 +345,7 @@ struct PropertyHandle {
     /// The two least significant bit of the pointer are flags, as the pointer will be aligned.
     /// The least significant bit (`0b01`) tells that the binding is borrowed. So no two reference to the
     /// binding exist at the same time.
-    /// The decond to last bit (`0b10`) tells that the pointer points to a binding. Otherwise, it is the head
+    /// The second to last bit (`0b10`) tells that the pointer points to a binding. Otherwise, it is the head
     /// node of the linked list of dependent binding
     handle: Cell<usize>,
 }
@@ -356,7 +356,7 @@ impl PropertyHandle {
         self.handle.get() & 0b1 == 1
     }
     /// Sets the lock_flag.
-    /// Safety: the lock flag must not be unsat if there exist reference to what's inside the cell
+    /// Safety: the lock flag must not be unset if there exist reference to what's inside the cell
     unsafe fn set_lock_flag(&self, set: bool) {
         self.handle.set(if set { self.handle.get() | 0b1 } else { self.handle.get() & !0b1 })
     }
@@ -482,7 +482,7 @@ impl Drop for PropertyHandle {
     }
 }
 
-/// Safety: the dependency list must be valid and consistant
+/// Safety: the dependency list must be valid and consistent
 unsafe fn mark_dependencies_dirty(deps: *mut DependencyListHead) {
     let mut next = (*deps).0.get() as *const DependencyNode;
     while let Some(node) = next.as_ref() {
@@ -566,7 +566,7 @@ impl<T: Clone> Property<T> {
     /// Same as get() but without registering a dependency
     ///
     /// This allow to optimize bindings that know that they might not need to
-    /// re_evaluate themself when the property change or that have registered
+    /// re_evaluate themselves when the property change or that have registered
     /// the dependency in another way.
     ///
     /// ## Example
@@ -633,7 +633,7 @@ impl<T: Clone> Property<T> {
     /// If other properties have bindings depending of this property, these properties will
     /// be marked as dirty.
     ///
-    /// Clausures of type `Fn()->T` implements Binding<T> and can be used as a binding
+    /// Closures of type `Fn()->T` implements Binding<T> and can be used as a binding
     ///
     /// ## Example
     /// ```
@@ -664,7 +664,7 @@ impl<T: Clone> Property<T> {
     }
 
     /// Any of the properties accessed during the last evaluation of the closure called
-    /// from the last call to evaluate is pottentially dirty.
+    /// from the last call to evaluate is potentially dirty.
     pub fn is_dirty(&self) -> bool {
         self.handle.access(|binding| binding.map_or(false, |b| b.dirty.get()))
     }
@@ -684,7 +684,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             value,
             animation_data,
         ));
-        // Safety: the BindingCallable will cast its arguement to T
+        // Safety: the BindingCallable will cast its argument to T
         unsafe {
             self.handle.set_binding(move |val: *mut ()| {
                 let (value, finished) = d.borrow_mut().compute_interpolated_value();
@@ -1430,12 +1430,12 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
     }
 
     /// Any of the properties accessed during the last evaluation of the closure called
-    /// from the last call to evaluate is pottentially dirty.
+    /// from the last call to evaluate is potentially dirty.
     pub fn is_dirty(&self) -> bool {
         self.holder.dirty.get()
     }
 
-    /// Evaluate the function, and record dependencies of properties accessed whithin this function.
+    /// Evaluate the function, and record dependencies of properties accessed within this function.
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will also mark the other binding/tracker dirty.
     pub fn evaluate<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
@@ -1443,7 +1443,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
         self.evaluate_as_dependency_root(f)
     }
 
-    /// Evaluate the function, and record dependencies of properties accessed whithin this function.
+    /// Evaluate the function, and record dependencies of properties accessed within this function.
     /// If this is called during the evaluation of another property binding or property tracker, then
     /// any changes to accessed properties will not propagate to the other tracker.
     pub fn evaluate_as_dependency_root<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
@@ -1755,7 +1755,7 @@ pub(crate) mod ffi {
 
     /// Set a binding
     ///
-    /// The current implementation will do usually two memory alocation:
+    /// The current implementation will do usually two memory allocation:
     ///  1. the allocation from the calling code to allocate user_data
     ///  2. the box allocation within this binding
     /// It might be possible to reduce that by passing something with a
@@ -1785,7 +1785,7 @@ pub(crate) mod ffi {
 
     /// Set a binding using an already allocated building holder
     ///
-    //// (take ownershipo of the binding)
+    //// (take ownership of the binding)
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_property_set_binding_internal(
         handle: &PropertyHandleOpaque,

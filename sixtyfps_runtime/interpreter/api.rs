@@ -113,7 +113,7 @@ pub enum Value {
     /// An easing curve
     EasingCurve(sixtyfps_corelib::animations::EasingCurve),
     #[doc(hidden)]
-    /// An enumation, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
+    /// An enumeration, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
     /// FIXME: consider representing that with a number?
     EnumerationValue(String, String),
     #[doc(hidden)]
@@ -352,8 +352,8 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
 /// This type represents a runtime instance of structure in `.60`.
 ///
 /// This can either be an instance of a name structure introduced
-/// with the `struct` keyword in the .60 file, or an annonymous struct
-/// writen with the `{ key: value, }`  notation.
+/// with the `struct` keyword in the .60 file, or an anonymous struct
+/// written with the `{ key: value, }`  notation.
 ///
 /// It can be constructed with the [`FromIterator`] trait, and converted
 /// into or from a [`Value`] with the [`From`] and [`TryInto`] trait
@@ -477,15 +477,15 @@ impl ComponentCompiler {
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
-    /// Any diagnostics produced during the compilation, such as warnigns or errors, are collected
+    /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
     /// in this ComponentCompiler and can be retrieved after the call using the [[Self::diagnostics()]]
     /// function. The [`print_diagnostics`] function can be used to display the diagnostics
     /// to the users.
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
-    /// This function is `async` but in practice, this is only asynchronious if
-    /// [`Self::set_file_loader`] was called and its future is actually asynchronious.
+    /// This function is `async` but in practice, this is only asynchronous if
+    /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_path<P: AsRef<Path>>(
@@ -520,8 +520,8 @@ impl ComponentCompiler {
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
-    /// This function is `async` but in practice, this is only asynchronious if
-    /// [`Self::set_file_loader`] is set and its future is actually asynchronious.
+    /// This function is `async` but in practice, this is only asynchronous if
+    /// [`Self::set_file_loader`] is set and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one
     /// provided by the `spin_on` crate
     pub async fn build_from_source(
@@ -568,7 +568,7 @@ impl ComponentDefinition {
         ComponentInstance { inner: self.inner.unerase(guard).clone().create(canvas_id.into()) }
     }
 
-    /// Instentiate the component using an existing window.
+    /// Instantiate the component using an existing window.
     /// This method is internal because the Window is not a public type
     #[doc(hidden)]
     pub fn create_with_existing_window(
@@ -787,7 +787,7 @@ impl ComponentInstance {
     /// Clone this `ComponentInstance`.
     ///
     /// A `ComponentInstance` is in fact a handle to a reference counted instance.
-    /// This function is semanticallt the same as the one from `Clone::clone`, but
+    /// This function is semantically the same as the one from `Clone::clone`, but
     /// Clone is not implemented because of the danger of circular reference:
     /// If you want to use this instance in a callback, you should capture a weak
     /// reference given by [`Self::as_weak`].
@@ -826,7 +826,7 @@ impl WeakComponentInstance {
         self.inner.upgrade().map(|inner| ComponentInstance { inner })
     }
 
-    /// Convenience function that returns a new stronlyg referenced component if
+    /// Convenience function that returns a new strongly referenced component if
     /// some other instance still holds a strong reference. Otherwise, this function
     /// panics.
     pub fn unwrap(&self) -> ComponentInstance {
@@ -877,7 +877,7 @@ pub fn run_event_loop() {
         .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
-/// This module constains a few function use by tests
+/// This module contains a few function use by tests
 pub mod testing {
     /// Wrapper around [`sixtyfps_corelib::tests::sixtyfps_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {

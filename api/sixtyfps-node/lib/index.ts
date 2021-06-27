@@ -201,7 +201,7 @@ class ArrayModel<T> implements Model<T> {
         Array.prototype.push.apply(this.a, values);
         this.notify.rowAdded(size, arguments.length);
     }
-    // FIXME: should this be named splice and hav ethe splice api?
+    // FIXME: should this be named splice and have the splice api?
     /**
      * Removes the specified number of element from the array that's backing
      * the model, starting at the specified index. This is equivalent to calling

@@ -301,7 +301,7 @@ impl<'a> TypeLoader<'a> {
             // But we still want to create a document to give better error messages in the root document.
             let mut ignore_diag = BuildDiagnostics::default();
             ignore_diag.push_error_with_span(
-                "Dummy error because some of the code asserts there there was an error".into(),
+                "Dummy error because some of the code asserts there was an error".into(),
                 Default::default(),
             );
             let doc = crate::object_tree::Document::from_node(

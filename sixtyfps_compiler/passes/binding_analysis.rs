@@ -35,7 +35,7 @@ pub fn binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) 
         &mut |e, _| {
             for (name, binding) in &e.borrow().bindings {
                 if matches!(e.borrow().lookup_property(name).property_type, Type::Callback { .. }) {
-                    // TODO: We probably also want to do some analyzis on callbacks.
+                    // TODO: We probably also want to do some analysis on callbacks.
                     continue;
                 }
                 if binding.analysis.borrow().is_some() {
@@ -83,7 +83,7 @@ fn analyse_binding(
                 .clone()
                 .or_else(|| elem.node.as_ref().map(|n| n.to_source_location()));
             diag.push_error(
-                format!("The binding for the property '{}' is part of a binding loop.", p.name()),
+                format!("The binding for the property '{}' is part of a binding loop", p.name()),
                 &span,
             );
 
@@ -224,7 +224,7 @@ fn visit_implicit_layout_info_dependencies(
     }
 }
 
-/// Make sure that the is_set property analasys is set to any property which has a two way binding
+/// Make sure that the is_set property analysis is set to any property which has a two way binding
 /// to a property that is, itself, is set
 ///
 /// Example:

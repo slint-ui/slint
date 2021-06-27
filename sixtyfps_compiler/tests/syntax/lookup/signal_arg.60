@@ -15,7 +15,7 @@ Xxx := Rectangle {
     plop(x, blah, hello) => {
         background = blah;
         x = 42 + hello;
-//      ^error{Assignement need to be done on a property}
+//      ^error{Assignment needs to be done on a property}
         width = x;
 //             ^error{Cannot convert string to length}
         plop("hallo", #fff, 42);

@@ -243,7 +243,7 @@ declare_units! {
     Px = "px" -> LogicalLength,
     /// Centimeters
     Cm = "cm" -> LogicalLength * 37.8,
-    /// Milimeters
+    /// Millimeters
     Mm = "mm" -> LogicalLength * 3.78,
     /// inches
     In = "in" -> LogicalLength * 96,
@@ -381,7 +381,7 @@ pub enum Expression {
         source_location: Option<SourceLocation>,
     },
 
-    /// A SelfAssignment or an Assignment.  When op is '=' this is a signel assignment.
+    /// A SelfAssignment or an Assignment.  When op is '=' this is a signal assignment.
     SelfAssignment {
         lhs: Box<Expression>,
         rhs: Box<Expression>,
@@ -952,7 +952,7 @@ impl Expression {
             }
         } else {
             let mut message = format!("Cannot convert {} to {}", ty, target_type);
-            // Explicit error message for unit cnversion
+            // Explicit error message for unit conversion
             if let Some(from_unit) = ty.default_unit() {
                 if matches!(&target_type, Type::Int32 | Type::Float32 | Type::String) {
                     message = format!(
@@ -969,7 +969,7 @@ impl Expression {
                         }
                     }
                     message = format!(
-                        "{}. Use an unit, or multiply by 1{} to convert explicitly.",
+                        "{}. Use an unit, or multiply by 1{} to convert explicitly",
                         message, to_unit
                     );
                 }
@@ -1131,7 +1131,7 @@ pub struct PathElement {
 pub enum EasingCurve {
     Linear,
     CubicBezier(f32, f32, f32, f32),
-    // CubicBesizerNonConst([Box<Expression>; 4]),
+    // CubicBezierNonConst([Box<Expression>; 4]),
     // Custom(Box<dyn Fn(f32)->f32>),
 }
 
@@ -1141,7 +1141,7 @@ impl Default for EasingCurve {
     }
 }
 
-// The compiler generates ResourceReference::AbsolutePath for all references likg @image-url("foo.png")
+// The compiler generates ResourceReference::AbsolutePath for all references like @image-url("foo.png")
 // and the resource lowering path may change this to EmbeddedData if configured.
 #[derive(Clone, Debug)]
 pub enum ImageReference {
@@ -1150,7 +1150,7 @@ pub enum ImageReference {
     EmbeddedData(usize),
 }
 
-/// Print the expression as a .60 code (not nessecarily valid .60)
+/// Print the expression as a .60 code (not necessarily valid .60)
 pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std::fmt::Result {
     match expression {
         Expression::Invalid => write!(f, "<invalid>"),

@@ -27,11 +27,11 @@ export Demo := Window {
     transitions [
         in moving: {
             animate y { duration: 5s; }
-            //      ^error{The property is not changed as part of this transition.}
+            //      ^error{The property is not changed as part of this transition}
         }
         out moving: {
             animate t.x { duration: 100ms; }
-            //      ^error{The property is not changed as part of this transition.}
+            //      ^error{The property is not changed as part of this transition}
         }
     ]
 }

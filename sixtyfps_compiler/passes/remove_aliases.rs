@@ -206,7 +206,7 @@ fn best_property<'a>(
     p1: NamedReference,
     p2: NamedReference,
 ) -> NamedReference {
-    // Try to find which is the more canical property
+    // Try to find which is the more canonical property
     macro_rules! canonical_order {
         ($x: expr) => {{
             (

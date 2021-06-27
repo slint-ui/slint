@@ -34,9 +34,9 @@ The `drop-shadow` effect is supported for `Rectangle` and `Clip` elements.
 
 Window is the root of what is on the screen
 
-The Window geometry will be restricted by its layout contraints: setting the `width` will result in a fixed width,
+The Window geometry will be restricted by its layout constraints: setting the `width` will result in a fixed width,
 and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
-or smaller. The initial width can be controled with the `preferred-width` property. The same applies for the height.
+or smaller. The initial width can be controlled with the `preferred-width` property. The same applies for the height.
 
 ### Properties
 
@@ -220,7 +220,7 @@ Example := Window {
     height: 300px;
 
     Text {
-        text: "This paragraph breaks into multple lines of text";
+        text: "This paragraph breaks into multiple lines of text";
         wrap: word-wrap;
         width: 150px;
         height: 100%;
@@ -355,7 +355,7 @@ or angle.
 * **`radius-x`** (*float): The x-radius of the ellipse.
 * **`radius-y`** (*float): The y-radius of the ellipse.
 * **`x-rotation`** (*float): The x-axis of the ellipse will be rotated by the value of this
-  properties, specified in as angle in degress from 0 to 360.
+  properties, specified in as angle in degrees from 0 to 360.
 * **`large-arc`** (*bool): Out of the two arcs of a closed ellipse, this flag selects that the
   larger arc is to be rendered. If the property is false, the shorter arc is rendered instead.
 * **`sweep`** (*bool): If the property is true, the arc will be drawn as a clockwise turning arc;
@@ -408,7 +408,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Callbacks
 
-* **`clicked`**: Emited when the mouse is released
+* **`clicked`**: Emitted when the mouse is released
 
 ### Example
 
@@ -471,9 +471,9 @@ Example := Window {
 
 ## `VerticalLayout` / `HorizontalLayout`
 
-These layouts place their children next to eachother verticaly or horizontally.
+These layouts place their children next to each other vertically or horizontally.
 The size of elements can either be fixed with the `width` or `height` property, or if they are not set
-they will be computed by the layout respecting the minimum and maximum sizes and the strecth factor.
+they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
 
 ## Properties
 
@@ -678,7 +678,7 @@ This enum describes the different types of alignment of text along the horizonta
 
 * **`TextHorizontalAlignment.left`**: The text will be aligned with the left edge of the contained box.
 * **`TextHorizontalAlignment.center`**: The text will be horizontally centered within the contained box.
-* **`TextHorizontalAlignment.right`** The text will be alignt to the right right of the contained box.
+* **`TextHorizontalAlignment.right`** The text will be aligned to the right right of the contained box.
 
 ## `TextVerticalAlignment`
 
@@ -706,7 +706,7 @@ This enum describes the how the text appear if it is too wide to fit in the Text
 ### Values
 
 * **`TextOverflow.clip`**: The text will simply be clipped.
-* **`TextOverflow.elide`**: The text will be ellided with `…`.
+* **`TextOverflow.elide`**: The text will be elided with `…`.
 
 ## `EventResult`
 

@@ -14,7 +14,7 @@ LICENSE END */
 
 use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 
-/// That's basicaly the same as `&'a [T]`  but `repr(C)`
+/// That's basically the same as `&'a [T]`  but `repr(C)`
 ///
 /// Can be constructed from a slice using the from trait.
 ///
@@ -54,7 +54,7 @@ impl<'a, T: Debug> Debug for Slice<'a, T> {
     }
 }
 
-// Need to implement manually otheriwse it is not implemented if T do not implement Copy / Clone
+// Need to implement manually otherwise it is not implemented if T do not implement Copy / Clone
 impl<'a, T> Copy for Slice<'a, T> {}
 
 impl<'a, T> Clone for Slice<'a, T> {

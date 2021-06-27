@@ -422,7 +422,7 @@ impl GLRenderer {
     }
 }
 
-// Layers are stored in the renderer's State and flushed to the screen (or current rendering target)
+// Layers are stored in the renderers State and flushed to the screen (or current rendering target)
 // in restore_state() by filling the target_path.
 struct Layer {
     image: CachedImage,

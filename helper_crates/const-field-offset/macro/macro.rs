@@ -40,7 +40,7 @@ const FOO : usize = Foo::FIELD_OFFSETS.field_2.get_byte_offset();
 assert_eq!(FOO, 4);
 
 // This would not work on stable rust at the moment (rust 1.43)
-// const FOO : usize = memofsets::offsetof!(Foo, field_2);
+// const FOO : usize = memoffsets::offsetof!(Foo, field_2);
 ```
 
 */

@@ -26,7 +26,7 @@ pub enum EventLoopQuitBehavior {
 
 /// Interface implemented by backends
 pub trait Backend: Send + Sync {
-    /// Instentiate a window for a component.
+    /// Instantiate a window for a component.
     /// FIXME: should return a Box<dyn PlatformWindow>
     fn create_window(&'static self) -> ComponentWindow;
 

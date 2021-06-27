@@ -19,7 +19,7 @@ use quote::quote;
 /// This derive macro is used with structures in the run-time library that are meant
 /// to be exposed to the language. The structure is introspected for properties and fields
 /// marked with the `rtti_field` attribute and generates run-time type information for use
-/// with the interpeter.
+/// with the interpreter.
 /// In addition all `Property<T> foo` fields get a convenient getter function generated
 /// that works on a `Pin<&Self>` receiver.
 #[proc_macro_derive(SixtyFPSElement, attributes(rtti_field))]

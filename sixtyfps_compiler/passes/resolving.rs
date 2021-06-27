@@ -12,7 +12,7 @@ LICENSE END */
 //! Before this pass, all the expression are of type Expression::Uncompiled,
 //! and there should no longer be Uncompiled expression after this pass.
 //!
-//! Most of the code for the resolving actualy lies in the expression_tree module
+//! Most of the code for the resolving actually lies in the expression_tree module
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
@@ -24,7 +24,7 @@ use crate::typeregister::TypeRegister;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-/// This represeresent a scope for the Component, where Component is the repeated component, but
+/// This represents a scope for the Component, where Component is the repeated component, but
 /// does not represent a component in the .60 file
 #[derive(Clone)]
 struct ComponentScope(Vec<ElementRc>);
@@ -52,7 +52,7 @@ fn resolve_expression(
 
         let new_expr = match node.kind() {
             SyntaxKind::CallbackConnection => {
-                //FIXME: proper callback suport (node is a codeblock)
+                //FIXME: proper callback support (node is a codeblock)
                 Expression::from_callback_connection(node.clone().into(), &mut lookup_ctx)
             }
             SyntaxKind::Expression => {
@@ -139,7 +139,7 @@ impl Expression {
             })
             .unwrap_or(Self::Invalid);
         if ctx.property_type == Type::LogicalLength && e.ty() == Type::Percent {
-            // See if a conversion from percentage to lenght is allowed
+            // See if a conversion from percentage to length is allowed
             const RELATIVE_TO_PARENT_PROPERTIES: [&str; 2] = ["width", "height"];
             let property_name = ctx.property_name.unwrap_or_default();
             if RELATIVE_TO_PARENT_PROPERTIES.contains(&property_name) {
@@ -147,7 +147,7 @@ impl Expression {
             } else {
                 ctx.diag.push_error(
                     format!(
-                        "Automatic conversion from percentage to lenght is only possible for the properties {}",
+                        "Automatic conversion from percentage to length is only possible for the properties {}",
                         RELATIVE_TO_PARENT_PROPERTIES.join(" and ")
                     ),
                     &node
@@ -400,7 +400,7 @@ impl Expression {
                     )),
                 }
             } else {
-                // To faciliate color literal conversion, adjust the expected return type.
+                // To facilitate color literal conversion, adjust the expected return type.
                 let e = {
                     let old_property_type = std::mem::replace(&mut ctx.property_type, Type::Color);
                     let e =
@@ -439,7 +439,7 @@ impl Expression {
                 rest.iter().position(|s| !matches!(s.1, Expression::Invalid)).unwrap_or(rest.len());
             if pos > 0 {
                 let (middle, after) = rest.split_at_mut(pos);
-                let begin = &before.last().expect("The first should never be invlid").1;
+                let begin = &before.last().expect("The first should never be invalid").1;
                 let end = &after.last().expect("The last should never be invalid").1;
                 for (i, (_, e)) in middle.iter_mut().enumerate() {
                     debug_assert!(matches!(e, Expression::Invalid));
@@ -495,7 +495,7 @@ impl Expression {
                     // Attempt to recover if the user wanted to write "-"
                     let first_str = &first.text()[0..minus_pos];
                     if global_lookup.lookup(ctx, first_str).is_some() {
-                        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a substraction.", first.text()), &node);
+                        ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a subtraction", first.text()), &node);
                         return Expression::Invalid;
                     }
                 }
@@ -639,8 +639,8 @@ impl Expression {
         if !lhs.try_set_rw() && lhs.ty() != Type::Invalid {
             ctx.diag.push_error(
                 format!(
-                    "{} need to be done on a property",
-                    if op == '=' { "Assignement" } else { "Self assignement" }
+                    "{} needs to be done on a property",
+                    if op == '=' { "Assignment" } else { "Self assignment" }
                 ),
                 &node,
             );
@@ -971,7 +971,7 @@ fn continue_lookup_within_element(
             if elem.borrow().lookup_property(&second.text()[0..minus_pos]).property_type
                 != Type::Invalid
             {
-                err(" Use space before the '-' if you meant a substraction.");
+                err(" Use space before the '-' if you meant a subtraction");
                 return Expression::Invalid;
             }
         }
@@ -995,7 +995,7 @@ fn maybe_lookup_object(
             None => {
                 if let Some(minus_pos) = next.text().find('-') {
                     if base.lookup(ctx, &next.text()[0..minus_pos]).is_some() {
-                        ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a substraction.", next.text()), &next);
+                        ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a subtraction", next.text()), &next);
                         return Expression::Invalid;
                     }
                 }

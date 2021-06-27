@@ -24,7 +24,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 #![allow(unsafe_code)]
 #![allow(non_upper_case_globals)]
-#![allow(missing_docs)] // because documenting each property of items is redundent
+#![allow(missing_docs)] // because documenting each property of items is redundant
 
 use crate::component::ComponentVTable;
 use crate::graphics::PathDataIterator;
@@ -49,7 +49,7 @@ pub use text::*;
 mod image;
 pub use self::image::*;
 
-/// Alias for `&mut dyn ItemRenderer`. Required so cbingen generates the ItemVTable
+/// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
 /// despite the presence of trait object
 type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 
@@ -85,7 +85,7 @@ pub struct ItemVTable {
     /// Returns the geometry of this item (relative to its parent item)
     pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> Rect,
 
-    /// offset in bytes fromthe *const ItemImpl.
+    /// offset in bytes from the *const ItemImpl.
     /// isize::MAX  means None
     #[allow(non_upper_case_globals)]
     #[field_offset(CachedRenderingData)]
@@ -100,7 +100,7 @@ pub struct ItemVTable {
 
     /// Event handler for mouse and touch event. This function is called before being called on children.
     /// Then, depending on the return value, it is called for the children, and their children, then
-    /// [`Self::input_event`] is called on the children, and finaly [`Self::input_event`] is called
+    /// [`Self::input_event`] is called on the children, and finally [`Self::input_event`] is called
     /// on this item again.
     pub input_event_filter_before_children: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,

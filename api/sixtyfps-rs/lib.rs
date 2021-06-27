@@ -149,9 +149,9 @@ The follow table summarizes the entire mapping:
 | `color` | [`Color`] | |
 | `brush` | [`Brush`] | |
 | `image` | [`Image`] | |
-| `physicial_length` | `f32` | The unit are physical pixels. |
+| `physical_length` | `f32` | The unit are physical pixels. |
 | `length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
-| `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with milisecond precision. |
+| `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
 | structure | `struct` of the same name | |
 | array | [`ModelHandle`] |  |
 
@@ -339,14 +339,14 @@ mod weak_handle {
     ///
     /// In order to create a Weak, you should use [`ComponentHandle::as_weak`].
     ///
-    /// Strongs references should not be captured by the functions given to a lambda,
+    /// Strong references should not be captured by the functions given to a lambda,
     /// as this would produce a reference loop and leak the component.
     /// Instead, the callback function should capture a weak component.
     ///
     /// The Weak component also implement `Send` and can be send to another thread.
     /// but the upgrade function will only return a valid component from the same thread
     /// as the one it has been created from.
-    /// This is usefull to use with [`invoke_from_event_loop()`].
+    /// This is useful to use with [`invoke_from_event_loop()`].
     pub struct Weak<T: ComponentHandle> {
         inner: vtable::VWeak<re_exports::ComponentVTable, T::Inner>,
         thread: std::thread::ThreadId,
@@ -379,7 +379,7 @@ mod weak_handle {
             self.inner.upgrade().map(|inner| T::from_inner(inner))
         }
 
-        /// Convenience function that returns a new stronlyg referenced component if
+        /// Convenience function that returns a new strongly referenced component if
         /// some other instance still holds a strong reference and the current thread
         /// is the thread that created this component.
         /// Otherwise, this function panics.
@@ -403,7 +403,7 @@ pub mod testing {
 
     use super::ComponentHandle;
 
-    /// This trait gives access to the underyling Window of a component for the
+    /// This trait gives access to the underlying Window of a component for the
     /// purposes of testing.
     pub trait HasWindow {
         /// Returns a reference to the component's window.

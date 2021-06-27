@@ -229,7 +229,7 @@ pub struct VRef<'a, T: ?Sized + VTableMeta> {
     phantom: PhantomData<&'a T::Target>,
 }
 
-// Need to implement manually otheriwse it is not implemented if T do not implement Copy / Clone
+// Need to implement manually otherwise it is not implemented if T does not implement Copy / Clone
 impl<'a, T: ?Sized + VTableMeta> Copy for VRef<'a, T> {}
 
 impl<'a, T: ?Sized + VTableMeta> Clone for VRef<'a, T> {
@@ -541,7 +541,7 @@ impl<Base, T: ?Sized + VTableMeta> VOffset<Base, T, AllowPin> {
     }
 }
 
-// Need to implement manually otheriwse it is not implemented if T do not implement Copy / Clone
+// Need to implement manually otherwise it is not implemented if T does not implement Copy / Clone
 impl<Base, T: ?Sized + VTableMeta, Flag> Copy for VOffset<Base, T, Flag> {}
 
 impl<Base, T: ?Sized + VTableMeta, Flag> Clone for VOffset<Base, T, Flag> {

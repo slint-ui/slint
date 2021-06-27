@@ -50,7 +50,7 @@ fn run_with_global_context(f: &GlobalContextCallback) {
 
 /// Load a .60 files.
 ///
-/// The first argument of this finction is a string to the .60 file
+/// The first argument of this function is a string to the .60 file
 ///
 /// The return value is a SixtyFpsComponentType
 fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
@@ -545,7 +545,7 @@ register_module!(mut m, {
     Ok(())
 });
 
-/// let some time ellapse for testing purposes
+/// let some time elapse for testing purposes
 fn mock_elapsed_time(mut cx: FunctionContext) -> JsResult<JsValue> {
     let ms = cx.argument::<JsNumber>(0)?.value();
     sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time(ms as _);
