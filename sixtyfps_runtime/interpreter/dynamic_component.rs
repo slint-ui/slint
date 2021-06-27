@@ -211,7 +211,7 @@ impl<'id, 'sub_id> From<RepeaterWithinComponent<'id, 'sub_id>>
     for ErasedRepeaterWithinComponent<'id>
 {
     fn from(from: RepeaterWithinComponent<'id, 'sub_id>) -> Self {
-        // Safety: this is safe as we erase the sub_id lifetim.
+        // Safety: this is safe as we erase the sub_id lifetime.
         // As long as when we get it back we get an unique lifetime with ErasedRepeaterWithinComponent::unerase
         Self(unsafe {
             core::mem::transmute::<
@@ -263,7 +263,7 @@ impl ErasedComponentDescription {
 }
 impl<'id> From<Rc<ComponentDescription<'id>>> for ErasedComponentDescription {
     fn from(from: Rc<ComponentDescription<'id>>) -> Self {
-        // Safety: We never access the ComponentDerscription with the static lifetime, only after we unerase it
+        // Safety: We never access the ComponentDescription with the static lifetime, only after we unerase it
         Self(unsafe {
             core::mem::transmute::<Rc<ComponentDescription<'id>>, Rc<ComponentDescription<'static>>>(
                 from,
@@ -834,7 +834,7 @@ pub(crate) fn generate_component<'id>(
                 "TextOverflow" => property_info::<sixtyfps_corelib::items::TextOverflow>(),
                 "ImageFit" => property_info::<sixtyfps_corelib::items::ImageFit>(),
                 "FillRule" => property_info::<sixtyfps_corelib::items::FillRule>(),
-                _ => panic!("unkown enum"),
+                _ => panic!("unknown enum"),
             },
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             _ => panic!("bad type {:?}", &decl.property_type),
@@ -1061,7 +1061,7 @@ pub fn instantiate<'id>(
                             }),
                         )
                     } else {
-                        panic!("unkown callback {}", prop_name)
+                        panic!("unknown callback {}", prop_name)
                     }
                 }
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
@@ -1183,7 +1183,7 @@ pub fn instantiate<'id>(
                         }
                     }
                 } else {
-                    panic!("unkown property {}", prop_name);
+                    panic!("unknown property {}", prop_name);
                 }
             }
         },
@@ -1251,7 +1251,7 @@ pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *c
                 .component_type
                 .items
                 .get(element.id.as_str())
-                .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, nr.name()));
+                .unwrap_or_else(|| panic!("Unknown element for {}.{}", element.id, nr.name()));
             core::mem::drop(element);
             let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
             unsafe {

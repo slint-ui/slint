@@ -321,7 +321,7 @@ impl GraphicsWindow {
     }
 
     /// FIXME: this is the same as Window::process_mouse_input, but this handle the popup.
-    /// Ideally the popup should be handled as a different window or by theevent loop, and
+    /// Ideally the popup should be handled as a different window or by the event loop, and
     /// this function can go away
     pub fn process_mouse_input(self: Rc<Self>, mut event: MouseEvent) {
         let active_popup = (*self.active_popup.borrow()).clone();

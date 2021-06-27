@@ -127,7 +127,7 @@ fn lower_transitions_in_element(
         for (p, span, animation) in transition.property_animations {
             if !affected_properties.contains(&p) {
                 diag.push_error(
-                    "The property is not changed as part of this transition.".into(),
+                    "The property is not changed as part of this transition".into(),
                     &span,
                 );
             }

@@ -45,7 +45,7 @@ fn shuffle() -> Vec<i8> {
 struct AppState {
     pieces: Rc<sixtyfps::VecModel<Piece>>,
     main_window: sixtyfps::Weak<MainWindow>,
-    /// An array of 16 values wixh represent a 4x4 matrix containing the piece number in that
+    /// An array of 16 values which represent a 4x4 matrix containing the piece number in that
     /// position. -1 is no piece.
     positions: Vec<i8>,
     auto_play_timer: sixtyfps::Timer,
@@ -131,7 +131,7 @@ impl AppState {
         self.piece_clicked(p);
     }
 
-    /// Advence the kick animation
+    /// Advance the kick animation
     fn kick_animation(&mut self) {
         /// update offset and speed, returns true if the animation is still running
         fn spring_animation(offset: &mut f32, speed: &mut f32) -> bool {

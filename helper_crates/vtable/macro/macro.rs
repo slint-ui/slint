@@ -119,7 +119,7 @@ struct AnimalVTable {
     /// `unsafe` and `extern "C"` will automatically be added
     make_noise: fn(VRef<AnimalVTable>, i32) -> i32,
 
-    /// if there is a 'drop' member, it is considered as the destrutor
+    /// if there is a 'drop' member, it is considered as the destructor
     drop: fn(VRefMut<AnimalVTable>),
 
     /// Associated constant.
@@ -177,7 +177,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         return Error::new(
             proc_macro2::Span::call_site(),
-            "Only suported with structure with named fields",
+            "Only supported for structure with named fields",
         )
         .to_compile_error()
         .into();
@@ -668,7 +668,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         r"Instantiate a static {vtable} for a given type and implements `vtable::HasStaticVTable<{vtable}>` for it.
 
 ```ignore
-// The preview above is misleading because of rust-lang/rust#45939, so it is reproctuced bellow
+// The preview above is misleading because of rust-lang/rust#45939, so it is reproduced below
 macro_rules! {macro} {{
     ($(#[$meta:meta])* $vis:vis static $ident:ident for $ty:ty) => {{ ... }}
 }}
@@ -703,7 +703,7 @@ and implements HasStaticVTable for it.
             #[allow(unused)]
             use super::*;
             use ::vtable::*;
-            use ::std::boxed::Box; // make sure `Box` was not overriden in super
+            use ::std::boxed::Box; // make sure `Box` was not overridden in super
             #input
 
             impl #vtable_name {

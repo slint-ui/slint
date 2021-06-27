@@ -31,7 +31,7 @@ public:
     {
     }
 
-    /// Returns the linear gradient's angle in degress.
+    /// Returns the linear gradient's angle in degrees.
     float angle() const
     {
         // The gradient's first stop is a fake stop to store the angle

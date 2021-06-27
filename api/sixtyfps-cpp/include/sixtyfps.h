@@ -385,7 +385,7 @@ public:
     virtual ModelData row_data(int i) const = 0;
     /// Sets the data for a particular row. This function should be called with `row < row_count()`.
     /// If the model cannot support data changes, then it is ok to do nothing (default
-    /// implementation). If the model can update the data, the implmentation should also call
+    /// implementation). If the model can update the data, the implementation should also call
     /// row_changed.
     virtual void set_row_data(int, const ModelData &) {};
 

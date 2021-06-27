@@ -52,7 +52,7 @@ unsafe fn drop_inner<T>(mut inner: NonNull<SharedVectorInner<T>>) {
 /// Allocate the memory for the SharedVector with the given capacity. Return the inner with size and refcount set to 1
 fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedVectorInner<T>> {
     let ptr = unsafe { alloc::alloc(compute_inner_layout::<T>(capacity)) };
-    assert!(!ptr.is_null(), "allocation of {:?} bytes failled", capacity);
+    assert!(!ptr.is_null(), "allocation of {:?} bytes failed", capacity);
     unsafe {
         core::ptr::write(
             ptr as *mut SharedVectorHeader,
@@ -63,7 +63,7 @@ fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedVectorInner<T>> {
 }
 
 /// Return a new capacity suitable for this vector
-/// Loosly based on alloc::raw_vec::RawVec::grow_amortized.
+/// Loosely based on alloc::raw_vec::RawVec::grow_amortized.
 fn capacity_for_grow(current_cap: usize, required_cap: usize, elem_size: usize) -> usize {
     if current_cap >= elem_size {
         return current_cap;
@@ -191,7 +191,7 @@ impl<T: Clone> SharedVector<T> {
         unsafe { core::slice::from_raw_parts_mut(self.as_ptr() as *mut T, self.len()) }
     }
 
-    /// Add an elent to the array. If the array was shared, this will make a copy of the array.
+    /// Add an element to the array. If the array was shared, this will make a copy of the array.
     pub fn push(&mut self, value: T) {
         self.detach(capacity_for_grow(self.capacity(), self.len() + 1, core::mem::size_of::<T>()));
         unsafe {
@@ -205,7 +205,7 @@ impl<T: Clone> SharedVector<T> {
 
     /// Resize the array to the given size.
     /// If the array was smaller new elements will be initialized with the value.
-    /// If the array was bigger, extra elements will be discared
+    /// If the array was bigger, extra elements will be discarded
     ///
     /// ```
     /// use sixtyfps_corelib::SharedVector;

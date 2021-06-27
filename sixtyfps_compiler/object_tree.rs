@@ -31,7 +31,7 @@ macro_rules! unwrap_or_continue {
         match $e {
             Some(x) => x,
             None => {
-                debug_assert!($diag.has_error()); // error should have been reported at parseing time
+                debug_assert!($diag.has_error()); // error should have been reported at parsing time
                 continue;
             }
         }
@@ -282,13 +282,13 @@ pub struct TransitionPropertyAnimation {
     pub state_id: i32,
     /// false for 'to', true for 'out'
     pub is_out: bool,
-    /// The content of the `anumation` object
+    /// The content of the `animation` object
     pub animation: ElementRc,
 }
 
 impl TransitionPropertyAnimation {
     /// Return an expression which returns a boolean which is true if the transition is active.
-    /// The state argument is an expresison referencing the state property of type StateInfo
+    /// The state argument is an expression referencing the state property of type StateInfo
     pub fn condition(&self, state: Expression) -> Expression {
         Expression::BinaryExpression {
             lhs: Box::new(Expression::StructFieldAccess {
@@ -307,7 +307,7 @@ pub enum PropertyAnimation {
     Transition { state_ref: Expression, animations: Vec<TransitionPropertyAnimation> },
 }
 
-/// An Element is an instentation of a Component
+/// An Element is an instantiation of a Component
 #[derive(Default)]
 pub struct Element {
     /// The id as named in the original .60 file.
@@ -432,7 +432,7 @@ pub fn pretty_print(
 
 #[derive(Clone, Default, Debug)]
 pub struct PropertyAnalysis {
-    /// true if somewhere in the code, there is an expression that changes this property with an assignement
+    /// true if somewhere in the code, there is an expression that changes this property with an assignment
     pub is_set: bool,
 
     /// true if somewhere in the code, an expression is reading this property
@@ -462,9 +462,9 @@ pub struct RepeatedElementInfo {
     pub model: Expression,
     pub model_data_id: String,
     pub index_id: String,
-    /// A conditional element is just a for whose model is a bolean expression
+    /// A conditional element is just a for whose model is a boolean expression
     ///
-    /// When this is true, the model is of type bolean instead of Model
+    /// When this is true, the model is of type boolean instead of Model
     pub is_conditional_element: bool,
     /// When the for is the delegate of a ListView
     pub is_listview: Option<ListViewInfo>,
@@ -949,7 +949,7 @@ impl Element {
                             format!("'{}' is a callback. Use `=>` to connect", unresolved_name)
                         }
                         _ => format!(
-                            "Cannot assign to {} in {} because it does not have a valid property type.",
+                            "Cannot assign to {} in {} because it does not have a valid property type",
                             unresolved_name, self.base_type,
                         ),
                     },
@@ -1063,7 +1063,10 @@ fn animation_element_from_node(
     let anim_type = tr.property_animation_type_for_property(prop_type);
     if !matches!(anim_type, Type::Builtin(..)) {
         diag.push_error(
-            format!("'{}' is not an animatable property", prop_name.text().to_string().trim()),
+            format!(
+                "'{}' is not a property that can be animated",
+                prop_name.text().to_string().trim()
+            ),
             prop_name,
         );
         None
@@ -1554,7 +1557,7 @@ impl Exports {
 
 /// This function replace the root element of a repeated element. the previous root becomes the only
 /// child of the new root element.
-/// Note that no reference to the base component must exist ourside of repeated_element.base_type
+/// Note that no reference to the base component must exist outside of repeated_element.base_type
 pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root: ElementRc) {
     let component = repeated_element.borrow().base_type.as_component().clone();
     // Since we're going to replace the repeated element's component, we need to assert that

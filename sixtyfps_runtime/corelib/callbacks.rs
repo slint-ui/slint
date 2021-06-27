@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 /*!
-Callback that can be connected to  one sigle handler.
+Callback that can be connected to one single handler.
 
 TODO: reconsider if we should rename that to `Event`
 but then it should also be renamed everywhere, including in the language grammar
@@ -24,7 +24,7 @@ use core::cell::Cell;
 ///
 #[repr(C)]
 pub struct Callback<Arg: ?Sized, Ret = ()> {
-    /// FIXME: Box<dyn> is a fat object and we probaly want to put an erased type in there
+    /// FIXME: Box<dyn> is a fat object and we probably want to put an erased type in there
     handler: Cell<Option<Box<dyn Fn(&Arg, &mut Ret)>>>,
 }
 
@@ -40,7 +40,7 @@ impl<Arg: ?Sized, Ret: Default> Callback<Arg, Ret> {
         let mut r = Ret::default();
         if let Some(h) = self.handler.take() {
             h(a, &mut r);
-            assert!(self.handler.take().is_none(), "Callback Handler set while callted");
+            assert!(self.handler.take().is_none(), "Callback Handler set while called");
             self.handler.set(Some(h));
         }
         r
@@ -104,7 +104,7 @@ pub(crate) mod ffi {
         let sig = &*(sig as *const Callback<c_void>);
         if let Some(h) = sig.handler.take() {
             h(&*arg, &mut *ret);
-            assert!(sig.handler.take().is_none(), "Callback Handler set while callted");
+            assert!(sig.handler.take().is_none(), "Callback Handler set while called");
             sig.handler.set(Some(h));
         }
     }

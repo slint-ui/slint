@@ -343,7 +343,7 @@ pub(crate) mod ffi {
         timer.id.take().map(|x| x as i64).unwrap_or(-1)
     }
 
-    /// Execute a callback with a delay in milisecond
+    /// Execute a callback with a delay in millisecond
     #[no_mangle]
     pub extern "C" fn sixtyfps_timer_singleshot(
         delay: u64,

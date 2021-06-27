@@ -14,7 +14,7 @@ LICENSE END */
 //! which is not exposed. This passes create the viewport and fixes all property access
 //!
 //! It will also initialize proper geometry
-//! This pass must be called before the materialize_fake_properties as it going to be generare
+//! This pass must be called before the materialize_fake_properties as it going to be generate
 //! binding reference to fake properties
 
 use std::cell::RefCell;

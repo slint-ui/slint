@@ -179,7 +179,7 @@ union TransmutePinFlag<Container, Field, PinFlag> {
     y: FieldOffset<Container, Field>,
 }
 
-/// Helper class used as the result of the addition of two stype that implement the `ConstFieldOffset` trait
+/// Helper class used as the result of the addition of two types that implement the `ConstFieldOffset` trait
 #[derive(Copy, Clone)]
 #[cfg(feature = "field-offset-trait")]
 pub struct ConstFieldOffsetSum<A: ConstFieldOffset, B: ConstFieldOffset>(pub A, pub B);

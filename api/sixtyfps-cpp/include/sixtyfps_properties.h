@@ -249,7 +249,7 @@ struct PropertyTracker
     bool is_dirty() const { return cbindgen_private::sixtyfps_property_tracker_is_dirty(&inner); }
 
     /// Invokes the provided functor \a f and tracks accessed to any properties during that
-    /// invokation.
+    /// invocation.
     template<typename F>
     auto evaluate(const F &f) const -> std::enable_if_t<std::is_same_v<decltype(f()), void>>
     {
@@ -258,7 +258,7 @@ struct PropertyTracker
     }
 
     /// Invokes the provided functor \a f and tracks accessed to any properties during that
-    /// invokation. Use this overload if your functor returns a value, as evaluate() will pass it on
+    /// invocation. Use this overload if your functor returns a value, as evaluate() will pass it on
     /// and return it.
     template<typename F>
     auto evaluate(const F &f) const
@@ -270,7 +270,7 @@ struct PropertyTracker
     }
 
     /// Invokes the provided functor \a f and tracks accessed to any properties during that
-    /// invokation.
+    /// invocation.
     ///
     /// This starts a new dependency chain and if called during the evaluation of another
     /// property tracker, the outer tracker will not be notified if any accessed properties change.
@@ -283,7 +283,7 @@ struct PropertyTracker
     }
 
     /// Invokes the provided functor \a f and tracks accessed to any properties during that
-    /// invokation. Use this overload if your functor returns a value, as evaluate() will pass it on
+    /// invocation. Use this overload if your functor returns a value, as evaluate() will pass it on
     /// and return it.
     ///
     /// This starts a new dependency chain and if called during the evaluation of another

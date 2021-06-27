@@ -13,7 +13,7 @@ Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component,
     this is existing for any evaluation of a binding
  - `self_rc` is of type `VRc<ComponentVTable, ComponentType>` or Rc<ComponentType> for globals
-    this is usualy a local variable to the init code that shouldn't rbe relied upon by the binding code.
+    this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
 */
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
@@ -917,7 +917,7 @@ fn inner_component_id(component: &Component) -> proc_macro2::Ident {
 fn public_component_id(component: &Component) -> proc_macro2::Ident {
     if component.id.is_empty() {
         let s = &component.root_element.borrow().id;
-        // Capitalize first leter:
+        // Capitalize first letter:
         let mut it = s.chars();
         let id =
             it.next().map(|c| c.to_ascii_uppercase()).into_iter().chain(it).collect::<String>();
@@ -1594,7 +1594,7 @@ fn compile_assignment(
                 '-' => quote!(-=),
                 '/' => quote!(/=),
                 '=' => quote!(=),
-                _ => panic!("Unkown assignment op {:?}", op),
+                _ => panic!("Unknown assignment op {:?}", op),
             };
 
             let new_value = quote!({

@@ -26,7 +26,7 @@ use std::rc::{Rc, Weak};
 
 /// This trait represents the interface that the generated code and the run-time
 /// require in order to implement functionality such as device-independent pixels,
-/// window resizing and other typicaly windowing system related tasks.
+/// window resizing and other typically windowing system related tasks.
 pub trait PlatformWindow {
     /// Registers the window with the windowing system.
     fn show(self: Rc<Self>);

@@ -143,7 +143,7 @@ fn map_name(e: &ElementRc, s: &str) -> String {
 
 /// Optimized item are not used for the fact that they are items, but their properties
 /// might still be used.  So we must pretend all the properties are declared in the
-/// item itself so the move_declaration pass can move the delcaration in the component root
+/// item itself so the move_declaration pass can move the declaration in the component root
 fn simplify_optimized_items(items: &[ElementRc]) {
     for elem in items {
         recurse_elem(elem, &(), &mut |elem, _| {
@@ -193,7 +193,7 @@ fn assert_optimized_item_unused(items: &[ElementRc]) {
     for e in items {
         recurse_elem(e, &(), &mut |e, _| {
             assert_eq!(Rc::strong_count(e), 1);
-            // no longer working because we have weak cound in the named reference holder
+            // no longer working because we have weak count in the named reference holder
             //assert_eq!(Rc::weak_count(e), 0);
         });
     }

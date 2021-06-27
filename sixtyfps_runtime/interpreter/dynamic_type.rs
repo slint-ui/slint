@@ -32,12 +32,12 @@ unsafe fn drop_fn<T>(ptr: *mut u8) {
 pub struct StaticTypeInfo {
     /// Invariant: this function must be safe to call on a uninitialized memory matching `mem_layout`.
     /// Can only be None if the field is meant to be initialized by another mean (e.g, the type pointer
-    /// allocated at the begining of the type)
+    /// allocated at the beginning of the type)
     construct: Option<unsafe fn(*mut u8)>,
     /// Invariant: this function must be safe to call on an instance created by the `construct` function.
     /// If None, the type does not need drop.
     drop: Option<unsafe fn(*mut u8)>,
-    /// Memory latout of the type
+    /// Memory layout of the type
     mem_layout: Layout,
 }
 
@@ -63,7 +63,7 @@ pub struct TypeInfo<'id> {
     mem_layout: core::alloc::Layout,
     /// Invariant: each field must represent a valid field within the `mem_layout`
     /// and the construct and drop function must be valid so that each field can
-    /// be constructed and droped correctly.
+    /// be constructed and dropped correctly.
     /// The first FieldInfo must be related to the `Rc<TypeInfo>` member at the beginning
     fields: Vec<FieldInfo>,
 
@@ -75,9 +75,9 @@ pub struct TypeInfo<'id> {
 ///
 /// Call `add_field()` for each type, and then `build()` to return a TypeInfo
 pub struct TypeBuilder<'id> {
-    /// max alignement in byte of the types
+    /// max alignment in byte of the types
     align: usize,
-    /// Size in byte of the tpye so far (not including the trailling padding)
+    /// Size in byte of the type so far (not including the trailing padding)
     size: usize,
     fields: Vec<FieldInfo>,
     id: Id<'id>,
@@ -95,14 +95,14 @@ impl<'id> TypeBuilder<'id> {
         s
     }
 
-    /// Convinience to call add_field with the StaticTypeInfo for a field
+    /// Convenience to call add_field with the StaticTypeInfo for a field
     pub fn add_field_type<T: Default>(&mut self) -> FieldOffset<Instance<'id>, T> {
         unsafe { FieldOffset::new_from_offset_pinned(self.add_field(StaticTypeInfo::new::<T>())) }
     }
 
     /// Add a field in this dynamic type.
     ///
-    /// Returns the offset, in bytes, of the added field in within the dinamic type.
+    /// Returns the offset, in bytes, of the added field in within the dynamic type.
     /// This takes care of alignment of the types.
     pub fn add_field(&mut self, ty: StaticTypeInfo) -> usize {
         let align = ty.mem_layout.align();
@@ -158,7 +158,7 @@ impl<'id> TypeInfo<'id> {
 
     /// Drop and free the memory of this instance
     ///
-    /// Saferty, the instance must have been created by `TypeInfo::create_instance_in_place`
+    /// Safety, the instance must have been created by `TypeInfo::create_instance_in_place`
     pub unsafe fn drop_in_place(instance: *mut Instance) {
         let type_info = (*instance).type_info.clone();
         let mem = instance as *mut u8;
@@ -171,7 +171,7 @@ impl<'id> TypeInfo<'id> {
 
     /// Drop and free the memory of this instance
     ///
-    /// Saferty, the instance must have been created by `TypeInfo::create_instance`
+    /// Safety, the instance must have been created by `TypeInfo::create_instance`
     unsafe fn delete_instance(instance: *mut Instance) {
         let mem_layout = (*instance).type_info.mem_layout;
         Self::drop_in_place(instance);
@@ -204,7 +204,7 @@ impl<'id> core::fmt::Debug for Instance<'id> {
     }
 }
 
-/// A pointer to an Instance that automaticaly frees the memory after use
+/// A pointer to an Instance that automatically frees the memory after use
 pub struct InstanceBox<'id>(core::ptr::NonNull<Instance<'id>>);
 
 impl<'id> InstanceBox<'id> {

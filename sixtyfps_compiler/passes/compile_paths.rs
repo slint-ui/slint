@@ -55,7 +55,7 @@ pub fn compile_paths(
                     .contains_key(&child.borrow().base_type.as_builtin().native_class.class_name)
             }) {
                 diag.push_error(
-                    "Path elements cannot be mixed with the use of the SVG commands property."
+                    "Path elements cannot be mixed with the use of the SVG commands property"
                         .into(),
                     &*path_child.borrow(),
                 );
@@ -66,7 +66,7 @@ pub fn compile_paths(
                 Expression::StringLiteral(commands) => commands,
                 _ => {
                     diag.push_error(
-                        "The commands property only accepts string literals.".into(),
+                        "The commands property only accepts string literals".into(),
                         &*elem,
                     );
                     return;

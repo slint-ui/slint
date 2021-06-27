@@ -675,7 +675,7 @@ fn load_property_helper(
                 .component_type
                 .items
                 .get(element.id.as_str())
-                .unwrap_or_else(|| panic!("Unkown element for {}.{}", element.id, name));
+                .unwrap_or_else(|| panic!("Unknown element for {}.{}", element.id, name));
             core::mem::drop(element);
             let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
             Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
@@ -804,7 +804,7 @@ pub fn enclosing_component_for_element<'a, 'old_id, 'new_id>(
 }
 
 /// Return the component instance which hold the given element.
-/// The difference with enclosing_component_for_element is that it taked in account the GlobalComponent.
+/// The difference with enclosing_component_for_element is that it takes the GlobalComponent into account.
 pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
     element: &'a ElementRc,
     component_instance: ComponentInstance<'a, 'old_id>,

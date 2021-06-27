@@ -84,7 +84,7 @@ fn min_max_macro(
     let (mut base, arg_node) = args.next().unwrap();
     let ty = match base.ty() {
         Type::Float32 => Type::Float32,
-        // In case there are other floats, we don't want to conver tthe result to int
+        // In case there are other floats, we don't want to convert the result to int
         Type::Int32 => Type::Float32,
         Type::PhysicalLength => Type::PhysicalLength,
         Type::LogicalLength => Type::LogicalLength,

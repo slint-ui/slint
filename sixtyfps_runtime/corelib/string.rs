@@ -177,7 +177,7 @@ impl From<&str> for SharedString {
             }
             fn size_hint(&self) -> (usize, Option<usize>) {
                 let l = self.str.len() + 1;
-                // add some padding at the end since the sice of the inner will anyway have to be padded
+                // add some padding at the end since the size of the inner will anyway have to be padded
                 let align = core::mem::align_of::<usize>();
                 let l = (l + align - 1) & !(align - 1);
                 let l = l - self.pos;
@@ -320,14 +320,14 @@ fn simple_test() {
 pub(crate) mod ffi {
     use super::*;
 
-    /// for cbingen.
+    /// for cbindgen.
     #[allow(non_camel_case_types)]
     type c_char = u8;
 
     #[no_mangle]
-    /// Returns a nul-reminated pointer for this string.
+    /// Returns a nul-terminated pointer for this string.
     /// The returned value is owned by the string, and should not be used after any
-    /// mutable function have been called on the string, and must not be free'ed.
+    /// mutable function have been called on the string, and must not be freed.
     pub extern "C" fn sixtyfps_shared_string_bytes(ss: &SharedString) -> *const c_char {
         ss.as_ptr()
     }
@@ -349,7 +349,7 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    /// Safety: bytes must be a valid utf-8 string of size len wihout null inside.
+    /// Safety: bytes must be a valid utf-8 string of size len without null inside.
     /// The resulting structure must be passed to sixtyfps_shared_string_drop
     pub unsafe extern "C" fn sixtyfps_shared_string_from_bytes(
         out: *mut SharedString,
@@ -364,7 +364,7 @@ pub(crate) mod ffi {
     /// The resulting structure must be passed to sixtyfps_shared_string_drop
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_shared_string_from_number(out: *mut SharedString, n: f64) {
-        // TODO: implement Write for SharedString so this can be done without alocation
+        // TODO: implement Write for SharedString so this can be done without allocation
         let str = format!("{}", n);
         core::ptr::write(out, SharedString::from(str.as_str()));
     }

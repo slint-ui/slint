@@ -16,16 +16,16 @@ Foo := Rectangle {
     }
 
     x: 30%;
-//    ^error{conversion from percentage to lenght is only possible for the properties width and height}
+//    ^error{conversion from percentage to length is only possible for the properties width and height}
 }
 
 X := Rectangle {
     height: 30%;
-//         ^error{Cannot find parent property to apply relative lenght}
+//         ^error{Cannot find parent property to apply relative length}
     Foo {
         background: 30%;
 //                 ^error{Cannot convert percent to brush}
         y: 30%;
-//        ^error{conversion from percentage to lenght is only possible for the properties width and height}
+//        ^error{conversion from percentage to length is only possible for the properties width and height}
     }
 }

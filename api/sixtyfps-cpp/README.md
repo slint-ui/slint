@@ -18,7 +18,7 @@ SixtyFPS comes with a CMake integration that automates the compilation step of t
 offers a CMake target for convenient linkage.
 
 *Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.60` dependency tracking.
-You can select the CMake Ninja backend by passing `-GNinja` or settig the `CMAKE_GENERATOR` environment variable to `Ninja`.
+You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
 
 ### Building from Sources
 
@@ -125,7 +125,7 @@ necessary to link your executable or library against the `SixtyFPS::SixtyFPS` ta
 ## Tutorial
 
 Let's make a UI for a todo list application using the SixtyFPS UI description language.
-Hopefully this should be self explainatory. Check out the documentation of the language for help
+Hopefully this should be self explanatory. Check out the documentation of the language for help
 
 ```60
 // file: my_application_ui.60
@@ -181,9 +181,8 @@ sixtyfps_compiler my_application_ui.60 > my_application_ui.h
 Note: You would usually not type this command yourself, this is done automatically by the build system.
 (that's what the `sixtyfps_target_60_sources` cmake function does)
 
-
 This will generate a `my_application_ui.h` header file. It basically contains the following code
-(edited for briefty)
+(edited for brevity)
 
 ```C++
 #include <sixtyfps>

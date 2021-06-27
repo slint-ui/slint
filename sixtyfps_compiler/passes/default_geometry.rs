@@ -195,7 +195,7 @@ fn fix_percent_size(
             op: '*',
         }
     } else {
-        diag.push_error("Cannot find parent property to apply relative lenght".into(), &b.span);
+        diag.push_error("Cannot find parent property to apply relative length".into(), &b.span);
     }
 }
 

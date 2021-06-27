@@ -91,8 +91,8 @@ impl LookupResult {
 
 /// Represent an object which has properties which can be accessible
 pub trait LookupObject {
-    /// Will call the function for each entry (usefull for completion)
-    /// If the function return Some, it will imediatly be returned and not called further
+    /// Will call the function for each entry (useful for completion)
+    /// If the function return Some, it will immediately be returned and not called further
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
@@ -100,7 +100,7 @@ pub trait LookupObject {
     ) -> Option<R>;
 
     /// Perform a lookup of a given identifier.
-    /// One does not have to re-implment unless we can make it faster
+    /// One does not have to re-implement unless we can make it faster
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then(|| LookupResult::new(expr)))
     }

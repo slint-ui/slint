@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-/*! This scrates just expose the function used by the C++ integration */
+/*! This crate just expose the function used by the C++ integration */
 
 use core::ffi::c_void;
 use sixtyfps_corelib::window::ffi::ComponentWindowOpaque;
@@ -38,7 +38,7 @@ pub unsafe extern "C" fn sixtyfps_run_event_loop() {
         .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
-/// Will execute the fiven functor in the main thread
+/// Will execute the given functor in the main thread
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_post_event(
     event: extern "C" fn(user_data: *mut c_void),

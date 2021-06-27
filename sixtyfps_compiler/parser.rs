@@ -456,7 +456,7 @@ mod parser_trait {
         type Checkpoint: Clone;
 
         /// Enter a new node.  The node is going to be finished when
-        /// The return value of this function is drop'ed
+        /// The return value of this function is dropped
         ///
         /// (do not re-implement this function, re-implement
         /// start_node_impl and finish_node_impl)
@@ -487,7 +487,7 @@ mod parser_trait {
         fn peek(&mut self) -> Token {
             self.nth(0)
         }
-        /// Peek the n'th token, not including whitespaces and comments
+        /// Peek the n'th token, not including whitespace and comments
         fn nth(&mut self, n: usize) -> Token;
         fn consume(&mut self);
         fn error(&mut self, e: impl Into<String>);
@@ -511,7 +511,7 @@ mod parser_trait {
             true
         }
 
-        /// consume everyting until reaching a token of this kind
+        /// consume everything until reaching a token of this kind
         fn until(&mut self, kind: SyntaxKind) {
             // FIXME! match {} () []
             while {
@@ -601,7 +601,7 @@ impl Parser for DefaultParser<'_> {
         self.builder.finish_node();
     }
 
-    /// Peek the n'th token, not including whitespaces and comments
+    /// Peek the n'th token, not including whitespace and comments
     fn nth(&mut self, mut n: usize) -> Token {
         self.consume_ws();
         let mut c = self.cursor;

@@ -47,7 +47,7 @@ pub fn handle_clip(
                         return;
                     }
                 }
-                // Was added by the meterialier_fake_properties pass
+                // Was added by the materialize_fake_properties pass
                 elem.property_declarations.remove("clip");
                 match &clip_prop.expression {
                     Expression::BoolLiteral(false) => {}

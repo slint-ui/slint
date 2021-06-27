@@ -91,7 +91,7 @@ pub enum ItemTreeNode<T> {
     /// A placeholder for many instance of item in their own component which
     /// are instantiated according to a model.
     DynamicTree {
-        /// the undex which is passed in the visit_dynamic callback.
+        /// the index which is passed in the visit_dynamic callback.
         index: usize,
 
         /// The index of the parent item (not valid for the root)
@@ -139,7 +139,7 @@ pub enum ItemVisitorResult<State> {
 
 /// Visit each items recursively
 ///
-/// The state parametter returned by the visitor is passed to each children.
+/// The state parameter returned by the visitor is passed to each children.
 ///
 /// Returns the index of the item that cancelled, or -1 if nobody cancelled
 pub fn visit_items<State>(
@@ -160,7 +160,7 @@ pub fn visit_items<State>(
 
 /// Visit each items recursively
 ///
-/// The state parametter returned by the visitor is passed to each children.
+/// The state parameter returned by the visitor is passed to each children.
 ///
 /// Returns the index of the item that cancelled, or -1 if nobody cancelled
 pub fn visit_items_with_post_visit<State, PostVisitState>(

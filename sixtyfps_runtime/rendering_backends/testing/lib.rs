@@ -168,7 +168,7 @@ impl FontMetrics for TestingFontMetrics {
 }
 
 /// Initialize the testing backend.
-/// Must be called before any call that would otherwise initialize the rendring backend.
+/// Must be called before any call that would otherwise initialize the rendering backend.
 /// Calling it when the rendering backend is already initialized will have no effects
 pub fn init() {
     sixtyfps_corelib::backend::instance_or_init(|| Box::new(TestingBackend::default()));

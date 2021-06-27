@@ -68,7 +68,7 @@ You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to cho
 
 ## Cross-Compiling
 
-SixtyFPS can be cross-compiled to different target architecures and environments. For the Rust build we
+SixtyFPS can be cross-compiled to different target architectures and environments. For the Rust build we
 have had a good experience using [`cross`](https://github.com/rust-embedded/cross). For convenience we're
 including a `Cross.toml` configuration file for `cross` in the source tree along with Docker containers that
 allow targeting a Debian ARMv7 and ARMv8 based Distribution with X11 or Wayland, out of the box.

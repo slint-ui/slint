@@ -108,7 +108,7 @@ pub struct GradientStop {
     pub position: f32,
 }
 
-/// Returns the start / end points of a gradiant within the [-0.5; 0.5] unit square, based on the angle (in degree).
+/// Returns the start / end points of a gradient within the [-0.5; 0.5] unit square, based on the angle (in degree).
 pub fn line_for_angle(angle: f32) -> (Point, Point) {
     let angle = angle.to_radians();
     let r = (angle.sin().abs() + angle.cos().abs()) / 2.;

@@ -16,7 +16,7 @@ SuperSimple := Rectangle {
     }
     TouchArea {
         clicked => { 12 = 1; }
-//                   ^error{Assignement need to be done on a property}
+//                   ^error{Assignment needs to be done on a property}
     }
     TouchArea {
         clicked => { x = "string"; }

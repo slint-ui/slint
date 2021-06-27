@@ -154,7 +154,7 @@ where
     }
 }
 
-/// Wraper for a field offset that optonally implement PropertyInfo and uses
+/// Wrapper for a field offset that optionally implement PropertyInfo and uses
 /// the auto deref specialization trick
 #[derive(derive_more::Deref)]
 pub struct MaybeAnimatedPropertyInfoWrapper<T, U>(pub FieldOffset<T, U>);

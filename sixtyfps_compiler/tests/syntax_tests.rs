@@ -131,7 +131,7 @@ fn process_diagnostics(
         }
     }
     if !diags.is_empty() {
-        println!("{:?}: Unexptected errors/warnings: {:#?}", path, diags);
+        println!("{:?}: Unexpected errors/warnings: {:#?}", path, diags);
 
         #[cfg(feature = "display-diagnostics")]
         if !silent {

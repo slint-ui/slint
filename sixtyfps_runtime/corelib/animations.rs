@@ -29,7 +29,7 @@ impl Default for EasingCurve {
     }
 }
 
-/// Represent an instant, in miliseconds since the AnimationDriver's initial_instant
+/// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Ord, PartialOrd, Eq)]
 pub struct Instant(pub u64);
@@ -134,7 +134,7 @@ pub fn current_tick() -> Instant {
     CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick())
 }
 
-/// map a value betwen 0 and 1 to another value between 0 and 1 according to the curve
+/// map a value between 0 and 1 to another value between 0 and 1 according to the curve
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {
         EasingCurve::Linear => value,
@@ -185,7 +185,7 @@ fn easing_test() {
 }
 */
 
-/// Update the glibal animation time to the current time
+/// Update the global animation time to the current time
 pub fn update_animations() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
         let duration = instant::Instant::now() - driver.initial_instant;

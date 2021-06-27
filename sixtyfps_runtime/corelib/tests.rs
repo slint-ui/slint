@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-//! Functions usefull for testing
+//! Functions useful for testing
 #![warn(missing_docs)]
 #![allow(unsafe_code)]
 
@@ -17,7 +17,7 @@ use crate::SharedString;
 
 /// SixtyFPS animations do not use real time, but use a mocked time.
 /// Normally, the event loop update the time of the animation using
-/// real time, but in tests, it is more convinient to use the fake time.
+/// real time, but in tests, it is more convenient to use the fake time.
 /// This function will add some milliseconds to the fake time
 #[no_mangle]
 pub extern "C" fn sixtyfps_mock_elapsed_time(time_in_ms: u64) {
