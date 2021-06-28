@@ -917,6 +917,9 @@ public:
 }
 
 namespace sixtyfps::testing {
+
+using cbindgen_private::KeyboardModifiers;
+
 /// Send a key events to the given component instance
 inline void send_keyboard_string_sequence(const sixtyfps::interpreter::ComponentInstance *component,
                                           const sixtyfps::SharedString &str,
