@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.1.2] - unreleased
+## [0.1.2] - 2021-06-28
 
  - `VRc` and `VWeak` now use atomic counters and implement `Sync` and `Send` if the hold type allows it
 
