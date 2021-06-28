@@ -25,7 +25,7 @@ rgb = "0.8"
 imgref = "1.6.1"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 by_address = "1.0.4"
-femtovg = { version = "0.2.1" }
+femtovg = { version = "0.2.2" }
 euclid = "0.22.1"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
@@ -44,7 +44,7 @@ web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlCon
 wasm-bindgen = { version = "0.2" }
 winit = { version = "0.25", default-features = false, features = ["web-sys"] }
 # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
-ttf-parser = "0.9.0"
+ttf-parser = "0.12.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 winit = { version = "0.25", default-features = false }
