@@ -476,7 +476,7 @@ fn handle_repeater(
     if repeated.is_conditional_element {
         // bool converts to int
         // FIXME: don't do a heap allocation here
-        model = format!("std::make_shared<sixtyfps::IntModel>({})", model)
+        model = format!("std::make_shared<sixtyfps::private_api::IntModel>({})", model)
     };
 
     // FIXME: optimize  if repeated.model.is_constant()
@@ -715,7 +715,7 @@ fn generate_component(
                     }),
                 ));
             }
-            format!("sixtyfps::Callback<{}({})>", return_type, param_types.join(", "))
+            format!("sixtyfps::private_api::Callback<{}({})>", return_type, param_types.join(", "))
         } else {
             let cpp_type = get_cpp_type(&property_decl.property_type, property_decl, diag);
 
@@ -1496,7 +1496,7 @@ fn compile_expression(
                     format!("sixtyfps::SharedString::from_number({})", f)
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    format!("std::make_shared<sixtyfps::IntModel>({})", f)
+                    format!("std::make_shared<sixtyfps::private_api::IntModel>({})", f)
                 }
                 (Type::Array(_), Type::Model) => f,
                 (Type::Float32, Type::Color) => {
@@ -1651,7 +1651,7 @@ fn compile_expression(
         Expression::Array { element_ty, values } => {
             let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
             format!(
-                "std::make_shared<sixtyfps::ArrayModel<{count},{ty}>>({val})",
+                "std::make_shared<sixtyfps::private_api::ArrayModel<{count},{ty}>>({val})",
                 count = values.len(),
                 ty = ty,
                 val = values
