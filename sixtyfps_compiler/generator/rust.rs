@@ -55,7 +55,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             // This will produce a tuple
             Some(quote!((#(#elem,)*)))
         }
-        Type::Struct { name: Some(name), .. } => Some(name.parse().unwrap()),
+        Type::Struct { name: Some(name), .. } => Some(struct_name_to_tokens(&name)),
         Type::Array(o) => {
             let inner = rust_type(&o)?;
             Some(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
@@ -1078,7 +1078,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let name = format_ident!("{}", name);
                         quote!(#name: obj.#index as _)
                     });
-                    let id : TokenStream = n.parse().unwrap();
+                    let id = struct_name_to_tokens(n);
                     quote!({ let obj = #f; #id { #(#fields),*} })
                 }
                 _ => f,
@@ -1399,7 +1399,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     })
                 });
                 if let Some(name) = name {
-                    let name : TokenStream = name.parse().unwrap();
+                    let name : TokenStream = struct_name_to_tokens(name.as_str());
                     let keys = fields.keys().map(|k| k.parse::<TokenStream>().unwrap());
                     quote!(#name { #(#keys: #elem,)* })
                 } else {
@@ -1535,6 +1535,12 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             )
         }
     }
+}
+
+/// Return a TokenStream for a name (as in [`Type::Struct::name`])
+fn struct_name_to_tokens(name: &str) -> TokenStream {
+    // the name match the C++ signature so we need to change that to the rust namespace
+    name.replace("::private_api::", "::re_exports::").parse().unwrap()
 }
 
 fn compile_assignment(

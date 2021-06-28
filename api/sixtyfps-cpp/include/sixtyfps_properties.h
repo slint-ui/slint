@@ -11,19 +11,15 @@ LICENSE END */
 #include <string_view>
 #include <memory>
 
-namespace sixtyfps {
-namespace cbindgen_private {
+namespace sixtyfps::cbindgen_private {
 struct PropertyAnimation;
-}
 }
 
 #include "sixtyfps_properties_internal.h"
 
-namespace sixtyfps {
+namespace sixtyfps::private_api {
 
 using cbindgen_private::StateInfo;
-
-namespace private_api {
 
 inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, int32_t *),
@@ -301,6 +297,4 @@ private:
     cbindgen_private::PropertyTrackerOpaque inner;
 };
 
-} // namespace private_api
-
-} // namespace sixtyfps
+} // namespace sixtyfps::private_api

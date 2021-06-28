@@ -378,7 +378,7 @@ export struct StandardListViewItem := {
 }
 
 export struct StateInfo := {
-    //-name:sixtyfps::StateInfo
+    //-name:sixtyfps::private_api::StateInfo
     current_state: int,
     previous_state: int,
     //change_time: duration,
