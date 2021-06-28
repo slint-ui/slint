@@ -111,7 +111,7 @@ export TouchArea := _ {
 }
 
 export struct KeyboardModifiers := {
-    //-name:sixtyfps::KeyboardModifiers
+    //-name:sixtyfps::private_api::KeyboardModifiers
     alt: bool,
     control: bool,
     shift: bool,
@@ -119,7 +119,7 @@ export struct KeyboardModifiers := {
 }
 
 export struct KeyEvent := {
-    //-name:sixtyfps::KeyEvent
+    //-name:sixtyfps::private_api::KeyEvent
     text: string,
     modifiers: KeyboardModifiers,
 }

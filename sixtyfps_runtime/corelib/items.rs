@@ -16,9 +16,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - It needs to be changed in this module
  - In the compiler: builtins.60
  - In the interpreter (new item only): dynamic_component.rs
- - For the C++ code (new item only):
-   - the cbindgen.rs to export the new item
-   - the `using` declaration in sixtyfps.h for the item and its vtable
+ - For the C++ code (new item only): the cbindgen.rs to export the new item
  - Don't forget to update the documentation
 */
 

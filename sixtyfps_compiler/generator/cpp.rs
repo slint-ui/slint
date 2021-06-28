@@ -246,7 +246,7 @@ impl CppType for Type {
             Type::Bool => Some("bool".to_owned()),
             Type::Struct { name: Some(name), node: Some(_), .. } => Some(name.clone()),
             Type::Struct { name: Some(name), node: None, .. } => {
-                Some(format!("sixtyfps::{}", name))
+                Some(format!("sixtyfps::cbindgen_private::{}", name))
             }
             Type::Struct { fields, .. } => {
                 let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
@@ -257,7 +257,9 @@ impl CppType for Type {
             Type::Array(i) => Some(format!("std::shared_ptr<sixtyfps::Model<{}>>", i.cpp_type()?)),
             Type::Image => Some("sixtyfps::Image".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
-            Type::Enumeration(enumeration) => Some(format!("sixtyfps::{}", enumeration.name)),
+            Type::Enumeration(enumeration) => {
+                Some(format!("sixtyfps::cbindgen_private::{}", enumeration.name))
+            }
             Type::Brush => Some("sixtyfps::Brush".to_owned()),
             Type::LayoutCache => Some("sixtyfps::SharedVector<float>".into()),
             _ => None,
@@ -313,7 +315,11 @@ fn new_struct_with_bindings(
 }
 
 fn property_animation_code(component: &Rc<Component>, animation: &ElementRc) -> String {
-    new_struct_with_bindings("sixtyfps::PropertyAnimation", &animation.borrow().bindings, component)
+    new_struct_with_bindings(
+        "sixtyfps::cbindgen_private::PropertyAnimation",
+        &animation.borrow().bindings,
+        component,
+    )
 }
 
 fn property_set_value_code(
@@ -425,7 +431,7 @@ fn handle_property_binding(
                         });
                         format!(
                             "{}.set_animated_binding_for_transition({},
-                            [this](uint64_t *start_time) -> sixtyfps::PropertyAnimation {{
+                            [this](uint64_t *start_time) -> sixtyfps::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
                                 auto state = {};
                                 *start_time = state.change_time;
@@ -450,7 +456,7 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct) {
     main_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: format!("sixtyfps::{}", item.base_type.as_native().class_name),
+            ty: format!("sixtyfps::cbindgen_private::{}", item.base_type.as_native().class_name),
             name: item.id.clone(),
             init: Some("{}".to_owned()),
         }),
@@ -1027,7 +1033,7 @@ fn generate_component(
         } else {
             if item.is_flickable_viewport {
                 tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
+                    "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
                     &component_id,
                     crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id,
                     item.children.len(),
@@ -1124,15 +1130,15 @@ fn generate_component(
             Access::Private,
             Declaration::Function(Function {
                 name: "visit_children".into(),
-                signature: "(sixtyfps::private_api::ComponentRef component, intptr_t index, sixtyfps::TraversalOrder order, sixtyfps::private_api::ItemVisitorRefMut visitor) -> int64_t".into(),
+                signature: "(sixtyfps::private_api::ComponentRef component, intptr_t index, sixtyfps::private_api::TraversalOrder order, sixtyfps::private_api::ItemVisitorRefMut visitor) -> int64_t".into(),
                 is_static: true,
                 statements: Some(vec![
-                    "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
+                    "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
                     format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
                     format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
                     "    std::abort();\n};".to_owned(),
                     format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", component_id),
-                    "return sixtyfps::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
+                    "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
                 ]),
                 ..Default::default()
             }),
@@ -1243,7 +1249,9 @@ fn generate_component(
     for glob in component.used_global.borrow().iter() {
         let ty = match &glob.root_element.borrow().base_type {
             Type::Void => self::component_id(glob),
-            Type::Builtin(b) => format!("sixtyfps::{}", b.native_class.class_name),
+            Type::Builtin(b) => {
+                format!("sixtyfps::cbindgen_private::{}", b.native_class.class_name)
+            }
             _ => unreachable!(),
         };
         component_struct.members.push((
@@ -1575,7 +1583,7 @@ fn compile_expression(
                     let item = item.upgrade().unwrap();
                     let item = item.borrow();
                     let native_item = item.base_type.as_native();
-                    format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, {o}, &window)",
+                    format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &window)",
                         vt = native_item.cpp_vtable_getter,
                         ty = native_item.class_name,
                         id = item.id,
@@ -1682,9 +1690,9 @@ fn compile_expression(
             }
         }
         Expression::PathElements { elements } => compile_path(elements, component),
-        Expression::EasingCurve(EasingCurve::Linear) => "sixtyfps::EasingCurve()".into(),
+        Expression::EasingCurve(EasingCurve::Linear) => "sixtyfps::cbindgen_private::EasingCurve()".into(),
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
-            "sixtyfps::EasingCurve(sixtyfps::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
+            "sixtyfps::cbindgen_private::EasingCurve(sixtyfps::cbindgen_private::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
             a, b, c, d
         ),
         Expression::LinearGradient{angle, stops} => {
@@ -1700,7 +1708,7 @@ fn compile_expression(
             )
         }
         Expression::EnumerationValue(value) => {
-            format!("sixtyfps::{}::{}", value.enumeration.name, value.to_string())
+            format!("sixtyfps::cbindgen_private::{}::{}", value.enumeration.name, value.to_string())
         }
         Expression::ReturnStatement(Some(expr)) => format!(
             "throw sixtyfps::private_api::ReturnWrapper<{}>({})",
@@ -1740,7 +1748,7 @@ fn compile_expression(
                     const auto padding = {};\
                     {}\
                     const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ &*std::begin(cells), std::size(cells)}}; \
-                    return sixtyfps::{};\
+                    return sixtyfps::cbindgen_private::{};\
                 }}()",
                 padding, cells, call
             )
@@ -2020,7 +2028,7 @@ fn get_layout_info(
         format!("{}.get()", access_named_reference(layout_info_prop, component, "self"))
     } else {
         format!(
-            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::{ty}*>(&self->{id})}}, {o}, &self->window)",
+            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &self->window)",
             vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
             ty = elem.borrow().base_type.as_native().class_name,
             id = elem.borrow().id,

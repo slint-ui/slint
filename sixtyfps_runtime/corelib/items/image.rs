@@ -11,13 +11,7 @@ LICENSE END */
 This module contains the builtin image related items.
 
 When adding an item or a property, it needs to be kept in sync with different place.
-(This is less than ideal and maybe we can have some automation later)
-
- - It needs to be changed in this module
- - In the compiler: builtins.60
- - In the interpreter: dynamic_component.rs
- - For the C++ code (new item only): the cbindgen.rs to export the new item, and the `using` declaration in sixtyfps.h
- - Don't forget to update the documentation
+Lookup the [`crate::items`] module documentation.
 */
 use super::{Item, ItemConsts, ItemRc};
 use crate::graphics::Rect;

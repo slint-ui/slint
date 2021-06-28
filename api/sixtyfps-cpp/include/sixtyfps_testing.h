@@ -31,7 +31,7 @@ inline void send_mouse_click(const Component *component, float x, float y)
 template<typename Component>
 inline void send_keyboard_string_sequence(const Component *component,
                                           const sixtyfps::SharedString &str,
-                                          KeyboardModifiers modifiers = {})
+                                          cbindgen_private::KeyboardModifiers modifiers = {})
 {
     cbindgen_private::send_keyboard_string_sequence(&str, modifiers, &component->window);
 }

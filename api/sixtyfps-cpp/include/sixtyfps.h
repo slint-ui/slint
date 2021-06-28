@@ -40,24 +40,17 @@ using ComponentRef = vtable::VRef<private_api::ComponentVTable>;
 using ItemRef = vtable::VRef<private_api::ItemVTable>;
 using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
 using cbindgen_private::ItemWeak;
-}
 using cbindgen_private::ComponentRc;
-using cbindgen_private::EasingCurve;
-using cbindgen_private::EventResult;
-using cbindgen_private::FillRule;
-using cbindgen_private::ImageFit;
-using cbindgen_private::KeyboardModifiers;
-using cbindgen_private::KeyEvent;
-using cbindgen_private::PropertyAnimation;
-using cbindgen_private::Slice;
-using cbindgen_private::TextHorizontalAlignment;
-using cbindgen_private::TextOverflow;
-using cbindgen_private::TextVerticalAlignment;
-using cbindgen_private::TextWrap;
 using cbindgen_private::TraversalOrder;
+}
+
+// FIXME: this should not be public API
+using cbindgen_private::Slice;
 
 namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
+using cbindgen_private::KeyboardModifiers;
+using cbindgen_private::KeyEvent;
 
 class ComponentWindow
 {
@@ -115,36 +108,7 @@ public:
 private:
     cbindgen_private::ComponentWindowOpaque inner;
 };
-}
 
-using cbindgen_private::BorderRectangle;
-using cbindgen_private::BoxShadow;
-using cbindgen_private::Clip;
-using cbindgen_private::ClippedImage;
-using cbindgen_private::Flickable;
-using cbindgen_private::FocusScope;
-using cbindgen_private::ImageItem;
-using cbindgen_private::Opacity;
-using cbindgen_private::Path;
-using cbindgen_private::Rectangle;
-using cbindgen_private::Rotate;
-using cbindgen_private::Text;
-using cbindgen_private::TextInput;
-using cbindgen_private::TouchArea;
-using cbindgen_private::Window;
-
-using cbindgen_private::NativeButton;
-using cbindgen_private::NativeCheckBox;
-using cbindgen_private::NativeComboBox;
-using cbindgen_private::NativeGroupBox;
-using cbindgen_private::NativeLineEdit;
-using cbindgen_private::NativeScrollView;
-using cbindgen_private::NativeSlider;
-using cbindgen_private::NativeSpinBox;
-using cbindgen_private::NativeStandardListViewItem;
-using cbindgen_private::NativeStyleMetrics;
-
-namespace private_api {
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
                                              const cbindgen_private::ItemVTable *vtable,
                                              uint32_t child_count, uint32_t child_index,
@@ -176,16 +140,6 @@ inline ItemWeak parent_item(cbindgen_private::ComponentWeak component,
         return { component, node.dynamic_tree.parent_index };
     }
 }
-
-}
-
-using cbindgen_private::FocusEvent;
-using cbindgen_private::InputEventResult;
-using cbindgen_private::KeyEvent;
-using cbindgen_private::KeyEventResult;
-using cbindgen_private::MouseEvent;
-using cbindgen_private::sixtyfps_visit_item_tree;
-namespace private_api {
 
 inline void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
 {
@@ -645,16 +599,16 @@ public:
 } // namespace private_api
 
 #if !defined(DOXYGEN)
-Flickable::Flickable()
+cbindgen_private::Flickable::Flickable()
 {
     sixtyfps_flickable_data_init(&data);
 }
-Flickable::~Flickable()
+cbindgen_private::Flickable::~Flickable()
 {
     sixtyfps_flickable_data_free(&data);
 }
 
-NativeStyleMetrics::NativeStyleMetrics()
+cbindgen_private::NativeStyleMetrics::NativeStyleMetrics()
 {
     sixtyfps_init_native_style_metrics(this);
 }
