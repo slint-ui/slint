@@ -383,6 +383,7 @@ private:
 
 namespace private_api {
 /// A Model backed by a std::array of constant size
+/// \private
 template<int Count, typename ModelData>
 class ArrayModel : public Model<ModelData>
 {
