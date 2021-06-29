@@ -366,11 +366,7 @@ BoxWithButtons := Box {
     HorizontalLayout {
         padding: 8px;
         spacing: 20px;
-        VerticalLayout {  // FIXME: there is no such layout in the original, we should so without it
-            spacing: 8px;
-            alignment: center;
-            ri := RoundedIcon { }
-        }
+        ri := RoundedIcon { }
         TitleAndValueBox {
             titleLabel := Text {
                 font_size: Skin.TitleFont;
@@ -402,11 +398,8 @@ Device := VerticalLayout {
     property <string> name <=> t.text;
     property <image> iconName <=> ri.iconName; // ### based on the name in the original
     property <bool> isBright <=> ri.isBright;
-    HorizontalLayout { // ### FIXME: this latour is not in the original
-        alignment: center;
-        ri := RoundedIcon {
-            opacity: 0.15;
-        }
+    ri := RoundedIcon {
+        opacity: 0.15;
     }
     t := Text {
         font_size: Skin.TinyFont;
