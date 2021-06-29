@@ -269,24 +269,25 @@ impl GraphicsWindow {
                     let popup = ComponentRc::borrow_pin(popup);
                     let popup_root = popup.as_ref().get_item_ref(0);
                     if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
-                        let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-                        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+                        let layout_info_h = popup.as_ref().layout_info(Orientation::Horizontal);
+                        let layout_info_v = popup.as_ref().layout_info(Orientation::Vertical);
 
                         let width =
                             corelib::items::Window::FIELD_OFFSETS.width.apply_pin(window_item);
                         let mut w = width.get();
-                        if w < layout_info_h.min {
-                            w = layout_info_h.min;
-                            width.set(w);
-                        }
-
                         let height =
                             corelib::items::Window::FIELD_OFFSETS.height.apply_pin(window_item);
                         let mut h = height.get();
-                        if h < layout_info_v.min {
-                            h = layout_info_v.min;
-                            height.set(h);
+                        if w <= 0. {
+                            w = layout_info_h.preferred;
                         }
+                        if h <= 0. {
+                            h = layout_info_v.preferred;
+                        }
+                        w = w.clamp(layout_info_h.min, layout_info_h.max);
+                        h = h.clamp(layout_info_v.min, layout_info_v.max);
+                        width.set(w);
+                        height.set(h);
                     };
                 }
             });

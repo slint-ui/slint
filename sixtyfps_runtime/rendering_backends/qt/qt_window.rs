@@ -1178,7 +1178,7 @@ impl PlatformWindow for QtWindow {
             w = info_h.preferred;
         }
         if h <= 0. {
-            h <= info_h.preferred;
+            h = info_v.preferred;
         }
         w = w.clamp(info_h.min, info_h.max);
         h = h.clamp(info_v.min, info_v.max);
