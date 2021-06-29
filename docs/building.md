@@ -12,6 +12,14 @@ Once this is done, you should have the ```rustc``` compiler and the ```cargo``` 
 
 *Note*: The use of stable rust is recommended over the nightly channel.
 
+
+### Linux
+
+For Linux a few additional packages beyond the usual build essentials are needed for development and running apps:
+
+  * xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distros)
+  * xkbcommon (`libxkbcommon-dev` on debian based distros)
+
 ### For the NodeJS backend
 
 For the nodejs backend, the following component are needed:
