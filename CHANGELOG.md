@@ -156,7 +156,7 @@ All notable changes to this project will be documented in this file.
  - Fix occasional hang when navigating in `TextInput` fields with the cursor keys.
  - Fix access to aliased properties from within `for` and `if` expressions.
  - Fix `ScrollView` being scrollable when it shouldn't.
- - Fix appearance of natively styled scrollars.
+ - Fix appearance of natively styled scrollbars.
  - Allow converting an object type to another even if it is missing some properties.
  - Add missing frame drawing around `ScrollView`.
  - Fix Clipping in scroll views in WASM builds.
