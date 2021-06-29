@@ -25,7 +25,7 @@ use std::cell::{Cell, RefCell};
 pub struct CachedRenderingData {
     /// Used and modified by the backend, should be initialized to 0 by the user code
     pub(crate) cache_index: Cell<usize>,
-    /// Used and modified by the backend, should be initilized to 0 by the user code.
+    /// Used and modified by the backend, should be initialized to 0 by the user code.
     /// The backend compares this generation against the one of the cache to verify
     /// the validity of the cache_index field.
     pub(crate) cache_generation: Cell<usize>,
