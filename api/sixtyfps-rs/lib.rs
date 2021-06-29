@@ -263,6 +263,14 @@ pub fn run_event_loop() {
         .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
+/// Schedules the main event loop for termination. This function is meant
+/// to be called from callbacks triggered by the UI. After calling the function,
+/// it will return immediately and once control is passed back to the event loop,
+/// the initial call to [`run_event_loop()`] will return.
+pub fn quit_event_loop() {
+    sixtyfps_rendering_backend_default::backend().quit_event_loop();
+}
+
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
 /// Once woken up, any queued up functors will be invoked.
 ///

@@ -39,8 +39,8 @@ using cbindgen_private::ItemVTable;
 using ComponentRef = vtable::VRef<private_api::ComponentVTable>;
 using ItemRef = vtable::VRef<private_api::ItemVTable>;
 using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
-using cbindgen_private::ItemWeak;
 using cbindgen_private::ComponentRc;
+using cbindgen_private::ItemWeak;
 using cbindgen_private::TraversalOrder;
 }
 
@@ -636,11 +636,18 @@ struct VersionCheckHelper
 };
 }
 
+/// Enters the main event loop. This is necessary in order to receive
+/// events from the windowing system in order to render to the screen
+/// and react to user input.
 inline void run_event_loop()
 {
     cbindgen_private::sixtyfps_run_event_loop();
 }
 
+/// Schedules the main event loop for termination. This function is meant
+/// to be called from callbacks triggered by the UI. After calling the function,
+/// it will return immediately and once control is passed back to the event loop,
+/// the initial call to sixtyfps::run_event_loop() will return.
 inline void quit_event_loop()
 {
     cbindgen_private::sixtyfps_quit_event_loop();

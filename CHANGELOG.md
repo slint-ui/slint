@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 
  - Warnings are now shown in the online code editor.
  - `sixtyfps::invoke_from_event_loop` was added to the C++ and Rust APIs, to run a function in the UI thread from any thread.
+ - `sixtyfps::run_event_loop()` and `sixtyfps::quit_event_loop()` were added to the Rust and C++ APIs to start and quit the main event loop.
  - `z` property on items.
  - The type in two-way bindings can now be omitted.
  - It's possible to declare aliases for callbacks (`callback clicked <=> other.clicked;`)
