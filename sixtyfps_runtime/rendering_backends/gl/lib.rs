@@ -206,10 +206,13 @@ impl OpenGLContext {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let windowed_context = crate::eventloop::with_window_target(|event_loop| {
-                glutin::ContextBuilder::new()
-                    .with_vsync(true)
-                    .build_windowed(window_builder, event_loop.event_loop_target())
-                    .unwrap()
+                let builder = glutin::ContextBuilder::new().with_vsync(true);
+
+                // With latest Windows 10 and Vmware glutin's default for srgb produces surfaces that are always rendered black :(
+                #[cfg(target_os = "windows")]
+                let builder = builder.with_srgb(false);
+
+                builder.build_windowed(window_builder, event_loop.event_loop_target()).unwrap()
             });
             let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
