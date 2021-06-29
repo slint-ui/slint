@@ -7,11 +7,11 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-//! Runtime support for layouting.
+//! Runtime support for layouts.
 
 use crate::{slice::Slice, SharedVector};
 
-/// Vertical or Orizontal orientation
+/// Vertical or Horizontal orientation
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 #[repr(u8)]
 pub enum Orientation {
@@ -384,7 +384,7 @@ impl Default for LayoutAlignment {
 #[repr(C)]
 #[derive(Debug)]
 /// The BoxLayoutData is used to represent both a Horizontal and Vertical layout.
-/// The width/height x/y corrspond to that of a horizontal layout.
+/// The width/height x/y correspond to that of a horizontal layout.
 /// For vertical layout, they are inverted
 pub struct BoxLayoutData<'a> {
     pub size: Coord,
