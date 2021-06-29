@@ -279,7 +279,8 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
         return Default::default();
     }
 
-    let mut layout_data = vec![grid_internal::LayoutData::default(); num as usize];
+    let mut layout_data =
+        vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num as usize];
 
     for cell in data.cells.iter() {
         let cnstr = &cell.constraint;

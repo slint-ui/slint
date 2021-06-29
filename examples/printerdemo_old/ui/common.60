@@ -9,6 +9,7 @@
 LICENSE END */
 export Label := Text {
     font-size: 28px;
+    horizontal_stretch: 1;
 }
 
 export Page := Rectangle {
@@ -18,5 +19,4 @@ export Page := Rectangle {
 
 export Preview := Image {
     source: @image-url("images/cat_preview_round.png");
-    width: self.height * 320/480;
 }

@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView, GridBox } from "sixtyfps_widgets.60";
 import { Label, Page, Preview } from "common.60";
 
 PrintPage := Page {
@@ -21,10 +21,8 @@ PrintPage := Page {
         padding_bottom: 20px;
 
         Row {
-            preview := Preview {
-                height: root.height - layout.padding_top - layout.padding_bottom;
-            }
-            GridLayout {
+            preview := Preview { }
+            GridBox {
                 Row {
                     Label {
                         text: "Select File:";
@@ -51,13 +49,13 @@ PrintPage := Page {
 
                 Row {
                     SpinBox {
-                        font-size: 28px;
+                        horizontal_stretch: 1;
                     }
                 }
                 Row {
                     Button {
                         text: "Print Page";
-                        font-size: 28px;
+                        horizontal_stretch: 1;
                     }
                 }
             }
