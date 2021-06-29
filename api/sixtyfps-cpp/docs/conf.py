@@ -75,7 +75,7 @@ html_static_path = ['_static']
 
 html_show_sourcelink = False
 
-html_logo = "https://sixtyfps.io/resources/logo.drawio.svg"
+html_logo = "logo.drawio.svg"
 
 def setup(app):
     app.add_css_file('theme_tweak.css')
