@@ -10,6 +10,8 @@ Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang
 
 Once this is done, you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
 
+*Note*: The use of stable rust is recommended over the nightly channel.
+
 ### For the NodeJS backend
 
 For the nodejs backend, the following component are needed:
