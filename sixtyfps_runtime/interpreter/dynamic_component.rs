@@ -1462,8 +1462,7 @@ pub fn show_popup(
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
-    let window = sixtyfps_rendering_backend_default::backend().create_window();
-    let inst = instantiate(compiled, Some(parent_comp), Some(window));
+    let inst = instantiate(compiled, Some(parent_comp), Some(parent_window.clone()));
     inst.run_setup_code();
     parent_window
         .show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));
