@@ -1,41 +1,41 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.1.0] - 2021-06-29
 
 ### Changed
 
- - Layout are now conceptually their own elements, meaning that the x and y property of items
-   within layout are relative to the layout and no longer to the parent element of layouts.
- - The default spacing and padding of layouts is now 0 instead of boing specific to the style.
+ - Layouts are now conceptually their own elements, meaning that the `x` and `y` properties of items
+   within layouts are relative to the layout and no longer to the parent element of layouts.
+ - The default spacing and padding of layouts is now 0 instead of being specific to the style.
    There are now `HorizontalBox`, `VerticalBox`, `GridBox` widgets which have default spacing and padding.
- - Setting the window `height` and `width` property are now fixed size. The `preferred-width`
-   and `preferred-height` property can be used to set the initial size.
- - Binding loop detection at compile-time instead of panic at runtime
- - Renamed the `viewer` binary to `sixtyfps-viewer` and published it on crates.io
- - Renamed `minimum-width`, `maximum-height`, ... to a shorter version `min-width`, `max-height`.
-   The old name is kept as a deprecated alias.
+ - Setting the window `height` and `width` properties results in a fixed size. The `preferred-width`
+   and `preferred-height` property can be used to set the initial size and the window remains resizable
+   by the user, if the window manager permits.
+ - Binding loops are now detected at compile-time instead of panic at runtime.
+ - The `viewer` binary was renamed to `sixtyfps-viewer` and is now available via `cargo install` from crates.io.
+ - The layout properties `minimum-width`, `maximum-height`, etc. were renamed to a shorter version `min-width`,
+   `max-height`. The old names are still supported as a deprecated alias.
 
 ### Added
 
- - Show warnings in the online code editor
- - C++ and Rust API to run a function in the UI thread from any thread
- - `z` property on items
- - Mouse wheel work on the Flickable and derivatives
- - One can now omit the type of a two way binding property
- - One can declare callback aliases
+ - Warnings are now shown in the online code editor.
+ - `sixtyfps::invoke_from_event_loop` was added to the C++ and Rust APIs, to run a function in the UI thread from any thread.
+ - `z` property on items.
+ - The type in two-way bindings can now be omitted.
+ - It's possible to declare aliases for callbacks (`callback clicked <=> other.clicked;`)
  - `abs()` function to get the absolute value
- - Ability to name the root element of an `if` or `for`
- - `sixtyfps::Image` is part of the public API in rust and C++
- - one can access to the `width`or `height` of an `image` from the .60 files
+ - The root element of an `if` or `for` can be given a name (`if (condition) name := Rectangle {}`)
+ - `sixtyfps::Image` is a new type in the public Rust and C++ API to load images from a path.
+ - The width and height of images is now accessible via the `width`or `height` of an `image` type property in .60 files (`some-image.source.width`)
 
 ### Fixed
 
- - Fixed C++ backend on windows
- - `debug(...)` no longer break the LSP
- - ComponentDefinition::properties only expose public properties as documented
+ - Fixed Mouse wheel to work on the `Flickable` element and derivatives.
+ - Fixed generated C++ code on Windows.
+ - Calling `debug(...)` no longer breaks the LSP.
+ - `ComponentDefinition::properties` only exposes public properties as documented.
  - Many more bugfixes
-
 
 ## [0.0.6] - 2021-04-27
 
@@ -172,3 +172,4 @@ All notable changes to this project will be documented in this file.
 [0.0.4]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.4
 [0.0.5]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.5
 [0.0.6]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.6
+[0.1.0]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.0
