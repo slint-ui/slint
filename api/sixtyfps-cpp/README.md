@@ -173,10 +173,10 @@ export MainWindow := Window {
 }
 ```
 
-We can compile this code using the `sixtyfps_compiler` binary:
+We can compile this code using the `sixtyfps-compiler` binary:
 
 ```sh
-sixtyfps_compiler my_application_ui.60 > my_application_ui.h
+sixtyfps-compiler my_application_ui.60 > my_application_ui.h
 ```
 
 Note: You would usually not type this command yourself, this is done automatically by the build system.

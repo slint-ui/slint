@@ -47,7 +47,7 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
         PROPERTY CORROSION_USE_HOST_BUILD 1
     )
     set_property(
-        TARGET sixtyfps_compiler
+        TARGET sixtyfps-compiler
         PROPERTY CORROSION_USE_HOST_BUILD 1
     )
 elseif(CMAKE_CROSSCOMPILING)
@@ -102,7 +102,7 @@ target_include_directories(SixtyFPS INTERFACE
     $<INSTALL_INTERFACE:include/sixtyfps>
 )
 
-add_executable(SixtyFPS::sixtyfps_compiler ALIAS sixtyfps_compiler)
+add_executable(SixtyFPS::sixtyfps-compiler ALIAS sixtyfps-compiler)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/SixtyFPSMacro.cmake)
 
 export(TARGETS SixtyFPS sixtyfps-cpp
@@ -125,7 +125,7 @@ if(WIN32)
             ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
 endif()
 
-install(PROGRAMS $<TARGET_FILE:sixtyfps_compiler> TYPE BIN)
+install(PROGRAMS $<TARGET_FILE:sixtyfps-compiler> TYPE BIN)
 
 set(SIXTYFPS_LIB_PROPERTIES "")
 foreach(prop

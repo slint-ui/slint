@@ -9,7 +9,7 @@ repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
 [[bin]]
-name = "sixtyfps_compiler"
+name = "sixtyfps-compiler"
 path = "main.rs"
 
 [dependencies]
