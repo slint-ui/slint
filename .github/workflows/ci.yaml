@@ -634,20 +634,24 @@ jobs:
             git config --global user.name "${GITHUB_ACTOR}"
             git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/sixtyfpsui/www" --depth 1
             cd www
-            rm -rf snapshots/master/demos
-            mkdir -p snapshots/master/demos
 
             target_branch=${GITHUB_REF##*/}
-            echo "Preparing demos for $target_branch"
 
-            for demo in gallery printerdemo printerdemo_old todo slide_puzzle memory; do
-                mkdir -p snapshots/master/demos/$demo
-                cp -a ../$demo/{pkg,index.html} snapshots/master/demos/$demo/
-                rm snapshots/master/demos/$demo/pkg/.gitignore
+            rm -rf snapshots/$target_branch/demos
+            mkdir -p snapshots/$target_branch/demos
+
+            for demo_and_subdir in gallery "printerdemo rust" "printerdemo_old rust" "todo rust" slide_puzzle memory; do
+                set -- $demo_and_subdir
+                demo=$1
+                subdir=$2
+
+                mkdir -p snapshots/$target_branch/demos/$demo
+                cp -a ../$demo/$subdir/{pkg,index.html} snapshots/$target_branch/demos/$demo/
+                rm snapshots/$target_branch/demos/$demo/pkg/.gitignore
             done
 
-            git add snapshots/master/demos
-            git add -u snapshots/master/demos
+            git add snapshots/$target_branch/demos
+            git add -u snapshots/$target_branch/demos
             rm -rf wasm-interpreter
             mkdir -p wasm-interpreter
             cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
