@@ -14,7 +14,7 @@ Then we edit `Cargo.toml` to add the sixtyfps dependency:
 
 ```toml
 [dependencies]
-sixtyfps = "0.0.6"
+sixtyfps = "0.1.0"
 ```
 
 Finally we copy the hello world program from the [SixtyFPS documentation](https://sixtyfps.io/docs/rust/sixtyfps/) into our `src/main.rs`:
