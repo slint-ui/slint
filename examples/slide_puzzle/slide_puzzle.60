@@ -72,7 +72,7 @@ Checkbox := Rectangle {
                 height: root.height;
 
                 text: "✓";
-                font-size: height * 90%;
+                font-size: height * 80%;
                 color: white;
                 animate color { duration: 200ms; }
                 vertical-alignment: center;
