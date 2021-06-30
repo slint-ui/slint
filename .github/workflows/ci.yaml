@@ -641,7 +641,7 @@ jobs:
             cp -a ../gallery/{pkg,index.html} snapshots/master/demos/gallery/
             rm snapshots/master/demos/gallery/pkg/.gitignore
 
-            mkdir -p demos/printerdemo
+            mkdir -p snapshots/master/demos/printerdemo
             cp -a ../printerdemo/rust/{pkg,index.html} snapshots/master/demos/printerdemo/
             rm snapshots/master/demos/printerdemo/pkg/.gitignore
 
