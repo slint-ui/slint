@@ -142,30 +142,28 @@ pub(crate) fn font_fallbacks_for_request(
     _request: &FontRequest,
     _reference_text: &str,
 ) -> Vec<FontRequest> {
-    _request
-        .family
-        .as_ref()
-        .and_then(|family| {
-            core_text::font::new_from_name(&family, _request.pixel_size.unwrap_or_default() as f64)
-                .ok()
-        })
-        .map(|requested_font| {
-            core_text::font::cascade_list_for_languages(
-                &requested_font,
-                &core_foundation::array::CFArray::from_CFTypes(&[]),
-            )
-            .iter()
-            .map(|fallback_descriptor| FontRequest {
-                family: Some(fallback_descriptor.family_name().into()),
-                weight: _request.weight,
-                pixel_size: _request.pixel_size,
-                letter_spacing: _request.letter_spacing,
-            })
-            .filter(|fallback| !fallback.family.as_ref().unwrap().starts_with(".")) // font-kit asserts when loading `.Apple Fallback`
-            .take(1) // Take only the top from the fallback list until we mmap the llaaarge font files
-            .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
+    let requested_font = match core_text::font::new_from_name(
+        &_request.family.as_ref().map_or_else(|| "", |s| s.as_str()),
+        _request.pixel_size.unwrap_or_default() as f64,
+    ) {
+        Ok(f) => f,
+        Err(_) => return vec![],
+    };
+
+    core_text::font::cascade_list_for_languages(
+        &requested_font,
+        &core_foundation::array::CFArray::from_CFTypes(&[]),
+    )
+    .iter()
+    .map(|fallback_descriptor| FontRequest {
+        family: Some(fallback_descriptor.family_name().into()),
+        weight: _request.weight,
+        pixel_size: _request.pixel_size,
+        letter_spacing: _request.letter_spacing,
+    })
+    .filter(|fallback| !fallback.family.as_ref().unwrap().starts_with(".")) // font-kit asserts when loading `.Apple Fallback`
+    .take(1) // Take only the top from the fallback list until we mmap the llaaarge font files
+    .collect::<Vec<_>>()
 }
 
 #[cfg(target_os = "windows")]
