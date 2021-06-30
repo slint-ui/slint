@@ -72,7 +72,7 @@ Checkbox := Rectangle {
                 height: root.height;
 
                 text: "✓";
-                font-size: height;
+                font-size: height * 90%;
                 color: white;
                 animate color { duration: 200ms; }
                 vertical-alignment: center;
@@ -428,7 +428,7 @@ export MainWindow := Window {
             padding: height * 25%;
             Text {
                 text: " ↻ ";
-                font-size: parent.height * 50%;
+                font-size: parent.height * 40%;
                 color: current-theme.game-highlight-color;
                 vertical-alignment: center;
                 TouchArea {
