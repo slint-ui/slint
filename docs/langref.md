@@ -519,25 +519,25 @@ Inside callback handlers, more complicated statements are allowed:
 
 Assignment:
 
-```
+```ignore
 clicked => { some_property = 42; }
 ```
 
 Self-assignment with `+=` `-=` `*=` `/=`
 
-```
+```ignore
 clicked => { some_property += 42; }
 ```
 
 Calling a callback
 
-```
+```ignore
 clicked => { root.some_callback(); }
 ```
 
 Conditional expression
 
-```
+```ignore
 clicked => {
     if (condition) {
         foo = 42;
@@ -551,7 +551,7 @@ clicked => {
 
 Empty expression
 
-```
+```ignore
 clicked => { }
 // or
 clicked => { ; }
@@ -642,11 +642,11 @@ Animation can be configured with the following parameter:
 
 It is also possible to animate several properties with the same animation:
 
-```
+```ignore
 animate x, y { duration: 100ms; }
 ```
 is the same as
-```
+```ignore
 animate x { duration: 100ms; }
 animate y { duration: 100ms; }
 ```
