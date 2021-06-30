@@ -81,6 +81,11 @@ TestCase := Rectangle {
                 }
             }
         }
+
+        // This item should be empty
+        VerticalLayout {
+            if (false) : Rectangle { background: #858; }
+        }
     }
 
     property <bool> rect_orange_ok:

@@ -1780,7 +1780,7 @@ fn compile_expression(
                     {ri_init}\
                     const auto padding = {p};\
                     {c}\
-                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ &*std::begin(cells), std::size(cells)}}; \
+                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ std::data(cells), std::size(cells)}}; \
                     sixtyfps::BoxLayoutData box {{ {sz}, {s}, &padding, {a}, slice }};
                     sixtyfps::SharedVector<float> result;
                     sixtyfps::sixtyfps_solve_box_layout(&box, {ri}, &result);\
@@ -1951,7 +1951,7 @@ fn box_layout_data(
         let mut push_code = "std::vector<sixtyfps::BoxLayoutCellData> cells;".to_owned();
         if let Some((ri, init)) = &mut repeated_indices {
             **ri =
-                "sixtyfps::Slice<unsigned int>{&*std::begin(repeater_indices), std::size(repeater_indices)}"
+                "sixtyfps::Slice<unsigned int>{std::data(repeater_indices), std::size(repeater_indices)}"
                     .to_owned();
             **init = format!("std::array<unsigned int, {}> repeater_indices;", repeater_count * 2);
         }
