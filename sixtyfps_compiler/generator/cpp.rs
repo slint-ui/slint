@@ -1747,7 +1747,7 @@ fn compile_expression(
             format!("[&] {{ \
                     const auto padding = {};\
                     {}\
-                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ &*std::begin(cells), std::size(cells)}}; \
+                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ std::data(cells), std::size(cells)}}; \
                     return sixtyfps::cbindgen_private::{};\
                 }}()",
                 padding, cells, call
