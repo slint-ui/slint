@@ -427,6 +427,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 painter->drawText(rect, flags, elided);
             } else {
                 // elide and word wrap: we need to add the elipsis manually on the last line
+                string.replace(QChar('\n'), QChar::LineSeparator);
                 QString elided = string;
                 QFontMetrics fm(font);
                 QTextLayout layout(string, font);
@@ -445,10 +446,6 @@ impl ItemRenderer for QtItemRenderer<'_> {
                         break;
                     }
                     line.setLineWidth(rect.width());
-                    auto lf = QStringView(string).mid(line.textStart(), line.textLength()).indexOf('\n');
-                    if (lf >= 0) {
-                        line.setNumColumns(lf);
-                    }
                     height += leading + line.height();
                     if (height > rect.height()) {
                         break;
