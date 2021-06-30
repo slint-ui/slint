@@ -337,10 +337,10 @@ pub struct TouchArea {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub enabled: Property<bool>,
-    /// FIXME: We should anotate this as an "output" property.
+    /// FIXME: We should annotate this as an "output" property.
     pub pressed: Property<bool>,
     pub has_hover: Property<bool>,
-    /// FIXME: there should be just one property for the point istead of two.
+    /// FIXME: there should be just one property for the point instead of two.
     /// Could even be merged with pressed in a Property<Option<Point>> (of course, in the
     /// implementation item only, for the compiler it would stay separate properties)
     pub pressed_x: Property<f32>,
@@ -970,7 +970,7 @@ declare_item_vtable! {
 pub use crate::SharedVector;
 
 #[repr(C)]
-/// Wraps the internal datastructure for the Flickable
+/// Wraps the internal data structure for the Flickable
 pub struct FlickableDataBox(core::ptr::NonNull<crate::flickable::FlickableData>);
 
 impl Default for FlickableDataBox {

@@ -47,7 +47,7 @@ pub use self::image::*;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
-/// for a lazy computation. Typically backends store either compute intensive data or handles that refer to
+/// for a lazy computation. Typically back ends store either compute intensive data or handles that refer to
 /// data that's stored in GPU memory.
 pub struct CachedGraphicsData<T> {
     /// The backend specific data.
@@ -67,8 +67,8 @@ impl<T> CachedGraphicsData<T> {
     }
 }
 
-/// The RenderingCache, in combination with CachedGraphicsData, allows backends to store data that's either
-/// intensive to compute or has bad CPU locality. Backends typically keep a RenderingCache instance and use
+/// The RenderingCache, in combination with CachedGraphicsData, allows back ends to store data that's either
+/// intensive to compute or has bad CPU locality. Back ends typically keep a RenderingCache instance and use
 /// the item's cached_rendering_data() integer as index in the vec_arena::Arena.
 pub struct RenderingCache<T> {
     slab: slab::Slab<CachedGraphicsData<T>>,

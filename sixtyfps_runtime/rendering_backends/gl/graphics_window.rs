@@ -34,7 +34,7 @@ type BackendImageCache = super::ImageCache;
 type WindowFactoryFn = dyn Fn(winit::window::WindowBuilder) -> Backend;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
-/// typically instantiated by entry factory functions of the different graphics backends.
+/// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct GraphicsWindow {
     pub(crate) self_weak: Weak<corelib::window::Window>,
     window_factory: Box<WindowFactoryFn>,
