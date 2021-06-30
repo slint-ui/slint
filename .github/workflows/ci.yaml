@@ -640,13 +640,14 @@ jobs:
             rm -rf snapshots/$target_branch/demos
             mkdir -p snapshots/$target_branch/demos
 
-            for demo_and_subdir in gallery "printerdemo rust" "printerdemo_old rust" "todo rust" slide_puzzle memory; do
-                set -- $demo_and_subdir
-                demo=$1
-                subdir=$2
+            for demo_subdir_extra in gallery,, printerdemo,rust, printerdemo_old,rust, todo,rust, slide_puzzle,,plaster-font memory,,; do
+                IFS=',' read demo subdir extra <<< "${demo_subdir_extra}"
 
                 mkdir -p snapshots/$target_branch/demos/$demo
                 cp -a ../$demo/$subdir/{pkg,index.html} snapshots/$target_branch/demos/$demo/
+                if [ -n "$extra" ]; then
+                    cp -a ../$demo/$subdir/$extra snapshots/$target_branch/demos/$demo/
+                fi
                 rm snapshots/$target_branch/demos/$demo/pkg/.gitignore
             done
 
