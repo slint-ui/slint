@@ -387,7 +387,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_text(&mut self, text: std::pin::Pin<&items::Text>) {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
         let fill_brush: QBrush = text.color().into();
-        let string: qttypes::QString = text.text().as_str().into();
+        let mut string: qttypes::QString = text.text().as_str().into();
         let font: QFont =
             get_font(text.unresolved_font_request().merge(&self.default_font_properties));
         let flags = match text.horizontal_alignment() {
@@ -402,16 +402,65 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextWrap::no_wrap => 0,
             TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
-        let elide = text.overflow() == TextOverflow::elide && text.wrap() == TextWrap::no_wrap;
+        let elide = text.overflow() == TextOverflow::elide;
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", rect as "QRectF", fill_brush as "QBrush", string as "QString", flags as "int", font as "QFont", elide as "bool"] {
+        cpp! { unsafe [painter as "QPainter*", rect as "QRectF", fill_brush as "QBrush", mut string as "QString", flags as "int", font as "QFont", elide as "bool"] {
             painter->setFont(font);
             painter->setPen(QPen(fill_brush, 0));
             painter->setBrush(Qt::NoBrush);
             if (!elide) {
                 painter->drawText(rect, flags, string);
+            } else if (!(flags & Qt::TextWordWrap)) {
+                QString elided;
+                QFontMetrics fm(font);
+                while (!string.isEmpty()) {
+                    int pos = string.indexOf('\n');
+                    if (pos < 0) {
+                        elided += fm.elidedText(string, Qt::ElideRight, rect.width());
+                        break;
+                    }
+                    QString line = string.left(pos);
+                    elided += fm.elidedText(line, Qt::ElideRight, rect.width());
+                    elided += '\n';
+                    string = string.mid(pos + 1);
+                }
+                painter->drawText(rect, flags, elided);
             } else {
-                auto elided = QFontMetrics(font).elidedText(string, Qt::ElideRight, rect.width());
+                // elide and word wrap: we need to add the elipsis manually on the last line
+                QString elided = string;
+                QFontMetrics fm(font);
+                QTextLayout layout(string, font);
+                QTextOption options;
+                options.setWrapMode(QTextOption::WordWrap);
+                layout.setTextOption(options);
+                layout.setCacheEnabled(true);
+                layout.beginLayout();
+                int leading = fm.leading();
+                qreal height = 0;
+                int last_line_begin = 0, last_line_size = 0;
+                while (true) {
+                    auto line = layout.createLine();
+                    if (!line.isValid()) {
+                        last_line_begin = string.size();
+                        break;
+                    }
+                    line.setLineWidth(rect.width());
+                    auto lf = QStringView(string).mid(line.textStart(), line.textLength()).indexOf('\n');
+                    if (lf >= 0) {
+                        line.setNumColumns(lf);
+                    }
+                    height += leading + line.height();
+                    if (height > rect.height()) {
+                        break;
+                    }
+                    last_line_begin = line.textStart();
+                    last_line_size = line.textLength();
+                }
+                if (last_line_begin < string.size()) {
+                    elided = string.left(last_line_begin);
+                    QString to_elide = QStringView(string).mid(last_line_begin, last_line_size).trimmed() % QStringView(u"…");
+                    elided += fm.elidedText(to_elide, Qt::ElideRight, rect.width());
+                }
                 painter->drawText(rect, flags, elided);
             }
         }}
