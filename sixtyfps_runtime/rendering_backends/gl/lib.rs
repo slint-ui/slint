@@ -597,6 +597,7 @@ impl ItemRenderer for GLItemRenderer {
             .clone();
 
         let wrap = text.wrap() == TextWrap::word_wrap;
+        let elide = text.overflow() == TextOverflow::elide;
         let letter_spacing = text.letter_spacing() * self.scale_factor;
         let text_size =
             font.text_size(letter_spacing, string, if wrap { Some(max_width) } else { None });
@@ -631,9 +632,9 @@ impl ItemRenderer for GLItemRenderer {
             *y += font_metrics.height();
         };
 
-        if wrap {
-            let mut start = 0;
-            while start < string.len() && y + font_metrics.height() <= max_height {
+        let mut start = 0;
+        'lines: while start < string.len() && y + font_metrics.height() <= max_height {
+            if wrap && (!elide || y + 2. * font_metrics.height() <= max_height) {
                 let index = canvas.break_text(max_width, &string[start..], paint).unwrap();
                 if index == 0 {
                     // FIXME the word is too big to be shown, but we should still break, ideally
@@ -643,15 +644,14 @@ impl ItemRenderer for GLItemRenderer {
                 // trim is there to remove the \n
                 draw_line(&mut canvas, string[start..index].trim(), &mut y);
                 start = index;
-            }
-        } else {
-            let elide = text.overflow() == TextOverflow::elide;
-            'lines: for line in string.lines() {
-                if y + font_metrics.height() > max_height {
-                    break;
-                }
+            } else {
+                let index = string[start..].find('\n').map_or(string.len(), |i| start + i + 1);
+                let line = &string[start..index].trim();
+                start = index;
                 let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
-                if text_metrics.width() > max_width {
+                let elide_last_line =
+                    elide && index < string.len() && y + 2. * font_metrics.height() > max_height;
+                if text_metrics.width() > max_width || elide_last_line {
                     let w = max_width
                         - if elide {
                             canvas.measure_text(0., 0., "…", paint).unwrap().width()
@@ -671,6 +671,11 @@ impl ItemRenderer for GLItemRenderer {
                             }
                             continue 'lines;
                         }
+                    }
+                    if elide_last_line {
+                        let elided = format!("{}…", line);
+                        draw_line(&mut canvas, &elided, &mut y);
+                        continue 'lines;
                     }
                 }
                 draw_line(&mut canvas, line, &mut y);
