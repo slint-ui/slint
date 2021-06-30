@@ -86,7 +86,7 @@ fn init_compiler(
             notify::RecursiveMode::NonRecursive,
         )
         .unwrap_or_else(|err| {
-            eprintln!("Warning: error while whatching {}: {:?}", args.path.display(), err)
+            eprintln!("Warning: error while watching {}: {:?}", args.path.display(), err)
         });
         compiler.set_file_loader(move |path| {
             notify::Watcher::watch(
@@ -95,7 +95,7 @@ fn init_compiler(
                 notify::RecursiveMode::NonRecursive,
             )
             .unwrap_or_else(|err| {
-                eprintln!("Warning: error while whatching {}: {:?}", path.display(), err)
+                eprintln!("Warning: error while watching {}: {:?}", path.display(), err)
             });
             Box::pin(async { None })
         })
@@ -139,7 +139,7 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
                 handle.show();
                 current.replace(handle);
             }
-            eprintln!("Sucesfull reload of {}", args.path.display());
+            eprintln!("Successful reload of {}", args.path.display());
         });
     }
 

@@ -254,7 +254,7 @@ async fn reload_preview(
         });
         send_notification(&sender, "Preview Loaded", Health::Ok);
     } else {
-        send_notification(&sender, "Preview not upated", Health::Error);
+        send_notification(&sender, "Preview not updated", Health::Error);
     }
     CONTENT_CACHE.get_or_init(Default::default).lock().unwrap().sender.replace(sender);
 }
