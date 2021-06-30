@@ -634,35 +634,35 @@ jobs:
             git config --global user.name "${GITHUB_ACTOR}"
             git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/sixtyfpsui/www" --depth 1
             cd www
-            rm -rf demos
-            mkdir -p demos
+            rm -rf snapshots/master/demos
+            mkdir -p snapshots/master/demos
 
-            mkdir -p demos/gallery
-            cp -a ../gallery/{pkg,index.html} demos/gallery/
-            rm demos/gallery/pkg/.gitignore
+            mkdir -p snapshots/master/demos/gallery
+            cp -a ../gallery/{pkg,index.html} snapshots/master/demos/gallery/
+            rm snapshots/master/demos/gallery/pkg/.gitignore
 
             mkdir -p demos/printerdemo
-            cp -a ../printerdemo/rust/{pkg,index.html} demos/printerdemo/
-            rm demos/printerdemo/pkg/.gitignore
+            cp -a ../printerdemo/rust/{pkg,index.html} snapshots/master/demos/printerdemo/
+            rm snapshots/master/demos/printerdemo/pkg/.gitignore
 
-            mkdir -p demos/printerdemo_old
-            cp -a ../printerdemo_old/rust/{pkg,index.html} demos/printerdemo_old/
-            rm demos/printerdemo_old/pkg/.gitignore
+            mkdir -p snapshots/master/demos/printerdemo_old
+            cp -a ../printerdemo_old/rust/{pkg,index.html} snapshots/master/demos/printerdemo_old/
+            rm snapshots/master/demos/printerdemo_old/pkg/.gitignore
 
-            mkdir -p demos/todo
-            cp -a ../todo/rust/{pkg,index.html} demos/todo/
-            rm demos/todo/pkg/.gitignore
+            mkdir -p snapshots/master/demos/todo
+            cp -a ../todo/rust/{pkg,index.html} snapshots/master/demos/todo/
+            rm snapshots/master/demos/todo/pkg/.gitignore
 
-            mkdir -p demos/slide_puzzle
-            cp -a ../slide_puzzle/{pkg,index.html,plaster-font} demos/slide_puzzle/
-            rm demos/slide_puzzle/pkg/.gitignore
+            mkdir -p snapshots/master/demos/slide_puzzle
+            cp -a ../slide_puzzle/{pkg,index.html,plaster-font} snapshots/master/demos/slide_puzzle/
+            rm snapshots/master/demos/slide_puzzle/pkg/.gitignore
 
-            mkdir -p demos/memory
-            cp -a ../memory/{pkg,index.html} demos/memory/
-            rm demos/memory/pkg/.gitignore
+            mkdir -p snapshots/master/demos/memory
+            cp -a ../memory/{pkg,index.html} snapshots/master/demos/memory/
+            rm snapshots/master/demos/memory/pkg/.gitignore
 
-            git add demos
-            git add -u demos
+            git add snapshots/master/demos
+            git add -u snapshots/master/demos
             rm -rf wasm-interpreter
             mkdir -p wasm-interpreter
             cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
