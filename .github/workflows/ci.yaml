@@ -637,29 +637,14 @@ jobs:
             rm -rf snapshots/master/demos
             mkdir -p snapshots/master/demos
 
-            mkdir -p snapshots/master/demos/gallery
-            cp -a ../gallery/{pkg,index.html} snapshots/master/demos/gallery/
-            rm snapshots/master/demos/gallery/pkg/.gitignore
+            target_branch=${GITHUB_REF##*/}
+            echo "Preparing demos for $target_branch"
 
-            mkdir -p snapshots/master/demos/printerdemo
-            cp -a ../printerdemo/rust/{pkg,index.html} snapshots/master/demos/printerdemo/
-            rm snapshots/master/demos/printerdemo/pkg/.gitignore
-
-            mkdir -p snapshots/master/demos/printerdemo_old
-            cp -a ../printerdemo_old/rust/{pkg,index.html} snapshots/master/demos/printerdemo_old/
-            rm snapshots/master/demos/printerdemo_old/pkg/.gitignore
-
-            mkdir -p snapshots/master/demos/todo
-            cp -a ../todo/rust/{pkg,index.html} snapshots/master/demos/todo/
-            rm snapshots/master/demos/todo/pkg/.gitignore
-
-            mkdir -p snapshots/master/demos/slide_puzzle
-            cp -a ../slide_puzzle/{pkg,index.html,plaster-font} snapshots/master/demos/slide_puzzle/
-            rm snapshots/master/demos/slide_puzzle/pkg/.gitignore
-
-            mkdir -p snapshots/master/demos/memory
-            cp -a ../memory/{pkg,index.html} snapshots/master/demos/memory/
-            rm snapshots/master/demos/memory/pkg/.gitignore
+            for demo in gallery printerdemo printerdemo_old todo slide_puzzle memory; do
+                mkdir -p snapshots/master/demos/$demo
+                cp -a ../$demo/{pkg,index.html} snapshots/master/demos/$demo/
+                rm snapshots/master/demos/$demo/pkg/.gitignore
+            done
 
             git add snapshots/master/demos
             git add -u snapshots/master/demos
