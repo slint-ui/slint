@@ -1,0 +1,49 @@
+{
+    "version": "0.1",
+    "language": "en",
+    "languageSettings": [
+        {
+            "languageId": "rust",
+            "words": [
+                "wasm",
+                "winit",
+                "femtovg",
+                "corelib",
+                "cbindgen",
+                "rtti",
+                "fullscreen",
+                "unmap",
+                "Rgba",
+                "peekable",
+                "builtins",
+                "vtable",
+                "Consts",
+                "evenodd",
+                "viewbox",
+                "Flickable",
+                "concat",
+                "layouting", // This would be worth renaming in the ItemVTable to layout_info
+                "Realloc",
+                "MaybeUninit",
+                "uninit",
+                "triomphe"
+            ],
+            "ignoreRegExpList": [
+                "/#\\[cfg(.+)\\]/",
+                "/#\\[repr(.+)\\]/",
+                // Excludes various crate paths
+                "/crate::(.+)/",
+                "/winit::(.+)/",
+                "/core::(.+)/",
+                "/std::(.+)/"
+            ]
+        }
+    ],
+    "words": [
+        "Goffart",
+        "Hausmann",
+        "SPDX",
+        "Helvetica",
+        "sixtyfps"
+    ]
+}
