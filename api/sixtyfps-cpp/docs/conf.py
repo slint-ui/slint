@@ -40,7 +40,7 @@ breathe_default_project = "SixtyFPS"
 exhale_args = {
         "containmentFolder": "./api",
         "rootFileName": "library_root.rst",
-        "rootFileTitle": "SixtyFPS CPP Reference Documentation",
+        "rootFileTitle": "C++ API Reference",
         "doxygenStripFromPath": "..",
         "createTreeView": True,
         "exhaleExecutesDoxygen": True,
