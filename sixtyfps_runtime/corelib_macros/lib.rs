@@ -59,21 +59,18 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
     let (plain_field_names, plain_field_types): (Vec<_>, Vec<_>) = fields
         .iter()
         .filter(|f| {
-            f.attrs
-                .iter()
-                .find(|attr| {
-                    attr.parse_meta()
-                        .ok()
-                        .map(|meta| match meta {
-                            syn::Meta::Path(path) => path
-                                .get_ident()
-                                .map(|ident| ident.to_string() == "rtti_field")
-                                .unwrap_or(false),
-                            _ => false,
-                        })
-                        .unwrap_or(false)
-                })
-                .is_some()
+            f.attrs.iter().any(|attr| {
+                attr.parse_meta()
+                    .ok()
+                    .map(|meta| match meta {
+                        syn::Meta::Path(path) => path
+                            .get_ident()
+                            .map(|ident| ident.to_string() == "rtti_field")
+                            .unwrap_or(false),
+                        _ => false,
+                    })
+                    .unwrap_or(false)
+            })
         })
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
         .unzip();
