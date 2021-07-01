@@ -138,9 +138,14 @@ impl<T> SharedVector<T> {
         unsafe { self.inner.cast::<SharedVectorHeader>().as_ref().size }
     }
 
+    /// Returns whether the array is empty or not
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Return a slice to the array
     pub fn as_slice(&self) -> &[T] {
-        if self.len() == 0 {
+        if self.is_empty() {
             &[]
         } else {
             // Safety: When len > 0, we know that the pointer holds an array of the size of len
