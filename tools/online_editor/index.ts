@@ -61,7 +61,12 @@ export Demo := Window {
     let select = (<HTMLInputElement>document.getElementById("select_combo"));
     function select_combo_changed() {
         if (select.value) {
-            load_from_url("https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/" + select.value);
+            let tag = "master";
+            var found;
+            if (found = window.location.pathname.match(/releases\/([^\/]*)\/editor/)) {
+                tag = "v" + found[1];
+            }
+            load_from_url(`https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/${tag}/${select.value}`);
         } else {
             clearTabs();
             base_url = "";
