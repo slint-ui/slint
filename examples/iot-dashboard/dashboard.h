@@ -99,7 +99,7 @@ struct DashboardBuilder
     build(sixtyfps::interpreter::ComponentCompiler &compiler) const;
 
 private:
-    std::size_t register_widget(WidgetPtr widget);
+    int register_widget(WidgetPtr widget);
 
     std::unordered_set<std::string> widgets_used = { "TopBar", "MenuBar" };
     std::vector<int> top_bar_widgets;

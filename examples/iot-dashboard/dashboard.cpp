@@ -69,12 +69,12 @@ void DashboardBuilder::add_top_bar_widget(WidgetPtr widget)
     top_bar_widgets.push_back(widget_id);
 }
 
-std::size_t DashboardBuilder::register_widget(WidgetPtr widget)
+int DashboardBuilder::register_widget(WidgetPtr widget)
 {
     auto widget_type_name = widget->type_name();
     widgets_used.insert(widget_type_name);
 
-    auto widget_id = widgets.size();
+    auto widget_id = int(widgets.size());
     auto widget_name = fmt::format("widget_{}", widget_id);
     widgets.push_back({ widget_name, widget });
     return widget_id;
