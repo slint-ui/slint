@@ -22,10 +22,7 @@ Welcome to SixtyFPS C++'s documentation!
 
    api/library_root
 
-   markdown/langref.md
-   markdown/builtin_elements.md
-   markdown/widgets.md
-   markdown/layouting.md
+   language.rst
 
    Type Mapping to C++ <types.md>
 
