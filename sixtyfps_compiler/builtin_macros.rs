@@ -29,15 +29,9 @@ pub fn lower_macro(
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     match mac {
-        BuiltinMacroFunction::Min => {
-            return min_max_macro(n, '<', sub_expr.collect(), diag);
-        }
-        BuiltinMacroFunction::Max => {
-            return min_max_macro(n, '>', sub_expr.collect(), diag);
-        }
-        BuiltinMacroFunction::Debug => {
-            return debug_macro(n, sub_expr.collect(), diag);
-        }
+        BuiltinMacroFunction::Min => min_max_macro(n, '<', sub_expr.collect(), diag),
+        BuiltinMacroFunction::Max => min_max_macro(n, '>', sub_expr.collect(), diag),
+        BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::CubicBezier => {
             let mut has_error = None;
             // FIXME: this is not pretty to be handling there.
@@ -285,10 +279,11 @@ fn to_debug_string(
             v.push(Expression::StoreLocalVariable {
                 name: local_object.into(),
                 value: Box::new(expr),
-            });
-            let mut cond = Expression::StringLiteral(format!("Error: invalid value for {}", ty));
+            }];
+            let mut condition =
+                Expression::StringLiteral(format!("Error: invalid value for {}", ty));
             for (idx, val) in enu.values.iter().enumerate() {
-                cond = Expression::Condition {
+                condition = Expression::Condition {
                     condition: Box::new(Expression::BinaryExpression {
                         lhs: Box::new(Expression::ReadLocalVariable {
                             name: local_object.into(),
@@ -301,11 +296,11 @@ fn to_debug_string(
                         op: '=',
                     }),
                     true_expr: Box::new(Expression::StringLiteral(val.clone())),
-                    false_expr: Box::new(cond),
+                    false_expr: Box::new(condition),
                 };
             }
             v.push(Expression::BinaryExpression {
-                lhs: Box::new(cond),
+                lhs: Box::new(condition),
                 op: '+',
                 rhs: Box::new(Expression::StringLiteral(" }".into())),
             });
