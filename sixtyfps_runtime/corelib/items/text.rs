@@ -553,7 +553,7 @@ impl TextInput {
 
     fn delete_selection(self: Pin<&Self>) {
         let text: String = self.text().into();
-        if text.len() == 0 {
+        if text.is_empty() {
             return;
         }
 
@@ -604,7 +604,9 @@ impl TextInput {
     }
 
     fn copy(self: Pin<&Self>) {
-        crate::backend::instance().map(|backend| backend.set_clipboard_text(self.selected_text()));
+        if let Some(backend) = crate::backend::instance() {
+            backend.set_clipboard_text(self.selected_text());
+        }
     }
 
     fn paste(self: Pin<&Self>) {
