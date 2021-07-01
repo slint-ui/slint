@@ -23,7 +23,7 @@ pub(crate) fn handle_transform_and_opacity(
     component: &Rc<Component>,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
-) -> () {
+) {
     if let Some(b) = component.root_element.borrow().bindings.get("opacity") {
         diag.push_error(format!("The opacity property cannot be used on the root element"), b);
     }

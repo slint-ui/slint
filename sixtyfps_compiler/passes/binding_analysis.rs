@@ -23,7 +23,7 @@ use crate::object_tree::{Component, ElementRc};
 
 type PropertySet = linked_hash_set::LinkedHashSet<NamedReference>;
 
-pub fn binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) -> () {
+pub fn binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     propagate_is_set_on_aliases(component);
     for g in component.used_global.borrow().iter() {
         propagate_is_set_on_aliases(g);
@@ -248,7 +248,7 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
         },
     );
 
-    fn check_alias(e: &ElementRc, name: &str, binding: &Expression) -> () {
+    fn check_alias(e: &ElementRc, name: &str, binding: &Expression) {
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
         let is_binding_constant = binding.is_constant();
         if is_binding_constant && !NamedReference::new(e, name).is_externally_modified() {

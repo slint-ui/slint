@@ -27,7 +27,7 @@ use crate::langtype::{NativeClass, Type};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
-pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) -> () {
+pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
     let mut native_rect = tr.lookup("Rectangle").as_builtin().native_class.clone();
     while let Some(p) = native_rect.parent.clone() {
         native_rect = p;
