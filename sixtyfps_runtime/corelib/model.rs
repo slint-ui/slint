@@ -128,7 +128,7 @@ impl<T: 'static> VecModel<T> {
     where
         T: Clone,
     {
-        ModelHandle(Some(Rc::<Self>::new(slice.iter().cloned().collect::<Vec<T>>().into())))
+        ModelHandle(Some(Rc::<Self>::new(slice.to_vec().into())))
     }
 
     /// Add a row at the end of the model
