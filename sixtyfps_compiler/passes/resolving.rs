@@ -343,7 +343,7 @@ impl Expression {
                             .to_string_lossy()
                             .to_string()
                     })
-                    .unwrap_or_else(|| s.into())
+                    .unwrap_or(s)
             }
         };
 
