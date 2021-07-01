@@ -48,6 +48,15 @@
             "ignoreRegExpList": [
                 "/:.+:/"
             ]
+        },
+        {
+            "languageId": "markdown",
+            "words": [
+                "SUBDIR",
+                "rustup",
+                "Yocto"
+            ],
+            "ignoreRegExpList": []
         }
     ],
     "words": [

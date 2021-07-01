@@ -56,12 +56,15 @@ show how to compile:
 
 Install the Rust targe toolchain once:
 
+<!-- cSpell:disable -->
 ```sh
 rustup target add aarch64-unknown-linux-gnu
 ```
+<!-- cSpell:enable -->
 
 Set up the environment and build:
 
+<!-- cSpell:disable -->
 ```sh
 . /path/to/yocto/sdk/environment-setup-cortexa53-crypto-poky-linux
 cd sixtyfps
@@ -71,6 +74,7 @@ cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/sixt
 cmake --build .
 cmake --install .
 ```
+<!-- cSpell:enable -->
 
 ## Binary Packages
 
