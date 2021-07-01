@@ -845,7 +845,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         // Safety: TwoWayBinding's T is the same as the type for both properties
         unsafe {
             prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
-            prop2.handle.set_binding(TwoWayBinding { common_property: common_property });
+            prop2.handle.set_binding(TwoWayBinding { common_property });
         }
         prop1.handle.mark_dirty();
     }
@@ -923,7 +923,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
         if time_progress >= duration {
             if self.loop_iteration < self.details.loop_count || self.details.loop_count < 0 {
                 self.loop_iteration += (time_progress / duration) as i32;
-                time_progress = time_progress % duration;
+                time_progress %= duration;
                 self.start_time = new_tick - std::time::Duration::from_millis(time_progress as u64);
             } else {
                 return (self.to_value.clone(), true);
