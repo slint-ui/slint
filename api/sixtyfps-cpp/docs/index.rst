@@ -20,16 +20,16 @@ Welcome to SixtyFPS C++'s documentation!
 
    cmake.md
 
-   Generated Code <generated_code.md>
-
-   Type Mappings <types.md>
-
    api/library_root
 
    markdown/langref.md
    markdown/builtin_elements.md
    markdown/widgets.md
    markdown/layouting.md
+
+   Type Mapping to C++ <types.md>
+
+   Example Generated Code <generated_code.md>
 
 Indices and tables
 ==================
