@@ -53,6 +53,13 @@ public:
     /// Show this component, and runs the event loop
     inline void run () const;
 
+    /// Show the window that renders this component. Call `sixtyfps::run_event_loop()`
+    /// to continuously render the contents and react to user input.
+    inline void show () const;
+
+    /// Hide the window that renders this component.
+    inline void hide () const;
+
     /// Getter for the `counter` property
     inline int get_counter () const -> int;
     /// Setter for the `counter` property
