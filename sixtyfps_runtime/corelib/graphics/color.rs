@@ -174,7 +174,7 @@ impl Color {
     /// So for example `brighter(0.2)` will increase the brightness by 20%, and
     /// calling `brighter(-0.5)` will return a color that's 50% darker.
     pub fn brighter(&self, factor: f32) -> Self {
-        let rgbaf: RgbaColor<f32> = self.clone().into();
+        let rgbaf: RgbaColor<f32> = (*self).into();
         let mut hsva: HsvaColor = rgbaf.into();
         hsva.v *= 1. + factor;
         let rgbaf: RgbaColor<f32> = hsva.into();
@@ -187,7 +187,7 @@ impl Color {
     /// result is converted back to RGB and the alpha channel is unchanged.
     /// So for example `darker(0.3)` will decrease the brightness by 30%.
     pub fn darker(&self, factor: f32) -> Self {
-        let rgbaf: RgbaColor<f32> = self.clone().into();
+        let rgbaf: RgbaColor<f32> = (*self).into();
         let mut hsva: HsvaColor = rgbaf.into();
         hsva.v /= 1. + factor;
         let rgbaf: RgbaColor<f32> = hsva.into();

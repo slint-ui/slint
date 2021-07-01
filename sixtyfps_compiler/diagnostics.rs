@@ -388,7 +388,7 @@ impl BuildDiagnostics {
         self.call_diagnostics(
             &mut (),
             Some(&mut |diag| {
-                let span = diag.span.span.span.clone().or_else(|| {
+                let span = diag.span.span.span.or_else(|| {
                     //let pos =
                     //span_map.binary_search_by_key(d.span.offset, |x| x.0).unwrap_or_else(|x| x);
                     //d.span.span = span_map.get(pos).as_ref().map(|x| x.1);

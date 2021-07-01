@@ -280,7 +280,7 @@ pub fn process_mouse_input(
         if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
             break 'grab;
         };
-        let mut event = mouse_event.clone();
+        let mut event = mouse_event;
         let mut intercept = false;
         let mut invalid = false;
 
@@ -351,14 +351,10 @@ pub fn process_mouse_input(
             mouse_grabber_stack.push(item_rc.downgrade());
 
             let post_visit_state = if mouse_event.pos().map_or(false, |p| geom.contains(p)) {
-                let mut event2 = mouse_event.clone();
+                let mut event2 = mouse_event;
                 event2.translate(-geom.origin.to_vector());
 
-                match item.as_ref().input_event_filter_before_children(
-                    event2.clone(),
-                    window,
-                    &item_rc,
-                ) {
+                match item.as_ref().input_event_filter_before_children(event2, window, &item_rc) {
                     InputEventFilterResult::ForwardAndIgnore => None,
                     InputEventFilterResult::ForwardEvent => {
                         Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), false))
@@ -369,7 +365,7 @@ pub fn process_mouse_input(
                     InputEventFilterResult::Intercept => {
                         return (
                             ItemVisitorResult::Abort,
-                            Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), true)),
+                            Some((event2, mouse_grabber_stack, item_rc.clone(), true)),
                         )
                     }
                 }
@@ -395,7 +391,7 @@ pub fn process_mouse_input(
                     }
                     InputEventResult::EventIgnored => (),
                     InputEventResult::GrabMouse => {
-                        result.item_stack = mouse_grabber_stack.clone();
+                        result.item_stack = mouse_grabber_stack;
                         result.grabbed = true;
                         return VisitChildrenResult::abort(item_rc.index(), 0);
                     }

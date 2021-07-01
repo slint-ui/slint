@@ -138,9 +138,9 @@ impl FontRequest {
     pub fn merge(self, other: &FontRequest) -> Self {
         Self {
             family: self.family.or_else(|| other.family.clone()),
-            weight: self.weight.or_else(|| other.weight.clone()),
-            pixel_size: self.pixel_size.or_else(|| other.pixel_size.clone()),
-            letter_spacing: self.letter_spacing.or_else(|| other.letter_spacing.clone()),
+            weight: self.weight.or(other.weight),
+            pixel_size: self.pixel_size.or(other.pixel_size),
+            letter_spacing: self.letter_spacing.or(other.letter_spacing),
         }
     }
 }
