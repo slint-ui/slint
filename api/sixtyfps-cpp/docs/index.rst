@@ -18,6 +18,8 @@ Welcome to SixtyFPS C++'s documentation!
 
    Introduction <intro.md>
 
+   Usage with CMake<cmake.md>
+
    Generated Code <generated_code.md>
 
    Type Mappings <types.md>
