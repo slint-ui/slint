@@ -23,12 +23,12 @@ pub fn reorder_by_z_order(root_component: &Rc<Component>, diag: &mut BuildDiagno
         &root_component,
         &(),
         &mut |elem: &ElementRc, _| {
-            reorder_children_by_zorder(elem, diag);
+            reorder_children_by_z_order(elem, diag);
         },
     )
 }
 
-fn reorder_children_by_zorder(
+fn reorder_children_by_z_order(
     elem: &Rc<std::cell::RefCell<crate::object_tree::Element>>,
     diag: &mut BuildDiagnostics,
 ) {
