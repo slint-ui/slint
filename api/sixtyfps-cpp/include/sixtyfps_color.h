@@ -57,10 +57,10 @@ public:
     /// Constructs a new color from the given RgbaColor<float> \a col.
     Color(const RgbaColor<float> &col)
     {
-        inner.red = col.red * 255;
-        inner.green = col.green * 255;
-        inner.blue = col.blue * 255;
-        inner.alpha = col.alpha * 255;
+        inner.red = uint8_t(col.red * 255);
+        inner.green = uint8_t(col.green * 255);
+        inner.blue = uint8_t(col.blue * 255);
+        inner.alpha = uint8_t(col.alpha * 255);
     }
 
     /// Construct a color from an integer encoded as `0xAARRGGBB`
@@ -103,10 +103,10 @@ public:
     static Color from_argb_float(float alpha, float red, float green, float blue)
     {
         Color col;
-        col.inner.alpha = alpha * 255;
-        col.inner.red = red * 255;
-        col.inner.green = green * 255;
-        col.inner.blue = blue * 255;
+        col.inner.alpha = uint8_t(alpha * 255);
+        col.inner.red = uint8_t(red * 255);
+        col.inner.green = uint8_t(green * 255);
+        col.inner.blue = uint8_t(blue * 255);
         return col;
     }
 
@@ -210,10 +210,10 @@ inline RgbaColor<uint8_t>::RgbaColor(const Color &color)
 template<>
 inline RgbaColor<float>::RgbaColor(const Color &color)
 {
-    red = float(color.red()) / 255.;
-    green = float(color.green()) / 255.;
-    blue = float(color.blue()) / 255.;
-    alpha = float(color.alpha()) / 255.;
+    red = float(color.red()) / 255.f;
+    green = float(color.green()) / 255.f;
+    blue = float(color.blue()) / 255.f;
+    alpha = float(color.alpha()) / 255.f;
 }
 
 RgbaColor<uint8_t> Color::to_argb_uint() const
