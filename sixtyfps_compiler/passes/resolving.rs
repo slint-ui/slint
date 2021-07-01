@@ -549,7 +549,7 @@ impl Expression {
                             Some(r) => return maybe_lookup_object(r.expression, it, ctx),
                         }
                     } else {
-                        ctx.diag.push_error(format!("Cannot take reference to an enum",), &node);
+                        ctx.diag.push_error("Cannot take reference to an enum".to_string(), &node);
                         return Expression::Invalid;
                     }
                 }
