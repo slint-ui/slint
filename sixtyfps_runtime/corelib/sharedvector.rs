@@ -118,7 +118,7 @@ impl<T> Clone for SharedVector<T> {
             {
                 self.inner.as_ref().header.refcount.fetch_add(1, atomic::Ordering::SeqCst);
             }
-            return SharedVector { inner: self.inner };
+            SharedVector { inner: self.inner }
         }
     }
 }
@@ -171,8 +171,8 @@ impl<T: Clone> SharedVector<T> {
         let mut new_array = SharedVector::with_capacity(new_capacity);
         core::mem::swap(&mut self.inner, &mut new_array.inner);
         let mut size = 0;
-        let mut iter = new_array.into_iter();
-        while let Some(x) = iter.next() {
+        let iter = new_array.into_iter();
+        for x in iter {
             assert_ne!(size, new_capacity);
             unsafe {
                 core::ptr::write(self.inner.as_mut().data.as_mut_ptr().add(size), x);
