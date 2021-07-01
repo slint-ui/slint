@@ -15,7 +15,7 @@ use std::rc::Rc;
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 use crate::object_tree::Component;
 
-pub fn check_public_api(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) -> () {
+pub fn check_public_api(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     root_component.root_element.borrow_mut().property_declarations.values_mut().for_each(|d| {
         if d.property_type.ok_for_public_api() {
             d.expose_in_public_api = true
