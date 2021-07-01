@@ -350,7 +350,7 @@ SCENARIO("Invoke callback")
         auto instance = result->create();
         REQUIRE(instance->set_callback("foo", [](auto args) {
             SharedString arg1 = *args[0].to_string();
-            double arg2 = *args[1].to_number();
+            int arg2 = int(*args[1].to_number());
             std::string res = std::string(arg1) + ":" + std::to_string(arg2);
             return Value(SharedString(res));
         }));
