@@ -650,16 +650,18 @@ jobs:
 
             git add snapshots/$target_branch/demos
             git add -u snapshots/$target_branch/demos
-            rm -rf wasm-interpreter
-            mkdir -p wasm-interpreter
-            cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./wasm-interpreter/
-            git add wasm-interpreter
-            git add -u wasm-interpreter
-            rm -rf editor
-            mkdir -p editor
-            cp -a ../tools/online_editor/dist/* editor/
-            git add editor
-            git add -u editor
+
+            rm -rf snapshots/$target_branch/wasm-interpreter
+            mkdir -p snapshots/$target_branch/wasm-interpreter
+            cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./snapshots/$target_branch/wasm-interpreter/
+            git add snapshots/$target_branch/wasm-interpreter
+            git add -u snapshots/$target_branch/wasm-interpreter
+
+            rm -rf snapshots/$target_branch/editor
+            mkdir -p snapshots/$target_branch/editor
+            cp -a ../tools/online_editor/dist/* snapshots/$target_branch/editor/
+            git add snapshots/$target_branch/editor
+            git add -u snapshots/$target_branch/editor
 
             rm -rf snapshots/$target_branch/docs
             mkdir -p snapshots/$target_branch/docs
