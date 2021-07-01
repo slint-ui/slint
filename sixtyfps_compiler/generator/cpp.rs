@@ -1598,7 +1598,7 @@ fn compile_expression(
                     panic!("internal error: incorrect argument count to RegisterCustomFontByPath call");
                 }
                 if let Expression::StringLiteral(font_path) = &arguments[0] {
-                    format!("sixtyfps::private_api::register_font_from_path(\"{}\");", font_path)
+                    format!("sixtyfps::private_api::register_font_from_path(\"{}\");", escape_string(font_path))
                 } else {
                     panic!("internal error: argument to RegisterCustomFontByPath must be a string literal")
                 }
