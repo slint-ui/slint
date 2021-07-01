@@ -324,8 +324,8 @@ impl CargoDependency {
             toml_edit::Value::InlineTable(table) => {
                 if let (Some(path), Some(version)) = (table.get("path"), table.get("version")) {
                     Some(Self::Full {
-                        path: path.as_str().unwrap_or_default().clone().into(),
-                        version: version.as_str().unwrap_or_default().clone().into(),
+                        path: path.as_str().unwrap_or_default().to_owned(),
+                        version: version.as_str().unwrap_or_default().to_owned(),
                     })
                 } else {
                     None
