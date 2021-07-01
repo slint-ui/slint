@@ -498,7 +498,7 @@ unsafe fn mark_dependencies_dirty(deps: *mut DependencyListHead) {
 /// Types that can be set as bindings for a Property<T>
 pub trait Binding<T> {
     /// Evaluate the binding and return the new value
-    fn evaluate(self: &Self, old_value: &T) -> T;
+    fn evaluate(&self, old_value: &T) -> T;
 }
 
 impl<T, F: Fn() -> T> Binding<T> for F {
