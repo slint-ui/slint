@@ -428,7 +428,7 @@ public:
     VectorModel() = default;
     /// Constructs a new VectorModel from \a array.
     VectorModel(std::vector<ModelData> array) : data(std::move(array)) { }
-    int row_count() const override { return data.size(); }
+    int row_count() const override { return int(data.size()); }
     ModelData row_data(int i) const override { return data[i]; }
     void set_row_data(int i, const ModelData &value) override
     {
@@ -440,7 +440,7 @@ public:
     void push_back(const ModelData &value)
     {
         data.push_back(value);
-        this->row_added(data.size() - 1, 1);
+        this->row_added(int(data.size()) - 1, 1);
     }
 
     /// Remove the row at the given index from the model

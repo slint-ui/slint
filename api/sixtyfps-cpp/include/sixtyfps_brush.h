@@ -39,7 +39,7 @@ public:
     }
 
     /// Returns the number of gradient stops.
-    int stopCount() const { return inner.size() - 1; }
+    int stopCount() const { return int(inner.size()) - 1; }
 
     /// Returns a pointer to the first gradient stop; undefined if the gradient has not stops.
     const GradientStop *stopsBegin() const { return inner.begin() + 1; }

@@ -485,13 +485,13 @@ inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
         return reinterpret_cast<ModelWrapper *>(self.instance)->model->row_count();
     };
     auto row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row, ValueOpaque *out) {
-        Value v = reinterpret_cast<ModelWrapper *>(self.instance)->model->row_data(row);
+        Value v = reinterpret_cast<ModelWrapper *>(self.instance)->model->row_data(int(row));
         *out = v.inner;
         cbindgen_private::sixtyfps_interpreter_value_new(&v.inner);
     };
     auto set_row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row, const ValueOpaque *value) {
         Value v = *reinterpret_cast<const Value *>(value);
-        reinterpret_cast<ModelWrapper *>(self.instance)->model->set_row_data(row, v);
+        reinterpret_cast<ModelWrapper *>(self.instance)->model->set_row_data(int(row), v);
     };
     auto get_notify =
             [](VRef<ModelAdaptorVTable> self) -> const cbindgen_private::ModelNotifyOpaque * {
