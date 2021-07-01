@@ -25,7 +25,7 @@ pub(crate) fn handle_transform_and_opacity(
     diag: &mut BuildDiagnostics,
 ) {
     if let Some(b) = component.root_element.borrow().bindings.get("opacity") {
-        diag.push_error(format!("The opacity property cannot be used on the root element"), b);
+        diag.push_error("The opacity property cannot be used on the root element".to_string(), b);
     }
 
     object_tree::recurse_elem_including_sub_components_no_borrow(
