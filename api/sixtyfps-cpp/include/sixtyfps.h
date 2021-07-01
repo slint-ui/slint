@@ -415,7 +415,7 @@ struct IntModel : Model<int>
     int row_count() const override { return data; }
     int row_data(int value) const override { return value; }
 };
-} // namespace pricate_api
+} // namespace private_api
 
 /// A Model backed by a SharedVector
 template<typename ModelData>
