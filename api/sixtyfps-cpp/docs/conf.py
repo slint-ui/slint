@@ -30,7 +30,7 @@ release = '0.1.0'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["breathe", "recommonmark", "exhale", "sphinx_markdown_tables"]
+extensions = ["breathe", "myst_parser", "exhale", "sphinx_markdown_tables"]
 
 breathe_projects = {
         "SixtyFPS": "./docs/xml"
@@ -76,6 +76,13 @@ html_static_path = ['_static']
 html_show_sourcelink = False
 
 html_logo = "logo.drawio.svg"
+
+myst_enable_extensions = [
+    "html_image",
+]
+
+# Annotate h1/h2 elements with anchors
+myst_heading_anchors = 2
 
 def setup(app):
     app.add_css_file('theme_tweak.css')

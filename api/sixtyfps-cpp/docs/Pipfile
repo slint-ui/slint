@@ -10,7 +10,7 @@ breathe = "*"
 sphinx-rtd-theme = "*"
 sphinx = "*"
 exhale = "*"
-recommonmark = "*"
+myst_parser = "*"
 sphinx-markdown-tables = "*"
 
 [requires]
