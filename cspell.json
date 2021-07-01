@@ -11,6 +11,7 @@
                 "corelib",
                 "rtti",
                 "fullscreen",
+                "itertools",
                 "unmap",
                 "Rgba",
                 "peekable",
@@ -63,14 +64,15 @@
         "SPDX",
         "Helvetica",
         "sixtyfps",
-        "layouting", // This would be worth renaming in the ItemVTable to layout_info
+        "cbindgen",
         "cmake",
+        "layouting", // This would be worth renaming in the ItemVTable to layout_info
+        "listview",
         "MSVC",
         "rustc",
         "SDK",
-        "toolchain",
         "streetsidesoftware",
-        "cbindgen",
+        "toolchain",
         "vtable"
     ],
     "ignorePaths": [
