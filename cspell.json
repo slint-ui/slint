@@ -71,10 +71,10 @@
         "toolchain",
         "streetsidesoftware",
         "cbindgen",
-        "vtable",
-        "drawio"
+        "vtable"
     ],
     "ignorePaths": [
-        "cspell.json"
+        "cspell.json",
+        "api/sixtyfps-cpp/docs/conf.py"
     ]
 }
