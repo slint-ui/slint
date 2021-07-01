@@ -7,9 +7,6 @@ The complete C++ documentation can be viewed online at https://sixtyfps.io/docs/
 
 If you are new to SixtyFPS, you might also consider going through our [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/cpp).
 
-**Warning: Pre-Alpha**
-SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.
-
 ## Tutorial
 
 If you are new to SixtyFPS, then you may be interested in reading our walk-through [SixtyFPS Memory Game Tutorial Tutorial](../tutorial/cpp).
