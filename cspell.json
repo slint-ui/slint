@@ -22,7 +22,6 @@
                 "viewbox",
                 "Flickable",
                 "concat",
-                "layouting", // This would be worth renaming in the ItemVTable to layout_info
                 "Realloc",
                 "MaybeUninit",
                 "uninit",
@@ -37,6 +36,18 @@
                 "/core::(.+)/",
                 "/std::(.+)/"
             ]
+        },
+        {
+            "languageId": "restructuredtext",
+            "words": [
+                "langref",
+                "toctree",
+                "genindex",
+                "modindex"
+            ],
+            "ignoreRegExpList": [
+                "/:.+:/"
+            ]
         }
     ],
     "words": [
@@ -44,6 +55,12 @@
         "Hausmann",
         "SPDX",
         "Helvetica",
-        "sixtyfps"
+        "sixtyfps",
+        "layouting", // This would be worth renaming in the ItemVTable to layout_info
+        "cmake",
+        "MSVC",
+        "rustc",
+        "SDK",
+        "toolchain"
     ]
 }
