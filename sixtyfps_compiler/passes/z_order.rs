@@ -20,7 +20,7 @@ use crate::object_tree::{Component, ElementRc};
 
 pub fn reorder_by_z_order(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components(
-        &root_component,
+        root_component,
         &(),
         &mut |elem: &ElementRc, _| {
             reorder_children_by_z_order(elem, diag);
@@ -84,9 +84,9 @@ fn eval_const_expr(
 ) -> Option<f64> {
     match expression {
         Expression::NumberLiteral(v, Unit::None) => Some(*v),
-        Expression::Cast { from, .. } => eval_const_expr(&from, name, span, diag),
-        Expression::UnaryOp { sub, op: '-' } => eval_const_expr(&sub, name, span, diag).map(|v| -v),
-        Expression::UnaryOp { sub, op: '+' } => eval_const_expr(&sub, name, span, diag),
+        Expression::Cast { from, .. } => eval_const_expr(from, name, span, diag),
+        Expression::UnaryOp { sub, op: '-' } => eval_const_expr(sub, name, span, diag).map(|v| -v),
+        Expression::UnaryOp { sub, op: '+' } => eval_const_expr(sub, name, span, diag),
         _ => {
             diag.push_error(format!("'{}' must be an number literal", name), span);
             None

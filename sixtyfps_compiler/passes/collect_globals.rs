@@ -27,6 +27,6 @@ pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
             hash.insert(global_component.id.clone(), global_component.clone());
         }
     };
-    visit_all_named_references(&root_component, &mut maybe_collect_global);
+    visit_all_named_references(root_component, &mut maybe_collect_global);
     *root_component.used_global.borrow_mut() = hash.into_iter().map(|(_, v)| v).collect();
 }

@@ -170,7 +170,7 @@ pub async fn run_passes(
 ) {
     let global_type_registry = type_loader.global_type_registry.clone();
     passes::infer_aliases_types::resolve_aliases(doc, diag);
-    passes::resolving::resolve_expressions(doc, &type_loader, diag);
+    passes::resolving::resolve_expressions(doc, type_loader, diag);
     passes::check_expressions::check_expressions(doc, diag);
     passes::check_public_api::check_public_api(&doc.root_component, diag);
     passes::inlining::inline(doc);

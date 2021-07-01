@@ -569,7 +569,7 @@ impl<'a> DefaultParser<'a> {
 
     /// Constructor that create a parser from the source code
     pub fn new(source: &str, diags: &'a mut BuildDiagnostics) -> Self {
-        Self::from_tokens(crate::lexer::lex(&source), diags)
+        Self::from_tokens(crate::lexer::lex(source), diags)
     }
 
     fn current_token(&self) -> Token {
@@ -749,7 +749,7 @@ impl NodeOrToken {
 
     pub fn as_node(&self) -> Option<&SyntaxNode> {
         match self {
-            NodeOrToken::Node(n) => Some(&n),
+            NodeOrToken::Node(n) => Some(n),
             NodeOrToken::Token(_) => None,
         }
     }
@@ -757,7 +757,7 @@ impl NodeOrToken {
     pub fn as_token(&self) -> Option<&SyntaxToken> {
         match self {
             NodeOrToken::Node(_) => None,
-            NodeOrToken::Token(t) => Some(&t),
+            NodeOrToken::Token(t) => Some(t),
         }
     }
 

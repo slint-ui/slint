@@ -17,7 +17,7 @@ use crate::langtype::{NativeClass, Type};
 use crate::object_tree::{recurse_elem_including_sub_components, Component};
 
 pub fn resolve_native_classes(component: &Component) {
-    recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         let new_native_class = {
             let elem = elem.borrow();
 
@@ -77,7 +77,7 @@ fn select_minimal_class_based_on_property_usage<'a>(
     let (_min_distance, minimal_class) = properties_used.fold(
         (std::usize::MAX, minimal_class),
         |(current_distance, current_class), prop_name| {
-            let (prop_distance, prop_class) = lookup_property_distance(class.clone(), &prop_name);
+            let (prop_distance, prop_class) = lookup_property_distance(class.clone(), prop_name);
 
             if prop_distance < current_distance {
                 (prop_distance, prop_class)

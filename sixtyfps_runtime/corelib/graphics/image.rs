@@ -75,7 +75,7 @@ impl Image {
     /// Returns the size of the Image in pixels.
     pub fn size(&self) -> crate::graphics::Size {
         match crate::backend::instance() {
-            Some(backend) => backend.image_size(&self),
+            Some(backend) => backend.image_size(self),
             None => panic!("sixtyfps::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
         }
     }

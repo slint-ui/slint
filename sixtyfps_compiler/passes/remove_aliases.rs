@@ -77,7 +77,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                     diag.push_error("Property cannot alias to itself".into(), binding);
                     continue 'bindings;
                 }
-                property_sets.add_link(NamedReference::new(e, &name), nr.clone());
+                property_sets.add_link(NamedReference::new(e, name), nr.clone());
 
                 exp = match next {
                     Some(x) => &*x,
@@ -139,7 +139,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                             crate::passes::inlining::maybe_merge_two_ways(
                                 &mut binding.expression,
                                 &mut 0,
-                                &e.get(),
+                                e.get(),
                             );
                             *e.get_mut() = binding;
                         }

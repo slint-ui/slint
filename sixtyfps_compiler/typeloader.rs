@@ -117,7 +117,7 @@ impl<'a> TypeLoader<'a> {
         diagnostics: &mut BuildDiagnostics,
         registry_to_populate: &Rc<RefCell<TypeRegister>>,
     ) -> Vec<ImportedTypes> {
-        let dependencies = self.collect_dependencies(&doc, diagnostics).await;
+        let dependencies = self.collect_dependencies(doc, diagnostics).await;
         let mut foreign_imports = vec![];
         for mut import in dependencies.into_iter() {
             if import.file.ends_with(".60") {
@@ -287,7 +287,7 @@ impl<'a> TypeLoader<'a> {
         diagnostics: &mut BuildDiagnostics,
     ) {
         let dependency_doc: syntax_nodes::Document =
-            crate::parser::parse(source_code, Some(&source_path), diagnostics).into();
+            crate::parser::parse(source_code, Some(source_path), diagnostics).into();
 
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
@@ -320,7 +320,7 @@ impl<'a> TypeLoader<'a> {
             &dependency_registry,
         );
         crate::passes::infer_aliases_types::resolve_aliases(&doc, diagnostics);
-        crate::passes::resolving::resolve_expressions(&doc, &self, diagnostics);
+        crate::passes::resolving::resolve_expressions(&doc, self, diagnostics);
         crate::passes::check_expressions::check_expressions(&doc, diagnostics);
         self.all_documents.docs.insert(path.to_owned(), doc);
     }
