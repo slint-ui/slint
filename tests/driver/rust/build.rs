@@ -19,7 +19,7 @@ fn main() -> std::io::Result<()> {
         println!("cargo:rerun-if-changed={}", testcase.absolute_path.display());
         let mut module_name = testcase.identifier();
         if module_name.starts_with(|c: char| !c.is_ascii_alphabetic()) {
-            module_name.insert_str(0, "_");
+            module_name.insert(0, '_');
         }
         let source = std::fs::read_to_string(&testcase.absolute_path)?;
 
