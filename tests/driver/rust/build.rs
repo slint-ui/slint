@@ -33,7 +33,7 @@ fn main() -> std::io::Result<()> {
             continue;
         }
 
-        write!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};\n", module_name)?;
+        writeln!(generated_file, "#[path=\"{0}.rs\"] mod r#{0};", module_name)?;
 
         let mut output = std::fs::File::create(
             Path::new(&std::env::var_os("OUT_DIR").unwrap()).join(format!("{}.rs", module_name)),
