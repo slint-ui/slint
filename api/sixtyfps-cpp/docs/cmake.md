@@ -91,7 +91,7 @@ in locating the package.
 
 Once SixtyFPS is built, you can use it in your CMake application or library target in two steps:
 
-1. Associated the `.60` files that you'd like to use by calling the `sixtyfps_target_60_sources` cmake command. The first parameter is
+1. Associate the `.60` files that you'd like to use by calling the `sixtyfps_target_60_sources` cmake command. The first parameter is
    your application (or library) CMake target, and the parameters following are the names of the `.60` files. This will result in the
    `.60` files to be compiled into C++ source code.
 2. The generated C++ source code also needs the SixtyFPS run-time library. This dependency is satisfied by linking `SixtyFPS::SixtyFPS`
@@ -115,8 +115,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SixtyFPS)
 
 add_executable(my_application main.cpp)
-target_link_libraries(my_application PRIVATE SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(my_application my_application_ui.60)
+target_link_libraries(my_application PRIVATE SixtyFPS::SixtyFPS)
 ```
 
 
