@@ -257,7 +257,7 @@ impl BuildDiagnostics {
         span: SourceLocation,
         level: DiagnosticLevel,
     ) {
-        self.inner.push(Diagnostic { message, span, level }.into());
+        self.inner.push(Diagnostic { message, span, level });
     }
     pub fn push_error_with_span(&mut self, message: String, span: SourceLocation) {
         self.push_diagnostic_with_span(message, span, DiagnosticLevel::Error)
@@ -266,7 +266,7 @@ impl BuildDiagnostics {
         self.push_error_with_span(message, source.to_source_location());
     }
     pub fn push_compiler_error(&mut self, error: Diagnostic) {
-        self.inner.push(error.into());
+        self.inner.push(error);
     }
 
     pub fn push_property_deprecation_warning(
