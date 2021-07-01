@@ -63,7 +63,7 @@ impl core::ops::AddAssign<core::time::Duration> for Instant {
 
 impl core::ops::SubAssign<core::time::Duration> for Instant {
     fn sub_assign(&mut self, other: core::time::Duration) {
-        self.0 += other.as_millis() as u64;
+        self.0 -= other.as_millis() as u64;
     }
 }
 
