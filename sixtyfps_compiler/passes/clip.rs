@@ -26,7 +26,7 @@ pub fn handle_clip(
     let native_clip = type_register.lookup("Clip").as_builtin().native_class.clone();
 
     crate::object_tree::recurse_elem_including_sub_components(
-        &component,
+        component,
         &(),
         &mut |elem_rc: &ElementRc, _| {
             let mut elem = elem_rc.borrow_mut();

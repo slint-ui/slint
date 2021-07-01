@@ -688,7 +688,7 @@ impl Element {
                 match QualifiedTypeName::from_node(prop_name_token.clone()).members.as_slice() {
                     [unresolved_prop_name] => {
                         let PropertyLookupResult { resolved_name, property_type } =
-                            r.lookup_property(&unresolved_prop_name);
+                            r.lookup_property(unresolved_prop_name);
                         if let Some(anim_element) = animation_element_from_node(
                             &anim,
                             &prop_name_token,
@@ -698,7 +698,7 @@ impl Element {
                         ) {
                             if unresolved_prop_name != resolved_name.as_ref() {
                                 diag.push_property_deprecation_warning(
-                                    &unresolved_prop_name,
+                                    unresolved_prop_name,
                                     &resolved_name,
                                     &prop_name_token,
                                 );
@@ -1120,10 +1120,10 @@ fn lookup_property_from_qualified_name(
             if !property_type.is_property_type() {
                 diag.push_error(format!("'{}' is not a valid property", qualname), &node);
             }
-            Some((NamedReference::new(&r, &resolved_name), property_type))
+            Some((NamedReference::new(r, &resolved_name), property_type))
         }
         [elem_id, unresolved_prop_name] => {
-            if let Some(element) = find_element_by_id(&r, elem_id.as_ref()) {
+            if let Some(element) = find_element_by_id(r, elem_id.as_ref()) {
                 let PropertyLookupResult { resolved_name, property_type } =
                     element.borrow().lookup_property(unresolved_prop_name.as_ref());
                 if !property_type.is_property_type() {
@@ -1568,7 +1568,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
 
     // Any elements with a weak reference to the repeater's component will need fixing later.
     let mut elements_with_enclosing_component_reference = Vec::new();
-    recurse_elem(&old_root, &(), &mut |element: &ElementRc, _| {
+    recurse_elem(old_root, &(), &mut |element: &ElementRc, _| {
         if let Some(enclosing_component) = element.borrow().enclosing_component.upgrade() {
             if Rc::ptr_eq(&enclosing_component, &component) {
                 elements_with_enclosing_component_reference.push(element.clone());

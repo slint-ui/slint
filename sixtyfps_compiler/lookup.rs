@@ -193,7 +193,7 @@ impl LookupObject for IdLookup {
             }
             None
         }
-        visit(&ctx.component_scope, f)
+        visit(ctx.component_scope, f)
     }
     // TODO: hash based lookup
 }
@@ -265,9 +265,8 @@ impl LookupObject for ElementRc {
         f: &mut impl FnMut(&str, Expression) -> Option<R>,
     ) -> Option<R> {
         for (name, prop) in &self.borrow().property_declarations {
-            let e =
-                expression_from_reference(NamedReference::new(self, &name), &prop.property_type);
-            if let Some(r) = f(&name, e) {
+            let e = expression_from_reference(NamedReference::new(self, name), &prop.property_type);
+            if let Some(r) = f(name, e) {
                 return Some(r);
             }
         }
@@ -279,8 +278,8 @@ impl LookupObject for ElementRc {
             }
         }
         for (name, ty) in crate::typeregister::reserved_properties() {
-            let e = expression_from_reference(NamedReference::new(self, &name), &ty);
-            if let Some(r) = f(&name, e) {
+            let e = expression_from_reference(NamedReference::new(self, name), &ty);
+            if let Some(r) = f(name, e) {
                 return Some(r);
             }
         }
@@ -289,7 +288,7 @@ impl LookupObject for ElementRc {
 
     fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         let crate::langtype::PropertyLookupResult { resolved_name, property_type } =
-            self.borrow().lookup_property(&name);
+            self.borrow().lookup_property(name);
         (property_type != Type::Invalid).then(|| LookupResult {
             expression: expression_from_reference(
                 NamedReference::new(self, &resolved_name),
@@ -507,7 +506,7 @@ impl LookupObject for Expression {
                 Type::Struct { fields, .. } => {
                     for name in fields.keys() {
                         if let Some(r) = f(
-                            &name,
+                            name,
                             Expression::StructFieldAccess {
                                 base: Box::new(self.clone()),
                                 name: name.clone(),

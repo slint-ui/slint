@@ -654,7 +654,7 @@ impl Expression {
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
             Expression::LinearGradient { angle, stops } => {
-                visitor(&angle);
+                visitor(angle);
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -1265,12 +1265,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::EasingCurve(e) => write!(f, "{:?}", e),
         Expression::LinearGradient { angle, stops } => {
             write!(f, "@linear-gradient(")?;
-            pretty_print(f, &angle)?;
+            pretty_print(f, angle)?;
             for (c, s) in stops {
                 write!(f, ", ")?;
-                pretty_print(f, &c)?;
+                pretty_print(f, c)?;
                 write!(f, "  ")?;
-                pretty_print(f, &s)?;
+                pretty_print(f, s)?;
             }
             write!(f, ")")
         }

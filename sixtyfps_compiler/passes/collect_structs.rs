@@ -26,7 +26,7 @@ pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
         });
     };
 
-    recurse_elem_including_sub_components_no_borrow(&root_component, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components_no_borrow(root_component, &(), &mut |elem, _| {
         for x in elem.borrow().property_declarations.values() {
             maybe_collect_object(&x.property_type);
         }
@@ -61,7 +61,7 @@ fn sort_struct(hash: &mut BTreeMap<String, Type>, vec: &mut Vec<Type>, key: &str
         }
 
         for sub_ty in fields.values() {
-            visit_named_object(&sub_ty, &mut |name, _| sort_struct(hash, vec, name));
+            visit_named_object(sub_ty, &mut |name, _| sort_struct(hash, vec, name));
         }
     }
     vec.push(ty)
@@ -72,10 +72,10 @@ fn visit_named_object(ty: &Type, visitor: &mut impl FnMut(&String, &Type)) {
         Type::Struct { fields, name, .. } => {
             name.as_ref().map(|struct_name| visitor(struct_name, ty));
             for sub_ty in fields.values() {
-                visit_named_object(&sub_ty, visitor);
+                visit_named_object(sub_ty, visitor);
             }
         }
-        Type::Array(x) => visit_named_object(&x, visitor),
+        Type::Array(x) => visit_named_object(x, visitor),
         _ => {}
     }
 }

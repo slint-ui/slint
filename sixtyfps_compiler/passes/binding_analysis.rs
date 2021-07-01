@@ -42,7 +42,7 @@ pub fn binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) 
                     continue;
                 }
                 let mut set = PropertySet::default();
-                analyse_binding(e, &name, &mut set, diag);
+                analyse_binding(e, name, &mut set, diag);
             }
         },
     );
@@ -203,21 +203,21 @@ fn visit_implicit_layout_info_dependencies(
     let base_type = item.borrow().base_type.to_string();
     match base_type.as_str() {
         "Image" => {
-            vis(&NamedReference::new(&item, "source"));
+            vis(&NamedReference::new(item, "source"));
             if orientation == Orientation::Vertical {
-                vis(&NamedReference::new(&item, "width"));
+                vis(&NamedReference::new(item, "width"));
             }
         }
         "Text" => {
-            vis(&NamedReference::new(&item, "text"));
-            vis(&NamedReference::new(&item, "font_family"));
-            vis(&NamedReference::new(&item, "font_size"));
-            vis(&NamedReference::new(&item, "font_weight"));
-            vis(&NamedReference::new(&item, "letter_spacing"));
-            vis(&NamedReference::new(&item, "wrap"));
-            vis(&NamedReference::new(&item, "overflow"));
+            vis(&NamedReference::new(item, "text"));
+            vis(&NamedReference::new(item, "font_family"));
+            vis(&NamedReference::new(item, "font_size"));
+            vis(&NamedReference::new(item, "font_weight"));
+            vis(&NamedReference::new(item, "letter_spacing"));
+            vis(&NamedReference::new(item, "wrap"));
+            vis(&NamedReference::new(item, "overflow"));
             if orientation == Orientation::Vertical {
-                vis(&NamedReference::new(&item, "width"));
+                vis(&NamedReference::new(item, "width"));
             }
         }
         _ => (),

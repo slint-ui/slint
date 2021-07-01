@@ -26,7 +26,7 @@ pub fn lower_layouts<'a>(
     *component.root_constraints.borrow_mut() =
         LayoutConstraints::new(&component.root_element, diag);
 
-    recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         let component = elem.borrow().enclosing_component.upgrade().unwrap();
         lower_element_layout(&component, elem, type_register, diag);
         check_no_layout_properties(elem, diag);
@@ -78,7 +78,7 @@ fn lower_grid_layout(
 ) {
     let mut grid = GridLayout {
         elems: Default::default(),
-        geometry: LayoutGeometry::new(&grid_layout_element),
+        geometry: LayoutGeometry::new(grid_layout_element),
     };
 
     let layout_cache_prop_h =
@@ -199,15 +199,15 @@ impl GridLayout {
         }
 
         let index = self.elems.len();
-        if let Some(layout_item) = create_layout_item(&item_element, diag) {
+        if let Some(layout_item) = create_layout_item(item_element, diag) {
             let e = &layout_item.elem;
-            set_prop_from_cache(e, "x", &layout_cache_prop_h, index * 2, &None, diag);
+            set_prop_from_cache(e, "x", layout_cache_prop_h, index * 2, &None, diag);
             if !layout_item.item.constraints.fixed_width {
-                set_prop_from_cache(e, "width", &layout_cache_prop_h, index * 2 + 1, &None, diag);
+                set_prop_from_cache(e, "width", layout_cache_prop_h, index * 2 + 1, &None, diag);
             }
-            set_prop_from_cache(e, "y", &layout_cache_prop_v, index * 2, &None, diag);
+            set_prop_from_cache(e, "y", layout_cache_prop_v, index * 2, &None, diag);
             if !layout_item.item.constraints.fixed_height {
-                set_prop_from_cache(e, "height", &layout_cache_prop_v, index * 2 + 1, &None, diag);
+                set_prop_from_cache(e, "height", layout_cache_prop_v, index * 2 + 1, &None, diag);
             }
 
             self.elems.push(GridLayoutElement {
@@ -230,7 +230,7 @@ fn lower_box_layout(
     let mut layout = BoxLayout {
         orientation,
         elems: Default::default(),
-        geometry: LayoutGeometry::new(&layout_element),
+        geometry: LayoutGeometry::new(layout_element),
     };
 
     let layout_cache_prop = create_new_prop(layout_element, "layout_cache", Type::LayoutCache);
@@ -501,7 +501,7 @@ fn eval_const_expr(
                 Some(r)
             }
         }
-        Expression::Cast { from, .. } => eval_const_expr(&from, name, span, diag),
+        Expression::Cast { from, .. } => eval_const_expr(from, name, span, diag),
         _ => {
             diag.push_error(format!("'{}' must be an integer literal", name), span);
             None
