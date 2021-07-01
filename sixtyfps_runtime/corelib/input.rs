@@ -325,7 +325,9 @@ pub fn process_mouse_input(
         let item = if let Some(item) = it.upgrade() { item } else { break };
         let g = item.borrow().as_ref().geometry();
         let contains = pos.map_or(false, |p| g.contains(p));
-        pos.as_mut().map(|p| *p -= g.origin.to_vector());
+        if let Some(p) = pos.as_mut() {
+            *p -= g.origin.to_vector();
+        }
         if !contains {
             item.borrow().as_ref().input_event(MouseEvent::MouseExit, window, &item);
         }

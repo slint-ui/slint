@@ -263,7 +263,9 @@ impl<T> Model for ModelHandle<T> {
     }
 
     fn attach_peer(&self, peer: ModelPeer) {
-        self.0.as_ref().map(|model| model.attach_peer(peer));
+        if let Some(model) = self.0.as_ref() {
+            model.attach_peer(peer);
+        }
     }
 }
 
