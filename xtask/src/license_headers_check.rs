@@ -481,17 +481,15 @@ impl LicenseHeaderCheck {
             }
         } else if source.tag_matches(&EXPECTED_HEADER) {
             Ok(())
+        } else if self.fixit {
+            let source = source.replace_tag(&EXPECTED_HEADER);
+            std::fs::write(path, &source).context("Error writing new source")
         } else {
-            if self.fixit {
-                let source = source.replace_tag(&EXPECTED_HEADER);
-                std::fs::write(path, &source).context("Error writing new source")
-            } else {
-                Err(anyhow::anyhow!(
-                    "unexpected header.\nexpected: {}\nfound: {}",
-                    EXPECTED_HEADER.to_string(style),
-                    source.found_tag()
-                ))
-            }
+            Err(anyhow::anyhow!(
+                "unexpected header.\nexpected: {}\nfound: {}",
+                EXPECTED_HEADER.to_string(style),
+                source.found_tag()
+            ))
         }
     }
 
