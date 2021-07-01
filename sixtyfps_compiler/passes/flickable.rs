@@ -34,7 +34,7 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
     }
 
     crate::object_tree::recurse_elem_including_sub_components(
-        &root_component,
+        root_component,
         &(),
         &mut |elem: &ElementRc, _| {
             if !matches!(elem.borrow().builtin_type(), Some(n) if n.name == "Flickable") {

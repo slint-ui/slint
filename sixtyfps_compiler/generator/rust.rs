@@ -55,9 +55,9 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             // This will produce a tuple
             Some(quote!((#(#elem,)*)))
         }
-        Type::Struct { name: Some(name), .. } => Some(struct_name_to_tokens(&name)),
+        Type::Struct { name: Some(name), .. } => Some(struct_name_to_tokens(name)),
         Type::Array(o) => {
-            let inner = rust_type(&o)?;
+            let inner = rust_type(o)?;
             Some(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
         }
         Type::Enumeration(e) => {
@@ -183,7 +183,7 @@ fn handle_property_binding(
         };
 
     if matches!(prop_type, Type::Callback { .. }) {
-        let tokens_for_expression = compile_expression(binding_expression, &component);
+        let tokens_for_expression = compile_expression(binding_expression, component);
         init.push(quote!(
             #rust_property.set_handler({
                 #downgrade
@@ -209,7 +209,7 @@ fn handle_property_binding(
             )
         }
     } else {
-        let tokens_for_expression = compile_expression(binding_expression, &component);
+        let tokens_for_expression = compile_expression(binding_expression, component);
         init.push(if is_constant {
             let t = rust_type(&prop_type).unwrap_or(quote!(_));
             quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
@@ -303,7 +303,7 @@ fn generate_component(
                 .collect::<Vec<_>>();
             let return_type = return_type
                 .as_ref()
-                .map_or(quote!(()), |a| get_rust_type(&a, &property_decl.type_node(), diag));
+                .map_or(quote!(()), |a| get_rust_type(a, &property_decl.type_node(), diag));
 
             if property_decl.expose_in_public_api {
                 let args_name = (0..callback_args.len())
@@ -1046,7 +1046,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         }
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
-            let f = compile_expression(&*from, &component);
+            let f = compile_expression(&*from, component);
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
@@ -1185,7 +1185,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
         Expression::CodeBlock(sub) => {
-            let map = sub.iter().map(|e| compile_expression(e, &component));
+            let map = sub.iter().map(|e| compile_expression(e, component));
             quote!({ #(#map);* })
         }
         Expression::CallbackReference(nr) => access_named_reference(
@@ -1271,8 +1271,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     }
                 }
                 _ => {
-                    let f = compile_expression(function, &component);
-                    let a = arguments.iter().map(|a| compile_expression(a, &component));
+                    let f = compile_expression(function, component);
+                    let a = arguments.iter().map(|a| compile_expression(a, component));
                     let function_type = function.ty();
                     match function_type {
                          Type::Callback { args, .. } => {
@@ -1300,7 +1300,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
 
         }
         Expression::SelfAssignment { lhs, rhs, op } => {
-            let rhs = compile_expression(&*rhs, &component);
+            let rhs = compile_expression(&*rhs, component);
             compile_assignment(lhs, *op, rhs, component)
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
@@ -1325,8 +1325,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 }
                 _ => (None, None),
             };
-            let lhs = compile_expression(&*lhs, &component);
-            let rhs = compile_expression(&*rhs, &component);
+            let lhs = compile_expression(&*lhs, component);
+            let rhs = compile_expression(&*rhs, component);
 
             let op = match op {
                 '=' => quote!(==),
@@ -1344,7 +1344,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             quote!( ((#lhs #conv1 ) #op (#rhs #conv2)) )
         }
         Expression::UnaryOp { sub, op } => {
-            let sub = compile_expression(&*sub, &component);
+            let sub = compile_expression(&*sub, component);
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( #op #sub )
         }
@@ -1383,7 +1383,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             quote!(compile_error! {#error})
         }
         Expression::Array { values, element_ty } => {
-            let rust_element_ty = rust_type(&element_ty).unwrap();
+            let rust_element_ty = rust_type(element_ty).unwrap();
             let val = values.iter().map(|e| compile_expression(e, component));
             quote!(sixtyfps::re_exports::ModelHandle::new(
                 std::rc::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(vec![#(#val as _),*]))
@@ -1449,7 +1449,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             let cache = access_named_reference(layout_cache_prop, component, quote!(_self));
             if let Some(ri) = repeater_index {
-                let offset = compile_expression(&ri, component);
+                let offset = compile_expression(ri, component);
                 quote!({
                     let cache = #cache.get();
                     cache[(cache[#index] as usize) + #offset as usize * 2]
@@ -1710,7 +1710,7 @@ fn box_layout_data(
             if item.element.borrow().repeated.is_some() {
                 let repeater_id = format_ident!("repeater_{}", item.element.borrow().id);
                 let rep_inner_component_id =
-                    self::inner_component_id(&item.element.borrow().base_type.as_component());
+                    self::inner_component_id(item.element.borrow().base_type.as_component());
                 repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
                 let ri = repeated_indices.as_ref().map(|(ri, _)| {
                     quote!(

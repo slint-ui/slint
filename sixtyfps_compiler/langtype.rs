@@ -349,7 +349,7 @@ impl Type {
     /// Assume this is a builtin type, panic if it isn't
     pub fn as_builtin(&self) -> &BuiltinElement {
         match self {
-            Type::Builtin(b) => &b,
+            Type::Builtin(b) => b,
             Type::Component(_) => panic!("This should not happen because of inlining"),
             _ => panic!("invalid type"),
         }
@@ -358,7 +358,7 @@ impl Type {
     /// Assume this is a builtin type, panic if it isn't
     pub fn as_native(&self) -> &NativeClass {
         match self {
-            Type::Native(b) => &b,
+            Type::Native(b) => b,
             Type::Component(_) => {
                 panic!("This should not happen because of native class resolution")
             }

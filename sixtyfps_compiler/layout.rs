@@ -143,14 +143,14 @@ pub struct LayoutConstraints {
 impl LayoutConstraints {
     pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics) -> Self {
         let mut constraints = Self {
-            min_width: binding_reference(&element, "min_width"),
-            max_width: binding_reference(&element, "max_width"),
-            min_height: binding_reference(&element, "min_height"),
-            max_height: binding_reference(&element, "max_height"),
-            preferred_width: binding_reference(&element, "preferred_width"),
-            preferred_height: binding_reference(&element, "preferred_height"),
-            horizontal_stretch: binding_reference(&element, "horizontal_stretch"),
-            vertical_stretch: binding_reference(&element, "vertical_stretch"),
+            min_width: binding_reference(element, "min_width"),
+            max_width: binding_reference(element, "max_width"),
+            min_height: binding_reference(element, "min_height"),
+            max_height: binding_reference(element, "max_height"),
+            preferred_width: binding_reference(element, "preferred_width"),
+            preferred_height: binding_reference(element, "preferred_height"),
+            horizontal_stretch: binding_reference(element, "horizontal_stretch"),
+            vertical_stretch: binding_reference(element, "vertical_stretch"),
             fixed_width: false,
             fixed_height: false,
         };

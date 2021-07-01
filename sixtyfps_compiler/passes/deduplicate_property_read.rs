@@ -88,7 +88,7 @@ impl<'a> DedupPropState<'a> {
 }
 
 fn process_expression(expr: &mut Expression, old_state: &DedupPropState) {
-    let new_state = DedupPropState { parent_state: Some(&old_state), ..DedupPropState::default() };
+    let new_state = DedupPropState { parent_state: Some(old_state), ..DedupPropState::default() };
     collect_unconditional_read_count(expr, &new_state);
     process_conditional_expressions(expr, &new_state);
     do_replacements(expr, &new_state);
