@@ -16,9 +16,9 @@ Welcome to SixtyFPS C++'s documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   Introduction <intro.md>
+   intro.md
 
-   Usage with CMake<cmake.md>
+   cmake.md
 
    Generated Code <generated_code.md>
 
