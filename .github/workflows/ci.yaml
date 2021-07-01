@@ -660,20 +660,22 @@ jobs:
             cp -a ../tools/online_editor/dist/* editor/
             git add editor
             git add -u editor
-            rm -rf docs
-            mkdir -p docs
-            mkdir -p docs/cpp
-            cp -a ../target/cppdocs/html/* docs/cpp/
-            mkdir -p docs/rust
-            cp -a ../target/doc/* docs/rust/
-            mkdir -p docs/tutorial/rust
-            cp -a ../docs/tutorial/rust/book/html/* docs/tutorial/rust
-            mkdir -p docs/tutorial/cpp
-            cp -a ../docs/tutorial/cpp/book/html/* docs/tutorial/cpp
-            mkdir -p docs/node
-            cp -a ../api/sixtyfps-node/docs/* docs/node/
-            git add docs
-            git add -u docs
+
+            rm -rf snapshots/$target_branch/docs
+            mkdir -p snapshots/$target_branch/docs
+            mkdir -p snapshots/$target_branch/docs/cpp
+            cp -a ../target/cppdocs/html/* snapshots/$target_branch/docs/cpp/
+            mkdir -p snapshots/$target_branch/docs/rust
+            cp -a ../target/doc/* snapshots/$target_branch/docs/rust/
+            mkdir -p snapshots/$target_branch/docs/tutorial/rust
+            cp -a ../docs/tutorial/rust/book/html/* snapshots/$target_branch/docs/tutorial/rust
+            mkdir -p snapshots/$target_branch/docs/tutorial/cpp
+            cp -a ../docs/tutorial/cpp/book/html/* snapshots/$target_branch/docs/tutorial/cpp
+            mkdir -p snapshots/$target_branch/docs/node
+            cp -a ../api/sixtyfps-node/docs/* snapshots/$target_branch/docs/node/
+            git add snapshots/$target_branch/docs
+            git add -u snapshots/$target_branch/docs
+
             git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
             git push origin master
 
