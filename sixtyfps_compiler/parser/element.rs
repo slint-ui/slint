@@ -214,13 +214,11 @@ fn parse_binding_expression(p: &mut impl Parser) -> bool {
         parse_code_block(&mut *p);
         p.test(SyntaxKind::Semicolon);
         true
+    } else if parse_expression(&mut *p) {
+        p.expect(SyntaxKind::Semicolon)
     } else {
-        if parse_expression(&mut *p) {
-            p.expect(SyntaxKind::Semicolon)
-        } else {
-            p.test(SyntaxKind::Semicolon);
-            false
-        }
+        p.test(SyntaxKind::Semicolon);
+        false
     }
 }
 

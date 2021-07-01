@@ -506,10 +506,8 @@ impl Item for FocusScope {
         /*if !self.enabled() {
             return InputEventResult::EventIgnored;
         }*/
-        if matches!(event, MouseEvent::MousePressed { .. }) {
-            if !self.has_focus() {
-                window.set_focus_item(self_rc);
-            }
+        if matches!(event, MouseEvent::MousePressed { .. }) && !self.has_focus() {
+            window.set_focus_item(self_rc);
         }
         InputEventResult::EventIgnored
     }
