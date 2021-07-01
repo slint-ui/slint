@@ -17,8 +17,8 @@ First you need to install the prerequisites:
 * **cmake** (3.16 or newer)
 * A C++ compiler that supports C++17 (e.g., **MSVC 2019** on Windows)
 
-You can include SixtyFPS in your CMake project using CMake's `FetchContent` feature. Insert the following snippet into your
-`CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:
+You can include SixtyFPS in your CMake project using CMake's [`FetchContent`](https://cmake.org/cmake/help/latest/module/FetchContent.html) feature.
+Insert the following snippet into your `CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:
 
 ```cmake
 include(FetchContent)
@@ -89,6 +89,14 @@ in locating the package.
 
 ## Usage
 
+Once SixtyFPS is built, you can use it in your CMake application or library target in two steps:
+
+1. Associated the `.60` files that you'd like to use by calling the `sixtyfps_target_60_sources` cmake command. The first parameter is
+   your application (or library) CMake target, and the parameters following are the names of the `.60` files. This will result in the
+   `.60` files to be compiled into C++ source code.
+2. The generated C++ source code also needs the SixtyFPS run-time library. This dependency is satisfied by linking `SixtyFPS::SixtyFPS`
+   into your target with the `target_link_libraries` command.
+
 A typical example looks like this:
 
 ```cmake
@@ -111,5 +119,4 @@ target_link_libraries(my_application PRIVATE SixtyFPS::SixtyFPS)
 sixtyfps_target_60_sources(my_application my_application_ui.60)
 ```
 
-The `sixtyfps_target_60_sources` cmake command allows you to add .60 files to your build. Finally it is
-necessary to link your executable or library against the `SixtyFPS::SixtyFPS` target.
+
