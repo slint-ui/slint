@@ -41,9 +41,7 @@ fn reorder_children_by_zorder(
             .remove("z")
             .and_then(|e| eval_const_expr(&e.expression, "z", &e, diag));
         let z = z.or_else(|| {
-            if child_elm.borrow().repeated.is_none() {
-                return None;
-            };
+            child_elm.borrow().repeated.as_ref()?;
             if let Type::Component(c) = &child_elm.borrow().base_type {
                 c.root_element
                     .borrow_mut()
