@@ -7,10 +7,7 @@
 ..    This file is also available under commercial licensing terms.
 ..    Please contact info@sixtyfps.io for more information.
 .. LICENSE END
-.. SixtyFPS C++ documentation master file, created by
-   sphinx-quickstart on Mon Aug 24 14:21:19 2020.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+.. SixtyFPS C++ documentation master file
 
 Welcome to SixtyFPS C++'s documentation!
 ========================================
@@ -19,7 +16,7 @@ Welcome to SixtyFPS C++'s documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   Introduction <README.md>
+   Introduction <intro.md>
 
    Generated Code <generated_code.md>
 
