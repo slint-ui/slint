@@ -173,7 +173,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             if let Some(d) = elem.property_declarations.get_mut(remove.name()) {
                 if d.expose_in_public_api {
                     d.is_alias = Some(to.clone());
-                    drop(d);
+                    drop(std::mem::take(d));
                     drop(elem);
                     // one must mark the aliased property as setable from outside
                     to.element()
@@ -184,7 +184,6 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                         .or_default()
                         .is_set = true;
                 } else {
-                    drop(d);
                     elem.property_declarations.remove(remove.name());
                 }
             } else {
