@@ -203,7 +203,7 @@ impl Expression {
     ) -> Expression {
         let return_type = ctx.return_type().clone();
         Expression::ReturnStatement(node.Expression().map(|n| {
-            Box::new(Self::from_expression_node(n.into(), ctx).maybe_convert_to(
+            Box::new(Self::from_expression_node(n, ctx).maybe_convert_to(
                 return_type,
                 &node,
                 &mut ctx.diag,
