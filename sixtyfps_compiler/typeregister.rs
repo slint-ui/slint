@@ -15,7 +15,7 @@ use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{BuiltinPropertyInfo, Enumeration, PropertyLookupResult, Type};
 use crate::object_tree::Component;
 
-pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] = &[
+pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("x", Type::LogicalLength),
     ("y", Type::LogicalLength),
     ("width", Type::LogicalLength),
@@ -23,7 +23,7 @@ pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &'static [(&'static str, Type)] =
     ("z", Type::Float32),
 ];
 
-const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
+const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("min_width", Type::LogicalLength),
     ("min_height", Type::LogicalLength),
     ("max_width", Type::LogicalLength),
@@ -43,13 +43,13 @@ const RESERVED_LAYOUT_PROPERTIES: &'static [(&'static str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
-const RESERVED_OTHER_PROPERTIES: &'static [(&'static str, Type)] = &[
+const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
     ("clip", Type::Bool),
     ("opacity", Type::Float32),
     ("visible", Type::Bool), // ("enabled", Type::Bool),
 ];
 
-pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &'static [(&'static str, Type)] = &[
+pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop_shadow_offset_x", Type::LogicalLength),
     ("drop_shadow_offset_y", Type::LogicalLength),
     ("drop_shadow_blur", Type::LogicalLength),

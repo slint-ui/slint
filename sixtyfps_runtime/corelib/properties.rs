@@ -1389,7 +1389,7 @@ pub struct PropertyTracker<ChangeHandler = ()> {
 
 impl Default for PropertyTracker<()> {
     fn default() -> Self {
-        static VT: &'static BindingVTable = &BindingVTable {
+        static VT: &BindingVTable = &BindingVTable {
             drop: |_| (),
             evaluate: |_, _| BindingResult::KeepBinding,
             mark_dirty: |_, _| (),
