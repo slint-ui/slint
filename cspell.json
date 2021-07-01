@@ -9,14 +9,12 @@
                 "winit",
                 "femtovg",
                 "corelib",
-                "cbindgen",
                 "rtti",
                 "fullscreen",
                 "unmap",
                 "Rgba",
                 "peekable",
                 "builtins",
-                "vtable",
                 "Consts",
                 "evenodd",
                 "viewbox",
@@ -71,7 +69,10 @@
         "rustc",
         "SDK",
         "toolchain",
-        "streetsidesoftware"
+        "streetsidesoftware",
+        "cbindgen",
+        "vtable",
+        "drawio"
     ],
     "ignorePaths": [
         "cspell.json"
