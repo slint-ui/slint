@@ -20,3 +20,5 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: streetsidesoftware/cspell-action@v1.2.4
+      with:
+        config: './cspell.json'

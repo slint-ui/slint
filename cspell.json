@@ -70,6 +70,10 @@
         "MSVC",
         "rustc",
         "SDK",
-        "toolchain"
+        "toolchain",
+        "streetsidesoftware"
+    ],
+    "ignorePaths": [
+        "cspell.json"
     ]
 }
