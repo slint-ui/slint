@@ -18,7 +18,8 @@ App := Window {
 
         HorizontalBox {
             Text {
-                text: "Below are some of the standard widgets that\napplication developers can easily re-use.";
+                text: "Below are some of the standard widgets that application developers can easily re-use.";
+                wrap: word_wrap;
             }
 
             VerticalLayout {

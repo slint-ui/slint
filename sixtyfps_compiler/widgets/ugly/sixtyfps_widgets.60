@@ -76,42 +76,40 @@ export CheckBox := Rectangle {
     property <string> text;
     property <bool> checked;
     property<bool> enabled <=> touch_area.enabled;
-
-    max_height: 20px;
-    min_height: 20px;
-    min_width: 120px;
-    horizontal-stretch: 1;
+    height: 20px;
+    horizontal-stretch: 0;
     vertical-stretch: 0;
 
-    // the check box iteself
-    indicator := Rectangle {
-        height: root.height;
-        width: root.height * 2;
-        border_width: 1px;
-        border_radius: root.height / 2;
-        border_color: root.enabled ? (root.checked ? Palette.highlight_background : black) : Palette.text_color_disabled;
-        background: root.checked ? (root.enabled ? Palette.highlight_background : Palette.text_color_disabled) : white;
-        animate background { duration: 100ms; }
+    HorizontalLayout {
+        spacing: 8px;
+        // the check box iteself
+        indicator := Rectangle {
+            width: 40px;
+            border_width: 1px;
+            border_radius: root.height / 2;
+            border_color: root.enabled ? (root.checked ? Palette.highlight_background : black) : Palette.text_color_disabled;
+            background: root.checked ? (root.enabled ? Palette.highlight_background : Palette.text_color_disabled) : white;
+            animate background { duration: 100ms; }
 
-        bubble := Rectangle {
-            width: root.height - 8px;
-            height: bubble.width;
-            border_radius: bubble.height / 2;
-            y: 4px;
-            x: 4px + a * (indicator.width - bubble.width - 8px);
-            property <float> a: root.checked ? 1 : 0;
-            background: root.checked ? white : (root.enabled ? Palette.button_background : Palette.text_color_disabled);
-            animate a, background { duration: 200ms; easing: ease;}
+            bubble := Rectangle {
+                width: root.height - 8px;
+                height: bubble.width;
+                border_radius: bubble.height / 2;
+                y: 4px;
+                x: 4px + a * (indicator.width - bubble.width - 8px);
+                property <float> a: root.checked ? 1 : 0;
+                background: root.checked ? white : (root.enabled ? Palette.button_background : Palette.text_color_disabled);
+                animate a, background { duration: 200ms; easing: ease;}
+            }
         }
-    }
 
-    Text {
-        x: indicator.width + 8px;
-        text: root.text;
-        vertical-alignment: center;
-        width: parent.width - self.x;
-        height: parent.height;
-        color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+        Text {
+            min_width: max(100px, preferred_width);
+            text: root.text;
+            vertical-alignment: center;
+            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+        }
+
     }
 
     touch_area := TouchArea {
