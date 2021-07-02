@@ -101,5 +101,12 @@ myst_enable_extensions = [
 # Annotate h1/h2 elements with anchors
 myst_heading_anchors = 2
 
+rst_epilog = """
+.. |ListView| replace:: :code:`ListView`
+.. _ListView: ../markdown/widgets.html#listview
+.. |Repetition| replace:: :code:`for` - :code:`in`
+.. _Repetition: ../markdown/langref.html#repetition
+"""
+
 def setup(app):
     app.add_css_file('theme_tweak.css')

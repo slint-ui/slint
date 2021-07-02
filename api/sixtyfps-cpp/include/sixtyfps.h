@@ -51,7 +51,7 @@ struct ItemVTable;
 /// :cpp:class:`sixtyfps::ComponentHandle` is in scope, similar to :code:`std::shared_ptr<T>`.
 ///
 /// For more complex UIs it is common to supply data in the form of an abstract data model, that is
-/// used with :code:`for` - :code:`in` repetitions or :code:`ListView` elements in the :code:`.60`
+/// used with |Repetition|_ repetitions or |ListView|_ elements in the :code:`.60`
 /// language. All models in C++ are sub-classes of the :cpp:class:`sixtyfps::Model` and you can
 /// sub-class it yourself. For convenience, the :cpp:class:`sixtyfps::VectorModel` provides an
 /// implementation that is backed by a :code:`std::vector<T>`.
@@ -349,8 +349,10 @@ using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
 
 } // namespace private_api
 
-/// A Model is providing Data for :code:`for` - :code:`in` repetitions or ListView elements of the
-/// `.60` language
+/// \rst
+/// A Model is providing Data for |Repetition|_ repetitions or |ListView|_ elements of the
+/// :code:`.60` language
+/// \endrst
 template<typename ModelData>
 class Model
 {
