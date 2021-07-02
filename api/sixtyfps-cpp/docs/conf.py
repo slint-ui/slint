@@ -69,7 +69,7 @@ templates_path = ['_templates']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'markdown/tutorial',
+exclude_patterns = ['_build', 'html/_static/collapsible-lists/LICENSE.md', 'Thumbs.db', '.DS_Store', 'markdown/tutorial',
     'markdown/building.md', 'markdown/development.md', 'markdown/install_qt.md',
     'markdown/README.md', 'README.md'
 ]
