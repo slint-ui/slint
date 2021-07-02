@@ -169,7 +169,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                     }
                 }
                 return TokenStream::from(
-                    quote_spanned! {a.span() => compile_error!{"const_field_offset attreibute must be a crate name"}},
+                    quote_spanned! {a.span() => compile_error!{"const_field_offset attribute must be a crate name"}},
                 );
             } else if i == "pin" {
                 pin = true;
@@ -181,7 +181,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     }
     if !has_repr_c {
         return TokenStream::from(
-            quote! {compile_error!{"FieldOffsets inly work if the structure repr(C)"}},
+            quote! {compile_error!{"FieldOffsets only work for structures using repr(C)"}},
         );
     }
 
@@ -224,7 +224,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
                 })
             },
             Some(quote! {
-
                     /// Make sure that Unpin is not implemented
                     pub struct __MustNotImplUnpin<'__dummy_lifetime> (
                         #(#types, )*

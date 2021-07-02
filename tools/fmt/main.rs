@@ -168,7 +168,7 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, _state: &mut State) -> st
         let mut writer = FileWriter { file };
         fmt::format_document(doc, &mut writer)
     } else {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a Dcouemnt"))
+        Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a Document"))
     }
 }
 
