@@ -37,9 +37,10 @@ struct ItemVTable;
 /// There are two ways of loading :code:`.60` markup files in your application:
 ///
 /// #. You could translate them to C++ with the help of the :code:`sixtyfps_target_60_sources`
-///    cmake command and use the generated C++ API to instantiate the UI, set or get property
-///    values or callback handlers. That API will use types from the :code:`sixtyfps` namespace,
-///    for example :cpp:class:`sixtyfps::SharedString` or :cpp:class:`sixtyfps::Color`.
+///    cmake command and use the :doc:`generated C++ API<../generated_code>` to instantiate the UI,
+///    set or get property values or callback handlers. That API will use types from the
+///    :code:`sixtyfps` namespace, for example :cpp:class:`sixtyfps::SharedString` or
+///    :cpp:class:`sixtyfps::Color`.
 /// #. Alternatively, you can choose to load the :code:`.60` files dynamically at run-time, using
 ///    the SixtyFPS Interpreter from the :code:`sixtyfps::interpreter` namespace, starting at
 ///    :cpp:class:`sixtyfps::interpreter::ComponentCompiler`.
