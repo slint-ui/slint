@@ -181,7 +181,7 @@ public:
                 cbindgen_private::sixtyfps_interpreter_struct_iterator_destructor(&inner);
             }
         }
-        // FIXME i believe iterator are supposed to be copy constructible
+        // FIXME I believe iterators are supposed to be copy constructible
         iterator(const iterator &) = delete;
         iterator &operator=(const iterator &) = delete;
         /// Move-constructs a new iterator from \a other.

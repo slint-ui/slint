@@ -8,13 +8,13 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 /*!
-    Work in progress for a formater.
+    Work in progress for a formatter.
     Use like this to format a file:
     ```sh
         cargo run sixtyfps-fmt -- -i some_file.60
     ```
 
-    Some code in this main.rs file is duplicated with the syntax_updator, i guess it could
+    Some code in this main.rs file is duplicated with the syntax_updater, I guess it could
     be refactored in a separate utility crate or module or something.
 
     The [`TokenWriter`] trait is meant to be able to support the LSP later as the
@@ -33,7 +33,7 @@ struct Cli {
     #[structopt(name = "path to .60 file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,
 
-    /// modify the file inline instead of outputing to stdout
+    /// modify the file inline instead of printing to stdout
     #[structopt(short, long)]
     inline: bool,
 }
@@ -54,7 +54,7 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-/// FIXME! this is duplicated with the updator
+/// FIXME! this is duplicated with the updater
 fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut source_slice = &source[..];
     let sixtyfps_macro = format!("{}!", "sixtyfps"); // in a variable so it does not appear as is
@@ -109,7 +109,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
     return file.write_all(source_slice.as_bytes());
 }
 
-/// FIXME! this is duplicated with the updator
+/// FIXME! this is duplicated with the updater
 fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut source_slice = &source[..];
     const CODE_FENCE_START: &'static str = "```60\n";
@@ -168,7 +168,7 @@ fn visit_node(node: SyntaxNode, file: &mut impl Write, _state: &mut State) -> st
         let mut writer = FileWriter { file };
         fmt::format_document(doc, &mut writer)
     } else {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a Dcouemnt"))
+        Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a Document"))
     }
 }
 
