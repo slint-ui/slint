@@ -1,0 +1,52 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Window {
+    width: 400phx;
+    height: 400phx;
+
+    GridLayout {
+        spacing: 10phx;
+        padding: 50phx;
+
+        rr := Rectangle {
+            background: red;
+            row: 0; col: 0;
+            colspan: 2;
+            max_width: 30phx;
+        }
+        rb := Rectangle {
+            background: blue;
+            row: 2; col: 1;
+            colspan: 2;
+            max_width: 40phx;
+        }
+        rg := Rectangle {
+            background: green;
+            row: 3; col: 1;
+            horizontal_stretch: 0;
+            preferred_width: 20phx;
+        }
+        ry := Rectangle {
+            background: yellow;
+            min_height: 200phx;
+            col: 3;
+            row: 0;
+            rowspan: 2;
+            horizontal_stretch: 0;
+            vertical_stretch: 0;
+        }
+    }
+
+    property <bool> test: {
+        rr.x == 50phx && rr.y == 50phx && rr.width == 30phx && rr.height == (200phx - 10phx) / 2 &&
+        rb.width == 40phx && rg.width == 20phx && rg.height == (400phx - 200phx - 100phx - 20phx) / 2
+    }
+
+}

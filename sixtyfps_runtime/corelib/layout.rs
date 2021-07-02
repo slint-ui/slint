@@ -228,6 +228,101 @@ mod grid_internal {
         assert_eq!(my_items[1].size, 100.);
         assert_eq!(my_items[2].size, 100.);
     }
+
+    /// Create a vector of LayoutData for an array of GridLayoutCellData
+    pub fn to_layout_data(
+        data: &[GridLayoutCellData],
+        spacing: Coord,
+        size: Option<Coord>,
+    ) -> Vec<LayoutData> {
+        let mut num = 0;
+        for cell in data {
+            num = num.max(cell.col_or_row + cell.span);
+        }
+        if num < 1 {
+            return Default::default();
+        }
+        let mut layout_data =
+            vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num as usize];
+        let mut has_spans = false;
+        for cell in data {
+            let cnstr = &cell.constraint;
+            let mut max = cnstr.max;
+            if let Some(size) = size {
+                max = max.min(size * cnstr.max_percent / 100.);
+            }
+            for c in 0..(cell.span as usize) {
+                let cdata = &mut layout_data[cell.col_or_row as usize + c];
+                cdata.max = cdata.max.min(max);
+            }
+            if cell.span == 1 {
+                let mut min = cnstr.min;
+                if let Some(size) = size {
+                    min = min.max(size * cnstr.min_percent / 100.);
+                }
+                let pref = cnstr.preferred.min(max).max(min);
+                let cdata = &mut layout_data[cell.col_or_row as usize];
+                cdata.min = cdata.min.max(min);
+                cdata.pref = cdata.pref.max(pref);
+                cdata.stretch = cdata.stretch.min(cnstr.stretch);
+            } else {
+                has_spans = true;
+            }
+        }
+        if has_spans {
+            // Adjust minimum sizes
+            for cell in data.iter().filter(|cell| cell.span > 1) {
+                let span_data = &mut layout_data
+                    [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
+                let mut min = cell.constraint.min;
+                if let Some(size) = size {
+                    min = min.max(size * cell.constraint.min_percent / 100.);
+                }
+                grid_internal::layout_items(span_data, 0., min, spacing);
+                for cdata in span_data {
+                    if cdata.min < cdata.size {
+                        cdata.min = cdata.size;
+                    }
+                }
+            }
+            // Adjust maximum sizes
+            for cell in data.iter().filter(|cell| cell.span > 1) {
+                let span_data = &mut layout_data
+                    [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
+                let mut max = cell.constraint.max;
+                if let Some(size) = size {
+                    max = max.min(size * cell.constraint.max_percent / 100.);
+                }
+                grid_internal::layout_items(span_data, 0., max, spacing);
+                for cdata in span_data {
+                    if cdata.max > cdata.size {
+                        cdata.max = cdata.size;
+                    }
+                }
+            }
+            // Adjust preferred sizes
+            for cell in data.iter().filter(|cell| cell.span > 1) {
+                let span_data = &mut layout_data
+                    [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
+                grid_internal::layout_items(span_data, 0., cell.constraint.preferred, spacing);
+                for cdata in span_data {
+                    cdata.pref = cdata.pref.max(cdata.size).min(cdata.max).max(cdata.min);
+                }
+            }
+            // Adjust stretches
+            for cell in data.iter().filter(|cell| cell.span > 1) {
+                let span_data = &mut layout_data
+                    [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
+                let total_stretch: f32 = span_data.iter().map(|c| c.stretch).sum();
+                if total_stretch > cell.constraint.stretch {
+                    for cdata in span_data {
+                        cdata.stretch *= cell.constraint.stretch / total_stretch;
+                    }
+                }
+            }
+        }
+        layout_data
+    }
 }
 
 #[repr(C)]
@@ -268,49 +363,14 @@ pub struct GridLayoutCellData {
     pub constraint: LayoutInfo,
 }
 
-/// return, an array which is of siz `data.cells.len() * 4` which for each cell we give the x, y, width, height
+/// return, an array which is of size `data.cells.len() * 2` which for each cell we give the pos, size
 pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
-    let mut num = 0;
-    for cell in data.cells.iter() {
-        num = num.max(cell.col_or_row + cell.span);
-    }
+    let mut layout_data =
+        grid_internal::to_layout_data(data.cells.as_slice(), data.spacing, Some(data.size));
 
-    if num < 1 {
+    if layout_data.is_empty() {
         return Default::default();
     }
-
-    let mut layout_data =
-        vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num as usize];
-
-    for cell in data.cells.iter() {
-        let cnstr = &cell.constraint;
-        let max = cnstr.max.min(data.size * cnstr.max_percent / 100.);
-        let min = cnstr.min.max(data.size * cnstr.min_percent / 100.) / (cell.span as f32);
-        let pref = (cnstr.preferred / cell.span as f32).min(max).max(min);
-
-        for c in 0..(cell.span as usize) {
-            let cdata = &mut layout_data[cell.col_or_row as usize + c];
-            cdata.max = cdata.max.min(max);
-            cdata.min = cdata.min.max(min);
-            cdata.pref = cdata.pref.max(pref);
-            cdata.stretch = cdata.stretch.min(cnstr.stretch);
-        }
-    }
-
-    // Normalize so that all the values are 1 or more
-    let normalize_stretch = |v: &mut Vec<grid_internal::LayoutData>| {
-        let mut small: Option<f32> = None;
-        v.iter().for_each(|x| {
-            if x.stretch > 0. {
-                small = Some(small.map(|y| y.min(x.stretch)).unwrap_or(x.stretch))
-            }
-        });
-        if small.unwrap_or(0.) < 1. {
-            v.iter_mut()
-                .for_each(|x| x.stretch = if let Some(s) = small { x.stretch / s } else { 1. })
-        }
-    };
-    normalize_stretch(&mut layout_data);
 
     grid_internal::layout_items(
         &mut layout_data,
@@ -318,6 +378,7 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
         data.size - (data.padding.begin + data.padding.end),
         data.spacing,
     );
+
     let mut result = SharedVector::with_capacity(4 * data.cells.len());
     for cell in data.cells.iter() {
         let cdata = &layout_data[cell.col_or_row as usize];
@@ -336,25 +397,11 @@ pub fn grid_layout_info<'a>(
     spacing: Coord,
     padding: &Padding,
 ) -> LayoutInfo {
-    let mut num = 0;
-    for cell in cells.iter() {
-        num = num.max(cell.col_or_row + cell.span);
+    let layout_data = grid_internal::to_layout_data(cells.as_slice(), spacing, None);
+    if layout_data.is_empty() {
+        return Default::default();
     }
-
-    if num < 1 {
-        return LayoutInfo { max: 0., ..LayoutInfo::default() };
-    }
-
-    let mut layout_data = vec![grid_internal::LayoutData::default(); num as usize];
-    for cell in cells.iter() {
-        let cdata = &mut layout_data[cell.col_or_row as usize];
-        cdata.max = cdata.max.min(cell.constraint.max);
-        cdata.min = cdata.min.max(cell.constraint.min);
-        cdata.pref = cdata.pref.max(cell.constraint.preferred);
-        cdata.stretch = cdata.stretch.min(cell.constraint.stretch);
-    }
-
-    let spacing_w = spacing * (num - 1) as Coord + padding.begin + padding.end;
+    let spacing_w = spacing * (layout_data.len() - 1) as Coord + padding.begin + padding.end;
     let min = layout_data.iter().map(|data| data.min).sum::<Coord>() + spacing_w;
     let max = layout_data.iter().map(|data| data.max).sum::<Coord>() + spacing_w;
     let preferred = layout_data.iter().map(|data| data.pref).sum::<Coord>() + spacing_w;
