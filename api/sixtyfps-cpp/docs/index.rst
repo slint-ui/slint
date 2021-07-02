@@ -20,6 +20,8 @@ Welcome to SixtyFPS C++'s documentation!
 
    cmake.md
 
+   getting_started.md
+
    api/library_root
 
    language.rst
