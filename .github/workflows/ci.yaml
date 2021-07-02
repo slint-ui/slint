@@ -555,7 +555,7 @@ jobs:
       SIXTYFPS_INTERPRETER_ERROR_WHITELIST: "is part of a binding loop"
     strategy:
       matrix:
-        from_version: ['0.0.5', '0.0.6']
+        from_version: ['0.0.5', '0.0.6', '0.1.0']
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
