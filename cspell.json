@@ -5,35 +5,30 @@
         {
             "languageId": "rust",
             "words": [
+                "bindgen",
                 "builtins",
                 "concat",
                 "Consts",
-                "corelib",
                 "evenodd",
                 "femtovg",
                 "Flickable",
                 "fullscreen",
-                "itertools",
-                "MaybeUninit",
                 "peekable",
                 "Realloc",
-                "Rgba",
                 "rtti",
-                "triomphe",
                 "uninit",
                 "unmap",
-                "viewbox",
-                "wasm",
-                "winit"
+                "unsync",
+                "viewbox"
             ],
             "ignoreRegExpList": [
-                "/#\\[cfg(.+)\\]/",
-                "/#\\[repr(.+)\\]/",
-                // Excludes various crate paths
-                "/crate::(.+)/",
-                "/winit::(.+)/",
-                "/core::(.+)/",
-                "/std::(.+)/"
+                "/#\\[cfg\\b.+\\]/",
+                "/#\\[repr\\b.+\\]/",
+                // Exclude crate paths
+                "/(\\b|::)[a-z0-9_]+::/",
+                "/::[a-z0-9_]+(\\b|::)/",
+                // Qt things:
+                "/\\bQt_[a-zA-Z0-9_]+/"
             ]
         },
         {
@@ -59,25 +54,43 @@
         }
     ],
     "words": [
+        "Bezier",
         "cbindgen",
         "cmake",
+        "colspan",
+        "datastructures",
         "Goffart",
+        "gradians",
         "Hausmann",
         "Helvetica",
         "layouting", // This would be worth renaming in the ItemVTable to layout_info
+        "linebreak",
         "listview",
+        "lvalue",
         "MSVC",
+        "rowspan",
         "rustc",
+        "rvalue",
         "SDK",
         "sixtyfps",
         "SPDX",
         "streetsidesoftware",
+        "testcase",
+        "tmpobj",
         "toolchain",
-        "vtable"
+        "uncompiled",
+        "untracked",
+        "vtable",
+        "wasm",
+        "xtask"
     ],
     "ignorePaths": [
         "cspell.json",
         "api/sixtyfps-cpp/docs/conf.py"
+    ],
+    "ignoreRegExpList": [
+        // Color encodings in all languages:
+        "/\\b(0x|#)?[argbARGB]+\\b/"
     ],
     "overrides": [
         {
