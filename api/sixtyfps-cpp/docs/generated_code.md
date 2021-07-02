@@ -61,7 +61,7 @@ public:
     inline void hide () const;
 
     /// Getter for the `counter` property
-    inline int get_counter () const -> int;
+    inline int get_counter () const;
     /// Setter for the `counter` property
     inline void set_counter (const int &value) const;
 
