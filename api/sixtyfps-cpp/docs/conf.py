@@ -13,6 +13,7 @@
 # import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
+import textwrap
 
 
 # -- Project information -----------------------------------------------------
@@ -41,6 +42,18 @@ exhale_args = {
         "containmentFolder": "./api",
         "rootFileName": "library_root.rst",
         "rootFileTitle": "C++ API Reference",
+        "afterTitleDescription": textwrap.dedent('''
+            .. note::
+
+            The following sections present the C++ API Reference. All types are
+            within the :ref:`sixtyfps<namespace_sixtyfps>` namespace and are accessible by including
+            the :code:`sixtyfps.h` header file.
+
+            If you choose to load :code:`.60` files dynamically at run-time, then
+            you can use the classes in :ref:`sixtyfps::interpreter<namespace_sixtyfps__interpreter>`, starting at
+            :cpp:class:`sixtyfps::interpreter::ComponentCompiler`. You need to include
+            the :code:`sixtyfps_interpreter.h` header file.
+        '''),
         "doxygenStripFromPath": "..",
         "createTreeView": True,
         "exhaleExecutesDoxygen": True,
