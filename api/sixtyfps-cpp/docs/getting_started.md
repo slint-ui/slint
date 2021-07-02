@@ -14,8 +14,8 @@ A typical example looks like this:
 cmake_minimum_required(VERSION 3.16)
 project(my_application LANGUAGES CXX)
 
-# Note: Use find_package(SixtyFPS) instead of the following three commands, if you prefer the package
-# approach.
+# Note: Use find_package(SixtyFPS) instead of the following three commands,
+# if you prefer the package approach.
 include(FetchContent)
 FetchContent_Declare(
     SixtyFPS
