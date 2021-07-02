@@ -46,7 +46,7 @@ struct Cli {
 
 fn main() -> std::io::Result<()> {
     let args = Cli::from_args();
-    if !matches!(args.from.as_str(), "0.0.5" | "0.0.6") {
+    if !matches!(args.from.as_str(), "0.0.5" | "0.0.6" | "0.1.0") {
         eprintln!("Invalid from version is supported, use `--from 0.0.5`");
         std::process::exit(1);
     }
@@ -226,7 +226,9 @@ fn fold_node(
             return Ok(true);
         }
     }
-    from_0_0_6::fold_node(node, file, state)
+    if args.from.as_str() <= "0.0.6" {
+        from_0_0_6::fold_node(node, file, state)
+    }
 }
 
 fn fold_token(
