@@ -39,7 +39,7 @@ fn reorder_children_by_z_order(
             .borrow_mut()
             .bindings
             .remove("z")
-            .and_then(|e| eval_const_expr(&e.expression, "z", &e, diag));
+            .and_then(|e| evaluate_const_expr(&e.expression, "z", &e, diag));
         let z = z.or_else(|| {
             child_elm.borrow().repeated.as_ref()?;
             if let Type::Component(c) = &child_elm.borrow().base_type {
@@ -47,7 +47,7 @@ fn reorder_children_by_z_order(
                     .borrow_mut()
                     .bindings
                     .remove("z")
-                    .and_then(|e| eval_const_expr(&e.expression, "z", &e, diag))
+                    .and_then(|e| evaluate_const_expr(&e.expression, "z", &e, diag))
             } else {
                 None
             }
@@ -76,7 +76,7 @@ fn reorder_children_by_z_order(
     }
 }
 
-fn eval_const_expr(
+fn evaluate_const_expr(
     expression: &Expression,
     name: &str,
     span: &dyn crate::diagnostics::Spanned,
@@ -84,9 +84,11 @@ fn eval_const_expr(
 ) -> Option<f64> {
     match expression {
         Expression::NumberLiteral(v, Unit::None) => Some(*v),
-        Expression::Cast { from, .. } => eval_const_expr(from, name, span, diag),
-        Expression::UnaryOp { sub, op: '-' } => eval_const_expr(sub, name, span, diag).map(|v| -v),
-        Expression::UnaryOp { sub, op: '+' } => eval_const_expr(sub, name, span, diag),
+        Expression::Cast { from, .. } => evaluate_const_expr(from, name, span, diag),
+        Expression::UnaryOp { sub, op: '-' } => {
+            evaluate_const_expr(sub, name, span, diag).map(|v| -v)
+        }
+        Expression::UnaryOp { sub, op: '+' } => evaluate_const_expr(sub, name, span, diag),
         _ => {
             diag.push_error(format!("'{}' must be an number literal", name), span);
             None

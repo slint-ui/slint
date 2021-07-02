@@ -8,41 +8,33 @@
                 "builtins",
                 "concat",
                 "Consts",
-                "corelib",
                 "evenodd",
                 "femtovg",
                 "Flickable",
                 "fullscreen",
-                "itertools",
-                "MaybeUninit",
                 "peekable",
                 "Realloc",
-                "Rgba",
                 "rtti",
-                "triomphe",
                 "uninit",
                 "unmap",
-                "viewbox",
-                "wasm",
-                "winit"
+                "unsync",
+                "viewbox"
             ],
             "ignoreRegExpList": [
-                "/#\\[cfg(.+)\\]/",
-                "/#\\[repr(.+)\\]/",
-                // Excludes various crate paths
-                "/crate::(.+)/",
-                "/winit::(.+)/",
-                "/core::(.+)/",
-                "/std::(.+)/"
+                "/#\\[cfg\\b.+\\]/",
+                "/#\\[repr\\b.+\\]/",
+                // Exclude crate paths
+                "/(\\b|::)[a-z0-9_]+::/",
+                "/::[a-z0-9_]+(\\b|::)/"
             ]
         },
         {
             "languageId": "restructuredtext",
             "words": [
-                "langref",
-                "toctree",
                 "genindex",
-                "modindex"
+                "langref",
+                "modindex",
+                "toctree"
             ],
             "ignoreRegExpList": [
                 "/:.+:/"
@@ -51,29 +43,44 @@
         {
             "languageId": "markdown",
             "words": [
-                "SUBDIR",
                 "rustup",
+                "SUBDIR",
                 "Yocto"
             ],
             "ignoreRegExpList": []
         }
     ],
     "words": [
+        "aarrggbb",
+        "analysing",
+        "argb",
+        "Bezier",
         "cbindgen",
         "cmake",
+        "datastructures",
         "Goffart",
+        "gradians",
         "Hausmann",
         "Helvetica",
         "layouting", // This would be worth renaming in the ItemVTable to layout_info
+        "linebreak",
         "listview",
+        "lvalue",
         "MSVC",
         "rustc",
+        "rvalue",
         "SDK",
         "sixtyfps",
         "SPDX",
         "streetsidesoftware",
+        "testcase",
+        "tmpobj",
         "toolchain",
-        "vtable"
+        "uncompiled",
+        "untracked",
+        "vtable",
+        "wasm",
+        "xtask"
     ],
     "ignorePaths": [
         "cspell.json",

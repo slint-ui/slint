@@ -309,8 +309,8 @@ fn to_debug_string(
 pub fn min_max_expression(lhs: Expression, rhs: Expression, op: char) -> Expression {
     let ty = lhs.ty();
     let id = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let n1 = format!("minmax_lhs{}", id);
-    let n2 = format!("minmax_rhs{}", id);
+    let n1 = format!("min_max_lhs{}", id);
+    let n2 = format!("min_max_rhs{}", id);
     let a1 = Box::new(Expression::ReadLocalVariable { name: n1.clone(), ty: ty.clone() });
     let a2 = Box::new(Expression::ReadLocalVariable { name: n2.clone(), ty });
     Expression::CodeBlock(vec![

@@ -83,6 +83,7 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
         if let Some(a) = name.strip_prefix(pre) {
             for suf in &["width", "height"] {
                 if let Some(b) = a.strip_suffix(suf) {
+                    // cSpell: disable-next-line
                     if b == "imum_" {
                         return PropertyLookupResult {
                             property_type: Type::LogicalLength,

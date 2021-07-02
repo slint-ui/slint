@@ -353,14 +353,14 @@ impl LayoutGeometry {
 #[derive(Debug, Clone)]
 pub struct GridLayout {
     /// All the elements will be layout within that element.
-    pub elems: Vec<GridLayoutElement>,
+    pub elements: Vec<GridLayoutElement>,
 
     pub geometry: LayoutGeometry,
 }
 
 impl GridLayout {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
-        for cell in &mut self.elems {
+        for cell in &mut self.elements {
             cell.item.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);
@@ -372,13 +372,13 @@ impl GridLayout {
 pub struct BoxLayout {
     /// Whether, this is a HorizontalLayout, otherwise a VerticalLayout
     pub orientation: Orientation,
-    pub elems: Vec<LayoutItem>,
+    pub elements: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
 }
 
 impl BoxLayout {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
-        for cell in &mut self.elems {
+        for cell in &mut self.elements {
             cell.constraints.visit_named_references(visitor);
         }
         self.geometry.visit_named_references(visitor);

@@ -1,7 +1,7 @@
 /* LICENSE BEGIN
     This file is part of the SixtyFPS Project -- https://sixtyfps.io
-    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
-    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+    Copyright (c) 2020 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2020 Simon Hausmann <simon.hausmann@sixtyfps.io>
 
     SPDX-License-Identifier: GPL-3.0-only
     This file is also available under commercial licensing terms.
@@ -302,7 +302,7 @@ impl Expression {
             .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignment_node(n, ctx)))
             .or_else(|| node.BinaryExpression().map(|n| Self::from_binary_expression_node(n, ctx)))
             .or_else(|| {
-                node.UnaryOpExpression().map(|n| Self::from_unaryop_expression_node(n, ctx))
+                node.UnaryOpExpression().map(|n| Self::from_unary_op_expression_node(n, ctx))
             })
             .or_else(|| {
                 node.ConditionalExpression().map(|n| Self::from_conditional_expression_node(n, ctx))
@@ -338,7 +338,7 @@ impl Expression {
                 ctx.type_loader
                     .map(|loader| {
                         loader
-                            .resolve_import_path(Some(&(*node).clone().into()), &s)
+                            .resolve_import_path(destSome(&(*node).clone().into()), &s)
                             .0
                             .to_string_lossy()
                             .to_string()
@@ -513,8 +513,8 @@ impl Expression {
             Some(x) => x,
         };
 
-        if let Some(depr) = result.deprecated {
-            ctx.diag.push_property_deprecation_warning(&first_str, &depr, &first);
+        if let Some(deprecation) = result.deprecated {
+            ctx.diag.push_property_deprecation_warning(&first_str, &deprecation, &first);
         }
 
         match result.expression {
@@ -745,7 +745,7 @@ impl Expression {
         }
     }
 
-    fn from_unaryop_expression_node(
+    fn from_unary_op_expression_node(
         node: syntax_nodes::UnaryOpExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
@@ -999,12 +999,12 @@ fn maybe_lookup_object(
                         return Expression::Invalid;
                     }
                 }
-                let ty_descr = match base.ty() {
+                let ty_description = match base.ty() {
                     Type::Struct { .. } => String::new(),
                     ty => format!(" of {}", ty),
                 };
                 ctx.diag.push_error(
-                    format!("Cannot access the field '{}'{}", next.text(), ty_descr),
+                    format!("Cannot access the field '{}'{}", next.text(), ty_description),
                     &next,
                 );
                 return Expression::Invalid;

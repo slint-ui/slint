@@ -1654,7 +1654,7 @@ fn grid_layout_cell_data(
     orientation: Orientation,
     component: &Rc<Component>,
 ) -> TokenStream {
-    let cells = layout.elems.iter().map(|c| {
+    let cells = layout.elements.iter().map(|c| {
         let (col_or_row, span) = c.col_or_row_and_span(orientation);
         let layout_info =
             get_layout_info(&c.item.element, component, &c.item.constraints, orientation);
@@ -1683,10 +1683,10 @@ fn box_layout_data(
     };
 
     let repeater_count =
-        layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
+        layout.elements.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
 
     if repeater_count == 0 {
-        let cells = layout.elems.iter().map(|li| {
+        let cells = layout.elements.iter().map(|li| {
             let layout_info = get_layout_info(&li.element, component, &li.constraints, orientation);
             quote!(BoxLayoutCellData { constraint: #layout_info })
         });
@@ -1704,7 +1704,7 @@ fn box_layout_data(
             **init = quote!( let mut #ri = [ 0u32; #repeater_count * 2]; );
         }
         let mut repeater_idx = 0usize;
-        for item in &layout.elems {
+        for item in &layout.elements {
             if item.element.borrow().repeated.is_some() {
                 let repeater_id = format_ident!("repeater_{}", item.element.borrow().id);
                 let rep_inner_component_id =

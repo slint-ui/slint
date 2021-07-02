@@ -235,7 +235,7 @@ declare_units! {
     ///
     Percent = "%" -> Percent,
 
-    // Lengths or Coord
+    // Lengths or coordinates
 
     /// Physical pixels
     Phx = "phx" -> PhysicalLength,
@@ -466,7 +466,7 @@ impl Expression {
             Expression::TwoWayBinding(nr, _) => nr.ty(),
             Expression::CallbackReference(nr) => nr.ty(),
             Expression::PropertyReference(nr) => nr.ty(),
-            Expression::BuiltinFunctionReference(funcref, _) => funcref.ty(),
+            Expression::BuiltinFunctionReference(func_ref, _) => func_ref.ty(),
             Expression::MemberFunction { member, .. } => member.ty(),
             Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type
             Expression::ElementReference(_) => Type::ElementReference,

@@ -84,7 +84,7 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
 }
 
 fn fixup_geometry(flickable_elem: &ElementRc) {
-    let forward_minmax_of = |prop: &str, op: char| {
+    let forward_min_max_of = |prop: &str, op: char| {
         set_binding_if_not_explicit(flickable_elem, prop, || {
             flickable_elem
                 .borrow()
@@ -97,12 +97,12 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
     };
 
     if !flickable_elem.borrow().bindings.contains_key("height") {
-        forward_minmax_of("max_height", '<');
-        forward_minmax_of("preferred_height", '<');
+        forward_min_max_of("max_height", '<');
+        forward_min_max_of("preferred_height", '<');
     }
     if !flickable_elem.borrow().bindings.contains_key("width") {
-        forward_minmax_of("max_width", '<');
-        forward_minmax_of("preferred_width", '<');
+        forward_min_max_of("max_width", '<');
+        forward_min_max_of("preferred_width", '<');
     }
     set_binding_if_not_explicit(flickable_elem, "viewport_width", || {
         Some(

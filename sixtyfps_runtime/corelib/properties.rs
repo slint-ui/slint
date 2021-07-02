@@ -483,8 +483,8 @@ impl Drop for PropertyHandle {
 }
 
 /// Safety: the dependency list must be valid and consistent
-unsafe fn mark_dependencies_dirty(deps: *mut DependencyListHead) {
-    let mut next = (*deps).0.get() as *const DependencyNode;
+unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
+    let mut next = (*dependencies).0.get() as *const DependencyNode;
     while let Some(node) = next.as_ref() {
         node.debug_assert_valid();
         next = node.next.get();
@@ -727,7 +727,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             compute_animation_details: || -> AnimationDetail { None },
         };
 
-        // Safety: the AnimatedBindingCallable's type match the property type
+        // Safety: the `AnimatedBindingCallable`'s type match the property type
         unsafe { self.handle.set_binding(binding_callable) };
         self.handle.mark_dirty();
     }
@@ -760,7 +760,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             compute_animation_details: move || Some(compute_animation_details()),
         };
 
-        // Safety: the AnimatedBindingCallable's type match the property type
+        // Safety: the `AnimatedBindingCallable`'s type match the property type
         unsafe { self.handle.set_binding(binding_callable) };
         self.handle.mark_dirty();
     }

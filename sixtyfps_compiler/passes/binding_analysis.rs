@@ -139,10 +139,10 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&NamedReference)) 
             }
             match l {
                 crate::layout::Layout::GridLayout(l) => {
-                    visit_layout_items_dependencies(l.elems.iter().map(|it| &it.item), *o, vis)
+                    visit_layout_items_dependencies(l.elements.iter().map(|it| &it.item), *o, vis)
                 }
                 crate::layout::Layout::BoxLayout(l) => {
-                    visit_layout_items_dependencies(l.elems.iter(), *o, vis)
+                    visit_layout_items_dependencies(l.elements.iter(), *o, vis)
                 }
                 crate::layout::Layout::PathLayout(l) => {
                     for it in &l.elements {

@@ -114,7 +114,7 @@ impl<'a> SourceFileWithTags<'a> {
 }
 
 #[test]
-fn test_license_tag_cstyle() {
+fn test_license_tag_c_style() {
     let style = LicenseTagStyle::c_style_comment_style();
     {
         let test_source = SourceFileWithTags::new(
@@ -154,7 +154,7 @@ fn test_license_tag_hash() {
     {
         let test_source = SourceFileWithTags::new(
             r#"# LICENSE BEGIN
-# blub
+# some text
 # LICENSE END
 
 blah"#,
@@ -192,6 +192,7 @@ enum LicenseLocation {
 
 lazy_static! {
     static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
+        // cSpell:disable
         ("^helper_crates/const-field-offset/src/lib.rs$", LicenseLocation::NoLicense), // Upstream fork
         ("^helper_crates/const-field-offset/Cargo.toml$", LicenseLocation::NoLicense), // Upstream fork
         (".+webpack\\..+\\.js$", LicenseLocation::NoLicense),
@@ -239,6 +240,7 @@ lazy_static! {
         ("LICENSE-DejaVu", LicenseLocation::NoLicense),
         ("^examples/slide_puzzle/plaster-font/OFL.txt$", LicenseLocation::NoLicense),
         ("^examples/printerdemo/ui/fonts/LICENSE_OFL.txt$", LicenseLocation::NoLicense),
+        // cSpell:enable
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
