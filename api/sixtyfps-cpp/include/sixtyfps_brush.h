@@ -15,8 +15,11 @@ LICENSE END */
 
 namespace sixtyfps {
 
+namespace private_api {
+
 using cbindgen_private::types::GradientStop;
 
+/// \private
 /// LinearGradientBrush represents a gradient for a brush that is a linear sequence of color stops,
 /// that are aligned at a specific angle.
 class LinearGradientBrush
@@ -50,18 +53,20 @@ public:
 private:
     cbindgen_private::types::LinearGradientBrush inner;
 
-    friend class Brush;
+    friend class sixtyfps::Brush;
 
-    static SharedVector<GradientStop>
+    static SharedVector<private_api::GradientStop>
     make_linear_gradient(float angle, const GradientStop *firstStop, int stopCount)
     {
-        SharedVector<GradientStop> gradient;
+        SharedVector<private_api::GradientStop> gradient;
         gradient.push_back({ Color::from_argb_encoded(0).inner, angle });
         for (int i = 0; i < stopCount; ++i, ++firstStop)
             gradient.push_back(*firstStop);
         return gradient;
     }
 };
+
+}
 
 /// Brush is used to declare how to fill or outline shapes, such as rectangles, paths or text. A
 /// brush is either a solid color or a linear gradient.
@@ -72,8 +77,12 @@ public:
     Brush() : Brush(Color {}) { }
     /// Constructs a new brush that is of color \a color.
     Brush(const Color &color) : data(Inner::SolidColor(color.inner)) { }
+    /// \private
     /// Constructs a new brush that is the gradient \a gradient.
-    Brush(const LinearGradientBrush &gradient) : data(Inner::LinearGradient(gradient.inner)) { }
+    Brush(const private_api::LinearGradientBrush &gradient)
+        : data(Inner::LinearGradient(gradient.inner))
+    {
+    }
 
     /// Returns the color of the brush. If the brush is a gradient, this function returns the color
     /// of the first stop.

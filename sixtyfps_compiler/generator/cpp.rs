@@ -1700,10 +1700,10 @@ fn compile_expression(
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, component);
                 let position = compile_expression(stop, component);
-                format!("sixtyfps::GradientStop{{ {}, {}, }}", color, position)
+                format!("sixtyfps::private_api::GradientStop{{ {}, {}, }}", color, position)
             });
             format!(
-                "[&] {{ const sixtyfps::GradientStop stops[] = {{ {} }}; return sixtyfps::LinearGradientBrush({}, stops, {}); }}()",
+                "[&] {{ const sixtyfps::private_api::GradientStop stops[] = {{ {} }}; return sixtyfps::private_api::LinearGradientBrush({}, stops, {}); }}()",
                 stops_it.join(", "), angle, stops.len()
             )
         }

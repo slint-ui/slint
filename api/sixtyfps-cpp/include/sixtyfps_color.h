@@ -16,6 +16,10 @@ LICENSE END */
 
 namespace sixtyfps {
 
+namespace private_api {
+class LinearGradientBrush;
+}
+
 class Color;
 
 /// RgbaColor stores the red, green, blue and alpha components of a color
@@ -178,7 +182,7 @@ public:
 
 private:
     cbindgen_private::types::Color inner;
-    friend class LinearGradientBrush;
+    friend class private_api::LinearGradientBrush;
     friend class Brush;
 };
 
