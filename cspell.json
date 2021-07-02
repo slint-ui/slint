@@ -5,26 +5,26 @@
         {
             "languageId": "rust",
             "words": [
-                "wasm",
-                "winit",
-                "femtovg",
+                "builtins",
+                "concat",
+                "Consts",
                 "corelib",
-                "rtti",
+                "evenodd",
+                "femtovg",
+                "Flickable",
                 "fullscreen",
                 "itertools",
-                "unmap",
-                "Rgba",
-                "peekable",
-                "builtins",
-                "Consts",
-                "evenodd",
-                "viewbox",
-                "Flickable",
-                "concat",
-                "Realloc",
                 "MaybeUninit",
+                "peekable",
+                "Realloc",
+                "Rgba",
+                "rtti",
+                "triomphe",
                 "uninit",
-                "triomphe"
+                "unmap",
+                "viewbox",
+                "wasm",
+                "winit"
             ],
             "ignoreRegExpList": [
                 "/#\\[cfg(.+)\\]/",
@@ -39,10 +39,10 @@
         {
             "languageId": "restructuredtext",
             "words": [
-                "langref",
-                "toctree",
                 "genindex",
-                "modindex"
+                "langref",
+                "modindex",
+                "toctree"
             ],
             "ignoreRegExpList": [
                 "/:.+:/"
@@ -51,26 +51,26 @@
         {
             "languageId": "markdown",
             "words": [
-                "SUBDIR",
                 "rustup",
+                "SUBDIR",
                 "Yocto"
             ],
             "ignoreRegExpList": []
         }
     ],
     "words": [
-        "Goffart",
-        "Hausmann",
-        "SPDX",
-        "Helvetica",
-        "sixtyfps",
         "cbindgen",
         "cmake",
+        "Goffart",
+        "Hausmann",
+        "Helvetica",
         "layouting", // This would be worth renaming in the ItemVTable to layout_info
         "listview",
         "MSVC",
         "rustc",
         "SDK",
+        "sixtyfps",
+        "SPDX",
         "streetsidesoftware",
         "toolchain",
         "vtable"
