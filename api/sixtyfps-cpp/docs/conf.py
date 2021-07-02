@@ -19,7 +19,7 @@ import textwrap
 # -- Project information -----------------------------------------------------
 
 project = 'SixtyFPS C++'
-copyright = '2020, info@sixtyfps.io'
+copyright = '2021, info@sixtyfps.io'
 author = 'info@sixtyfps.io'
 
 # The full version, including alpha/beta/rc tags
