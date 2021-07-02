@@ -1,6 +1,17 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Changed
+
+### Added
+
+### Fixed
+
+ - GridLayout cells with colspan and rowspan respect properly their constraints
+
+
 ## [0.1.0] - 2021-06-30
 
 ### Changed
