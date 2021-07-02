@@ -43,8 +43,6 @@ exhale_args = {
         "rootFileName": "library_root.rst",
         "rootFileTitle": "C++ API Reference",
         "afterTitleDescription": textwrap.dedent('''
-            .. note::
-
             The following sections present the C++ API Reference. All types are
             within the :ref:`sixtyfps<namespace_sixtyfps>` namespace and are accessible by including
             the :code:`sixtyfps.h` header file.
