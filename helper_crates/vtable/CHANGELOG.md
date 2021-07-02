@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
+## [0.1.4] - Unreleased
+
+ - Added `VrcMapped` and `VWeakMapped` to allow for references to objects that are reachable via VRc
+
 ## [0.1.3] - 2021-08-16
 
  - Fixed clippy warnings
