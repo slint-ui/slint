@@ -228,6 +228,8 @@ fn fold_node(
     }
     if args.from.as_str() <= "0.0.6" {
         from_0_0_6::fold_node(node, file, state)
+    } else {
+        Ok(false)
     }
 }
 
