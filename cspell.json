@@ -90,7 +90,7 @@
     ],
     "ignoreRegExpList": [
         // Color encodings in all languages:
-        "/\\b(0x|#)?[argbARGB]+\\b/"
+        "/(\\b|0x|#|_)?[argbARGB][argbARGB][argbARGB]+(\\b|_|Color)/"
     ],
     "overrides": [
         {
