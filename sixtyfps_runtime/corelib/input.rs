@@ -267,6 +267,61 @@ pub struct MouseInputState {
     grabbed: bool,
 }
 
+enum MouseGrab {
+    Grabbed(MouseInputState),
+    NotGrabbed(MouseInputState),
+}
+
+fn handle_mouse_grab(
+    mouse_event: &MouseEvent,
+    window: &crate::window::ComponentWindow,
+    mut mouse_input_state: MouseInputState,
+) -> MouseGrab {
+    if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
+        return MouseGrab::NotGrabbed(mouse_input_state);
+    };
+
+    let mut event = *mouse_event;
+    let mut intercept = false;
+    let mut invalid = false;
+
+    mouse_input_state.item_stack.retain(|it| {
+        if invalid {
+            return false;
+        }
+        let item = if let Some(item) = it.upgrade() {
+            item
+        } else {
+            invalid = true;
+            return false;
+        };
+        if intercept {
+            item.borrow().as_ref().input_event(MouseEvent::MouseExit, window, &item);
+            return false;
+        }
+        let g = item.borrow().as_ref().geometry();
+        event.translate(-g.origin.to_vector());
+
+        if item.borrow().as_ref().input_event_filter_before_children(event, window, &item)
+            == InputEventFilterResult::Intercept
+        {
+            intercept = true;
+        }
+        true
+    });
+    if invalid {
+        return MouseGrab::NotGrabbed(mouse_input_state);
+    }
+
+    let grabber = mouse_input_state.item_stack.last().unwrap().upgrade().unwrap();
+    return MouseGrab::Grabbed(
+        match grabber.borrow().as_ref().input_event(event, window, &grabber) {
+            InputEventResult::GrabMouse => mouse_input_state,
+            _ => Default::default(),
+        },
+    );
+}
+
 /// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the previous stack
 /// of mouse grabber.
 /// Returns a new mouse grabber stack.
@@ -276,48 +331,10 @@ pub fn process_mouse_input(
     window: &crate::window::ComponentWindow,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
-    'grab: loop {
-        if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
-            break 'grab;
-        };
-        let mut event = mouse_event.clone();
-        let mut intercept = false;
-        let mut invalid = false;
-
-        mouse_input_state.item_stack.retain(|it| {
-            if invalid {
-                return false;
-            }
-            let item = if let Some(item) = it.upgrade() {
-                item
-            } else {
-                invalid = true;
-                return false;
-            };
-            if intercept {
-                item.borrow().as_ref().input_event(MouseEvent::MouseExit, window, &item);
-                return false;
-            }
-            let g = item.borrow().as_ref().geometry();
-            event.translate(-g.origin.to_vector());
-
-            if item.borrow().as_ref().input_event_filter_before_children(event, window, &item)
-                == InputEventFilterResult::Intercept
-            {
-                intercept = true;
-            }
-            true
-        });
-        if invalid {
-            break 'grab;
-        }
-
-        let grabber = mouse_input_state.item_stack.last().unwrap().upgrade().unwrap();
-        return match grabber.borrow().as_ref().input_event(event, window, &grabber) {
-            InputEventResult::GrabMouse => mouse_input_state,
-            _ => Default::default(),
-        };
-    }
+    match handle_mouse_grab(&mouse_event, window, mouse_input_state) {
+        MouseGrab::Grabbed(state) => return state,
+        MouseGrab::NotGrabbed(state) => mouse_input_state = state,
+    };
 
     let mut pos = mouse_event.pos();
     // Send the Exit event.
