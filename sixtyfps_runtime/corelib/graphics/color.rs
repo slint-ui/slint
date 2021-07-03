@@ -232,6 +232,7 @@ impl From<RgbaColor<f32>> for HsvaColor {
         let max = red.max(green).max(blue);
         let chroma = max - min;
 
+        #[allow(clippy::float_cmp)] // `max` is either `red`, `green` or `blue`
         let hue = 60.
             * if chroma == 0. {
                 0.0
