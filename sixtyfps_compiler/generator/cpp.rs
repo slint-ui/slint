@@ -150,7 +150,7 @@ mod cpp_ast {
             if self.is_friend {
                 write!(f, "friend ")?;
             }
-            // all functions are inlines because we are in a header
+            // all functions are `inline` because we are in a header
             write!(f, "inline ")?;
             if !self.is_constructor_or_destructor {
                 write!(f, "auto ")?;

@@ -330,7 +330,7 @@ declare_syntax! {
         /// `-> type`  (but without the ->)
         ReturnType -> [Type],
         CallbackConnection -> [ *DeclaredIdentifier,  CodeBlock ],
-        /// Declaration of a propery.
+        /// Declaration of a property.
         PropertyDeclaration-> [ ?Type , DeclaredIdentifier, ?BindingExpression, ?TwoWayBinding ],
         /// QualifiedName are the properties name
         PropertyAnimation-> [ *QualifiedName, *Binding ],
@@ -351,7 +351,7 @@ declare_syntax! {
         Expression-> [ ?Expression, ?FunctionCallExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtLinearGradient],
-        /// Concetenate the Expressions to make a string (usually expended from a template string)
+        /// Concatenate the Expressions to make a string (usually expended from a template string)
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
         AtImageUrl -> [],
@@ -381,7 +381,7 @@ declare_syntax! {
         StatePropertyChange -> [ QualifiedName, BindingExpression ],
         /// `transitions: [...]`
         Transitions -> [*Transition],
-        /// There is an idientfier "in" or "out", the DeclaredIdentifier is the state name
+        /// There is an identifier "in" or "out", the DeclaredIdentifier is the state name
         Transition -> [DeclaredIdentifier, *PropertyAnimation],
         /// Export a set of declared components by name
         ExportsList -> [ *ExportSpecifier, ?Component, *StructDeclaration ],
@@ -487,7 +487,7 @@ mod parser_trait {
         fn peek(&mut self) -> Token {
             self.nth(0)
         }
-        /// Peek the n'th token, not including whitespace and comments
+        /// Peek the `n`th token, not including whitespace and comments
         fn nth(&mut self, n: usize) -> Token;
         fn consume(&mut self);
         fn error(&mut self, e: impl Into<String>);
@@ -601,7 +601,7 @@ impl Parser for DefaultParser<'_> {
         self.builder.finish_node();
     }
 
-    /// Peek the n'th token, not including whitespace and comments
+    /// Peek the `n`th token, not including whitespace and comments
     fn nth(&mut self, mut n: usize) -> Token {
         self.consume_ws();
         let mut c = self.cursor;

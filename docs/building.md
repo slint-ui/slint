@@ -15,8 +15,8 @@ Once this is done, you should have the ```rustc``` compiler and the ```cargo``` 
 
 For Linux a few additional packages beyond the usual build essentials are needed for development and running apps:
 
-  * xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distros)
-  * xkbcommon (`libxkbcommon-dev` on debian based distros)
+  * xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distributions)
+  * xkbcommon (`libxkbcommon-dev` on debian based distributions)
 
 ### macOS
 

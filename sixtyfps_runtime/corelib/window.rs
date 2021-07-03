@@ -30,7 +30,7 @@ use std::rc::{Rc, Weak};
 pub trait PlatformWindow {
     /// Registers the window with the windowing system.
     fn show(self: Rc<Self>);
-    /// Deregisters the window from the windowing system.
+    /// De-registers the window from the windowing system.
     fn hide(self: Rc<Self>);
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
@@ -311,7 +311,7 @@ impl core::ops::Deref for Window {
 pub struct ComponentWindow(pub std::rc::Rc<Window>);
 
 impl ComponentWindow {
-    /// Creates a new instance of a CompomentWindow based on the given window implementation. Only used
+    /// Creates a new instance of a ComponentWindow based on the given window implementation. Only used
     /// internally.
     pub fn new(window_impl: std::rc::Rc<Window>) -> Self {
         Self(window_impl)
