@@ -892,12 +892,11 @@ impl Expression {
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {
                             target_type
-                        } else if target_type.can_convert(&expr_ty) {
-                            expr_ty
-                        } else if expr_ty.default_unit().is_some()
-                            && matches!(target_type, Type::Float32 | Type::Int32)
+                        } else if target_type.can_convert(&expr_ty)
+                            || (expr_ty.default_unit().is_some()
+                                && matches!(target_type, Type::Float32 | Type::Int32))
                         {
-                            // in case this is the '0' literal
+                            // in the or case: The `0` literal.
                             expr_ty
                         } else {
                             // otherwise, use the target type and let further conversion report an error
