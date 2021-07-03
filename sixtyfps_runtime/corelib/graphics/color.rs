@@ -32,7 +32,7 @@ pub struct RgbaColor<T> {
 
 /// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
-/// It can be conveniently constructed and destructured using the to_ and from_ (a)rgb helper functions:
+/// It can be conveniently converted using the `to_` and `from_` (a)rgb helper functions:
 /// ```
 /// # fn do_something_with_red_and_green(_:f32, _:f32) {}
 /// # fn do_something_with_red(_:u8) {}
@@ -174,11 +174,11 @@ impl Color {
     /// So for example `brighter(0.2)` will increase the brightness by 20%, and
     /// calling `brighter(-0.5)` will return a color that's 50% darker.
     pub fn brighter(&self, factor: f32) -> Self {
-        let rgbaf: RgbaColor<f32> = self.clone().into();
-        let mut hsva: HsvaColor = rgbaf.into();
+        let rgba: RgbaColor<f32> = self.clone().into();
+        let mut hsva: HsvaColor = rgba.into();
         hsva.v *= 1. + factor;
-        let rgbaf: RgbaColor<f32> = hsva.into();
-        rgbaf.into()
+        let rgba: RgbaColor<f32> = hsva.into();
+        rgba.into()
     }
 
     /// Returns a new version of this color that has the brightness decreased
@@ -187,11 +187,11 @@ impl Color {
     /// result is converted back to RGB and the alpha channel is unchanged.
     /// So for example `darker(0.3)` will decrease the brightness by 30%.
     pub fn darker(&self, factor: f32) -> Self {
-        let rgbaf: RgbaColor<f32> = self.clone().into();
-        let mut hsva: HsvaColor = rgbaf.into();
+        let rgba: RgbaColor<f32> = self.clone().into();
+        let mut hsva: HsvaColor = rgba.into();
         hsva.v /= 1. + factor;
-        let rgbaf: RgbaColor<f32> = hsva.into();
-        rgbaf.into()
+        let rgba: RgbaColor<f32> = hsva.into();
+        rgba.into()
     }
 }
 
