@@ -104,12 +104,12 @@ struct SharedVector
     /// Returns true if there are no elements on this vector; false otherwise.
     bool empty() const { return inner->size == 0; }
 
-    /// This indexing operator returns a reference to the \a index'th element of this vector.
+    /// This indexing operator returns a reference to the \a `index`th element of this vector.
     T &operator[](std::size_t index) { return begin()[index]; }
-    /// This indexing operator returns a const reference to the \a index'th element of this vector.
+    /// This indexing operator returns a const reference to the \a `index`th element of this vector.
     const T &operator[](std::size_t index) const { return begin()[index]; }
 
-    /// Returns a reference to the \a index'th element of this vector.
+    /// Returns a reference to the \a `index`th element of this vector.
     const T &at(std::size_t index) const { return begin()[index]; }
 
     /// Appends the \a value as a new element to the end of this vector.

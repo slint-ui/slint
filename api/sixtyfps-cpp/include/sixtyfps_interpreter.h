@@ -181,7 +181,7 @@ public:
                 cbindgen_private::sixtyfps_interpreter_struct_iterator_destructor(&inner);
             }
         }
-        // FIXME i believe iterator are supposed to be copy constructible
+        // FIXME I believe iterators are supposed to be copy constructible
         iterator(const iterator &) = delete;
         iterator &operator=(const iterator &) = delete;
         /// Move-constructs a new iterator from \a other.
@@ -244,7 +244,7 @@ private:
 /// Note that models are only represented in one direction: You can create a sixtyfps::Model<Value>
 /// in C++, store it in a std::shared_ptr and construct Value from it. Then you can set it on a
 /// property in your .60 code that was declared to be either an array (`property <[sometype]> foo;`)
-/// or an object literal (`property <{foo: string, bar: int}> myprop;`). Such properties are dynamic
+/// or an object literal (`property <{foo: string, bar: int}> my_prop;`). Such properties are dynamic
 /// and accept models implemented in C++.
 ///
 /// ```

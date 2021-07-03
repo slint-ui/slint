@@ -28,7 +28,7 @@ use std::rc::Rc;
 pub enum MouseEvent {
     /// The mouse was pressed
     MousePressed { pos: Point },
-    /// The mouse was relased
+    /// The mouse was released
     MouseReleased { pos: Point },
     /// The mouse position has changed
     MouseMoved { pos: Point },
@@ -267,7 +267,7 @@ pub struct MouseInputState {
     grabbed: bool,
 }
 
-/// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the prebious stack
+/// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the previous stack
 /// of mouse grabber.
 /// Returns a new mouse grabber stack.
 pub fn process_mouse_input(
