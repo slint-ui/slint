@@ -174,7 +174,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 if d.expose_in_public_api {
                     d.is_alias = Some(to.clone());
                     drop(elem);
-                    // one must mark the aliased property as setable from outside
+                    // one must mark the aliased property as settable from outside
                     to.element()
                         .borrow()
                         .property_analysis
