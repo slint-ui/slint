@@ -131,7 +131,7 @@ To setup the lsp:
 1. Install the sixtyfps-lsp binary with `cargo install` as explained in the *Generic Usage* section above.
 2. Using Package Control in Sublime Text, install the LSP package (sublimelsp/LSP)
 3. Download the SixtyFPS syntax highlighting file into your User Package folder,
-   e.g. on macOS `~/Library/Application Support/Sublime Text 3/Packages/User/` :
+   e.g. on macOS `~/Library/Application Support/Sublime Text/Packages/User/` :
    https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/SixtyFPS.sublime-syntax
 4. Download the LSP package settings file into your User Package folder:
    https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/LSP.sublime-settings
@@ -140,12 +140,6 @@ To setup the lsp:
 6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Lanuage Server in Project" from Sublime's Command Palette to allow the server to start.
 7. Open a .60 file - if the server starts its name will be in the left side of the status bar.
 
-### Enabling Live Preview
-The Live Preview function can normally be activated using LSP "Code Actions",
-but the Sublime Text LSP plugin has limited support for actions not associated to diagnostic reports.
-
-In order to work around this limitation to start the Live Preview, it's also possible to do so through an LSP "Execute Command" request,
-for which the root .60 file path must be passed as a parameter.
-To do this, copy the provided command palette file in your User Package folder and provide an entry for each file you want to preview:
-https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/SixtyFPS.sublime-commands
-Then select that command through the command palette.
+In order to **preview a component**, when you have a .60 file open, place your cursor to
+the name of the component you would like to preview and select the "Show preview" button that
+will appear on the right of the editor pane.
