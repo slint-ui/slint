@@ -217,6 +217,7 @@ lazy_static! {
         (".+\\.sublime-settings$", LicenseLocation::NoLicense),
         (".+\\.sublime-commands$", LicenseLocation::NoLicense),
         (".+\\.sublime-syntax$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        (".+\\.tmPreferences$", LicenseLocation::NoLicense),
         ("\\.clang-format$", LicenseLocation::NoLicense),
         (".+Dockerfile.*$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^api/sixtyfps-cpp/docs/Pipfile$", LicenseLocation::NoLicense),
