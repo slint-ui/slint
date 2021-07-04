@@ -130,9 +130,10 @@ exists under the `language` server section:
 To setup the lsp:
 1. Install the sixtyfps-lsp binary with `cargo install` as explained in the *Generic Usage* section above.
 2. Using Package Control in Sublime Text, install the LSP package (sublimelsp/LSP)
-3. Download the SixtyFPS syntax highlighting file into your User Package folder,
+3. Download the SixtyFPS syntax highlighting files into your User Package folder,
    e.g. on macOS `~/Library/Application Support/Sublime Text/Packages/User/` :
    https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/SixtyFPS.sublime-syntax
+   https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/SixtyFPS.tmPreferences
 4. Download the LSP package settings file into your User Package folder:
    https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/LSP.sublime-settings
 5. Modify the sixtyfps command path in `LSP.sublime-settings` to point to the cargo instalation path in your home folder (**Replace YOUR_USER by your username**):
