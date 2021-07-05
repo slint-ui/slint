@@ -128,11 +128,11 @@ impl Hash for NamedReference {
     }
 }
 
-pub struct NamedReferenceInner {
+struct NamedReferenceInner {
     /// The element.
-    pub element: Weak<RefCell<Element>>,
+    element: Weak<RefCell<Element>>,
     /// The property name
-    pub name: String,
+    name: String,
 }
 
 impl NamedReferenceInner {
@@ -164,3 +164,15 @@ impl NamedReferenceInner {
 /// Must be put inside the Element and owns all the NamedReferenceInner
 #[derive(Default)]
 pub struct NamedReferenceContainer(RefCell<HashMap<String, Rc<NamedReferenceInner>>>);
+
+impl NamedReferenceContainer {
+    /// Returns true if there is at least one NamedReference pointing to the property `name` in this element.
+    pub fn is_referenced(&self, name: &str) -> bool {
+        if let Some(nri) = self.0.borrow().get(name) {
+            // one reference for the hashmap itself
+            Rc::strong_count(nri) > 1
+        } else {
+            false
+        }
+    }
+}

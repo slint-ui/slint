@@ -70,6 +70,7 @@ mod passes {
     pub mod materialize_fake_properties;
     pub mod move_declarations;
     pub mod remove_aliases;
+    pub mod remove_unused_properties;
     pub mod repeater_component;
     pub mod resolve_native_classes;
     pub mod resolving;
@@ -210,6 +211,7 @@ pub async fn run_passes(
     passes::move_declarations::move_declarations(&doc.root_component, diag);
     passes::remove_aliases::remove_aliases(&doc.root_component, diag);
     passes::resolve_native_classes::resolve_native_classes(&doc.root_component);
+    passes::remove_unused_properties::remove_unused_properties(&doc.root_component);
     passes::collect_structs::collect_structs(&doc.root_component, diag);
     passes::generate_item_indices::generate_item_indices(&doc.root_component);
     passes::collect_custom_fonts::collect_custom_fonts(
