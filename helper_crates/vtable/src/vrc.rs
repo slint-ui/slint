@@ -407,6 +407,12 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> VRcMapped<VTab
             map_fn(this_pinned).get_ref()
         }))
     }
+
+    /// Returns a strong reference to the object that the mapping originates
+    /// from.
+    pub fn origin(this: &Self) -> VRc<VTable> {
+        this.0.as_owner().clone()
+    }
 }
 
 impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> Deref
