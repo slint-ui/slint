@@ -15,6 +15,9 @@ This crate should not be used directly by application using SixtyFPS.
 You should use the `sixtyfps` crate instead.
 
 */
+
+// cSpell:ignore punct
+
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 extern crate proc_macro;

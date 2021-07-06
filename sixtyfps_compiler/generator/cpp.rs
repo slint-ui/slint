@@ -10,6 +10,8 @@ LICENSE END */
 /*! module for the C++ code generator
 */
 
+// cSpell:ignore cstdlib cmath constexpr nullptr decltype intptr uintptr
+
 /// This module contains some data structure that helps represent a C++ code.
 /// It is then rendered into an actual C++ text using the Display trait
 mod cpp_ast {
