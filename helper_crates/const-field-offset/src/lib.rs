@@ -37,7 +37,7 @@ mod tests {
     use crate as const_field_offset;
     // ### Structures were change to repr(c) and to inherit FieldOffsets
 
-    // Example structs
+    // Example structures
     #[derive(Debug, FieldOffsets)]
     #[repr(C)]
     struct Foo {
