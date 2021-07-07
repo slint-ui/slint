@@ -259,6 +259,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
             #(#vis #fields : #crate_::FieldOffset<#struct_name, #types, #pin_flag>,)*
         }
 
+        #[allow(clippy::eval_order_dependence)] // The point of this code is to depend on the order!
         impl #struct_name {
             /// Return a struct containing the offset of for the fields of this struct
             pub const FIELD_OFFSETS : #field_struct_name = {
