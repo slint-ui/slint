@@ -1,0 +1,40 @@
+<!--
+    This file is used to add syntax highlighting of the `.60` snippets in the generated rustdoc documentation.
+    It can be injected via the `--html-in-header sixtyfps-docs-highlight.html` option of rustdoc.
+-->
+<link rel="stylesheet" href="https://sixtyfps.io/highlight-default.css">
+<script src="https://sixtyfps.io/highlight.pack.js"></script>
+<script src="https://sixtyfps.io/highlight_60.js"></script>
+<script>
+    window.addEventListener("DOMContentLoaded", () => {
+        // Only highlight .60 blocks, leave the others to rustdoc
+        for (dot60Block of document.querySelectorAll("pre code.language-60")) {
+            hljs.highlightBlock(dot60Block)
+        }
+
+        // Some of the rustdoc selectors require the pre element to have the rust class
+        for (codeBlock of document.querySelectorAll(".language-60.hljs")) {
+            codeBlock.parentElement.classList.add("rust")
+        }
+
+        // Change the hljs generated classes to the rustdoc
+        // ones, so that the highlighting adjusts to the theme correctly.
+        const highlightJSToRustDoc = [
+            ["comment", "comment"],
+            ["number", "number"],
+            ["symbol", "struct"], // width:
+            ["keyword", "kw"],
+            ["built_in", "primitive"],
+            ["string", "string"],
+            ["title", "fnname"], // Foo :=
+            ["type", "type"]
+        ];
+
+        for ([hljs_class, rustdoc_class] of highlightJSToRustDoc) {
+            for (titleElement of document.querySelectorAll(`.hljs-${hljs_class}`)) {
+                titleElement.classList.remove(`hljs-${hljs_class}`);
+                titleElement.classList.add(rustdoc_class);
+            }
+        }
+    });
+</script>

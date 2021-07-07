@@ -31,4 +31,4 @@ pin-weak = "1"
 rustc_version = "0.4"
 
 [package.metadata.docs.rs]
-rustdoc-args = [ "--html-in-header", "sixtyfps-docs-integration.html" ]
+rustdoc-args = [ "--html-in-header", "sixtyfps-docs-preview.html", "--html-in-header", "sixtyfps-docs-highlight.html" ]
