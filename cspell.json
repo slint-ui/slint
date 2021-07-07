@@ -86,7 +86,8 @@
     ],
     "ignorePaths": [
         "cspell.json",
-        "api/sixtyfps-cpp/docs/conf.py"
+        "api/sixtyfps-cpp/docs/conf.py",
+        ".github/workflows/*.yaml"
     ],
     "ignoreRegExpList": [
         // Color encodings in all languages:
