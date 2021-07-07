@@ -321,7 +321,6 @@ impl<'a> TypeLoader<'a> {
         );
         crate::passes::run_import_passes(&doc, self, diagnostics);
 
-
         self.all_documents.docs.insert(path.to_owned(), doc);
     }
 

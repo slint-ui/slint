@@ -46,7 +46,6 @@ pub mod typeregister;
 
 mod passes;
 
-
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
 pub struct CompilerConfiguration {
@@ -130,9 +129,6 @@ pub async fn compile_syntax_node(
 
     (doc, diagnostics)
 }
-
-
-
 
 mod library {
     include!(env!("SIXTYFPS_WIDGETS_LIBRARY"));
