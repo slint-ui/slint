@@ -32,7 +32,7 @@ pub struct ModelPeer {
 }
 
 /// Dispatch notifications from a [`Model`] to one or several [`ModelPeer`].
-/// Typically, you would want to put this in the implementaiton of the Model
+/// Typically, you would want to put this in the implementation of the Model
 #[derive(Default)]
 pub struct ModelNotify {
     inner: RefCell<weak_table::PtrWeakHashSet<Weak<RefCell<ModelPeerInner>>>>,
