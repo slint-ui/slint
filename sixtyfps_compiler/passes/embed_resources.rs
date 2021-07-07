@@ -16,14 +16,17 @@ use std::rc::Rc;
 pub fn embed_resources(component: &Rc<Component>) {
     let global_embedded_resources = &component.embedded_file_resources;
 
-    visit_all_expressions(component, |e, _| {
-        embed_resources_from_expression(e, component, global_embedded_resources)
-    });
+    for component in
+        component.used_types.borrow().sub_components.iter().chain(std::iter::once(component))
+    {
+        visit_all_expressions(component, |e, _| {
+            embed_resources_from_expression(e, global_embedded_resources)
+        });
+    }
 }
 
 fn embed_resources_from_expression(
     e: &mut Expression,
-    component: &Rc<Component>,
     global_embedded_resources: &RefCell<HashMap<String, usize>>,
 ) {
     if let Expression::ImageReference(ref mut resource_ref) = e {
@@ -39,7 +42,5 @@ fn embed_resources_from_expression(
         }
     };
 
-    e.visit_mut(|mut e| {
-        embed_resources_from_expression(&mut e, component, global_embedded_resources)
-    });
+    e.visit_mut(|mut e| embed_resources_from_expression(&mut e, global_embedded_resources));
 }

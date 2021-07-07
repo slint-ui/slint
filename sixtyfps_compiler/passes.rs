@@ -65,9 +65,10 @@ pub async fn run_passes(
         .chain(std::iter::once(root_component))
     {
         compile_paths::compile_paths(component, &doc.local_registry, diag);
-        if compiler_config.embed_resources {
-            embed_resources::embed_resources(component);
-        }
+    }
+
+    if compiler_config.embed_resources {
+        embed_resources::embed_resources(root_component);
     }
 
     inlining::inline(doc);
