@@ -37,7 +37,7 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
         root_component,
         &(),
         &mut |elem: &ElementRc, _| {
-            if !matches!(elem.borrow().builtin_type(), Some(n) if n.name == "Flickable") {
+            if !matches!(&elem.borrow().base_type, Type::Builtin(n) if n.name == "Flickable") {
                 return;
             }
 

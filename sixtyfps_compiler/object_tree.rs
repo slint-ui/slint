@@ -172,6 +172,18 @@ pub struct PopupWindow {
 
 type ChildrenInsertionPoint = (ElementRc, syntax_nodes::ChildrenPlaceholder);
 
+/// Used sub types for a root component
+#[derive(Debug, Default)]
+pub struct UsedSubTypes {
+    /// All the globals used by the component and its children.
+    pub globals: Vec<Rc<Component>>,
+    /// All the structs used by the component and its children.
+    pub structs: Vec<Type>,
+    /// All the sub components use by this components and its children,
+    /// and the amount of time it is used
+    pub sub_components: Vec<Rc<Component>>,
+}
+
 /// A component is a type in the language which can be instantiated,
 /// Or is materialized for repeated expression.
 #[derive(Default, Debug)]
@@ -202,11 +214,9 @@ pub struct Component {
     /// Code to be inserted into the constructor
     pub setup_code: RefCell<Vec<Expression>>,
 
-    /// All the globals used by this component and its children.
-    /// FIXME: can we have cycle?
-    pub used_global: RefCell<Vec<Rc<Component>>>,
-    pub used_structs: RefCell<Vec<Type>>,
-
+    /// The list of used extra types used (recursively) by this root component.
+    /// (This only make sense on the root component)
+    pub used_types: RefCell<UsedSubTypes>,
     pub popup_windows: RefCell<Vec<PopupWindow>>,
 }
 

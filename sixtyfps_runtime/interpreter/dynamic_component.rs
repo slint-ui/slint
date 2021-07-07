@@ -876,8 +876,13 @@ pub(crate) fn generate_component<'id>(
 
     let public_properties = component.root_element.borrow().property_declarations.clone();
 
-    let compiled_globals =
-        component.used_global.borrow().iter().map(crate::global_component::generate).collect();
+    let compiled_globals = component
+        .used_types
+        .borrow()
+        .globals
+        .iter()
+        .map(crate::global_component::generate)
+        .collect();
 
     let t = ComponentVTable {
         visit_children_item,

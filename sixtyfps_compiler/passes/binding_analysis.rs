@@ -25,7 +25,7 @@ type PropertySet = linked_hash_set::LinkedHashSet<NamedReference>;
 
 pub fn binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     propagate_is_set_on_aliases(component);
-    for g in component.used_global.borrow().iter() {
+    for g in component.used_types.borrow().globals.iter() {
         propagate_is_set_on_aliases(g);
     }
 

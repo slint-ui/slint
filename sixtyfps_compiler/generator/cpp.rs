@@ -560,12 +560,12 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<cmath>".into()); // TODO: ideally only include this if needed (by floor/ceil/round)
     file.includes.push("<sixtyfps.h>".into());
 
-    for ty in doc.root_component.used_structs.borrow().iter() {
+    for ty in doc.root_component.used_types.borrow().structs.iter() {
         if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
             generate_struct(&mut file, name, fields, diag);
         }
     }
-    for glob in doc.root_component.used_global.borrow().iter() {
+    for glob in doc.root_component.used_types.borrow().globals.iter() {
         if !matches!(glob.root_element.borrow().base_type, Type::Builtin(_)) {
             generate_component(&mut file, glob, diag, None);
         }
@@ -1248,7 +1248,7 @@ fn generate_component(
         ));
     }
 
-    for glob in component.used_global.borrow().iter() {
+    for glob in component.used_types.borrow().globals.iter() {
         let ty = match &glob.root_element.borrow().base_type {
             Type::Void => self::component_id(glob),
             Type::Builtin(b) => {

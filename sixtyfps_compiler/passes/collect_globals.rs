@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-//! Passes that fills the root component used_global
+//! Passes that fills the root component used_types.globals
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::NamedReference;
@@ -16,7 +16,7 @@ use crate::object_tree::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-/// Fill the root_component's used_globals
+/// Fill the root_component's used_types.globals
 pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
     let mut hash = BTreeMap::new();
 
@@ -28,5 +28,5 @@ pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
         }
     };
     visit_all_named_references(root_component, &mut maybe_collect_global);
-    *root_component.used_global.borrow_mut() = hash.into_iter().map(|(_, v)| v).collect();
+    root_component.used_types.borrow_mut().globals = hash.into_iter().map(|(_, v)| v).collect();
 }

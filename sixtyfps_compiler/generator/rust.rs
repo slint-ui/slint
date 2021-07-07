@@ -87,8 +87,9 @@ fn get_rust_type(
 pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
     let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
         .root_component
-        .used_structs
+        .used_types
         .borrow()
+        .structs
         .iter()
         .filter_map(|ty| {
             if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
@@ -109,8 +110,9 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
     );
     let globals = doc
         .root_component
-        .used_global
+        .used_types
         .borrow()
+        .globals
         .iter()
         .filter(|glob| !matches!(glob.root_element.borrow().base_type, Type::Builtin(_)))
         .filter_map(|glob| generate_component(glob, diag))
@@ -756,8 +758,9 @@ fn generate_component(
     };
 
     let (global_name, global_type): (Vec<_>, Vec<_>) = component
-        .used_global
+        .used_types
         .borrow()
+        .globals
         .iter()
         .map(|g| (format_ident!("global_{}", g.id), self::inner_component_id(g)))
         .unzip();

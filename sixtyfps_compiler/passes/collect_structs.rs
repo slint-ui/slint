@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-//! Passes that fills the root component used_structs
+//! Passes that fills the root component used_types.structs
 
 use crate::expression_tree::Expression;
 use crate::object_tree::*;
@@ -16,7 +16,7 @@ use crate::{diagnostics::BuildDiagnostics, langtype::Type};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-/// Fill the root_component's used_structs
+/// Fill the root_component's used_types.structs
 pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
     let mut hash = BTreeMap::new();
 
@@ -40,12 +40,13 @@ pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
         })
     });
 
-    let mut used_struct = root_component.used_structs.borrow_mut();
+    let mut used_types = root_component.used_types.borrow_mut();
+    let used_struct = &mut used_types.structs;
     *used_struct = Vec::with_capacity(hash.len());
     while let Some(next) = hash.iter().next() {
         // Here, using BTreeMap::pop_first would be great when it is stable
         let key = next.0.clone();
-        sort_struct(&mut hash, &mut used_struct, &key);
+        sort_struct(&mut hash, used_struct, &key);
     }
 }
 
