@@ -7,13 +7,15 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-//! This pass make sure that the id of the elements are unique
-//!
-//! It currently does so by adding a number to the existing id
 
+use crate::diagnostics::BuildDiagnostics;
 use crate::object_tree::*;
+use std::collections::HashMap;
 use std::rc::Rc;
 
+/// This pass make sure that the id of the elements are unique
+///
+/// It currently does so by adding a number to the existing id
 pub fn assign_unique_id(component: &Rc<Component>) {
     let mut count = 0;
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
@@ -25,5 +27,31 @@ pub fn assign_unique_id(component: &Rc<Component>) {
             elem_mut.base_type.to_string().to_ascii_lowercase()
         };
         elem_mut.id = format!("{}_{}", old_id, count);
+    })
+}
+
+/// Checks that all ids in the Component are unique
+pub fn check_unique_id(doc: &Document, diag: &mut BuildDiagnostics) {
+    for component in &doc.inner_components {
+        check_unique_id_in_component(component, diag);
+    }
+}
+
+fn check_unique_id_in_component(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+    let mut seen_ids = HashMap::new();
+
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+        let elem_bor = elem.borrow();
+        let id = &elem_bor.id;
+        if !id.is_empty() {
+            if let Some(other_loc) = seen_ids.get(id) {
+                debug_assert!(!Rc::ptr_eq(other_loc, elem));
+                diag.push_error(format!("duplicated element id '{}'", id), &*other_loc.borrow());
+                diag.push_error(format!("duplicated element id '{}'", id), &*elem_bor);
+                seen_ids.remove(id);
+            } else {
+                seen_ids.insert(id.clone(), elem.clone());
+            }
+        }
     })
 }

@@ -58,10 +58,10 @@ TestCase := Window {
 
         Rotate {
             angle: 315deg;
-            origin-x: r.x;
-            origin-y: r.y;
+            origin-x: r2.x;
+            origin-y: r2.y;
 
-            r := Rectangle {
+            r2 := Rectangle {
                 x: 50px;
                 y: 50px;
                 width: 50px;

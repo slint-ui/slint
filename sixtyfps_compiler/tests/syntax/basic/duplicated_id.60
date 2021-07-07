@@ -1,0 +1,49 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+
+SubElement := Rectangle {
+
+    foo := Rectangle {
+        background: yellow;
+        hello := Rectangle {}
+//              ^error{duplicated element id 'hello'}
+    }
+
+    unique := Rectangle {
+        background: yellow;
+        world := Rectangle {}
+//              ^error{duplicated element id 'world'}
+    }
+
+    if (true) : hello := Rectangle {
+//                      ^error{duplicated element id 'hello'}
+        world := Rectangle { }
+//              ^error{duplicated element id 'world'}
+    }
+}
+
+TestCase := Rectangle {
+
+    unique := Rectangle {
+        foo := SubElement { }
+//            ^error{duplicated element id 'foo'}
+    }
+
+    bar := TouchArea {}
+//        ^error{duplicated element id 'bar'}
+
+    Rectangle {
+        foo := Text {}
+//            ^error{duplicated element id 'foo'}
+        bar := Text {}
+//            ^error{duplicated element id 'bar'}
+    }
+}

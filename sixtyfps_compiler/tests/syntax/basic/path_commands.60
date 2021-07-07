@@ -8,6 +8,12 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+Test2 := Path {
+    width: 640px;
+    height: 480px;
+    commands: "M 0 0 M -100 0 A 100 100 0 1 0 100 0 Å 100 100 0 1 0 100 0 Z";
+    //       ^error{Error parsing SVG commands}
+}
 
 TestCase := Rectangle {
     Path {
@@ -19,24 +25,19 @@ TestCase := Rectangle {
         stroke-width: 1px;
     }
 
-    TestCase := Path {
+    Path {
         width: 640px;
         height: 480px;
         commands: "M 0 0 M -100 0 A 100 100 0 1 0 100 0 A 100 100 0 1 0 100 0 Z";
     }
 
-    TestCase := Path {
+    Path {
         width: 640px;
         height: 480px;
         commands: "M 0 0 M -100 0 A 100 100 0 1 0 0 A 100 100 0 1 0 100 0 Z";
         //       ^error{Error parsing SVG commands}
     }
 
-        TestCase := Path {
-        width: 640px;
-        height: 480px;
-        commands: "M 0 0 M -100 0 A 100 100 0 1 0 100 0 Å 100 100 0 1 0 100 0 Z";
-        //       ^error{Error parsing SVG commands}
-    }
+    Test2 {}
 }
 

@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+ - Compilation error when there are duplicated element id
+
 ### Fixed
 
  - GridLayout cells with colspan and rowspan respect properly their constraints

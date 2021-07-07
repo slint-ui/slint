@@ -51,6 +51,7 @@ pub async fn run_passes(
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     check_expressions::check_expressions(doc, diag);
+    unique_id::check_unique_id(doc, diag);
     check_public_api::check_public_api(&doc.root_component, diag);
     inlining::inline(doc);
     compile_paths::compile_paths(&doc.root_component, &doc.local_registry, diag);
@@ -108,4 +109,5 @@ pub fn run_import_passes(
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     check_expressions::check_expressions(doc, diag);
+    unique_id::check_unique_id(doc, diag);
 }
