@@ -63,15 +63,18 @@
 <script src="https://sixtyfps.io/highlight.pack.js"></script>
 <script src="https://sixtyfps.io/highlight_60.js"></script>
 <script>
-    hljs.initHighlightingOnLoad();
     // If we're running in rustdoc, change the hljs generated classes to the rustdoc
     // ones, so that the highlighting adjusts to the theme correctly.
     if (window.localStorage.getItem("rustdoc-theme") !== null) {
         window.addEventListener("DOMContentLoaded", () => {
+            // Only highlight .60 blocks, leave the others to rustdoc
+            for (dot60Block of document.querySelectorAll("pre code.language-60")) {
+                hljs.highlightBlock(dot60Block)
+            }
 
             // Some of the rustdoc selectors require the pre element to have the rust class
-            for (codeBlocks of document.querySelectorAll(".language-60.hljs")) {
-                codeBlocks.parentElement.classList.add("rust")
+            for (codeBlock of document.querySelectorAll(".language-60.hljs")) {
+                codeBlock.parentElement.classList.add("rust")
             }
 
             const highlightJSToRustDoc = [
@@ -92,5 +95,7 @@
                 }
             }
         });
+    } else {
+        hljs.initHighlightingOnLoad();
     }
 </script>
