@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+InheritFlickable := Flickable {}
+
 TestCase := Window {
     width: 500phx;
     height: 500phx;
@@ -18,15 +20,15 @@ TestCase := Window {
         }
     }
 
-    Flickable {
+    InheritFlickable {
         width: 123phx;
         viewport_height: 456phx;
         r2 := Rectangle {
-            property<bool> ok: height == 456phx && width == 133phx;
+            property<bool> ok: height == 456phx && width == 123phx;
         }
     }
 
-    f3 := Flickable {
+    f3 := InheritFlickable {
         VerticalLayout {
             spacing: 0phx;
             padding: 0phx;
@@ -55,10 +57,11 @@ TestCase := Window {
     Flickable { for i in 5: Rectangle {} }
 
     property<bool> all_ok: r1.ok && r2.ok && r3.ok && r4.ok;
+    property<bool> test: all_ok;
 }
 
 /*
-`` `cpp
+```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
@@ -67,13 +70,13 @@ assert(instance.get_all_ok());
 ```
 
 
-`` `rust
+```rust
 let instance = TestCase::new();
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_all_ok());
 ```
 
-`` `js
+```js
 var instance = new sixtyfps.TestCase();
 instance.send_mouse_click(5., 5.);
 assert(instance.all_ok);
