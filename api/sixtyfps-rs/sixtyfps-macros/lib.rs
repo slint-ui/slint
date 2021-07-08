@@ -332,7 +332,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         diagnostics::SourceFileInner::from_path_only(Default::default())
     };
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = parser::parse_tokens(tokens.clone(), source_file.into(), &mut diag);
+    let syntax_node = parser::parse_tokens(tokens.clone(), source_file, &mut diag);
     if diag.has_error() {
         return diag.report_macro_diagnostic(&tokens);
     }
