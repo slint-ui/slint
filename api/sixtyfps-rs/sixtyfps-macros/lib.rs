@@ -53,7 +53,7 @@ fn are_token_touching_impl(token1_debug: &str, token2_debug: &str) -> bool {
         .rsplit(not_is_byte_char)
         .next()
         .map(|x| x.trim_matches(':'));
-    end_of_token1.zip(begin_of_token2).map(|(a, b)| a != "" && a == b).unwrap_or(false)
+    end_of_token1.zip(begin_of_token2).map(|(a, b)| !a.is_empty() && a == b).unwrap_or(false)
 }
 
 #[test]
