@@ -291,13 +291,14 @@ fn extract_include_paths(
                         && equal_punct.as_char() == '=' =>
                     {
                         let path_with_quotes = path.to_string();
-                        let path_with_quotes_stripped = if path_with_quotes.starts_with("r") {
-                            let hash_removed = path_with_quotes[1..].trim_matches('#');
-                            hash_removed.strip_prefix("\"").unwrap().strip_suffix("\"").unwrap()
-                        } else {
-                            // FIXME: unescape
-                            path_with_quotes.trim_matches('\"')
-                        };
+                        let path_with_quotes_stripped =
+                            if let Some(p) = path_with_quotes.strip_prefix('r') {
+                                let hash_removed = p.trim_matches('#');
+                                hash_removed.strip_prefix('\"').unwrap().strip_suffix('\"').unwrap()
+                            } else {
+                                // FIXME: unescape
+                                path_with_quotes.trim_matches('\"')
+                            };
                         include_paths.push(path_with_quotes_stripped.into());
                     }
                     _ => break,
