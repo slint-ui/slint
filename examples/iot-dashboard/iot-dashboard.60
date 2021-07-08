@@ -334,10 +334,13 @@ export Usage := Box {
 RoundButton := Image { //### QskPushButton
     property <bool> is_up; // ### QskAspect
     callback clicked <=> ta.clicked;
+    property <color> color: #929CB2; // Taken from the fill in the svg itself.
     Image {
         source: is_up ? @image-url("images/up.svg") : @image-url("images/down.svg");
         x: (parent.width - width) / 2;
         y: (parent.height - height) / 2;
+        // Deviation from qskinny: Show a darker color when pressing the button to provide feedback.
+        colorize: ta.pressed ? color.darker(80%) : color;
     }
     ta := TouchArea {  }
 }
