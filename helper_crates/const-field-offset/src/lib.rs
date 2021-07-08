@@ -54,6 +54,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // We want bit-wise equality here
     fn test_simple() {
         // Get a pointer to `b` within `Foo`
         let foo_b = Foo::FIELD_OFFSETS.b;
@@ -64,7 +65,7 @@ mod tests {
         // Apply the pointer to get at `b` and read it
         {
             let y = foo_b.apply(&x);
-            assert!(*y == 2.0);
+            assert_eq!(*y, 2.0);
         }
 
         // Apply the pointer to get at `b` and mutate it
@@ -72,10 +73,11 @@ mod tests {
             let y = foo_b.apply_mut(&mut x);
             *y = 42.0;
         }
-        assert!(x.b == 42.0);
+        assert_eq!(x.b, 42.0);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // We want bit-wise equality here
     fn test_nested() {
         // Construct an example `Foo`
         let mut x = Bar { x: 0, y: Foo { a: 1, b: 2.0, c: false } };
@@ -88,10 +90,11 @@ mod tests {
             let y = bar_y_b.apply_mut(&mut x);
             *y = 42.0;
         }
-        assert!(x.y.b == 42.0);
+        assert_eq!(x.y.b, 42.0);
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // We want bit-wise equality here
     fn test_pin() {
         use ::alloc::boxed::Box;
         // Get a pointer to `b` within `Foo`
@@ -99,15 +102,15 @@ mod tests {
         let foo_b_pin = unsafe { foo_b.as_pinned_projection() };
         let foo = Box::pin(Foo { a: 21, b: 22.0, c: true });
         let pb: Pin<&f64> = foo_b_pin.apply_pin(foo.as_ref());
-        assert!(*pb == 22.0);
+        assert_eq!(*pb, 22.0);
 
         let mut x = Box::pin(Bar { x: 0, y: Foo { a: 1, b: 52.0, c: false } });
         let bar_y_b = Bar::FIELD_OFFSETS.y + foo_b_pin;
-        assert!(*bar_y_b.apply(&*x) == 52.0);
+        assert_eq!(*bar_y_b.apply(&*x), 52.0);
 
         let bar_y_pin = unsafe { Bar::FIELD_OFFSETS.y.as_pinned_projection() };
         *(bar_y_pin + foo_b_pin).apply_pin_mut(x.as_mut()) = 12.;
-        assert!(x.y.b == 12.0);
+        assert_eq!(x.y.b, 12.0);
     }
 }
 
