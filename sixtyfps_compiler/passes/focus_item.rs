@@ -77,7 +77,7 @@ fn resolve_element_reference_in_set_focus_call(expr: &mut Expression, diag: &mut
                 let focus_target = weak_focus_target.upgrade().expect(
                     "internal compiler error: weak SetFocusItem parameter cannot be dangling",
                 );
-                match find_focusable_element(focus_target.clone(), diag) {
+                match find_focusable_element(focus_target, diag) {
                     Some(new_focus_target) => {
                         *weak_focus_target = Rc::downgrade(&new_focus_target);
                     }

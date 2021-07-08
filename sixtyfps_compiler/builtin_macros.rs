@@ -267,7 +267,7 @@ fn to_debug_string(
                 Some(string) => {
                     let mut v = Vec::new();
                     v.push(Expression::StoreLocalVariable {
-                        name: local_object.clone(),
+                        name: local_object,
                         value: Box::new(expr),
                     });
                     v.push(Expression::BinaryExpression {

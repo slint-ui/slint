@@ -37,7 +37,7 @@ pub fn parse_statement(p: &mut impl Parser) -> bool {
     }
 
     if p.peek().as_str() == "return" {
-        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::ReturnStatement);
+        let mut p = p.start_node_at(checkpoint, SyntaxKind::ReturnStatement);
         p.expect(SyntaxKind::Identifier); // "return"
         if !p.test(SyntaxKind::Semicolon) {
             parse_expression(&mut *p);

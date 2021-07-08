@@ -845,7 +845,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         // Safety: TwoWayBinding's T is the same as the type for both properties
         unsafe {
             prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
-            prop2.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
+            prop2.handle.set_binding(TwoWayBinding { common_property });
         }
         prop1.handle.mark_dirty();
     }
