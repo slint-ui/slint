@@ -39,7 +39,7 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
         Some(idx) => idx + 8,
         None => match doc.find("```test,") {
             None => return error("test not found"),
-            Some(idx) => match doc[idx..].find("\n") {
+            Some(idx) => match doc[idx..].find('\n') {
                 None => return error("test not found"),
                 Some(newline) => {
                     kind = Some(&doc[idx + 8..idx + newline]);
@@ -69,7 +69,7 @@ fn generate_test(fn_name: &str, doc: &str) -> String {
     };
 
     let mut tests = String::new();
-    for (i, line) in doc.split("\n").enumerate() {
+    for (i, line) in doc.split('\n').enumerate() {
         let line = line.trim();
         if line.is_empty() {
             continue;
