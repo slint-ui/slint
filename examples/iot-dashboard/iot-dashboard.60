@@ -156,41 +156,42 @@ PieChartFill := Path {
     property <float> thickness;
     property <float> inner_radius;
     property <float> progress;
+    property <float> start : 0;
 
     viewbox-width: 100;
     viewbox-height: 100;
 
     MoveTo {
-        x: 50;
-        y: 0;
+        y: 50 - 50 * cos(-start * 360deg);
+        x: 50 - 50 * sin(-start * 360deg);
     }
     LineTo {
-        x: 50;
-        y: thickness;
+        y: 50 - inner_radius * cos(-start * 360deg);
+        x: 50 - inner_radius * sin(-start * 360deg);
     }
     ArcTo {
         radius-x: inner_radius;
         radius-y: inner_radius;
-        y: 50 - inner_radius*cos(-progress * 360deg);
-        x: 50 - inner_radius*sin(-progress * 360deg);
+        y: 50 - inner_radius*cos(-(start + progress) * 360deg);
+        x: 50 - inner_radius*sin(-(start + progress) * 360deg);
         sweep: progress > 0;
         large-arc: progress > 0.5;
     }
     LineTo {
-        y: 50 - 50*cos(-progress * 360deg);
-        x: 50 - 50*sin(-progress * 360deg);
+        y: 50 - 50*cos(-(start + progress) * 360deg);
+        x: 50 - 50*sin(-(start + progress) * 360deg);
     }
     ArcTo {
         radius-x: 50;
         radius-y: 50;
-        x: 50;
-        y: 0;
+        y: 50 - 50 * cos(-start * 360deg);
+        x: 50 - 50 * sin(-start * 360deg);
         sweep: progress < 0;
         large-arc: progress > 0.5;
     }
     LineTo {
-        x: 50;
-        y: 0;
+        y: 50 - 50 * cos(-start * 360deg);
+        x: 50 - 50 * sin(-start * 360deg);
     }
 }
 
@@ -602,14 +603,17 @@ export UsageDiagram := Box {
 }
 
 // From LightIntensity.cpp
-// ## FIXME
-
 LightDimmer := Rectangle {
     property <brush> coldGradient <=> cold.fill;
     property <brush> warmGradient <=> warm.fill;
 
     property <float> thickness: 8;
     property <float> inner_radius: 50 - thickness;
+
+    property <float> value : 50%;
+    property <float> display_value : touch.pressed ? touch.new_value : value;
+
+    property <angle> angle : -180deg + 180deg * display_value;
 
 
     back := PieChartBackground {
@@ -624,7 +628,8 @@ LightDimmer := Rectangle {
         height: 100%;
         thickness: root.thickness;
         inner_radius: root.inner_radius;
-        progress: 0.25;
+        start: (display_value - 0.5) / 2;
+        progress: 0.25 - start;
 
     }
 
@@ -633,8 +638,8 @@ LightDimmer := Rectangle {
         height: 100%;
         thickness: root.thickness;
         inner_radius: root.inner_radius;
-        progress: -0.25;
-
+        start: (display_value - 0.5) / 2;
+        progress: -0.25 - start;
     }
 
     knob := Path {
@@ -649,20 +654,29 @@ LightDimmer := Rectangle {
         viewbox-height: 100;
 
         MoveTo {
-            x: 50;
-            y: - root.thickness / 4;
+            x: 50 + (50 + root.thickness / 4) * cos(root.angle);
+            y: 50 + (50 + root.thickness / 4) * sin(root.angle);
         }
         ArcTo {
             radius-x: root.thickness / 4;
             radius-y: root.thickness / 4;
-            x: 50;
-            y: root.thickness * 1.25;
+            x: 50 + (50 - root.thickness * 1.25) * cos(root.angle);
+            y: 50 + (50 - root.thickness * 1.25) * sin(root.angle);
         }
         ArcTo {
             radius-x: root.thickness / 4;
             radius-y: root.thickness / 4;
-            x: 50;
-            y: - root.thickness / 4;
+            x: 50 + (50 + root.thickness * 0.25) * cos(root.angle);
+            y: 50 + (50 + root.thickness * 0.25) * sin(root.angle);
+        }
+    }
+
+    touch := TouchArea {
+
+        property<float> new_value : min(1, max(0, mouse_x / height));
+
+        clicked => {
+            root.value = new_value;
         }
     }
 }
@@ -670,8 +684,6 @@ LightDimmer := Rectangle {
 export LightIntensity := Box {
     title: "Light intensity";
 
-    property <float> thickness: 8;
-    property <float> inner_radius: 50 - thickness;
     preferred-height: width;
 
     Rectangle {
@@ -701,7 +713,7 @@ export LightIntensity := Box {
             x: dimmer.x;
             y: dimmer.y;
             color: #929cb2;
-            text: "50%";
+            text: "\{round(dimmer.display_value * 100)}%";
             font_size: Skin.MediumFont;
             vertical-alignment: center;
             horizontal-alignment: center;
