@@ -29,15 +29,9 @@ pub fn lower_macro(
     diag: &mut BuildDiagnostics,
 ) -> Expression {
     match mac {
-        BuiltinMacroFunction::Min => {
-            return min_max_macro(n, '<', sub_expr.collect(), diag);
-        }
-        BuiltinMacroFunction::Max => {
-            return min_max_macro(n, '>', sub_expr.collect(), diag);
-        }
-        BuiltinMacroFunction::Debug => {
-            return debug_macro(n, sub_expr.collect(), diag);
-        }
+        BuiltinMacroFunction::Min => min_max_macro(n, '<', sub_expr.collect(), diag),
+        BuiltinMacroFunction::Max => min_max_macro(n, '>', sub_expr.collect(), diag),
+        BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::CubicBezier => {
             let mut has_error = None;
             // FIXME: this is not pretty to be handling there.

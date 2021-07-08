@@ -519,13 +519,13 @@ impl Expression {
 
         match result.expression {
             Expression::ElementReference(e) => {
-                return continue_lookup_within_element(&e.upgrade().unwrap(), &mut it, node, ctx);
+                continue_lookup_within_element(&e.upgrade().unwrap(), &mut it, node, ctx)
             }
             r @ Expression::CallbackReference(..) => {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error("Cannot access fields of callback".into(), &x)
                 }
-                return r;
+                r
             }
             Expression::EnumerationValue(ev) => {
                 // Special meaning for the type itself
@@ -553,9 +553,9 @@ impl Expression {
                         return Expression::Invalid;
                     }
                 }
-                return maybe_lookup_object(Expression::EnumerationValue(ev), it, ctx);
+                maybe_lookup_object(Expression::EnumerationValue(ev), it, ctx)
             }
-            other => return maybe_lookup_object(other, it, ctx),
+            other => maybe_lookup_object(other, it, ctx),
         }
     }
 

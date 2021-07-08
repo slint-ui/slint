@@ -75,7 +75,7 @@ fn maybe_materialize(
             return true;
         }
     }
-    return false;
+    false
 }
 
 /// Returns true if the property is declared in this element or parent
