@@ -39,7 +39,7 @@ fn element_focus_check(element: &ElementRc) -> FocusCheckResult {
         return FocusCheckResult::ElementIsFocusable;
     }
 
-    return FocusCheckResult::ElementIsNotFocusable;
+    FocusCheckResult::ElementIsNotFocusable
 }
 
 fn find_focusable_element(
