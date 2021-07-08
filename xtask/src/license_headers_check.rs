@@ -96,19 +96,19 @@ impl<'a> SourceFileWithTags<'a> {
             None => return false,
         };
 
-        let expected_tag_str = expected_tag.to_string(&self.tag_style);
+        let expected_tag_str = expected_tag.to_string(self.tag_style);
         let found_tag = &self.source[tag_loc.start..tag_loc.end];
         expected_tag_str == found_tag
     }
 
     fn replace_tag(&self, replacement: &LicenseHeader) -> String {
-        let new_header = replacement.to_string(&self.tag_style);
+        let new_header = replacement.to_string(self.tag_style);
 
         match &self.tag_location {
             Some(loc) => {
                 self.source[0..loc.start].to_string() + &new_header + &self.source[loc.end..]
             }
-            None => return new_header + &self.source,
+            None => new_header + self.source,
         }
     }
 }
