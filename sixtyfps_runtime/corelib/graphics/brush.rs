@@ -91,7 +91,7 @@ impl LinearGradientBrush {
     }
     /// Returns the color stops of the linear gradient.
     /// The stops are sorted by positions.
-    pub fn stops<'a>(&'a self) -> impl Iterator<Item = &'a GradientStop> + 'a {
+    pub fn stops(&self) -> impl Iterator<Item = &GradientStop> {
         // skip the first fake stop that just contains the angle
         self.0.iter().skip(1)
     }
