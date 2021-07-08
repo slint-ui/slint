@@ -7,6 +7,9 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+// cspell:ignore cppdocs pipenv pipfile
+
 use anyhow::{Context, Result};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
