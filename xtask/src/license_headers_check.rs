@@ -378,7 +378,7 @@ impl CargoToml {
 
     fn check_and_fix_package_string_field<'a>(
         &mut self,
-        fixit: bool,
+        fix_it: bool,
         field: &'a str,
         expected_str: &'a str,
     ) -> Result<()> {
@@ -386,7 +386,7 @@ impl CargoToml {
             Some(field_value) => match field_value.as_str() {
                 Some(text) => {
                     if text != expected_str {
-                        if fixit {
+                        if fix_it {
                             self.doc["package"][field] = toml_edit::value(expected_str);
                             self.edited = true;
                         } else {
@@ -402,7 +402,7 @@ impl CargoToml {
                 None => return Err(anyhow::anyhow!("{} field is not a string", field)),
             },
             None => {
-                if fixit {
+                if fix_it {
                     self.doc["package"][field] = toml_edit::value(expected_str);
                     self.edited = true;
                 } else {
@@ -429,7 +429,7 @@ impl CargoToml {
 #[derive(Debug, StructOpt)]
 pub struct LicenseHeaderCheck {
     #[structopt(long)]
-    fixit: bool,
+    fix_it: bool,
 
     #[structopt(long)]
     show_all: bool,
@@ -470,7 +470,7 @@ impl LicenseHeaderCheck {
         let source = SourceFileWithTags::new(source, style);
 
         if !source.has_tag() {
-            if self.fixit {
+            if self.fix_it {
                 eprintln!(
                     "Fixing up {} as instructed. It's missing a license header.",
                     path.to_str().unwrap()
@@ -482,7 +482,7 @@ impl LicenseHeaderCheck {
             }
         } else if source.tag_matches(&EXPECTED_HEADER) {
             Ok(())
-        } else if self.fixit {
+        } else if self.fix_it {
             let source = source.replace_tag(&EXPECTED_HEADER);
             std::fs::write(path, &source).context("Error writing new source")
         } else {
@@ -501,15 +501,15 @@ impl LicenseHeaderCheck {
             return Ok(());
         }
 
-        doc.check_and_fix_package_string_field(self.fixit, "license", EXPECTED_SPDX_EXPRESSION)?;
+        doc.check_and_fix_package_string_field(self.fix_it, "license", EXPECTED_SPDX_EXPRESSION)?;
 
         if !doc.published()? {
             // Skip further tests for package that are not published
             return Ok(());
         }
 
-        doc.check_and_fix_package_string_field(self.fixit, "homepage", EXPECTED_HOMEPAGE)?;
-        doc.check_and_fix_package_string_field(self.fixit, "repository", EXPECTED_REPOSITORY)?;
+        doc.check_and_fix_package_string_field(self.fix_it, "homepage", EXPECTED_HOMEPAGE)?;
+        doc.check_and_fix_package_string_field(self.fix_it, "repository", EXPECTED_REPOSITORY)?;
 
         if doc.package()?["description"].is_none() {
             return Err(anyhow::anyhow!("Missing description field"));
@@ -553,7 +553,7 @@ impl LicenseHeaderCheck {
             }
         }
 
-        if self.fixit {
+        if self.fix_it {
             doc.save_if_changed(path)?;
         }
 
