@@ -87,8 +87,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         docs_build_dir.join("README.md"),
     )?;
 
-    let pip_env =
-        vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("docs/Pipfile").to_owned())];
+    let pip_env = vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("docs/Pipfile"))];
 
     println!("Running pipenv install");
 
@@ -105,7 +104,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
             docs_build_dir.to_str().unwrap(),
             docs_build_dir.join("html").to_str().unwrap(),
         ],
-        pip_env.clone(),
+        pip_env,
     )
     .context("Error running pipenv install")?;
 
