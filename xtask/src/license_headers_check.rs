@@ -114,7 +114,7 @@ impl<'a> SourceFileWithTags<'a> {
 }
 
 #[test]
-fn test_license_tag_cstyle() {
+fn test_license_tag_c_style() {
     let style = LicenseTagStyle::c_style_comment_style();
     {
         let test_source = SourceFileWithTags::new(
