@@ -394,7 +394,7 @@ export IndoorTemperature := BoxWithButtons {
     property <int> temperature: 24;
     title_: "Indoor Temperature";
     iconFile: @image-url("images/indoor-temperature.png");
-    value: temperature + "°C";
+    value: (temperature < 0 ? "" : "+") + temperature;
     isBright: true;
     changed(delta) => { temperature += delta; }
 }
