@@ -173,32 +173,28 @@ impl<'a> Iterator for ToLyonPathEventIterator<'a> {
         use lyon_path::Event;
 
         self.events_it.next().map(|event| match event {
-            PathEvent::Begin => Event::Begin { at: self.coordinates_it.next().unwrap().clone() },
+            PathEvent::Begin => Event::Begin { at: *self.coordinates_it.next().unwrap() },
             PathEvent::Line => Event::Line {
-                from: self.coordinates_it.next().unwrap().clone(),
-                to: self.coordinates_it.next().unwrap().clone(),
+                from: *self.coordinates_it.next().unwrap(),
+                to: *self.coordinates_it.next().unwrap(),
             },
             PathEvent::Quadratic => Event::Quadratic {
-                from: self.coordinates_it.next().unwrap().clone(),
-                ctrl: self.coordinates_it.next().unwrap().clone(),
-                to: self.coordinates_it.next().unwrap().clone(),
+                from: *self.coordinates_it.next().unwrap(),
+                ctrl: *self.coordinates_it.next().unwrap(),
+                to: *self.coordinates_it.next().unwrap(),
             },
             PathEvent::Cubic => Event::Cubic {
-                from: self.coordinates_it.next().unwrap().clone(),
-                ctrl1: self.coordinates_it.next().unwrap().clone(),
-                ctrl2: self.coordinates_it.next().unwrap().clone(),
-                to: self.coordinates_it.next().unwrap().clone(),
+                from: *self.coordinates_it.next().unwrap(),
+                ctrl1: *self.coordinates_it.next().unwrap(),
+                ctrl2: *self.coordinates_it.next().unwrap(),
+                to: *self.coordinates_it.next().unwrap(),
             },
-            PathEvent::EndOpen => Event::End {
-                first: self.first.unwrap().clone(),
-                last: self.last.unwrap().clone(),
-                close: false,
-            },
-            PathEvent::EndClosed => Event::End {
-                first: self.first.unwrap().clone(),
-                last: self.last.unwrap().clone(),
-                close: true,
-            },
+            PathEvent::EndOpen => {
+                Event::End { first: *self.first.unwrap(), last: *self.last.unwrap(), close: false }
+            }
+            PathEvent::EndClosed => {
+                Event::End { first: *self.first.unwrap(), last: *self.last.unwrap(), close: true }
+            }
         })
     }
 
@@ -415,7 +411,7 @@ pub(crate) mod ffi {
         count: usize,
     ) {
         let arr = crate::SharedVector::from(std::slice::from_raw_parts(first_element, count));
-        core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr.clone());
+        core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr);
     }
 
     #[no_mangle]
@@ -430,11 +426,11 @@ pub(crate) mod ffi {
     ) {
         let events =
             crate::SharedVector::from(std::slice::from_raw_parts(first_event, event_count));
-        core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events.clone());
+        core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events);
         let coordinates = crate::SharedVector::from(std::slice::from_raw_parts(
             first_coordinate,
             coordinate_count,
         ));
-        core::ptr::write(out_coordinates as *mut crate::SharedVector<Point>, coordinates.clone());
+        core::ptr::write(out_coordinates as *mut crate::SharedVector<Point>, coordinates);
     }
 }

@@ -529,7 +529,7 @@ impl Expression {
                     debug_assert!(*op == '*' || *op == '/');
                     let unit_vec = |ty| {
                         if let Type::UnitProduct(v) = ty {
-                            v.clone()
+                            v
                         } else if let Some(u) = ty.default_unit() {
                             vec![(u, 1)]
                         } else {

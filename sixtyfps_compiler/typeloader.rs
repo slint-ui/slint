@@ -241,7 +241,7 @@ impl<'a> TypeLoader<'a> {
         }
 
         let source_code_result = if let Some(builtin) = is_builtin {
-            Ok(builtin.to_owned())
+            Ok(builtin)
         } else if let Some(fallback) = &self.compiler_config.open_import_fallback {
             let result = fallback(path_canon.to_string_lossy().into()).await;
             result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))

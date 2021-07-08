@@ -80,7 +80,7 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
             }
         }
     }
-    flickable.children.push(viewport.clone());
+    flickable.children.push(viewport);
 }
 
 fn fixup_geometry(flickable_elem: &ElementRc) {

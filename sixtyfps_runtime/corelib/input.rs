@@ -412,7 +412,7 @@ pub fn process_mouse_input(
                     }
                     InputEventResult::EventIgnored => (),
                     InputEventResult::GrabMouse => {
-                        result.item_stack = mouse_grabber_stack.clone();
+                        result.item_stack = mouse_grabber_stack;
                         result.grabbed = true;
                         return VisitChildrenResult::abort(item_rc.index(), 0);
                     }
