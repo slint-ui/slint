@@ -354,13 +354,12 @@ impl CargoToml {
     }
 
     fn package(&self) -> Result<&toml_edit::Table> {
-        Ok(self
-            .doc
+        self.doc
             .as_table()
             .get("package")
             .map(|p| p.as_table())
             .flatten()
-            .ok_or_else(|| anyhow::anyhow!("Invalid Cargo.toml -- cannot find package section"))?)
+            .ok_or_else(|| anyhow::anyhow!("Invalid Cargo.toml -- cannot find package section"))
     }
 
     fn dependencies<'a>(&self, dep_type: &'a str) -> Vec<(String, CargoDependency)> {
