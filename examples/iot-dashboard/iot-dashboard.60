@@ -672,6 +672,7 @@ export LightIntensity := Box {
 
     property <float> thickness: 8;
     property <float> inner_radius: 50 - thickness;
+    preferred-height: width;
 
     Rectangle {
         vertical_stretch: 1;
