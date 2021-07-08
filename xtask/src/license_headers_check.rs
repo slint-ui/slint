@@ -154,7 +154,7 @@ fn test_license_tag_hash() {
     {
         let test_source = SourceFileWithTags::new(
             r#"# LICENSE BEGIN
-# blub
+# Some Text
 # LICENSE END
 
 blah"#,
@@ -191,6 +191,7 @@ enum LicenseLocation {
 }
 
 lazy_static! {
+    // cspell:disable
     static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
         ("^helper_crates/const-field-offset/src/lib.rs$", LicenseLocation::NoLicense), // Upstream fork
         ("^helper_crates/const-field-offset/Cargo.toml$", LicenseLocation::NoLicense), // Upstream fork
@@ -244,6 +245,7 @@ lazy_static! {
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
     .collect();
+    // cspell:enable
 }
 
 pub struct LicenseHeader<'a>(&'a [&'a str]);
