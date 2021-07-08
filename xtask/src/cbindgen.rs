@@ -11,6 +11,8 @@ use anyhow::Context;
 use std::iter::Extend;
 use std::path::Path;
 
+// cspell::ignore compat constexpr corelib sharedvector pathdata
+
 fn default_config() -> cbindgen::Config {
     cbindgen::Config {
         pragma_once: true,
