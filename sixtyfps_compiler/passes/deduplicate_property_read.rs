@@ -88,6 +88,13 @@ impl<'a> DedupPropState<'a> {
 }
 
 fn process_expression(expr: &mut Expression, old_state: &DedupPropState) {
+    if let Expression::TwoWayBinding(_, expr) = expr {
+        if let Some(expr) = expr {
+            process_expression(&mut *expr, old_state)
+        }
+        return;
+    }
+
     let new_state = DedupPropState { parent_state: Some(old_state), ..DedupPropState::default() };
     collect_unconditional_read_count(expr, &new_state);
     process_conditional_expressions(expr, &new_state);

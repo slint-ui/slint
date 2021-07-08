@@ -1,0 +1,26 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// There used to be a bug in the deduplicate_property_read pass that would mess up aliases
+
+BoxWithButtons := Window {
+    property <string> value <=> val.text;
+    val := Text {}
+}
+
+export TestCase := BoxWithButtons {
+    property <int> temperature: 24;
+    value: {
+        (temperature < 0 ? "" : "+") + temperature;
+    }
+
+    property <bool> test: value == "+24";
+}
+
