@@ -92,6 +92,7 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
     let item_name = &input.ident;
 
     quote!(
+        #[allow(clippy::nonstandard_macro_braces)]
         #[cfg(feature = "rtti")]
         impl BuiltinItem for #item_name {
             fn name() -> &'static str {
