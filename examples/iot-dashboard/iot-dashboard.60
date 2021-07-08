@@ -289,10 +289,14 @@ RoundedIcon := Rectangle {
     property <bool> isBright;
     property <bool> isSmall;
     property <image> iconName <=> m_graphicLabel.source;
-    background: isBright ? @linear-gradient(180deg, #ff7d34, #ff3122) : @linear-gradient(180deg, #6776FF, #6100FF);
-    border-radius: 6px;
+    property <float> background-opacity <=> background-fill.opacity;
     height: isSmall ? 60px : 68px;
     width: isSmall ? 60px : 68px;
+    background-fill := Rectangle {
+        background: isBright ? @linear-gradient(180deg, #ff7d34, #ff3122) : @linear-gradient(180deg, #6776FF, #6100FF);
+        border-radius: 6px;
+        opacity: 1.0;
+    }
     m_graphicLabel := Image {
         x: (parent.width - width) / 2;
         y: (parent.height - height) / 2;
@@ -407,7 +411,7 @@ Device := VerticalLayout {
     property <image> iconName <=> ri.iconName; // ### based on the name in the original
     property <bool> isBright <=> ri.isBright;
     ri := RoundedIcon {
-        opacity: 0.15;
+        background-opacity: 0.15;
     }
     t := Text {
         font_size: Skin.TinyFont;
