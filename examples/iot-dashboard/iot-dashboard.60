@@ -329,20 +329,23 @@ export Usage := Box {
 // From UpAndDownButton.cpp
 RoundButton := Image { //### QskPushButton
     property <bool> is_up; // ### QskAspect
+    callback clicked <=> ta.clicked;
     Image {
         source: is_up ? @image-url("images/up.svg") : @image-url("images/down.svg");
         x: (parent.width - width) / 2;
         y: (parent.height - height) / 2;
     }
+    ta := TouchArea {  }
 }
 UpAndDownButton := Rectangle {
+    callback changed(int);
     // FIXME: this is actually on the RoundButton
     border-radius: 30px;
     width: 45px;
     background: Skin.palette.roundButton;
     VerticalLayout {
-        RoundButton { is_up: true; }
-        RoundButton { is_up: false; }
+        u := RoundButton { is_up: true;  clicked => { changed(+1) }}
+        d := RoundButton { is_up: false; clicked => { changed(-1) }}
     }
 }
 
@@ -360,6 +363,7 @@ TitleAndValueBox := VerticalLayout {
 }
 
 BoxWithButtons := Box {
+    callback changed <=> btns.changed;
     property <image> iconFile <=> ri.iconName; //### in original, this is derived from title
     property <string> value <=> val.value;
     property <bool> isBright <=> ri.isBright;
@@ -375,22 +379,25 @@ BoxWithButtons := Box {
             }
             val := ButtonValueLabel { }
         }
-        UpAndDownButton { }
+        btns := UpAndDownButton { }
     }
 }
 
 export IndoorTemperature := BoxWithButtons {
+    property <int> temperature: 24;
     title_: "Indoor Temperature";
     iconFile: @image-url("images/indoor-temperature.png");
-    value: "+24";
+    value: temperature + "°C";
     isBright: true;
+    changed(delta) => { temperature += delta; }
 }
 export Humidity := BoxWithButtons {
-    property <string> humidity_percent <=> value;
+    property <int> humidity_percent : 30;
     title_: "Humidity";
     iconFile: @image-url("images/humidity.png");
-    value: "30%";
+    value: humidity_percent + "%";
     isBright: false;
+    changed(delta) => { humidity_percent += delta; }
 }
 
 // from MyDevices.cpp

@@ -62,7 +62,7 @@ public:
     std::string type_name() const override { return "Humidity"; }
     std::vector<PropertyDeclaration> properties() const override
     {
-        return { PropertyDeclaration { "humidity_percent", "string" } };
+        return { PropertyDeclaration { "humidity_percent", "int" } };
     }
 
 private:
@@ -80,8 +80,8 @@ HumidityWidget::HumidityWidget()
 void HumidityWidget::update_fake_humidity()
 {
     std::uniform_int_distribution<> humidity_range(20, 150);
-    int humidity_percent = humidity_range(rng);
-    set_property("humidity_percent", sixtyfps::SharedString(fmt::format("{}%", humidity_percent)));
+    double humidity_percent = humidity_range(rng);
+    set_property("humidity_percent", humidity_percent);
 }
 
 int main()
