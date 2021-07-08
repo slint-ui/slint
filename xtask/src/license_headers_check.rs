@@ -362,7 +362,7 @@ impl CargoToml {
             .ok_or_else(|| anyhow::anyhow!("Invalid Cargo.toml -- cannot find package section"))
     }
 
-    fn dependencies<'a>(&self, dep_type: &'a str) -> Vec<(String, CargoDependency)> {
+    fn dependencies(&self, dep_type: &str) -> Vec<(String, CargoDependency)> {
         match self.doc.as_table().get(dep_type).map(|d| d.as_table()).flatten() {
             Some(dep_table) => dep_table
                 .iter()
