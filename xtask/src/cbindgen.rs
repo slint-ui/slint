@@ -232,8 +232,8 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
             "sixtyfps_image_size",
         ]
         .iter()
-        .filter(|exclusion| rust_types.iter().find(|inclusion| inclusion == exclusion).is_none())
-        .chain(extra_excluded_types.into_iter())
+        .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))
+        .chain(extra_excluded_types.iter())
         .map(|s| s.to_string())
         .collect();
 
