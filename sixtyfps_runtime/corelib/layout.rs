@@ -206,6 +206,7 @@ mod grid_internal {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // We want bit-wise equality here
     fn test_layout_items() {
         let my_items = &mut [
             LayoutData { min: 100., max: 200., pref: 100., stretch: 1., ..Default::default() },

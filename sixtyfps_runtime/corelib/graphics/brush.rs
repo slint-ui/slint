@@ -161,6 +161,7 @@ impl InterpolatedPropertyValue for Brush {
 }
 
 #[test]
+#[allow(clippy::float_cmp)] // We want bit-wise equality here
 fn test_linear_gradient_encoding() {
     let stops: SharedVector<GradientStop> = [
         GradientStop { position: 0.0, color: Color::from_argb_u8(255, 255, 0, 0) },
