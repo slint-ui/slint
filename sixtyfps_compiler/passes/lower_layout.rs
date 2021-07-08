@@ -247,7 +247,7 @@ fn lower_box_layout(
         Orientation::Horizontal => ("x", "width", "y", "height"),
         Orientation::Vertical => ("y", "height", "x", "width"),
     };
-    let pad_expr = begin_padding.clone().map(|pad| Expression::PropertyReference(pad));
+    let pad_expr = begin_padding.clone().map(Expression::PropertyReference);
     let mut size_expr = Expression::PropertyReference(NamedReference::new(layout_element, ortho));
     if let Some(p) = begin_padding {
         size_expr = Expression::BinaryExpression {
