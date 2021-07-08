@@ -357,10 +357,10 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         .filter(|path| path.is_absolute() && !path.ends_with("Cargo.toml"))
         .filter_map(|p| p.to_str())
         .map(|p| quote! {const _ : &'static [u8] = ::core::include_bytes!(#p);});
-    result.as_mut().map(|x| {
+    if let Some(x) = result.as_mut() {
         x.extend(reload);
         x.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SIXTYFPS_STYLE");});
-    });
+    }
 
     let diags = diag.report_macro_diagnostic(&tokens);
     result.map_or(diags, |r| r.into())
