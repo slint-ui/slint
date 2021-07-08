@@ -325,7 +325,7 @@ impl<C: RepeatedComponent> Default for RepeaterInner<C> {
 
 impl<C: RepeatedComponent> Clone for RepeaterInner<C> {
     fn clone(&self) -> Self {
-        panic!("Clone is there so we can make_mut the RepeaterInner, to dissociate the weaks, but there should only be one inner")
+        panic!("Clone is there so we can make_mut the RepeaterInner, to dissociate the weak refs, but there should only be one inner")
     }
 }
 
@@ -396,7 +396,7 @@ pub struct Repeater<C: RepeatedComponent> {
     /// The model is changed. The inner RefCell make it possible to change the RepeaterInner when shared
     inner: RefCell<Rc<RefCell<RepeaterInner<C>>>>,
     model: Property<ModelHandle<C::Data>>,
-    /// Only used for the list view to track if the scrollbar has changed and item needs to be re_layouted
+    /// Only used for the list view to track if the scrollbar has changed and item needs to be layed out again.
     listview_geometry_tracker: crate::properties::PropertyTracker,
 }
 
@@ -417,7 +417,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let model = unsafe { self.map_unchecked(|s| &s.model) };
 
         if model.is_dirty() {
-            // Invalidate previuos weeks on the previous models
+            // Invalidate previous weeks on the previous models
             (*Rc::make_mut(&mut self.inner.borrow_mut()).get_mut()) = RepeaterInner::default();
             if let ModelHandle(Some(m)) = model.get() {
                 let peer: Rc<RefCell<dyn ViewAbstraction>> = self.inner.borrow().clone();
@@ -519,7 +519,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 let element_height = if count.get() > 0 {
                     total_height.get() / (count.get() as f32)
                 } else {
-                    // There seems to be currently no items. Just instentiate one item.
+                    // There seems to be currently no items. Just instantiate one item.
 
                     {
                         let inner = self.inner.borrow();
@@ -669,7 +669,7 @@ impl<C: RepeatedComponent> Repeater<C> {
     }
 }
 
-/// Represend an item in a StandardListView
+/// Represent an item in a StandardListView
 #[repr(C)]
 #[derive(Clone, Default, Debug, PartialEq)]
 pub struct StandardListViewItem {
