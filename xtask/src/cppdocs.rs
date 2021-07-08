@@ -78,7 +78,7 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         &docs_build_dir,
         ["..", "..", "api", "sixtyfps-cpp", "docs"].iter().collect::<PathBuf>(),
     )
-    .context("Error symlinking files from docs source to docs build dir")?;
+    .context("Error creating symlinks from docs source to docs build dir")?;
 
     symlink_dir(["..", "..", "docs"].iter().collect::<PathBuf>(), docs_build_dir.join("markdown"))?;
 
