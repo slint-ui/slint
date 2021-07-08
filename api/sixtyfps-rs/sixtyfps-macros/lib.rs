@@ -307,7 +307,7 @@ fn extract_include_paths(
             _ => break,
         }
     }
-    return (remaining_stream, include_paths);
+    (remaining_stream, include_paths)
 }
 
 /// This macro allows you to use the `.60` design markup language inline in Rust code. Within the braces of the macro
