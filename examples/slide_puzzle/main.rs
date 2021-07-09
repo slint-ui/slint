@@ -121,9 +121,7 @@ impl AppState {
             p = rand::Rng::gen_range(&mut rng, 0..16);
             if hole == p {
                 continue;
-            } else if hole % 4 == p % 4 {
-                break;
-            } else if hole / 4 == p / 4 {
+            } else if (hole % 4 == p % 4) || (hole / 4 == p / 4) {
                 break;
             }
         }
