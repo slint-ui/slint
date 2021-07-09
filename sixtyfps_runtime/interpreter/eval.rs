@@ -204,7 +204,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Debug, _) => {
                 let to_print: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
-                eprintln!("{}", to_print);
+                corelib::debug_log!("{}", to_print);
                 Value::Void
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Mod, _) => {
