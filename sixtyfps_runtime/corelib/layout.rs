@@ -549,7 +549,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
             current_offset += 1;
             break current_offset - 1;
         };
-        res[o * 2 + 0] = layout.pos;
+        res[o * 2] = layout.pos;
         res[o * 2 + 1] = layout.size;
     }
     result
@@ -698,7 +698,7 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
                     break current_offset - 1;
                 };
 
-                res[o * 2 + 0] = item_pos.x + data.x;
+                res[o * 2] = item_pos.x + data.x;
                 res[o * 2 + 1] = item_pos.y + data.y;
                 i += 1;
                 next_t += item_distance;
