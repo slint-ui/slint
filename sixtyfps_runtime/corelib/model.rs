@@ -79,7 +79,7 @@ pub trait Model {
     fn attach_peer(&self, peer: ModelPeer);
 
     /// Returns an iterator visiting all elements of the model.
-    fn iter<'a>(&'a self) -> ModelIterator<'a, Self::Data>
+    fn iter(&self) -> ModelIterator<Self::Data>
     where
         Self: Sized,
     {
@@ -287,8 +287,8 @@ pub trait RepeatedComponent: crate::component::Component {
     }
 
     /// Returns what's needed to perform the layout if this component is in a box layout
-    fn box_layout_data<'a>(
-        self: Pin<&'a Self>,
+    fn box_layout_data(
+        self: Pin<&Self>,
         _orientation: Orientation,
     ) -> crate::layout::BoxLayoutCellData {
         crate::layout::BoxLayoutCellData::default()

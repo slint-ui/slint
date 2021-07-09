@@ -395,8 +395,8 @@ pub fn solve_grid_layout(data: &GridLayoutData) -> SharedVector<Coord> {
     result
 }
 
-pub fn grid_layout_info<'a>(
-    cells: Slice<'a, GridLayoutCellData>,
+pub fn grid_layout_info(
+    cells: Slice<GridLayoutCellData>,
     spacing: Coord,
     padding: &Padding,
 ) -> LayoutInfo {
@@ -556,8 +556,8 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
 }
 
 /// Return the LayoutInfo for a BoxLayout with the given cells.
-pub fn box_layout_info<'a>(
-    cells: Slice<'a, BoxLayoutCellData>,
+pub fn box_layout_info(
+    cells: Slice<BoxLayoutCellData>,
     spacing: Coord,
     padding: &Padding,
     alignment: LayoutAlignment,
@@ -579,10 +579,7 @@ pub fn box_layout_info<'a>(
     LayoutInfo { min, max, min_percent: 0., max_percent: 100., preferred, stretch }
 }
 
-pub fn box_layout_info_ortho<'a>(
-    cells: Slice<'a, BoxLayoutCellData>,
-    padding: &Padding,
-) -> LayoutInfo {
+pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding) -> LayoutInfo {
     let count = cells.len();
     if count < 1 {
         return LayoutInfo { max: 0., ..LayoutInfo::default() };
@@ -734,8 +731,8 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub extern "C" fn sixtyfps_grid_layout_info<'a>(
-        cells: Slice<'a, GridLayoutCellData>,
+    pub extern "C" fn sixtyfps_grid_layout_info(
+        cells: Slice<GridLayoutCellData>,
         spacing: Coord,
         padding: &Padding,
     ) -> LayoutInfo {
@@ -753,8 +750,8 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     /// Return the LayoutInfo for a BoxLayout with the given cells.
-    pub extern "C" fn sixtyfps_box_layout_info<'a>(
-        cells: Slice<'a, BoxLayoutCellData>,
+    pub extern "C" fn sixtyfps_box_layout_info(
+        cells: Slice<BoxLayoutCellData>,
         spacing: Coord,
         padding: &Padding,
         alignment: LayoutAlignment,
@@ -764,8 +761,8 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     /// Return the LayoutInfo for a BoxLayout with the given cells.
-    pub extern "C" fn sixtyfps_box_layout_info_ortho<'a>(
-        cells: Slice<'a, BoxLayoutCellData>,
+    pub extern "C" fn sixtyfps_box_layout_info_ortho(
+        cells: Slice<BoxLayoutCellData>,
         padding: &Padding,
     ) -> LayoutInfo {
         super::box_layout_info_ortho(cells, padding)
