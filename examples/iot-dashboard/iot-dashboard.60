@@ -221,7 +221,11 @@ PieChartPainted := Rectangle {
 
 // From TopBar.cpp
 export TopBar := HorizontalLayout {
-    padding: 5px;
+    padding-left: 25px;
+    padding-top: 35px;
+    padding-right: 25px;
+    padding-bottom: 0px;
+
     spacing: 0px;
     for item in [
         { string: "Living Room", progress: 25, value: 175, color: #ff3122, gradient: @linear-gradient(0deg, #FF5C00, #FF3122) },
