@@ -9,20 +9,19 @@
 LICENSE END */
 
 // Right now, this test is only testing rust keyword, but it should be expaneded to JS and C++ keywords
-// This tests also make sure that it works if a class has the same name as fields or properties
 
 export struct mod := {
-    mod: string,
+    loop: string,
 }
 
 match := Rectangle {
-    property<mod> mod: {mod : "mod" };
-    property<bool> test: mod.mod == "mod";
+    property<mod> move: {loop : "mod" };
+    property<bool> test: move.loop == "mod";
 }
 
 /*
 ```rust
 let instance = r#match::new();
-assert_eq!(instance.get_mod(), r#mod{ r#mod: "mod".into() });
+assert_eq!(instance.get_move(), r#mod{ r#loop: "mod".into() });
 ```
 */
