@@ -266,7 +266,9 @@ impl DependencyListHead {
     unsafe fn append(_self: *mut Self, node: *const DependencyNode) {
         (*node).debug_assert_valid();
         let old = (*_self).0.get() as *const DependencyNode;
-        old.as_ref().map(|x| x.debug_assert_valid());
+        if let Some(x) = old.as_ref() {
+            x.debug_assert_valid();
+        }
         (*_self).0.set(node as usize);
         let node = &*node;
         node.next.set(old);
