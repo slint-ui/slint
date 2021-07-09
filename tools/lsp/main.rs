@@ -560,7 +560,6 @@ fn get_document_symbols(
 
     let inner_components = doc.inner_components.clone();
     let inner_structs = doc.inner_structs.clone();
-    drop(doc);
     let mut make_range = |node: &SyntaxNode| {
         let r = node.text_range();
         Some(Range::new(
