@@ -286,8 +286,9 @@ Box := BoxBase {
         if (root.title != "") : Text {
             text <=> root.title;
             font_size: Skin.TitleFont;
+            font_weight: 700;
         }
-        spacing: 0px;
+        spacing: 10px;
         padding: 15px;
         @children
     }
@@ -320,16 +321,14 @@ UsageSpacer := Text {
     horizontal_stretch: 2;
 }
 
-// Deviation: This is just a Box in C++, but to align the items visually better, this is using a grid layout
-export Usage := BoxBase {
+// Deviation: To align the items visually better, this is using a grid layout
+export Usage := Box {
+    title: "Usage";
+    horizontal_stretch: 1;
     GridLayout {
-        Text {
-            text: "Usage";
-            font_size: Skin.TitleFont;
-        }
         spacing: 0px;
-        padding: 15px;
-
+        vertical_stretch: 1;
+        Row { Rectangle { vertical_stretch: 0; } }
         Row {
             Text { text: "Usage Today"; font_size: Skin.SmallFont; }
             UsageSpacer { }
@@ -427,12 +426,13 @@ export Humidity := BoxWithButtons {
 
 // from MyDevices.cpp
 Device := VerticalLayout {
-    spacing: 8px;
+    spacing: 5px;
     property <string> name <=> t.text;
     property <image> iconName <=> ri.iconName; // ### based on the name in the original
     property <bool> isBright <=> ri.isBright;
     ri := RoundedIcon {
         background-opacity: 0.15;
+        isSmall: true;
     }
     t := Text {
         font_size: Skin.TinyFont;
@@ -443,7 +443,8 @@ Device := VerticalLayout {
 export MyDevices := Box {
     title: "My devices";
     GridLayout {
-        spacing: 15px;
+
+        spacing: 5px;
         Row {
             Device{
                 name: "Lamps";
