@@ -729,7 +729,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             compute_animation_details: || -> AnimationDetail { None },
         };
 
-        // Safety: the AnimatedBindingCallable's type match the property type
+        // Safety: the `AnimatedBindingCallable`'s type match the property type
         unsafe { self.handle.set_binding(binding_callable) };
         self.handle.mark_dirty();
     }
@@ -762,7 +762,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             compute_animation_details: move || Some(compute_animation_details()),
         };
 
-        // Safety: the AnimatedBindingCallable's type match the property type
+        // Safety: the `AnimatedBindingCallable`'s type match the property type
         unsafe { self.handle.set_binding(binding_callable) };
         self.handle.mark_dirty();
     }
