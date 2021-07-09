@@ -206,7 +206,7 @@ async fn reload_preview(
         cache.current = preview_component.clone();
     }
 
-    let mut builder = sixtyfps_interpreter::ComponentCompiler::new();
+    let mut builder = sixtyfps_interpreter::ComponentCompiler::default();
     let cli_args = super::Cli::from_args();
     if !cli_args.style.is_empty() {
         builder.set_style(cli_args.style)

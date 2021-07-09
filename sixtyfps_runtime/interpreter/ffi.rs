@@ -568,7 +568,7 @@ impl ComponentCompilerOpaque {
 pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_new(
     compiler: *mut ComponentCompilerOpaque,
 ) {
-    std::ptr::write(compiler as *mut ComponentCompiler, ComponentCompiler::new())
+    std::ptr::write(compiler as *mut ComponentCompiler, ComponentCompiler::default())
 }
 
 #[no_mangle]

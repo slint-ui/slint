@@ -18,7 +18,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
 
     let component =
