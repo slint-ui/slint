@@ -521,33 +521,33 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
     let res = result.as_slice_mut();
 
     // The index/2 in result in which we should add the next repeated item
-    let mut repeat_ofst =
+    let mut repeat_offset =
         res.len() / 2 - repeater_indexes.iter().skip(1).step_by(2).sum::<u32>() as usize;
     // The index/2  in repeater_indexes
     let mut next_rep = 0;
     // The index/2 in result in which we should add the next non-repeated item
-    let mut current_ofst = 0;
+    let mut current_offset = 0;
     for (idx, layout) in layout_data.iter().enumerate() {
         let o = loop {
             if let Some(nr) = repeater_indexes.get(next_rep * 2) {
                 let nr = *nr as usize;
                 if nr == idx {
                     for o in 0..2 {
-                        res[current_ofst * 2 + o] = (repeat_ofst * 2 + o) as _;
+                        res[current_offset * 2 + o] = (repeat_offset * 2 + o) as _;
                     }
-                    current_ofst += 1;
+                    current_offset += 1;
                 }
                 if idx >= nr {
                     if idx - nr == repeater_indexes[next_rep * 2 + 1] as usize {
                         next_rep += 1;
                         continue;
                     }
-                    repeat_ofst += 1;
-                    break repeat_ofst - 1;
+                    repeat_offset += 1;
+                    break repeat_offset - 1;
                 }
             }
-            current_ofst += 1;
-            break current_ofst - 1;
+            current_offset += 1;
+            break current_offset - 1;
         };
         res[o * 2 + 0] = layout.pos;
         res[o * 2 + 1] = layout.size;
@@ -653,12 +653,12 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
     let res = result.as_slice_mut();
 
     // The index/2 in result in which we should add the next repeated item
-    let mut repeat_ofst =
+    let mut repeat_offset =
         res.len() / 2 - repeater_indexes.iter().skip(1).step_by(2).sum::<u32>() as usize;
     // The index/2  in repeater_indexes
     let mut next_rep = 0;
     // The index/2 in result in which we should add the next non-repeated item
-    let mut current_ofst = 0;
+    let mut current_offset = 0;
 
     'main_loop: while i < data.item_count {
         let mut current_length: f32 = 0.;
@@ -681,21 +681,21 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
                         let nr = *nr;
                         if nr == i {
                             for o in 0..4 {
-                                res[current_ofst * 4 + o] = (repeat_ofst * 4 + o) as _;
+                                res[current_offset * 4 + o] = (repeat_offset * 4 + o) as _;
                             }
-                            current_ofst += 1;
+                            current_offset += 1;
                         }
                         if i >= nr {
                             if i - nr == repeater_indexes[next_rep * 2 + 1] {
                                 next_rep += 1;
                                 continue;
                             }
-                            repeat_ofst += 1;
-                            break repeat_ofst - 1;
+                            repeat_offset += 1;
+                            break repeat_offset - 1;
                         }
                     }
-                    current_ofst += 1;
-                    break current_ofst - 1;
+                    current_offset += 1;
+                    break current_offset - 1;
                 };
 
                 res[o * 2 + 0] = item_pos.x + data.x;
