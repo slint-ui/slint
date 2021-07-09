@@ -45,6 +45,10 @@ Welcome to SixtyFPS C++'s documentation!
    :target: https://github.com/sixtyfpsui/sixtyfps/actions
    :alt: GitHub CI Build Status
 
+.. image:: https://img.shields.io/github/discussions/sixtyfpsui/sixtyfps
+   :target: https://github.com/sixtyfpsui/sixtyfps/discussions
+   :alt: GitHub Discussions
+
 `SixtyFPS <https://sixtyfps.io/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.
 SixtyFPS C++ is the C++ API to interact with a SixtyFPS UI from C++.
 

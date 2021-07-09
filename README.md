@@ -1,6 +1,7 @@
 # SixtyFPS  <!-- omit in toc -->
 
 [![Build Status](https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg)](https://github.com/sixtyfpsui/sixtyfps/actions)
+[![Discussions](https://img.shields.io/github/discussions/sixtyfpsui/sixtyfps)](https://github.com/sixtyfpsui/sixtyfps/discussions)
 
 SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We support multiple programming languages, such as
 Rust, C++, and JavaScript.
