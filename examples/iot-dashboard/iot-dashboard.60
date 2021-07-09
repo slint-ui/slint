@@ -353,6 +353,7 @@ RoundButton := Image { //### QskPushButton
     property <bool> is_up; // ### QskAspect
     callback clicked <=> ta.clicked;
     property <color> color: #929CB2; // Taken from the fill in the svg itself.
+    width: 30px;
     Image {
         source: is_up ? @image-url("images/up.svg") : @image-url("images/down.svg");
         x: (parent.width - width) / 2;
@@ -365,8 +366,7 @@ RoundButton := Image { //### QskPushButton
 UpAndDownButton := Rectangle {
     callback changed(int);
     // FIXME: this is actually on the RoundButton
-    border-radius: 30px;
-    width: 45px;
+    border-radius: width/2;
     background: Skin.palette.roundButton;
     VerticalLayout {
         u := RoundButton { is_up: true;  clicked => { changed(+1) }}
@@ -383,6 +383,7 @@ ButtonValueLabel := Text {
 }
 
 TitleAndValueBox := VerticalLayout {
+    padding: 8px;
     spacing: 8px;
     horizontal-stretch: 100;
 }
@@ -394,7 +395,6 @@ BoxWithButtons := Box {
     property <bool> isBright <=> ri.isBright;
     property <string> title_ <=> titleLabel.text;
     HorizontalLayout {
-        padding: 8px;
         spacing: 20px;
         ri := RoundedIcon { }
         TitleAndValueBox {
