@@ -150,7 +150,7 @@ mod grid_internal {
     fn adjust_items<A: Adjust>(data: &mut [LayoutData], size_without_spacing: Coord) -> Option<()> {
         loop {
             let size_cannot_grow: Coord =
-                data.iter().filter(|it| !(A::can_grow(it) > 0.)).map(|it| it.size).sum();
+                data.iter().filter(|it| A::can_grow(it) <= 0.).map(|it| it.size).sum();
 
             let total_stretch: f32 =
                 data.iter().filter(|it| A::can_grow(it) > 0.).map(|it| it.stretch).sum();
