@@ -160,7 +160,14 @@ impl BuiltinFunction {
             BuiltinFunction::ShowPopupWindow => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
+            // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
+            // we need to make sure that calls to this function stay within a binding, so that the property
+            // notification when updating kicks in. Only the online editor (wasm-interpreter) loads images via the network,
+            // which is when this code is targeting wasm.
+            #[cfg(not(target_arch = "wasm32"))]
             BuiltinFunction::ImageSize => true,
+            #[cfg(target_arch = "wasm32")]
+            BuiltinFunction::ImageSize => false,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
             BuiltinFunction::RegisterCustomFontByPath
