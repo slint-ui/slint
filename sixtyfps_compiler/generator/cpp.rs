@@ -246,7 +246,7 @@ impl CppType for Type {
             Type::LogicalLength => Some("float".to_owned()),
             Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
-            Type::Struct { name: Some(name), node: Some(_), .. } => Some(name.clone()),
+            Type::Struct { name: Some(name), node: Some(_), .. } => Some(format!("class {}", name)),
             Type::Struct { name: Some(name), node: None, .. } => {
                 Some(format!("sixtyfps::cbindgen_private::{}", name))
             }
@@ -626,7 +626,7 @@ fn generate_struct(
         Access::Public,
         Declaration::Function(Function {
             name: "operator==".to_owned(),
-            signature: format!("(const {0} &a, const {0} &b) -> bool", name),
+            signature: format!("(const class {0} &a, const class {0} &b) -> bool", name),
             is_friend: true,
             statements: Some(vec![format!("return true{};", operator_eq)]),
             ..Function::default()
@@ -636,7 +636,7 @@ fn generate_struct(
         Access::Public,
         Declaration::Function(Function {
             name: "operator!=".to_owned(),
-            signature: format!("(const {0} &a, const {0} &b) -> bool", name),
+            signature: format!("(const class {0} &a, const class {0} &b) -> bool", name),
             is_friend: true,
             statements: Some(vec!["return !(a == b);".into()]),
             ..Function::default()
@@ -885,7 +885,7 @@ fn generate_component(
             Access::Public,
             Declaration::Var(Var {
                 ty: format!(
-                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",
+                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, class {}>",
                     component_id
                 ),
                 name: "self_weak".into(),
@@ -914,7 +914,7 @@ fn generate_component(
             Access::Public, // FIXME: Used for the tests
             Declaration::Var(Var {
                 ty: format!(
-                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",
+                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, class {}>",
                     component_id
                 ),
                 name: "self_weak".into(),
@@ -965,8 +965,8 @@ fn generate_component(
         let maybe_constructor_param = if constructor_parent_arg.is_empty() { "" } else { "parent" };
 
         let mut create_code = vec![
-            format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
-            format!("auto self = const_cast<{0} *>(&*self_rc);", component_id),
+            format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, class {0}>::make({1});", component_id, maybe_constructor_param),
+            format!("auto self = const_cast<class {0} *>(&*self_rc);", component_id),
             "self->self_weak = vtable::VWeak(self_rc);".into(),
         ];
 
@@ -977,15 +977,17 @@ fn generate_component(
         create_code.extend(
             component.setup_code.borrow().iter().map(|code| compile_expression(code, component)),
         );
-        create_code
-            .push(format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", component_id));
+        create_code.push(format!(
+            "return sixtyfps::ComponentHandle<class {0}>{{ self_rc }};",
+            component_id
+        ));
 
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
                 name: "create".into(),
                 signature: format!(
-                    "({}) -> sixtyfps::ComponentHandle<{}>",
+                    "({}) -> sixtyfps::ComponentHandle<class {}>",
                     constructor_parent_arg, component_id
                 ),
                 statements: Some(create_code),
@@ -1035,7 +1037,7 @@ fn generate_component(
         } else {
             if item.is_flickable_viewport {
                 tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
+                    "sixtyfps::private_api::make_item_node(offsetof(class {}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
                     &component_id,
                     crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id,
                     item.children.len(),
@@ -1044,7 +1046,7 @@ fn generate_component(
                 ));
             } else {
                 tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node(offsetof({}, {}), {}, {}, {}, {})",
+                    "sixtyfps::private_api::make_item_node(offsetof(class {}, {}), {}, {}, {}, {})",
                     component_id,
                     item.id,
                     item.base_type.as_native().cpp_vtable_getter,
@@ -1070,9 +1072,10 @@ fn generate_component(
     });
 
     if !component.is_global() {
-        component_struct
-            .friends
-            .push(format!("vtable::VRc<sixtyfps::private_api::ComponentVTable, {}>", component_id));
+        component_struct.friends.push(format!(
+            "vtable::VRc<sixtyfps::private_api::ComponentVTable, class {}>",
+            component_id
+        ));
     }
     component_struct.members.push((
         if !component.is_global() { Access::Private } else { Access::Public },
@@ -1136,10 +1139,10 @@ fn generate_component(
                 is_static: true,
                 statements: Some(vec![
                     "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
-                    format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
+                    format!("    [[maybe_unused]] auto self = reinterpret_cast<const class {}*>(base);", component_id),
                     format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
                     "    std::abort();\n};".to_owned(),
-                    format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", component_id),
+                    format!("auto self_rc = reinterpret_cast<const class {}*>(component.instance)->self_weak.lock()->into_dyn();", component_id),
                     "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
                 ]),
                 ..Default::default()
@@ -1177,7 +1180,7 @@ fn generate_component(
                 signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index, sixtyfps::private_api::ItemWeak *result) -> void".into(),
                 is_static: true,
                 statements: Some(vec![
-                    format!("auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
+                    format!("auto self = reinterpret_cast<const class {}*>(component.instance);", component_id),
                     "if (index == 0) {".into(),
                     parent_item_from_parent_component,
                     "   return;".into(),
@@ -1213,7 +1216,7 @@ fn generate_component(
                         .into(),
                 is_static: true,
                 statements: Some(vec![
-                    format!("[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
+                    format!("[[maybe_unused]] auto self = reinterpret_cast<const class {}*>(component.instance);", component_id),
                     format!("if (o == sixtyfps::Orientation::Horizontal) return {};",
                         get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Horizontal)),
                     format!("else return {};",
@@ -1274,7 +1277,7 @@ fn generate_component(
             ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
             name: format!("{}::static_vtable", component_id),
             init: Some(format!(
-                "{{ visit_children, get_item_ref, parent_item,  layout_info, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+                "{{ visit_children, get_item_ref, parent_item,  layout_info, sixtyfps::private_api::drop_in_place<class {}>, sixtyfps::private_api::dealloc }}",
                 component_id)
             ),
         }));
@@ -1520,7 +1523,7 @@ fn compile_expression(
                 }
                 (Type::Struct { .. }, Type::Struct{ fields, name: Some(n), ..}) => {
                     format!(
-                        "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
+                        "[&](const auto &o){{ class {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
                         struct_name = n,
                         field_members = (0..fields.len()).map(|idx| format!("f_{}", idx)).join(", "),
                         obj = f,
@@ -1572,7 +1575,7 @@ fn compile_expression(
                     let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
                     let x = access_named_reference(&popup.x, component, "self");
                     let y = access_named_reference(&popup.y, component, "self");
-                    format!("self->window.show_popup<{}>(self, {{ {}.get(), {}.get() }} );", popup_window_id, x, y)
+                    format!("self->window.show_popup<class {}>(self, {{ {}.get(), {}.get() }} );", popup_window_id, x, y)
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
@@ -1683,7 +1686,7 @@ fn compile_expression(
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
                 if let Some(name) = name {
-                    format!("{}{{{}}}", name, elem.join(", "))
+                    format!("class {}{{{}}}", name, elem.join(", "))
                 } else {
                     format!("std::make_tuple({})", elem.join(", "))
                 }

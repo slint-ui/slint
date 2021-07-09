@@ -9,6 +9,7 @@
 LICENSE END */
 
 // Right now, this test is only testing rust keyword, but it should be expaneded to JS and C++ keywords
+// This tests also make sure that it works if a class has the same name as fields or properties
 
 export struct mod := {
     mod: string,
