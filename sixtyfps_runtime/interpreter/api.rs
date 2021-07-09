@@ -418,9 +418,8 @@ pub struct ComponentCompiler {
     diagnostics: Vec<Diagnostic>,
 }
 
-impl ComponentCompiler {
-    /// Returns a new ComponentCompiler
-    pub fn new() -> Self {
+impl Default for ComponentCompiler {
+    fn default() -> Self {
         Self {
             config: sixtyfps_compilerlib::CompilerConfiguration::new(
                 sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
@@ -428,7 +427,9 @@ impl ComponentCompiler {
             diagnostics: vec![],
         }
     }
+}
 
+impl ComponentCompiler {
     /// Sets the include paths used for looking up `.60` imports to the specified vector of paths.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.config.include_paths = include_paths;
@@ -678,7 +679,7 @@ impl ComponentInstance {
     ///         property <int> my_property: 42;
     ///     }
     /// "#;
-    /// let mut compiler = ComponentCompiler::new();
+    /// let mut compiler = ComponentCompiler::default();
     /// let definition = spin_on::spin_on(
     ///     compiler.build_from_source(code.into(), Default::default()));
     /// assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
@@ -721,7 +722,7 @@ impl ComponentInstance {
     ///     }
     /// "#;
     /// let definition = spin_on::spin_on(
-    ///     ComponentCompiler::new().build_from_source(code.into(), Default::default()));
+    ///     ComponentCompiler::default().build_from_source(code.into(), Default::default()));
     /// let instance = definition.unwrap().create();
     ///
     /// let instance_weak = instance.as_weak();
@@ -903,7 +904,7 @@ pub mod testing {
 
 #[test]
 fn component_definition_properties() {
-    let mut compiler = ComponentCompiler::new();
+    let mut compiler = ComponentCompiler::default();
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
             r#"
@@ -926,7 +927,7 @@ fn component_definition_properties() {
 
 #[test]
 fn component_definition_properties2() {
-    let mut compiler = ComponentCompiler::new();
+    let mut compiler = ComponentCompiler::default();
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
             r#"

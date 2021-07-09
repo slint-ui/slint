@@ -10,7 +10,7 @@ LICENSE END */
 
 #[cfg(test)]
 fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
     let component =
         spin_on::spin_on(compiler.build_from_source(snippet.into(), Default::default()));
 

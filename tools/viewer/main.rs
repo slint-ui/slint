@@ -74,7 +74,7 @@ fn init_compiler(
     args: &Cli,
     fswatcher: Option<Arc<Mutex<notify::RecommendedWatcher>>>,
 ) -> sixtyfps_interpreter::ComponentCompiler {
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(args.include_paths.clone());
     if !args.style.is_empty() {
         compiler.set_style(args.style.clone());

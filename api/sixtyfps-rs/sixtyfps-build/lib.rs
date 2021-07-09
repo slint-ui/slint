@@ -61,16 +61,17 @@ pub struct CompilerConfiguration {
     config: sixtyfps_compilerlib::CompilerConfiguration,
 }
 
-impl CompilerConfiguration {
-    /// Creates a new default configuration.
-    pub fn new() -> Self {
+impl Default for CompilerConfiguration {
+    fn default() -> Self {
         Self {
             config: sixtyfps_compilerlib::CompilerConfiguration::new(
                 sixtyfps_compilerlib::generator::OutputFormat::Rust,
             ),
         }
     }
+}
 
+impl CompilerConfiguration {
     /// Create a new configuration that includes sets the include paths used for looking up
     /// `.60` imports to the specified vector of paths.
     pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
@@ -168,7 +169,7 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 /// Please check out the documentation of the `sixtyfps` crate for more information
 /// about how to use the generated code.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
-    compile_with_config(path, CompilerConfiguration::new())
+    compile_with_config(path, CompilerConfiguration::default())
 }
 
 /// Same as [`compile`], but allow to specify a configuration.

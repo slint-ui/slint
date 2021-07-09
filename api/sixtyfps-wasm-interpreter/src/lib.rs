@@ -53,7 +53,7 @@ pub async fn compile_from_string(
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
 
     if let Some(load_callback) = optional_import_callback {
         let open_import_fallback = move |file_name: &Path| -> core::pin::Pin<

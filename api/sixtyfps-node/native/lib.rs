@@ -62,7 +62,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         }
         None => vec![],
     };
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::new();
+    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
     let c = spin_on::spin_on(compiler.build_from_path(path));
 

@@ -32,7 +32,7 @@ This example loads a `.60` dynamically from a path and show errors if any:
 ```rust
 use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler};
 
-let mut compiler = ComponentCompiler::new();
+let mut compiler = ComponentCompiler::default();
 let definition =
     spin_on::spin_on(compiler.build_from_path("hello.60"));
 # #[cfg(feature="print_diagnostics")]
@@ -57,7 +57,7 @@ let code = r#"
     }
 "#;
 
-let mut compiler = ComponentCompiler::new();
+let mut compiler = ComponentCompiler::default();
 let definition =
     spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
 assert!(compiler.diagnostics().is_empty());
