@@ -61,7 +61,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             Some(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
         }
         Type::Enumeration(e) => {
-            let e = format_ident!("{}", e.name);
+            let e = format_ident!("r#{}", e.name);
             Some(quote!(sixtyfps::re_exports::#e))
         }
         Type::Brush => Some(quote!(sixtyfps::Brush)),
@@ -93,7 +93,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .iter()
         .filter_map(|ty| {
             if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
-                Some((format_ident!("{}", name), generate_struct(name, fields, diag)))
+                Some((format_ident!("r#{}", name), generate_struct(name, fields, diag)))
             } else {
                 None
             }
@@ -136,12 +136,12 @@ fn generate_struct(
     fields: &BTreeMap<String, Type>,
     diag: &mut BuildDiagnostics,
 ) -> TokenStream {
-    let component_id: TokenStream = name.parse().unwrap();
+    let component_id = struct_name_to_tokens(name);
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = fields
         .iter()
         .map(|(name, ty)| {
             (
-                format_ident!("{}", name),
+                format_ident!("r#{}", name),
                 get_rust_type(ty, &crate::diagnostics::SourceLocation::default(), diag),
             )
         })
@@ -291,7 +291,7 @@ fn generate_component(
     let mut declared_callbacks_ret = vec![];
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let prop_ident = format_ident!("{}", prop_name);
+        let prop_ident = format_ident!("r#{}", prop_name);
         let prop = if let Some(alias) = &property_decl.is_alias {
             access_named_reference(alias, component, quote!(_self))
         } else {
@@ -566,7 +566,7 @@ fn generate_component(
             repeated_element_components.push(rep_inner_component_id);
         } else if item.is_flickable_viewport {
             let field_name = format_ident!(
-                "{}",
+                "r#{}",
                 crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id
             );
             let children_count = item.children.len() as u32;
@@ -580,7 +580,7 @@ fn generate_component(
                 }
             ));
         } else {
-            let field_name = format_ident!("{}", item.id);
+            let field_name = format_ident!("r#{}", item.id);
             let children_count = item.children.len() as u32;
 
             item_tree_array.push(quote!(
@@ -592,7 +592,7 @@ fn generate_component(
                 }
             ));
             item_names.push(field_name);
-            item_types.push(format_ident!("{}", item.base_type.as_native().class_name));
+            item_types.push(format_ident!("r#{}", item.base_type.as_native().class_name));
         }
     });
 
@@ -924,9 +924,9 @@ fn public_component_id(component: &Component) -> proc_macro2::Ident {
         let mut it = s.chars();
         let id =
             it.next().map(|c| c.to_ascii_uppercase()).into_iter().chain(it).collect::<String>();
-        format_ident!("{}", id)
+        format_ident!("r#{}", id)
     } else {
-        format_ident!("{}", component.id)
+        format_ident!("r#{}", component.id)
     }
 }
 
@@ -936,7 +936,7 @@ fn property_animation_tokens(
 ) -> Option<TokenStream> {
     let animation = animation.borrow();
     let bindings = animation.bindings.iter().map(|(prop, initializer)| {
-        let prop_ident = format_ident!("{}", prop);
+        let prop_ident = format_ident!("r#{}", prop);
         let initializer = compile_expression(initializer, component);
         quote!(#prop_ident: #initializer as _)
     });
@@ -981,12 +981,12 @@ fn access_member(
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
         let inner_component_id = inner_component_id(&enclosing_component);
-        let name_ident = format_ident!("{}", name);
+        let name_ident = format_ident!("r#{}", name);
         if e.property_declarations.contains_key(name) || is_special || component.is_global() {
             quote!(#inner_component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
         } else if e.is_flickable_viewport {
             let elem_ident = format_ident!(
-                "{}",
+                "r#{}",
                 crate::object_tree::find_parent_element(element).unwrap().borrow().id
             );
 
@@ -996,8 +996,8 @@ fn access_member(
                     .apply_pin(#component_rust)
             )
         } else {
-            let elem_ident = format_ident!("{}", e.id);
-            let elem_ty = format_ident!("{}", e.base_type.as_native().class_name);
+            let elem_ident = format_ident!("r#{}", e.id);
+            let elem_ty = format_ident!("r#{}", e.base_type.as_native().class_name);
 
             quote!((#inner_component_id::FIELD_OFFSETS.#elem_ident + #elem_ty::FIELD_OFFSETS.#name_ident)
                 .apply_pin(#component_rust)
@@ -1069,7 +1069,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 (Type::Struct { ref fields, .. }, Type::Component(c)) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
-                        let name = format_ident!("{}", name);
+                        let name = format_ident!("r#{}", name);
                         quote!(#name: obj.#index as _)
                     });
                     let id : TokenStream = c.id.parse().unwrap();
@@ -1078,7 +1078,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 (Type::Struct { ref fields, .. }, Type::Struct{  name: Some(n), .. }) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
-                        let name = format_ident!("{}", name);
+                        let name = format_ident!("r#{}", name);
                         quote!(#name: obj.#index as _)
                     });
                     let id = struct_name_to_tokens(n);
@@ -1181,7 +1181,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 quote!((#base_e).#index )
             }
             Type::Struct { .. } => {
-                let name = format_ident!("{}", name);
+                let name = format_ident!("r#{}", name);
                 let base_e = compile_expression(base, component);
                 quote!((#base_e).#name)
             }
@@ -1243,7 +1243,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     if let Expression::ElementReference(item) = &arguments[0] {
                         let item = item.upgrade().unwrap();
                         let item = item.borrow();
-                        let item_id = format_ident!("{}", item.id);
+                        let item_id = format_ident!("r#{}", item.id);
                         quote!(
                             Self::FIELD_OFFSETS.#item_id.apply_pin(_self).layouting_info(#orient, &_self.window)
                         )
@@ -1420,11 +1420,11 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         Expression::PathElements { elements } => compile_path(elements, component),
         Expression::StoreLocalVariable { name, value } => {
             let value = compile_expression(value, component);
-            let name = format_ident!("{}", name);
+            let name = format_ident!("r#{}", name);
             quote!(let #name = #value;)
         }
         Expression::ReadLocalVariable { name, .. } => {
-            let name = format_ident!("{}", name);
+            let name = format_ident!("r#{}", name);
             quote!(#name)
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
@@ -1445,8 +1445,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             ))
         }
         Expression::EnumerationValue(value) => {
-            let base_ident = format_ident!("{}", value.enumeration.name);
-            let value_ident = format_ident!("{}", value.to_string());
+            let base_ident = format_ident!("r#{}", value.enumeration.name);
+            let value_ident = format_ident!("r#{}", value.to_string());
             quote!(sixtyfps::re_exports::#base_ident::#value_ident)
         }
         Expression::ReturnStatement(expr) => {
@@ -1547,7 +1547,11 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
 /// Return a TokenStream for a name (as in [`Type::Struct::name`])
 fn struct_name_to_tokens(name: &str) -> TokenStream {
     // the name match the C++ signature so we need to change that to the rust namespace
-    name.replace("::private_api::", "::re_exports::").parse().unwrap()
+    let mut name = name.replace("::private_api::", "::re_exports::");
+    if !name.contains("::") {
+        name.insert_str(0, "r#")
+    }
+    name.parse().unwrap()
 }
 
 fn compile_assignment(
@@ -1584,7 +1588,7 @@ fn compile_assignment(
                     (quote!(#index), fields[name].clone())
                 }
                 Type::Struct { fields, name: Some(_), .. } => {
-                    let n = format_ident!("{}", name);
+                    let n = format_ident!("r#{}", name);
                     (quote!(#n), fields[name].clone())
                 }
                 _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
@@ -1822,7 +1826,7 @@ fn get_layout_info(
         let li = access_named_reference(layout_info_prop, component, quote!(_self));
         quote! {#li.get()}
     } else {
-        let elem_id = format_ident!("{}", elem.borrow().id);
+        let elem_id = format_ident!("r#{}", elem.borrow().id);
         let inner_component_id = inner_component_id(component);
         quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(#orientation, &_self.window))
     };
@@ -1831,7 +1835,7 @@ fn get_layout_info(
         let (name, expr): (Vec<_>, Vec<_>) = constraints
             .for_each_restrictions(orientation)
             .map(|(e, s)| {
-                (format_ident!("{}", s), access_named_reference(e, component, quote!(_self)))
+                (format_ident!("r#{}", s), access_named_reference(e, component, quote!(_self)))
             })
             .unzip();
         quote!({
@@ -1907,7 +1911,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
                         .bindings
                         .iter()
                         .map(|(property, expr)| {
-                            let prop_ident = format_ident!("{}", property);
+                            let prop_ident = format_ident!("r#{}", property);
                             let binding_expr = compile_expression(expr, component);
 
                             quote!(#prop_ident: #binding_expr as _).to_string()

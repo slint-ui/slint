@@ -1,0 +1,27 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// Right now, this test is only testing rust keyword, but it should be expaneded to JS and C++ keywords
+
+export struct mod := {
+    mod: string,
+}
+
+match := Rectangle {
+    property<mod> mod: {mod : "mod" };
+    property<bool> test: mod.mod == "mod";
+}
+
+/*
+```rust
+let instance = r#match::new();
+assert_eq!(instance.get_mod(), r#mod{ r#mod: "mod".into() });
+```
+*/
