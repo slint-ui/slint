@@ -61,7 +61,7 @@ A clone of one demo from the [QSkinny framework](https://qskinny.github.io/).
 Also show how a way to dynamically load widgets with the interpreter from C++.
 
 | `.60` Design | C++ Source | Online wasm Preview | Open in code editor |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | 
 | [`main.60`](./iot-dashboard/main.60) | [`main.cpp`](./iot-dashboard/main.cpp)   | [Online preview](https://sixtyfps.io/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60) |
 
 ## Loading the example with the `viewer`
