@@ -1348,6 +1348,10 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         }
         Expression::UnaryOp { sub, op } => {
             let sub = compile_expression(&*sub, component);
+            if *op == '+' {
+                // there is no unary '+' in rust
+                return sub;
+            }
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( #op #sub )
         }
