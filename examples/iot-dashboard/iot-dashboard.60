@@ -270,13 +270,18 @@ export TopBar := HorizontalLayout {
 }
 
 // From Box.cpp
-Box := Rectangle {
-    property <string> title;
+
+// This element is not in the C++ version, created to share code between Box and the Usage element
+BoxBase := Rectangle {
     background: Skin.palette.box;
     drop-shadow-offset-x: 6px;
     drop-shadow-offset-y: 6px;
     drop-shadow-blur: 6px;
     drop-shadow-color: Skin.palette.shadow;
+}
+
+Box := BoxBase {
+    property <string> title;
     VerticalLayout {
         if (root.title != "") : Text {
             text <=> root.title;
@@ -315,22 +320,31 @@ UsageSpacer := Text {
     horizontal_stretch: 2;
 }
 
-export Usage := Box {
-    title: "Usage";
-    HorizontalLayout {
-        Text { text: "Usage Today"; font_size: Skin.SmallFont; }
-        UsageSpacer { }
-        Text { text: "0,5 kwH"; font_size: Skin.SmallFont; }
-    }
-    HorizontalLayout {
-        Text { text: "Usage this month"; font_size: Skin.SmallFont; }
-        UsageSpacer { }
-        Text { text: "60 kwH"; font_size: Skin.SmallFont; }
-    }
-    HorizontalLayout {
-        Text { text: "Total working hours"; font_size: Skin.SmallFont; }
-        UsageSpacer { }
-        Text { text: "125 hrs"; font_size: Skin.SmallFont; }
+// Deviation: This is just a Box in C++, but to align the items visually better, this is using a grid layout
+export Usage := BoxBase {
+    GridLayout {
+        Text {
+            text: "Usage";
+            font_size: Skin.TitleFont;
+        }
+        spacing: 0px;
+        padding: 15px;
+
+        Row {
+            Text { text: "Usage Today"; font_size: Skin.SmallFont; }
+            UsageSpacer { }
+            Text { text: "0,5 kwH"; font_size: Skin.SmallFont; }
+        }
+        Row {
+            Text { text: "Usage this month"; font_size: Skin.SmallFont; }
+            UsageSpacer { }
+            Text { text: "60 kwH"; font_size: Skin.SmallFont; }
+        }
+        Row {
+            Text { text: "Total working hours"; font_size: Skin.SmallFont; }
+            UsageSpacer { }
+            Text { text: "125 hrs"; font_size: Skin.SmallFont; }
+        }
     }
 }
 
@@ -780,7 +794,7 @@ export MenuBar := Rectangle {
             padding-top: 0px;
             padding-right: 50px;
             padding-bottom: 54px;
-    
+
             Image {
                 source: @image-url("images/main-icon.png");
                 height: source.height * 1px;
