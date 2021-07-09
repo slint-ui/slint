@@ -9,6 +9,8 @@
 LICENSE END */
 //! Runtime support for layouts.
 
+// cspell:ignore coord
+
 use crate::{slice::Slice, SharedVector};
 
 /// Vertical or Horizontal orientation
