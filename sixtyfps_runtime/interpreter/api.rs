@@ -152,7 +152,7 @@ impl PartialEq for Value {
             Value::Bool(lhs) => matches!(other, Value::Bool(rhs) if lhs == rhs),
             Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
             Value::Array(lhs) => matches!(other, Value::Array(rhs) if lhs == rhs),
-            Value::Model(lhs) => matches!(other, Value::Model(rhs) if Rc::ptr_eq(lhs, rhs)),
+            Value::Model(lhs) => matches!(other, Value::Model(rhs) if lhs == rhs),
             Value::Struct(lhs) => matches!(other, Value::Struct(rhs) if lhs == rhs),
             Value::Brush(lhs) => matches!(other, Value::Brush(rhs) if lhs == rhs),
             Value::PathElements(lhs) => matches!(other, Value::PathElements(rhs) if lhs == rhs),
