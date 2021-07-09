@@ -485,8 +485,8 @@ impl Drop for PropertyHandle {
 }
 
 /// Safety: the dependency list must be valid and consistent
-unsafe fn mark_dependencies_dirty(deps: *mut DependencyListHead) {
-    let mut next = (*deps).0.get() as *const DependencyNode;
+unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
+    let mut next = (*dependencies).0.get() as *const DependencyNode;
     while let Some(node) = next.as_ref() {
         node.debug_assert_valid();
         next = node.next.get();
