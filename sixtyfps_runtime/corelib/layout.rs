@@ -249,25 +249,25 @@ mod grid_internal {
             vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num as usize];
         let mut has_spans = false;
         for cell in data {
-            let cnstr = &cell.constraint;
-            let mut max = cnstr.max;
+            let constraint = &cell.constraint;
+            let mut max = constraint.max;
             if let Some(size) = size {
-                max = max.min(size * cnstr.max_percent / 100.);
+                max = max.min(size * constraint.max_percent / 100.);
             }
             for c in 0..(cell.span as usize) {
                 let cdata = &mut layout_data[cell.col_or_row as usize + c];
                 cdata.max = cdata.max.min(max);
             }
             if cell.span == 1 {
-                let mut min = cnstr.min;
+                let mut min = constraint.min;
                 if let Some(size) = size {
-                    min = min.max(size * cnstr.min_percent / 100.);
+                    min = min.max(size * constraint.min_percent / 100.);
                 }
-                let pref = cnstr.preferred.min(max).max(min);
+                let pref = constraint.preferred.min(max).max(min);
                 let cdata = &mut layout_data[cell.col_or_row as usize];
                 cdata.min = cdata.min.max(min);
                 cdata.pref = cdata.pref.max(pref);
-                cdata.stretch = cdata.stretch.min(cnstr.stretch);
+                cdata.stretch = cdata.stretch.min(constraint.stretch);
             } else {
                 has_spans = true;
             }
