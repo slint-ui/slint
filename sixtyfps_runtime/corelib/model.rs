@@ -263,7 +263,9 @@ impl<T> Model for ModelHandle<T> {
     }
 
     fn attach_peer(&self, peer: ModelPeer) {
-        self.0.as_ref().map(|model| model.attach_peer(peer));
+        if let Some(model) = self.0.as_ref() {
+            model.attach_peer(peer);
+        }
     }
 }
 
@@ -511,9 +513,9 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     min_height.set(min_height.get().min(height))
                 };
                 for c in self.inner.borrow().borrow().components.iter() {
-                    c.1.as_ref().map(|x| {
+                    if let Some(x) = c.1.as_ref() {
                         get_height_visitor(x.as_pin_ref().get_item_ref(0));
-                    });
+                    }
                 }
 
                 let element_height = if count.get() > 0 {
@@ -529,9 +531,9 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
                     self.ensure_updated_impl(&init, &model, 1);
                     if let Some(c) = self.inner.borrow().borrow().components.get(0) {
-                        c.1.as_ref().map(|x| {
+                        if let Some(x) = c.1.as_ref() {
                             get_height_visitor(x.as_pin_ref().get_item_ref(0));
-                        });
+                        }
                     } else {
                         panic!("Could not determine size of items");
                     }
