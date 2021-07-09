@@ -68,7 +68,7 @@ Click on the screenshots to run the WebAssembly simulation
 ## The .60 Markup Language
 
 SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
-powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
+powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
 
 ```60
 HelloWorld := Window {
@@ -102,8 +102,8 @@ pre-processing images and text. The compiler could determine that a `Text` or an
 always on top of another `Image` in the same location. Consequently both elements could be rendered ahead
 of time into a single element, thus cutting down on rendering time.
 
-The compiler uses the typical compiler phases of lexing, parsing, optimisation, and finally code
-generation. It provides different backends for code generation in the target language. The C++ code
+The compiler uses the typical compiler phases of lexing, parsing, optimization, and finally code
+generation. It provides different back-ends for code generation in the target language. The C++ code
 generator produces a C++ header file, the Rust generator produces Rust code, and so on. An interpreter
 for dynamic languages is also included.
 
@@ -113,7 +113,7 @@ The runtime library consists of an engine that supports properties declared in t
 Components with their elements, items, and properties are laid out in a single memory region, to reduce
 memory allocations.
 
-Rendering backends and styles are configurable at compile time. Current there are two backends:
+Rendering backends and styles are configurable at compile time. Current there are two back-ends:
 
  * The `gl` backend uses OpenGL ES 2.0 for rendering.
  * The `qt` backend uses Qt's QStyle to achieve native looking widgets. In the future it could also use
