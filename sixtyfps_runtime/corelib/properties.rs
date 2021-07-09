@@ -1625,6 +1625,7 @@ fn test_nested_property_tracker_dirty() {
 }
 
 #[test]
+#[allow(clippy::redundant_closure)]
 fn test_nested_property_tracker_evaluate_if_dirty() {
     let outer_tracker = Box::pin(PropertyTracker::default());
     let inner_tracker = Box::pin(PropertyTracker::default());
