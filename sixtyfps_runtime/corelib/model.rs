@@ -242,7 +242,9 @@ impl<T> core::cmp::PartialEq for SharedModel<T> {
 
 /// Properties of type array in the .60 language are represented as
 /// an [`Option`] of an [`Rc`] of something implemented the [`Model`] trait
-#[derive(derive_more::Deref, derive_more::DerefMut, derive_more::From, derive_more::Into)]
+#[derive(
+    PartialEq, derive_more::Deref, derive_more::DerefMut, derive_more::From, derive_more::Into,
+)]
 pub struct ModelHandle<T>(pub Option<SharedModel<T>>);
 
 impl<T> std::fmt::Debug for ModelHandle<T> {
@@ -260,16 +262,6 @@ impl<T> Clone for ModelHandle<T> {
 impl<T> Default for ModelHandle<T> {
     fn default() -> Self {
         Self(None)
-    }
-}
-
-impl<T> core::cmp::PartialEq for ModelHandle<T> {
-    fn eq(&self, other: &Self) -> bool {
-        match (&self.0, &other.0) {
-            (None, None) => true,
-            (Some(a), Some(b)) => a == b,
-            _ => false,
-        }
     }
 }
 
