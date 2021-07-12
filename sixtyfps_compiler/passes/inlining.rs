@@ -17,19 +17,37 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn inline(doc: &Document) {
-    fn inline_components_recursively(component: &Rc<Component>) {
+#[derive(Copy, Clone)]
+pub enum InlineSelection {
+    InlineAllComponents,
+    #[allow(dead_code)] // allow until it's an option globally used in the compiler
+    InlineOnlyRequiredComponents,
+}
+
+pub fn inline(doc: &Document, inline_selection: InlineSelection) {
+    fn inline_components_recursively(component: &Rc<Component>, inline_selection: InlineSelection) {
         recurse_elem(&component.root_element, &(), &mut |elem, _| {
             let base = elem.borrow().base_type.clone();
             if let Type::Component(c) = base {
                 // First, make sure that the component itself is properly inlined
-                inline_components_recursively(&c);
+                inline_components_recursively(&c, inline_selection);
                 // Inline this component.
-                inline_element(elem, &c, component);
+                if match inline_selection {
+                    InlineSelection::InlineAllComponents => true,
+                    InlineSelection::InlineOnlyRequiredComponents
+                        if component_requires_inlining(&c) =>
+                    {
+                        c.requires_inlining.set(true);
+                        true
+                    }
+                    _ => false,
+                } {
+                    inline_element(elem, &c, component);
+                }
             }
         })
     }
-    inline_components_recursively(&doc.root_component)
+    inline_components_recursively(&doc.root_component, inline_selection)
 }
 
 fn clone_tuple<U: Clone, V: Clone>((u, v): (&U, &V)) -> (U, V) {
@@ -260,4 +278,28 @@ fn duplicate_transition(
             .collect(),
         node: t.node.clone(),
     }
+}
+
+// Some components need to be inlined to avoid increased complexity in handling them
+// in the code generators and subsequent passes.
+fn component_requires_inlining(component: &Rc<Component>) -> bool {
+    if component.child_insertion_point.borrow().is_some() {
+        return true;
+    }
+
+    let root_element = &component.root_element;
+    if super::flickable::is_flickable_element(root_element)
+        || super::focus_item::get_explicit_forward_focus(root_element).is_some()
+        || super::lower_layout::is_layout_element(root_element)
+    {
+        return true;
+    }
+
+    // For now any implicit bindings to the parent geometry require inlining, but this should
+    // be changed to instead create the bindings on the use-site instead.
+    if super::default_geometry::element_requires_parent_for_geometry(root_element) {
+        return true;
+    }
+
+    false
 }
