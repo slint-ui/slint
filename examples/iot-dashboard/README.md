@@ -12,6 +12,10 @@ the C++ QSkinny code to self-contained .60.
 
 https://sixtyfps.io/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60
 
+## Screenshot
+
+![Screenshot of the IOT Dashboard](https://sixtyfps.io/resources/iot-dashboard_screenshot.png "IOT Dashboard")
+
 ## Loading dynamic widgets from C++
 
 The example was also extended with C++ code (the `.cpp`) to show how to use the C++
