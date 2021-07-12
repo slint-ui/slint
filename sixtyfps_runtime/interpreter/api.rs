@@ -430,6 +430,11 @@ impl Default for ComponentCompiler {
 }
 
 impl ComponentCompiler {
+    /// Returns a new ComponentCompiler.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Sets the include paths used for looking up `.60` imports to the specified vector of paths.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.config.include_paths = include_paths;

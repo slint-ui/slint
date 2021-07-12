@@ -72,6 +72,11 @@ impl Default for CompilerConfiguration {
 }
 
 impl CompilerConfiguration {
+    /// Creates a new default configuration.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Create a new configuration that includes sets the include paths used for looking up
     /// `.60` imports to the specified vector of paths.
     pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
