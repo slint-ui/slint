@@ -57,7 +57,7 @@
     if (rustDoc) {
       // Only highlight .60 blocks, leave the others to rustdoc
       for (dot60Block of document.querySelectorAll("pre code.language-60")) {
-        hljs.highlightBlock(dot60Block)
+        hljs.highlightElement(dot60Block)
       }
 
       // Some of the rustdoc selectors require the pre element to have the rust class
