@@ -22,12 +22,12 @@ These tests allow to test the proper error conditions.
 
 The library crates that are used at runtime.
 
-* **`corelib`** is the main library. It is meant to be used for all frontends. Ideally it should
-  be kept as small as possible. **`corelib-macros`** contains some procedural macro used by corelib.
+* **`corelib`** is the main library. It is meant to be used for all front-ends. Ideally it should
+  be kept as small as possible. **`corelib-macros`** contains some procedural macro used by core library.
 * **`rendering_backends`** contains the different backend for the different platform, separated from
-  corelib.  Currently there is just the gl backend
+  core library.  Currently there is just the gl backend
 * **`interpreter`** is the library used by the more dynamic languages backend to compile and
-  interpret .60 files. It links both against corelib and the compiler lib
+  interpret .60 files. It links both against core library and the compiler lib
 
 ### `tools`
 
@@ -41,7 +41,7 @@ Here one find the frontend for different language.
 
 ### `tests`
 
-The integration test that are testing a bunch of .60 with different frontends
+The integration test that are testing a bunch of .60 with different front-ends
 
 ### `examples`
 
