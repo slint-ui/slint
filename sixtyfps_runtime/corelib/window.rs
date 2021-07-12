@@ -58,7 +58,7 @@ pub trait PlatformWindow {
     /// requested by text related items in order to measure text metrics with the item's chosen font.
     /// Note that if the FontRequest's pixel_size is 0, it is interpreted as the undefined size and that the
     /// system default font size should be used for the returned font.
-    /// With some backends this may return none unless the window is mapped.
+    /// With some back ends this may return none unless the window is mapped.
     fn font_metrics(
         &self,
         item_graphics_cache: &crate::item_rendering::CachedRenderingData,
