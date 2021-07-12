@@ -27,6 +27,10 @@ use crate::langtype::{NativeClass, Type};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
+pub fn is_flickable_element(element: &ElementRc) -> bool {
+    matches!(&element.borrow().base_type, Type::Builtin(n) if n.name == "Flickable")
+}
+
 pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
     let mut native_rect = tr.lookup("Rectangle").as_builtin().native_class.clone();
     while let Some(p) = native_rect.parent.clone() {
@@ -37,7 +41,7 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
         root_component,
         &(),
         &mut |elem: &ElementRc, _| {
-            if !matches!(&elem.borrow().base_type, Type::Builtin(n) if n.name == "Flickable") {
+            if !is_flickable_element(elem) {
                 return;
             }
 

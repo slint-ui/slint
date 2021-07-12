@@ -67,55 +67,64 @@ pub async fn run_passes(
     check_public_api::check_public_api(doc, diag);
 
     collect_subcomponents::collect_subcomponents(root_component);
-    for component in root_component
+
+    let components = root_component
         .used_types
         .borrow()
         .sub_components
         .iter()
-        .chain(std::iter::once(root_component))
-    {
+        .cloned()
+        .chain(std::iter::once(root_component.clone()))
+        .collect::<Vec<_>>();
+
+    for component in &components {
         compile_paths::compile_paths(component, &doc.local_registry, diag);
         lower_tabwidget::lower_tabwidget(component, &mut type_loader, diag).await;
     }
 
     embed_images::embed_images(root_component, compiler_config.embed_resources, diag);
 
-    inlining::inline(doc);
-    focus_item::resolve_element_reference_in_set_focus_calls(root_component, diag);
-    focus_item::determine_initial_focus_item(root_component, diag);
-    focus_item::erase_forward_focus_properties(root_component);
-    flickable::handle_flickable(root_component, &global_type_registry.borrow());
-    lower_states::lower_states(root_component, &doc.local_registry, diag);
-    repeater_component::process_repeater_components(root_component);
-    lower_popups::lower_popups(root_component, &doc.local_registry, diag);
-    lower_layout::lower_layouts(root_component, &mut type_loader, diag).await;
-    z_order::reorder_by_z_order(root_component, diag);
-    lower_shadows::lower_shadow_properties(root_component, &doc.local_registry, diag);
-    clip::handle_clip(root_component, &global_type_registry.borrow(), diag);
-    transform_and_opacity::handle_transform_and_opacity(
-        root_component,
-        &global_type_registry.borrow(),
-        diag,
-    );
-    default_geometry::default_geometry(root_component, diag);
-    visible::handle_visible(root_component, &global_type_registry.borrow());
-    materialize_fake_properties::materialize_fake_properties(root_component);
-    ensure_window::ensure_window(root_component, &doc.local_registry);
-    apply_default_properties_from_style::apply_default_properties_from_style(
-        root_component,
-        &mut type_loader,
-        diag,
-    )
-    .await;
-    collect_globals::collect_globals(doc, diag);
-    unique_id::assign_unique_id(root_component);
-    binding_analysis::binding_analysis(root_component, diag);
+    inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);
+
+    for component in &components {
+        focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
+        focus_item::determine_initial_focus_item(component, diag);
+        focus_item::erase_forward_focus_properties(component);
+        flickable::handle_flickable(component, &global_type_registry.borrow());
+        lower_states::lower_states(component, &doc.local_registry, diag);
+        repeater_component::process_repeater_components(component);
+        lower_popups::lower_popups(component, &doc.local_registry, diag);
+        lower_layout::lower_layouts(component, &mut type_loader, diag).await;
+        z_order::reorder_by_z_order(component, diag);
+        lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
+        clip::handle_clip(component, &global_type_registry.borrow(), diag);
+        transform_and_opacity::handle_transform_and_opacity(
+            component,
+            &global_type_registry.borrow(),
+            diag,
+        );
+        default_geometry::default_geometry(component, diag);
+        materialize_fake_properties::materialize_fake_properties(component);
+        apply_default_properties_from_style::apply_default_properties_from_style(
+            component,
+            &mut type_loader,
+            diag,
+        )
+        .await;
+        ensure_window::ensure_window(component, &doc.local_registry);
+        unique_id::assign_unique_id(component);
+        collect_globals::collect_globals(&doc, diag);
+
+        binding_analysis::binding_analysis(component, diag);
+    }
+
     deduplicate_property_read::deduplicate_property_read(root_component);
     optimize_useless_rectangles::optimize_useless_rectangles(root_component);
     move_declarations::move_declarations(root_component, diag);
     remove_aliases::remove_aliases(root_component, diag);
     resolve_native_classes::resolve_native_classes(root_component);
     remove_unused_properties::remove_unused_properties(root_component);
+
     collect_structs::collect_structs(root_component, diag);
     generate_item_indices::generate_item_indices(root_component);
     collect_custom_fonts::collect_custom_fonts(

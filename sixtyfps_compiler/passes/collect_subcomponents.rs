@@ -44,6 +44,8 @@ fn collect_subcomponents_recursive(
             _ => return,
         };
         collect_subcomponents_recursive(&base_comp, result, hash);
-        result.push(base_comp);
+        if !base_comp.requires_inlining.get() {
+            result.push(base_comp);
+        }
     });
 }

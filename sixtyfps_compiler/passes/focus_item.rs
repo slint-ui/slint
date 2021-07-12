@@ -13,7 +13,7 @@ LICENSE END */
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
-use crate::expression_tree::{BuiltinFunction, Expression};
+use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
 use crate::langtype::Type;
 use crate::object_tree::*;
 
@@ -23,8 +23,19 @@ enum FocusCheckResult {
     ElementIsNotFocusable,
 }
 
+pub fn get_explicit_forward_focus(
+    element: &ElementRc,
+) -> Option<std::cell::Ref<BindingExpression>> {
+    let element = element.borrow();
+    if element.bindings.contains_key("forward_focus") {
+        Some(std::cell::Ref::map(element, |elem| &elem.bindings["forward_focus"]))
+    } else {
+        None
+    }
+}
+
 fn element_focus_check(element: &ElementRc) -> FocusCheckResult {
-    if let Some(forwarded_focus_binding) = element.borrow().bindings.get("forward-focus") {
+    if let Some(forwarded_focus_binding) = get_explicit_forward_focus(element) {
         if let Expression::ElementReference(target) = &forwarded_focus_binding.expression {
             return FocusCheckResult::FocusForwarded(
                 target.upgrade().unwrap(),
