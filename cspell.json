@@ -50,7 +50,10 @@
                 "SUBDIR",
                 "Yocto"
             ],
-            "ignoreRegExpList": []
+            "ignoreRegExpList": [
+                // Ignore simple code blocks
+                "`[^`]+`"
+            ]
         }
     ],
     "words": [
