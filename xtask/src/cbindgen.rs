@@ -374,13 +374,16 @@ fn gen_backend(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 }
 
 fn gen_interpreter(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
-    let config = default_config();
+    let mut config = default_config();
+    // Avoid Value, just export ValueOpaque.
+    config.export.exclude.push("Value".into());
     let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["sixtyfps_runtime", "interpreter"].iter());
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
         .with_include("sixtyfps_internal.h")
+        .with_after_include("namespace sixtyfps::cbindgen_private { struct Value; }")
         .generate()
         .context("Unable to generate bindings for sixtyfps_interpreter_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_interpreter_internal.h"));
