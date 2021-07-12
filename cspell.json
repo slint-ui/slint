@@ -62,6 +62,7 @@
         "cmake",
         "colspan",
         "datastructures",
+        "focusable", // common term in UI (css, dom, toolkits)
         "Goffart",
         "gradians",
         "Hausmann",
