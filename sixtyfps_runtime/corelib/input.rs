@@ -261,8 +261,9 @@ pub enum FocusEvent {
 /// The state which a window should hold for the mouse input
 #[derive(Default)]
 pub struct MouseInputState {
-    /// The stack of item which contain the mouse cursor (or grab)
-    item_stack: Vec<ItemWeak>,
+    /// The stack of item which contain the mouse cursor (or grab),
+    /// along with the last result from the input function
+    item_stack: Vec<(ItemWeak, InputEventFilterResult)>,
     /// true if the top item of the stack has the mouse grab
     grabbed: bool,
 }
@@ -289,7 +290,7 @@ fn handle_mouse_grab(
         if invalid {
             return false;
         }
-        let item = if let Some(item) = it.upgrade() {
+        let item = if let Some(item) = it.0.upgrade() {
             item
         } else {
             invalid = true;
@@ -302,8 +303,9 @@ fn handle_mouse_grab(
         let g = item.borrow().as_ref().geometry();
         event.translate(-g.origin.to_vector());
 
-        if item.borrow().as_ref().input_event_filter_before_children(event, window, &item)
-            == InputEventFilterResult::Intercept
+        if it.1 == InputEventFilterResult::ForwardAndInterceptGrab
+            && item.borrow().as_ref().input_event_filter_before_children(event, window, &item)
+                == InputEventFilterResult::Intercept
         {
             intercept = true;
         }
@@ -313,7 +315,7 @@ fn handle_mouse_grab(
         return MouseGrab::NotGrabbed(mouse_input_state);
     }
 
-    let grabber = mouse_input_state.item_stack.last().unwrap().upgrade().unwrap();
+    let grabber = mouse_input_state.item_stack.last().unwrap().0.upgrade().unwrap();
     return MouseGrab::Grabbed(
         match grabber.borrow().as_ref().input_event(event, window, &grabber) {
             InputEventResult::GrabMouse => mouse_input_state,
@@ -339,7 +341,7 @@ pub fn process_mouse_input(
     let mut pos = mouse_event.pos();
     // Send the Exit event.
     for it in mouse_input_state.item_stack.iter() {
-        let item = if let Some(item) = it.upgrade() { item } else { break };
+        let item = if let Some(item) = it.0.upgrade() { item } else { break };
         let g = item.borrow().as_ref().geometry();
         let contains = pos.map_or(false, |p| g.contains(p));
         pos.as_mut().map(|p| *p -= g.origin.to_vector());
@@ -349,7 +351,7 @@ pub fn process_mouse_input(
     }
 
     let mut result = MouseInputState::default();
-    type State = (Vector2D<f32>, Vec<ItemWeak>);
+    type State = (Vector2D<f32>, Vec<(ItemWeak, InputEventFilterResult)>);
     crate::item_tree::visit_items_with_post_visit(
         &component,
         crate::item_tree::TraversalOrder::FrontToBack,
@@ -363,19 +365,19 @@ pub fn process_mouse_input(
             let geom = geom.translate(*offset);
 
             let mut mouse_grabber_stack = mouse_grabber_stack.clone();
-            // FIXME: ideally we should add ourself to the stack only if InputEventFilterResult::ForwardAndInterceptGrab
-            // is used, but at the moment, we also use the mouse_grabber_stack to compute the offset
-            mouse_grabber_stack.push(item_rc.downgrade());
 
-            let post_visit_state = if mouse_event.pos().map_or(false, |p| geom.contains(p)) {
+            let post_visit_state = if mouse_event.pos().map_or(false, |p| geom.contains(p))
+                || crate::item_rendering::is_clipping_item(item)
+            {
                 let mut event2 = mouse_event.clone();
                 event2.translate(-geom.origin.to_vector());
-
-                match item.as_ref().input_event_filter_before_children(
+                let filter_result = item.as_ref().input_event_filter_before_children(
                     event2.clone(),
                     window,
                     &item_rc,
-                ) {
+                );
+                mouse_grabber_stack.push((item_rc.downgrade(), filter_result));
+                match filter_result {
                     InputEventFilterResult::ForwardAndIgnore => None,
                     InputEventFilterResult::ForwardEvent => {
                         Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), false))
@@ -391,6 +393,8 @@ pub fn process_mouse_input(
                     }
                 }
             } else {
+                mouse_grabber_stack
+                    .push((item_rc.downgrade(), InputEventFilterResult::ForwardAndIgnore));
                 None
             };
 
@@ -410,13 +414,17 @@ pub fn process_mouse_input(
                         result.grabbed = false;
                         return VisitChildrenResult::abort(item_rc.index(), 0);
                     }
-                    InputEventResult::EventIgnored => (),
+                    InputEventResult::EventIgnored => {
+                        return VisitChildrenResult::CONTINUE;
+                    }
                     InputEventResult::GrabMouse => {
                         result.item_stack = mouse_grabber_stack;
+                        result.item_stack.last_mut().unwrap().1 =
+                            InputEventFilterResult::ForwardAndInterceptGrab;
                         result.grabbed = true;
                         return VisitChildrenResult::abort(item_rc.index(), 0);
                     }
-                };
+                }
             }
             r
         },

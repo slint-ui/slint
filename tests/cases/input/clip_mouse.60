@@ -1,0 +1,100 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+
+MaybeClip := Rectangle {
+    width: 10phx;
+    height: 10phx;
+    property <int> touch;
+    Rectangle {
+        background: red;
+        x: 5phx;
+        y: -10phx;
+        width: 15phx;
+        height: 15phx;
+        TouchArea {
+            clicked => { touch+=1; }
+        }
+    }
+}
+
+TestCase := Rectangle {
+    height: 100phx;
+    width: 100phx;
+    property <int> touch1 <=> el1.touch;
+    property <int> touch2 <=> el2.touch;
+
+    el1 := MaybeClip {
+        x: 10phx;
+        y: 10phx;
+    }
+
+    el2 := MaybeClip {
+        clip: true;
+        x: 30phx;
+        y: 30phx;
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// clip, outside
+sixtyfps::testing::send_mouse_click(&instance, 37., 27.);
+assert_eq(instance.get_touch1(), 0);
+assert_eq(instance.get_touch2(), 0);
+
+// clip, inside
+sixtyfps::testing::send_mouse_click(&instance, 37., 33.);
+assert_eq(instance.get_touch1(), 0);
+assert_eq(instance.get_touch2(), 1);
+
+
+// no-clip, outside
+sixtyfps::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq(instance.get_touch1(), 1);
+assert_eq(instance.get_touch2(), 1);
+
+// no-clip, inside
+sixtyfps::testing::send_mouse_click(&instance, 17., 13.);
+assert_eq(instance.get_touch1(), 2);
+assert_eq(instance.get_touch2(), 1);
+```
+
+
+```rust
+let instance = TestCase::new();
+
+
+// clip, outside
+sixtyfps::testing::send_mouse_click(&instance, 37., 27.);
+assert_eq!(instance.get_touch1(), 0);
+assert_eq!(instance.get_touch2(), 0);
+
+// clip, inside
+sixtyfps::testing::send_mouse_click(&instance, 37., 33.);
+assert_eq!(instance.get_touch1(), 0);
+assert_eq!(instance.get_touch2(), 1);
+
+// no-clip, outside
+sixtyfps::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq!(instance.get_touch1(), 1);
+assert_eq!(instance.get_touch2(), 1);
+
+// no-clip, inside
+sixtyfps::testing::send_mouse_click(&instance, 17., 13.);
+assert_eq!(instance.get_touch1(), 2);
+assert_eq!(instance.get_touch2(), 1);
+
+```
+
+*/

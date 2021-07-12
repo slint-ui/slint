@@ -70,6 +70,13 @@ impl CachedRenderingData {
     }
 }
 
+/// Return true if the item might be a clipping item
+pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
+    //(FIXME: there should be some flag in the vtable instead of downcasting)
+    ItemRef::downcast_pin::<Flickable>(item).is_some()
+        || ItemRef::downcast_pin::<Clip>(item).is_some()
+}
+
 /// Renders the tree of items that component holds, using the specified renderer. Rendering is done
 /// relative to the specified origin.
 pub fn render_component_items(
@@ -95,10 +102,9 @@ pub fn render_component_items(
             let item_origin = item_geometry.origin;
 
             // Don't render items that are clipped, with the exception of the Clip or Flickable since
-            // they themself clip their content.  (FIXME: there should be some flag in the vtable instead of downcasting)
+            // they themselves clip their content.
             if !renderer.borrow().get_current_clip().intersects(&item_geometry)
-                && ItemRef::downcast_pin::<Flickable>(item).is_none()
-                && ItemRef::downcast_pin::<Clip>(item).is_none()
+                && !is_clipping_item(item)
             {
                 renderer.borrow_mut().translate(item_origin.x, item_origin.y);
                 return (ItemVisitorResult::Continue(()), ());

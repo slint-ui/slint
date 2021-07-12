@@ -583,10 +583,15 @@ impl Item for Clip {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        event: MouseEvent,
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
+        if let Some(pos) = event.pos() {
+            if pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height() {
+                return InputEventFilterResult::Intercept;
+            }
+        }
         InputEventFilterResult::ForwardAndIgnore
     }
 
@@ -816,10 +821,17 @@ impl Item for Path {
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
-        _: MouseEvent,
+        event: MouseEvent,
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
+        if let Some(pos) = event.pos() {
+            if self.clip()
+                && (pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height())
+            {
+                return InputEventFilterResult::Intercept;
+            }
+        }
         InputEventFilterResult::ForwardAndIgnore
     }
 
@@ -926,6 +938,11 @@ impl Item for Flickable {
         _window: &ComponentWindow,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
+        if let Some(pos) = event.pos() {
+            if pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height() {
+                return InputEventFilterResult::Intercept;
+            }
+        }
         if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -941,6 +958,14 @@ impl Item for Flickable {
         if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
             return InputEventResult::EventIgnored;
         }
+        if let Some(pos) = event.pos() {
+            if matches!(event, MouseEvent::MouseWheel { .. } | MouseEvent::MousePressed { .. })
+                && (pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height())
+            {
+                return InputEventResult::EventIgnored;
+            }
+        }
+
         self.data.handle_mouse(self, event)
     }
 
