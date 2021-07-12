@@ -2,7 +2,7 @@
 
 These examples demonstrate the main features of SixtyFPS and how to use them in different language environments.
 
-### `printerdemo`
+### [`printerdemo`](./printerdemo)
 
 A fictional user interface for the touch screen of a printer
 
@@ -12,7 +12,7 @@ A fictional user interface for the touch screen of a printer
 
 ![Screenshot of the Printer Demo](https://sixtyfps.io/resources/printerdemo_screenshot.png "Printer Demo")
 
-### `gallery`
+### [`gallery`](./gallery)
 
 A simple application showing the different widgets
 
@@ -22,7 +22,7 @@ A simple application showing the different widgets
 
 ![Screenshot of the Gallery on Windows](https://sixtyfps.io/resources/gallery_win_screenshot.png "Gallery")
 
-### `todo`
+### [`todo`](./todo)
 
 A simple todo mvc application
 
@@ -32,29 +32,28 @@ A simple todo mvc application
 
 ![Screenshot of the Todo Demo](https://sixtyfps.io/resources/todo_screenshot.png "Todo Demo")
 
-### `slide_puzzle`
+### [`slide_puzzle`](./slide_puzzle)
 
 Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
 
-| `.60` Design | Rust Source | C++ Source | Online wasm Preview | Open in code editor |
-| --- | --- | --- | --- | --- |
-| [`slide_puzzle.60`](./slide_puzzle/slide_puzzle.60) | [`main.rs`](./todo/rust/main.rs) | ❌          | ❌           | [Online simulation](https://sixtyfps.io/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60) |
+| `.60` Design | Rust Source | Online wasm Preview | Open in code editor |
+| --- | --- | --- | --- 
+| [`slide_puzzle.60`](./slide_puzzle/slide_puzzle.60) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60) |
 
 ![Screenshot of the Slide Puzzle](https://sixtyfps.io/resources/puzzle_screenshot.png "Slide Puzzle")
 
-### `memory`
+### [`memory`](./memory)
 
-A basic memory game used as an example for the blog post tutorial. See the blog for more info:
+A basic memory game used as an example the tutorial:
 
-* [Learn SixtyFPS: Memory Game Tutorial (Rust)](https://sixtyfps.io/blog/memory-game-tutorial.html)
-* [Learn SixtyFPS: Memory Game Tutorial (C++)](https://sixtyfps.io/blog/memory-game-tutorial-cpp.html)
+* [Memory Game Tutorial (Rust)](https://sixtyfps.io/docs/tutorial/rust)
+* [Memory Game Tutorial (C++)](https://sixtyfps.io/docs/tutorial/cpp)
 
 | `.60` Design | Rust Source | C++ Source | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- | --- |
-| [`memory.60`](./memory/memory.60) | [`main.rs`](./memory/main.rs) | [`memory.cpp`](./memory/memory.cpp) | ❌           | [Online simulation](https://sixtyfps.io/snapshots/master/demos/memory/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/memory/memory.60) |
+| [`memory.60`](./memory/memory.60) | [`main.rs`](./memory/main.rs) | [`memory.cpp`](./memory/memory.cpp) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/memory/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/memory/memory.60) |
 
-
-### `iot-dashboard`
+### [`iot-dashboard`](./iot-dashboard)
 
 A clone of one demo from the [QSkinny framework](https://qskinny.github.io/).
 
@@ -63,6 +62,8 @@ Also show how a way to dynamically load widgets with the interpreter from C++.
 | `.60` Design | C++ Source | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- | 
 | [`main.60`](./iot-dashboard/main.60) | [`main.cpp`](./iot-dashboard/main.cpp)   | [Online preview](https://sixtyfps.io/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60) |
+
+![Screenshot of the IOT Dashboard](https://sixtyfps.io/resources/iot-dashboard_screenshot.png "IOT Dashboard")
 
 ## Loading the example with the `viewer`
 
