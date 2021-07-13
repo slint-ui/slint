@@ -762,7 +762,7 @@ fn generate_component(
         .borrow()
         .globals
         .iter()
-        .map(|g| (format_ident!("global_{}", g.id), self::inner_component_id(g)))
+        .map(|g| (format_ident!("global_{}", public_component_id(g)), self::inner_component_id(g)))
         .unzip();
 
     let new_code = if !component.is_global() {
@@ -918,7 +918,9 @@ fn inner_component_id(component: &Component) -> proc_macro2::Ident {
 
 /// Return an identifier suitable for this component for the developer facing API
 fn public_component_id(component: &Component) -> proc_macro2::Ident {
-    if component.id.is_empty() {
+    if component.is_global() {
+        format_ident!("r#{}", component.root_element.borrow().id)
+    } else if component.id.is_empty() {
         let s = &component.root_element.borrow().id;
         // Capitalize first letter:
         let mut it = s.chars();
@@ -1010,7 +1012,7 @@ fn access_member(
             root_component = p.borrow().enclosing_component.upgrade().unwrap();
             component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_pin_ref());
         }
-        let global_id = format_ident!("global_{}", enclosing_component.id);
+        let global_id = format_ident!("global_{}", public_component_id(&enclosing_component));
         let global_comp = quote!(#component_rust.#global_id.as_ref());
         access_member(element, name, &enclosing_component, global_comp, is_special)
     } else {

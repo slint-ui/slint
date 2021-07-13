@@ -821,7 +821,7 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
                 let root = root_component_instance(component, static_guard);
                 ComponentInstance::GlobalComponent(
                     &root.component_type.extra_data_offset.apply(&*root.instance.get_ref()).globals
-                        [enclosing.id.as_str()],
+                        [enclosing.root_element.borrow().id.as_str()],
                 )
             } else {
                 ComponentInstance::InstanceRef(enclosing_component_for_element(

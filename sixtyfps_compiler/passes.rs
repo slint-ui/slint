@@ -72,7 +72,6 @@ pub async fn run_passes(
     }
 
     inlining::inline(doc);
-    unique_id::assign_unique_id(root_component);
     focus_item::resolve_element_reference_in_set_focus_calls(root_component, diag);
     focus_item::determine_initial_focus_item(root_component, diag);
     focus_item::erase_forward_focus_properties(root_component);
@@ -99,6 +98,7 @@ pub async fn run_passes(
     .await;
     ensure_window::ensure_window(root_component, &doc.local_registry);
     collect_globals::collect_globals(root_component, diag);
+    unique_id::assign_unique_id(root_component);
     binding_analysis::binding_analysis(root_component, diag);
     deduplicate_property_read::deduplicate_property_read(root_component);
     move_declarations::move_declarations(root_component, diag);

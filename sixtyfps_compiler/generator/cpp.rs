@@ -1260,7 +1260,7 @@ fn generate_component(
             Access::Private,
             Declaration::Var(Var {
                 ty: format!("std::shared_ptr<{}>", ty),
-                name: format!("global_{}", glob.id),
+                name: format!("global_{}", self::component_id(glob)),
                 init: Some(format!("std::make_shared<{}>()", ty)),
             }),
         ));
@@ -1282,7 +1282,9 @@ fn generate_component(
 }
 
 fn component_id(component: &Rc<Component>) -> String {
-    if component.id.is_empty() {
+    if component.is_global() {
+        component.root_element.borrow().id.clone()
+    } else if component.id.is_empty() {
         format!("Component_{}", component.root_element.borrow().id)
     } else {
         component.id.clone()
@@ -1347,7 +1349,8 @@ fn access_member(
             root_component = p.borrow().enclosing_component.upgrade().unwrap();
             component_cpp = format!("{}->parent", component_cpp);
         }
-        let global_comp = format!("{}->global_{}", component_cpp, enclosing_component.id);
+        let global_comp =
+            format!("{}->global_{}", component_cpp, component_id(&enclosing_component));
         access_member(element, name, &enclosing_component, &global_comp)
     } else {
         access_member(

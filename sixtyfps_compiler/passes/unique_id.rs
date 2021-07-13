@@ -9,6 +9,7 @@
 LICENSE END */
 
 use crate::diagnostics::BuildDiagnostics;
+use crate::langtype::Type;
 use crate::object_tree::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -18,7 +19,7 @@ use std::rc::Rc;
 /// It currently does so by adding a number to the existing id
 pub fn assign_unique_id(component: &Rc<Component>) {
     let mut count = 0;
-    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         count += 1;
         let mut elem_mut = elem.borrow_mut();
         let old_id = if !elem_mut.id.is_empty() {
@@ -27,7 +28,23 @@ pub fn assign_unique_id(component: &Rc<Component>) {
             elem_mut.base_type.to_string().to_ascii_lowercase()
         };
         elem_mut.id = format!("{}_{}", old_id, count);
-    })
+    });
+
+    rename_globals(component, count);
+}
+
+/// Give globals unique name
+fn rename_globals(component: &Rc<Component>, mut count: u32) {
+    for g in &component.used_types.borrow().globals {
+        count += 1;
+        let mut root = g.root_element.borrow_mut();
+        if matches!(&root.base_type, Type::Builtin(_)) {
+            // builtin global keeps its name
+            root.id = g.id.clone();
+        } else {
+            root.id = format!("{}_{}", g.id, count);
+        }
+    }
 }
 
 /// Checks that all ids in the Component are unique

@@ -66,7 +66,12 @@ pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalCo
                 None,
                 None,
             )));
-            (component.id.clone(), g)
+            let id = if component.is_global() {
+                component.root_element.borrow().id.clone()
+            } else {
+                component.id.clone()
+            };
+            (id, g)
         }
     }
 }
