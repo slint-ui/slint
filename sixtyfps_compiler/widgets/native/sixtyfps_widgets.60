@@ -115,6 +115,7 @@ export ComboBox := NativeComboBox {
     property <int> current_index : -1;
     enabled: true;
     open_popup => { popup.show(); }
+    callback selected(string);
 
     popup := PopupWindow {
         // FIXME: the popup should have a native background
@@ -137,6 +138,7 @@ export ComboBox := NativeComboBox {
                             if (root.enabled) {
                                 current_index = i;
                                 current_value = value;
+                                selected(current_value);
                             }
                             //is_open = false;
                         }

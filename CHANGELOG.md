@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
  - Compilation error when there are duplicated element id
+ - `ComboBox` now has a `selected` callback
 
 ### Fixed
 

@@ -272,6 +272,9 @@ A button that, when clicked, opens a popup to select a value.
 * **`current_value`**: (*string*): The currently selected text
 * **`enabled`**: (*bool*): When false, the combobox cannot be opened (default: true)
 
+### Callbacks
+
+* **`selected(string)`**: A value was selected from the combo box. The argument is the currently selected value.
 
 ### Example
 

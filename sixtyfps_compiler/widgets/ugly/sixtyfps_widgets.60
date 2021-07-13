@@ -459,6 +459,7 @@ export ComboBox := Rectangle {
     property <string> current_value;
     //property <bool> is_open: false;
     property<bool> enabled <=> touch_area.enabled;
+    callback selected(string);
 
     border_width: 1px;
     border_radius: 2px;
@@ -516,6 +517,7 @@ export ComboBox := Rectangle {
                                 if (root.enabled) {
                                     root.current_index = idx;
                                     root.current_value = value;
+                                    root.selected(root.current_value);
                                 }
                                 //is_open = false;
                             }
