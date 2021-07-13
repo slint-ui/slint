@@ -267,7 +267,7 @@ A button that, when clicked, opens a popup to select a value.
 
 ### Properties
 
-* **`model`** (*[string]*): The list of possible values
+* **`model`** (*\[string\]*): The list of possible values
 * **`current_index`**: (*int*): The index of the selected value (-1 if no value is selected)
 * **`current_value`**: (*string*): The currently selected text
 * **`enabled`**: (*bool*): When false, the combobox cannot be opened (default: true)
