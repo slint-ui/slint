@@ -12,8 +12,7 @@ LICENSE END */
 
 use super::*;
 use core::convert::TryInto;
-use core::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 /// This trait is implemented by the `#[vtable]` macro.
 ///
@@ -153,15 +152,14 @@ impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> VRc<VTable, X> {
         assert!(!mem.is_null());
 
         unsafe {
-            mem.write(VRcInner {
-                vtable: X::static_vtable(),
-                strong_ref: AtomicU32::new(1),
-                weak_ref: AtomicU32::new(1), // All the VRc together hold a weak_ref to the memory
-                data_offset: 0,
-                data,
-            });
-            (*mem).data_offset =
-                (&(*mem).data as *const _ as usize - mem as *const _ as usize) as u16;
+            // we want to avoid putting another instance of X on the stack because X can be quite big
+            // so write into each member instead of putting a VRcInner on the stack
+            std::ptr::addr_of_mut!((*mem).vtable).write(X::static_vtable());
+            std::ptr::addr_of_mut!((*mem).strong_ref).write(AtomicU32::new(1));
+            std::ptr::addr_of_mut!((*mem).weak_ref).write(AtomicU32::new(1)); // All the VRc together hold a weak_ref to the memory
+            std::ptr::addr_of_mut!((*mem).data_offset)
+                .write((std::ptr::addr_of!((*mem).data) as usize - mem as usize) as u16);
+            std::ptr::addr_of_mut!((*mem).data).write(data);
             VRc { inner }
         }
     }
