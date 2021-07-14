@@ -21,7 +21,7 @@ pub(crate) fn format_document(
 
 #[derive(Default)]
 struct FormatState {
-    /// The whitespace have been writen, all further whitespace can be skipped
+    /// The whitespace have been written, all further whitespace can be skipped
     skip_all_whitespace: bool,
     /// The whitespace to add before the next token
     whitespace_to_add: Option<String>,
@@ -148,14 +148,14 @@ fn whitespace_to(
                 return Ok(true);
             }
             _ => {
-                eprintln!("Inconsistancy: expected {:?},  found {:?}", element, n);
+                eprintln!("Inconsistency: expected {:?},  found {:?}", element, n);
                 fold(n, writer, state)?;
                 return Ok(false);
             }
         }
         fold(n, writer, state)?;
     }
-    eprintln!("Inconsistancy: expected {:?},  not found", element);
+    eprintln!("Inconsistency: expected {:?},  not found", element);
     Ok(false)
 }
 
@@ -237,7 +237,7 @@ fn format_property_declaration(
         && whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
 
     state.skip_all_whitespace = true;
-    // FIXME: more formating
+    // FIXME: more formatting
     for s in sub {
         fold(s, writer, state)?;
     }
@@ -254,7 +254,7 @@ fn format_binding(
     let _ok = whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
         && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
         && whitespace_to(&mut sub, SyntaxKind::BindingExpression, writer, state, " ")?;
-    // FIXME: more formating
+    // FIXME: more formatting
     for s in sub {
         fold(s, writer, state)?;
     }
