@@ -1091,9 +1091,8 @@ fn generate_component(
     ));
 
     if !component.is_global() {
-        let mut destructor = Vec::new();
+        let mut destructor = vec!["[[maybe_unused]] auto self = this;".to_owned()];
 
-        destructor.push("[[maybe_unused]] auto self = this;".to_owned());
         if component.parent_element.upgrade().is_some() {
             destructor.push("if (!parent) return;".to_owned())
         }

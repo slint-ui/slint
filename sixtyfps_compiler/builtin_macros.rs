@@ -258,28 +258,22 @@ fn to_debug_string(
             }
             match string {
                 None => Expression::StringLiteral("{}".into()),
-                Some(string) => {
-                    let mut v = Vec::new();
-                    v.push(Expression::StoreLocalVariable {
-                        name: local_object,
-                        value: Box::new(expr),
-                    });
-                    v.push(Expression::BinaryExpression {
+                Some(string) => Expression::CodeBlock(vec![
+                    Expression::StoreLocalVariable { name: local_object, value: Box::new(expr) },
+                    Expression::BinaryExpression {
                         lhs: Box::new(string),
                         op: '+',
                         rhs: Box::new(Expression::StringLiteral(" }".into())),
-                    });
-                    Expression::CodeBlock(v)
-                }
+                    },
+                ]),
             }
         }
         Type::Enumeration(enu) => {
             let local_object = "debug_enum";
-            let mut v = Vec::new();
-            v.push(Expression::StoreLocalVariable {
+            let mut v = vec![Expression::StoreLocalVariable {
                 name: local_object.into(),
                 value: Box::new(expr),
-            });
+            }];
             let mut cond = Expression::StringLiteral(format!("Error: invalid value for {}", ty));
             for (idx, val) in enu.values.iter().enumerate() {
                 cond = Expression::Condition {
