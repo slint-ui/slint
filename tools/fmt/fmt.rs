@@ -42,7 +42,7 @@ impl FormatState {
         }
         self.skip_all_whitespace = true;
         if let Some(x) = &mut self.whitespace_to_add {
-            x.insert_str(0, "\n");
+            x.insert(0, '\n');
             return;
         }
         let mut new_line = String::from("\n");
