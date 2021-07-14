@@ -84,7 +84,7 @@ fn make_callback_handler<'cx>(
     let fun_value = fun.as_value(cx);
     let fun_idx = persistent_context.allocate(cx, fun_value);
     Box::new(move |args| {
-        let args = args.iter().cloned().collect::<Vec<_>>();
+        let args = args.to_vec();
         let ret = core::cell::Cell::new(sixtyfps_interpreter::Value::Void);
         let borrow_ret = &ret;
         let return_type = &return_type;
