@@ -13,7 +13,7 @@ use std::io::Write;
 use sixtyfps_compilerlib::object_tree;
 use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxNode};
 
-/// Remove colspan, rowpan, col and row for items not in a GridLayout
+/// Remove colspan, rowspan, col and row for items not in a GridLayout
 pub(crate) fn fold_node(
     node: &SyntaxNode,
     file: &mut impl Write,
