@@ -20,7 +20,7 @@ pub(crate) fn fold_node(
     state: &mut crate::State,
 ) -> std::io::Result<bool> {
     if let Some(binding) = syntax_nodes::Binding::new(node.clone()) {
-        match state.property_name.as_ref().map(String::as_str).unwrap_or_default() {
+        match state.property_name.as_deref().unwrap_or_default() {
             "colspan" | "rowspan" | "row" | "col" => {
                 if let Some(elem) =
                     find_parent_element(binding.into()).and_then(|x| find_parent_element(x.into()))

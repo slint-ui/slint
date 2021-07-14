@@ -166,7 +166,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
         builtin.is_internal = parse_annotation("is_internal", &e).is_some();
         builtin.accepts_focus = parse_annotation("accepts_focus", &e).is_some();
         builtin.default_size_binding = parse_annotation("default_size_binding", &e)
-            .map(|size_type| match size_type.as_ref().map(|s| s.as_str()) {
+            .map(|size_type| match size_type.as_deref() {
                 Some("expands_to_parent_geometry") => DefaultSizeBinding::ExpandsToParentGeometry,
                 Some("implicit_size") => DefaultSizeBinding::ImplicitSize,
                 other => panic!("invalid default size binding {:?}", other),
