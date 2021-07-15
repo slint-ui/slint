@@ -384,7 +384,7 @@ impl GraphicsWindow {
     /// window resize event from the windowing system.
     /// Size is in logical pixels.
     pub fn set_geometry(&self, width: f32, height: f32) {
-        self.self_weak.upgrade().unwrap().try_component().map(|component_rc| {
+        if let Some(component_rc) = self.self_weak.upgrade().unwrap().try_component() {
             let component = ComponentRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) =
@@ -393,7 +393,7 @@ impl GraphicsWindow {
                 window_item.width.set(width);
                 window_item.height.set(height);
             }
-        });
+        }
     }
 }
 
@@ -437,7 +437,9 @@ impl PlatformWindow for GraphicsWindow {
 
     fn show_popup(&self, popup: &ComponentRc, position: Point) {
         *self.active_popup.borrow_mut() = Some((popup.clone(), position));
-        self.self_weak.upgrade().map(|window| window.meta_properties_tracker.set_dirty());
+        if let Some(window) = self.self_weak.upgrade() {
+            window.meta_properties_tracker.set_dirty();
+        }
     }
 
     fn close_popup(&self) {
