@@ -1,0 +1,41 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// Test that structs work if they are only referrenced by callbacks
+
+struct Foo1 := { member: int, }
+struct Foo2 := { a: Foo1 }
+struct Foo3 := { b: int }
+
+TestCase := Rectangle {
+    callback cb1(Foo2) -> Foo3;
+    cb1(foo) => { return { b: foo.a.member+1 }; }
+}
+
+/*
+```rust
+let instance = TestCase::new();
+
+assert_eq!(instance.invoke_cb1(Foo2{ a: Foo1{ member: 123 } }).b, 124);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.invoke_cb1(Foo2{ a: Foo1{ member: 123 } }).b, 124);
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+assert.equal(instance.cb1({a: {member: 123}}).b, 124);
+```
+
+*/
