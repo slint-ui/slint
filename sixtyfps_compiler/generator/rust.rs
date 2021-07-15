@@ -1967,8 +1967,5 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
 // binding initialization functions isn't re-used and with large generated inner
 // components ends up large amounts of stack space (see issue #133)
 fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
-    quote!({
-        let field = &#component_id::FIELD_OFFSETS.#field;
-        *field
-    })
+    quote!({ *&#component_id::FIELD_OFFSETS.#field })
 }
