@@ -208,8 +208,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 Value::Void
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Mod, _) => {
-                let mut toint = |e| -> i32 { eval_expression(e, local_context).try_into().unwrap() };
-                Value::Number((toint(&arguments[0]) % toint(&arguments[1])) as _)
+                let mut to_int = |e| -> i32 { eval_expression(e, local_context).try_into().unwrap() };
+                Value::Number((to_int(&arguments[0]) % to_int(&arguments[1])) as _)
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Round, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
