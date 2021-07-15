@@ -224,7 +224,7 @@ impl GraphicsWindow {
             constraints: Default::default(),
         }));
 
-        crate::eventloop::register_window(id, self.clone());
+        crate::eventloop::register_window(id, self);
     }
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
     /// by calling [`PlatformWindow::map_window`].
