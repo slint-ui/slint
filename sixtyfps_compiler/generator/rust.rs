@@ -23,7 +23,7 @@ use crate::expression_tree::{
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::object_tree::{Component, Document, ElementRc};
-use proc_macro2::TokenStream;
+use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::{collections::BTreeMap, rc::Rc};
 
@@ -295,7 +295,8 @@ fn generate_component(
         let prop = if let Some(alias) = &property_decl.is_alias {
             access_named_reference(alias, component, quote!(_self))
         } else {
-            quote!(#inner_component_id::FIELD_OFFSETS.#prop_ident.apply_pin(_self))
+            let field = access_component_field_offset(&inner_component_id, &prop_ident);
+            quote!(#field.apply_pin(_self))
         };
 
         if let Type::Callback { args, return_type } = &property_decl.property_type {
@@ -570,10 +571,11 @@ fn generate_component(
                 crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id
             );
             let children_count = item.children.len() as u32;
+            let field = access_component_field_offset(&inner_component_id, &field_name);
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#inner_component_id::FIELD_OFFSETS.#field_name + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
+                    item: VOffset::new(#field + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
                     children_count: #children_count,
                     children_index: #children_index,
                     parent_index: #parent_index
@@ -582,10 +584,11 @@ fn generate_component(
         } else {
             let field_name = format_ident!("r#{}", item.id);
             let children_count = item.children.len() as u32;
+            let field = access_component_field_offset(&inner_component_id, &field_name);
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#inner_component_id::FIELD_OFFSETS.#field_name),
+                    item: VOffset::new(#field),
                     children_count: #children_count,
                     children_index: #children_index,
                     parent_index: #parent_index,
@@ -670,12 +673,13 @@ fn generate_component(
     let (drop_impl, pin) = if component.is_global() {
         (None, quote!(#[pin]))
     } else {
+        let item_fields = item_names.iter().map(|field_name| access_self_field_offset(&field_name));
         (
             Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #inner_component_id {
                 fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                     use sixtyfps::re_exports::*;
                     let items = [
-                        #(VRef::new_pin(Self::FIELD_OFFSETS.#item_names.apply_pin(self.as_ref())),)*
+                        #(VRef::new_pin(#item_fields.apply_pin(self.as_ref())),)*
                     ];
                     self.window.free_graphics_resources(&Slice::from_slice(&items));
                 }
@@ -985,14 +989,16 @@ fn access_member(
         let inner_component_id = inner_component_id(&enclosing_component);
         let name_ident = format_ident!("r#{}", name);
         if e.property_declarations.contains_key(name) || is_special || component.is_global() {
-            quote!(#inner_component_id::FIELD_OFFSETS.#name_ident.apply_pin(#component_rust))
+            let field = access_component_field_offset(&inner_component_id, &name_ident);
+            quote!(#field.apply_pin(#component_rust))
         } else if e.is_flickable_viewport {
             let elem_ident = format_ident!(
                 "r#{}",
                 crate::object_tree::find_parent_element(element).unwrap().borrow().id
             );
+            let element_field = access_component_field_offset(&inner_component_id, &elem_ident);
 
-            quote!((#inner_component_id::FIELD_OFFSETS.#elem_ident
+            quote!((#element_field
                 + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport
                 + sixtyfps::re_exports::Rectangle::FIELD_OFFSETS.#name_ident)
                     .apply_pin(#component_rust)
@@ -1000,8 +1006,9 @@ fn access_member(
         } else {
             let elem_ident = format_ident!("r#{}", e.id);
             let elem_ty = format_ident!("r#{}", e.base_type.as_native().class_name);
+            let element_field = access_component_field_offset(&inner_component_id, &elem_ident);
 
-            quote!((#inner_component_id::FIELD_OFFSETS.#elem_ident + #elem_ty::FIELD_OFFSETS.#name_ident)
+            quote!((#element_field + #elem_ty::FIELD_OFFSETS.#name_ident)
                 .apply_pin(#component_rust)
             )
         }
@@ -1246,8 +1253,9 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let item = item.upgrade().unwrap();
                         let item = item.borrow();
                         let item_id = format_ident!("r#{}", item.id);
+                        let item_field = access_self_field_offset(&item_id);
                         quote!(
-                            Self::FIELD_OFFSETS.#item_id.apply_pin(_self).layouting_info(#orient, &_self.window)
+                            #item_field.apply_pin(_self).layouting_info(#orient, &_self.window)
                         )
                     } else {
                         panic!("internal error: argument to ImplicitLayoutInfo must be an element")
@@ -1950,4 +1958,22 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
             quote!(sixtyfps::re_exports::PathData::Events(#events))
         }
     }
+}
+
+// In Rust debug builds, accessing the member of the FIELD_OFFSETS ends up copying the
+// entire FIELD_OFFSETS into a new stack allocation, which with large property
+// binding initialization functions isn't re-used and with large generated inner
+// components ends up large amounts of stack space.
+fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
+    quote!({
+        let field = &#component_id::FIELD_OFFSETS.#field;
+        *field
+    })
+}
+
+fn access_self_field_offset(field: &Ident) -> TokenStream {
+    quote!({
+        let field = &Self::FIELD_OFFSETS.#field;
+        *field
+    })
 }
