@@ -128,11 +128,11 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
 }
 
 /// Evaluate an expression and return a Value as the result of this expression
-pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> Value {
+pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalContext) -> Value {
     if let Some(r) = &local_context.return_value {
         return r.clone();
     }
-    match e {
+    match expression {
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::TwoWayBinding(..) => panic!("invalid expression while evaluating"),
