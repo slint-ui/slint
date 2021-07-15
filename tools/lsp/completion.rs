@@ -240,7 +240,7 @@ fn resolve_element_scope(
             .into_iter()
             .map(|(k, t)| {
                 let mut c = CompletionItem::new_simple(k, t.to_string());
-                c.kind = Some(if matches!(t, Type::Callback { .. }) {
+                c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
                     CompletionItemKind::Method
                 } else {
                     CompletionItemKind::Property
@@ -271,7 +271,7 @@ fn resolve_element_scope(
                         return None;
                     }
                     let mut c = CompletionItem::new_simple(k.into(), t.to_string());
-                    c.kind = Some(if matches!(t, Type::Callback { .. }) {
+                    c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
                         CompletionItemKind::Method
                     } else {
                         CompletionItemKind::Property
