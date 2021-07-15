@@ -1965,7 +1965,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
 // In Rust debug builds, accessing the member of the FIELD_OFFSETS ends up copying the
 // entire FIELD_OFFSETS into a new stack allocation, which with large property
 // binding initialization functions isn't re-used and with large generated inner
-// components ends up large amounts of stack space.
+// components ends up large amounts of stack space (see issue #133)
 fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
     quote!({
         let field = &#component_id::FIELD_OFFSETS.#field;
