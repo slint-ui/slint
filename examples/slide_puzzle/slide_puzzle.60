@@ -77,12 +77,12 @@ Checkbox := Rectangle {
                 animate color { duration: 200ms; }
                 vertical-alignment: center;
                 horizontal-alignment: center;
-                ta := TouchArea {
-                    clicked => {
-                        checked = !checked;
-                        root.toggled(checked);
-                    }
-                }
+            }
+        }
+        ta := TouchArea {
+            clicked => {
+                checked = !checked;
+                root.toggled(checked);
             }
         }
 
