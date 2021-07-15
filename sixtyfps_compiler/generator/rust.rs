@@ -673,7 +673,9 @@ fn generate_component(
     let (drop_impl, pin) = if component.is_global() {
         (None, quote!(#[pin]))
     } else {
-        let item_fields = item_names.iter().map(|field_name| access_self_field_offset(&field_name));
+        let item_fields = item_names
+            .iter()
+            .map(|field_name| access_component_field_offset(&format_ident!("Self"), &field_name));
         (
             Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #inner_component_id {
                 fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
@@ -1253,7 +1255,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let item = item.upgrade().unwrap();
                         let item = item.borrow();
                         let item_id = format_ident!("r#{}", item.id);
-                        let item_field = access_self_field_offset(&item_id);
+                        let item_field = access_component_field_offset(&format_ident!("Self"), &item_id);
                         quote!(
                             #item_field.apply_pin(_self).layouting_info(#orient, &_self.window)
                         )
@@ -1967,13 +1969,6 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
 fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
     quote!({
         let field = &#component_id::FIELD_OFFSETS.#field;
-        *field
-    })
-}
-
-fn access_self_field_offset(field: &Ident) -> TokenStream {
-    quote!({
-        let field = &Self::FIELD_OFFSETS.#field;
         *field
     })
 }
