@@ -16,12 +16,13 @@ In the future, we plan to have native backend using the native API, which will a
 
 ## How to install Qt
 
-You will need the Qt version 5.15.x Qt 6 is not yet supported.
+You will need the Qt >= 5.15
 
-You can just download and install Qt 5.15 from https://www.qt.io/download-qt-installer and any other sources
+You can just download and install Qt 5.15 from https://www.qt.io/download-qt-installer or any other sources
 
 Then simply make sure that `qmake` executable is in the `PATH` when you build SixtyFP.
 Alternatively, you can set the `QMAKE` environment variable to point to the `qmake` executable.
+(more info: https://docs.rs/qttypes/0.2.2/qttypes/#finding-qt )
 
 ### Linux
 
