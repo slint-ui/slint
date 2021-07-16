@@ -394,6 +394,7 @@ export NativeButton := _ {
     property <length> width;
     property <length> height;
     property <string> text;
+    property <image> icon;
     property <bool> pressed: native_output;
     callback clicked;
     property <bool> enabled: true;

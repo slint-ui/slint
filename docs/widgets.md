@@ -9,6 +9,7 @@ Their appearance can change depending on the style
 ### Properties
 
 * **`text`** (*string*): The text written in the button.
+* **`icon`** (*image*): The image to show in the button. Note that not all styles support drawing icons.
 * **`pressed`**: (*bool*): Set to true when the button is pressed.
 * **`enabled`**: (*bool*): Defaults to true. When false, the button cannot be pressed
 
