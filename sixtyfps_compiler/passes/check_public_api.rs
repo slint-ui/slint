@@ -21,7 +21,7 @@ pub fn check_public_api(root_component: &Rc<Component>, diag: &mut BuildDiagnost
             d.expose_in_public_api = true
         } else {
             diag.push_diagnostic(
-                 format!("Properties of type {} are not supported yet for public API. The property will not be exposed.", d.property_type),
+                 format!("Properties of type {} are not supported yet for public API. The property will not be exposed", d.property_type),
                  &d.type_node(),
                  DiagnosticLevel::Warning
             );

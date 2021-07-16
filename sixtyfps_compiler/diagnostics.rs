@@ -257,6 +257,11 @@ impl BuildDiagnostics {
         span: SourceLocation,
         level: DiagnosticLevel,
     ) {
+        debug_assert!(
+            !message.as_str().ends_with('.'),
+            "Error message should not end with a period: ({:?})",
+            message
+        );
         self.inner.push(Diagnostic { message, span, level }.into());
     }
     pub fn push_error_with_span(&mut self, message: String, span: SourceLocation) {

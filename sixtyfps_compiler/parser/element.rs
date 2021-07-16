@@ -350,7 +350,7 @@ fn parse_property_declaration(p: &mut impl Parser) {
     } else if p.nth(0).kind() == SyntaxKind::Identifier
         && p.nth(1).kind() != SyntaxKind::DoubleArrow
     {
-        p.error("Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type.");
+        p.error("Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type");
     }
 
     {

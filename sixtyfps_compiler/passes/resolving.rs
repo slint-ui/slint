@@ -961,7 +961,7 @@ fn continue_lookup_within_element(
                 }
             };
             ctx.diag.push_error(
-                format!("{} does not have a property '{}'.{}", what, second.text(), extra),
+                format!("{} does not have a property '{}'{}", what, second.text(), extra),
                 &second,
             );
         };
@@ -970,7 +970,7 @@ fn continue_lookup_within_element(
             if elem.borrow().lookup_property(&second.text()[0..minus_pos]).property_type
                 != Type::Invalid
             {
-                err(" Use space before the '-' if you meant a subtraction");
+                err(". Use space before the '-' if you meant a subtraction");
                 return Expression::Invalid;
             }
         }

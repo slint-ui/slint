@@ -963,7 +963,7 @@ impl Expression {
             if let Some(from_unit) = ty.default_unit() {
                 if matches!(&target_type, Type::Int32 | Type::Float32 | Type::String) {
                     message = format!(
-                        "{}. Divide by 1{} to convert to a plain number.",
+                        "{}. Divide by 1{} to convert to a plain number",
                         message, from_unit
                     );
                 }
