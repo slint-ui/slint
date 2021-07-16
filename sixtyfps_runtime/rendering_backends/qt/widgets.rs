@@ -176,12 +176,14 @@ impl Item for NativeButton {
         orientation: Orientation,
         _window: &ComponentWindow,
     ) -> LayoutInfo {
-        let text: qttypes::QString = self.text().as_str().into();
+        let mut text: qttypes::QString = self.text().as_str().into();
         let size = cpp!(unsafe [
-            text as "QString"
+            mut text as "QString"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionButton option;
+            if (text.isEmpty())
+                text = "**";
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
             return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
@@ -256,8 +258,6 @@ impl Item for NativeButton {
         ] {
             QStyleOptionButton option;
             option.text = std::move(text);
-            if (option.text.isEmpty())
-                option.text = "**";
             option.rect = QRect(QPoint(), size / dpr);
             if (down)
                 option.state |= QStyle::State_Sunken;
@@ -1696,10 +1696,7 @@ impl Item for NativeComboBox {
         orientation: Orientation,
         _window: &ComponentWindow,
     ) -> LayoutInfo {
-        let text: qttypes::QString = self.current_value().as_str().into();
-        let size = cpp!(unsafe [
-            text as "QString"
-        ] -> qttypes::QSize as "QSize" {
+        let size = cpp!(unsafe [] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionComboBox option;
             // FIXME
