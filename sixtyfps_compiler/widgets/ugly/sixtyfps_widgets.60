@@ -37,6 +37,7 @@ export Button := Rectangle {
     property<length> font-size;
     property<bool> pressed: self.enabled && touch_area.pressed;
     property<bool> enabled <=> touch_area.enabled;
+    property<image> icon;
 
     border_width: 1px;
     border_radius: 2px;
@@ -47,11 +48,20 @@ export Button := Rectangle {
     vertical-stretch: 0;
 
 
-    GridLayout {
+    HorizontalLayout {
         padding-top: root.border_radius + 8px;
         padding-bottom: root.border_radius + 8px;
         padding-left: root.border_radius + 16px;
         padding-right: root.border_radius + 16px;
+        spacing: StyleMetrics.layout_spacing;
+
+        if (icon.width > 0 && icon.height > 0): Image {
+            source <=> icon;
+            // Avoid that the icon makes the button grow. This isn't quite a perfect approximation,
+            // as the glyphs are typically a bit smaller than the font size. 12px is the default
+            // in the GL backend.
+            width: root.font-size > 0 ? root.font-size : 12px;
+        }
 
         Text {
             text: root.text;

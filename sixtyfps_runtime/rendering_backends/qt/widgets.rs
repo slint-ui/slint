@@ -158,6 +158,7 @@ pub struct NativeButton {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub text: Property<SharedString>,
+    pub icon: Property<sixtyfps_corelib::graphics::Image>,
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
     pub clicked: Callback<VoidArg>,
@@ -177,8 +178,15 @@ impl Item for NativeButton {
         _window: &WindowRc,
     ) -> LayoutInfo {
         let mut text: qttypes::QString = self.text().as_str().into();
+        let icon = crate::qt_window::load_image_from_resource(
+            (&self.icon()).into(),
+            None,
+            Default::default(),
+        )
+        .unwrap_or_default();
         let size = cpp!(unsafe [
-            mut text as "QString"
+            mut text as "QString",
+            icon as "QPixmap"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionButton option;
@@ -186,6 +194,7 @@ impl Item for NativeButton {
                 text = "**";
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
+            option.icon = icon;
             return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
@@ -246,11 +255,18 @@ impl Item for NativeButton {
     fn_render! { this dpr size painter =>
         let down: bool = this.pressed();
         let text: qttypes::QString = this.text().as_str().into();
+        let icon = crate::qt_window::load_image_from_resource(
+            (&this.icon()).into(),
+            None,
+            Default::default(),
+        )
+        .unwrap_or_default();
         let enabled = this.enabled();
 
         cpp!(unsafe [
             painter as "QPainter*",
             text as "QString",
+            icon as "QPixmap",
             enabled as "bool",
             size as "QSize",
             down as "bool",
@@ -258,6 +274,7 @@ impl Item for NativeButton {
         ] {
             QStyleOptionButton option;
             option.text = std::move(text);
+            option.icon = icon;
             option.rect = QRect(QPoint(), size / dpr);
             if (down)
                 option.state |= QStyle::State_Sunken;
