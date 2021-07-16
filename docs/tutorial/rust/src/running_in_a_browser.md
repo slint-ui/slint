@@ -20,21 +20,6 @@ wasm-bindgen = { version = "0.2" }
 getrandom = { version = "0.2.2", features = ["js"] }
 ```
 
-And it is also necessary to switch to Cargo's new feature resolver, by adding a `resolver = "2"` switch at the
-top of `Cargo.toml`:
-
-```toml
-[package]
-name = "memory"
-version = "0.1.0"
-authors = ["..."]
-edition = "2018"
-
-resolver = "2" # This line added
-
-[dependencies]
-```
-
 The `'cfg(target_arch = "wasm32")'` ensures that these dependencies will only be active
 when compiling for the wasm32 architecture. Note that the `rand` dependency is now duplicated,
 in order to enable the `"wasm-bindgen"` feature.
