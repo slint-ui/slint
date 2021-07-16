@@ -256,6 +256,8 @@ impl Item for NativeButton {
         ] {
             QStyleOptionButton option;
             option.text = std::move(text);
+            if (option.text.isEmpty())
+                option.text = "**";
             option.rect = QRect(QPoint(), size / dpr);
             if (down)
                 option.state |= QStyle::State_Sunken;
@@ -1699,10 +1701,10 @@ impl Item for NativeComboBox {
             text as "QString"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
-            QStyleOptionButton option;
+            QStyleOptionComboBox option;
             // FIXME
-            option.rect = option.fontMetrics.boundingRect("*****************");
-            option.text = std::move(text);
+            option.rect = option.fontMetrics.boundingRect("*************");
+            option.subControls = QStyle::SC_All;
             return qApp->style()->sizeFromContents(QStyle::CT_ComboBox, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
