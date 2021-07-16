@@ -63,6 +63,8 @@ In your Cargo.toml:
 [package]
 ...
 build = "build.rs"
+resolver = "2" # avoid dependency conflicts on some platforms
+edition = "2018"
 
 [dependencies]
 sixtyfps = "0.1.0"
