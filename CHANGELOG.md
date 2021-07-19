@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
  - GridLayout cells with colspan and rowspan respect properly their constraints
-
+ - Panic when replacing programmatically text in a `TextInput` and then editing it.
 
 ## [0.1.0] - 2021-06-30
 
