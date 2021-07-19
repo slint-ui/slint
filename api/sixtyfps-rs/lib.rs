@@ -283,6 +283,8 @@ pub fn quit_event_loop() {
 /// You can use this to set properties or use any other SixtyFPS APIs from other threads,
 /// by collecting the code in a functor and queuing it up for invocation within the event loop.
 ///
+/// See also [`Weak::upgrade_in_event_loop`]
+///
 /// # Example
 /// ```rust
 /// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
@@ -295,7 +297,7 @@ pub fn quit_event_loop() {
 ///     let handle_copy = handle_weak.clone();
 ///     sixtyfps::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
 /// });
-/// # thread.join(); return; // don't run the event loop in examples
+/// # thread.join().unwrap(); return; // don't run the event loop in examples
 /// handle.run();
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
@@ -353,7 +355,7 @@ mod weak_handle {
     /// The Weak component also implement `Send` and can be send to another thread.
     /// but the upgrade function will only return a valid component from the same thread
     /// as the one it has been created from.
-    /// This is useful to use with [`invoke_from_event_loop()`].
+    /// This is useful to use with [`invoke_from_event_loop()`] or [`Self::upgrade_in_event_loop()`].
     pub struct Weak<T: ComponentHandle> {
         inner: vtable::VWeak<re_exports::ComponentVTable, T::Inner>,
         thread: std::thread::ThreadId,
@@ -392,6 +394,40 @@ mod weak_handle {
         /// Otherwise, this function panics.
         pub fn unwrap(&self) -> T {
             self.upgrade().unwrap()
+        }
+
+        /// Convenience function that combines [`invoke_from_event_loop()`] with [`Self::upgrade()`]
+        ///
+        /// The given functor will be added to an internal queue and will wake the event loop.
+        /// On the next iteration of the event loop, the functor will be executed with a `T` as an argument.
+        ///
+        /// If the component was dropped because there are no more strong reference to the component,
+        /// the functor will not be called.
+        ///
+        /// # Example
+        /// ```rust
+        /// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
+        /// let handle = MyApp::new();
+        /// let handle_weak = handle.as_weak();
+        /// let thread = std::thread::spawn(move || {
+        ///     // ... Do some computation in the thread
+        ///     let foo = 42;
+        ///     # assert!(handle_weak.upgrade().is_none()); // note that upgrade fails in a thread
+        ///     // now forward the data to the main thread using upgrade_in_event_loop
+        ///     handle_weak.upgrade_in_event_loop(move |handle| handle.set_foo(foo));
+        /// });
+        /// # thread.join().unwrap(); return; // don't run the event loop in examples
+        /// handle.run();
+        /// ```
+        pub fn upgrade_in_event_loop(self, func: impl FnOnce(T) + Send + 'static)
+        where
+            T: 'static,
+        {
+            crate::invoke_from_event_loop(move || {
+                if let Some(h) = self.upgrade() {
+                    func(h);
+                }
+            })
         }
     }
 
