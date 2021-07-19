@@ -21,8 +21,6 @@ For Linux a few additional packages beyond the usual build essentials are needed
 ### macOS
 
    * Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
-   * [CMake](https://cmake.org/download/). Make sure that `cmake` is available on the command line. In the CMake
-     GUI application instructions can be found via `Tools->How to Install For Command Line Use`.
 ### For the NodeJS backend
 
 For the nodejs backend, the following component are needed:
