@@ -392,7 +392,7 @@ impl Item for TextInput {
                 let mut text: String = self.text().into();
 
                 // FIXME: respect grapheme boundaries
-                let insert_pos = self.cursor_position() as usize;
+                let insert_pos = self.selection_anchor_and_cursor().1;
                 text.insert_str(insert_pos, &event.text);
 
                 self.as_ref().text.set(text.into());
@@ -493,7 +493,7 @@ impl TextInput {
             return false;
         }
 
-        let last_cursor_pos = self.cursor_position() as usize;
+        let last_cursor_pos = (self.cursor_position() as usize).max(0).min(text.len());
 
         let new_cursor_pos = match direction {
             TextCursorDirection::Forward => {
@@ -569,9 +569,12 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
+    // Avoid accessing self.cursor_position()/self.anchor_position() directly, always
+    // use this bounds-checking function.
     pub fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
-        let cursor_pos = self.cursor_position().max(0);
-        let anchor_pos = self.anchor_position().max(0);
+        let max_pos = self.text().len() as i32;
+        let cursor_pos = self.cursor_position().max(0).min(max_pos);
+        let anchor_pos = self.anchor_position().max(0).min(max_pos);
 
         if anchor_pos > cursor_pos {
             (cursor_pos as _, anchor_pos as _)
