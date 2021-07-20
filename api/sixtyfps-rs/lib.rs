@@ -242,7 +242,7 @@ pub mod re_exports {
         set_state_binding, Property, PropertyTracker, StateInfo,
     };
     pub use sixtyfps_corelib::slice::Slice;
-    pub use sixtyfps_corelib::window::ComponentWindow;
+    pub use sixtyfps_corelib::window::{ComponentWindow, WindowHandleAccess};
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::SharedString;
