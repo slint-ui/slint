@@ -324,7 +324,7 @@ impl Item for TextInput {
                 self.as_ref().anchor_position.set(clicked_offset);
                 self.as_ref().cursor_position.set(clicked_offset);
                 if !self.has_focus() {
-                    window.set_focus_item(self_rc);
+                    window.0.clone().set_focus_item(self_rc);
                 }
             }
             MouseEvent::MouseReleased { .. } | MouseEvent::MouseExit => {

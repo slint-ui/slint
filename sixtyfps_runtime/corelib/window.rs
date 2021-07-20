@@ -344,17 +344,6 @@ impl ComponentWindow {
     pub fn set_scale_factor(&self, factor: f32) {
         self.0.set_scale_factor(factor)
     }
-
-    /// Clears the focus on any previously focused item and makes the provided
-    /// item the focus item, in order to receive future key events.
-    pub fn set_focus_item(&self, focus_item: &ItemRc) {
-        self.0.clone().set_focus_item(focus_item)
-    }
-
-    /// Associates this window with the specified component, for future event handling, etc.
-    pub fn set_component(&self, component: &ComponentRc) {
-        self.0.set_component(component)
-    }
 }
 
 impl WindowHandleAccess for ComponentWindow {
@@ -456,7 +445,7 @@ pub mod ffi {
         focus_item: &ItemRc,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.set_focus_item(focus_item)
+        window.window_handle().clone().set_focus_item(focus_item)
     }
 
     /// Associates the window with the given component.
@@ -466,7 +455,7 @@ pub mod ffi {
         component: &ComponentRc,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.set_component(component)
+        window.window_handle().set_component(component)
     }
 
     /// Show a popup.

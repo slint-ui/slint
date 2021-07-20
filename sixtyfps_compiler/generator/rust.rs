@@ -648,7 +648,7 @@ fn generate_component(
 
         visibility = Some(quote!(pub));
 
-        init.push(quote!(_self.window.set_component(&VRc::into_dyn(_self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));));
+        init.push(quote!(_self.window.window_handle().set_component(&VRc::into_dyn(_self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));));
 
         has_window_impl = Some(quote!(
             impl sixtyfps::testing::HasWindow for #inner_component_id {
@@ -1216,7 +1216,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let focus_item = focus_item.borrow();
                         let item_index = focus_item.item_index.get().unwrap();
                         quote!(
-                            _self.window.set_focus_item(&ItemRc::new(VRc::into_dyn(_self.self_weak.get().unwrap().upgrade().unwrap()), #item_index));
+                            _self.window.window_handle().clone().set_focus_item(&ItemRc::new(VRc::into_dyn(_self.self_weak.get().unwrap().upgrade().unwrap()), #item_index));
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")
