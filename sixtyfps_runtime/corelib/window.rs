@@ -304,6 +304,12 @@ impl core::ops::Deref for Window {
     }
 }
 
+/// Internal trait used by generated code to access window internals.
+pub trait WindowHandleAccess {
+    /// Returns a reference to the window implementation.
+    fn window_handle(&self) -> &std::rc::Rc<Window>;
+}
+
 /// The ComponentWindow is the (rust) facing public type that can render the items
 /// of components to the screen.
 #[repr(C)]
@@ -364,10 +370,11 @@ impl ComponentWindow {
     pub fn close_popup(&self) {
         self.0.platform_window.get().unwrap().clone().close_popup()
     }
+}
 
-    /// Return self as any so the backend can upcast
-    pub fn as_any(&self) -> &dyn core::any::Any {
-        self.0.as_any()
+impl WindowHandleAccess for ComponentWindow {
+    fn window_handle(&self) -> &std::rc::Rc<Window> {
+        &self.0
     }
 }
 
