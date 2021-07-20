@@ -34,7 +34,7 @@ pub struct TestingBackend {
 
 impl sixtyfps_corelib::backend::Backend for TestingBackend {
     fn create_window(&'static self) -> ComponentWindow {
-        ComponentWindow::new(Window::new(|_| Rc::new(TestingWindow::default())))
+        Window::new(|_| Rc::new(TestingWindow::default())).into()
     }
 
     fn run_event_loop(&'static self, _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {

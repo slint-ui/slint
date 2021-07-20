@@ -116,9 +116,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
-            let window =
-                sixtyfps_corelib::window::Window::new(|window| qt_window::QtWindow::new(window));
-            ComponentWindow::new(window)
+            sixtyfps_corelib::window::Window::new(|window| qt_window::QtWindow::new(window)).into()
         }
     }
 
