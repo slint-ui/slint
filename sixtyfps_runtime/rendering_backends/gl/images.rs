@@ -375,9 +375,9 @@ impl CachedImage {
         }
     }
 
-    pub(crate) fn into_image(self) -> Option<image::DynamicImage> {
-        if let ImageData::DecodedImage(img) = self.0.into_inner() {
-            Some(img)
+    pub(crate) fn to_rgba(&self) -> Option<image::RgbaImage> {
+        if let ImageData::DecodedImage(img) = &*self.0.borrow() {
+            Some(img.to_rgba8())
         } else {
             None
         }

@@ -23,7 +23,6 @@ use corelib::slice::Slice;
 use corelib::window::{ComponentWindow, PlatformWindow};
 use corelib::Property;
 use corelib::SharedString;
-use image::GenericImageView;
 use sixtyfps_corelib as corelib;
 use winit::dpi::LogicalSize;
 
@@ -472,11 +471,11 @@ impl PlatformWindow for GraphicsWindow {
                     let backend = window.backend.borrow();
                     let winit_window = backend.window();
                     winit_window.set_title(&title);
-                    if let Some(img) = crate::images::CachedImage::new_from_resource((&icon).into())
-                        .and_then(|i| i.into_image())
+                    if let Some(rgba) = crate::IMAGE_CACHE
+                        .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
+                        .and_then(|i| i.to_rgba())
                     {
-                        let (width, height) = img.dimensions();
-                        let rgba = img.into_rgba8();
+                        let (width, height) = rgba.dimensions();
                         winit_window.set_window_icon(
                             winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
                         );
