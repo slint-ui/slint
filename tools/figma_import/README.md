@@ -1,14 +1,14 @@
 # figma_import: Figma to SixtyFPS import tool
 
-This tool import a design from figma into a .60 file.
+This tool imports a design from Figma into a .60 file.
 
 ## Get a Token from figma
 
-When logged in into Figma, go to "Account settings"
+When logged into Figma, go to "Account settings"
 (from the "Help and account" submenu of the hamburger menu, Or click on your name, then "Settings")
 
 In the section "Personal access tokens", click on "Create a new personal access token",
-enter some randeom description, and then copy the token in the yellow frame.
+enter a description of your choice, and then copy the token in the yellow frame.
 
 ## Exporting a file
 
@@ -29,5 +29,5 @@ This will create a `figma_output` directory with a `main.60` file and some image
 
 Other options:
 * `--node <id>` to generate a specific node (eg: "123:12")
-* `--child <index>` to generate from one of the direct child of the canvas.
+* `--child <index>` to generate from one of the direct children of the canvas.
 
