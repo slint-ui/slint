@@ -52,7 +52,7 @@ pub trait PlatformWindow {
     /// Request for the event loop to wake up and call [`Window::update_window_properties()`].
     fn request_window_properties_update(&self);
     /// Request for the given title string to be set to the windowing system for use as window title.
-    fn apply_window_properties(&self, window_item: Pin<&crate::items::Window>);
+    fn apply_window_properties(&self, window_item: Pin<&crate::items::WindowItem>);
 
     /// Return a font metrics trait object for the given font request. This is typically provided by the backend and
     /// requested by text related items in order to measure text metrics with the item's chosen font.
@@ -277,7 +277,8 @@ impl Window {
                 let component = ComponentRc::borrow_pin(&component);
                 let root_item = component.as_ref().get_item_ref(0);
 
-                if let Some(window_item) = ItemRef::downcast_pin::<crate::items::Window>(root_item)
+                if let Some(window_item) =
+                    ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
                 {
                     self.platform_window.get().unwrap().apply_window_properties(window_item);
                 }

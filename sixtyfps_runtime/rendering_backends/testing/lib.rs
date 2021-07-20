@@ -132,7 +132,7 @@ impl PlatformWindow for TestingWindow {
 
     fn request_window_properties_update(&self) {}
 
-    fn apply_window_properties(&self, _window_item: Pin<&sixtyfps_corelib::items::Window>) {
+    fn apply_window_properties(&self, _window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
         todo!()
     }
 

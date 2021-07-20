@@ -77,7 +77,7 @@ impl GraphicsWindow {
                         let component = ComponentRc::borrow_pin(&component_rc);
                         let root_item = component.as_ref().get_item_ref(0);
                         ItemRef::downcast_pin(root_item).map(
-                            |window_item: Pin<&corelib::items::Window>| {
+                            |window_item: Pin<&corelib::items::WindowItem>| {
                                 window_item.default_font_properties()
                             },
                         )
@@ -170,7 +170,7 @@ impl GraphicsWindow {
     /// Requests for the window to be mapped to the screen.
     ///
     /// Arguments:
-    /// * `component`: The component that holds the root item of the scene. If the item is a [`corelib::items::Window`], then
+    /// * `component`: The component that holds the root item of the scene. If the item is a [`corelib::items::WindowItem`], then
     ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
     ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
     ///   with the size as it may be changed by the user or the windowing system in general.
@@ -183,12 +183,13 @@ impl GraphicsWindow {
         let component = ComponentRc::borrow_pin(&component);
         let root_item = component.as_ref().get_item_ref(0);
 
-        let window_title =
-            if let Some(window_item) = ItemRef::downcast_pin::<corelib::items::Window>(root_item) {
-                window_item.title().to_string()
-            } else {
-                "SixtyFPS Window".to_string()
-            };
+        let window_title = if let Some(window_item) =
+            ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
+        {
+            window_item.title().to_string()
+        } else {
+            "SixtyFPS Window".to_string()
+        };
         let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
 
         let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
@@ -273,10 +274,10 @@ impl GraphicsWindow {
                         let layout_info_v = popup.as_ref().layout_info(Orientation::Vertical);
 
                         let width =
-                            corelib::items::Window::FIELD_OFFSETS.width.apply_pin(window_item);
+                            corelib::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
                         let mut w = width.get();
                         let height =
-                            corelib::items::Window::FIELD_OFFSETS.height.apply_pin(window_item);
+                            corelib::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
                         let mut h = height.get();
                         if w <= 0. {
                             w = layout_info_h.preferred;
@@ -296,7 +297,7 @@ impl GraphicsWindow {
             let window = map_state.as_mapped();
             let root_item = component.as_ref().get_item_ref(0);
             let background_color = if let Some(window_item) =
-                ItemRef::downcast_pin::<corelib::items::Window>(root_item)
+                ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
             {
                 window_item.background()
             } else {
@@ -386,7 +387,9 @@ impl GraphicsWindow {
         self.self_weak.upgrade().unwrap().try_component().map(|component_rc| {
             let component = ComponentRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
-            if let Some(window_item) = ItemRef::downcast_pin::<corelib::items::Window>(root_item) {
+            if let Some(window_item) =
+                ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
+            {
                 window_item.width.set(width);
                 window_item.height.set(height);
             }
@@ -461,7 +464,7 @@ impl PlatformWindow for GraphicsWindow {
         }
     }
 
-    fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::Window>) {
+    fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {

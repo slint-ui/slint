@@ -678,7 +678,7 @@ pub(crate) fn generate_component<'id>(
                 rtti_for::<FocusScope>(),
                 rtti_for::<Path>(),
                 rtti_for::<Flickable>(),
-                rtti_for::<Window>(),
+                rtti_for::<WindowItem>(),
                 rtti_for::<TextInput>(),
                 rtti_for::<Clip>(),
                 rtti_for::<BoxShadow>(),
