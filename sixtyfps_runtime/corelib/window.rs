@@ -197,7 +197,7 @@ impl Window {
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
             event,
-            &ComponentWindow::new(self.clone()),
+            &self.clone().into(),
             self.mouse_input_state.take(),
         ));
     }
@@ -210,8 +210,7 @@ impl Window {
     pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
         let mut item = self.focus_item.borrow().clone();
         while let Some(focus_item) = item.upgrade() {
-            let window = &ComponentWindow::new(self.clone());
-            if focus_item.borrow().as_ref().key_event(event, window)
+            if focus_item.borrow().as_ref().key_event(event, &self.clone().into())
                 == crate::input::KeyEventResult::EventAccepted
             {
                 return;
@@ -237,7 +236,7 @@ impl Window {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        let window = ComponentWindow::new(self.clone());
+        let window = &self.clone().into();
 
         if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             old_focus_item
@@ -254,7 +253,7 @@ impl Window {
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
     pub fn set_focus(self: Rc<Self>, have_focus: bool) {
-        let window = ComponentWindow::new(self.clone());
+        let window = &self.clone().into();
         let event = if have_focus {
             crate::input::FocusEvent::WindowReceivedFocus
         } else {
@@ -309,15 +308,15 @@ impl core::ops::Deref for Window {
 /// of components to the screen.
 #[repr(C)]
 #[derive(Clone)]
-pub struct ComponentWindow(pub std::rc::Rc<Window>);
+pub struct ComponentWindow(pub(crate) std::rc::Rc<Window>);
+
+impl From<std::rc::Rc<Window>> for ComponentWindow {
+    fn from(inner: std::rc::Rc<Window>) -> Self {
+        Self(inner)
+    }
+}
 
 impl ComponentWindow {
-    /// Creates a new instance of a ComponentWindow based on the given window implementation. Only used
-    /// internally.
-    pub fn new(window_impl: std::rc::Rc<Window>) -> Self {
-        Self(window_impl)
-    }
-
     /// Registers the window with the windowing system, in order to render the component's items and react
     /// to input events once the event loop spins.
     pub fn show(&self) {
@@ -373,6 +372,11 @@ impl ComponentWindow {
     /// Close the active popup if any
     pub fn close_popup(&self) {
         self.0.platform_window.get().unwrap().clone().close_popup()
+    }
+
+    /// Return self as any so the backend can upcast
+    pub fn as_any(&self) -> &dyn core::any::Any {
+        self.0.as_any()
     }
 }
 

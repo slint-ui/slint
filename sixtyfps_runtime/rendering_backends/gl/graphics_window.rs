@@ -20,7 +20,7 @@ use corelib::input::{KeyboardModifiers, MouseEvent};
 use corelib::items::ItemRef;
 use corelib::layout::Orientation;
 use corelib::slice::Slice;
-use corelib::window::{ComponentWindow, PlatformWindow};
+use corelib::window::PlatformWindow;
 use corelib::Property;
 use corelib::SharedString;
 use sixtyfps_corelib as corelib;
@@ -346,7 +346,7 @@ impl GraphicsWindow {
         self.mouse_input_state.set(corelib::input::process_mouse_input(
             component,
             event,
-            &ComponentWindow::new(self.self_weak.upgrade().unwrap()),
+            &self.self_weak.upgrade().unwrap().into(),
             self.mouse_input_state.take(),
         ));
 

@@ -1547,12 +1547,12 @@ fn to_femtovg_color(col: &Color) -> femtovg::Color {
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
-    let window = sixtyfps_corelib::window::Window::new(|window| {
+    sixtyfps_corelib::window::Window::new(|window| {
         GraphicsWindow::new(window, move |window_builder| {
             GLRenderer::new(window_builder, &canvas_id)
         })
-    });
-    ComponentWindow(window)
+    })
+    .into()
 }
 
 #[doc(hidden)]
@@ -1573,7 +1573,7 @@ thread_local!(pub(crate) static IMAGE_CACHE: RefCell<images::ImageCache> = Defau
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> ComponentWindow {
-        let window = sixtyfps_corelib::window::Window::new(|window| {
+        sixtyfps_corelib::window::Window::new(|window| {
             GraphicsWindow::new(window, |window_builder| {
                 GLRenderer::new(
                     window_builder,
@@ -1581,8 +1581,8 @@ impl sixtyfps_corelib::backend::Backend for Backend {
                     "canvas",
                 )
             })
-        });
-        ComponentWindow(window)
+        })
+        .into()
     }
 
     fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
