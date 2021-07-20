@@ -1282,6 +1282,11 @@ fn get_font(request: FontRequest) -> QFont {
     #endif
         }
         f.setLetterSpacing(QFont::AbsoluteSpacing, letter_spacing);
+        // Mark all font properties as resolved, to avoid inheriting font properties
+        // from the widget hierarchy. Later we call QPainter::setFont, which would
+        // merge in unset properties (such as bold, etc.) that it retrieved from
+        // the widget the painter is associated with.
+        f.resolve(QFont::AllPropertiesResolved);
         return f;
     })
 }
