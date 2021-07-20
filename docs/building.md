@@ -17,6 +17,7 @@ For Linux a few additional packages beyond the usual build essentials are needed
 
   * xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distributions)
   * xkbcommon (`libxkbcommon-dev` on debian based distributions)
+  * fontconfig library (`libfontconfig-dev` on debian based distributions)
 
 ### macOS
 
