@@ -74,12 +74,12 @@ pub extern "C" fn send_keyboard_string_sequence(
         }
         let text: SharedString = ch.to_string().into();
 
-        window.process_key_input(&KeyEvent {
+        window.0.clone().process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyPressed,
             text: text.clone(),
             modifiers,
         });
-        window.process_key_input(&KeyEvent {
+        window.0.clone().process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyReleased,
             text,
             modifiers,
