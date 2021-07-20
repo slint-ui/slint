@@ -1236,7 +1236,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let x = access_named_reference(&popup.x, component, quote!(_self));
                         let y = access_named_reference(&popup.y, component, quote!(_self));
                         quote!(
-                            _self.window.show_popup(
+                            _self.window.window_handle().show_popup(
                                 &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone(), &_self.window).into()),
                                 Point::new(#x.get(), #y.get())
                             );

@@ -30,7 +30,7 @@ use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::ComponentWindow;
+use sixtyfps_corelib::window::{ComponentWindow, WindowHandleAccess};
 use sixtyfps_corelib::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -69,7 +69,6 @@ impl<'id> ComponentBox<'id> {
 
 impl<'id> Drop for ComponentBox<'id> {
     fn drop(&mut self) {
-        use sixtyfps_corelib::window::WindowHandleAccess;
         let instance_ref = self.borrow_instance();
         match eval::window_ref(instance_ref) {
             Some(window) => {
@@ -1473,5 +1472,6 @@ pub fn show_popup(
     let inst = instantiate(compiled, Some(parent_comp), Some(parent_window.clone()));
     inst.run_setup_code();
     parent_window
+        .window_handle()
         .show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));
 }
