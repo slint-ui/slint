@@ -350,6 +350,7 @@ impl<'id> ComponentDescription<'id> {
         component_ref
             .as_pin_ref()
             .window()
+            .window_handle()
             .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
         component_ref.run_setup_code();
         component_ref
