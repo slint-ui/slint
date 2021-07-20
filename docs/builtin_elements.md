@@ -41,6 +41,7 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 ### Properties
 
 * **`title`** (*string*): The window title that is shown in the title bar.
+* **`icon`** (*image*): The window icon shown in the title bar or the task bar on window managers supporting it.
 * **`background`** (*color*): The background color of the Window. (default value: depends on the style)
 * **`default-font-family`** (*string*): The font family to use as default in text elements inside this window, that don't
   have their family set.
