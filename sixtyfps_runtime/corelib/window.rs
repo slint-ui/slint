@@ -345,15 +345,6 @@ impl ComponentWindow {
         self.0.free_graphics_resources(items);
     }
 
-    /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
-    pub(crate) fn set_cursor_blink_binding(&self, prop: &crate::properties::Property<bool>) {
-        self.0.clone().set_cursor_blink_binding(prop)
-    }
-
-    pub(crate) fn process_key_input(&self, event: &KeyEvent) {
-        self.0.clone().process_key_input(event)
-    }
-
     /// Clears the focus on any previously focused item and makes the provided
     /// item the focus item, in order to receive future key events.
     pub fn set_focus_item(&self, focus_item: &ItemRc) {

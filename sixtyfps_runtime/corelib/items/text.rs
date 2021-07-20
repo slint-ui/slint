@@ -475,7 +475,7 @@ impl From<KeyboardModifiers> for AnchorMode {
 
 impl TextInput {
     fn show_cursor(&self, window: &ComponentWindow) {
-        window.set_cursor_blink_binding(&self.cursor_visible);
+        window.0.set_cursor_blink_binding(&self.cursor_visible);
     }
 
     fn hide_cursor(&self) {
