@@ -105,6 +105,10 @@ impl Model for JsModel {
                 .and_then(|func| func.call(cx, obj, [row, data].iter().cloned()).ok());
         });
     }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
 }
 
 struct WrappedJsModel(Weak<JsModel>);
