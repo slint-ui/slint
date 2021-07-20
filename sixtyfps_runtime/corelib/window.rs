@@ -355,15 +355,6 @@ impl ComponentWindow {
     pub fn set_component(&self, component: &ComponentRc) {
         self.0.set_component(component)
     }
-
-    /// Show a popup at the given position
-    pub fn show_popup(&self, popup: &ComponentRc, position: Point) {
-        self.0.platform_window.get().unwrap().clone().show_popup(popup, position)
-    }
-    /// Close the active popup if any
-    pub fn close_popup(&self) {
-        self.0.platform_window.get().unwrap().clone().close_popup()
-    }
 }
 
 impl WindowHandleAccess for ComponentWindow {
@@ -486,13 +477,13 @@ pub mod ffi {
         position: crate::graphics::Point,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.show_popup(popup, position);
+        window.window_handle().show_popup(popup, position);
     }
     /// Close the current popup
     pub unsafe extern "C" fn sixtyfps_component_window_close_popup(
         handle: *const ComponentWindowOpaque,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.close_popup();
+        window.window_handle().close_popup();
     }
 }
