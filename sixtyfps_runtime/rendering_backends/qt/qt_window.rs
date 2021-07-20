@@ -1201,7 +1201,7 @@ impl PlatformWindow for QtWindow {
         self.scale_factor.as_ref().set(factor)
     }
 
-    fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<items::ItemRef<'a>>>) {
+    fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<items::ItemRef<'a>>>) {
         for item in items.iter() {
             let cached_rendering_data = item.cached_rendering_data_offset();
             cached_rendering_data.release(&mut self.cache.borrow_mut());

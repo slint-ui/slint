@@ -412,7 +412,7 @@ impl PlatformWindow for GraphicsWindow {
         self.properties.as_ref().scale_factor.set(factor);
     }
 
-    fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<ItemRef<'a>>>) {
+    fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(_) => {

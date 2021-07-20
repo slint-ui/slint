@@ -119,7 +119,7 @@ impl PlatformWindow for TestingWindow {
     }
 
     fn free_graphics_resources<'a>(
-        self: Rc<Self>,
+        &self,
         _items: &Slice<'a, Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
     ) {
     }

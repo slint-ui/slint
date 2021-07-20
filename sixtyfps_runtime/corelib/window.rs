@@ -42,7 +42,7 @@ pub trait PlatformWindow {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn free_graphics_resources<'a>(self: Rc<Self>, items: &Slice<'a, Pin<ItemRef<'a>>>);
+    fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>);
 
     /// Show a popup at the given position
     fn show_popup(&self, popup: &ComponentRc, position: Point);
@@ -342,7 +342,7 @@ impl ComponentWindow {
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache][`crate::graphics::RenderingCache`].
     pub fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>) {
-        self.0.platform_window.get().unwrap().clone().free_graphics_resources(items);
+        self.0.free_graphics_resources(items);
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
