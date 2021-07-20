@@ -69,6 +69,7 @@ impl<'id> ComponentBox<'id> {
 
 impl<'id> Drop for ComponentBox<'id> {
     fn drop(&mut self) {
+        use sixtyfps_corelib::window::WindowHandleAccess;
         let instance_ref = self.borrow_instance();
         match eval::window_ref(instance_ref) {
             Some(window) => {
@@ -81,7 +82,9 @@ impl<'id> Drop for ComponentBox<'id> {
                     })
                     .collect::<Vec<_>>();
 
-                window.free_graphics_resources(&Slice::from_slice(items.as_slice()));
+                window
+                    .window_handle()
+                    .free_graphics_resources(&Slice::from_slice(items.as_slice()));
             }
             None => {}
         }

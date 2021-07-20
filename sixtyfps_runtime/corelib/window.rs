@@ -345,12 +345,6 @@ impl ComponentWindow {
         self.0.set_scale_factor(factor)
     }
 
-    /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
-    /// implementation typically uses this to free the underlying graphics resources cached via [RenderingCache][`crate::graphics::RenderingCache`].
-    pub fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>) {
-        self.0.free_graphics_resources(items);
-    }
-
     /// Clears the focus on any previously focused item and makes the provided
     /// item the focus item, in order to receive future key events.
     pub fn set_focus_item(&self, focus_item: &ItemRc) {
@@ -461,7 +455,7 @@ pub mod ffi {
         items: &Slice<'a, Pin<ItemRef<'a>>>,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.free_graphics_resources(items)
+        window.window_handle().free_graphics_resources(items)
     }
 
     /// Sets the focus item.
