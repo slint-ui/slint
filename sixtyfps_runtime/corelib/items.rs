@@ -1043,7 +1043,7 @@ pub struct PropertyAnimation {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
-pub struct Window {
+pub struct WindowItem {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub background: Property<Color>,
@@ -1055,7 +1055,7 @@ pub struct Window {
     pub cached_rendering_data: CachedRenderingData,
 }
 
-impl Item for Window {
+impl Item for WindowItem {
     fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
@@ -1097,7 +1097,7 @@ impl Item for Window {
     fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
 }
 
-impl Window {
+impl WindowItem {
     /// Returns the font properties that can be used as defaults for child items
     pub fn default_font_properties(self: Pin<&Self>) -> crate::graphics::FontRequest {
         crate::graphics::FontRequest {
@@ -1130,13 +1130,13 @@ impl Window {
     }
 }
 
-impl ItemConsts for Window {
+impl ItemConsts for WindowItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_WindowVTable() -> WindowVTable for Window
+    fn sixtyfps_get_WindowItemVTable() -> WindowItemVTable for WindowItem
 }
 
 /// The implementation of the `BoxShadow` element

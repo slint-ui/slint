@@ -82,7 +82,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "Flickable",
         "Text",
         "Path",
-        "Window",
+        "WindowItem",
         "TextInput",
         "Clip",
         "BoxShadow",

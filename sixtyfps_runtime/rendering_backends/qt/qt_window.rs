@@ -1048,7 +1048,7 @@ impl QtWindow {
         let component_rc = self.self_weak.upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
-        if let Some(window_item) = ItemRef::downcast_pin::<items::Window>(root_item) {
+        if let Some(window_item) = ItemRef::downcast_pin::<items::WindowItem>(root_item) {
             window_item.width.set(size.width as _);
             window_item.height.set(size.height as _);
         }
@@ -1110,8 +1110,9 @@ impl QtWindow {
             .and_then(|component_rc| {
                 let component = ComponentRc::borrow_pin(&component_rc);
                 let root_item = component.as_ref().get_item_ref(0);
-                ItemRef::downcast_pin(root_item)
-                    .map(|window_item: Pin<&items::Window>| window_item.default_font_properties())
+                ItemRef::downcast_pin(root_item).map(|window_item: Pin<&items::WindowItem>| {
+                    window_item.default_font_properties()
+                })
             })
             .unwrap_or_default()
     }
@@ -1155,7 +1156,7 @@ impl PlatformWindow for QtWindow {
     }
 
     /// Apply windows property such as title to the QWidget*
-    fn apply_window_properties(&self, window_item: Pin<&items::Window>) {
+    fn apply_window_properties(&self, window_item: Pin<&items::WindowItem>) {
         let widget_ptr = self.widget_ptr();
         let title: qttypes::QString = window_item.title().as_str().into();
         let mut size = qttypes::QSize {
@@ -1224,7 +1225,7 @@ impl PlatformWindow for QtWindow {
         let component = ComponentRc::borrow_pin(popup);
         let root_item = component.as_ref().get_item_ref(0);
         let (mut w, mut h) =
-            if let Some(window_item) = ItemRef::downcast_pin::<items::Window>(root_item) {
+            if let Some(window_item) = ItemRef::downcast_pin::<items::WindowItem>(root_item) {
                 (window_item.width(), window_item.height())
             } else {
                 (0., 0.)

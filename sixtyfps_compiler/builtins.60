@@ -151,7 +151,7 @@ export Flickable := _ {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-export Window := _ {
+export WindowItem := _ {
     property <length> width: native_output;
     property <length> height: native_output;
     property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
@@ -162,6 +162,8 @@ export Window := _ {
     property <int> default_font_weight;
     property <image> icon;
 }
+
+export { WindowItem as Window }
 
 export BoxShadow := _ {
     property <length> x;
