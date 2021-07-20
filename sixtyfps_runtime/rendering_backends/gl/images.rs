@@ -374,6 +374,14 @@ impl CachedImage {
             _ => false,
         }
     }
+
+    pub(crate) fn into_image(self) -> Option<image::DynamicImage> {
+        if let ImageData::DecodedImage(img) = self.0.into_inner() {
+            Some(img)
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Hash, Debug)]

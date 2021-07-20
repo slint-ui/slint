@@ -1177,6 +1177,18 @@ impl PlatformWindow for QtWindow {
             }
         }
         let background: u32 = window_item.background().as_argb_encoded();
+
+        match (&window_item.icon()).into() {
+            &ImageInner::AbsoluteFilePath(ref path) => {
+                let icon_name: qttypes::QString = path.as_str().into();
+                cpp! {unsafe [widget_ptr as "QWidget*", icon_name as "QString"] {
+                    widget_ptr->setWindowIcon(QIcon(icon_name));
+                }};
+            }
+            &ImageInner::None => (),
+            _ => todo!("icon currently only support text"),
+        };
+
         cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
             if (size != widget_ptr->size()) {
                 widget_ptr->resize(size.expandedTo({1, 1}));

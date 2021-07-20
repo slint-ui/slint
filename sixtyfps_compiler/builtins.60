@@ -160,6 +160,7 @@ export Window := _ {
     property <string> default_font_family;
     property <length> default_font_size;
     property <int> default_font_weight;
+    property <image> icon;
 }
 
 export BoxShadow := _ {

@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 
  - Compilation error when there are duplicated element id
  - `ComboBox` now has a `selected` callback
+ - Added a `icon` property to the `Window` element
  - Added `sixtyfps::Weak::upgrade_in_event_loop` in the Rust API
  - Added `sixtyfps::Model::as_any()` in the Rust API
 
