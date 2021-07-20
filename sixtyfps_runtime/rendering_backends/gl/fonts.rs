@@ -150,6 +150,8 @@ pub(crate) fn font_fallbacks_for_request(
         Err(_) => return vec![],
     };
 
+    let mut fallback_maximum = 0;
+
     core_text::font::cascade_list_for_languages(
         &requested_font,
         &core_foundation::array::CFArray::from_CFTypes(&[]),
@@ -161,8 +163,19 @@ pub(crate) fn font_fallbacks_for_request(
         pixel_size: _request.pixel_size,
         letter_spacing: _request.letter_spacing,
     })
-    .filter(|fallback| !fallback.family.as_ref().unwrap().starts_with(".")) // font-kit asserts when loading `.Apple Fallback`
-    .take(1) // Take only the top from the fallback list until we mmap the llaaarge font files
+    .filter(|fallback| {
+        let family = fallback.family.as_ref().unwrap();
+        if family.starts_with(".") {
+            // font-kit asserts when loading `.Apple Fallback`
+            false
+        } else if family == "Apple Color Emoji" {
+            true
+        } else {
+            // Take only the top from the fallback list until we map the large font files
+            fallback_maximum += 1;
+            fallback_maximum <= 1
+        }
+    })
     .collect::<Vec<_>>()
 }
 
