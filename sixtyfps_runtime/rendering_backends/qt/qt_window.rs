@@ -1496,7 +1496,8 @@ pub(crate) mod ffi {
     pub extern "C" fn sixtyfps_qt_get_widget(
         window: &sixtyfps_corelib::window::ComponentWindow,
     ) -> *mut c_void {
-        <dyn std::any::Any>::downcast_ref(window.as_any())
+        use sixtyfps_corelib::window::WindowHandleAccess;
+        <dyn std::any::Any>::downcast_ref(window.window_handle().as_any())
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })
