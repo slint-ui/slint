@@ -70,4 +70,8 @@ impl Model for ValueModel {
             _ => println!("Value of model cannot be change"),
         }
     }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
 }

@@ -85,6 +85,30 @@ pub trait Model {
     {
         ModelIterator { model: self, row: 0 }
     }
+
+    /// Return something that can be downcast'ed (typically self)
+    ///
+    /// This is useful to get back to the actual model from a ModelHandle stored
+    /// in a component.
+    ///
+    /// ```
+    /// # use sixtyfps_corelib::model::*;
+    /// # use std::rc::Rc;
+    /// let vec_model = Rc::new(VecModel::from(vec![1i32, 2, 3]));
+    /// let handle = ModelHandle::from(vec_model as Rc<dyn Model<Data = i32>>);
+    /// // later:
+    /// handle.as_any().downcast_ref::<VecModel<i32>>().unwrap().push(4);
+    /// assert_eq!(handle.row_data(3), 4);
+    /// ```
+    ///
+    /// Note: the default implementation returns nothing interesting. this method should be
+    /// implemented by model implementation to return something useful. For example:
+    /// ```ignore
+    /// fn as_any(&self) -> &dyn core::any::Any { self }
+    /// ```
+    fn as_any(&self) -> &dyn core::any::Any {
+        &()
+    }
 }
 
 /// An iterator over the elements of a model.
@@ -150,7 +174,7 @@ impl<T> From<Vec<T>> for VecModel<T> {
     }
 }
 
-impl<T: Clone> Model for VecModel<T> {
+impl<T: Clone + 'static> Model for VecModel<T> {
     type Data = T;
 
     fn row_count(&self) -> usize {
@@ -169,6 +193,10 @@ impl<T: Clone> Model for VecModel<T> {
     fn attach_peer(&self, peer: ModelPeer) {
         self.notify.attach(peer);
     }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
 }
 
 impl Model for usize {
@@ -184,6 +212,10 @@ impl Model for usize {
 
     fn attach_peer(&self, _peer: ModelPeer) {
         // The model is read_only: nothing to do
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
     }
 }
 
@@ -202,6 +234,10 @@ impl Model for bool {
 
     fn attach_peer(&self, _peer: ModelPeer) {
         // The model is read_only: nothing to do
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
     }
 }
 
@@ -266,6 +302,10 @@ impl<T> Model for ModelHandle<T> {
         if let Some(model) = self.0.as_ref() {
             model.attach_peer(peer);
         }
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self.0.as_ref().map_or(&(), |model| model.as_any())
     }
 }
 
