@@ -242,7 +242,7 @@ pub mod re_exports {
         set_state_binding, Property, PropertyTracker, StateInfo,
     };
     pub use sixtyfps_corelib::slice::Slice;
-    pub use sixtyfps_corelib::window::{WindowHandleAccess, WindowRc};
+    pub use sixtyfps_corelib::window::{Window, WindowHandleAccess, WindowRc};
     pub use sixtyfps_corelib::Color;
     pub use sixtyfps_corelib::ComponentVTable_static;
     pub use sixtyfps_corelib::SharedString;
@@ -446,18 +446,13 @@ pub mod testing {
 
     use super::ComponentHandle;
 
-    /// This trait gives access to the underlying Window of a component for the
-    /// purposes of testing.
-    pub trait HasWindow {
-        /// Returns a reference to the component's window.
-        fn component_window(&self) -> &super::re_exports::WindowRc;
-    }
-
     pub use sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
 
     /// Simulate a mouse click
     pub fn send_mouse_click<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow + 'static,
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>
+            + crate::re_exports::WindowHandleAccess
+            + 'static,
         Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
@@ -466,12 +461,18 @@ pub mod testing {
     ) {
         let rc = component.clone_strong().into();
         let dyn_rc = vtable::VRc::into_dyn(rc.clone());
-        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(&dyn_rc, x, y, rc.component_window());
+        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
+            &dyn_rc,
+            x,
+            y,
+            &rc.window_handle().clone().into(),
+        );
     }
 
     /// Simulate a change in keyboard modifiers being pressed
     pub fn set_current_keyboard_modifiers<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>
+            + crate::re_exports::WindowHandleAccess,
         Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         _component: &Component,
@@ -482,7 +483,8 @@ pub mod testing {
 
     /// Simulate entering a sequence of ascii characters key by key.
     pub fn send_keyboard_string_sequence<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>
+            + crate::re_exports::WindowHandleAccess,
         Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
@@ -492,22 +494,22 @@ pub mod testing {
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             KEYBOARD_MODIFIERS.with(|x| x.get()),
-            component.component_window(),
+            &component.window_handle().clone().into(),
         )
     }
 
     /// Applies the specified scale factor to the window that's associated with the given component.
     /// This overrides the value provided by the windowing system.
     pub fn set_window_scale_factor<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable> + HasWindow,
+        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>
+            + crate::re_exports::WindowHandleAccess,
         Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         factor: f32,
     ) {
-        use sixtyfps_corelib::window::WindowHandleAccess;
         let component = component.clone_strong().into();
-        component.component_window().window_handle().set_scale_factor(factor)
+        component.window_handle().set_scale_factor(factor)
     }
 }
 
