@@ -322,19 +322,18 @@ pub trait WindowHandleAccess {
     fn window_handle(&self) -> &std::rc::Rc<Window>;
 }
 
-/// The ComponentWindow is the (rust) facing public type that can render the items
-/// of components to the screen.
+/// The WindowRc is the (rust) facing wrapper type for Rc<Window>.
 #[repr(C)]
 #[derive(Clone)]
-pub struct ComponentWindow(pub(crate) std::rc::Rc<Window>);
+pub struct WindowRc(pub(crate) std::rc::Rc<Window>);
 
-impl From<std::rc::Rc<Window>> for ComponentWindow {
+impl From<std::rc::Rc<Window>> for WindowRc {
     fn from(inner: std::rc::Rc<Window>) -> Self {
         Self(inner)
     }
 }
 
-impl WindowHandleAccess for ComponentWindow {
+impl WindowHandleAccess for WindowRc {
     fn window_handle(&self) -> &std::rc::Rc<Window> {
         &self.0
     }
@@ -351,116 +350,105 @@ pub mod ffi {
     #[allow(non_camel_case_types)]
     type c_void = ();
 
-    /// Same layout as ComponentWindow
+    /// Same layout as WindowRc
     #[repr(C)]
-    pub struct ComponentWindowOpaque(*const c_void);
+    pub struct WindowRcOpaque(*const c_void);
 
-    /// Releases the reference to the component window held by handle.
+    /// Releases the reference to the windowrc held by handle.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_drop(handle: *mut ComponentWindowOpaque) {
-        assert_eq!(
-            core::mem::size_of::<ComponentWindow>(),
-            core::mem::size_of::<ComponentWindowOpaque>()
-        );
-        core::ptr::read(handle as *mut ComponentWindow);
+    pub unsafe extern "C" fn sixtyfps_windowrc_drop(handle: *mut WindowRcOpaque) {
+        assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
+        core::ptr::read(handle as *mut WindowRc);
     }
 
     /// Releases the reference to the component window held by handle.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_clone(
-        source: *const ComponentWindowOpaque,
-        target: *mut ComponentWindowOpaque,
+    pub unsafe extern "C" fn sixtyfps_windowrc_clone(
+        source: *const WindowRcOpaque,
+        target: *mut WindowRcOpaque,
     ) {
-        assert_eq!(
-            core::mem::size_of::<ComponentWindow>(),
-            core::mem::size_of::<ComponentWindowOpaque>()
-        );
-        let window = &*(source as *const ComponentWindow);
-        core::ptr::write(target as *mut ComponentWindow, window.clone());
+        assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
+        let window = &*(source as *const WindowRc);
+        core::ptr::write(target as *mut WindowRc, window.clone());
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_show(handle: *const ComponentWindowOpaque) {
-        let window = &*(handle as *const ComponentWindow);
+    pub unsafe extern "C" fn sixtyfps_windowrc_show(handle: *const WindowRcOpaque) {
+        let window = &*(handle as *const WindowRc);
         window.window_handle().show();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_hide(handle: *const ComponentWindowOpaque) {
-        let window = &*(handle as *const ComponentWindow);
+    pub unsafe extern "C" fn sixtyfps_windowrc_hide(handle: *const WindowRcOpaque) {
+        let window = &*(handle as *const WindowRc);
         window.window_handle().hide();
     }
 
     /// Returns the window scale factor.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_get_scale_factor(
-        handle: *const ComponentWindowOpaque,
+    pub unsafe extern "C" fn sixtyfps_windowrc_get_scale_factor(
+        handle: *const WindowRcOpaque,
     ) -> f32 {
-        assert_eq!(
-            core::mem::size_of::<ComponentWindow>(),
-            core::mem::size_of::<ComponentWindowOpaque>()
-        );
-        let window = &*(handle as *const ComponentWindow);
+        assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
+        let window = &*(handle as *const WindowRc);
         window.window_handle().scale_factor()
     }
 
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_set_scale_factor(
-        handle: *const ComponentWindowOpaque,
+    pub unsafe extern "C" fn sixtyfps_windowrc_set_scale_factor(
+        handle: *const WindowRcOpaque,
         value: f32,
     ) {
-        let window = &*(handle as *const ComponentWindow);
+        let window = &*(handle as *const WindowRc);
         window.window_handle().set_scale_factor(value)
     }
 
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_free_graphics_resources<'a>(
-        handle: *const ComponentWindowOpaque,
+    pub unsafe extern "C" fn sixtyfps_windowrc_free_graphics_resources<'a>(
+        handle: *const WindowRcOpaque,
         items: &Slice<'a, Pin<ItemRef<'a>>>,
     ) {
-        let window = &*(handle as *const ComponentWindow);
+        let window = &*(handle as *const WindowRc);
         window.window_handle().free_graphics_resources(items)
     }
 
     /// Sets the focus item.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_set_focus_item(
-        handle: *const ComponentWindowOpaque,
+    pub unsafe extern "C" fn sixtyfps_windowrc_set_focus_item(
+        handle: *const WindowRcOpaque,
         focus_item: &ItemRc,
     ) {
-        let window = &*(handle as *const ComponentWindow);
+        let window = &*(handle as *const WindowRc);
         window.window_handle().clone().set_focus_item(focus_item)
     }
 
     /// Associates the window with the given component.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_set_component(
-        handle: *const ComponentWindowOpaque,
+    pub unsafe extern "C" fn sixtyfps_windowrc_set_component(
+        handle: *const WindowRcOpaque,
         component: &ComponentRc,
     ) {
-        let window = &*(handle as *const ComponentWindow);
+        let window = &*(handle as *const WindowRc);
         window.window_handle().set_component(component)
     }
 
     /// Show a popup.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_window_show_popup(
-        handle: *const ComponentWindowOpaque,
+    pub unsafe extern "C" fn sixtyfps_windowrc_show_popup(
+        handle: *const WindowRcOpaque,
         popup: &ComponentRc,
         position: crate::graphics::Point,
     ) {
-        let window = &*(handle as *const ComponentWindow);
+        let window = &*(handle as *const WindowRc);
         window.window_handle().show_popup(popup, position);
     }
     /// Close the current popup
-    pub unsafe extern "C" fn sixtyfps_component_window_close_popup(
-        handle: *const ComponentWindowOpaque,
-    ) {
-        let window = &*(handle as *const ComponentWindow);
+    pub unsafe extern "C" fn sixtyfps_windowrc_close_popup(handle: *const WindowRcOpaque) {
+        let window = &*(handle as *const WindowRc);
         window.window_handle().close_popup();
     }
 }

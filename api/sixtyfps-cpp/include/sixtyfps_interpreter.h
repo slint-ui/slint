@@ -244,8 +244,8 @@ private:
 /// Note that models are only represented in one direction: You can create a sixtyfps::Model<Value>
 /// in C++, store it in a std::shared_ptr and construct Value from it. Then you can set it on a
 /// property in your .60 code that was declared to be either an array (`property <[sometype]> foo;`)
-/// or an object literal (`property <{foo: string, bar: int}> my_prop;`). Such properties are dynamic
-/// and accept models implemented in C++.
+/// or an object literal (`property <{foo: string, bar: int}> my_prop;`). Such properties are
+/// dynamic and accept models implemented in C++.
 ///
 /// ```
 /// Value v(42.0); // Creates a value that holds a double with the value 42.
@@ -582,11 +582,11 @@ public:
     /// it may return nullptr if the Qt backend is not used at runtime.
     QWidget *qwidget() const
     {
-        cbindgen_private::ComponentWindowOpaque win;
+        cbindgen_private::WindowRcOpaque win;
         cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win);
         auto wid = reinterpret_cast<QWidget *>(cbindgen_private::sixtyfps_qt_get_widget(
-                reinterpret_cast<cbindgen_private::ComponentWindow *>(&win)));
-        cbindgen_private::sixtyfps_component_window_drop(&win);
+                reinterpret_cast<cbindgen_private::WindowRc *>(&win)));
+        cbindgen_private::sixtyfps_windowrc_drop(&win);
         return wid;
     }
 #endif
@@ -925,11 +925,11 @@ inline void send_keyboard_string_sequence(const sixtyfps::interpreter::Component
                                           const sixtyfps::SharedString &str,
                                           KeyboardModifiers modifiers = {})
 {
-    cbindgen_private::ComponentWindowOpaque win;
+    cbindgen_private::WindowRcOpaque win;
     cbindgen_private::sixtyfps_interpreter_component_instance_window(
             reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win);
     cbindgen_private::send_keyboard_string_sequence(
-            &str, modifiers, reinterpret_cast<cbindgen_private::ComponentWindow *>(&win));
-    cbindgen_private::sixtyfps_component_window_drop(&win);
+            &str, modifiers, reinterpret_cast<cbindgen_private::WindowRc *>(&win));
+    cbindgen_private::sixtyfps_windowrc_drop(&win);
 }
 }

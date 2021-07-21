@@ -12,7 +12,7 @@ LICENSE END */
 #![allow(unsafe_code)]
 
 use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
-use crate::window::ComponentWindow;
+use crate::window::WindowRc;
 use crate::SharedString;
 
 /// SixtyFPS animations do not use real time, but use a mocked time.
@@ -34,7 +34,7 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     component: &crate::component::ComponentRc,
     x: f32,
     y: f32,
-    window: &ComponentWindow,
+    window: &WindowRc,
 ) {
     let mut state = crate::input::MouseInputState::default();
     let pos = euclid::point2(x, y);
@@ -65,7 +65,7 @@ pub extern "C" fn sixtyfps_send_mouse_click(
 pub extern "C" fn send_keyboard_string_sequence(
     sequence: &crate::SharedString,
     modifiers: KeyboardModifiers,
-    window: &ComponentWindow,
+    window: &WindowRc,
 ) {
     for ch in sequence.chars() {
         let mut modifiers = modifiers;

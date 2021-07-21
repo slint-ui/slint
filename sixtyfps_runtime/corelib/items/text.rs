@@ -25,7 +25,7 @@ use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::ComponentWindow;
+use crate::window::WindowRc;
 use crate::{Callback, Property, SharedString};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -112,17 +112,13 @@ pub struct Text {
 }
 
 impl Item for Text {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        window: &ComponentWindow,
-    ) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let font_metrics = window.0.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
@@ -165,7 +161,7 @@ impl Item for Text {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -174,17 +170,17 @@ impl Item for Text {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
         (*backend).draw_text(self)
@@ -260,18 +256,14 @@ pub struct TextInput {
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        window: &ComponentWindow,
-    ) -> LayoutInfo {
+    fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let font_metrics = window.0.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
@@ -295,7 +287,7 @@ impl Item for TextInput {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -304,7 +296,7 @@ impl Item for TextInput {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        window: &ComponentWindow,
+        window: &WindowRc,
         self_rc: &ItemRc,
     ) -> InputEventResult {
         if !self.enabled() {
@@ -342,7 +334,7 @@ impl Item for TextInput {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &WindowRc) -> KeyEventResult {
         use std::convert::TryFrom;
 
         if !self.enabled() {
@@ -412,7 +404,7 @@ impl Item for TextInput {
         }
     }
 
-    fn focus_event(self: Pin<&Self>, event: &FocusEvent, window: &ComponentWindow) {
+    fn focus_event(self: Pin<&Self>, event: &FocusEvent, window: &WindowRc) {
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);
@@ -474,7 +466,7 @@ impl From<KeyboardModifiers> for AnchorMode {
 }
 
 impl TextInput {
-    fn show_cursor(&self, window: &ComponentWindow) {
+    fn show_cursor(&self, window: &WindowRc) {
         window.0.set_cursor_blink_binding(&self.cursor_visible);
     }
 
@@ -486,7 +478,7 @@ impl TextInput {
         self: Pin<&Self>,
         direction: TextCursorDirection,
         anchor_mode: AnchorMode,
-        window: &ComponentWindow,
+        window: &WindowRc,
     ) -> bool {
         let text = self.text();
         if text.len() == 0 {
@@ -534,14 +526,14 @@ impl TextInput {
         new_cursor_pos != last_cursor_pos
     }
 
-    fn delete_char(self: Pin<&Self>, window: &ComponentWindow) {
+    fn delete_char(self: Pin<&Self>, window: &WindowRc) {
         if !self.has_selection() {
             self.move_cursor(TextCursorDirection::Forward, AnchorMode::KeepAnchor, window);
         }
         self.delete_selection();
     }
 
-    fn delete_previous(self: Pin<&Self>, window: &ComponentWindow) {
+    fn delete_previous(self: Pin<&Self>, window: &WindowRc) {
         if self.has_selection() {
             self.delete_selection();
             return;

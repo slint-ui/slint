@@ -14,7 +14,7 @@ LICENSE END */
 use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::items::{ItemVTable, ItemWeak};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::window::ComponentWindow;
+use crate::window::WindowRc;
 use vtable::*;
 
 /// A Component is representing an unit that is allocated together
@@ -69,7 +69,7 @@ pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 pub fn init_component_items<Base>(
     base: core::pin::Pin<&Base>,
     item_tree: &[crate::item_tree::ItemTreeNode<Base>],
-    window: &ComponentWindow,
+    window: &WindowRc,
 ) {
     item_tree.iter().for_each(|entry| match entry {
         crate::item_tree::ItemTreeNode::Item { item, .. } => {
@@ -92,9 +92,9 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn sixtyfps_component_init_items(
         component: ComponentRefPin,
         item_tree: Slice<ItemTreeNode<u8>>,
-        window_handle: *const crate::window::ffi::ComponentWindowOpaque,
+        window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
-        let window = &*(window_handle as *const ComponentWindow);
+        let window = &*(window_handle as *const WindowRc);
         super::init_component_items(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             item_tree.as_slice(),

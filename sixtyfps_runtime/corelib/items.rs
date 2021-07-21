@@ -35,7 +35,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::ComponentWindow;
+use crate::window::WindowRc;
 use crate::{Callback, Property, SharedString};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -78,7 +78,7 @@ pub struct ItemVTable {
     /// This function is called by the run-time after the memory for the item
     /// has been allocated and initialized. It will be called before any user specified
     /// bindings are set.
-    pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &ComponentWindow),
+    pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window: &WindowRc),
 
     /// Returns the geometry of this item (relative to its parent item)
     pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> Rect,
@@ -93,7 +93,7 @@ pub struct ItemVTable {
     pub layouting_info: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
-        window: &ComponentWindow,
+        window: &WindowRc,
     ) -> LayoutInfo,
 
     /// Event handler for mouse and touch event. This function is called before being called on children.
@@ -103,7 +103,7 @@ pub struct ItemVTable {
     pub input_event_filter_before_children: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
-        window: &ComponentWindow,
+        window: &WindowRc,
         self_rc: &ItemRc,
     ) -> InputEventFilterResult,
 
@@ -111,17 +111,17 @@ pub struct ItemVTable {
     pub input_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
-        window: &ComponentWindow,
+        window: &WindowRc,
         self_rc: &ItemRc,
     ) -> InputEventResult,
 
     pub focus_event:
-        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, &FocusEvent, window: &ComponentWindow),
+        extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, &FocusEvent, window: &WindowRc),
 
     pub key_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         &KeyEvent,
-        window: &ComponentWindow,
+        window: &WindowRc,
     ) -> KeyEventResult,
 
     pub render: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, backend: &mut ItemRendererRef),
@@ -202,7 +202,7 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -211,7 +211,7 @@ impl Item for Rectangle {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -219,7 +219,7 @@ impl Item for Rectangle {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -228,17 +228,17 @@ impl Item for Rectangle {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         (*backend).draw_rectangle(self)
@@ -273,7 +273,7 @@ pub struct BorderRectangle {
 }
 
 impl Item for BorderRectangle {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -282,7 +282,7 @@ impl Item for BorderRectangle {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -290,7 +290,7 @@ impl Item for BorderRectangle {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -299,17 +299,17 @@ impl Item for BorderRectangle {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         (*backend).draw_border_rectangle(self)
@@ -354,7 +354,7 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -363,7 +363,7 @@ impl Item for TouchArea {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -371,7 +371,7 @@ impl Item for TouchArea {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if !self.enabled() {
@@ -388,7 +388,7 @@ impl Item for TouchArea {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::MouseExit) {
@@ -422,11 +422,11 @@ impl Item for TouchArea {
         result
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
 }
@@ -474,7 +474,7 @@ pub struct FocusScope {
 }
 
 impl Item for FocusScope {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -483,7 +483,7 @@ impl Item for FocusScope {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -491,7 +491,7 @@ impl Item for FocusScope {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -500,7 +500,7 @@ impl Item for FocusScope {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        window: &ComponentWindow,
+        window: &WindowRc,
         self_rc: &ItemRc,
     ) -> InputEventResult {
         /*if !self.enabled() {
@@ -512,7 +512,7 @@ impl Item for FocusScope {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         let r = match event.event_type {
             KeyEventType::KeyPressed => {
                 Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
@@ -527,7 +527,7 @@ impl Item for FocusScope {
         }
     }
 
-    fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &ComponentWindow) {
+    fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &WindowRc) {
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);
@@ -567,7 +567,7 @@ pub struct Clip {
 }
 
 impl Item for Clip {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -576,7 +576,7 @@ impl Item for Clip {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -584,7 +584,7 @@ impl Item for Clip {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.pos() {
@@ -598,17 +598,17 @@ impl Item for Clip {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         let geometry = self.geometry();
@@ -644,7 +644,7 @@ pub struct Opacity {
 }
 
 impl Item for Opacity {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -653,7 +653,7 @@ impl Item for Opacity {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -661,7 +661,7 @@ impl Item for Opacity {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -670,17 +670,17 @@ impl Item for Opacity {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         backend.apply_opacity(self.opacity());
@@ -712,7 +712,7 @@ pub struct Rotate {
 }
 
 impl Item for Rotate {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(0., 0., 0., 0.)
@@ -721,7 +721,7 @@ impl Item for Rotate {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -729,7 +729,7 @@ impl Item for Rotate {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -738,17 +738,17 @@ impl Item for Rotate {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         (*backend).translate(self.origin_x(), self.origin_y());
@@ -805,7 +805,7 @@ pub struct Path {
 }
 
 impl Item for Path {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -814,7 +814,7 @@ impl Item for Path {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -822,7 +822,7 @@ impl Item for Path {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.pos() {
@@ -838,17 +838,17 @@ impl Item for Path {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         let clip = self.clip();
@@ -918,7 +918,7 @@ pub struct Flickable {
 }
 
 impl Item for Flickable {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -927,7 +927,7 @@ impl Item for Flickable {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -935,7 +935,7 @@ impl Item for Flickable {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.pos() {
@@ -952,7 +952,7 @@ impl Item for Flickable {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
@@ -969,11 +969,11 @@ impl Item for Flickable {
         self.data.handle_mouse(self, event)
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         let geometry = self.geometry();
@@ -1056,7 +1056,7 @@ pub struct WindowItem {
 }
 
 impl Item for WindowItem {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(0., 0., self.width(), self.height())
@@ -1065,7 +1065,7 @@ impl Item for WindowItem {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -1073,7 +1073,7 @@ impl Item for WindowItem {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -1082,17 +1082,17 @@ impl Item for WindowItem {
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
 }
@@ -1159,7 +1159,7 @@ pub struct BoxShadow {
 }
 
 impl Item for BoxShadow {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -1168,7 +1168,7 @@ impl Item for BoxShadow {
     fn layouting_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -1176,7 +1176,7 @@ impl Item for BoxShadow {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -1185,17 +1185,17 @@ impl Item for BoxShadow {
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         (*backend).draw_box_shadow(self)

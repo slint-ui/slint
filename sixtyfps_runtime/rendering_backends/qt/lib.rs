@@ -49,7 +49,7 @@ pub fn use_modules() -> usize {
 mod ffi {
     #[no_mangle]
     pub extern "C" fn sixtyfps_qt_get_widget(
-        _: &sixtyfps_corelib::window::ComponentWindow,
+        _: &sixtyfps_corelib::window::WindowRc,
     ) -> *mut std::ffi::c_void {
         std::ptr::null_mut()
     }

@@ -35,7 +35,7 @@ use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
 use sixtyfps_corelib::layout::{LayoutInfo, Orientation};
 use sixtyfps_corelib::rtti::*;
-use sixtyfps_corelib::window::ComponentWindow;
+use sixtyfps_corelib::window::WindowRc;
 use sixtyfps_corelib::{
     declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
 };
@@ -165,7 +165,7 @@ pub struct NativeButton {
 }
 
 impl Item for NativeButton {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -174,7 +174,7 @@ impl Item for NativeButton {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         let mut text: qttypes::QString = self.text().as_str().into();
         let size = cpp!(unsafe [
@@ -200,7 +200,7 @@ impl Item for NativeButton {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -209,7 +209,7 @@ impl Item for NativeButton {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
@@ -237,11 +237,11 @@ impl Item for NativeButton {
         }
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
         let down: bool = this.pressed();
@@ -298,7 +298,7 @@ pub struct NativeCheckBox {
 }
 
 impl Item for NativeCheckBox {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -307,7 +307,7 @@ impl Item for NativeCheckBox {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         let text: qttypes::QString = self.text().as_str().into();
         let size = cpp!(unsafe [
@@ -334,7 +334,7 @@ impl Item for NativeCheckBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -343,7 +343,7 @@ impl Item for NativeCheckBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         if !self.enabled() {
@@ -356,11 +356,11 @@ impl Item for NativeCheckBox {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
         let checked: bool = this.checked();
@@ -447,7 +447,7 @@ void initQSpinBoxOptions(QStyleOptionSpinBox &option, bool pressed, bool enabled
 }}
 
 impl Item for NativeSpinBox {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -456,7 +456,7 @@ impl Item for NativeSpinBox {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         //let value: i32 = self.value();
         let data = self.data();
@@ -495,7 +495,7 @@ impl Item for NativeSpinBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -504,7 +504,7 @@ impl Item for NativeSpinBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
@@ -573,11 +573,11 @@ impl Item for NativeSpinBox {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
         let value: i32 = this.value();
@@ -665,7 +665,7 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, 
 }}
 
 impl Item for NativeSlider {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -674,7 +674,7 @@ impl Item for NativeSlider {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         let enabled = self.enabled();
         let value = self.value() as i32;
@@ -714,7 +714,7 @@ impl Item for NativeSlider {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -723,7 +723,7 @@ impl Item for NativeSlider {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
@@ -788,11 +788,11 @@ impl Item for NativeSlider {
         result
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
         let enabled = this.enabled();
@@ -858,7 +858,7 @@ struct GroupBoxData {
 }
 
 impl Item for NativeGroupBox {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {
+    fn init(self: Pin<&Self>, _window: &WindowRc) {
         let shared_data = Rc::pin(GroupBoxData::default());
 
         Property::link_two_way(
@@ -951,7 +951,7 @@ impl Item for NativeGroupBox {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo {
             min: match orientation {
@@ -966,7 +966,7 @@ impl Item for NativeGroupBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -975,17 +975,17 @@ impl Item for NativeGroupBox {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
         let text: qttypes::QString =
@@ -1047,7 +1047,7 @@ pub struct NativeLineEdit {
 }
 
 impl Item for NativeLineEdit {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {
+    fn init(self: Pin<&Self>, _window: &WindowRc) {
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {
@@ -1098,7 +1098,7 @@ impl Item for NativeLineEdit {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo {
             min: match orientation {
@@ -1113,7 +1113,7 @@ impl Item for NativeLineEdit {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -1122,17 +1122,17 @@ impl Item for NativeLineEdit {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
         let focused: bool = this.focused();
@@ -1193,7 +1193,7 @@ pub struct NativeScrollView {
 }
 
 impl Item for NativeScrollView {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {
+    fn init(self: Pin<&Self>, _window: &WindowRc) {
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {
@@ -1254,7 +1254,7 @@ impl Item for NativeScrollView {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         LayoutInfo {
             min: match orientation {
@@ -1269,7 +1269,7 @@ impl Item for NativeScrollView {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -1278,7 +1278,7 @@ impl Item for NativeScrollView {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
@@ -1422,11 +1422,11 @@ impl Item for NativeScrollView {
         }
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
 
@@ -1558,7 +1558,7 @@ pub struct NativeStandardListViewItem {
 }
 
 impl Item for NativeStandardListViewItem {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -1567,7 +1567,7 @@ impl Item for NativeStandardListViewItem {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         let index: i32 = self.index();
         let item = self.item();
@@ -1604,7 +1604,7 @@ impl Item for NativeStandardListViewItem {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -1613,17 +1613,17 @@ impl Item for NativeStandardListViewItem {
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
         let index: i32 = this.index();
@@ -1685,7 +1685,7 @@ pub struct NativeComboBox {
 }
 
 impl Item for NativeComboBox {
-    fn init(self: Pin<&Self>, _window: &ComponentWindow) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -1694,7 +1694,7 @@ impl Item for NativeComboBox {
     fn layouting_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
     ) -> LayoutInfo {
         let size = cpp!(unsafe [] -> qttypes::QSize as "QSize" {
             ensure_initialized();
@@ -1716,7 +1716,7 @@ impl Item for NativeComboBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -1725,7 +1725,7 @@ impl Item for NativeComboBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &ComponentWindow,
+        _window: &WindowRc,
         _self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
@@ -1755,11 +1755,11 @@ impl Item for NativeComboBox {
         }
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &ComponentWindow) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &ComponentWindow) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter =>
         let down: bool = this.pressed();

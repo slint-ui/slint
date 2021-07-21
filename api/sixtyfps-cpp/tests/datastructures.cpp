@@ -78,7 +78,7 @@ TEST_CASE("Image")
     using namespace sixtyfps;
 
     // ensure a backend exists, using private api
-    private_api::ComponentWindow wnd;
+    private_api::WindowRc wnd;
 
     Image img;
     {

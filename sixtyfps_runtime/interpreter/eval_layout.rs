@@ -19,7 +19,7 @@ use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib::layout::{self as core_layout};
 use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::ComponentWindow;
+use sixtyfps_corelib::window::WindowRc;
 use std::convert::TryInto;
 
 pub(crate) fn to_runtime(o: Orientation) -> core_layout::Orientation {
@@ -353,7 +353,7 @@ pub(crate) fn fill_layout_info_constraints(
 pub(crate) fn get_layout_info(
     elem: &ElementRc,
     component: InstanceRef,
-    window: &ComponentWindow,
+    window: &WindowRc,
     orientation: Orientation,
 ) -> core_layout::LayoutInfo {
     let elem = elem.borrow();
