@@ -651,9 +651,9 @@ fn generate_component(
         init.push(quote!(_self.window.window_handle().set_component(&VRc::into_dyn(_self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));));
 
         has_window_impl = Some(quote!(
-            impl sixtyfps::testing::HasWindow for #inner_component_id {
-                fn component_window(&self) -> &sixtyfps::re_exports::WindowRc {
-                    &self.window
+            impl sixtyfps::re_exports::WindowHandleAccess for #inner_component_id {
+                fn window_handle(&self) -> &std::rc::Rc<sixtyfps::re_exports::Window> {
+                    self.window.window_handle()
                 }
             }
         ))
