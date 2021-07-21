@@ -15,7 +15,7 @@ use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::rtti::AnimatedBindingKind;
-use corelib::window::{ComponentWindow, WindowHandleAccess};
+use corelib::window::Window;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
     BindingExpression, BuiltinFunction, EasingCurve, Expression, Path as ExprPath,
@@ -198,7 +198,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor, _) => {
                 match local_context.component_instance {
-                    ComponentInstance::InstanceRef(component) => Value::Number(window_ref(component).unwrap().window_handle().scale_factor() as _),
+                    ComponentInstance::InstanceRef(component) => Value::Number(window_ref(component).unwrap().scale_factor() as _),
                     ComponentInstance::GlobalComponent(_) => panic!("Cannot get the window from a global component"),
                 }
             }
@@ -275,7 +275,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
 
                     let focus_item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
 
-                    window_ref(component).unwrap().window_handle().clone().set_focus_item(&corelib::items::ItemRc::new(vtable::VRc::into_dyn(focus_item_comp), item_info.item_index()));
+                    window_ref(component).unwrap().clone().set_focus_item(&corelib::items::ItemRc::new(vtable::VRc::into_dyn(focus_item_comp), item_info.item_index()));
                     Value::Void
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
@@ -297,7 +297,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
                     let x = load_property_helper(local_context.component_instance, &popup.x.element(), popup.x.name()).unwrap();
                     let y = load_property_helper(local_context.component_instance, &popup.y.element(), popup.y.name()).unwrap();
-                    crate::dynamic_component::show_popup(popup, x.try_into().unwrap(), y.try_into().unwrap(), component.borrow(), window_ref(component).unwrap());
+                    crate::dynamic_component::show_popup(popup, x.try_into().unwrap(), y.try_into().unwrap(), component.borrow(), &window_ref(component).unwrap());
                     Value::Void
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
@@ -393,7 +393,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
                     let item_ref = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
                     let window = window_ref(component).unwrap();
-                    item_ref.as_ref().layouting_info(crate::eval_layout::to_runtime(*orient), &window).into()
+                    item_ref.as_ref().layouting_info(crate::eval_layout::to_runtime(*orient), &window.into()).into()
                 } else {
                     panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);
                 }
@@ -769,7 +769,7 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
     }
 }
 
-pub fn window_ref(component: InstanceRef) -> Option<ComponentWindow> {
+pub fn window_ref(component: InstanceRef) -> Option<Rc<Window>> {
     component.component_type.window_offset.apply(&*component.instance.get_ref()).clone()
 }
 

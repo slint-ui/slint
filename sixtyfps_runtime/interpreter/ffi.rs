@@ -400,9 +400,9 @@ pub extern "C" fn sixtyfps_interpreter_component_instance_show(
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
     if is_visible {
-        comp.window().window_handle().show();
+        comp.window().show();
     } else {
-        comp.window().window_handle().hide();
+        comp.window().hide();
     }
 }
 
@@ -420,7 +420,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_window(
         core::mem::size_of::<ComponentWindow>(),
         core::mem::size_of::<sixtyfps_corelib::window::ffi::ComponentWindowOpaque>()
     );
-    core::ptr::write(out as *mut ComponentWindow, inst.window())
+    core::ptr::write(out as *mut ComponentWindow, inst.window().into())
 }
 
 /// Instantiate an instance from a definition.

@@ -254,7 +254,7 @@ pub mod re_exports {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> re_exports::ComponentWindow {
-    sixtyfps_rendering_backend_default::backend().create_window()
+    sixtyfps_rendering_backend_default::backend().create_window().into()
 }
 
 /// Enters the main event loop. This is necessary in order to receive

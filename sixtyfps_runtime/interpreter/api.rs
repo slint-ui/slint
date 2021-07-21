@@ -11,7 +11,6 @@ LICENSE END */
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::graphics::Image;
-use sixtyfps_corelib::window::WindowHandleAccess;
 use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -580,7 +579,7 @@ impl ComponentDefinition {
     #[doc(hidden)]
     pub fn create_with_existing_window(
         &self,
-        window: sixtyfps_corelib::window::ComponentWindow,
+        window: Rc<sixtyfps_corelib::window::Window>,
     ) -> ComponentInstance {
         generativity::make_guard!(guard);
         ComponentInstance {
@@ -771,7 +770,7 @@ impl ComponentInstance {
     pub fn show(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window().window_handle().show();
+        comp.window().show();
     }
 
     /// Marks the window of this component to be hidden on the screen. This de-registers
@@ -779,7 +778,7 @@ impl ComponentInstance {
     pub fn hide(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window().window_handle().hide();
+        comp.window().hide();
     }
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
     /// and [`Self::hide`].
@@ -810,10 +809,10 @@ impl ComponentInstance {
     /// Return the window.
     /// This method is internal because the Window is not a public type
     #[doc(hidden)]
-    pub fn window(&self) -> sixtyfps_corelib::window::ComponentWindow {
+    pub fn window(&self) -> Rc<sixtyfps_corelib::window::Window> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window()
+        comp.window().clone()
     }
 }
 
@@ -892,7 +891,7 @@ pub mod testing {
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
-            &comp.inner.window(),
+            &comp.inner.window().into(),
         );
     }
     /// Wrapper around [`sixtyfps_corelib::tests::send_keyboard_string_sequence`]
@@ -903,7 +902,7 @@ pub mod testing {
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
-            &comp.inner.window(),
+            &comp.inner.window().into(),
         );
     }
 }
