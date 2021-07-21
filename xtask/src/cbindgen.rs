@@ -93,7 +93,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     config.export.include = [
         "ComponentVTable",
         "Slice",
-        "ComponentWindowOpaque",
+        "WindowRcOpaque",
         "PropertyAnimation",
         "EasingCurve",
         "TextHorizontalAlignment",
@@ -127,7 +127,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "sixtyfps_property_listener_scope_is_dirty",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
-        "ComponentWindow",
+        "WindowRc",
         "VoidArg",
         "KeyEventArg",
         "sixtyfps_color_brighter",
@@ -215,16 +215,16 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
         special_config.export.exclude = [
             "sixtyfps_visit_item_tree",
-            "sixtyfps_component_window_drop",
-            "sixtyfps_component_window_clone",
-            "sixtyfps_component_window_show",
-            "sixtyfps_component_window_hide",
-            "sixtyfps_component_window_get_scale_factor",
-            "sixtyfps_component_window_set_scale_factor",
-            "sixtyfps_component_window_free_graphics_resources",
-            "sixtyfps_component_window_set_focus_item",
-            "sixtyfps_component_window_set_component",
-            "sixtyfps_component_window_show_popup",
+            "sixtyfps_windowrc_drop",
+            "sixtyfps_windowrc_clone",
+            "sixtyfps_windowrc_show",
+            "sixtyfps_windowrc_hide",
+            "sixtyfps_windowrc_get_scale_factor",
+            "sixtyfps_windowrc_set_scale_factor",
+            "sixtyfps_windowrc_free_graphics_resources",
+            "sixtyfps_windowrc_set_focus_item",
+            "sixtyfps_windowrc_set_component",
+            "sixtyfps_windowrc_show_popup",
             "sixtyfps_new_path_elements",
             "sixtyfps_new_path_events",
             "sixtyfps_color_brighter",
@@ -309,8 +309,8 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .with_after_include(format!(
             r"
 namespace sixtyfps {{
-    namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; class ComponentWindow; }}
-    namespace cbindgen_private {{ using sixtyfps::private_api::ComponentWindow; using namespace vtable; struct KeyEvent; using private_api::Property; using private_api::PathData; }}
+    namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; class WindowRc; }}
+    namespace cbindgen_private {{ using sixtyfps::private_api::WindowRc; using namespace vtable; struct KeyEvent; using private_api::Property; using private_api::PathData; }}
 }}",
             0, 1, 0,
         ))

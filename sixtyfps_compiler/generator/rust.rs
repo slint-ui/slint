@@ -622,7 +622,7 @@ fn generate_component(
     let mut visibility = None;
     let mut parent_component_type = None;
     let mut has_window_impl = None;
-    let mut window_field = Some(quote!(window: sixtyfps::re_exports::ComponentWindow));
+    let mut window_field = Some(quote!(window: sixtyfps::re_exports::WindowRc));
     if let Some(parent_element) = component.parent_element.upgrade() {
         if parent_element.borrow().repeated.as_ref().map_or(false, |r| !r.is_conditional_element) {
             declared_property_vars.push(format_ident!("index"));
@@ -640,10 +640,10 @@ fn generate_component(
             &parent_element.borrow().enclosing_component.upgrade().unwrap(),
         ));
         window_field_init = Some(quote!(window: parent_window.clone()));
-        window_parent_param = Some(quote!(, parent_window: &sixtyfps::re_exports::ComponentWindow))
+        window_parent_param = Some(quote!(, parent_window: &sixtyfps::re_exports::WindowRc))
     } else if !component.is_global() {
         // FIXME: This field is public for testing.
-        window_field = Some(quote!(pub window: sixtyfps::re_exports::ComponentWindow));
+        window_field = Some(quote!(pub window: sixtyfps::re_exports::WindowRc));
         window_field_init = Some(quote!(window: sixtyfps::create_window()));
 
         visibility = Some(quote!(pub));
@@ -652,7 +652,7 @@ fn generate_component(
 
         has_window_impl = Some(quote!(
             impl sixtyfps::testing::HasWindow for #inner_component_id {
-                fn component_window(&self) -> &sixtyfps::re_exports::ComponentWindow {
+                fn component_window(&self) -> &sixtyfps::re_exports::WindowRc {
                     &self.window
                 }
             }

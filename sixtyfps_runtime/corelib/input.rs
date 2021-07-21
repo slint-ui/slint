@@ -275,7 +275,7 @@ enum MouseGrab {
 
 fn handle_mouse_grab(
     mouse_event: &MouseEvent,
-    window: &crate::window::ComponentWindow,
+    window: &crate::window::WindowRc,
     mut mouse_input_state: MouseInputState,
 ) -> MouseGrab {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
@@ -330,7 +330,7 @@ fn handle_mouse_grab(
 pub fn process_mouse_input(
     component: ComponentRc,
     mouse_event: MouseEvent,
-    window: &crate::window::ComponentWindow,
+    window: &crate::window::WindowRc,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     match handle_mouse_grab(&mouse_event, window, mouse_input_state) {

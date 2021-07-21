@@ -79,36 +79,33 @@ using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
 using cbindgen_private::KeyboardModifiers;
 using cbindgen_private::KeyEvent;
 
-class ComponentWindow
+class WindowRc
 {
 public:
-    ComponentWindow() { cbindgen_private::sixtyfps_component_window_init(&inner); }
-    ~ComponentWindow() { cbindgen_private::sixtyfps_component_window_drop(&inner); }
-    ComponentWindow(const ComponentWindow &other)
+    WindowRc() { cbindgen_private::sixtyfps_windowrc_init(&inner); }
+    ~WindowRc() { cbindgen_private::sixtyfps_windowrc_drop(&inner); }
+    WindowRc(const WindowRc &other)
     {
-        cbindgen_private::sixtyfps_component_window_clone(&other.inner, &inner);
+        cbindgen_private::sixtyfps_windowrc_clone(&other.inner, &inner);
     }
-    ComponentWindow(ComponentWindow &&) = delete;
-    ComponentWindow &operator=(const ComponentWindow &) = delete;
+    WindowRc(WindowRc &&) = delete;
+    WindowRc &operator=(const WindowRc &) = delete;
 
-    void show() const { sixtyfps_component_window_show(&inner); }
-    void hide() const { sixtyfps_component_window_hide(&inner); }
+    void show() const { sixtyfps_windowrc_show(&inner); }
+    void hide() const { sixtyfps_windowrc_hide(&inner); }
 
-    float scale_factor() const { return sixtyfps_component_window_get_scale_factor(&inner); }
-    void set_scale_factor(float value) const
-    {
-        sixtyfps_component_window_set_scale_factor(&inner, value);
-    }
+    float scale_factor() const { return sixtyfps_windowrc_get_scale_factor(&inner); }
+    void set_scale_factor(float value) const { sixtyfps_windowrc_set_scale_factor(&inner, value); }
 
     void free_graphics_resources(const sixtyfps::Slice<ItemRef> &items) const
     {
-        cbindgen_private::sixtyfps_component_window_free_graphics_resources(&inner, &items);
+        cbindgen_private::sixtyfps_windowrc_free_graphics_resources(&inner, &items);
     }
 
     void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)
     {
         cbindgen_private::ItemRc item_rc { component_rc, item_index };
-        cbindgen_private::sixtyfps_component_window_set_focus_item(&inner, &item_rc);
+        cbindgen_private::sixtyfps_windowrc_set_focus_item(&inner, &item_rc);
     }
 
     template<typename Component, typename ItemTree>
@@ -122,18 +119,18 @@ public:
     void set_component(const Component &c) const
     {
         auto self_rc = c.self_weak.lock().value().into_dyn();
-        sixtyfps_component_window_set_component(&inner, &self_rc);
+        sixtyfps_windowrc_set_component(&inner, &self_rc);
     }
 
     template<typename Component, typename Parent>
     void show_popup(const Parent *parent_component, cbindgen_private::Point p) const
     {
         auto popup = Component::create(parent_component).into_dyn();
-        cbindgen_private::sixtyfps_component_window_show_popup(&inner, &popup, p);
+        cbindgen_private::sixtyfps_windowrc_show_popup(&inner, &popup, p);
     }
 
 private:
-    cbindgen_private::ComponentWindowOpaque inner;
+    cbindgen_private::WindowRcOpaque inner;
 };
 
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,

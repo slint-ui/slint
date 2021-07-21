@@ -10,8 +10,8 @@ LICENSE END */
 /*! This crate just expose the function used by the C++ integration */
 
 use core::ffi::c_void;
-use sixtyfps_corelib::window::ffi::ComponentWindowOpaque;
-use sixtyfps_corelib::window::ComponentWindow;
+use sixtyfps_corelib::window::ffi::WindowRcOpaque;
+use sixtyfps_corelib::window::WindowRc;
 use sixtyfps_rendering_backend_default::backend;
 
 #[doc(hidden)]
@@ -24,12 +24,9 @@ pub fn use_modules() -> usize {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_component_window_init(out: *mut ComponentWindowOpaque) {
-    assert_eq!(
-        core::mem::size_of::<ComponentWindow>(),
-        core::mem::size_of::<ComponentWindowOpaque>()
-    );
-    core::ptr::write(out as *mut ComponentWindow, crate::backend().create_window().into());
+pub unsafe extern "C" fn sixtyfps_windowrc_init(out: *mut WindowRcOpaque) {
+    assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
+    core::ptr::write(out as *mut WindowRc, crate::backend().create_window().into());
 }
 
 #[no_mangle]

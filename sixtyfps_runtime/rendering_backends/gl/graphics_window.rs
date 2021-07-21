@@ -449,7 +449,7 @@ impl PlatformWindow for GraphicsWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {
                 // Nothing to be done if the window isn't visible. When it becomes visible,
-                // ComponentWindow::show() calls update_window_properties()
+                // corelib::window::Window::show() calls update_window_properties()
             }
             GraphicsWindowBackendState::Mapped(window) => {
                 let backend = window.backend.borrow();

@@ -86,7 +86,7 @@ pub fn use_modules() -> usize {
             + graphics::ffi::sixtyfps_new_path_elements as usize
             + properties::ffi::sixtyfps_property_init as usize
             + string::ffi::sixtyfps_shared_string_bytes as usize
-            + window::ffi::sixtyfps_component_window_drop as usize
+            + window::ffi::sixtyfps_windowrc_drop as usize
             + component::ffi::sixtyfps_component_init_items as usize
             + timers::ffi::sixtyfps_timer_start as usize
             + graphics::color::ffi::sixtyfps_color_brighter as usize

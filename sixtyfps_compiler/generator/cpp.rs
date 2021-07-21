@@ -895,7 +895,7 @@ fn generate_component(
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
-                ty: "sixtyfps::private_api::ComponentWindow".into(),
+                ty: "sixtyfps::private_api::WindowRc".into(),
                 name: "window".into(),
                 ..Var::default()
             }),
@@ -904,7 +904,7 @@ fn generate_component(
         component_struct.members.push((
             Access::Public, // FIXME: many of the different component bindings need to access this
             Declaration::Var(Var {
-                ty: "sixtyfps::private_api::ComponentWindow".into(),
+                ty: "sixtyfps::private_api::WindowRc".into(),
                 name: "window".into(),
                 ..Var::default()
             }),
@@ -958,7 +958,7 @@ fn generate_component(
 
         init.push("self->window.init_items(this, item_tree());".into());
 
-        component_struct.friends.push("sixtyfps::private_api::ComponentWindow".into());
+        component_struct.friends.push("sixtyfps::private_api::WindowRc".into());
     }
 
     if !component.is_global() {
