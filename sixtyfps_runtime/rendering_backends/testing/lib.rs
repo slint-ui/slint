@@ -20,7 +20,7 @@ use image::GenericImageView;
 use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{FontMetrics, Image, Size};
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::{ComponentWindow, PlatformWindow, Window};
+use sixtyfps_corelib::window::{PlatformWindow, Window};
 use sixtyfps_corelib::{ImageInner, Property};
 use std::path::Path;
 use std::pin::Pin;
@@ -33,8 +33,8 @@ pub struct TestingBackend {
 }
 
 impl sixtyfps_corelib::backend::Backend for TestingBackend {
-    fn create_window(&'static self) -> ComponentWindow {
-        Window::new(|_| Rc::new(TestingWindow::default())).into()
+    fn create_window(&'static self) -> Rc<Window> {
+        Window::new(|_| Rc::new(TestingWindow::default()))
     }
 
     fn run_event_loop(&'static self, _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {

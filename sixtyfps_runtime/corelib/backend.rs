@@ -12,9 +12,10 @@ The backend is the abstraction for crates that need to do the actual drawing and
 */
 
 use std::path::Path;
+use std::rc::Rc;
 
 use crate::graphics::{Image, Size};
-use crate::window::ComponentWindow;
+use crate::window::Window;
 
 /// Behavior describing how the event loop should terminate.
 pub enum EventLoopQuitBehavior {
@@ -24,11 +25,11 @@ pub enum EventLoopQuitBehavior {
     QuitOnlyExplicitly,
 }
 
-/// Interface implemented by backends
+/// Interface implemented by back-ends
 pub trait Backend: Send + Sync {
     /// Instantiate a window for a component.
     /// FIXME: should return a Box<dyn PlatformWindow>
-    fn create_window(&'static self) -> ComponentWindow;
+    fn create_window(&'static self) -> Rc<Window>;
 
     /// Spins an event loop and renders the visible windows.
     fn run_event_loop(&'static self, behavior: EventLoopQuitBehavior);

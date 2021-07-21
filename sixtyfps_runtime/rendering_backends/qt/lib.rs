@@ -21,7 +21,7 @@ You should use the `sixtyfps` crate instead.
 use sixtyfps_corelib::graphics::{Image, Size};
 #[cfg(not(no_qt))]
 use sixtyfps_corelib::items::ImageFit;
-use sixtyfps_corelib::window::ComponentWindow;
+use sixtyfps_corelib::window::Window;
 
 #[cfg(not(no_qt))]
 mod qt_window;
@@ -111,12 +111,12 @@ pub const IS_AVAILABLE: bool = cfg!(not(no_qt));
 
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
-    fn create_window(&'static self) -> ComponentWindow {
+    fn create_window(&'static self) -> std::rc::Rc<Window> {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
-            sixtyfps_corelib::window::Window::new(|window| qt_window::QtWindow::new(window)).into()
+            sixtyfps_corelib::window::Window::new(|window| qt_window::QtWindow::new(window))
         }
     }
 

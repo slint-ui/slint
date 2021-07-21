@@ -181,7 +181,7 @@ fn grid_layout_data(
             let mut layout_info = get_layout_info(
                 &cell.item.element,
                 component,
-                &eval::window_ref(component).unwrap(),
+                &eval::window_ref(component).unwrap().into(),
                 orientation,
             );
             fill_layout_info_constraints(
@@ -234,7 +234,8 @@ fn box_layout_data(
                     .map(|x| x.as_pin_ref().box_layout_data(to_runtime(orientation))),
             );
         } else {
-            let mut layout_info = get_layout_info(&cell.element, component, &window, orientation);
+            let mut layout_info =
+                get_layout_info(&cell.element, component, &window.clone().into(), orientation);
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,

@@ -29,7 +29,7 @@ pub unsafe extern "C" fn sixtyfps_component_window_init(out: *mut ComponentWindo
         core::mem::size_of::<ComponentWindow>(),
         core::mem::size_of::<ComponentWindowOpaque>()
     );
-    core::ptr::write(out as *mut ComponentWindow, crate::backend().create_window());
+    core::ptr::write(out as *mut ComponentWindow, crate::backend().create_window().into());
 }
 
 #[no_mangle]

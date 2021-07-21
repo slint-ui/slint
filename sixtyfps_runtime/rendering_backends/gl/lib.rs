@@ -28,7 +28,7 @@ use sixtyfps_corelib::items::{
     FillRule, ImageFit, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
 };
 use sixtyfps_corelib::properties::Property;
-use sixtyfps_corelib::window::ComponentWindow;
+use sixtyfps_corelib::window::Window;
 
 use sixtyfps_corelib::SharedString;
 
@@ -1546,13 +1546,12 @@ fn to_femtovg_color(col: &Color) -> femtovg::Color {
 }
 
 #[cfg(target_arch = "wasm32")]
-pub fn create_gl_window_with_canvas_id(canvas_id: String) -> ComponentWindow {
+pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<Window> {
     sixtyfps_corelib::window::Window::new(|window| {
         GraphicsWindow::new(window, move |window_builder| {
             GLRenderer::new(window_builder, &canvas_id)
         })
     })
-    .into()
 }
 
 #[doc(hidden)]
@@ -1572,7 +1571,7 @@ thread_local!(pub(crate) static IMAGE_CACHE: RefCell<images::ImageCache> = Defau
 
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
-    fn create_window(&'static self) -> ComponentWindow {
+    fn create_window(&'static self) -> Rc<Window> {
         sixtyfps_corelib::window::Window::new(|window| {
             GraphicsWindow::new(window, |window_builder| {
                 GLRenderer::new(
@@ -1582,7 +1581,6 @@ impl sixtyfps_corelib::backend::Backend for Backend {
                 )
             })
         })
-        .into()
     }
 
     fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
