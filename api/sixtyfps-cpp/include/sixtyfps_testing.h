@@ -13,7 +13,8 @@ LICENSE END */
 
 namespace sixtyfps::testing {
 
-inline void init() {
+inline void init()
+{
     cbindgen_private::sixtyfps_testing_init_backend();
 }
 
@@ -25,7 +26,7 @@ template<typename Component>
 inline void send_mouse_click(const Component *component, float x, float y)
 {
     auto crc = *component->self_weak.into_dyn().lock();
-    cbindgen_private::sixtyfps_send_mouse_click(&crc, x, y, &component->window);
+    cbindgen_private::sixtyfps_send_mouse_click(&crc, x, y, &component->window_);
 }
 
 template<typename Component>
@@ -33,7 +34,7 @@ inline void send_keyboard_string_sequence(const Component *component,
                                           const sixtyfps::SharedString &str,
                                           cbindgen_private::KeyboardModifiers modifiers = {})
 {
-    cbindgen_private::send_keyboard_string_sequence(&str, modifiers, &component->window);
+    cbindgen_private::send_keyboard_string_sequence(&str, modifiers, &component->window_);
 }
 
 #define assert_eq(A, B)                                                                            \

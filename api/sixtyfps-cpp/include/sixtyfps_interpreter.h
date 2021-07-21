@@ -585,6 +585,15 @@ public:
     {
         cbindgen_private::sixtyfps_interpreter_component_instance_show(inner(), false);
     }
+    /// Returns the Window associated with this component. The window API can be used
+    /// to control different aspects of the integration into the windowing system,
+    /// such as the position on the screen.
+    sixtyfps::Window window() const
+    {
+        cbindgen_private::WindowRcOpaque win;
+        cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win);
+        return sixtyfps::Window(sixtyfps::private_api::WindowRc(win));
+    }
     /// This is a convenience function that first calls show(), followed by
     /// sixtyfps::run_event_loop() and hide().
     void run() const
