@@ -267,7 +267,7 @@ impl Window {
 
     /// If the component's root item is a Window element, then this function synchronizes its properties, such as the title
     /// for example, with the properties known to the windowing system.
-    pub fn update_window_properties(self: Rc<Self>) {
+    pub fn update_window_properties(&self) {
         if let Some(window_properties_tracker) = self.window_properties_tracker.get() {
             // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
             // an evaluation.
@@ -294,6 +294,18 @@ impl Window {
             draw_fn()
         }
     }
+
+    /// Registers the window with the windowing system, in order to render the component's items and react
+    /// to input events once the event loop spins.
+    pub fn show(&self) {
+        self.platform_window.get().unwrap().clone().show();
+        self.update_window_properties();
+    }
+
+    /// De-registers the window with the windowing system.
+    pub fn hide(&self) {
+        self.platform_window.get().unwrap().clone().hide();
+    }
 }
 
 impl core::ops::Deref for Window {
@@ -319,30 +331,6 @@ pub struct ComponentWindow(pub(crate) std::rc::Rc<Window>);
 impl From<std::rc::Rc<Window>> for ComponentWindow {
     fn from(inner: std::rc::Rc<Window>) -> Self {
         Self(inner)
-    }
-}
-
-impl ComponentWindow {
-    /// Registers the window with the windowing system, in order to render the component's items and react
-    /// to input events once the event loop spins.
-    pub fn show(&self) {
-        self.0.platform_window.get().unwrap().clone().show();
-        self.0.clone().update_window_properties();
-    }
-
-    /// De-registers the window with the windowing system.
-    pub fn hide(&self) {
-        self.0.platform_window.get().unwrap().clone().hide();
-    }
-
-    /// Returns the scale factor set on the window.
-    pub fn scale_factor(&self) -> f32 {
-        self.0.scale_factor()
-    }
-
-    /// Sets an overriding scale factor for the window. This is typically only used for testing.
-    pub fn set_scale_factor(&self, factor: f32) {
-        self.0.set_scale_factor(factor)
     }
 }
 
@@ -395,14 +383,14 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_show(handle: *const ComponentWindowOpaque) {
         let window = &*(handle as *const ComponentWindow);
-        window.show();
+        window.window_handle().show();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_component_window_hide(handle: *const ComponentWindowOpaque) {
         let window = &*(handle as *const ComponentWindow);
-        window.hide();
+        window.window_handle().hide();
     }
 
     /// Returns the window scale factor.
@@ -415,7 +403,7 @@ pub mod ffi {
             core::mem::size_of::<ComponentWindowOpaque>()
         );
         let window = &*(handle as *const ComponentWindow);
-        window.scale_factor()
+        window.window_handle().scale_factor()
     }
 
     /// Sets the window scale factor, merely for testing purposes.
@@ -425,7 +413,7 @@ pub mod ffi {
         value: f32,
     ) {
         let window = &*(handle as *const ComponentWindow);
-        window.set_scale_factor(value)
+        window.window_handle().set_scale_factor(value)
     }
 
     /// Sets the window scale factor, merely for testing purposes.

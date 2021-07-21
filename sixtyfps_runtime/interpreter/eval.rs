@@ -198,7 +198,7 @@ pub fn eval_expression(e: &Expression, local_context: &mut EvalLocalContext) -> 
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowScaleFactor, _) => {
                 match local_context.component_instance {
-                    ComponentInstance::InstanceRef(component) => Value::Number(window_ref(component).unwrap().scale_factor() as _),
+                    ComponentInstance::InstanceRef(component) => Value::Number(window_ref(component).unwrap().window_handle().scale_factor() as _),
                     ComponentInstance::GlobalComponent(_) => panic!("Cannot get the window from a global component"),
                 }
             }

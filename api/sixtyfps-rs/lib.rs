@@ -505,8 +505,9 @@ pub mod testing {
         component: &Component,
         factor: f32,
     ) {
+        use sixtyfps_corelib::window::WindowHandleAccess;
         let component = component.clone_strong().into();
-        component.component_window().set_scale_factor(factor)
+        component.component_window().window_handle().set_scale_factor(factor)
     }
 }
 
