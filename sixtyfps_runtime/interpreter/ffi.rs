@@ -400,9 +400,9 @@ pub extern "C" fn sixtyfps_interpreter_component_instance_show(
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
     if is_visible {
-        comp.window().show();
+        comp.window().window_handle().show();
     } else {
-        comp.window().hide();
+        comp.window().window_handle().hide();
     }
 }
 

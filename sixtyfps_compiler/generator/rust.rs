@@ -821,11 +821,11 @@ fn generate_component(
                     }
 
                     fn show(&self) {
-                        vtable::VRc::as_pin_ref(&self.0).window.show();
+                        vtable::VRc::as_pin_ref(&self.0).window.window_handle().show();
                     }
 
                     fn hide(&self) {
-                        vtable::VRc::as_pin_ref(&self.0).window.hide();
+                        vtable::VRc::as_pin_ref(&self.0).window.window_handle().hide();
                     }
                 }
             ))
@@ -1102,7 +1102,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         }
         Expression::BuiltinFunctionReference(funcref, _) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
-                quote!(_self.window.scale_factor)
+                quote!(_self.window.window_handle().scale_factor)
             }
             BuiltinFunction::Debug => quote!((|x| println!("{:?}", x))),
             BuiltinFunction::Mod => quote!((|a1, a2| (a1 as i32) % (a2 as i32))),

@@ -11,6 +11,7 @@ LICENSE END */
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::graphics::Image;
+use sixtyfps_corelib::window::WindowHandleAccess;
 use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -770,7 +771,7 @@ impl ComponentInstance {
     pub fn show(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window().show();
+        comp.window().window_handle().show();
     }
 
     /// Marks the window of this component to be hidden on the screen. This de-registers
@@ -778,7 +779,7 @@ impl ComponentInstance {
     pub fn hide(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window().hide();
+        comp.window().window_handle().hide();
     }
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
     /// and [`Self::hide`].
