@@ -18,6 +18,7 @@ mod persistent_context;
 
 struct WrappedComponentType(Option<sixtyfps_interpreter::ComponentDefinition>);
 struct WrappedComponentRc(Option<sixtyfps_interpreter::ComponentInstance>);
+struct WrappedWindow(Option<sixtyfps_interpreter::Window>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =
@@ -344,25 +345,14 @@ declare_types! {
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
-        method show(mut cx) {
+        method window(mut cx) {
             let this = cx.this();
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.show();
-                Ok(())
-            })?;
-            Ok(JsUndefined::new().as_value(&mut cx))
-        }
-        method hide(mut cx) {
-            let this = cx.this();
-            let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
-            let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            run_scoped(&mut cx,this.downcast().unwrap(), || {
-                component.hide();
-                Ok(())
-            })?;
-            Ok(JsUndefined::new().as_value(&mut cx))
+            let window = component.window();
+            let mut obj = SixtyFpsWindow::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
+            cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(window));
+            Ok(obj.as_value(&mut cx))
         }
         method get_property(mut cx) {
             let prop_name = cx.argument::<JsString>(0)?.value();
@@ -482,6 +472,28 @@ declare_types! {
                 sixtyfps_interpreter::testing::send_keyboard_string_sequence(&component, sequence.into());
                 Ok(())
             })?;
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+    }
+
+    class SixtyFpsWindow for WrappedWindow {
+        init(_) {
+            Ok(WrappedWindow(None))
+        }
+
+        method show(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone()));
+            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            window.show();
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+
+        method hide(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone()));
+            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            window.hide();
             Ok(JsUndefined::new().as_value(&mut cx))
         }
     }

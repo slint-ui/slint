@@ -82,6 +82,7 @@ using cbindgen_private::KeyEvent;
 class WindowRc
 {
 public:
+    explicit WindowRc(cbindgen_private::WindowRcOpaque adopted_inner) : inner(adopted_inner) { }
     WindowRc() { cbindgen_private::sixtyfps_windowrc_init(&inner); }
     ~WindowRc() { cbindgen_private::sixtyfps_windowrc_drop(&inner); }
     WindowRc(const WindowRc &other)
@@ -89,7 +90,15 @@ public:
         cbindgen_private::sixtyfps_windowrc_clone(&other.inner, &inner);
     }
     WindowRc(WindowRc &&) = delete;
-    WindowRc &operator=(const WindowRc &) = delete;
+    WindowRc &operator=(WindowRc &&) = delete;
+    WindowRc &operator=(const WindowRc &other)
+    {
+        if (this != &other) {
+            cbindgen_private::sixtyfps_windowrc_drop(&inner);
+            cbindgen_private::sixtyfps_windowrc_clone(&other.inner, &inner);
+        }
+        return *this;
+    }
 
     void show() const { sixtyfps_windowrc_show(&inner); }
     void hide() const { sixtyfps_windowrc_hide(&inner); }
@@ -255,6 +264,40 @@ public:
             return {};
         }
     }
+};
+
+/// This class represents a window towards the windowing system, that's used to render the
+/// scene of a component. It provides API to control windowing system specific aspects such
+/// as the position on the screen.
+class Window
+{
+public:
+    /// \private
+    /// Internal function used by the generated code to construct a new instance of this
+    /// public API wrapper.
+    explicit Window(const private_api::WindowRc &windowrc) : inner(windowrc) { }
+    /// Copy-constructs a new window from \a other. Window instances are explicitly
+    /// shared and reference counted. Creating a copy will not create a second window
+    /// on the screen.
+    Window(const Window &other) = default;
+    /// Copy-constructs the window \a other to this and returns a reference to this.
+    /// Window instances are explicitly shared and reference counted. Creating a copy
+    /// will not create a second window on the screen.
+    Window &operator=(const Window &other) = default;
+    Window(Window &&other) = delete;
+    Window &operator=(Window &&other) = delete;
+    /// Destroys this window. Window instances are explicitly shared and reference counted.
+    /// If this window instance is the last one referencing the window towards the windowing
+    /// system, then it will also become hidden and destroyed.
+    ~Window() = default;
+
+    /// Registers the window with the windowing system in order to make it visible on the screen.
+    void show() const { inner.show(); }
+    /// De-registers the window from the windowing system, therefore hiding it.
+    void hide() const { inner.hide(); }
+
+private:
+    private_api::WindowRc inner;
 };
 
 /// A Timer that can call a callback at repeated interval

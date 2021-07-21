@@ -833,11 +833,15 @@ fn generate_component(
                     }
 
                     fn show(&self) {
-                        vtable::VRc::as_pin_ref(&self.0).window.window_handle().show();
+                        self.window().show();
                     }
 
                     fn hide(&self) {
-                        vtable::VRc::as_pin_ref(&self.0).window.window_handle().hide();
+                        self.window().hide()
+                    }
+
+                    fn window(&self) -> sixtyfps::Window {
+                        vtable::VRc::as_pin_ref(&self.0).window.clone().into()
                     }
                 }
             ))

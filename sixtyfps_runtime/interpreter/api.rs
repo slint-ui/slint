@@ -11,6 +11,7 @@ LICENSE END */
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::graphics::Image;
+use sixtyfps_corelib::window::WindowHandleAccess;
 use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -19,6 +20,8 @@ use std::rc::Rc;
 
 #[doc(inline)]
 pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
+
+pub use sixtyfps_corelib::window::api::Window;
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
@@ -578,13 +581,14 @@ impl ComponentDefinition {
     /// Instantiate the component using an existing window.
     /// This method is internal because the Window is not a public type
     #[doc(hidden)]
-    pub fn create_with_existing_window(
-        &self,
-        window: Rc<sixtyfps_corelib::window::Window>,
-    ) -> ComponentInstance {
+    pub fn create_with_existing_window(&self, window: Window) -> ComponentInstance {
         generativity::make_guard!(guard);
         ComponentInstance {
-            inner: self.inner.unerase(guard).clone().create_with_existing_window(window),
+            inner: self
+                .inner
+                .unerase(guard)
+                .clone()
+                .create_with_existing_window(window.window_handle().clone()),
         }
     }
 
@@ -781,6 +785,7 @@ impl ComponentInstance {
         let comp = self.inner.unerase(guard);
         comp.window().hide();
     }
+
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
     /// and [`Self::hide`].
     pub fn run(&self) {
@@ -807,13 +812,14 @@ impl ComponentInstance {
         WeakComponentInstance { inner: vtable::VRc::downgrade(&self.inner) }
     }
 
-    /// Return the window.
-    /// This method is internal because the Window is not a public type
-    #[doc(hidden)]
-    pub fn window(&self) -> Rc<sixtyfps_corelib::window::Window> {
+    /// Returns the Window associated with this component. The window API can be used
+    /// to control different aspects of the integration into the windowing system,
+    /// such as the position on the screen.
+    pub fn window(&self) -> Window {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window()
+        let window_rc: sixtyfps_corelib::window::WindowRc = comp.window().into();
+        window_rc.into()
     }
 }
 

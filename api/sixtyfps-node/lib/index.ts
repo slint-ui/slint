@@ -41,11 +41,15 @@ class Component {
     }
 
     show() {
-        this.comp.show();
+        this.window.show();
     }
 
     hide() {
-        this.comp.hide();
+        this.window.hide()
+    }
+
+    get window(): Window {
+        return this.comp.window();
     }
 
     send_mouse_click(x: number, y: number) {
@@ -55,6 +59,11 @@ class Component {
     send_keyboard_string_sequence(s: String) {
         this.comp.send_keyboard_string_sequence(s)
     }
+}
+
+interface Window {
+    show(): void;
+    hide(): void;
 }
 
 /**

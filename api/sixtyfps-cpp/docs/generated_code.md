@@ -13,6 +13,8 @@ This class will have the following public member functions:
   and react to user input, it's still necessary to spin the event loop, by calling {cpp:func}`sixtyfps::run_event_loop()`
   or using the convenience `fun` function in this class.
 * A `hide` function, which de-registers the component from the windowing system.
+* A `window` function that provides access to the {cpp:class}`sixtyfps::Window`, allow for further customization
+  towards the windowing system.
 * A `run` convenience function, which will show the component and starts the event loop.
 * for each properties:
   * A getter `get_<property_name>` returning the property type.

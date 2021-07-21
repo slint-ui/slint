@@ -90,6 +90,7 @@
         "untracked",
         "vtable",
         "wasm",
+        "windowrc", // used in sixtyfps_windowrc_foo FFI functions
         "xtask"
     ],
     "ignorePaths": [
