@@ -301,7 +301,7 @@ impl GraphicsWindow {
             {
                 window_item.background()
             } else {
-                RgbaColor { red: 255 as u8, green: 255, blue: 255, alpha: 255 }.into()
+                RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into()
             };
 
             let mut renderer = window.backend.borrow_mut().new_renderer(
