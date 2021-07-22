@@ -385,7 +385,7 @@ mod weak_handle {
             if std::thread::current().id() != self.thread {
                 return None;
             }
-            self.inner.upgrade().map(|inner| T::from_inner(inner))
+            self.inner.upgrade().map(T::from_inner)
         }
 
         /// Convenience function that returns a new strongly referenced component if

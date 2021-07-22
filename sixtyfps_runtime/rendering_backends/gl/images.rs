@@ -177,7 +177,7 @@ impl CachedImage {
                             eprintln!("Error loading SVG from {}: {}", &path, err);
                             None
                         },
-                        |svg_tree| Some(svg_tree),
+                        Some,
                     )?,
                 ));
             }
@@ -186,7 +186,7 @@ impl CachedImage {
                     eprintln!("Error loading image from {}: {}", &path, decode_err);
                     None
                 },
-                |image| Some(image),
+                Some,
             )?))
         }
         #[cfg(target_arch = "wasm32")]
@@ -202,7 +202,7 @@ impl CachedImage {
                         eprintln!("Error loading SVG: {}", svg_err);
                         None
                     },
-                    |svg_tree| Some(svg_tree),
+                    Some,
                 )?,
             ));
         }
@@ -211,7 +211,7 @@ impl CachedImage {
                 eprintln!("Error decoding image: {}", decode_err);
                 None
             },
-            |decoded_image| Some(decoded_image),
+            Some,
         )?))
     }
 

@@ -176,7 +176,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
     use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
     let not_running_loop_instance = MAYBE_LOOP_INSTANCE.with(|loop_instance| {
-        loop_instance.borrow_mut().take().unwrap_or_else(|| NotRunningEventLoop::new())
+        loop_instance.borrow_mut().take().unwrap_or_else(NotRunningEventLoop::new)
     });
 
     let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
