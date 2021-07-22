@@ -55,7 +55,7 @@ fn create_repeater_components(component: &Rc<Component>) {
             ..Component::default()
         });
 
-        if !comp.root_element.borrow().bindings.contains_key("height") {
+        if is_listview && !comp.root_element.borrow().bindings.contains_key("height") {
             let preferred = Expression::PropertyReference(NamedReference::new(
                 &comp.root_element,
                 "preferred_height",
