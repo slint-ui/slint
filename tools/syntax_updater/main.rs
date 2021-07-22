@@ -35,7 +35,7 @@ struct Cli {
     #[structopt(name = "path to .60 file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,
 
-    /// modify the file inline instead of outputing to stdout
+    /// modify the file inline instead of printing to stdout
     #[structopt(short, long)]
     inline: bool,
 
