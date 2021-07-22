@@ -545,7 +545,7 @@ impl TextInput {
 
     fn delete_selection(self: Pin<&Self>) {
         let text: String = self.text().into();
-        if text.len() == 0 {
+        if text.is_empty() {
             return;
         }
 
