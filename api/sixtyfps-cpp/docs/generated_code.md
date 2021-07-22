@@ -10,7 +10,7 @@ This class will have the following public member functions:
 
 * A default constructor and a destructor.
 * A `show` function, which will show the component on the screen. Note that in order to render
-  and react to user input, it's still necessary to spin the event loop, by calling `sixtyfps::run_event_loop()`
+  and react to user input, it's still necessary to spin the event loop, by calling {cpp:func}`sixtyfps::run_event_loop()`
   or using the convenience `fun` function in this class.
 * A `hide` function, which de-registers the component from the windowing system.
 * A `run` convenience function, which will show the component and starts the event loop.
