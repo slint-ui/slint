@@ -65,6 +65,10 @@ Also show how a way to dynamically load widgets with the interpreter from C++.
 
 ![Screenshot of the IOT Dashboard](https://sixtyfps.io/resources/iot-dashboard_screenshot.png "IOT Dashboard")
 
+### External examples
+
+* [cargo-ui](https://github.com/sixtyfpsui/cargo-ui): A rust application that makes use of threads in the background.
+
 ## Loading the example with the `viewer`
 
 Simply load the .60 file with the viewer application
