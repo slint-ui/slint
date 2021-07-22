@@ -11,7 +11,6 @@ LICENSE END */
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::graphics::Image;
-use sixtyfps_corelib::window::WindowHandleAccess;
 use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -579,16 +578,17 @@ impl ComponentDefinition {
     }
 
     /// Instantiate the component using an existing window.
-    /// This method is internal because the Window is not a public type
+    /// This method is internal because the WindowRc is not a public type
     #[doc(hidden)]
-    pub fn create_with_existing_window(&self, window: Window) -> ComponentInstance {
+    pub fn create_with_existing_window(&self, window: &Window) -> ComponentInstance {
+        use sixtyfps_corelib::window::WindowHandleAccess;
         generativity::make_guard!(guard);
         ComponentInstance {
             inner: self
                 .inner
                 .unerase(guard)
                 .clone()
-                .create_with_existing_window(window.window_handle().clone()),
+                .create_with_existing_window(window.window_handle()),
         }
     }
 
@@ -775,7 +775,7 @@ impl ComponentInstance {
     pub fn show(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window().show();
+        comp.borrow_instance().window().show();
     }
 
     /// Marks the window of this component to be hidden on the screen. This de-registers
@@ -783,7 +783,7 @@ impl ComponentInstance {
     pub fn hide(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window().hide();
+        comp.borrow_instance().window().hide();
     }
 
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
@@ -815,11 +815,8 @@ impl ComponentInstance {
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    pub fn window(&self) -> Window {
-        generativity::make_guard!(guard);
-        let comp = self.inner.unerase(guard);
-        let window_rc: sixtyfps_corelib::window::WindowRc = comp.window().into();
-        window_rc.into()
+    pub fn window(&self) -> &Window {
+        self.inner.window()
     }
 }
 
@@ -892,13 +889,15 @@ pub fn run_event_loop() {
 
 /// This module contains a few function use by tests
 pub mod testing {
+    use sixtyfps_corelib::window::WindowHandleAccess;
+
     /// Wrapper around [`sixtyfps_corelib::tests::sixtyfps_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
         sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
-            &comp.inner.window().into(),
+            &comp.window().window_handle(),
         );
     }
     /// Wrapper around [`sixtyfps_corelib::tests::send_keyboard_string_sequence`]
@@ -909,7 +908,7 @@ pub mod testing {
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
-            &comp.inner.window().into(),
+            &comp.window().window_handle(),
         );
     }
 }

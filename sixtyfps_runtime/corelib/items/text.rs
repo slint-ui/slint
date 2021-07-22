@@ -119,7 +119,7 @@ impl Item for Text {
     }
 
     fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
-        let font_metrics = window.0.font_metrics(
+        let font_metrics = window.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
             Self::FIELD_OFFSETS.text.apply_pin(self),
@@ -264,7 +264,7 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
-        let font_metrics = window.0.font_metrics(
+        let font_metrics = window.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
             Self::FIELD_OFFSETS.text.apply_pin(self),
@@ -304,7 +304,7 @@ impl Item for TextInput {
         }
 
         let text = self.text();
-        let font_metrics = window.0.font_metrics(
+        let font_metrics = window.font_metrics(
             &self.cached_rendering_data,
             &|| self.unresolved_font_request(),
             Self::FIELD_OFFSETS.text.apply_pin(self),
@@ -316,7 +316,7 @@ impl Item for TextInput {
                 self.as_ref().anchor_position.set(clicked_offset);
                 self.as_ref().cursor_position.set(clicked_offset);
                 if !self.has_focus() {
-                    window.0.clone().set_focus_item(self_rc);
+                    window.clone().set_focus_item(self_rc);
                 }
             }
             MouseEvent::MouseReleased { .. } | MouseEvent::MouseExit => {
@@ -467,7 +467,7 @@ impl From<KeyboardModifiers> for AnchorMode {
 
 impl TextInput {
     fn show_cursor(&self, window: &WindowRc) {
-        window.0.set_cursor_blink_binding(&self.cursor_visible);
+        window.set_cursor_blink_binding(&self.cursor_visible);
     }
 
     fn hide_cursor(&self) {

@@ -13,6 +13,7 @@ use crate::dynamic_component::ErasedComponentBox;
 use super::*;
 use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer};
 use sixtyfps_corelib::slice::Slice;
+use sixtyfps_corelib::window::{WindowHandleAccess, WindowRc};
 use std::ffi::c_void;
 use vtable::VRef;
 
@@ -414,9 +415,9 @@ pub extern "C" fn sixtyfps_interpreter_component_instance_show(
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
     if is_visible {
-        comp.window().show();
+        comp.borrow_instance().window().show();
     } else {
-        comp.window().hide();
+        comp.borrow_instance().window().hide();
     }
 }
 
@@ -429,12 +430,11 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_window(
     inst: &ErasedComponentBox,
     out: *mut sixtyfps_corelib::window::ffi::WindowRcOpaque,
 ) {
-    use sixtyfps_corelib::window::WindowRc;
     assert_eq!(
         core::mem::size_of::<WindowRc>(),
         core::mem::size_of::<sixtyfps_corelib::window::ffi::WindowRcOpaque>()
     );
-    core::ptr::write(out as *mut WindowRc, inst.window().into())
+    core::ptr::write(out as *mut WindowRc, inst.window().window_handle().clone())
 }
 
 /// Instantiate an instance from a definition.

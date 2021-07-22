@@ -30,7 +30,7 @@ use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::Window;
+use sixtyfps_corelib::window::{api::Window, WindowHandleAccess, WindowRc};
 use sixtyfps_corelib::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -56,14 +56,13 @@ impl<'id> ComponentBox<'id> {
         InstanceRef { instance: self.instance.as_pin_ref(), component_type: &self.component_type }
     }
 
-    pub fn window(&self) -> Rc<Window> {
-        (*self
-            .component_type
+    pub fn window(&self) -> &Window {
+        self.component_type
             .window_offset
-            .apply_pin(self.instance.as_pin_ref())
-            .as_pin_ref()
-            .unwrap())
-        .clone()
+            .apply(self.instance.as_pin_ref().get_ref())
+            .as_ref()
+            .as_ref()
+            .unwrap()
     }
 }
 
@@ -294,8 +293,7 @@ pub struct ComponentDescription<'id> {
     pub(crate) parent_component_offset:
         Option<FieldOffset<Instance<'id>, Option<ComponentRefPin<'id>>>>,
     /// Offset to the window reference
-    pub(crate) window_offset:
-        FieldOffset<Instance<'id>, Option<Rc<sixtyfps_corelib::window::Window>>>,
+    pub(crate) window_offset: FieldOffset<Instance<'id>, Option<Window>>,
     /// Offset of a ComponentExtraData
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
@@ -336,18 +334,19 @@ impl<'id> ComponentDescription<'id> {
             sixtyfps_rendering_backend_default::backend();
             sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id)
         };
-        self.create_with_existing_window(window)
+        self.create_with_existing_window(&window.into())
     }
 
     #[doc(hidden)]
     pub fn create_with_existing_window(
         self: Rc<Self>,
-        window: Rc<sixtyfps_corelib::window::Window>,
+        window: &sixtyfps_corelib::window::WindowRc,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
         let component_ref = instantiate(self, None, Some(window));
         component_ref
             .as_pin_ref()
             .window()
+            .window_handle()
             .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
         component_ref.run_setup_code();
         component_ref
@@ -564,12 +563,11 @@ fn ensure_repeater_updated<'id>(
             .window_offset
             .apply(instance_ref.as_ref())
             .as_ref()
-            .unwrap()
-            .clone();
+            .unwrap();
         let instance = instantiate(
             rep_in_comp.component_to_repeat.clone(),
             Some(instance_ref.borrow()),
-            Some(window),
+            Some(window.window_handle()),
         );
         instance.run_setup_code();
         instance
@@ -870,7 +868,7 @@ pub(crate) fn generate_component<'id>(
         None
     };
 
-    let window_offset = builder.add_field_type::<Option<Rc<Window>>>();
+    let window_offset = builder.add_field_type::<Option<Window>>();
 
     let extra_data_offset = builder.add_field_type::<ComponentExtraData>();
 
@@ -972,7 +970,7 @@ pub fn animation_for_property(
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
-    window: Option<Rc<sixtyfps_corelib::window::Window>>,
+    window: Option<&sixtyfps_corelib::window::WindowRc>,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
 
@@ -987,7 +985,8 @@ pub fn instantiate(
             .map(|g| crate::global_component::instantiate(g))
             .collect();
     }
-    *component_type.window_offset.apply_mut(instance.as_mut()) = window;
+    *component_type.window_offset.apply_mut(instance.as_mut()) =
+        window.map(|window| window.clone().into());
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
     let instance_ref = component_box.borrow_instance();
@@ -996,7 +995,7 @@ pub fn instantiate(
         sixtyfps_corelib::component::init_component_items(
             instance_ref.instance,
             instance_ref.component_type.item_tree.as_slice().into(),
-            &eval::window_ref(instance_ref).unwrap().into(),
+            eval::window_ref(instance_ref).unwrap(),
         );
     }
 
@@ -1276,7 +1275,7 @@ impl ErasedComponentBox {
         self.0.borrow()
     }
 
-    pub fn window(&self) -> Rc<Window> {
+    pub fn window(&self) -> &Window {
         self.0.window()
     }
 
@@ -1323,7 +1322,7 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
     let mut result = crate::eval_layout::get_layout_info(
         &instance_ref.component_type.original.root_element,
         instance_ref,
-        &eval::window_ref(instance_ref).unwrap().into(),
+        eval::window_ref(instance_ref).unwrap(),
         orientation,
     );
 
@@ -1446,6 +1445,10 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         let extra_data = self.component_type.extra_data_offset.apply(self.as_ref());
         &extra_data.self_weak
     }
+
+    pub fn window(&self) -> &sixtyfps_corelib::window::api::Window {
+        self.component_type.window_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
+    }
 }
 
 /// Show the popup at the given location
@@ -1454,12 +1457,12 @@ pub fn show_popup(
     x: f32,
     y: f32,
     parent_comp: ComponentRefPin,
-    parent_window: &Rc<Window>,
+    parent_window: &WindowRc,
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
-    let inst = instantiate(compiled, Some(parent_comp), Some(parent_window.clone()));
+    let inst = instantiate(compiled, Some(parent_comp), Some(parent_window));
     inst.run_setup_code();
     parent_window
         .show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));

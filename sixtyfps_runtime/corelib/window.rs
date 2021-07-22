@@ -322,22 +322,9 @@ pub trait WindowHandleAccess {
     fn window_handle(&self) -> &std::rc::Rc<Window>;
 }
 
-/// The WindowRc is the (rust) facing wrapper type for Rc<Window>.
-#[repr(C)]
-#[derive(Clone)]
-pub struct WindowRc(pub(crate) std::rc::Rc<Window>);
-
-impl From<std::rc::Rc<Window>> for WindowRc {
-    fn from(inner: std::rc::Rc<Window>) -> Self {
-        Self(inner)
-    }
-}
-
-impl WindowHandleAccess for WindowRc {
-    fn window_handle(&self) -> &std::rc::Rc<Window> {
-        &self.0
-    }
-}
+/// Internal alias for Rc<Window> so that it can be used in the vtable
+/// functions and generate a good signature.
+pub type WindowRc = std::rc::Rc<Window>;
 
 /// Internal module to define the public Window API, for re-export in the regular Rust crate
 /// and the interpreter crate.
@@ -345,8 +332,7 @@ pub mod api {
     /// This type represents a window towards the windowing system, that's used to render the
     /// scene of a component. It provides API to control windowing system specific aspects such
     /// as the position on the screen.
-    #[derive(Clone)]
-    pub struct Window(pub(super) super::WindowRc);
+    pub struct Window(pub(super) std::rc::Rc<super::Window>);
 
     #[doc(hidden)]
     impl From<super::WindowRc> for Window {
@@ -358,21 +344,19 @@ pub mod api {
     impl Window {
         /// Registers the window with the windowing system in order to make it visible on the screen.
         pub fn show(&self) {
-            use super::WindowHandleAccess;
-            self.0.window_handle().show();
+            self.0.show();
         }
 
         /// De-registers the window from the windowing system, therefore hiding it.
         pub fn hide(&self) {
-            use super::WindowHandleAccess;
-            self.0.window_handle().hide();
+            self.0.hide();
         }
     }
 }
 
 impl WindowHandleAccess for api::Window {
     fn window_handle(&self) -> &std::rc::Rc<Window> {
-        self.0.window_handle()
+        &self.0
     }
 }
 
@@ -413,14 +397,14 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_windowrc_show(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
-        window.window_handle().show();
+        window.show();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_windowrc_hide(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
-        window.window_handle().hide();
+        window.hide();
     }
 
     /// Returns the window scale factor.
@@ -430,7 +414,7 @@ pub mod ffi {
     ) -> f32 {
         assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
         let window = &*(handle as *const WindowRc);
-        window.window_handle().scale_factor()
+        window.scale_factor()
     }
 
     /// Sets the window scale factor, merely for testing purposes.
@@ -440,7 +424,7 @@ pub mod ffi {
         value: f32,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.window_handle().set_scale_factor(value)
+        window.set_scale_factor(value)
     }
 
     /// Sets the window scale factor, merely for testing purposes.
@@ -450,7 +434,7 @@ pub mod ffi {
         items: &Slice<'a, Pin<ItemRef<'a>>>,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.window_handle().free_graphics_resources(items)
+        window.free_graphics_resources(items)
     }
 
     /// Sets the focus item.
@@ -460,7 +444,7 @@ pub mod ffi {
         focus_item: &ItemRc,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.window_handle().clone().set_focus_item(focus_item)
+        window.clone().set_focus_item(focus_item)
     }
 
     /// Associates the window with the given component.
@@ -470,7 +454,7 @@ pub mod ffi {
         component: &ComponentRc,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.window_handle().set_component(component)
+        window.set_component(component)
     }
 
     /// Show a popup.
@@ -481,11 +465,11 @@ pub mod ffi {
         position: crate::graphics::Point,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.window_handle().show_popup(popup, position);
+        window.show_popup(popup, position);
     }
     /// Close the current popup
     pub unsafe extern "C" fn sixtyfps_windowrc_close_popup(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
-        window.window_handle().close_popup();
+        window.close_popup();
     }
 }

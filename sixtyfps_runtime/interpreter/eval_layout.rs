@@ -181,7 +181,7 @@ fn grid_layout_data(
             let mut layout_info = get_layout_info(
                 &cell.item.element,
                 component,
-                &eval::window_ref(component).unwrap().into(),
+                eval::window_ref(component).unwrap(),
                 orientation,
             );
             fill_layout_info_constraints(
@@ -218,7 +218,7 @@ fn box_layout_data(
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    Some(window.clone()),
+                    Some(&window),
                 );
                 instance.run_setup_code();
                 instance
@@ -276,7 +276,7 @@ fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> 
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    Some(window.clone()),
+                    Some(&window),
                 );
                 instance.run_setup_code();
                 instance

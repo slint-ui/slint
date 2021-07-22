@@ -339,7 +339,7 @@ pub trait ComponentHandle {
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    fn window(&self) -> Window;
+    fn window(&self) -> &Window;
 
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
     /// and [`Self::hide`].
