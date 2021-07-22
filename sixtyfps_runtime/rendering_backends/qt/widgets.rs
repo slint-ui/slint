@@ -935,7 +935,6 @@ impl Item for NativeGroupBox {
         });
 
         self.native_padding_bottom.set_binding({
-            let shared_data = shared_data.clone();
             move || {
                 let margins =
                     GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
@@ -1086,7 +1085,7 @@ impl Item for NativeLineEdit {
             move || paddings.as_ref().get().top as _
         });
         self.native_padding_bottom.set_binding({
-            let paddings = paddings.clone();
+            let paddings = paddings;
             move || paddings.as_ref().get().bottom as _
         });
     }
@@ -1242,7 +1241,7 @@ impl Item for NativeScrollView {
             move || paddings.as_ref().get().top as _
         });
         self.native_padding_bottom.set_binding({
-            let paddings = paddings.clone();
+            let paddings = paddings;
             move || paddings.as_ref().get().bottom as _
         });
     }

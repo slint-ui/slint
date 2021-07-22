@@ -812,7 +812,7 @@ impl ComponentInstance {
     pub fn window(&self) -> Rc<sixtyfps_corelib::window::Window> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.window().clone()
+        comp.window()
     }
 }
 

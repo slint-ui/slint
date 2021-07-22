@@ -26,7 +26,7 @@ pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
         let element = nr.element();
         let global_component = element.borrow().enclosing_component.upgrade().unwrap();
         if global_component.is_global() {
-            set.insert(ByAddress(global_component.clone()));
+            set.insert(ByAddress(global_component));
         }
     };
     visit_all_named_references(root_component, &mut maybe_collect_global);
