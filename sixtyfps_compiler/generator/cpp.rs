@@ -1707,7 +1707,7 @@ fn compile_expression(
                 format!("sixtyfps::private_api::GradientStop{{ {}, {}, }}", color, position)
             });
             format!(
-                "[&] {{ const sixtyfps::private_api::GradientStop stops[] = {{ {} }}; return sixtyfps::private_api::LinearGradientBrush({}, stops, {}); }}()",
+                "[&] {{ const sixtyfps::private_api::GradientStop stops[] = {{ {} }}; return sixtyfps::Brush(sixtyfps::private_api::LinearGradientBrush({}, stops, {})); }}()",
                 stops_it.join(", "), angle, stops.len()
             )
         }

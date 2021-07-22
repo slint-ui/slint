@@ -18,5 +18,7 @@ Test := Rectangle {
     for data in [{xx: #b56}] : Rectangle {
         background: @linear-gradient(1.2rad, data.xx, blue);
     }
+
+    property <color> c: @linear-gradient(90deg,#e2e1e1,#c5c5c5);
 }
 
