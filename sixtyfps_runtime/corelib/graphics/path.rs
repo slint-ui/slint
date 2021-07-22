@@ -247,9 +247,9 @@ enum LyonPathIteratorVariant {
 impl PathDataIterator {
     /// Create a new iterator for path traversal.
     #[auto_enum(Iterator)]
-    pub fn iter<'a>(
-        &'a self,
-    ) -> impl Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>> + 'a
+    pub fn iter(
+        &self,
+    ) -> impl Iterator<Item = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>> + '_
     {
         match &self.it {
             LyonPathIteratorVariant::FromPath(path) => {

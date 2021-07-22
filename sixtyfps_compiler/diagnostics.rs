@@ -301,9 +301,9 @@ impl BuildDiagnostics {
     }
 
     #[cfg(feature = "display-diagnostics")]
-    fn call_diagnostics<'a, Output>(
+    fn call_diagnostics<Output>(
         self,
-        output: &'a mut Output,
+        output: &mut Output,
         mut handle_no_source: Option<&mut dyn FnMut(Diagnostic)>,
         emitter_factory: impl for<'b> FnOnce(
             &'b mut Output,

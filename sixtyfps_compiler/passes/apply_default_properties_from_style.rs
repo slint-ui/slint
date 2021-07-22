@@ -18,9 +18,9 @@ use crate::langtype::Type;
 use crate::object_tree::Component;
 
 /// Ideally we would be able to write this in builtin.60,  but the StyleMetrics is not available there
-pub async fn apply_default_properties_from_style<'a>(
+pub async fn apply_default_properties_from_style(
     root_component: &std::rc::Rc<Component>,
-    type_loader: &mut crate::typeloader::TypeLoader<'a>,
+    type_loader: &mut crate::typeloader::TypeLoader<'_>,
     _diag: &mut BuildDiagnostics,
 ) {
     // Ignore import errors

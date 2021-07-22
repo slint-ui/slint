@@ -43,13 +43,13 @@ pub struct ComponentBox<'id> {
 
 impl<'id> ComponentBox<'id> {
     /// Borrow this component as a `Pin<ComponentRef>`
-    pub fn borrow<'a>(&'a self) -> ComponentRefPin<'a> {
+    pub fn borrow(&self) -> ComponentRefPin {
         self.borrow_instance().borrow()
     }
 
     /// Safety: the lifetime is not unique
     pub fn description(&self) -> Rc<ComponentDescription<'id>> {
-        return self.component_type.clone();
+        self.component_type.clone()
     }
 
     pub fn borrow_instance<'a>(&'a self) -> InstanceRef<'a, 'id> {
@@ -181,7 +181,7 @@ impl Component for ErasedComponentBox {
     ) -> sixtyfps_corelib::layout::LayoutInfo {
         self.borrow().as_ref().layout_info(orientation)
     }
-    fn get_item_ref<'a>(self: Pin<&'a Self>, index: usize) -> Pin<ItemRef<'a>> {
+    fn get_item_ref(self: Pin<&Self>, index: usize) -> Pin<ItemRef> {
         // We're having difficulties transferring the lifetime to a pinned reference
         // to the other ComponentVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
@@ -632,12 +632,12 @@ fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<I
 /// Create a ComponentDescription from a source.
 /// The path corresponding to the source need to be passed as well (path is used for diagnostics
 /// and loading relative assets)
-pub async fn load<'id>(
+pub async fn load(
     source: String,
     path: std::path::PathBuf,
     mut compiler_config: CompilerConfiguration,
-    guard: generativity::Guard<'id>,
-) -> (Result<Rc<ComponentDescription<'id>>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics)
+    guard: generativity::Guard<'_>,
+) -> (Result<Rc<ComponentDescription<'_>>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics)
 {
     if compiler_config.style.is_none() && std::env::var("SIXTYFPS_STYLE").is_err() {
         // Defaults to native if it exists:
@@ -970,8 +970,8 @@ pub fn animation_for_property(
     }
 }
 
-pub fn instantiate<'id>(
-    component_type: Rc<ComponentDescription<'id>>,
+pub fn instantiate(
+    component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
     window: Option<Rc<sixtyfps_corelib::window::Window>>,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
@@ -1279,7 +1279,7 @@ impl ErasedComponentBox {
         )
     }
 
-    pub fn borrow<'a>(&'a self) -> ComponentRefPin<'a> {
+    pub fn borrow(&self) -> ComponentRefPin {
         // Safety: it is safe to access self.0 here because the 'id lifetime does not leak
         self.0.borrow()
     }
