@@ -392,7 +392,7 @@ impl Expression {
                     Stop::Finished => {}
                     Stop::Color(col) => stops.push((
                         col,
-                        if stops.len() == 0 {
+                        if stops.is_empty() {
                             Expression::NumberLiteral(0., Unit::None)
                         } else {
                             Expression::Invalid
