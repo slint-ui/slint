@@ -1360,7 +1360,7 @@ impl GLItemRenderer {
                                         .map(Rc::new)
                                 })
                         })
-                        .map(|image| ItemGraphicsCacheEntry::Image(image))
+                        .map(ItemGraphicsCacheEntry::Image)
                         .map(|cache_entry| self.colorize_image(cache_entry, colorize_property))
                 });
 

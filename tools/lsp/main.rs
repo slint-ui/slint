@@ -494,14 +494,14 @@ fn get_code_actions(
         .or_else(|| {
             syntax_nodes::DeclaredIdentifier::new(node.clone())
                 .and_then(|n| n.parent())
-                .and_then(|p| syntax_nodes::Component::new(p))
+                .and_then(syntax_nodes::Component::new)
         })
         .or_else(|| {
             syntax_nodes::QualifiedName::new(node.clone())
                 .and_then(|n| n.parent())
-                .and_then(|p| syntax_nodes::Element::new(p))
+                .and_then(syntax_nodes::Element::new)
                 .and_then(|n| n.parent())
-                .and_then(|p| syntax_nodes::Component::new(p))
+                .and_then(syntax_nodes::Component::new)
         })?;
 
     let component_name =

@@ -35,7 +35,7 @@ enum RequestedGuiEventLoopState {
     QuitLoop,
 }
 
-static GUI_EVENT_LOOP_NOTIFIER: Lazy<Condvar> = Lazy::new(|| Condvar::new());
+static GUI_EVENT_LOOP_NOTIFIER: Lazy<Condvar> = Lazy::new(Condvar::new);
 static GUI_EVENT_LOOP_STATE_REQUEST: Lazy<Mutex<RequestedGuiEventLoopState>> =
     Lazy::new(|| Mutex::new(RequestedGuiEventLoopState::Uninitialized));
 
