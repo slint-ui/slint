@@ -1438,8 +1438,8 @@ impl Item for NativeScrollView {
         let corner_rect = qttypes::QRectF {
             x: (size.width as f32 / dpr - (right - left)) as _,
             y: (size.height as f32 / dpr - (bottom - top)) as _,
-            width: ((right - left)) as _,
-            height: ((bottom - top)) as _,
+            width: (right - left) as _,
+            height: (bottom - top) as _,
         };
         cpp!(unsafe [painter as "QPainter*", corner_rect as "QRectF"] {
             ensure_initialized();
