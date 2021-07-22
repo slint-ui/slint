@@ -1077,10 +1077,7 @@ pub fn instantiate(
                     component_box.instance.as_ptr().cast(),
                 ));
 
-                let is_state_info = match property_type {
-                    Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => true,
-                    _ => false,
-                };
+                let is_state_info = matches!(property_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
                 if is_state_info {
                     let prop = Pin::new_unchecked(
                         &*(instance_ref.as_ptr().add(*offset)
