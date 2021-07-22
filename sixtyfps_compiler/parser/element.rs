@@ -100,8 +100,8 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     }
                     p.consume()
                 } else {
-                    p.consume();
-                    p.error("Unexpected identifier. Expected @children.")
+                    p.test(SyntaxKind::Identifier);
+                    p.error("Parse error: Expected @children")
                 }
             }
             _ => {
