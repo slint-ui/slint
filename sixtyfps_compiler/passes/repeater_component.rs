@@ -24,9 +24,10 @@ pub fn process_repeater_components(component: &Rc<Component>) {
 
 fn create_repeater_components(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
-        if elem.borrow().repeated.is_none() {
-            return;
-        }
+        let is_listview = match &elem.borrow().repeated {
+            Some(r) => r.is_listview.is_some(),
+            None => return,
+        };
         let parent_element = Rc::downgrade(elem);
         let mut elem = elem.borrow_mut();
 
@@ -45,7 +46,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut elem.states),
                 transitions: std::mem::take(&mut elem.transitions),
-                child_of_layout: elem.child_of_layout,
+                child_of_layout: elem.child_of_layout || is_listview,
                 layout_info_prop: elem.layout_info_prop.take(),
                 is_flickable_viewport: elem.is_flickable_viewport,
                 item_index: Default::default(), // Not determined yet
