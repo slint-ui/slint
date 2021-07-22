@@ -14,7 +14,7 @@ Since neon does not allow to have a persistent handle, use this hack.
 use neon::prelude::*;
 pub struct PersistentContext<'a>(Handle<'a, JsArray>);
 
-const KEY: &'static str = "$__persistent_context";
+const KEY: &str = "$__persistent_context";
 
 /// Since neon does not allow to have a persistent handle, this allocates property in an array.
 /// This array is gonna be kept as a property somewhere.
