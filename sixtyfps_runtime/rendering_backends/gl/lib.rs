@@ -43,7 +43,7 @@ mod fonts;
 
 type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
 
-const KAPPA90: f32 = 0.5522847493;
+const KAPPA90: f32 = 0.55228;
 
 #[derive(Clone)]
 enum ItemGraphicsCacheEntry {
