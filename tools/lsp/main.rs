@@ -148,6 +148,7 @@ fn run_lsp_server() -> Result<(), Error> {
             resolve_provider: None,
             trigger_characters: Some(vec![".".to_owned()]),
             work_done_progress_options: WorkDoneProgressOptions::default(),
+            all_commit_characters: None,
         }),
         definition_provider: Some(OneOf::Left(true)),
         text_document_sync: Some(TextDocumentSyncCapability::Kind(

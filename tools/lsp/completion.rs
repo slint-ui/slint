@@ -12,7 +12,9 @@ use std::path::Path;
 
 use super::util::lookup_current_element_type;
 use super::DocumentCache;
-use lsp_types::{CompletionCapability, CompletionItem, CompletionItemKind, InsertTextFormat};
+use lsp_types::{
+    CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat,
+};
 use sixtyfps_compilerlib::diagnostics::Spanned;
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
@@ -23,7 +25,7 @@ pub(crate) fn completion_at(
     document_cache: &DocumentCache,
     token: SyntaxToken,
     offset: u32,
-    client_caps: Option<&CompletionCapability>,
+    client_caps: Option<&CompletionClientCapabilities>,
 ) -> Option<Vec<CompletionItem>> {
     let node = token.parent();
 
@@ -210,7 +212,7 @@ pub(crate) fn completion_at(
 fn with_insert_text(
     mut c: CompletionItem,
     ins_text: &str,
-    client_caps: Option<&CompletionCapability>,
+    client_caps: Option<&CompletionClientCapabilities>,
 ) -> CompletionItem {
     if client_caps
         .and_then(|caps| caps.completion_item.as_ref())
