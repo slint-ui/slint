@@ -1,6 +1,6 @@
 # Generated code
 
-As of now, only the last component of a .60 source is generated. It is planed to generate all
+As of now, only the last component of a .60 source is generated. It is planned to generate all
 exported components.
 
 The SixtyFPS compiler called by the build system will generate a header file for the root .60
