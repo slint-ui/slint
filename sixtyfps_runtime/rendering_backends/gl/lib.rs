@@ -1136,8 +1136,8 @@ impl ItemRenderer for GLItemRenderer {
             update_fn(&mut |width: u32, height: u32, data: &[u8]| {
                 use rgb::FromSlice;
                 let img = imgref::Img::new(data.as_rgba(), width as usize, height as usize);
-                if let Some(image_id) =
-                    canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED).ok()
+                if let Ok(image_id) =
+                    canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED)
                 {
                     cached_image = Some(ItemGraphicsCacheEntry::Image(Rc::new(
                         CachedImage::new_on_gpu(canvas, image_id),
