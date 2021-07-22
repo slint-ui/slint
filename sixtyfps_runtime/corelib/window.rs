@@ -346,7 +346,7 @@ pub mod api {
     /// scene of a component. It provides API to control windowing system specific aspects such
     /// as the position on the screen.
     #[derive(Clone)]
-    pub struct Window(super::WindowRc);
+    pub struct Window(pub(super) super::WindowRc);
 
     #[doc(hidden)]
     impl From<super::WindowRc> for Window {
@@ -368,12 +368,11 @@ pub mod api {
             self.0.window_handle().hide();
         }
     }
+}
 
-    #[doc(hidden)]
-    impl super::WindowHandleAccess for Window {
-        fn window_handle(&self) -> &std::rc::Rc<super::Window> {
-            self.0.window_handle()
-        }
+impl WindowHandleAccess for api::Window {
+    fn window_handle(&self) -> &std::rc::Rc<Window> {
+        self.0.window_handle()
     }
 }
 
