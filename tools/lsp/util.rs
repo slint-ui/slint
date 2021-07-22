@@ -106,7 +106,7 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
             let prop_name =
                 sixtyfps_compilerlib::parser::identifier_text(&decl.DeclaredIdentifier())?;
             let element = syntax_nodes::Element::new(n.parent()?)?;
-            break (element, prop_name.to_string());
+            break (element, prop_name);
         }
         match n.kind() {
             SyntaxKind::Binding
@@ -115,7 +115,7 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
             | SyntaxKind::CallbackConnection => {
                 let prop_name = sixtyfps_compilerlib::parser::identifier_text(&n)?;
                 let element = syntax_nodes::Element::new(n.parent()?)?;
-                break (element, prop_name.to_string());
+                break (element, prop_name);
             }
             SyntaxKind::ConditionalElement | SyntaxKind::RepeatedElement => {
                 let element = syntax_nodes::Element::new(n.parent()?)?;

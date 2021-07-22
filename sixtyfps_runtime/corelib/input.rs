@@ -371,26 +371,23 @@ pub fn process_mouse_input(
             let post_visit_state = if mouse_event.pos().map_or(false, |p| geom.contains(p))
                 || crate::item_rendering::is_clipping_item(item)
             {
-                let mut event2 = mouse_event.clone();
+                let mut event2 = mouse_event;
                 event2.translate(-geom.origin.to_vector());
-                let filter_result = item.as_ref().input_event_filter_before_children(
-                    event2.clone(),
-                    window,
-                    &item_rc,
-                );
+                let filter_result =
+                    item.as_ref().input_event_filter_before_children(event2, window, &item_rc);
                 mouse_grabber_stack.push((item_rc.downgrade(), filter_result));
                 match filter_result {
                     InputEventFilterResult::ForwardAndIgnore => None,
                     InputEventFilterResult::ForwardEvent => {
-                        Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), false))
+                        Some((event2, mouse_grabber_stack.clone(), item_rc, false))
                     }
                     InputEventFilterResult::ForwardAndInterceptGrab => {
-                        Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), false))
+                        Some((event2, mouse_grabber_stack.clone(), item_rc, false))
                     }
                     InputEventFilterResult::Intercept => {
                         return (
                             ItemVisitorResult::Abort,
-                            Some((event2, mouse_grabber_stack.clone(), item_rc.clone(), true)),
+                            Some((event2, mouse_grabber_stack, item_rc, true)),
                         )
                     }
                 }

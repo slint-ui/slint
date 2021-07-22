@@ -285,7 +285,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                                     MouseEvent::MouseReleased { pos: cursor_pos }
                                 }
                             };
-                            window.clone().process_mouse_input(ev);
+                            window.process_mouse_input(ev);
                         }
                     });
                 }
@@ -313,7 +313,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                                 }
                                 winit::event::TouchPhase::Moved => MouseEvent::MouseMoved { pos },
                             };
-                            window.clone().process_mouse_input(ev);
+                            window.process_mouse_input(ev);
                         }
                     });
                 }
@@ -329,9 +329,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         {
                             let position = position.to_logical(window.scale_factor() as f64);
                             cursor_pos = euclid::point2(position.x, position.y);
-                            window
-                                .clone()
-                                .process_mouse_input(MouseEvent::MouseMoved { pos: cursor_pos });
+                            window.process_mouse_input(MouseEvent::MouseMoved { pos: cursor_pos });
                         }
                     });
                 }
@@ -349,7 +347,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                                 windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                             {
                                 pressed = false;
-                                window.clone().process_mouse_input(MouseEvent::MouseExit);
+                                window.process_mouse_input(MouseEvent::MouseExit);
                             }
                         });
                     }
@@ -373,7 +371,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                                     euclid::point2(d.x, d.y)
                                 }
                             };
-                            window.clone().process_mouse_input(MouseEvent::MouseWheel {
+                            window.process_mouse_input(MouseEvent::MouseWheel {
                                 pos: cursor_pos,
                                 delta,
                             });

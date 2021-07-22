@@ -51,9 +51,9 @@ pub fn main() {
             let is_pair_solved = t1 == t2;
             if is_pair_solved {
                 t1.solved = true;
-                tiles_model.set_row_data(t1_idx, t1.clone());
+                tiles_model.set_row_data(t1_idx, t1);
                 t2.solved = true;
-                tiles_model.set_row_data(t2_idx, t2.clone());
+                tiles_model.set_row_data(t2_idx, t2);
             } else {
                 main_window_weak.unwrap().set_disable_tiles(true);
                 let main_window_weak = main_window_weak.clone();

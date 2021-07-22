@@ -111,7 +111,7 @@ fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
     component_type: sixtyfps_interpreter::ComponentDefinition,
 ) -> JsResult<'cx, JsValue> {
-    let component = component_type.clone().create();
+    let component = component_type.create();
     let persistent_context = persistent_context::PersistentContext::new(cx);
 
     if let Some(args) = cx.argument_opt(0).and_then(|arg| arg.downcast::<JsObject>().ok()) {
@@ -385,8 +385,7 @@ declare_types! {
                 .ok_or(())
                 .or_else(|()| {
                     cx.throw_error(format!("Property {} not found in the component", prop_name))
-                })?
-                .clone();
+                })?;
 
             let persistent_context =
                 persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
@@ -408,8 +407,7 @@ declare_types! {
                 .ok_or(())
                 .or_else(|()| {
                     cx.throw_error(format!("Callback {} not found in the component", callback_name))
-                })?
-                .clone();
+                })?;
             let persistent_context =
                 persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
             let args = if let Type::Callback {args, ..} = ty {
@@ -449,8 +447,7 @@ declare_types! {
                 .ok_or(())
                 .or_else(|()| {
                     cx.throw_error(format!("Callback {} not found in the component", callback_name))
-                })?
-                .clone();
+                })?;
             if let Type::Callback {return_type, ..} = ty {
                 component.set_callback(
                     callback_name.as_str(),

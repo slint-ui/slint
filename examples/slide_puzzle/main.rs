@@ -217,7 +217,7 @@ pub fn main() {
         state_copy.borrow_mut().randomize();
     });
 
-    let state_copy = state.clone();
+    let state_copy = state;
     main_window.on_enable_auto_mode(move |enabled| {
         if enabled {
             let state_weak = Rc::downgrade(&state_copy);
