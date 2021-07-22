@@ -35,8 +35,8 @@ pub async fn apply_default_properties_from_style<'a>(
         &(),
         &mut |elem, _| {
             let mut elem = elem.borrow_mut();
-            match elem.native_class().as_ref().map(|nc| nc.class_name.as_str()) {
-                Some("TextInput") => {
+            match elem.base_type.to_string().as_str() {
+                "TextInput" => {
                     elem.bindings.entry("text_cursor_width".into()).or_insert_with(|| {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
@@ -45,7 +45,7 @@ pub async fn apply_default_properties_from_style<'a>(
                         .into()
                     });
                 }
-                Some("Window") => {
+                "Window" => {
                     elem.bindings.entry("background".into()).or_insert_with(|| {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
