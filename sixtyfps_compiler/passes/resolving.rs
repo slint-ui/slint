@@ -423,8 +423,14 @@ impl Expression {
                 }
             }
         }
-        if let Stop::Color(col) = current_stop {
-            stops.push((col, Expression::NumberLiteral(1., Unit::None)))
+        match current_stop {
+            Stop::Color(col) => stops.push((col, Expression::NumberLiteral(1., Unit::None))),
+            Stop::Empty => {
+                if let Some((_, e @ Expression::Invalid)) = stops.last_mut() {
+                    *e = Expression::NumberLiteral(1., Unit::None)
+                }
+            }
+            Stop::Finished => (),
         };
 
         // Fix the stop so each has a position.
