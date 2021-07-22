@@ -20,15 +20,16 @@ use structopt::StructOpt;
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
 use lsp_types::request::{
-    CodeActionRequest, DocumentColor, DocumentSymbolRequest, ExecuteCommand, GotoDefinition,
+    CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
+    DocumentSymbolRequest, ExecuteCommand, GotoDefinition, HoverRequest,
 };
-use lsp_types::request::{ColorPresentationRequest, Completion, HoverRequest};
 use lsp_types::{
-    CodeActionOrCommand, CodeActionProviderCapability, Color, ColorInformation, ColorPresentation,
-    Command, CompletionOptions, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-    DocumentSymbolResponse, ExecuteCommandOptions, Hover, InitializeParams, Location, OneOf,
-    Position, PublishDiagnosticsParams, Range, ServerCapabilities, SymbolInformation,
-    TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
+    CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
+    ColorInformation, ColorPresentation, Command, CompletionOptions, DidChangeTextDocumentParams,
+    DidOpenTextDocumentParams, DocumentSymbolResponse, ExecuteCommandOptions, Hover,
+    InitializeParams, Location, OneOf, Position, PublishDiagnosticsParams, Range,
+    ServerCapabilities, SymbolInformation, TextDocumentSyncCapability, Url,
+    WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::langtype::Type;
@@ -161,6 +162,7 @@ fn run_lsp_server() -> Result<(), Error> {
         }),
         document_symbol_provider: Some(OneOf::Left(true)),
         color_provider: Some(true.into()),
+        code_lens_provider: Some(CodeLensOptions { resolve_provider: Some(true) }),
         ..ServerCapabilities::default()
     };
     let server_capabilities = serde_json::to_value(&capabilities).unwrap();
@@ -290,6 +292,9 @@ fn handle_request(
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     } else if let Some((id, params)) = cast::<DocumentSymbolRequest>(&mut req) {
         let result = get_document_symbols(document_cache, &params.text_document);
+        connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
+    } else if let Some((id, params)) = cast::<CodeLensRequest>(&mut req) {
+        let result = get_code_lenses(document_cache, &params.text_document);
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     };
     Ok(())
@@ -597,4 +602,39 @@ fn get_document_symbols(
     Some(r.into())
 
     // TODO: add the structs
+}
+
+fn get_code_lenses(
+    document_cache: &mut DocumentCache,
+    text_document: &lsp_types::TextDocumentIdentifier,
+) -> Option<Vec<CodeLens>> {
+    let uri = &text_document.uri;
+    let filepath = uri.to_file_path().ok()?;
+    let doc = document_cache.documents.get_document(&filepath)?;
+
+    let inner_components = doc.inner_components.clone();
+    let mut make_range = |node: &SyntaxNode| {
+        let r = node.text_range();
+        Some(Range::new(
+            document_cache.byte_offset_to_position(r.start().into(), &uri)?,
+            document_cache.byte_offset_to_position(r.end().into(), &uri)?,
+        ))
+    };
+
+    let r = inner_components
+        .iter()
+        .filter(|c| !c.is_global())
+        .filter_map(|c| {
+            Some(CodeLens {
+                range: make_range(c.root_element.borrow().node.as_ref()?)?,
+                command: Some(Command::new(
+                    "▶ Show preview".into(),
+                    SHOW_PREVIEW_COMMAND.into(),
+                    Some(vec![filepath.to_str()?.into(), c.id.as_str().into()]),
+                )),
+                data: None,
+            })
+        })
+        .collect::<Vec<_>>();
+    Some(r)
 }
