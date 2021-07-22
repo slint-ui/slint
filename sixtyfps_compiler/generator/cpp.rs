@@ -1329,7 +1329,7 @@ fn access_member(
     let e = element.borrow();
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
-        if e.property_declarations.contains_key(name) || name == "" || component.is_global() {
+        if e.property_declarations.contains_key(name) || name.is_empty() || component.is_global() {
             format!("{}->{}", component_cpp, name)
         } else if e.is_flickable_viewport {
             format!(
