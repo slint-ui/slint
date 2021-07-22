@@ -11,7 +11,6 @@ LICENSE END */
 #![allow(unused)]
 
 use std::collections::HashMap;
-use std::f32::EPSILON;
 
 use derive_more::*;
 use serde::Deserialize;
@@ -77,7 +76,7 @@ pub struct Color {
 
 impl Color {
     pub fn is_transparent(&self) -> bool {
-        self.a <= f32::EPSILON
+        self.a.approx_eq(&0.)
     }
 }
 

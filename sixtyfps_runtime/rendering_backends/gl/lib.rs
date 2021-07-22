@@ -20,6 +20,7 @@ use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 
+use euclid::approxeq::ApproxEq;
 use sixtyfps_corelib::graphics::{
     Brush, Color, FontRequest, Image, IntRect, Point, Rect, RenderingCache, Size,
 };
@@ -457,9 +458,7 @@ fn rect_with_radius_to_path(rect: Rect, border_radius: f32) -> femtovg::Path {
     // If we're drawing a circle, use directly connected bezier curves instead of
     // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
     // rendering artifacts due to those edges.
-    if (width - height).abs() < 10.0 * f32::EPSILON
-        && (border_radius * 2. - width).abs() < 10.0 * f32::EPSILON
-    {
+    if width.approx_eq(&height) && (border_radius * 2.).approx_eq(&width) {
         path.circle(x + border_radius, y + border_radius, border_radius);
     } else {
         path.rounded_rect(x, y, width, height, border_radius);
