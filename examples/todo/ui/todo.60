@@ -50,15 +50,12 @@ MainWindow := Window {
         }
 
         list_view := ListView {
-            for todo in todo_model: Rectangle {
-                height: 22px;
-                GridBox {
-                    CheckBox {
-                        text: todo.title;
-                        checked: todo.checked;
-                        toggled => {
-                            todo.checked = checked;
-                        }
+            for todo in todo_model:  HorizontalLayout {
+                CheckBox {
+                    text: todo.title;
+                    checked: todo.checked;
+                    toggled => {
+                        todo.checked = checked;
                     }
                 }
             }

@@ -1591,14 +1591,11 @@ impl Item for NativeStandardListViewItem {
             option.text = text;
             return qApp->style()->sizeFromContents(QStyle::CT_ItemViewItem, &option, QSize{}, nullptr);
         });
-        let result = LayoutInfo {
-            min: match orientation {
-                Orientation::Horizontal => s.width,
-                Orientation::Vertical => s.height,
-            } as f32,
-            ..LayoutInfo::default()
-        };
-        result
+        let min = match orientation {
+            Orientation::Horizontal => s.width,
+            Orientation::Vertical => s.height,
+        } as f32;
+        LayoutInfo { min, preferred: min, ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(

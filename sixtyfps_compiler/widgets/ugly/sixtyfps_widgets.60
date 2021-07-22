@@ -442,7 +442,6 @@ export StandardListView := ListView {
                 color: Palette.text_color;
             }
         }
-        height: l.min_height; // FIXME: should be t.preferred_height instread, and layout not needed
         width: parent.visible_width;
         background: current_item == idx ? Palette.highlight_background : transparent;
         TouchArea {
