@@ -240,7 +240,7 @@ async fn reload_preview(
             let mut preview_state = preview_state.borrow_mut();
             if let Some(handle) = preview_state.handle.take() {
                 let window = handle.window();
-                let handle = compiled.create_with_existing_window(window);
+                let handle = compiled.create_with_existing_window(&window);
                 match post_load_behavior {
                     PostLoadBehavior::ShowAfterLoad => handle.show(),
                     PostLoadBehavior::DoNothing => {}

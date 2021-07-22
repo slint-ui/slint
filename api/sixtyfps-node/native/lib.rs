@@ -11,6 +11,7 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
+use sixtyfps_corelib::window::WindowHandleAccess;
 use sixtyfps_corelib::{ImageInner, SharedVector};
 
 mod js_model;
@@ -18,7 +19,7 @@ mod persistent_context;
 
 struct WrappedComponentType(Option<sixtyfps_interpreter::ComponentDefinition>);
 struct WrappedComponentRc(Option<sixtyfps_interpreter::ComponentInstance>);
-struct WrappedWindow(Option<sixtyfps_interpreter::Window>);
+struct WrappedWindow(Option<sixtyfps_corelib::window::WindowRc>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =
@@ -349,7 +350,7 @@ declare_types! {
             let this = cx.this();
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let window = component.window();
+            let window = component.window().window_handle().clone();
             let mut obj = SixtyFpsWindow::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
             cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(window));
             Ok(obj.as_value(&mut cx))

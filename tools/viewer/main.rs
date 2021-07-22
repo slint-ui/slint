@@ -133,7 +133,7 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
             let mut current = current.borrow_mut();
             if let Some(handle) = current.take() {
                 let window = handle.window();
-                current.replace(c.create_with_existing_window(window));
+                current.replace(c.create_with_existing_window(&window));
             } else {
                 let handle = c.create();
                 handle.show();
