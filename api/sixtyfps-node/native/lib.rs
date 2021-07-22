@@ -310,7 +310,7 @@ declare_types! {
             for (p, _) in properties {
                 let prop_name = JsString::new(&mut cx, p);
                 array.set(&mut cx, len, prop_name)?;
-                len = len + 1;
+                len += 1;
             }
             Ok(array.as_value(&mut cx))
         }
@@ -324,7 +324,7 @@ declare_types! {
             for (p, _) in callbacks {
                 let prop_name = JsString::new(&mut cx, p);
                 array.set(&mut cx, len, prop_name)?;
-                len = len + 1;
+                len += 1;
             }
             Ok(array.as_value(&mut cx))
         }
