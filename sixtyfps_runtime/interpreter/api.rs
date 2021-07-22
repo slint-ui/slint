@@ -601,7 +601,7 @@ impl ComponentDefinition {
     }
 
     /// List of publicly declared properties.
-    pub fn properties<'a>(&'a self) -> impl Iterator<Item = (String, ValueType)> + 'a {
+    pub fn properties(&self) -> impl Iterator<Item = (String, ValueType)> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -615,7 +615,7 @@ impl ComponentDefinition {
     }
 
     /// Returns the names of all publicly declared callbacks.
-    pub fn callbacks<'a>(&'a self) -> impl Iterator<Item = String> + 'a {
+    pub fn callbacks(&self) -> impl Iterator<Item = String> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };

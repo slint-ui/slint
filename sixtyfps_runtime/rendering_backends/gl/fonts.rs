@@ -344,7 +344,7 @@ impl FontMetricsTrait for FontMetrics {
         self.font.height()
     }
 
-    fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
+    fn text_offset_for_x_position(&self, text: &str, x: f32) -> usize {
         let x = x * self.scale_factor;
         let metrics = self.font.measure(self.letter_spacing.unwrap_or_default(), text);
         let mut current_x = 0.;

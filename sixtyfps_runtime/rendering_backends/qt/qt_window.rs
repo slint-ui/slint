@@ -1328,7 +1328,7 @@ impl sixtyfps_corelib::graphics::FontMetrics for QFont {
         }}
     }
 
-    fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize {
+    fn text_offset_for_x_position(&self, text: &str, x: f32) -> usize {
         let string = qttypes::QString::from(text);
         cpp! { unsafe [self as "const QFont*", string as "QString", x as "float"] -> usize as "long long" {
             QTextLayout layout(string, *self);

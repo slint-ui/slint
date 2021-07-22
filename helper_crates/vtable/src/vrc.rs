@@ -200,7 +200,7 @@ impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     ///
     /// This is safe because there is no way to access a mutable reference to the pointee.
     /// (There is no `get_mut` or `make_mut`),
-    pub fn borrow_pin<'b>(this: &'b Self) -> Pin<VRef<'b, VTable>> {
+    pub fn borrow_pin(this: &Self) -> Pin<VRef<VTable>> {
         unsafe { Pin::new_unchecked(Self::borrow(this)) }
     }
 

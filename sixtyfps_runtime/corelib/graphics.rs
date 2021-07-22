@@ -157,7 +157,7 @@ pub trait FontMetrics {
     /// the glyph cluster that's visually nearest to the given x coordinate. This is used for hit-testing,
     /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
     /// position.
-    fn text_offset_for_x_position<'a>(&self, text: &'a str, x: f32) -> usize;
+    fn text_offset_for_x_position(&self, text: &str, x: f32) -> usize;
 }
 
 #[cfg(feature = "ffi")]
