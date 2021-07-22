@@ -369,10 +369,7 @@ impl CachedImage {
     }
 
     pub(crate) fn is_on_gpu(&self) -> bool {
-        match &*self.0.borrow() {
-            ImageData::Texture(_) => true,
-            _ => false,
-        }
+        matches!(&*self.0.borrow(), ImageData::Texture(_))
     }
 
     pub(crate) fn to_rgba(&self) -> Option<image::RgbaImage> {
