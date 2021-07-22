@@ -11,7 +11,7 @@ LICENSE END */
 Make sure that the Repeated expression are just components without any children
  */
 
-use crate::expression_tree::NamedReference;
+use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::*;
 use std::cell::RefCell;
@@ -54,6 +54,14 @@ fn create_repeater_components(component: &Rc<Component>) {
             parent_element,
             ..Component::default()
         });
+
+        if !comp.root_element.borrow().bindings.contains_key("height") {
+            let preferred = Expression::PropertyReference(NamedReference::new(
+                &comp.root_element,
+                "preferred_height",
+            ));
+            comp.root_element.borrow_mut().bindings.insert("height".into(), preferred.into());
+        }
 
         let weak = Rc::downgrade(&comp);
         recurse_elem(&comp.root_element, &(), &mut |e, _| {
