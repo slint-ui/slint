@@ -889,8 +889,8 @@ impl QtItemRenderer<'_> {
                 rect.is_valid()
                     && (rect.x != 0.
                         || rect.y != 0.
-                        || rect.width != target_width
-                        || rect.height != target_height)
+                        || (rect.width - target_width).abs() > 100. * f64::EPSILON
+                        || (rect.height - target_height).abs() > 100. * f64::EPSILON)
             });
             let source_size = if !has_source_clipping {
                 Some(qttypes::QSize { width: target_width as u32, height: target_height as u32 })
