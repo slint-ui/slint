@@ -493,12 +493,11 @@ fn eval_const_expr(
 ) -> Option<u16> {
     match expression {
         Expression::NumberLiteral(v, Unit::None) => {
-            let r = *v as u16;
-            if (r as f32 - *v as f32).abs() > f32::EPSILON {
+            if *v < 0. || *v > u16::MAX as f64 || v.trunc() != *v {
                 diag.push_error(format!("'{}' must be a positive integer", name), span);
                 None
             } else {
-                Some(r)
+                Some(*v as u16)
             }
         }
         Expression::Cast { from, .. } => eval_const_expr(from, name, span, diag),
