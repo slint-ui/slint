@@ -114,9 +114,9 @@ impl Timer {
 impl Drop for Timer {
     fn drop(&mut self) {
         if let Some(id) = self.id.get() {
-            CURRENT_TIMERS.with(|timers| {
+            let _ = CURRENT_TIMERS.try_with(|timers| {
                 timers.borrow_mut().remove_timer(id);
-            })
+            });
         }
     }
 }
