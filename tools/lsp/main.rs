@@ -272,7 +272,7 @@ fn handle_request(
         // representation.
         let requested_color = params.color;
 
-        let color_literal = if requested_color.alpha.approx_eq(&1.) {
+        let color_literal = if requested_color.alpha < 1. {
             format!(
                 "#{:0>2x}{:0>2x}{:0>2x}{:0>2x}",
                 (requested_color.red * 255.) as u8,
