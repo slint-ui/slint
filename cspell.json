@@ -19,7 +19,9 @@
                 "uninit",
                 "unmap",
                 "unsync",
-                "viewbox"
+                "viewbox",
+                "codemap",
+                "subspan"
             ],
             "ignoreRegExpList": [
                 "/#\\[cfg\\b.+\\]/",
