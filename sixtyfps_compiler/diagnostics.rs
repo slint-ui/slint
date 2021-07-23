@@ -270,6 +270,12 @@ impl BuildDiagnostics {
     pub fn push_error(&mut self, message: String, source: &dyn Spanned) {
         self.push_error_with_span(message, source.to_source_location());
     }
+    pub fn push_warning_with_span(&mut self, message: String, span: SourceLocation) {
+        self.push_diagnostic_with_span(message, span, DiagnosticLevel::Warning)
+    }
+    pub fn push_warning(&mut self, message: String, source: &dyn Spanned) {
+        self.push_warning_with_span(message, source.to_source_location());
+    }
     pub fn push_compiler_error(&mut self, error: Diagnostic) {
         self.inner.push(error.into());
     }

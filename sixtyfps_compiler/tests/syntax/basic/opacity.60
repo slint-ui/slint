@@ -10,7 +10,7 @@ LICENSE END */
 SuperSimple := Rectangle {
 
     opacity: 0.5;
-//          ^error{The opacity property cannot be used on the root element}
+//          ^warning{The opacity property cannot be used on the root element, it will not be applied}
 
     Rectangle {
         opacity: false;

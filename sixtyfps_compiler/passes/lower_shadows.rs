@@ -136,8 +136,8 @@ pub fn lower_shadow_properties(
     for (shadow_prop_name, shadow_prop_binding) in
         take_shadow_property_bindings(&component.root_element)
     {
-        diag.push_error(
-            format!("The {} property cannot be used on the root element", shadow_prop_name),
+        diag.push_warning(
+            format!("The {} property cannot be used on the root element, the shadow will not be visible", shadow_prop_name),
             &shadow_prop_binding,
         );
     }
