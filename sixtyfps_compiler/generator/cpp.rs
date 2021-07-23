@@ -225,7 +225,8 @@ use crate::expression_tree::{
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::object_tree::{
-    Component, Document, Element, ElementRc, PropertyDeclaration, RepeatedElementInfo,
+    Component, Document, Element, ElementRc, PropertyAnimation, PropertyDeclaration,
+    RepeatedElementInfo,
 };
 use cpp_ast::*;
 use itertools::Itertools;
@@ -330,7 +331,7 @@ fn property_set_value_code(
     property_name: &str,
     value_expr: &str,
 ) -> String {
-    match element.property_animations.get(property_name) {
+    match element.bindings.get(property_name).and_then(|b| b.animation.as_ref()) {
         Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
             let animation_code = property_animation_code(component, animation);
             format!(
@@ -348,6 +349,7 @@ fn handle_property_binding(
     prop_name: &str,
     binding_expression: &Expression,
     is_constant: bool,
+    animation: Option<&PropertyAnimation>,
     init: &mut Vec<String>,
 ) {
     let item = elem.borrow();
@@ -387,7 +389,14 @@ fn handle_property_binding(
             p2 = access_named_reference(nr, &component, "this")
         ));
         if let Some(next) = next {
-            handle_property_binding(elem, prop_name, next, is_constant || next.is_constant(), init)
+            handle_property_binding(
+                elem,
+                prop_name,
+                next,
+                is_constant || next.is_constant(),
+                animation,
+                init,
+            )
         }
     } else {
         let component = &item.enclosing_component.upgrade().unwrap();
@@ -410,7 +419,7 @@ fn handle_property_binding(
             if is_state_info {
                 format!("sixtyfps::private_api::set_state_binding({}, {});", cpp_prop, binding_code)
             } else {
-                match item.property_animations.get(prop_name) {
+                match animation {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
                         let anim = property_animation_code(&component, anim);
                         format!("{}.set_animated_binding({}, {});", cpp_prop, binding_code, anim)
@@ -1065,6 +1074,7 @@ fn generate_component(
             prop,
             binding,
             binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const),
+            binding.animation.as_ref(),
             &mut init,
         )
     });

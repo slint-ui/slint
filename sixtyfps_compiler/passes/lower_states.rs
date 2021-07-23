@@ -130,6 +130,7 @@ fn lower_transitions_in_element(
                     "The property is not changed as part of this transition".into(),
                     &span,
                 );
+                continue;
             }
 
             let t = TransitionPropertyAnimation {
@@ -142,23 +143,19 @@ fn lower_transitions_in_element(
     }
     for (ne, (span, animations)) in props {
         let e = ne.element();
-        match e.borrow_mut().property_animations.entry(ne.name().to_owned()) {
-            std::collections::hash_map::Entry::Occupied(e) => {
-                diag.push_error(
-                    format!(
+        // We check earlier that the property is in the set of changed properties, so a binding bust have been assigned
+        let old_anim = e.borrow_mut().bindings.get_mut(ne.name()).unwrap().animation.replace(
+            PropertyAnimation::Transition { state_ref: state_property.clone(), animations },
+        );
+        if old_anim.is_some() {
+            diag.push_error(
+                format!(
                     "The property '{}' cannot have transition because it already has an animation",
-                    e.key()
+                    ne.name()
                 ),
-                    &span,
-                );
-            }
-            std::collections::hash_map::Entry::Vacant(e) => {
-                e.insert(PropertyAnimation::Transition {
-                    state_ref: state_property.clone(),
-                    animations,
-                });
-            }
-        };
+                &span,
+            );
+        }
     }
 }
 

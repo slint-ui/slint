@@ -14,7 +14,7 @@ use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::object_tree::{Element, ElementRc};
+use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
@@ -914,10 +914,9 @@ pub(crate) fn generate_component<'id>(
 
 pub fn animation_for_property(
     component: InstanceRef,
-    element: &Element,
-    property_name: &str,
+    animation: &Option<sixtyfps_compilerlib::object_tree::PropertyAnimation>,
 ) -> AnimatedBindingKind {
-    match element.property_animations.get(property_name) {
+    match animation {
         Some(sixtyfps_compilerlib::object_tree::PropertyAnimation::Static(anim_elem)) => {
             AnimatedBindingKind::Animation(eval::new_struct_with_bindings(
                 &anim_elem.borrow().bindings,
@@ -1098,11 +1097,7 @@ pub fn instantiate(
                     return;
                 }
 
-                let maybe_animation = animation_for_property(
-                    instance_ref,
-                    &component_type.original.root_element.borrow(),
-                    prop_name,
-                );
+                let maybe_animation = animation_for_property(instance_ref, &binding.animation);
                 let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
 
                 let mut e = Some(&binding.expression);
@@ -1141,7 +1136,7 @@ pub fn instantiate(
                 let item_within_component = &component_type.items[&elem.id];
                 let item = item_within_component.item_from_component(instance_ref.as_ptr());
                 if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name) {
-                    let maybe_animation = animation_for_property(instance_ref, &elem, prop_name);
+                    let maybe_animation = animation_for_property(instance_ref, &binding.animation);
                     let mut e = Some(&binding.expression);
                     while let Some(Expression::TwoWayBinding(nr, next)) = &e {
                         // Safety: The compiler must have ensured that the properties exist and are of the same type

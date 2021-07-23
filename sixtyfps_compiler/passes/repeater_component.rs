@@ -39,7 +39,6 @@ fn create_repeater_components(component: &Rc<Component>) {
                 property_analysis: std::mem::take(&mut elem.property_analysis),
                 children: std::mem::take(&mut elem.children),
                 property_declarations: std::mem::take(&mut elem.property_declarations),
-                property_animations: std::mem::take(&mut elem.property_animations),
                 named_references: Default::default(),
                 repeated: None,
                 node: elem.node.clone(),

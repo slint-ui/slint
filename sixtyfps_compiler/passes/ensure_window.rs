@@ -40,7 +40,6 @@ pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
         enclosing_component: win_elem_mut.enclosing_component.clone(),
         property_declarations: Default::default(),
         named_references: Default::default(),
-        property_animations: Default::default(),
         repeated: Default::default(),
         states: Default::default(),
         transitions: Default::default(),
@@ -68,7 +67,6 @@ pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
     let mut base_props: HashSet<String> =
         new_root.borrow().base_type.property_list().into_iter().map(|x| x.0).collect();
     base_props.extend(win_elem.borrow().bindings.keys().cloned());
-    base_props.extend(win_elem.borrow().property_animations.keys().cloned());
     for prop in base_props {
         if prop == "width" || prop == "height" {
             continue;
@@ -82,9 +80,6 @@ pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
 
         if let Some(b) = win_elem.borrow_mut().bindings.remove(&prop) {
             new_root.borrow_mut().bindings.insert(prop.clone(), b);
-        }
-        if let Some(a) = win_elem.borrow_mut().property_animations.remove(&prop) {
-            new_root.borrow_mut().property_animations.insert(prop.clone(), a);
         }
         if let Some(a) = win_elem.borrow().property_analysis.borrow_mut().remove(&prop) {
             new_root.borrow().property_analysis.borrow_mut().insert(prop.clone(), a);

@@ -175,6 +175,9 @@ pub fn handle_property_bindings_init(
                 _ => {}
             })
         }
+        if matches!(binding_expression.expression, Expression::Invalid) {
+            return;
+        }
         handle_property(elem, prop_name, binding_expression);
     }
 

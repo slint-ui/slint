@@ -1078,13 +1078,21 @@ pub struct BindingExpression {
     /// 0 means the expression was added by some passes and it is not explicit in the source code
     pub priority: i32,
 
+    pub animation: Option<PropertyAnimation>,
+
     /// The analysis information. None before it is computed
     pub analysis: RefCell<Option<BindingAnalysis>>,
 }
 
 impl std::convert::From<Expression> for BindingExpression {
     fn from(expression: Expression) -> Self {
-        Self { expression, span: None, priority: 0, analysis: Default::default() }
+        Self {
+            expression,
+            span: None,
+            priority: 0,
+            animation: Default::default(),
+            analysis: Default::default(),
+        }
     }
 }
 
@@ -1094,11 +1102,18 @@ impl BindingExpression {
             expression: Expression::Uncompiled(node.clone()),
             span: Some(node.to_source_location()),
             priority: 1,
+            animation: Default::default(),
             analysis: Default::default(),
         }
     }
     pub fn new_with_span(expression: Expression, span: SourceLocation) -> Self {
-        Self { expression, span: Some(span), priority: 0, analysis: Default::default() }
+        Self {
+            expression,
+            span: Some(span),
+            priority: 0,
+            animation: Default::default(),
+            analysis: Default::default(),
+        }
     }
 }
 

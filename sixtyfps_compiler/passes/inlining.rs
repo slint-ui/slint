@@ -60,9 +60,6 @@ fn inline_element(
     elem_mut.property_declarations.extend(
         inlined_component.root_element.borrow().property_declarations.iter().map(clone_tuple),
     );
-    elem_mut.property_animations.extend(
-        inlined_component.root_element.borrow().property_animations.iter().map(clone_tuple),
-    );
 
     for (p, a) in inlined_component.root_element.borrow().property_analysis.borrow().iter() {
         elem_mut.property_analysis.borrow_mut().entry(p.clone()).or_default().merge(a);
@@ -165,13 +162,12 @@ fn duplicate_element_with_mapping(
         base_type: elem.base_type.clone(),
         id: elem.id.clone(),
         property_declarations: elem.property_declarations.clone(),
-        property_animations: elem
-            .property_animations
-            .iter()
-            .map(|(k, v)| (k.clone(), duplicate_property_animation(v, mapping, root_component)))
-            .collect(),
         // We will do the fixup of the references in bindings later
-        bindings: elem.bindings.iter().map(increment_priority).collect(),
+        bindings: elem
+            .bindings
+            .iter()
+            .map(|b| duplicate_binding(b, mapping, root_component))
+            .collect(),
         property_analysis: elem.property_analysis.clone(),
         children: elem
             .children
@@ -198,9 +194,22 @@ fn duplicate_element_with_mapping(
 }
 
 /// Clone and increase the priority of a binding
-fn increment_priority((k, b): (&String, &BindingExpression)) -> (String, BindingExpression) {
-    let mut b = b.clone();
-    b.priority += 1;
+/// and duplicate its animation
+fn duplicate_binding(
+    (k, b): (&String, &BindingExpression),
+    mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
+    root_component: &Rc<Component>,
+) -> (String, BindingExpression) {
+    let b = BindingExpression {
+        expression: b.expression.clone(),
+        span: b.span.clone(),
+        priority: b.priority + 1,
+        animation: b
+            .animation
+            .as_ref()
+            .map(|pa| duplicate_property_animation(pa, mapping, root_component)),
+        analysis: b.analysis.clone(),
+    };
     (k.clone(), b)
 }
 

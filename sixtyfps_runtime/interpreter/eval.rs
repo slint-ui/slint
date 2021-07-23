@@ -694,8 +694,7 @@ pub fn store_property(
     let enclosing_component = enclosing_component_for_element(element, component_instance, guard);
     let maybe_animation = crate::dynamic_component::animation_for_property(
         enclosing_component,
-        &element.borrow(),
-        name,
+        element.borrow().bindings.get(name).map_or(&None, |b| &b.animation),
     );
 
     let component = element.borrow().enclosing_component.upgrade().unwrap();

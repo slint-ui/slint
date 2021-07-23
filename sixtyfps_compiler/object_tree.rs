@@ -341,8 +341,6 @@ pub struct Element {
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,
 
-    pub property_animations: HashMap<String, PropertyAnimation>,
-
     /// Tis element is part of a `for <xxx> in <model>:
     pub repeated: Option<RepeatedElementInfo>,
 
@@ -414,10 +412,10 @@ pub fn pretty_print(
         expression_tree::pretty_print(f, &expr.expression)?;
         writeln!(f, ";")?;
         //writeln!(f, "; /*{}*/", expr.priority)?;
-    }
-    for (name, anim) in &e.property_animations {
-        indent!();
-        writeln!(f, "animate {} {:?}", name, anim)?;
+        if let Some(anim) = &expr.animation {
+            indent!();
+            writeln!(f, "animate {} {:?}", name, anim)?;
+        }
     }
     if !e.states.is_empty() {
         indent!();
@@ -716,11 +714,15 @@ impl Element {
                                 );
                             }
 
-                            if r.property_animations
-                                .insert(
-                                    resolved_name.to_string(),
-                                    PropertyAnimation::Static(anim_element),
-                                )
+                            let expr_binding =
+                                r.bindings.entry(resolved_name.to_string()).or_insert_with(|| {
+                                    let mut r = BindingExpression::from(Expression::Invalid);
+                                    r.priority = 1;
+                                    r
+                                });
+                            if expr_binding
+                                .animation
+                                .replace(PropertyAnimation::Static(anim_element))
                                 .is_some()
                             {
                                 diag.push_error("Duplicated animation".into(), &prop_name_token)
@@ -1292,6 +1294,17 @@ pub fn visit_element_expressions(
         let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
         for (name, expr) in &mut bindings {
             vis(expr, Some(name.as_str()), &|| elem.borrow().lookup_property(name).property_type);
+
+            match &mut expr.animation {
+                Some(PropertyAnimation::Static(e)) => visit_element_expressions_simple(e, vis),
+                Some(PropertyAnimation::Transition { animations, state_ref }) => {
+                    vis(state_ref, None, &|| Type::Int32);
+                    for a in animations {
+                        visit_element_expressions_simple(&a.animation, vis)
+                    }
+                }
+                None => (),
+            }
         }
         elem.borrow_mut().bindings = bindings;
     }
@@ -1323,20 +1336,6 @@ pub fn visit_element_expressions(
         }
     }
     elem.borrow_mut().transitions = transitions;
-
-    let mut property_animations = std::mem::take(&mut elem.borrow_mut().property_animations);
-    for anim_elem in property_animations.values_mut() {
-        match anim_elem {
-            PropertyAnimation::Static(e) => visit_element_expressions_simple(e, &mut vis),
-            PropertyAnimation::Transition { animations, state_ref } => {
-                vis(state_ref, None, &|| Type::Int32);
-                for a in animations {
-                    visit_element_expressions_simple(&a.animation, &mut vis)
-                }
-            }
-        }
-    }
-    elem.borrow_mut().property_animations = property_animations;
 }
 
 /// Visit all the named reference in an element

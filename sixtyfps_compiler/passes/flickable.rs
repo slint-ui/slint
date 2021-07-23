@@ -74,10 +74,6 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
                     entry.insert(Expression::TwoWayBinding(nr, None).into());
                 }
             }
-            // Workaround for https://github.com/sixtyfpsui/sixtyfps/issues/193
-            if let Some(a) = flickable.property_animations.remove(prop) {
-                viewport.borrow_mut().property_animations.insert(vp_prop.into(), a);
-            }
         }
     }
     flickable.children.push(viewport);

@@ -22,7 +22,7 @@ use crate::expression_tree::{
 };
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
-use crate::object_tree::{Component, Document, ElementRc};
+use crate::object_tree::{Component, Document, ElementRc, PropertyAnimation};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::{collections::BTreeMap, rc::Rc};
@@ -161,6 +161,7 @@ fn handle_property_binding(
     prop_name: &str,
     binding_expression: &Expression,
     is_constant: bool,
+    animation: Option<&PropertyAnimation>,
     init: &mut Vec<TokenStream>,
 ) {
     let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
@@ -207,6 +208,7 @@ fn handle_property_binding(
                 prop_name,
                 next,
                 is_constant || next.is_constant(),
+                animation,
                 init,
             )
         }
@@ -228,7 +230,7 @@ fn handle_property_binding(
             if is_state_info {
                 quote! { sixtyfps::re_exports::set_state_binding(#rust_property, #binding_tokens); }
             } else {
-                match item_rc.borrow().property_animations.get(prop_name) {
+                match animation {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
                         let anim = property_animation_tokens(component, anim);
                         quote! { #rust_property.set_animated_binding(#binding_tokens, #anim); }
@@ -604,6 +606,7 @@ fn generate_component(
             prop,
             binding,
             binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const),
+            binding.animation.as_ref(),
             &mut init,
         )
     });
@@ -959,7 +962,7 @@ fn property_set_value_tokens(
     property_name: &str,
     value_tokens: TokenStream,
 ) -> TokenStream {
-    match element.borrow().property_animations.get(property_name) {
+    match element.borrow().bindings.get(property_name).and_then(|b| b.animation.as_ref()) {
         Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
             let animation_tokens = property_animation_tokens(component, animation);
             quote!(set_animated_value(#value_tokens, #animation_tokens))
