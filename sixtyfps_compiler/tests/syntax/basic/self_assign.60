@@ -28,5 +28,45 @@ SuperSimple := Rectangle {
 //                   ^error{Unknown unqualified identifier 'doesnotexist'}
     }
 
+    TouchArea {
+        property <string> text;
+        clicked => { text *= 2; }
+//                   ^error{the \*= operation cannot be done on a string}
+    }
+
+    TouchArea {
+        property <string> text;
+        clicked => { text += 2; }
+    }
+
+    TouchArea {
+        property <string> text;
+        clicked => {
+            text /= "hello";
+//          ^error{the /= operation cannot be done on a string}
+            text *= 2;
+//          ^error{the \*= operation cannot be done on a string}
+            text -= text;
+//          ^error{the -= operation cannot be done on a string}
+        }
+    }
+
+    TouchArea {
+        property <brush> color;
+        clicked => { color += color; }
+//                   ^error{the \+= operation cannot be done on a brush}
+    }
+
+    TouchArea {
+        property <brush> color;
+        clicked => { color *= 3; }
+//                   ^error{the \*= operation cannot be done on a brush}
+    }
+
+    TouchArea {
+        clicked => { height /= height; }
+//                            ^error{Cannot convert length to float}
+    }
+
 }
 

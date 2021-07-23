@@ -14,12 +14,19 @@ LICENSE END */
     property<int> t3: a - (3 + ++2 * (a + 2));
     property<int> t4: 3 + - +5 - 8 - -9 * --- 120;
 
+    property <length> len: 50px / 2;
+
     callback foo;
     foo => {
         a += +8;
         a *= 10;
         a /= 2;
         a -= 3;
+
+        len += 1px;
+        len /= 2;
+        len -= 3px;
+        len *= 3;
     }
 }
 /*
@@ -33,6 +40,8 @@ assert_eq(instance.get_t3(), 42 - (3 + 2 * (42 + 2)));
 assert_eq(instance.get_t4(), 3 + - 5 - 8 - -9 * - - - 120);
 instance.invoke_foo();
 assert_eq(instance.get_a(), (((42 + 8) * 10) / 2) - 3);
+
+assert_eq(instance.get_len(), ((25.+1.)/2. - 3.) * 3.);
 ```
 
 
@@ -45,6 +54,8 @@ assert_eq!(instance.get_t3(), 42 - (3 + 2 * (42 + 2)));
 assert_eq!(instance.get_t4(), 3 + - 5 - 8 - -9 * --- 120);
 instance.invoke_foo();
 assert_eq!(instance.get_a(), (((42 + 8) * 10) / 2) - 3);
+
+assert_eq!(instance.get_len(), ((25.+1.)/2. - 3.) * 3.);
 ```
 
 ```js
@@ -56,5 +67,7 @@ assert.equal(instance.t3, 42 - (3 + 2 * (42 + 2)));
 assert.equal(instance.t4, 3 + - 5 - 8 - -9 * - - - 120);
 instance.foo();
 assert.equal(instance.a, (((42 + 8) * 10) / 2) - 3);
+
+assert.equal(instance.len, ((25.+1.)/2. - 3.) * 3.);
 ```
 */

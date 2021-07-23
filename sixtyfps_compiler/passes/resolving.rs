@@ -634,7 +634,7 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (lhs_n, rhs_n) = node.Expression();
-        let mut lhs = Self::from_expression_node(lhs_n, ctx);
+        let mut lhs = Self::from_expression_node(lhs_n.clone(), ctx);
         let op = None
             .or(node.child_token(SyntaxKind::PlusEqual).and(Some('+')))
             .or(node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
@@ -651,12 +651,47 @@ impl Expression {
                 &node,
             );
         }
-        let rhs = Self::from_expression_node(rhs_n.clone(), ctx).maybe_convert_to(
-            lhs.ty(),
-            &rhs_n,
-            &mut ctx.diag,
-        );
-        Expression::SelfAssignment { lhs: Box::new(lhs), rhs: Box::new(rhs), op }
+        let mut report_error = |ty| {
+            if ty != Type::Invalid {
+                ctx.diag.push_error(
+                    format!("the {}= operation cannot be done on a {}", op, ty),
+                    &lhs_n,
+                );
+            }
+            Type::Invalid
+        };
+        let ty = lhs.ty();
+        let expected_ty = match op {
+            '=' => ty,
+            '+' => {
+                if ty == Type::String || ty.as_unit_product().is_some() {
+                    ty
+                } else {
+                    report_error(ty)
+                }
+            }
+            '-' => {
+                if ty.as_unit_product().is_some() {
+                    ty
+                } else {
+                    report_error(ty)
+                }
+            }
+            '/' | '*' => {
+                if ty.as_unit_product().is_some() {
+                    Type::Float32
+                } else {
+                    report_error(ty)
+                }
+            }
+            _ => unreachable!(),
+        };
+        let rhs = Self::from_expression_node(rhs_n.clone(), ctx);
+        Expression::SelfAssignment {
+            lhs: Box::new(lhs),
+            rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, &mut ctx.diag)),
+            op,
+        }
     }
 
     fn from_binary_expression_node(

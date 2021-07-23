@@ -36,5 +36,9 @@ SuperSimple := Rectangle {
     property<length> p11: 1ms * 1px *3px / 1deg * 3 / (30px * 1s - 3px * 1ms) * 2deg;
     property<int> p12: 1ms * 3s / 3px / (2deg * 5turn) * 2s / 3phx;
 //                    ^error{Cannot convert \(ms³×phx⁻¹×px⁻¹×deg⁻²\) to int}
+
+    property <brush> bru: background + background;
+//                        ^error{Cannot convert brush to float}
+//                                    ^^error{Cannot convert brush to float}
 }
 
