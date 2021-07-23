@@ -361,12 +361,21 @@ fn generate_component(
                     }
                 ));
 
-                let set_value = property_set_value_tokens(
-                    component,
-                    &component.root_element,
-                    prop_name,
-                    quote!(value),
-                );
+                let set_value = if let Some(alias) = &property_decl.is_alias {
+                    property_set_value_tokens(
+                        component,
+                        &alias.element(),
+                        alias.name(),
+                        quote!(value),
+                    )
+                } else {
+                    property_set_value_tokens(
+                        component,
+                        &component.root_element,
+                        prop_name,
+                        quote!(value),
+                    )
+                };
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #setter_ident(&self, value: #rust_property_type) {

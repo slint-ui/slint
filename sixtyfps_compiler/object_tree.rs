@@ -311,10 +311,47 @@ impl TransitionPropertyAnimation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum PropertyAnimation {
     Static(ElementRc),
     Transition { state_ref: Expression, animations: Vec<TransitionPropertyAnimation> },
+}
+
+impl Clone for PropertyAnimation {
+    fn clone(&self) -> Self {
+        fn deep_clone(e: &ElementRc) -> ElementRc {
+            let e = e.borrow();
+            debug_assert!(e.children.is_empty());
+            debug_assert!(e.property_declarations.is_empty());
+            debug_assert!(e.states.is_empty() && e.transitions.is_empty());
+            Rc::new(RefCell::new(Element {
+                id: e.id.clone(),
+                base_type: e.base_type.clone(),
+                bindings: e.bindings.clone(),
+                property_analysis: e.property_analysis.clone(),
+                enclosing_component: e.enclosing_component.clone(),
+                repeated: None,
+                node: e.node.clone(),
+                ..Default::default()
+            }))
+        }
+        match self {
+            PropertyAnimation::Static(e) => PropertyAnimation::Static(deep_clone(e)),
+            PropertyAnimation::Transition { state_ref, animations } => {
+                PropertyAnimation::Transition {
+                    state_ref: state_ref.clone(),
+                    animations: animations
+                        .iter()
+                        .map(|t| TransitionPropertyAnimation {
+                            state_id: t.state_id,
+                            is_out: t.is_out,
+                            animation: deep_clone(&t.animation),
+                        })
+                        .collect(),
+                }
+            }
+        }
+    }
 }
 
 /// An Element is an instantiation of a Component

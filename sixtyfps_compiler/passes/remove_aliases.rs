@@ -127,20 +127,12 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
                     Entry::Occupied(mut e) => {
                         simplify_expression(e.get_mut(), &to);
-                        if matches!(e.get().expression, Expression::Invalid) {
-                            *e.get_mut() = binding;
-                        } else if e.get().priority < binding.priority {
-                            crate::passes::inlining::maybe_merge_two_ways(
-                                &mut e.get_mut().expression,
-                                &mut 0,
-                                &binding,
-                            );
+                        if e.get().priority < binding.priority
+                            || matches!(e.get().expression, Expression::Invalid)
+                        {
+                            &mut e.get_mut().merge_with(&binding);
                         } else {
-                            crate::passes::inlining::maybe_merge_two_ways(
-                                &mut binding.expression,
-                                &mut 0,
-                                e.get(),
-                            );
+                            binding.merge_with(e.get());
                             *e.get_mut() = binding;
                         }
                     }

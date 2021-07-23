@@ -327,11 +327,11 @@ fn property_animation_code(component: &Rc<Component>, animation: &ElementRc) -> 
 
 fn property_set_value_code(
     component: &Rc<Component>,
-    element: &Element,
+    element: &ElementRc,
     property_name: &str,
     value_expr: &str,
 ) -> String {
-    match element.bindings.get(property_name).and_then(|b| b.animation.as_ref()) {
+    match element.borrow().bindings.get(property_name).and_then(|b| b.animation.as_ref()) {
         Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
             let animation_code = property_animation_code(component, animation);
             format!(
@@ -748,18 +748,15 @@ fn generate_component(
                     }),
                 ));
 
+                let set_value = if let Some(alias) = &property_decl.is_alias {
+                    property_set_value_code(component, &alias.element(), alias.name(), "value")
+                } else {
+                    property_set_value_code(component, &component.root_element, cpp_name, "value")
+                };
+
                 let prop_setter: Vec<String> = vec![
                     "[[maybe_unused]] auto self = this;".into(),
-                    format!(
-                        "{}.{};",
-                        access,
-                        property_set_value_code(
-                            &component,
-                            &*component.root_element.borrow(),
-                            cpp_name,
-                            "value"
-                        )
-                    ),
+                    format!("{}.{};", access, set_value),
                 ];
                 component_struct.members.push((
                     Access::Public,

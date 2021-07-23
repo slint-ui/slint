@@ -1,0 +1,42 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+Sub := Rectangle {
+    property <bool> cond;
+    property <float> child_opacity: inner.opacity;
+    inner := Rectangle {
+        opacity: cond ? 0 : 1;
+        animate opacity { duration: 1s; }
+        background: green;
+    }
+}
+
+TestCase := Rectangle {
+    property cond <=> s.cond;
+    property val <=> s.child_opacity;
+    s := Sub {}
+}
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_val(), 1.);
+instance.set_cond(true);
+assert_eq!(instance.get_val(), 1.);
+sixtyfps::testing::mock_elapsed_time(500);
+assert_eq!(instance.get_val(), 0.5);
+sixtyfps::testing::mock_elapsed_time(500);
+assert_eq!(instance.get_val(), 0.);
+
+```
+
+*/
+

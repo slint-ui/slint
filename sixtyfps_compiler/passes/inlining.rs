@@ -114,8 +114,7 @@ fn inline_element(
                 entry.insert(val.clone()).priority += 1;
             }
             std::collections::btree_map::Entry::Occupied(mut entry) => {
-                let b = entry.get_mut();
-                maybe_merge_two_ways(&mut b.expression, &mut b.priority, val);
+                entry.get_mut().merge_with(val);
             }
         }
     }
@@ -126,28 +125,6 @@ fn inline_element(
     for e in mapping.values() {
         visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
         visit_element_expressions(e, |expr, _, _| fixup_element_references(expr, &mapping));
-    }
-}
-
-/// Normally, binding would be kept intact. But if they are two ways binding, they need to be merged
-pub fn maybe_merge_two_ways(
-    binding: &mut Expression,
-    priority: &mut i32,
-    original: &BindingExpression,
-) {
-    match (binding, &original.expression) {
-        (Expression::TwoWayBinding(_, Some(ref mut x)), _) => {
-            maybe_merge_two_ways(&mut *x, priority, original);
-        }
-        (Expression::TwoWayBinding(_, x), o) => {
-            *priority = original.priority + 1;
-            *x = Some(Box::new(o.clone()));
-        }
-        (ref mut x, Expression::TwoWayBinding(nr, _)) => {
-            let n = Expression::TwoWayBinding(nr.clone(), Some(Box::new(std::mem::take(*x))));
-            **x = n
-        }
-        _ => *priority += 1,
     }
 }
 
