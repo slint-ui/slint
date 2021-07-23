@@ -225,8 +225,7 @@ use crate::expression_tree::{
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::object_tree::{
-    Component, Document, Element, ElementRc, PropertyAnimation, PropertyDeclaration,
-    RepeatedElementInfo,
+    Component, Document, ElementRc, PropertyAnimation, PropertyDeclaration, RepeatedElementInfo,
 };
 use cpp_ast::*;
 use itertools::Itertools;

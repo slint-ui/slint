@@ -130,7 +130,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                         if e.get().priority < binding.priority
                             || matches!(e.get().expression, Expression::Invalid)
                         {
-                            &mut e.get_mut().merge_with(&binding);
+                            e.get_mut().merge_with(&binding);
                         } else {
                             binding.merge_with(e.get());
                             *e.get_mut() = binding;
