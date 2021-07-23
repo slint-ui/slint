@@ -651,40 +651,21 @@ impl Expression {
                 &node,
             );
         }
-        let mut report_error = |ty| {
-            if ty != Type::Invalid {
-                ctx.diag.push_error(
-                    format!("the {}= operation cannot be done on a {}", op, ty),
-                    &lhs_n,
-                );
-            }
-            Type::Invalid
-        };
         let ty = lhs.ty();
         let expected_ty = match op {
             '=' => ty,
-            '+' => {
-                if ty == Type::String || ty.as_unit_product().is_some() {
-                    ty
-                } else {
-                    report_error(ty)
+            '+' if ty == Type::String || ty.as_unit_product().is_some() => ty,
+            '-' if ty.as_unit_product().is_some() => ty,
+            '/' | '*' if ty.as_unit_product().is_some() => Type::Float32,
+            _ => {
+                if ty != Type::Invalid {
+                    ctx.diag.push_error(
+                        format!("the {}= operation cannot be done on a {}", op, ty),
+                        &lhs_n,
+                    );
                 }
+                Type::Invalid
             }
-            '-' => {
-                if ty.as_unit_product().is_some() {
-                    ty
-                } else {
-                    report_error(ty)
-                }
-            }
-            '/' | '*' => {
-                if ty.as_unit_product().is_some() {
-                    Type::Float32
-                } else {
-                    report_error(ty)
-                }
-            }
-            _ => unreachable!(),
         };
         let rhs = Self::from_expression_node(rhs_n.clone(), ctx);
         Expression::SelfAssignment {
