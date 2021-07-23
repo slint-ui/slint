@@ -14,7 +14,6 @@ mod lsp_ext;
 mod preview;
 mod util;
 
-use euclid::approxeq::ApproxEq;
 use std::collections::HashMap;
 use structopt::StructOpt;
 
