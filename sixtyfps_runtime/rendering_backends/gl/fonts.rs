@@ -225,6 +225,13 @@ pub(crate) fn font_fallbacks_for_request(
             pixel_size: _request.pixel_size,
             letter_spacing: _request.letter_spacing,
         },
+        #[cfg(not(target_arch = "wasm32"))]
+        FontRequest {
+            family: Some("Noto Color Emoji".into()),
+            weight: _request.weight,
+            pixel_size: _request.pixel_size,
+            letter_spacing: _request.letter_spacing,
+        },
     ]
 }
 
