@@ -95,6 +95,23 @@ SCENARIO("Value API")
         REQUIRE(struct_opt.has_value());
     }
 
+    SECTION("Construct an image")
+    {
+        // ensure a backend exists, using private api
+        sixtyfps::private_api::WindowRc wnd;
+
+        REQUIRE(!value.to_image().has_value());
+        sixtyfps::Image image = sixtyfps::Image::load_from_path(SOURCE_DIR "/../../vscode_extension/extension-logo.png");
+        REQUIRE(image.size().width == 128);
+        value = Value(image);
+        REQUIRE(value.type() == Value::Type::Image);
+
+        auto image2 = value.to_image();
+        REQUIRE(image2.has_value());
+        REQUIRE(image2->size().width == 128);
+        REQUIRE(image == *image2);
+    }
+
     SECTION("Construct a model")
     {
         // And test that it is properly destroyed when the value is destroyed

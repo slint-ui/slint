@@ -383,6 +383,17 @@ public:
         }
     }
 
+    /// Returns a std::optional that contains an Image if the type of this Value is
+    /// Type::Image, otherwise an empty optional is returned.
+    std::optional<Image> to_image() const
+    {
+        if (auto *img = cbindgen_private::sixtyfps_interpreter_value_to_image(&inner)) {
+            return *reinterpret_cast<const Image *>(img);
+        } else {
+            return {};
+        }
+    }
+
     // template<typename T> std::optional<T> get() const;
 
     /// Constructs a new Value that holds the double \a value.
@@ -407,6 +418,12 @@ public:
     Value(const Struct &struc)
     {
         cbindgen_private::sixtyfps_interpreter_value_new_struct(&struc.inner, &inner);
+    }
+
+    /// Constructs a new Value that holds the Image \a img.
+    Value(const Image &img)
+    {
+        cbindgen_private::sixtyfps_interpreter_value_new_image(&img, &inner);
     }
 
     /// Returns the type the variant holds.

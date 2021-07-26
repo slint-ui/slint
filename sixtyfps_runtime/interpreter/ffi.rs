@@ -117,6 +117,12 @@ pub unsafe extern "C" fn sixtyfps_interpreter_value_new_struct(
     std::ptr::write(val as *mut Value, Value::Struct(struc.as_struct().clone()))
 }
 
+/// Construct a new Value in the given memory location as image
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_value_new_image(img: &Image, val: *mut ValueOpaque) {
+    std::ptr::write(val as *mut Value, Value::Image(img.clone()))
+}
+
 /// Construct a new Value containing a model in the given memory location
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_value_new_model(
@@ -180,6 +186,14 @@ pub extern "C" fn sixtyfps_interpreter_value_to_brush(val: &ValueOpaque) -> Opti
 pub extern "C" fn sixtyfps_interpreter_value_to_struct(val: &ValueOpaque) -> Option<&StructOpaque> {
     match val.as_value() {
         Value::Struct(s) => Some(unsafe { std::mem::transmute::<&Struct, &StructOpaque>(s) }),
+        _ => None,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn sixtyfps_interpreter_value_to_image(val: &ValueOpaque) -> Option<&Image> {
+    match val.as_value() {
+        Value::Image(img) => Some(img),
         _ => None,
     }
 }

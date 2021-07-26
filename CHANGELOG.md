@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
  - Added a `icon` property to the `Window` element
  - Added `sixtyfps::Weak::upgrade_in_event_loop` in the Rust API
  - Added `sixtyfps::Model::as_any()` in the Rust API
+ - Added conversion between `sixtyfps::Image` and `sixtyfps::interpreter::Value` in the C++ API
 
 ### Fixed
 
