@@ -234,8 +234,7 @@ impl Type {
     }
 
     pub fn ok_for_public_api(&self) -> bool {
-        // Duration and Easing don't have good types for public API exposure yet.
-        !matches!(self, Self::Duration | Self::Easing | Self::Angle)
+        !matches!(self, Self::Easing)
     }
 
     pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
