@@ -269,11 +269,11 @@ declare_units! {
     /// Degree
     Deg = "deg" -> Angle,
     /// Gradians
-    Grad = "grad" -> Angle * 400./360.,
+    Grad = "grad" -> Angle * 360./180.,
     /// Turns
-    Turn = "turn" -> Angle * 1./360.,
+    Turn = "turn" -> Angle * 360.,
     /// Radians
-    Rad = "rad" -> Angle * std::f32::consts::TAU/360.,
+    Rad = "rad" -> Angle * 360./std::f32::consts::TAU,
 }
 
 impl Default for Unit {
