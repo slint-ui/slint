@@ -276,14 +276,8 @@ public:
     /// Internal function used by the generated code to construct a new instance of this
     /// public API wrapper.
     explicit Window(const private_api::WindowRc &windowrc) : inner(windowrc) { }
-    /// Copy-constructs a new window from \a other. Window instances are explicitly
-    /// shared and reference counted. Creating a copy will not create a second window
-    /// on the screen.
-    Window(const Window &other) = default;
-    /// Copy-constructs the window \a other to this and returns a reference to this.
-    /// Window instances are explicitly shared and reference counted. Creating a copy
-    /// will not create a second window on the screen.
-    Window &operator=(const Window &other) = default;
+    Window(const Window &other) = delete;
+    Window &operator=(const Window &other) = delete;
     Window(Window &&other) = delete;
     Window &operator=(Window &&other) = delete;
     /// Destroys this window. Window instances are explicitly shared and reference counted.
@@ -295,6 +289,11 @@ public:
     void show() const { inner.show(); }
     /// De-registers the window from the windowing system, therefore hiding it.
     void hide() const { inner.hide(); }
+
+    /// \private
+    private_api::WindowRc &window_handle() { return inner; }
+    /// \private
+    const private_api::WindowRc &window_handle() const { return inner; }
 
 private:
     private_api::WindowRc inner;

@@ -900,8 +900,9 @@ fn generate_component(
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
-                ty: "sixtyfps::private_api::WindowRc".into(),
-                name: "window_rc".into(),
+                ty: "sixtyfps::Window".into(),
+                name: "m_window".into(),
+                init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
                 ..Var::default()
             }),
         ));
@@ -909,8 +910,9 @@ fn generate_component(
         component_struct.members.push((
             Access::Public, // FIXME: many of the different component bindings need to access this
             Declaration::Var(Var {
-                ty: "sixtyfps::private_api::WindowRc".into(),
-                name: "window_rc".into(),
+                ty: "sixtyfps::Window".into(),
+                name: "m_window".into(),
+                init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
                 ..Var::default()
             }),
         ));
@@ -932,7 +934,7 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "show".into(),
                 signature: "() const".into(),
-                statements: Some(vec!["window_rc.show();".into()]),
+                statements: Some(vec!["m_window.show();".into()]),
                 ..Default::default()
             }),
         ));
@@ -942,7 +944,7 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "hide".into(),
                 signature: "() const".into(),
-                statements: Some(vec!["window_rc.hide();".into()]),
+                statements: Some(vec!["m_window.hide();".into()]),
                 ..Default::default()
             }),
         ));
@@ -951,8 +953,8 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "window".into(),
-                signature: "() const -> sixtyfps::Window".into(),
-                statements: Some(vec!["return sixtyfps::Window(window_rc);".into()]),
+                signature: "() const -> const sixtyfps::Window&".into(),
+                statements: Some(vec!["return m_window;".into()]),
                 ..Default::default()
             }),
         ));
@@ -971,7 +973,7 @@ fn generate_component(
             }),
         ));
 
-        init.push("self->window_rc.init_items(this, item_tree());".into());
+        init.push("self->m_window.window_handle().init_items(this, item_tree());".into());
 
         component_struct.friends.push("sixtyfps::private_api::WindowRc".into());
     }
@@ -986,7 +988,9 @@ fn generate_component(
         ];
 
         if component.parent_element.upgrade().is_none() {
-            create_code.push("self->window_rc.set_component(**self->self_weak.lock());".into());
+            create_code.push(
+                "self->m_window.window_handle().set_component(**self->self_weak.lock());".into(),
+            );
         }
 
         create_code.extend(
@@ -1098,7 +1102,7 @@ fn generate_component(
             is_constructor_or_destructor: true,
             statements: Some(init),
             constructor_member_initializers: if !component.is_global() && !is_root {
-                vec!["window_rc(parent->window_rc)".into()]
+                vec!["m_window(parent->m_window.window_handle())".into()]
             } else {
                 vec![]
             },
@@ -1127,7 +1131,7 @@ fn generate_component(
                     .join(","),
             );
             destructor.push("};".into());
-            destructor.push("window_rc.free_graphics_resources(sixtyfps::Slice<sixtyfps::private_api::ItemRef>{items, std::size(items)});".into());
+            destructor.push("m_window.window_handle().free_graphics_resources(sixtyfps::Slice<sixtyfps::private_api::ItemRef>{items, std::size(items)});".into());
         }
 
         component_struct.members.push((
@@ -1414,7 +1418,7 @@ fn compile_expression(
         ),
         Expression::BuiltinFunctionReference(funcref, _) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
-                "self->window_rc.scale_factor".into()
+                "self->m_window.window_handle().scale_factor".into()
             }
             BuiltinFunction::Debug => {
                 "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
@@ -1433,10 +1437,10 @@ fn compile_expression(
             BuiltinFunction::ACos => format!("[](float a){{ return std::acos(a) / {}; }}", std::f32::consts::PI / 180.),
             BuiltinFunction::ATan => format!("[](float a){{ return std::atan(a) / {}; }}", std::f32::consts::PI / 180.),
             BuiltinFunction::SetFocusItem => {
-                "self->window_rc.set_focus_item".into()
+                "self->m_window.window_handle().set_focus_item".into()
             }
             BuiltinFunction::ShowPopupWindow => {
-                "self->window_rc.show_popup".into()
+                "self->m_window.window_handle().show_popup".into()
             }
 
            /*  std::from_chars is unfortunately not yet implemented in gcc
@@ -1572,7 +1576,7 @@ fn compile_expression(
                 if let Expression::ElementReference(focus_item) = &arguments[0] {
                     let focus_item = focus_item.upgrade().unwrap();
                     let focus_item = focus_item.borrow();
-                    format!("self->window_rc.set_focus_item(self->self_weak.lock()->into_dyn(), {});", focus_item.item_index.get().unwrap())
+                    format!("self->m_window.window_handle().set_focus_item(self->self_weak.lock()->into_dyn(), {});", focus_item.item_index.get().unwrap())
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
@@ -1590,7 +1594,7 @@ fn compile_expression(
                     let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
                     let x = access_named_reference(&popup.x, component, "self");
                     let y = access_named_reference(&popup.y, component, "self");
-                    format!("self->window_rc.show_popup<{}>(self, {{ {}.get(), {}.get() }} );", popup_window_rcid, x, y)
+                    format!("self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }} );", popup_window_rcid, x, y)
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
@@ -1603,7 +1607,7 @@ fn compile_expression(
                     let item = item.upgrade().unwrap();
                     let item = item.borrow();
                     let native_item = item.base_type.as_native();
-                    format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &window_rc)",
+                    format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &m_window.window_handle())",
                         vt = native_item.cpp_vtable_getter,
                         ty = native_item.class_name,
                         id = item.id,
@@ -2048,7 +2052,7 @@ fn get_layout_info(
         format!("{}.get()", access_named_reference(layout_info_prop, component, "self"))
     } else {
         format!(
-            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &self->window_rc)",
+            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &self->m_window.window_handle())",
             vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
             ty = elem.borrow().base_type.as_native().class_name,
             id = elem.borrow().id,

@@ -26,7 +26,7 @@ template<typename Component>
 inline void send_mouse_click(const Component *component, float x, float y)
 {
     auto crc = *component->self_weak.into_dyn().lock();
-    cbindgen_private::sixtyfps_send_mouse_click(&crc, x, y, &component->window_rc);
+    cbindgen_private::sixtyfps_send_mouse_click(&crc, x, y, &component->m_window.window_handle());
 }
 
 template<typename Component>
@@ -34,7 +34,8 @@ inline void send_keyboard_string_sequence(const Component *component,
                                           const sixtyfps::SharedString &str,
                                           cbindgen_private::KeyboardModifiers modifiers = {})
 {
-    cbindgen_private::send_keyboard_string_sequence(&str, modifiers, &component->window_rc);
+    cbindgen_private::send_keyboard_string_sequence(&str, modifiers,
+                                                    &component->m_window.window_handle());
 }
 
 #define assert_eq(A, B)                                                                            \
