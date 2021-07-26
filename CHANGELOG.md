@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Changed
+ - Fixed lookup scope when resolving model expression in `for` or `if` construct:
+   the `self` element now refer to the correct element instead of the root.
 
 ### Added
 

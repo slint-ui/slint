@@ -99,11 +99,15 @@ pub fn resolve_expressions(
                 if is_repeated {
                     // The first expression is always the model and it needs to be resolved with the parent scope
                     debug_assert!(elem.borrow().repeated.as_ref().is_none()); // should be none because it is taken by the visit_element_expressions function
+                    let mut parent_scope = scope.clone();
+                    if let Some(parent) = find_parent_element(elem) {
+                        parent_scope.0.push(parent)
+                    };
                     resolve_expression(
                         expr,
                         property_name,
                         property_type(),
-                        scope,
+                        &parent_scope,
                         &doc.local_registry,
                         type_loader,
                         diag,
