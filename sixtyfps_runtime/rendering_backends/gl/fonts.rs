@@ -7,6 +7,8 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+// cspell:ignore Noto
+
 use femtovg::TextContext;
 #[cfg(target_os = "windows")]
 use font_kit::loader::Loader;

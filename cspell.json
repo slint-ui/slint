@@ -21,7 +21,9 @@
                 "unsync",
                 "viewbox",
                 "codemap",
-                "subspan"
+                "subspan",
+                "fontdb",
+                "canonicalize" // std::path::Path::canonicalize
             ],
             "ignoreRegExpList": [
                 "/#\\[cfg\\b.+\\]/",
