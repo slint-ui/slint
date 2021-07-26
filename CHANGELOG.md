@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
  - Default height of element in a ListView no longer defaults to 100%
  - Support of `*=` and `/=` on types with unit such as length.
  - Proper compilation error when using a self assignment operator on an invalid type instead of a panic
+ - Angle conversion for value not in degree
 
 ## [0.1.0] - 2021-06-30
 
