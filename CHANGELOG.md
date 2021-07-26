@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
  - Added `sixtyfps::Weak::upgrade_in_event_loop` in the Rust API
  - Added `sixtyfps::Model::as_any()` in the Rust API
  - Added conversion between `sixtyfps::Image` and `sixtyfps::interpreter::Value` in the C++ API
+ - `angle` and `duration` are allowed in the public API
 
 ### Fixed
 
@@ -23,7 +24,7 @@ All notable changes to this project will be documented in this file.
  - Default height of element in a ListView no longer defaults to 100%
  - Support of `*=` and `/=` on types with unit such as length.
  - Proper compilation error when using a self assignment operator on an invalid type instead of a panic
- - Angle conversion for value not in degree
+ - Angle conversion for values specified in radians, gradians and turns
 
 ## [0.1.0] - 2021-06-30
 
