@@ -588,11 +588,11 @@ public:
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    sixtyfps::Window window() const
+    const sixtyfps::Window &window()
     {
-        cbindgen_private::WindowRcOpaque win;
-        cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win);
-        return sixtyfps::Window(sixtyfps::private_api::WindowRc(win));
+        const cbindgen_private::WindowRcOpaque *win_ptr = nullptr;
+        cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win_ptr);
+        return *reinterpret_cast<const sixtyfps::Window *>(win_ptr);
     }
     /// This is a convenience function that first calls show(), followed by
     /// sixtyfps::run_event_loop() and hide().
@@ -608,11 +608,10 @@ public:
     /// it may return nullptr if the Qt backend is not used at runtime.
     QWidget *qwidget() const
     {
-        cbindgen_private::WindowRcOpaque win;
-        cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win);
+        const cbindgen_private::WindowRcOpaque *win_ptr = nullptr;
+        cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win_ptr);
         auto wid = reinterpret_cast<QWidget *>(cbindgen_private::sixtyfps_qt_get_widget(
-                reinterpret_cast<cbindgen_private::WindowRc *>(&win)));
-        cbindgen_private::sixtyfps_windowrc_drop(&win);
+                reinterpret_cast<const cbindgen_private::WindowRc *>(win_ptr)));
         return wid;
     }
 #endif
@@ -951,11 +950,10 @@ inline void send_keyboard_string_sequence(const sixtyfps::interpreter::Component
                                           const sixtyfps::SharedString &str,
                                           KeyboardModifiers modifiers = {})
 {
-    cbindgen_private::WindowRcOpaque win;
+    const cbindgen_private::WindowRcOpaque *win_ptr = nullptr;
     cbindgen_private::sixtyfps_interpreter_component_instance_window(
-            reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win);
+            reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win_ptr);
     cbindgen_private::send_keyboard_string_sequence(
-            &str, modifiers, reinterpret_cast<cbindgen_private::WindowRc *>(&win));
-    cbindgen_private::sixtyfps_windowrc_drop(&win);
+            &str, modifiers, reinterpret_cast<const cbindgen_private::WindowRc *>(win_ptr));
 }
 }
