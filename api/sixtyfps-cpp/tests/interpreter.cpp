@@ -426,6 +426,37 @@ SCENARIO("Array between .60 and C++")
     }
 }
 
+SCENARIO("Angle between .60 and C++")
+{
+    using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
+
+    ComponentCompiler compiler;
+
+    auto result = compiler.build_from_source(
+            "export Dummy := Rectangle { property <angle> angle: 0.25turn;  property <bool> test: angle == 0.5turn; }", "");
+    REQUIRE(result.has_value());
+    auto instance = result->create();
+
+    SECTION("Read property")
+    {
+        auto angle_value = instance->get_property("angle");
+        REQUIRE(angle_value.has_value());
+        REQUIRE(angle_value->type() == Value::Type::Number);
+        auto angle = angle_value->to_number();
+        REQUIRE(angle.has_value());
+        REQUIRE(*angle == 90);
+    }
+    SECTION("Write property")
+    {
+        REQUIRE(!*instance->get_property("test")->to_bool());
+        bool ok = instance->set_property("angle", 180.);
+        REQUIRE(ok);
+        REQUIRE(*instance->get_property("angle")->to_number() == 180);
+        REQUIRE(*instance->get_property("test")->to_bool());
+    }
+}
+
 SCENARIO("Component Definition Name")
 {
     using namespace sixtyfps::interpreter;
