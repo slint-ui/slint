@@ -66,6 +66,7 @@ impl From<LangType> for ValueType {
             LangType::Bool => Self::Bool,
             LangType::Struct { .. } => Self::Struct,
             LangType::Void => Self::Void,
+            LangType::Image => Self::Image,
             _ => Self::Other,
         }
     }
@@ -95,7 +96,6 @@ pub enum Value {
     String(SharedString),
     /// Correspond to the `bool` type in .60
     Bool(bool),
-    #[doc(hidden)]
     /// Correspond to the `image` type in .60
     Image(Image),
     /// An Array in the .60 language.
@@ -132,6 +132,7 @@ impl Value {
             Value::Model(_) => ValueType::Model,
             Value::Struct(_) => ValueType::Struct,
             Value::Brush(_) => ValueType::Brush,
+            Value::Image(_) => ValueType::Image,
             _ => ValueType::Other,
         }
     }
