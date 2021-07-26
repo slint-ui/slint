@@ -154,6 +154,7 @@ The follow table summarizes the entire mapping:
 | `physical_length` | `f32` | The unit are physical pixels. |
 | `length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
+| `angle` | `f32` | The value in degrees |
 | structure | `struct` of the same name | |
 | array | [`ModelHandle`] |  |
 

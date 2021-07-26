@@ -14,6 +14,7 @@ The follow table summarizes the entire mapping:
 | `physical_length` | `float` | The unit are physical pixels. |
 | `length` | `float` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `std::int64_t` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
+| `angle` | `float` | The value in degrees. |
 | structure | A `class` of the same name | The order of the data member are in the lexicographic order of their name |
 
 ## Structures
