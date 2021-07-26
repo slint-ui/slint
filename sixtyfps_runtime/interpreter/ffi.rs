@@ -428,13 +428,13 @@ pub extern "C" fn sixtyfps_interpreter_component_instance_show(
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_window(
     inst: &ErasedComponentBox,
-    out: *mut sixtyfps_corelib::window::ffi::WindowRcOpaque,
+    out: *mut *const sixtyfps_corelib::window::ffi::WindowRcOpaque,
 ) {
     assert_eq!(
         core::mem::size_of::<WindowRc>(),
         core::mem::size_of::<sixtyfps_corelib::window::ffi::WindowRcOpaque>()
     );
-    core::ptr::write(out as *mut WindowRc, inst.window().window_handle().clone())
+    core::ptr::write(out as *mut *const WindowRc, inst.window().window_handle() as *const _)
 }
 
 /// Instantiate an instance from a definition.
