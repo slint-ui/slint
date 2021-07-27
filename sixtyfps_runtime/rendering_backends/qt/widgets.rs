@@ -178,7 +178,7 @@ impl Item for NativeButton {
         _window: &WindowRc,
     ) -> LayoutInfo {
         let mut text: qttypes::QString = self.text().as_str().into();
-        let icon : qttypes::QPixmap = crate::qt_window::load_image_from_resource(
+        let icon: qttypes::QPixmap = crate::qt_window::load_image_from_resource(
             (&self.icon()).into(),
             None,
             Default::default(),
