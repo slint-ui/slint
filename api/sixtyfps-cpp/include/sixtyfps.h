@@ -237,6 +237,10 @@ public:
     const T *operator->() const { return inner.operator->(); }
     /// Dereference operator that implements pointer semantics.
     const T &operator*() const { return inner.operator*(); }
+    /// Arrow operator that implements pointer semantics.
+    T *operator->() { return inner.operator->(); }
+    /// Dereference operator that implements pointer semantics.
+    T &operator*() { return inner.operator*(); }
 
     /// internal function that returns the internal handle
     vtable::VRc<private_api::ComponentVTable> into_dyn() const { return inner.into_dyn(); }
