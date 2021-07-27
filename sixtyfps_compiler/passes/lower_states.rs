@@ -175,7 +175,9 @@ fn expression_for_property(element: &ElementRc, name: &str) -> Expression {
     let mut element_it = Some(element.clone());
     while let Some(element) = element_it {
         if let Some(e) = element.borrow().bindings.get(name) {
-            return e.expression.clone();
+            if !matches!(e.expression, Expression::Invalid) {
+                return e.expression.clone();
+            }
         }
         element_it = if let Type::Component(base) = &element.borrow().base_type {
             Some(base.root_element.clone())

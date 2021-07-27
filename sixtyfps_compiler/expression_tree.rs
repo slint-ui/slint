@@ -1001,11 +1001,10 @@ impl Expression {
             | Type::ElementReference
             | Type::LayoutCache => Expression::Invalid,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
-            Type::Int32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(String::new()),
-            Type::Color => Expression::Cast {
+            Type::Int32 | Type::Color | Type::UnitProduct(_) => Expression::Cast {
                 from: Box::new(Expression::NumberLiteral(0., Unit::None)),
-                to: Type::Color,
+                to: ty.clone(),
             },
             Type::Duration => Expression::NumberLiteral(0., Unit::Ms),
             Type::Angle => Expression::NumberLiteral(0., Unit::Deg),
@@ -1035,10 +1034,6 @@ impl Expression {
             Type::Enumeration(enumeration) => {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
-            Type::UnitProduct(_) => Expression::Cast {
-                from: Box::new(Expression::NumberLiteral(0., Unit::None)),
-                to: ty.clone(),
-            },
         }
     }
 

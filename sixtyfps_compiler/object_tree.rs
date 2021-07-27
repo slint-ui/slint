@@ -448,7 +448,7 @@ pub fn pretty_print(
         write!(f, "{}: ", name)?;
         expression_tree::pretty_print(f, &expr.expression)?;
         if expr.analysis.borrow().as_ref().map_or(false, |a| a.is_const) {
-            writeln!(f, "/*const*/")?;
+            write!(f, "/*const*/")?;
         }
         writeln!(f, ";")?;
         //writeln!(f, "; /*{}*/", expr.priority)?;
