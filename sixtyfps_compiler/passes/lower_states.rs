@@ -62,10 +62,17 @@ fn lower_state_in_element(
                 false_expr: Box::new(std::mem::take(&mut state_value)),
             };
         }
-        for (ne, expr) in state.property_changes {
+        for (ne, expr, node) in state.property_changes {
             affected_properties.insert(ne.clone());
             let e = ne.element();
             let property_expr = expression_for_property(&e, ne.name());
+            if matches!(property_expr, Expression::TwoWayBinding(..)) {
+                diag.push_error(
+                    format!("Cannot change the property '{}' in a state because it is initialized with a two-way binding", ne.name()),
+                    &node
+                );
+                continue;
+            }
             let new_expr = Expression::Condition {
                 condition: Box::new(Expression::BinaryExpression {
                     lhs: Box::new(state_property_ref.clone()),

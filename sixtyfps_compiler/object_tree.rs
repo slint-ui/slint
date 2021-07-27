@@ -839,7 +839,7 @@ impl Element {
                     .StatePropertyChange()
                     .filter_map(|s| {
                         lookup_property_from_qualified_name(s.QualifiedName(), &r, diag).map(
-                            |(ne, _)| (ne, Expression::Uncompiled(s.BindingExpression().into())),
+                            |(ne, _)| (ne, Expression::Uncompiled(s.BindingExpression().into()), s),
                         )
                     })
                     .collect(),
@@ -1361,7 +1361,7 @@ pub fn visit_element_expressions(
         if let Some(cond) = s.condition.as_mut() {
             vis(cond, None, &|| Type::Bool)
         }
-        for (ne, e) in &mut s.property_changes {
+        for (ne, e, _) in &mut s.property_changes {
             vis(e, Some(ne.name()), &|| {
                 ne.element().borrow().lookup_property(ne.name()).property_type
             });
@@ -1408,7 +1408,7 @@ pub fn visit_all_named_references_in_element(
     visit_element_expressions(elem, |expr, _, _| recurse_expression(expr, &mut vis));
     let mut states = std::mem::take(&mut elem.borrow_mut().states);
     for s in &mut states {
-        for (r, _) in &mut s.property_changes {
+        for (r, _, _) in &mut s.property_changes {
             vis(r);
         }
     }
@@ -1482,7 +1482,7 @@ pub fn visit_all_expressions(
 pub struct State {
     pub id: String,
     pub condition: Option<Expression>,
-    pub property_changes: Vec<(NamedReference, Expression)>,
+    pub property_changes: Vec<(NamedReference, Expression, syntax_nodes::StatePropertyChange)>,
 }
 
 #[derive(Debug, Clone)]
