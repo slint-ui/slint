@@ -933,7 +933,7 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "show".into(),
-                signature: "() const".into(),
+                signature: "()".into(),
                 statements: Some(vec!["m_window.show();".into()]),
                 ..Default::default()
             }),
@@ -943,7 +943,7 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "hide".into(),
-                signature: "() const".into(),
+                signature: "()".into(),
                 statements: Some(vec!["m_window.hide();".into()]),
                 ..Default::default()
             }),
@@ -953,7 +953,7 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "window".into(),
-                signature: "() const -> const sixtyfps::Window&".into(),
+                signature: "() -> sixtyfps::Window&".into(),
                 statements: Some(vec!["return m_window;".into()]),
                 ..Default::default()
             }),
@@ -963,7 +963,7 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "run".into(),
-                signature: "() const".into(),
+                signature: "()".into(),
                 statements: Some(vec![
                     "show();".into(),
                     "sixtyfps::run_event_loop();".into(),
