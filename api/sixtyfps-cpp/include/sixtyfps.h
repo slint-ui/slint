@@ -286,9 +286,9 @@ public:
     ~Window() = default;
 
     /// Registers the window with the windowing system in order to make it visible on the screen.
-    void show() const { inner.show(); }
+    void show() { inner.show(); }
     /// De-registers the window from the windowing system, therefore hiding it.
-    void hide() const { inner.hide(); }
+    void hide() { inner.hide(); }
 
     /// \private
     private_api::WindowRc &window_handle() { return inner; }
