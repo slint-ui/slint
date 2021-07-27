@@ -332,6 +332,7 @@ pub mod api {
     /// This type represents a window towards the windowing system, that's used to render the
     /// scene of a component. It provides API to control windowing system specific aspects such
     /// as the position on the screen.
+    #[repr(transparent)]
     pub struct Window(pub(super) std::rc::Rc<super::Window>);
 
     #[doc(hidden)]
