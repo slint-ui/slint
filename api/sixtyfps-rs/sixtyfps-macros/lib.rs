@@ -340,6 +340,13 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     //println!("{:#?}", syntax_node);
     let mut compiler_config =
         CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Rust);
+
+    if std::env::var_os("SIXTYFPS_STYLE").is_none() {
+        compiler_config.style = std::fs::read_to_string(env!("SIXTYFPS_DEFAULT_STYLE_PATH"))
+            .map(|style| style.trim().into())
+            .ok()
+    }
+
     compiler_config.include_paths = include_paths;
     let (root_component, mut diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
