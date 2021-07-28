@@ -13,17 +13,17 @@ Test := Rectangle {
     GridLayout {
         Row {
             if (condition): Text {
-//                          ^error{if or for expressions are not currently supported in grid layouts}
+//                          ^error{'if' or 'for' expressions are not currently supported in grid layouts}
             }
         }
 
         if (condition): Text {
-//                      ^error{if or for expressions are not currently supported in grid layouts}
+//                      ^error{'if' or 'for' expressions are not currently supported in grid layouts}
 
         }
 
         for x in 5: Text {
-//                  ^error{if or for expressions are not currently supported in grid layouts}
+//                  ^error{'if' or 'for' expressions are not currently supported in grid layouts}
             
          }
     }
