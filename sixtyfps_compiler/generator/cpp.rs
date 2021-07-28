@@ -953,8 +953,11 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "window".into(),
-                signature: "() -> sixtyfps::Window&".into(),
-                statements: Some(vec!["return m_window;".into()]),
+                signature: "() const -> sixtyfps::Window&".into(),
+                statements: Some(vec![format!(
+                    "return const_cast<{} *>(this)->m_window;",
+                    component_struct.name
+                )]),
                 ..Default::default()
             }),
         ));
