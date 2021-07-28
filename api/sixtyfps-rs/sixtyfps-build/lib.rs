@@ -203,6 +203,7 @@ pub fn compile_with_config(
     };
     if std::env::var_os("SIXTYFPS_STYLE").is_none() && compiler_config.style.is_none() {
         compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
+            // Same logic as in sixtyfps-rendering-backend-default's build script to get the path
             let path = Path::new(&path).parent()?.parent()?.join("SIXTYFPS_DEFAULT_STYLE.txt");
             let style = std::fs::read_to_string(path).ok()?;
             Some(style.trim().into())

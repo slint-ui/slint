@@ -49,5 +49,5 @@ fn main() {
     println!("cargo:rerun-if-changed=qt_window.rs");
     println!("cargo:rerun-if-changed=widgets.rs");
     println!("cargo:rerun-if-changed=lib.rs");
-    println!("cargo:HAS_NATIVE_STYLE=1");
+    println!("cargo:SUPPORTS_NATIVE_STYLE=1");
 }
