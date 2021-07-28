@@ -202,7 +202,7 @@ impl GridLayout {
         if let Some(layout_item) = create_layout_item(item_element, diag) {
             if layout_item.repeater_index.is_some() {
                 diag.push_error(
-                    format!("if or for expressions are not currently supported in grid layouts"),
+                    format!("'if' or 'for' expressions are not currently supported in grid layouts"),
                     &*item_element.borrow(),
                 );
                 return;
