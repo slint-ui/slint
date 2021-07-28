@@ -74,11 +74,11 @@ async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::e
     #[derive(Deserialize)]
     struct ImageResult {
         meta: ImageResultMeta,
-    };
+    }
     #[derive(Deserialize)]
     struct ImageResultMeta {
         images: HashMap<String, String>,
-    };
+    }
 
     let i: ImageResult = reqwest::Client::new()
         .get(&format!("https://api.figma.com/v1/files/{}/images", opt.file))
