@@ -10,6 +10,8 @@ LICENSE END */
 
 #![allow(unused)]
 
+use float_cmp::ApproxEq;
+
 use std::collections::HashMap;
 
 use derive_more::*;
@@ -76,7 +78,7 @@ pub struct Color {
 
 impl Color {
     pub fn is_transparent(&self) -> bool {
-        self.a.approx_eq(&0.)
+        self.a.approx_eq(0., (f32::EPSILON * 3.0, 2))
     }
 }
 
