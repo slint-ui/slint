@@ -201,6 +201,13 @@ pub fn compile_with_config(
             compiler_config.embed_resources = true;
         }
     };
+    if std::env::var_os("SIXTYFPS_STYLE").is_none() && compiler_config.style.is_none() {
+        compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
+            let path = Path::new(&path).parent()?.parent()?.join("SIXTYFPS_DEFAULT_STYLE.txt");
+            let style = std::fs::read_to_string(path).ok()?;
+            Some(style.trim().into())
+        });
+    }
 
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
