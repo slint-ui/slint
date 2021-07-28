@@ -905,7 +905,7 @@ fn generate_component(
                 };
                 #new_code
                 #(#init)*
-                self_rc.into()
+                self_rc
             }
             #item_tree_impl
 
