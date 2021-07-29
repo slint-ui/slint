@@ -119,8 +119,8 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .collect::<Vec<_>>();
     Some(quote! {
         #[allow(non_snake_case)]
-        #[allow(clippy::match_single_binding)]
-        #[allow(clippy::deref_addrof)]
+        #[allow(clippy::style)]
+        #[allow(clippy::complexity)]
         mod #compo_module {
             use sixtyfps::re_exports::*;
             #(#structs)*
