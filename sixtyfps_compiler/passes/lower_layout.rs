@@ -9,6 +9,8 @@
 LICENSE END */
 //! Passe that compute the layout constraint
 
+use lyon_path::geom::euclid::approxeq::ApproxEq;
+
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
@@ -502,7 +504,7 @@ fn eval_const_expr(
 ) -> Option<u16> {
     match expression {
         Expression::NumberLiteral(v, Unit::None) => {
-            if *v < 0. || *v > u16::MAX as f64 || v.trunc() != *v {
+            if *v < 0. || *v > u16::MAX as f64 || !v.trunc().approx_eq(v) {
                 diag.push_error(format!("'{}' must be a positive integer", name), span);
                 None
             } else {
