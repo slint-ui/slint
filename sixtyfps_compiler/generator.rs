@@ -163,8 +163,9 @@ pub fn handle_property_bindings_init(
         processed.insert(nr);
         if binding_expression.analysis.borrow().as_ref().map_or(false, |a| a.is_const) {
             // We must first handle all dependent properties in case it is a constant property
-            binding_expression.expression.visit_recursive(&mut |e| match e {
-                Expression::PropertyReference(nr) => {
+
+            binding_expression.expression.visit_recursive(&mut |e| {
+                if let Expression::PropertyReference(nr) = e {
                     let elem = nr.element();
                     if Weak::ptr_eq(&elem.borrow().enclosing_component, component) {
                         if let Some(be) = elem.borrow().bindings.get(nr.name()) {
@@ -179,7 +180,6 @@ pub fn handle_property_bindings_init(
                         }
                     }
                 }
-                _ => {}
             })
         }
         if matches!(binding_expression.expression, Expression::Invalid) {
