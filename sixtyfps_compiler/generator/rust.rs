@@ -723,10 +723,8 @@ fn generate_component(
         (None, None)
     } else {
         let item_tree_array_len = item_tree_array.len();
-        let parent_item_index = component
-            .parent_element
-            .upgrade()
-            .and_then(|e| e.borrow().item_index.get().map(|x| *x));
+        let parent_item_index =
+            component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().copied());
         let parent_item_index = parent_item_index.iter();
         init.insert(0, quote!(sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), &_self.window);));
         (
