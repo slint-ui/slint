@@ -1646,7 +1646,7 @@ fn compile_expression(
         }
         Expression::ImageReference(resource_ref)  => {
             match resource_ref {
-                crate::expression_tree::ImageReference::None => format!(r#"sixtyfps::Image()"#),
+                crate::expression_tree::ImageReference::None => r#"sixtyfps::Image()"#.to_string(),
                 crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"sixtyfps::Image::load_from_path(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
                 crate::expression_tree::ImageReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
             }
@@ -1752,7 +1752,7 @@ fn compile_expression(
             let call = if *o == layout.orientation {
                 format!("sixtyfps_box_layout_info(slice, {}, &padding, {})", spacing, alignment)
             } else {
-                format!("sixtyfps_box_layout_info_ortho(slice, &padding)")
+                "sixtyfps_box_layout_info_ortho(slice, &padding)".to_string()
             };
             format!("[&] {{ \
                     const auto padding = {};\
