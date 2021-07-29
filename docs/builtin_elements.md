@@ -65,7 +65,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`border_radius`** (*length*): The size of the radius. (default value: 0)
 * **`clip`** (*bool*): By default, when an item is bigger or outside another item, it is still shown.
   But when this property is set to true, then the children element of this Rectangle are going to be clipped.
-  This property must be a literal `true` or `false` (default: false)
+  (default: false)
 
 ### Example
 

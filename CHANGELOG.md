@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
  - Added `sixtyfps::Model::as_any()` in the Rust API
  - Added conversion between `sixtyfps::Image` and `sixtyfps::interpreter::Value` in the C++ API
  - `angle` and `duration` are allowed in the public API
+ - The `clip` property can now be any expression
 
 ### Fixed
 

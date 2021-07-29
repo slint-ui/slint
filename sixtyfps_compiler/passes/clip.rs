@@ -12,7 +12,7 @@ LICENSE END */
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{NativeClass, Type};
 use crate::object_tree::{Component, Element, ElementRc};
@@ -29,41 +29,32 @@ pub fn handle_clip(
         component,
         &(),
         &mut |elem_rc: &ElementRc, _| {
-            let mut elem = elem_rc.borrow_mut();
-            if let Some(clip_prop) = elem.bindings.remove("clip") {
+            let elem = elem_rc.borrow();
+            if elem.native_class().map_or(false, |n| Rc::ptr_eq(&n, &native_clip)) {
+                return;
+            }
+            if elem.bindings.contains_key("clip")
+                || elem.property_analysis.borrow().get("clip").map_or(false, |a| a.is_set)
+            {
                 match elem.builtin_type().as_ref().map(|ty| ty.name.as_str()) {
                     Some("Rectangle") => {}
                     Some("Path") => {
-                        // it's an actual property, so keep the binding
-                        elem.bindings.insert("clip".into(), clip_prop);
+                        // it's an actual property, so keep it as is
                         return;
                     }
                     _ => {
                         diag.push_error(
-                            "The 'clip' property can only be applied to a Rectangle or a Path for now"
-                                .into(),
-                            &clip_prop.span,
+                            "The 'clip' property can only be applied to a Rectangle or a Path for now".into(),
+                            &elem.bindings.get("clip").and_then(|x| x.span.clone()).or_else(|| elem.node.as_ref().map(|e| e.to_source_location())),
                         );
                         return;
                     }
                 }
-                // Was added by the materialize_fake_properties pass
-                elem.property_declarations.remove("clip");
-                match &clip_prop.expression {
-                    Expression::BoolLiteral(false) => {}
-                    Expression::BoolLiteral(true) => {
-                        drop(elem);
-                        create_clip_element(elem_rc, &native_clip);
-                    }
-                    _ => diag.push_error(
-                        "The 'clip' property can only be a boolean literal (true or false) for now"
-                            .into(),
-                        &clip_prop.span,
-                    ),
-                }
+                drop(elem);
+                create_clip_element(elem_rc, &native_clip);
             }
         },
-    )
+    );
 }
 
 fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
@@ -96,4 +87,8 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
             );
         }
     }
+    clip.borrow_mut().bindings.insert(
+        "clip".to_owned(),
+        Expression::TwoWayBinding(NamedReference::new(parent_elem, "clip"), None).into(),
+    );
 }
