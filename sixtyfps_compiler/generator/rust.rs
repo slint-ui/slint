@@ -85,6 +85,11 @@ fn get_rust_type(
 ///
 /// Fill the diagnostic in case of error.
 pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStream> {
+    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+        // empty document, nothing to generate
+        return None;
+    }
+
     let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types

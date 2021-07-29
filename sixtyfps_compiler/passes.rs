@@ -43,14 +43,16 @@ mod unique_id;
 mod visible;
 mod z_order;
 
+use crate::langtype::Type;
+
 pub async fn run_passes(
     doc: &crate::object_tree::Document,
     diag: &mut crate::diagnostics::BuildDiagnostics,
     mut type_loader: &mut crate::typeloader::TypeLoader<'_>,
     compiler_config: &crate::CompilerConfiguration,
 ) {
-    if doc.inner_components.is_empty() {
-        // nothing to do
+    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+        // If there isn't a root component, we shouldn't do any of these passes
         return;
     }
 
