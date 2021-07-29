@@ -289,7 +289,7 @@ impl CachedImage {
                 Ok(rendered_svg_image) => Some(Self::new_on_cpu(rendered_svg_image)),
                 Err(err) => {
                     eprintln!("Error rendering SVG: {}", err);
-                    return None;
+                    None
                 }
             },
             #[cfg(target_arch = "wasm32")]

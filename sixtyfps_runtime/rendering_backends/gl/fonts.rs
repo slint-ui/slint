@@ -363,7 +363,7 @@ impl FontMetricsTrait for FontMetrics {
             }
             current_x += glyph.advance_x;
         }
-        return text.len();
+        text.len()
     }
 }
 
