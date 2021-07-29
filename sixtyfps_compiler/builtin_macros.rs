@@ -228,7 +228,7 @@ fn to_debug_string(
                 COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
             );
             let mut string = None;
-            for (k, _) in fields {
+            for k in fields.keys() {
                 let field_name =
                     if string.is_some() { format!(", {}: ", k) } else { format!("{{ {}: ", k) };
                 let value = to_debug_string(
