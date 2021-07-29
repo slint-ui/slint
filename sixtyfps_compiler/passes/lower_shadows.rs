@@ -189,11 +189,11 @@ pub fn lower_shadow_properties(
                 // original, such as x/y/width/height.
                 for (prop, _) in crate::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter() {
                     let prop = prop.to_string();
-                    if !shadow_elem.bindings.contains_key(&prop) {
+                    shadow_elem.bindings.entry(prop.clone()).or_insert_with(|| {
                         let binding_ref =
                             Expression::PropertyReference(NamedReference::new(&child, &prop));
-                        shadow_elem.bindings.insert(prop, binding_ref.into());
-                    }
+                        binding_ref.into()
+                    });
                 }
 
                 elem.borrow_mut().children.push(ElementRc::new(RefCell::new(shadow_elem)));
