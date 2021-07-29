@@ -118,7 +118,7 @@ impl<T> Clone for SharedVector<T> {
             {
                 self.inner.as_ref().header.refcount.fetch_add(1, atomic::Ordering::SeqCst);
             }
-            return SharedVector { inner: self.inner };
+            SharedVector { inner: self.inner }
         }
     }
 }

@@ -720,7 +720,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn scale_factor(&self) -> f32 {
-        return 1.;
+        1.
         /* cpp! { unsafe [painter as "QPainter*"] -> f32 as "float" {
             return painter->paintEngine()->paintDevice()->devicePixelRatioF();
         }} */
