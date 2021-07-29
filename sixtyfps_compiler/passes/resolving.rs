@@ -640,11 +640,11 @@ impl Expression {
         let (lhs_n, rhs_n) = node.Expression();
         let mut lhs = Self::from_expression_node(lhs_n.clone(), ctx);
         let op = None
-            .or(node.child_token(SyntaxKind::PlusEqual).and(Some('+')))
-            .or(node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
-            .or(node.child_token(SyntaxKind::StarEqual).and(Some('*')))
-            .or(node.child_token(SyntaxKind::DivEqual).and(Some('/')))
-            .or(node.child_token(SyntaxKind::Equal).and(Some('=')))
+            .or_else(|| node.child_token(SyntaxKind::PlusEqual).and(Some('+')))
+            .or_else(|| node.child_token(SyntaxKind::MinusEqual).and(Some('-')))
+            .or_else(|| node.child_token(SyntaxKind::StarEqual).and(Some('*')))
+            .or_else(|| node.child_token(SyntaxKind::DivEqual).and(Some('/')))
+            .or_else(|| node.child_token(SyntaxKind::Equal).and(Some('=')))
             .unwrap_or('_');
         if !lhs.try_set_rw() && lhs.ty() != Type::Invalid {
             ctx.diag.push_error(
@@ -684,18 +684,18 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let op = None
-            .or(node.child_token(SyntaxKind::Plus).and(Some('+')))
-            .or(node.child_token(SyntaxKind::Minus).and(Some('-')))
-            .or(node.child_token(SyntaxKind::Star).and(Some('*')))
-            .or(node.child_token(SyntaxKind::Div).and(Some('/')))
-            .or(node.child_token(SyntaxKind::LessEqual).and(Some('≤')))
-            .or(node.child_token(SyntaxKind::GreaterEqual).and(Some('≥')))
-            .or(node.child_token(SyntaxKind::LAngle).and(Some('<')))
-            .or(node.child_token(SyntaxKind::RAngle).and(Some('>')))
-            .or(node.child_token(SyntaxKind::EqualEqual).and(Some('=')))
-            .or(node.child_token(SyntaxKind::NotEqual).and(Some('!')))
-            .or(node.child_token(SyntaxKind::AndAnd).and(Some('&')))
-            .or(node.child_token(SyntaxKind::OrOr).and(Some('|')))
+            .or_else(|| node.child_token(SyntaxKind::Plus).and(Some('+')))
+            .or_else(|| node.child_token(SyntaxKind::Minus).and(Some('-')))
+            .or_else(|| node.child_token(SyntaxKind::Star).and(Some('*')))
+            .or_else(|| node.child_token(SyntaxKind::Div).and(Some('/')))
+            .or_else(|| node.child_token(SyntaxKind::LessEqual).and(Some('≤')))
+            .or_else(|| node.child_token(SyntaxKind::GreaterEqual).and(Some('≥')))
+            .or_else(|| node.child_token(SyntaxKind::LAngle).and(Some('<')))
+            .or_else(|| node.child_token(SyntaxKind::RAngle).and(Some('>')))
+            .or_else(|| node.child_token(SyntaxKind::EqualEqual).and(Some('=')))
+            .or_else(|| node.child_token(SyntaxKind::NotEqual).and(Some('!')))
+            .or_else(|| node.child_token(SyntaxKind::AndAnd).and(Some('&')))
+            .or_else(|| node.child_token(SyntaxKind::OrOr).and(Some('|')))
             .unwrap_or('_');
 
         let (lhs_n, rhs_n) = node.Expression();
@@ -781,9 +781,9 @@ impl Expression {
         Expression::UnaryOp {
             sub: Box::new(exp),
             op: None
-                .or(node.child_token(SyntaxKind::Plus).and(Some('+')))
-                .or(node.child_token(SyntaxKind::Minus).and(Some('-')))
-                .or(node.child_token(SyntaxKind::Bang).and(Some('!')))
+                .or_else(|| node.child_token(SyntaxKind::Plus).and(Some('+')))
+                .or_else(|| node.child_token(SyntaxKind::Minus).and(Some('-')))
+                .or_else(|| node.child_token(SyntaxKind::Bang).and(Some('!')))
                 .unwrap_or('_'),
         }
     }

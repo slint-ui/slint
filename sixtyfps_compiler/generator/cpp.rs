@@ -1659,7 +1659,7 @@ fn compile_expression(
             let false_code = return_compile_expression(false_expr, component, Some(&ty));
             format!(
                 r#"[&]() -> {} {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
-                ty.cpp_type().unwrap_or("void".into()),
+                ty.cpp_type().unwrap_or_else(|| "void".to_string()),
                 cond_code,
                 true_code,
                 false_code

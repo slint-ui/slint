@@ -337,7 +337,7 @@ impl Type {
                 .member_functions
                 .get(name)
                 .cloned()
-                .unwrap_or(crate::typeregister::reserved_member_function(name)),
+                .unwrap_or_else(|| crate::typeregister::reserved_member_function(name)),
             Type::Component(component) => {
                 component.root_element.borrow().base_type.lookup_member_function(name)
             }
