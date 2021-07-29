@@ -212,6 +212,7 @@ export Clip := _ {
     property <length> height;
     property <length> border_radius;
     property <length> border_width;
+    property <bool> clip;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }

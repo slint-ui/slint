@@ -14,7 +14,11 @@ LICENSE END */
 export Test := Window {
     background: white;
 
-    Rectangle {
+    TouchArea {
+        clicked => { r.clip = !r.clip; }
+    }
+
+    r:= Rectangle {
         x: 50px;
         y: 50px;
         width: 300px;

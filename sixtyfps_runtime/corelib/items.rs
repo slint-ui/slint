@@ -564,6 +564,7 @@ pub struct Clip {
     pub border_radius: Property<f32>,
     pub border_width: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
+    pub clip: Property<bool>,
 }
 
 impl Item for Clip {
@@ -588,7 +589,9 @@ impl Item for Clip {
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.pos() {
-            if pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height() {
+            if self.clip()
+                && (pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height())
+            {
                 return InputEventFilterResult::Intercept;
             }
         }
@@ -611,12 +614,14 @@ impl Item for Clip {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
-        let geometry = self.geometry();
-        (*backend).combine_clip(
-            euclid::rect(0., 0., geometry.width(), geometry.height()),
-            self.border_radius(),
-            self.border_width(),
-        )
+        if self.clip() {
+            let geometry = self.geometry();
+            (*backend).combine_clip(
+                euclid::rect(0., 0., geometry.width(), geometry.height()),
+                self.border_radius(),
+                self.border_width(),
+            )
+        }
     }
 }
 
