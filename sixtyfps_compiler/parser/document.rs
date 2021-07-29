@@ -20,11 +20,16 @@ use super::r#type::parse_struct_declaration;
 /// Type := Base {} export { Type }
 /// import { Base } from "somewhere"; Type := Base {}
 /// struct Foo := { foo: foo }
+/// /* empty */
 /// ```
 pub fn parse_document(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Document);
 
     loop {
+        if p.nth(0).kind() == SyntaxKind::Eof {
+            return true;
+        }
+
         match p.peek().as_str() {
             "export" => {
                 if !parse_export(&mut *p) {
@@ -46,10 +51,6 @@ pub fn parse_document(p: &mut impl Parser) -> bool {
                     return false;
                 }
             }
-        }
-
-        if p.nth(0).kind() == SyntaxKind::Eof {
-            return true;
         }
     }
 }

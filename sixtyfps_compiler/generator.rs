@@ -18,6 +18,7 @@ use std::rc::{Rc, Weak};
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression};
+use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
 
@@ -69,6 +70,12 @@ pub fn generate(
 ) -> std::io::Result<()> {
     #![allow(unused_variables)]
     #![allow(unreachable_code)]
+
+    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+        // empty document, nothing to generate
+        return Ok(());
+    }
+
     match format {
         #[cfg(feature = "cpp")]
         OutputFormat::Cpp => {

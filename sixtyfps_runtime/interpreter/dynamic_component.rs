@@ -653,8 +653,12 @@ pub async fn load(
     if diag.has_error() {
         return (Err(()), diag);
     }
-    let (doc, diag) = compile_syntax_node(syntax_node, diag, compiler_config).await;
+    let (doc, mut diag) = compile_syntax_node(syntax_node, diag, compiler_config).await;
     if diag.has_error() {
+        return (Err(()), diag);
+    }
+    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+        diag.push_error_with_span("No component found".into(), Default::default());
         return (Err(()), diag);
     }
     (Ok(generate_component(&doc.root_component, guard)), diag)

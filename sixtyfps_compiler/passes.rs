@@ -49,6 +49,11 @@ pub async fn run_passes(
     mut type_loader: &mut crate::typeloader::TypeLoader<'_>,
     compiler_config: &crate::CompilerConfiguration,
 ) {
+    if doc.inner_components.is_empty() {
+        // nothing to do
+        return;
+    }
+
     let global_type_registry = type_loader.global_type_registry.clone();
     let root_component = &doc.root_component;
     infer_aliases_types::resolve_aliases(doc, diag);
