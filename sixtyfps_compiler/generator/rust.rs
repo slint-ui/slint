@@ -187,15 +187,15 @@ fn handle_property_binding(
 
     if matches!(prop_type, Type::Callback { .. }) {
         let tokens_for_expression = compile_expression(binding_expression, component);
-        init.push(quote!(
-            #rust_property.set_handler({
-                #downgrade
-                move |args| {
+        init.push(quote!({
+            #downgrade
+            sixtyfps::internal::set_callback_handler(#rust_property, self_weak, {
+                move |self_weak, args| {
                     #upgrade
                     (#tokens_for_expression) as _
                 }
             });
-        ));
+        }));
     } else if let Expression::TwoWayBinding(nr, next) = &binding_expression {
         let p2 = access_member(&nr.element(), nr.name(), component, quote!(_self), false);
         init.push(quote!(
@@ -219,8 +219,7 @@ fn handle_property_binding(
             quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
         } else {
             let binding_tokens = quote!({
-                #downgrade
-                move || {
+                move |self_weak| {
                     #upgrade
                     (#tokens_for_expression) as _
                 }
@@ -228,12 +227,18 @@ fn handle_property_binding(
 
             let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
-                quote! { sixtyfps::re_exports::set_state_binding(#rust_property, #binding_tokens); }
+                quote! { {
+                    #downgrade
+                    sixtyfps::internal::set_property_state_binding(#rust_property, self_weak, #binding_tokens);
+                } }
             } else {
                 match animation {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
                         let anim = property_animation_tokens(component, anim);
-                        quote! { #rust_property.set_animated_binding(#binding_tokens, #anim); }
+                        quote! { {
+                            #downgrade
+                            sixtyfps::internal::set_animated_property_binding(#rust_property, self_weak, #binding_tokens, #anim);
+                        } }
                     }
                     Some(crate::object_tree::PropertyAnimation::Transition {
                         state_ref,
@@ -253,7 +258,7 @@ fn handle_property_binding(
                         });
                         quote! {
                             #downgrade
-                            #rust_property.set_animated_binding_for_transition(#binding_tokens, move || {
+                            sixtyfps::internal::set_animated_property_binding_for_transition(#rust_property, self_weak, #binding_tokens, move |self_weak| {
                                 #upgrade
                                 let state = #state_tokens;
                                 ({ #(#anim_expr else)* { sixtyfps::re_exports::PropertyAnimation::default() }  }, state.change_time)
@@ -261,7 +266,10 @@ fn handle_property_binding(
                         }
                     }
                     None => {
-                        quote! { #rust_property.set_binding(#binding_tokens); }
+                        quote! { {
+                            #downgrade
+                            sixtyfps::internal::set_property_binding(#rust_property, self_weak, #binding_tokens);
+                        } }
                     }
                 }
             }
