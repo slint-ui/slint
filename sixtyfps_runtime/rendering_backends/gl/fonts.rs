@@ -385,7 +385,8 @@ thread_local! {
 impl FontCache {
     fn load_single_font(&mut self, request: &FontRequest) -> femtovg::FontId {
         let text_context = self.text_context.clone();
-        self.fonts
+        *self
+            .fonts
             .entry(FontCacheKey {
                 family: request.family.clone().unwrap_or_default(),
                 weight: request.weight.unwrap(),
@@ -394,7 +395,6 @@ impl FontCache {
                 try_load_app_font(&text_context, &request)
                     .unwrap_or_else(|| load_system_font(&text_context, &request))
             })
-            .clone()
     }
 
     pub fn font(
