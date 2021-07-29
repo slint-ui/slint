@@ -45,7 +45,12 @@ pub(crate) fn handle_transform_and_opacity(
 
         let has_opacity_binding = |e: &ElementRc| {
             e.borrow().base_type.lookup_property("opacity").property_type != Type::Invalid
-                && e.borrow().bindings.contains_key("opacity")
+                && (e.borrow().bindings.contains_key("opacity")
+                    || e.borrow()
+                        .property_analysis
+                        .borrow()
+                        .get("opacity")
+                        .map_or(false, |a| a.is_set))
         };
 
         for mut child in old_children {

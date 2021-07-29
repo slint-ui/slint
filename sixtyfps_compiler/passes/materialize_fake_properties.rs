@@ -28,7 +28,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
             let mut elem = elem.borrow_mut();
             let elem = &mut *elem;
             if maybe_materialize(&mut elem.property_declarations, &elem.base_type, nr.name())
-                && !elem.bindings.contains_key(nr.name())
+                && must_initialize(elem, nr.name())
             {
                 to_initialize.insert(nr.clone());
             }
@@ -42,8 +42,45 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 
     for nr in to_initialize {
         let elem = nr.element();
-        if !elem.borrow().bindings.contains_key(nr.name()) {
-            initialize(elem, nr.name())
+        if let Some(init_expr) = initialize(&elem, nr.name()) {
+            let mut elem_mut = elem.borrow_mut();
+            let span = elem_mut.to_source_location();
+            match elem_mut.bindings.entry(nr.name().into()) {
+                std::collections::btree_map::Entry::Vacant(e) => {
+                    e.insert(BindingExpression::new_with_span(init_expr, span));
+                }
+                std::collections::btree_map::Entry::Occupied(mut e) => {
+                    let mut expr = &mut e.get_mut().expression;
+                    while let Expression::TwoWayBinding(_, next) = dbg!(expr) {
+                        if let Some(next) = next {
+                            expr = next;
+                        } else {
+                            *next = Some(Box::new(init_expr));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if !elem.borrow().bindings.contains_key(nr.name()) {}
+    }
+}
+
+// One must initialize if there is an actual expression for that binding
+fn must_initialize(elem: &Element, prop: &str) -> bool {
+    match elem.bindings.get(prop) {
+        None => true,
+        Some(b) => {
+            // Check if this is a TwoWay binding that need to be initialized anyway
+            let mut expr = &b.expression;
+            while let Expression::TwoWayBinding(_, next) = expr {
+                if let Some(next) = next {
+                    expr = next
+                } else {
+                    return true;
+                }
+            }
+            false
         }
     }
 }
@@ -93,21 +130,21 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
 }
 
 /// Initialize a sensible default binding for the now materialized property
-fn initialize(elem: ElementRc, name: &str) {
+fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
     let expr = match name {
-        "min_height" => layout_constraint_prop(&elem, "min", Orientation::Vertical),
-        "min_width" => layout_constraint_prop(&elem, "min", Orientation::Horizontal),
-        "max_height" => layout_constraint_prop(&elem, "max", Orientation::Vertical),
-        "max_width" => layout_constraint_prop(&elem, "max", Orientation::Horizontal),
-        "preferred_height" => layout_constraint_prop(&elem, "preferred", Orientation::Vertical),
-        "preferred_width" => layout_constraint_prop(&elem, "preferred", Orientation::Horizontal),
-        "horizontal_stretch" => layout_constraint_prop(&elem, "stretch", Orientation::Horizontal),
-        "vertical_stretch" => layout_constraint_prop(&elem, "stretch", Orientation::Vertical),
+        "min_height" => layout_constraint_prop(elem, "min", Orientation::Vertical),
+        "min_width" => layout_constraint_prop(elem, "min", Orientation::Horizontal),
+        "max_height" => layout_constraint_prop(elem, "max", Orientation::Vertical),
+        "max_width" => layout_constraint_prop(elem, "max", Orientation::Horizontal),
+        "preferred_height" => layout_constraint_prop(elem, "preferred", Orientation::Vertical),
+        "preferred_width" => layout_constraint_prop(elem, "preferred", Orientation::Horizontal),
+        "horizontal_stretch" => layout_constraint_prop(elem, "stretch", Orientation::Horizontal),
+        "vertical_stretch" => layout_constraint_prop(elem, "stretch", Orientation::Vertical),
         "opacity" => Expression::NumberLiteral(1., Unit::None),
-        _ => return,
+        "visible" => Expression::BoolLiteral(true),
+        _ => return None,
     };
-    let b = BindingExpression::new_with_span(expr, elem.borrow().to_source_location());
-    elem.borrow_mut().bindings.insert(name.into(), b);
+    Some(expr)
 }
 
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {

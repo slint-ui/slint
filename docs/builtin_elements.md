@@ -15,6 +15,9 @@ These properties are valid on all visible items
   When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
 * **`opacity`** (*float*): A value between 0 and 1 (or a percentage) that is used to draw the element and its
   children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
+* **`visible`** (*bool*): When set to false, the element and all his children will not be drawn
+  and not reply to mouse input (default: true)
+
 
 ### Drop Shadows
 

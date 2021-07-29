@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
  - Added conversion between `sixtyfps::Image` and `sixtyfps::interpreter::Value` in the C++ API
  - `angle` and `duration` are allowed in the public API
  - The `clip` property can now be any expression
+ - Every element now have a `visible` property
 
 ### Fixed
 

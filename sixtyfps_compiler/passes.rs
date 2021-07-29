@@ -40,6 +40,7 @@ mod resolve_native_classes;
 mod resolving;
 mod transform_and_opacity;
 mod unique_id;
+mod visible;
 mod z_order;
 
 pub async fn run_passes(
@@ -89,6 +90,7 @@ pub async fn run_passes(
         diag,
     );
     default_geometry::default_geometry(root_component, diag);
+    visible::handle_visible(root_component, &global_type_registry.borrow());
     materialize_fake_properties::materialize_fake_properties(root_component);
     apply_default_properties_from_style::apply_default_properties_from_style(
         root_component,
