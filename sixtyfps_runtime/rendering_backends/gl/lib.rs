@@ -1085,7 +1085,7 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn get_current_clip(&self) -> Rect {
-        self.state.last().unwrap().scissor.clone()
+        self.state.last().unwrap().scissor
     }
 
     fn save_state(&mut self) {
