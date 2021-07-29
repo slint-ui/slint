@@ -1436,7 +1436,7 @@ pub fn visit_all_named_references_in_element(
     elem.borrow_mut().layout_info_prop = layout_info_prop;
 
     let mut property_declarations = std::mem::take(&mut elem.borrow_mut().property_declarations);
-    for (_, pd) in &mut property_declarations {
+    for pd in property_declarations.values_mut() {
         pd.is_alias.as_mut().map(&mut vis);
     }
     elem.borrow_mut().property_declarations = property_declarations;
