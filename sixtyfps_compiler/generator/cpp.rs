@@ -1165,7 +1165,7 @@ fn generate_component(
         ));
 
         let parent_item_from_parent_component = if let Some(parent_index) =
-            component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().map(|x| *x))
+            component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().copied())
         {
             format!(
                 "   *result = sixtyfps::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->item_tree(), {});",
