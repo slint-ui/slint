@@ -252,6 +252,72 @@ pub mod re_exports {
     pub use vtable::{self, *};
 }
 
+#[doc(hidden)]
+pub mod internal {
+    use crate::re_exports::*;
+    use core::pin::Pin;
+
+    // Helper functions called from generated code to reduce code bloat from
+    // extra copies of the original functions for each call site due to
+    // the impl Fn() they are taking.
+
+    pub fn set_property_binding<T: Clone + 'static, WeakRef: 'static>(
+        property: Pin<&Property<T>>,
+        component_weak: WeakRef,
+        binding: fn(&WeakRef) -> T,
+    ) {
+        property.set_binding(move || binding(&component_weak))
+    }
+
+    pub fn set_animated_property_binding<
+        T: Clone + sixtyfps_corelib::properties::InterpolatedPropertyValue + 'static,
+        WeakRef: 'static,
+    >(
+        property: Pin<&Property<T>>,
+        component_weak: WeakRef,
+        binding: fn(&WeakRef) -> T,
+        animation_data: PropertyAnimation,
+    ) {
+        property.set_animated_binding(move || binding(&component_weak), animation_data)
+    }
+
+    pub fn set_animated_property_binding_for_transition<
+        T: Clone + sixtyfps_corelib::properties::InterpolatedPropertyValue + 'static,
+        WeakRef: Clone + 'static,
+    >(
+        property: Pin<&Property<T>>,
+        component_weak: WeakRef,
+        binding: fn(&WeakRef) -> T,
+        compute_animation_details: fn(
+            &WeakRef,
+        )
+            -> (PropertyAnimation, sixtyfps_corelib::animations::Instant),
+    ) {
+        let weak_1 = component_weak;
+        let weak_2 = weak_1.clone();
+        property.set_animated_binding_for_transition(
+            move || binding(&weak_1),
+            move || compute_animation_details(&weak_2),
+        )
+    }
+
+    pub fn set_property_state_binding<WeakRef: 'static>(
+        property: Pin<&Property<StateInfo>>,
+        component_weak: WeakRef,
+        binding: fn(&WeakRef) -> i32,
+    ) {
+        crate::re_exports::set_state_binding(property, move || binding(&component_weak))
+    }
+
+    pub fn set_callback_handler<Arg: ?Sized + 'static, Ret: Default + 'static, WeakRef: 'static>(
+        callback: Pin<&Callback<Arg, Ret>>,
+        component_weak: WeakRef,
+        handler: fn(&WeakRef, &Arg) -> Ret,
+    ) {
+        callback.set_handler(move |arg| handler(&component_weak, arg))
+    }
+}
+
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> re_exports::WindowRc {
