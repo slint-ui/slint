@@ -125,6 +125,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
     Some(quote! {
         #[allow(non_snake_case)]
         #[allow(clippy::match_single_binding)]
+        #[allow(clippy::deref_addrof)]
         mod #compo_module {
             use sixtyfps::re_exports::*;
             #(#structs)*
