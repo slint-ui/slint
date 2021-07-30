@@ -644,6 +644,8 @@ struct NativeSliderData {
     pressed_val: f32,
 }
 
+type FloatArg = (f32,);
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
@@ -658,6 +660,7 @@ pub struct NativeSlider {
     pub maximum: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
     data: Property<NativeSliderData>,
+    pub changed: Callback<FloatArg>,
 }
 
 cpp! {{
@@ -787,7 +790,9 @@ impl Item for NativeSlider {
                     // FIXME: use QStyle::subControlRect to find out the actual size of the groove
                     let new_val = data.pressed_val
                         + ((pos.x as f32) - data.pressed_x) * (max - min) / size.width as f32;
-                    self.value.set(new_val.max(min).min(max));
+                    let new_val = new_val.max(min).min(max);
+                    self.value.set(new_val);
+                    Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored

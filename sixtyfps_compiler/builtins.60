@@ -435,6 +435,7 @@ export NativeSlider := _ {
     property <float> value: native_output;
     property <float> minimum;
     property <float> maximum: 100;
+    callback changed(float);
     //-is_internal
 }
 
