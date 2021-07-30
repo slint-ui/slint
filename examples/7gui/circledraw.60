@@ -13,6 +13,8 @@ import { LineEdit, Button, Slider, StandardListView, VerticalBox } from "sixtyfp
 struct Circle := { x: float, y: float, r: float }
 
 CircleDraw := Window {
+    preferred_width: 500px;
+    preferred_height: 400px;
 
     property <[Circle]> model: [
         { x: 0.1, y:0.1, r: 5  },
@@ -75,7 +77,10 @@ CircleDraw := Window {
         }
 
         VerticalBox {
-            Text { text: "Adjust diameter of cercle at (" + selected_circle.x + ", " +  selected_circle.y + ")."; }
+            Text {
+                text: "Adjust diameter of cercle at (" + selected_circle.x + ", " +  selected_circle.y + ").";
+                wrap: word-wrap;
+            }
             Slider {
                 maximum: 100;
                 value: selected_circle.r;
