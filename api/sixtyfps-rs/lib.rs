@@ -295,7 +295,6 @@ pub mod internal {
     ) {
         let weak = component_strong.to_weak();
         property.set_binding(move || {
-            //let strong = ;
             binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap())
         })
     }
