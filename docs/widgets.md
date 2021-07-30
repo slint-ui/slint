@@ -90,6 +90,10 @@ Example := Window {
 * **`minimum`** (*float*): The minimum value (default: 0)
 * **`maximum`** (*float*): The maximum value (default: 100)
 
+### Callbacks
+
+* **`changed(float)`**: The value was changed
+
 ### Example
 
 ```60

@@ -225,6 +225,7 @@ export Slider := Rectangle {
     property<float> minimum: 0;
     property<float> value;
     property<bool> enabled <=> touch_area.enabled;
+    callback changed(float);
 
     max_height: 32px;
     min_height: 32px;
@@ -274,6 +275,7 @@ export Slider := Rectangle {
         clicked => {
             if (enabled) {
                 root.value = handle.new_value;
+                root.changed(root.value);
             }
         }
     }

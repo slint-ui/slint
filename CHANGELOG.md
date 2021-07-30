@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
  - `angle` and `duration` are allowed in the public API
  - The `clip` property can now be any expression
  - Every element now have a `visible` property
+ - Added `changed` callback to the `Slider` widget
 
 ### Fixed
 
