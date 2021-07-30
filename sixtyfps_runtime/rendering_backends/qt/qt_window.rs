@@ -472,7 +472,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let selection_background_color: u32 =
             text_input.selection_background_color().as_argb_encoded();
 
-        let string: qttypes::QString = text_input.text().as_str().into();
+        let text = text_input.text();
+        let string: qttypes::QString = text.as_str().into();
         let font: QFont =
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties));
         let flags = match text_input.horizontal_alignment() {
@@ -484,8 +485,24 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         };
-        let cursor_position: i32 = text_input.cursor_position();
-        let anchor_position: i32 = text_input.anchor_position();
+
+        // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
+        // what QTextLayout expects.
+        let cursor_position_as_offset: i32 = text_input.cursor_position();
+        let anchor_position_as_offset: i32 = text_input.anchor_position();
+        let cursor_position: i32 = if cursor_position_as_offset > 0 {
+            utf8_byte_offset_to_utf16_units(text.as_str(), cursor_position_as_offset as usize)
+                as i32
+        } else {
+            0
+        };
+        let anchor_position: i32 = if anchor_position_as_offset > 0 {
+            utf8_byte_offset_to_utf16_units(text.as_str(), anchor_position_as_offset as usize)
+                as i32
+        } else {
+            0
+        };
+
         let text_cursor_width: f32 =
             if text_input.cursor_visible() { text_input.text_cursor_width() } else { 0. };
 
@@ -1502,5 +1519,36 @@ pub(crate) mod ffi {
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })
+    }
+}
+
+fn utf8_byte_offset_to_utf16_units(str: &str, byte_offset: usize) -> usize {
+    let mut current_offset = 0;
+    let mut utf16_units = 0;
+    for ch in str.chars() {
+        if current_offset >= byte_offset {
+            break;
+        }
+        current_offset += ch.len_utf8();
+        utf16_units += ch.len_utf16();
+    }
+    utf16_units
+}
+
+#[test]
+fn test_utf8_byte_offset_to_utf16_units() {
+    assert_eq!(utf8_byte_offset_to_utf16_units("Hello", 2), 2);
+
+    {
+        let test_str = "a🚀🍌";
+        assert_eq!(test_str.encode_utf16().count(), 5);
+
+        let banana_offset = test_str.char_indices().skip(2).next().unwrap().0;
+
+        assert_eq!(
+            utf8_byte_offset_to_utf16_units(test_str, banana_offset),
+            // 'a' encodes as one utf-16 unit, the rocket ship requires two units
+            3
+        );
     }
 }
