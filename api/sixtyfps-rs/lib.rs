@@ -256,65 +256,114 @@ pub mod re_exports {
 pub mod internal {
     use crate::re_exports::*;
     use core::pin::Pin;
+    use std::rc::Rc;
 
     // Helper functions called from generated code to reduce code bloat from
     // extra copies of the original functions for each call site due to
     // the impl Fn() they are taking.
 
-    pub fn set_property_binding<T: Clone + 'static, WeakRef: 'static>(
+    pub trait StrongComponentRef: Sized {
+        type Weak: Clone + 'static;
+        fn to_weak(&self) -> Self::Weak;
+        fn from_weak(weak: &Self::Weak) -> Option<Self>;
+    }
+
+    impl<C: 'static> StrongComponentRef for VRc<ComponentVTable, C> {
+        type Weak = VWeak<ComponentVTable, C>;
+        fn to_weak(&self) -> Self::Weak {
+            VRc::downgrade(&self)
+        }
+        fn from_weak(weak: &Self::Weak) -> Option<Self> {
+            weak.upgrade()
+        }
+    }
+
+    impl<C: 'static> StrongComponentRef for Pin<Rc<C>> {
+        type Weak = PinWeak<C>;
+        fn to_weak(&self) -> Self::Weak {
+            PinWeak::downgrade(self.clone())
+        }
+        fn from_weak(weak: &Self::Weak) -> Option<Self> {
+            weak.upgrade()
+        }
+    }
+
+    pub fn set_property_binding<T: Clone + 'static, StrongRef: StrongComponentRef + 'static>(
         property: Pin<&Property<T>>,
-        component_weak: WeakRef,
-        binding: fn(&WeakRef) -> T,
+        component_strong: &StrongRef,
+        binding: fn(StrongRef) -> T,
     ) {
-        property.set_binding(move || binding(&component_weak))
+        let weak = component_strong.to_weak();
+        property.set_binding(move || {
+            //let strong = ;
+            binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap())
+        })
     }
 
     pub fn set_animated_property_binding<
         T: Clone + sixtyfps_corelib::properties::InterpolatedPropertyValue + 'static,
-        WeakRef: 'static,
+        StrongRef: StrongComponentRef + 'static,
     >(
         property: Pin<&Property<T>>,
-        component_weak: WeakRef,
-        binding: fn(&WeakRef) -> T,
+        component_strong: &StrongRef,
+        binding: fn(StrongRef) -> T,
         animation_data: PropertyAnimation,
     ) {
-        property.set_animated_binding(move || binding(&component_weak), animation_data)
+        let weak = component_strong.to_weak();
+        property.set_animated_binding(
+            move || binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap()),
+            animation_data,
+        )
     }
 
     pub fn set_animated_property_binding_for_transition<
         T: Clone + sixtyfps_corelib::properties::InterpolatedPropertyValue + 'static,
-        WeakRef: Clone + 'static,
+        StrongRef: StrongComponentRef + 'static,
     >(
         property: Pin<&Property<T>>,
-        component_weak: WeakRef,
-        binding: fn(&WeakRef) -> T,
+        component_strong: &StrongRef,
+        binding: fn(StrongRef) -> T,
         compute_animation_details: fn(
-            &WeakRef,
+            StrongRef,
         )
             -> (PropertyAnimation, sixtyfps_corelib::animations::Instant),
     ) {
-        let weak_1 = component_weak;
+        let weak_1 = component_strong.to_weak();
         let weak_2 = weak_1.clone();
         property.set_animated_binding_for_transition(
-            move || binding(&weak_1),
-            move || compute_animation_details(&weak_2),
+            move || binding(<StrongRef as StrongComponentRef>::from_weak(&weak_1).unwrap()),
+            move || {
+                compute_animation_details(
+                    <StrongRef as StrongComponentRef>::from_weak(&weak_2).unwrap(),
+                )
+            },
         )
     }
 
-    pub fn set_property_state_binding<WeakRef: 'static>(
+    pub fn set_property_state_binding<StrongRef: StrongComponentRef + 'static>(
         property: Pin<&Property<StateInfo>>,
-        component_weak: WeakRef,
-        binding: fn(&WeakRef) -> i32,
+        component_strong: &StrongRef,
+        binding: fn(StrongRef) -> i32,
     ) {
-        crate::re_exports::set_state_binding(property, move || binding(&component_weak))
+        let weak = component_strong.to_weak();
+        crate::re_exports::set_state_binding(property, move || {
+            binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap())
+        })
     }
 
-    pub fn set_callback_handler<Arg: ?Sized + 'static, Ret: Default + 'static, WeakRef: 'static>(
+    pub fn set_callback_handler<
+        Arg: ?Sized + 'static,
+        Ret: Default + 'static,
+        StrongRef: StrongComponentRef + 'static,
+    >(
         callback: Pin<&Callback<Arg, Ret>>,
-        component_weak: WeakRef,
-        handler: fn(&WeakRef, &Arg) -> Ret,
+        component_strong: &StrongRef,
+        handler: fn(StrongRef, &Arg) -> Ret,
     ) {
-        callback.set_handler(move |arg| handler(&component_weak, arg))
+        let weak = component_strong.to_weak();
+        callback.set_handler(move |arg| {
+            handler(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap(), arg)
+        })
     }
 }
 

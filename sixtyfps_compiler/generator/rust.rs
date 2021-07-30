@@ -173,32 +173,23 @@ fn handle_property_binding(
 ) {
     let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
     let prop_type = item_rc.borrow().lookup_property(prop_name).property_type;
-    let (downgrade, upgrade) =
-        if item_rc.borrow().enclosing_component.upgrade().unwrap().is_global() {
-            (
-                quote!(let self_weak = sixtyfps::re_exports::PinWeak::downgrade(self_rc.clone());),
-                quote!(
-                    let self_rc = self_weak.upgrade().unwrap();
-                    let _self = self_rc.as_ref();
-                ),
-            )
-        } else {
-            (
-                quote!(let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_rc);),
-                quote!(
-                    let self_rc = self_weak.upgrade().unwrap();
-                    let _self = self_rc.as_pin_ref();
-                ),
-            )
-        };
+
+    let init_self_pin_ref = if item_rc.borrow().enclosing_component.upgrade().unwrap().is_global() {
+        quote!(
+            let _self = self_rc.as_ref();
+        )
+    } else {
+        quote!(
+            let _self = self_rc.as_pin_ref();
+        )
+    };
 
     if matches!(prop_type, Type::Callback { .. }) {
         let tokens_for_expression = compile_expression(binding_expression, component);
         init.push(quote!({
-            #downgrade
-            sixtyfps::internal::set_callback_handler(#rust_property, self_weak, {
-                move |self_weak, args| {
-                    #upgrade
+            sixtyfps::internal::set_callback_handler(#rust_property, &self_rc, {
+                move |self_rc, args| {
+                    #init_self_pin_ref
                     (#tokens_for_expression) as _
                 }
             });
@@ -226,8 +217,8 @@ fn handle_property_binding(
             quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
         } else {
             let binding_tokens = quote!({
-                move |self_weak| {
-                    #upgrade
+                move |self_rc| {
+                    #init_self_pin_ref
                     (#tokens_for_expression) as _
                 }
             });
@@ -235,16 +226,15 @@ fn handle_property_binding(
             let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
                 quote! { {
-                    #downgrade
-                    sixtyfps::internal::set_property_state_binding(#rust_property, self_weak, #binding_tokens);
+                    sixtyfps::internal::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
             } else {
                 match animation {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
                         let anim = property_animation_tokens(component, anim);
                         quote! { {
-                            #downgrade
-                            sixtyfps::internal::set_animated_property_binding(#rust_property, self_weak, #binding_tokens, #anim);
+                            #init_self_pin_ref
+                            sixtyfps::internal::set_animated_property_binding(#rust_property, &self_rc, #binding_tokens, #anim);
                         } }
                     }
                     Some(crate::object_tree::PropertyAnimation::Transition {
@@ -264,9 +254,8 @@ fn handle_property_binding(
                             quote!(if #cond { #a_tokens })
                         });
                         quote! {
-                            #downgrade
-                            sixtyfps::internal::set_animated_property_binding_for_transition(#rust_property, self_weak, #binding_tokens, move |self_weak| {
-                                #upgrade
+                            sixtyfps::internal::set_animated_property_binding_for_transition(#rust_property, &self_rc, #binding_tokens, move |self_rc| {
+                                #init_self_pin_ref
                                 let state = #state_tokens;
                                 ({ #(#anim_expr else)* { sixtyfps::re_exports::PropertyAnimation::default() }  }, state.change_time)
                             });
@@ -274,8 +263,7 @@ fn handle_property_binding(
                     }
                     None => {
                         quote! { {
-                            #downgrade
-                            sixtyfps::internal::set_property_binding(#rust_property, self_weak, #binding_tokens);
+                            sixtyfps::internal::set_property_binding(#rust_property, &self_rc, #binding_tokens);
                         } }
                     }
                 }
