@@ -432,6 +432,7 @@ impl ItemConsts for TextInput {
 enum TextCursorDirection {
     Forward,
     Backward,
+    PreviousCharacter, // breaks grapheme boundaries, so only used by delete-previous-char
     StartOfLine,
     EndOfLine,
 }
@@ -487,17 +488,17 @@ impl TextInput {
 
         let last_cursor_pos = (self.cursor_position() as usize).max(0).min(text.len());
 
+        let mut grapheme_cursor =
+            unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
+
         let new_cursor_pos = match direction {
             TextCursorDirection::Forward => {
-                let mut i = last_cursor_pos;
-                loop {
-                    i = i.checked_add(1).unwrap_or_default().min(text.len());
-                    if text.is_char_boundary(i) {
-                        break i;
-                    }
-                }
+                grapheme_cursor.next_boundary(&text, 0).ok().flatten().unwrap_or_else(|| text.len())
             }
             TextCursorDirection::Backward => {
+                grapheme_cursor.prev_boundary(&text, 0).ok().flatten().unwrap_or(0)
+            }
+            TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
                 loop {
                     i = i.checked_sub(1).unwrap_or_default();
@@ -538,7 +539,8 @@ impl TextInput {
             self.delete_selection();
             return;
         }
-        if self.move_cursor(TextCursorDirection::Backward, AnchorMode::MoveAnchor, window) {
+        if self.move_cursor(TextCursorDirection::PreviousCharacter, AnchorMode::MoveAnchor, window)
+        {
             self.delete_char(window);
         }
     }
