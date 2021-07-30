@@ -743,13 +743,19 @@ impl ItemRenderer for GLItemRenderer {
             let (anchor_pos, cursor_pos) = text_input.selection_anchor_and_cursor();
             let mut selection_start_x = 0.;
             let mut selection_end_x = 0.;
+            // Determine the first and last (inclusive) glyph of the selection. The anchor
+            // will always be at the start of a grapheme boundary, so there's at ShapedGlyph
+            // that has a matching byte index. For the selection end we have to look for the
+            // visual end of glyph before the cursor, because due to for example ligatures
+            // (or generally glyph substitution) there may not be a dedicated glyph.
             for glyph in &metrics.glyphs {
                 if glyph.byte_index == anchor_pos {
                     selection_start_x = glyph.x;
                 }
-                if glyph.byte_index == (cursor_pos as i32 - 1).max(0) as usize {
-                    selection_end_x = glyph.x + glyph.advance_x;
+                if glyph.byte_index == cursor_pos {
+                    break;
                 }
+                selection_end_x = glyph.x + glyph.advance_x;
             }
 
             let selection_rect = Rect::new(
