@@ -463,7 +463,8 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 ```60
 Example := Window {
-    FocusScope {
+    forward-focus: my_key_handler;
+    my_key_handler := FocusScope {
         key-pressed(event) => {
             debug(event.text);
             if (event.modifiers.control) {
