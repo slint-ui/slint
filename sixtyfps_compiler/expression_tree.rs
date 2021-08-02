@@ -13,7 +13,7 @@ use crate::layout::Orientation;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
 // FIXME remove the pub
@@ -1177,7 +1177,7 @@ pub enum Path {
 #[derive(Debug, Clone)]
 pub struct PathElement {
     pub element_type: Rc<BuiltinElement>,
-    pub bindings: BTreeMap<String, BindingExpression>,
+    pub bindings: BindingsMap,
 }
 
 #[derive(Clone, Debug)]
