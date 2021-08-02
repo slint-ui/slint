@@ -214,7 +214,19 @@ fn handle_property_binding(
         let tokens_for_expression = compile_expression(binding_expression, component);
         init.push(if is_constant {
             let t = rust_type(&prop_type).unwrap_or(quote!(_));
-            quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
+
+            let mut uses_return = false;
+            binding_expression.visit_recursive(&mut |e| {
+                if matches!(e, Expression::ReturnStatement(..)) {
+                    uses_return = true;
+                }
+            });
+
+            if uses_return {
+                quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
+            } else {
+                quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
+            }
         } else {
             let binding_tokens = quote!({
                 move |self_rc| {
