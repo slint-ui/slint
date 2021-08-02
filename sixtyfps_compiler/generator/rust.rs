@@ -215,6 +215,9 @@ fn handle_property_binding(
         init.push(if is_constant {
             let t = rust_type(&prop_type).unwrap_or(quote!(_));
 
+            // When there is a `return` statement, we must use a lambda expression in the generated code so that the 
+            // generated code can have an actual return in it. We only want to do that if necessary because otherwise
+            // this would slow down the rust compilation
             let mut uses_return = false;
             binding_expression.visit_recursive(&mut |e| {
                 if matches!(e, Expression::ReturnStatement(..)) {
