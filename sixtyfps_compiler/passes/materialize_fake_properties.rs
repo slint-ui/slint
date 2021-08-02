@@ -51,7 +51,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
                 }
                 std::collections::btree_map::Entry::Occupied(mut e) => {
                     let mut expr = &mut e.get_mut().expression;
-                    while let Expression::TwoWayBinding(_, next) = dbg!(expr) {
+                    while let Expression::TwoWayBinding(_, next) = expr {
                         if let Some(next) = next {
                             expr = next;
                         } else {
