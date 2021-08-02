@@ -1,0 +1,43 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+
+TestCase := Rectangle {
+
+    width: 100px;
+    height: 200px;
+
+    r := Rectangle {
+        // default geometry for width & height
+        animate height { duration: 1s; }
+        animate width { duration: 1s; }
+    }
+
+    property<bool> test: r.width == 100px && r.height == 200px;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new sixtyfps.TestCase({});
+assert(instance.test, 1);
+```
+
+*/

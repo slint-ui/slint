@@ -54,7 +54,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
 
         // take the bindings so we do nt keep the borrow_mut of the element
         let bindings = core::mem::take(&mut elem.borrow_mut().bindings);
-        let mut new_bindings = BTreeMap::new();
+        let mut new_bindings = BindingsMap::default();
         for (k, e) in bindings {
             let will_be_moved = elem.borrow().property_declarations.contains_key(&k);
             if will_be_moved {

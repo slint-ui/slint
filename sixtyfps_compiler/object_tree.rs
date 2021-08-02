@@ -23,7 +23,9 @@ use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
+use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap};
+use std::iter::FromIterator;
 use std::rc::{Rc, Weak};
 
 macro_rules! unwrap_or_continue {
@@ -354,6 +356,59 @@ impl Clone for PropertyAnimation {
     }
 }
 
+// Wrapper around BindingsMap to offer an animation-preserving "insert" variant.
+#[derive(Debug, Clone, Default, derive_more::Deref, derive_more::DerefMut)]
+pub struct BindingsMap(BTreeMap<String, BindingExpression>);
+
+impl BindingsMap {
+    pub fn set_binding_if_not_set(&mut self, property_name: String, expression: BindingExpression) {
+        match self.0.entry(property_name) {
+            Entry::Vacant(vacant_entry) => {
+                vacant_entry.insert(expression);
+            }
+            Entry::Occupied(mut existing_entry) => {
+                existing_entry.get_mut().merge_with(&expression);
+            }
+        };
+    }
+}
+
+impl IntoIterator for BindingsMap {
+    type Item = (String, BindingExpression);
+
+    type IntoIter = std::collections::btree_map::IntoIter<String, BindingExpression>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a BindingsMap {
+    type Item = (&'a String, &'a BindingExpression);
+
+    type IntoIter = std::collections::btree_map::Iter<'a, String, BindingExpression>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut BindingsMap {
+    type Item = (&'a String, &'a mut BindingExpression);
+
+    type IntoIter = std::collections::btree_map::IterMut<'a, String, BindingExpression>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter_mut()
+    }
+}
+
+impl FromIterator<(String, BindingExpression)> for BindingsMap {
+    fn from_iter<T: IntoIterator<Item = (String, BindingExpression)>>(iter: T) -> Self {
+        Self(BTreeMap::from_iter(iter))
+    }
+}
+
 /// An Element is an instantiation of a Component
 #[derive(Default)]
 pub struct Element {
@@ -366,7 +421,7 @@ pub struct Element {
     //pub base: QualifiedTypeName,
     pub base_type: crate::langtype::Type,
     /// Currently contains also the callbacks. FIXME: should that be changed?
-    pub bindings: BTreeMap<String, BindingExpression>,
+    pub bindings: BindingsMap,
     pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
 
     pub children: Vec<ElementRc>,
