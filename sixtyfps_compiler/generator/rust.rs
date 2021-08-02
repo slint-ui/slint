@@ -1399,7 +1399,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     quote!(sixtyfps::re_exports::Image::default())
                 }
                 crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                     quote!(sixtyfps::re_exports::Image::load_from_path(std::path::Path::new(#path)))
+                     quote!(sixtyfps::re_exports::Image::load_from_path(::core::path::Path::new(#path)))
                 },
                 crate::expression_tree::ImageReference::EmbeddedData(resource_id) => {
                     let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
