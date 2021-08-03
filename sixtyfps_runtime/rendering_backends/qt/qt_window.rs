@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+// cspell:ignore corelib SFPS QWIDGETSIZE pixmap qpointf qreal Antialiasing ARGB Rgba
+
 use cpp::*;
 use euclid::approxeq::ApproxEq;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
@@ -134,19 +136,19 @@ cpp! {{
         }
 
         void keyPressEvent(QKeyEvent *event) override {
-            uint modif = uint(event->modifiers());
+            uint modifiers = uint(event->modifiers());
             QString text =  event->text();
             int key = event->key();
-            rust!(SFPS_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modif: u32 as "uint"] {
-                rust_window.key_event(key, text.clone(), modif, false);
+            rust!(SFPS_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modifiers: u32 as "uint"] {
+                rust_window.key_event(key, text.clone(), modifiers, false);
             });
         }
         void keyReleaseEvent(QKeyEvent *event) override {
-            uint modif = uint(event->modifiers());
+            uint modifiers = uint(event->modifiers());
             QString text =  event->text();
             int key = event->key();
-            rust!(SFPS_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modif: u32 as "uint"] {
-                rust_window.key_event(key, text.clone(), modif, true);
+            rust!(SFPS_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modifiers: u32 as "uint"] {
+                rust_window.key_event(key, text.clone(), modifiers, true);
             });
         }
 
@@ -427,7 +429,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 }
                 painter->drawText(rect, flags, elided);
             } else {
-                // elide and word wrap: we need to add the elipsis manually on the last line
+                // elide and word wrap: we need to add the ellipsis manually on the last line
                 string.replace(QChar('\n'), QChar::LineSeparator);
                 QString elided = string;
                 QFontMetrics fm(font);
@@ -1079,14 +1081,14 @@ impl QtWindow {
         timer_event();
     }
 
-    fn key_event(&self, key: i32, text: qttypes::QString, modif: u32, released: bool) {
+    fn key_event(&self, key: i32, text: qttypes::QString, qt_modifiers: u32, released: bool) {
         sixtyfps_corelib::animations::update_animations();
         let text: String = text.into();
         let modifiers = sixtyfps_corelib::input::KeyboardModifiers {
-            control: (modif & key_generated::Qt_KeyboardModifier_ControlModifier) != 0,
-            alt: (modif & key_generated::Qt_KeyboardModifier_AltModifier) != 0,
-            shift: (modif & key_generated::Qt_KeyboardModifier_ShiftModifier) != 0,
-            meta: (modif & key_generated::Qt_KeyboardModifier_MetaModifier) != 0,
+            control: (qt_modifiers & key_generated::Qt_KeyboardModifier_ControlModifier) != 0,
+            alt: (qt_modifiers & key_generated::Qt_KeyboardModifier_AltModifier) != 0,
+            shift: (qt_modifiers & key_generated::Qt_KeyboardModifier_ShiftModifier) != 0,
+            meta: (qt_modifiers & key_generated::Qt_KeyboardModifier_MetaModifier) != 0,
         };
 
         let text = qt_key_to_string(key as key_generated::Qt_Key, text);
@@ -1369,7 +1371,7 @@ thread_local! {
     static ALL_WINDOWS: RefCell<Vec<Weak<QtWindow>>> = Default::default();
 }
 
-/// Called by C++'s TimerHandler::timerEvent, or everytime a timer might have been started
+/// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
     sixtyfps_corelib::animations::update_animations();
     sixtyfps_corelib::timers::TimerList::maybe_activate_timers();
