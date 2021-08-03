@@ -16,16 +16,15 @@ use crate::{SharedString, SharedVector};
 /// is necessary before they can be used.
 #[derive(Clone, PartialEq, Debug)]
 #[repr(u8)]
+#[allow(missing_docs)]
 pub enum ImageInner {
     /// A resource that does not represent any data.
     None,
     /// A resource that points to a file in the file system
     AbsoluteFilePath(SharedString),
-    /// A resource that is embedded in the program and accessible via pointer
-    /// The format is the same as in a file
-    EmbeddedData(Slice<'static, u8>),
+    /// A image file that is embedded in the program as is. The format is the extension
+    EmbeddedData { data: Slice<'static, u8>, format: Slice<'static, u8> },
     /// Raw ARGB
-    #[allow(missing_docs)]
     EmbeddedRgbaImage { width: u32, height: u32, data: SharedVector<u32> },
 }
 

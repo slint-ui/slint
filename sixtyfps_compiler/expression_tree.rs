@@ -1200,7 +1200,7 @@ impl Default for EasingCurve {
 pub enum ImageReference {
     None,
     AbsolutePath(String),
-    EmbeddedData(usize),
+    EmbeddedData { resource_id: usize, extension: String },
 }
 
 /// Print the expression as a .60 code (not necessarily valid .60)

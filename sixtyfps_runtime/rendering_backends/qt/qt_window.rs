@@ -792,7 +792,9 @@ pub(crate) fn load_image_from_resource(
     let (is_path, data) = match resource {
         ImageInner::None => return None,
         ImageInner::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
-        ImageInner::EmbeddedData(data) => (false, qttypes::QByteArray::from(data.as_slice())),
+        ImageInner::EmbeddedData { data, format: _ } => {
+            (false, qttypes::QByteArray::from(data.as_slice()))
+        }
         ImageInner::EmbeddedRgbaImage { .. } => todo!(),
     };
     let size_requested = is_svg(resource) && source_size.is_some();
@@ -877,7 +879,7 @@ fn is_svg(resource: &ImageInner) -> bool {
     match resource {
         ImageInner::None => false,
         ImageInner::AbsoluteFilePath(path) => path.as_str().ends_with(".svg"),
-        ImageInner::EmbeddedData(data) => data.starts_with(b"<svg"),
+        ImageInner::EmbeddedData { format, .. } => format.as_slice() == b"svg",
         ImageInner::EmbeddedRgbaImage { .. } => false,
     }
 }

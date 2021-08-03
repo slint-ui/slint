@@ -215,7 +215,7 @@ fn handle_property_binding(
         init.push(if is_constant {
             let t = rust_type(&prop_type).unwrap_or(quote!(_));
 
-            // When there is a `return` statement, we must use a lambda expression in the generated code so that the 
+            // When there is a `return` statement, we must use a lambda expression in the generated code so that the
             // generated code can have an actual return in it. We only want to do that if necessary because otherwise
             // this would slow down the rust compilation
             let mut uses_return = false;
@@ -1405,11 +1405,12 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 crate::expression_tree::ImageReference::AbsolutePath(path) => {
                      quote!(sixtyfps::re_exports::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
                 },
-                crate::expression_tree::ImageReference::EmbeddedData(resource_id) => {
+                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
+                    let format = proc_macro2::Literal::byte_string(extension.as_bytes());
                     quote!(
                         sixtyfps::re_exports::Image::from(
-                            sixtyfps::re_exports::ImageInner::EmbeddedData(#symbol.into())
+                            sixtyfps::re_exports::ImageInner::EmbeddedData{ data: #symbol.into(), format: Slice::from_slice(#format) }
                         )
                     )
                 }

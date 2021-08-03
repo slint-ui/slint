@@ -1665,7 +1665,7 @@ fn compile_expression(
             match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"sixtyfps::Image()"#.to_string(),
                 crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"sixtyfps::Image::load_from_path(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
-                crate::expression_tree::ImageReference::EmbeddedData(_) => unimplemented!("The C++ generator does not support resource embedding yet")
+                crate::expression_tree::ImageReference::EmbeddedData { .. } => unimplemented!("The C++ generator does not support resource embedding yet")
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {
