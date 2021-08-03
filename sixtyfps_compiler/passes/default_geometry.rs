@@ -94,14 +94,16 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 
                                 elem.borrow_mut().bindings.set_binding_if_not_set(
                                     image_fit_prop_name.into(),
-                                    Expression::EnumerationValue(
-                                        image_fit_prop_type
-                                            .as_enum()
-                                            .clone()
-                                            .try_value_from_string("contain")
-                                            .unwrap(),
-                                    )
-                                    .into(),
+                                    || {
+                                        Expression::EnumerationValue(
+                                            image_fit_prop_type
+                                                .as_enum()
+                                                .clone()
+                                                .try_value_from_string("contain")
+                                                .unwrap(),
+                                        )
+                                        .into()
+                                    },
                                 );
                             }
                         }
@@ -203,22 +205,20 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
     if property_type != Type::LogicalLength {
         return;
     }
-    elem.borrow_mut().bindings.set_binding_if_not_set(
-        resolved_name.to_string(),
+    elem.borrow_mut().bindings.set_binding_if_not_set(resolved_name.to_string(), || {
         Expression::PropertyReference(NamedReference::new(parent_element, resolved_name.as_ref()))
-            .into(),
-    );
+            .into()
+    });
 }
 
 fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientation) {
-    elem.borrow_mut().bindings.set_binding_if_not_set(
-        property.into(),
+    elem.borrow_mut().bindings.set_binding_if_not_set(property.into(), || {
         Expression::StructFieldAccess {
             base: implicit_layout_info_call(elem, orientation).into(),
             name: "preferred".into(),
         }
-        .into(),
-    );
+        .into()
+    });
 }
 
 // For an element with `width`, `height`, `preferred-width` and `preferred-height`, make an aspect
