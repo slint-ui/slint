@@ -9,6 +9,8 @@
 LICENSE END */
 //! This module contains the GraphicsWindow that used to be within corelib.
 
+// cspell:ignore corelib winit Borderless
+
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::{Rc, Weak};
@@ -102,17 +104,17 @@ impl GraphicsWindow {
 
     fn apply_geometry_constraint(
         &self,
-        constraints_horiz: corelib::layout::LayoutInfo,
-        constraints_vert: corelib::layout::LayoutInfo,
+        constraints_horizontal: corelib::layout::LayoutInfo,
+        constraints_vertical: corelib::layout::LayoutInfo,
     ) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                if (constraints_horiz, constraints_vert) != window.constraints.get() {
-                    let min_width = constraints_horiz.min.min(constraints_horiz.max);
-                    let min_height = constraints_vert.min.min(constraints_vert.max);
-                    let max_width = constraints_horiz.max.max(constraints_horiz.min);
-                    let max_height = constraints_vert.max.max(constraints_vert.min);
+                if (constraints_horizontal, constraints_vertical) != window.constraints.get() {
+                    let min_width = constraints_horizontal.min.min(constraints_horizontal.max);
+                    let min_height = constraints_vertical.min.min(constraints_vertical.max);
+                    let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
+                    let max_height = constraints_vertical.max.max(constraints_vertical.min);
 
                     window.backend.borrow().window().set_min_inner_size(
                         if min_width > 0. || min_height > 0. {
@@ -131,7 +133,7 @@ impl GraphicsWindow {
                             None
                         },
                     );
-                    window.constraints.set((constraints_horiz, constraints_vert));
+                    window.constraints.set((constraints_horizontal, constraints_vertical));
 
                     #[cfg(target_arch = "wasm32")]
                     {
