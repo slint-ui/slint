@@ -934,7 +934,7 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let cache_entry = match self
+        let cache_entry = self
             .graphics_window
             .graphics_cache
             .borrow_mut()
@@ -1033,12 +1033,12 @@ impl ItemRenderer for GLItemRenderer {
                     Rc::new(shadow_image)
                 })
                 .into()
-            }) {
-            Some(cached_shadow_image) => cached_shadow_image,
+            });
+
+        let shadow_image = match &cache_entry {
+            Some(cached_shadow_image) => cached_shadow_image.as_image(),
             None => return, // Zero width or height shadow
         };
-
-        let shadow_image = cache_entry.as_image();
 
         let shadow_image_size = match shadow_image.size() {
             Some(size) => size,
