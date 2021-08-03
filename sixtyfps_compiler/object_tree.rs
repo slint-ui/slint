@@ -361,14 +361,21 @@ impl Clone for PropertyAnimation {
 pub struct BindingsMap(BTreeMap<String, BindingExpression>);
 
 impl BindingsMap {
-    pub fn set_binding_if_not_set(&mut self, property_name: String, expression: BindingExpression) {
+    pub fn set_binding_if_not_set(
+        &mut self,
+        property_name: String,
+        expression_fn: impl FnOnce() -> BindingExpression,
+    ) {
         match self.0.entry(property_name) {
             Entry::Vacant(vacant_entry) => {
-                vacant_entry.insert(expression);
+                vacant_entry.insert(expression_fn());
             }
-            Entry::Occupied(mut existing_entry) => {
-                existing_entry.get_mut().merge_with(&expression);
+            Entry::Occupied(mut existing_entry)
+                if matches!(existing_entry.get().expression, Expression::Invalid) =>
+            {
+                existing_entry.get_mut().merge_with(&expression_fn());
             }
+            _ => {}
         };
     }
 }

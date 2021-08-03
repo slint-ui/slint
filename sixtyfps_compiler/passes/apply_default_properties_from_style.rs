@@ -37,24 +37,22 @@ pub async fn apply_default_properties_from_style(
             let mut elem = elem.borrow_mut();
             match elem.base_type.to_string().as_str() {
                 "TextInput" => {
-                    elem.bindings.set_binding_if_not_set(
-                        "text_cursor_width".into(),
+                    elem.bindings.set_binding_if_not_set("text_cursor_width".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
                             "text_cursor_width",
                         ))
-                        .into(),
-                    );
+                        .into()
+                    });
                 }
                 "Window" => {
-                    elem.bindings.set_binding_if_not_set(
-                        "background".into(),
+                    elem.bindings.set_binding_if_not_set("background".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
                             "window_background",
                         ))
-                        .into(),
-                    );
+                        .into()
+                    });
                 }
 
                 _ => {}
