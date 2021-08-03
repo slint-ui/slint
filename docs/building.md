@@ -116,15 +116,13 @@ cargo run --release --bin sixtyfps-viewer -- examples/printerdemo/ui/printerdemo
 
 ### rustdoc
 
-With nightly rust, the documentation of the sixtyfps-rs embed the language reference using the
-[`external_doc`](https://github.com/rust-lang/rust/issues/44732) feature.
-That language reference has snippets in the .60 language which can be previewed by injecting
+The language reference has snippets in the .60 language which can be previewed by injecting
 html to the documentation with the `--html-in-header` rustdoc flag.
 
 Here is how to build the documentation to include preview of the .60 files.
 
 ```sh
-RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/sixtyfps-docs-preview.html --html-in-header=$PWD/docs/resources/sixtyfps-docs-highlight.html" cargo +nightly doc --no-deps
+RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/sixtyfps-docs-preview.html --html-in-header=$PWD/docs/resources/sixtyfps-docs-highlight.html" cargo doc --no-deps
 ```
 
 ### C++ doc

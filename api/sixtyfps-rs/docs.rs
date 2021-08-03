@@ -27,7 +27,6 @@ pub mod langref {
     //! Next: [Builtin Elements](super::builtin_elements)
 }
 
-#[cfg(all(doc, nightly))]
 pub mod builtin_elements {
     #![doc = include_str!("docs/builtin_elements.md")]
     //!
@@ -35,7 +34,6 @@ pub mod builtin_elements {
     //! Next: [Widgets](super::widgets)
 }
 
-#[cfg(all(doc, nightly))]
 pub mod widgets {
     #![doc = include_str!("docs/widgets.md")]
     //!
@@ -43,7 +41,6 @@ pub mod widgets {
     //! Next: [Layouting](super::layouting)
 }
 
-#[cfg(all(doc, nightly))]
 pub mod layouting {
     #![doc = include_str!("docs/layouting.md")]
     #![doc = ""]

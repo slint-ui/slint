@@ -655,5 +655,5 @@ pub struct VersionCheck_0_1_0;
 #[cfg(doctest)]
 mod compile_fail_tests;
 
-#[cfg(all(doc, nightly))]
+#[cfg(doc)]
 pub mod docs;
