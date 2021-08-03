@@ -36,9 +36,16 @@ fn embed_resources_from_expression(
                 let mut resources = global_embedded_resources.borrow_mut();
                 let maybe_id = resources.len();
                 let resource_id = *resources.entry(path.clone()).or_insert(maybe_id);
-                *resource_ref = ImageReference::EmbeddedData(resource_id)
+                *resource_ref = ImageReference::EmbeddedData {
+                    resource_id,
+                    extension: std::path::Path::new(path)
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .map(|x| x.to_string())
+                        .unwrap_or_default(),
+                }
             }
-            ImageReference::EmbeddedData(_) => {}
+            ImageReference::EmbeddedData { .. } => {}
         }
     };
 

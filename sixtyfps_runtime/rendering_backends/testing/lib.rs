@@ -82,12 +82,16 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
                     Size::new(dim.0 as _, dim.1 as _)
                 })
                 .unwrap_or_default(),
-            ImageInner::EmbeddedData(data) => image::load_from_memory(data.as_slice())
-                .map(|img| {
-                    let dim = img.dimensions();
-                    Size::new(dim.0 as _, dim.1 as _)
-                })
-                .unwrap_or_default(),
+            ImageInner::EmbeddedData { data, format } => image::load_from_memory_with_format(
+                data.as_slice(),
+                image::ImageFormat::from_extension(std::str::from_utf8(format.as_slice()).unwrap())
+                    .unwrap(),
+            )
+            .map(|img| {
+                let dim = img.dimensions();
+                Size::new(dim.0 as _, dim.1 as _)
+            })
+            .unwrap_or_default(),
         }
     }
 }

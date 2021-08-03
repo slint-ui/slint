@@ -161,7 +161,7 @@ impl CachedImage {
         match resource {
             ImageInner::None => None,
             ImageInner::AbsoluteFilePath(path) => Self::new_from_path(path),
-            ImageInner::EmbeddedData(data) => Self::new_from_data(data),
+            ImageInner::EmbeddedData { data, format } => Self::new_from_data(data, format),
             ImageInner::EmbeddedRgbaImage { .. } => todo!(),
         }
     }
@@ -193,9 +193,9 @@ impl CachedImage {
         Some(Self(RefCell::new(ImageData::HTMLImage(HTMLImage::new(path)))))
     }
 
-    fn new_from_data(data: &Slice<u8>) -> Option<Self> {
+    fn new_from_data(data: &Slice<u8>, format: &Slice<u8>) -> Option<Self> {
         #[cfg(feature = "svg")]
-        if data.starts_with(b"<svg") {
+        if format.as_slice() == b"svg" {
             return Some(CachedImage::new_on_cpu_svg(
                 super::svg::load_from_data(data.as_slice()).map_or_else(
                     |svg_err| {
@@ -206,7 +206,15 @@ impl CachedImage {
                 )?,
             ));
         }
-        Some(CachedImage::new_on_cpu(image::load_from_memory(data.as_slice()).map_or_else(
+        let format = std::str::from_utf8(format.as_slice())
+            .ok()
+            .and_then(image::ImageFormat::from_extension);
+        let image = if let Some(format) = format {
+            image::load_from_memory_with_format(data.as_slice(), format)
+        } else {
+            image::load_from_memory(data.as_slice())
+        };
+        Some(CachedImage::new_on_cpu(image.map_or_else(
             |decode_err| {
                 eprintln!("Error decoding image: {}", decode_err);
                 None
@@ -397,7 +405,7 @@ impl ImageCacheKey {
                 }
                 Self::Path(path.to_string())
             }
-            ImageInner::EmbeddedData(data) => {
+            ImageInner::EmbeddedData { data, format: _ } => {
                 Self::EmbeddedData(by_address::ByAddress(data.as_slice()))
             }
             ImageInner::EmbeddedRgbaImage { .. } => return None,

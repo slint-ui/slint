@@ -469,7 +469,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 sixtyfps_compilerlib::expression_tree::ImageReference::AbsolutePath(path) => {
                     corelib::graphics::Image::load_from_path(std::path::Path::new(path))
                 }
-                sixtyfps_compilerlib::expression_tree::ImageReference::EmbeddedData(_) => panic!("Resource embedding is not supported by the interpreter")
+                sixtyfps_compilerlib::expression_tree::ImageReference::EmbeddedData { .. } => panic!("Resource embedding is not supported by the interpreter")
             }.unwrap_or_else(|_| {
                 eprintln!("Could not load image {:?}",resource_ref );
                 Default::default()
