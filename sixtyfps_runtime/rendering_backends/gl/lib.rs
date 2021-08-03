@@ -934,7 +934,7 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let cache_entry = self
+        let cache_entry = match self
             .graphics_window
             .graphics_cache
             .borrow_mut()
@@ -961,7 +961,7 @@ impl ItemRenderer for GLItemRenderer {
                         &self.shared_data.canvas,
                         shadow_image_width,
                         shadow_image_height,
-                    );
+                    )?;
 
                     {
                         let mut canvas = self.shared_data.canvas.borrow_mut();
@@ -1033,8 +1033,10 @@ impl ItemRenderer for GLItemRenderer {
                     Rc::new(shadow_image)
                 })
                 .into()
-            })
-            .expect("internal error: creation of the cached shadow image must always succeed");
+            }) {
+            Some(cached_shadow_image) => cached_shadow_image,
+            None => return, // Zero width or height shadow
+        };
 
         let shadow_image = cache_entry.as_image();
 
@@ -1514,11 +1516,15 @@ impl GLItemRenderer {
         let layer_width = path_bounds.maxx - path_bounds.minx;
         let layer_height = path_bounds.maxy - path_bounds.miny;
 
-        let clip_buffer_img = CachedImage::new_empty_on_gpu(
+        let clip_buffer_img = match CachedImage::new_empty_on_gpu(
             &self.shared_data.canvas,
             layer_width as _,
             layer_height as _,
-        );
+        ) {
+            Some(clip_buffer) => clip_buffer,
+            None => return, // Zero width or height clip path
+        };
+
         {
             let mut canvas = self.shared_data.canvas.borrow_mut();
 

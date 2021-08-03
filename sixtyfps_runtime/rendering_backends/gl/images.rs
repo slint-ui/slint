@@ -139,7 +139,10 @@ impl CachedImage {
         Self(RefCell::new(Texture { id: image_id, canvas: canvas.clone() }.into()))
     }
 
-    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: usize, height: usize) -> Self {
+    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: usize, height: usize) -> Option<Self> {
+        if width == 0 || height == 0 {
+            return None;
+        }
         let image_id = canvas
             .borrow_mut()
             .create_image_empty(
@@ -149,7 +152,7 @@ impl CachedImage {
                 femtovg::ImageFlags::PREMULTIPLIED | femtovg::ImageFlags::FLIP_Y,
             )
             .unwrap();
-        Self::new_on_gpu(canvas, image_id)
+        Self::new_on_gpu(canvas, image_id).into()
     }
 
     #[cfg(feature = "svg")]
@@ -352,6 +355,9 @@ impl CachedImage {
             &canvas,
             size.width.ceil() as usize,
             size.height.ceil() as usize,
+        )
+        .expect(
+            "internal error: this can only fail if the filtered image was zero width or height",
         );
 
         let filtered_image_id = match &*filtered_image.0.borrow() {
