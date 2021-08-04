@@ -135,12 +135,12 @@ fn create<'cx>(
                         prop_name.as_str(),
                         make_callback_handler(cx, &persistent_context, fun, return_type),
                     )
-                    .or_else(|_| cx.throw_error(format!("Cannot set callback")))?;
+                    .or_else(|_| cx.throw_error("Cannot set callback".to_string()))?;
             } else {
                 let value = to_eval_value(value, ty, cx, &persistent_context)?;
                 component
                     .set_property(prop_name.as_str(), value)
-                    .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
+                    .or_else(|_| cx.throw_error("Cannot assign property".to_string()))?;
             }
         }
     }
@@ -361,7 +361,7 @@ declare_types! {
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let value = run_scoped(&mut cx,this.downcast().unwrap(), || {
                 component.get_property(prop_name.as_str())
-                    .map_err(|_| format!("Cannot read property"))
+                    .map_err(|_| "Cannot read property".to_string())
             })?;
             to_js_value(value, &mut cx)
         }
@@ -382,7 +382,7 @@ declare_types! {
 
             let value = to_eval_value(cx.argument::<JsValue>(1)?, ty, &mut cx, &persistent_context)?;
             component.set_property(prop_name.as_str(), value)
-                .or_else(|_| cx.throw_error(format!("Cannot assign property")))?;
+                .or_else(|_| cx.throw_error("Cannot assign property".to_string()))?;
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
@@ -442,7 +442,7 @@ declare_types! {
                 component.set_callback(
                     callback_name.as_str(),
                     make_callback_handler(&mut cx, &persistent_context, handler, return_type)
-                ).or_else(|_| cx.throw_error(format!("Cannot set callback")))?;
+                ).or_else(|_| cx.throw_error("Cannot set callback".to_string()))?;
                 Ok(JsUndefined::new().as_value(&mut cx))
             } else {
                 cx.throw_error(format!("{} is not a callback", callback_name))?;
