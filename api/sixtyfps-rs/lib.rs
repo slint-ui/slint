@@ -483,7 +483,7 @@ mod weak_handle {
 
     impl<T: ComponentHandle> Clone for Weak<T> {
         fn clone(&self) -> Self {
-            Self { inner: self.inner.clone(), thread: self.thread.clone() }
+            Self { inner: self.inner.clone(), thread: self.thread }
         }
     }
 
