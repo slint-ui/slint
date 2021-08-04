@@ -687,6 +687,11 @@ impl<C: RepeatedComponent> Repeater<C> {
         self.inner.borrow().borrow().components.len()
     }
 
+    /// Return true if the Repeater is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Returns a vector containing all components
     pub fn components_vec(&self) -> Vec<ComponentRc<C>> {
         self.inner.borrow().borrow().components.iter().flat_map(|x| x.1.clone()).collect()
