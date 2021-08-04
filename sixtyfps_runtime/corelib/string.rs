@@ -41,6 +41,11 @@ impl SharedString {
         self.inner.header.header
     }
 
+    /// Return true if the String is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Return a slice to the string
     pub fn as_str(&self) -> &str {
         unsafe {

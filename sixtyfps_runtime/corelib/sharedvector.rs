@@ -138,6 +138,11 @@ impl<T> SharedVector<T> {
         unsafe { self.inner.cast::<SharedVectorHeader>().as_ref().size }
     }
 
+    /// Return true if the SharedVector is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Return a slice to the array
     pub fn as_slice(&self) -> &[T] {
         if self.len() == 0 {
