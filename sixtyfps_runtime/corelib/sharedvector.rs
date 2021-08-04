@@ -145,7 +145,7 @@ impl<T> SharedVector<T> {
 
     /// Return a slice to the array
     pub fn as_slice(&self) -> &[T] {
-        if self.len() == 0 {
+        if self.is_empty() {
             &[]
         } else {
             // Safety: When len > 0, we know that the pointer holds an array of the size of len

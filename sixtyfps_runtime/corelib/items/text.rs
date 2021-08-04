@@ -482,7 +482,7 @@ impl TextInput {
         window: &WindowRc,
     ) -> bool {
         let text = self.text();
-        if text.len() == 0 {
+        if text.is_empty() {
             return false;
         }
 
