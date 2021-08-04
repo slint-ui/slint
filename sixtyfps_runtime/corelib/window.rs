@@ -236,24 +236,21 @@ impl Window {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        let window = &self.clone();
-
         if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             old_focus_item
                 .borrow()
                 .as_ref()
-                .focus_event(&crate::input::FocusEvent::FocusOut, window);
+                .focus_event(&crate::input::FocusEvent::FocusOut, &self);
         }
 
         *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
 
-        focus_item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, window);
+        focus_item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &self);
     }
 
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
     pub fn set_focus(self: Rc<Self>, have_focus: bool) {
-        let window = &self.clone();
         let event = if have_focus {
             crate::input::FocusEvent::WindowReceivedFocus
         } else {
@@ -261,7 +258,7 @@ impl Window {
         };
 
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            focus_item.borrow().as_ref().focus_event(&event, window);
+            focus_item.borrow().as_ref().focus_event(&event, &self);
         }
     }
 
