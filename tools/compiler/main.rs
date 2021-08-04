@@ -80,7 +80,7 @@ fn main() -> std::io::Result<()> {
             write!(f, " {}", resource)?;
         }
 
-        writeln!(f, "")?;
+        writeln!(f)?;
     }
     diag.print_warnings_and_exit_on_error();
     Ok(())
