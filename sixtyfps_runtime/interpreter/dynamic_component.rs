@@ -963,7 +963,7 @@ pub fn animation_for_property(
                             );
                         }
                     }
-                    return Default::default();
+                    Default::default()
                 },
             ))
         }
