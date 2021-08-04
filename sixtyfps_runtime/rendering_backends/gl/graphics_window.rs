@@ -348,7 +348,7 @@ impl GraphicsWindow {
         self.mouse_input_state.set(corelib::input::process_mouse_input(
             component,
             event,
-            &self.self_weak.upgrade().unwrap().into(),
+            &self.self_weak.upgrade().unwrap(),
             self.mouse_input_state.take(),
         ));
 

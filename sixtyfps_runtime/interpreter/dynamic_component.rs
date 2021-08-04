@@ -334,7 +334,7 @@ impl<'id> ComponentDescription<'id> {
             sixtyfps_rendering_backend_default::backend();
             sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id)
         };
-        self.create_with_existing_window(&window.into())
+        self.create_with_existing_window(&window)
     }
 
     #[doc(hidden)]
@@ -536,7 +536,7 @@ extern "C" fn visit_children_item(
     sixtyfps_corelib::item_tree::visit_item_tree(
         instance_ref.instance,
         &vtable::VRc::into_dyn(comp_rc),
-        instance_ref.component_type.item_tree.as_slice().into(),
+        instance_ref.component_type.item_tree.as_slice(),
         index,
         order,
         v,
@@ -998,7 +998,7 @@ pub fn instantiate(
     if !component_type.original.is_global() {
         sixtyfps_corelib::component::init_component_items(
             instance_ref.instance,
-            instance_ref.component_type.item_tree.as_slice().into(),
+            instance_ref.component_type.item_tree.as_slice(),
             eval::window_ref(instance_ref).unwrap(),
         );
     }

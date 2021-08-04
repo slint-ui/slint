@@ -235,7 +235,7 @@ fn box_layout_data(
             );
         } else {
             let mut layout_info =
-                get_layout_info(&cell.element, component, &window.clone().into(), orientation);
+                get_layout_info(&cell.element, component, &window.clone(), orientation);
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,

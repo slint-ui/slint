@@ -197,7 +197,7 @@ impl Window {
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
             event,
-            &self.clone().into(),
+            &self.clone(),
             self.mouse_input_state.take(),
         ));
     }
@@ -210,7 +210,7 @@ impl Window {
     pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
         let mut item = self.focus_item.borrow().clone();
         while let Some(focus_item) = item.upgrade() {
-            if focus_item.borrow().as_ref().key_event(event, &self.clone().into())
+            if focus_item.borrow().as_ref().key_event(event, &self.clone())
                 == crate::input::KeyEventResult::EventAccepted
             {
                 return;
@@ -236,7 +236,7 @@ impl Window {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        let window = &self.clone().into();
+        let window = &self.clone();
 
         if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             old_focus_item
@@ -253,7 +253,7 @@ impl Window {
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
     pub fn set_focus(self: Rc<Self>, have_focus: bool) {
-        let window = &self.clone().into();
+        let window = &self.clone();
         let event = if have_focus {
             crate::input::FocusEvent::WindowReceivedFocus
         } else {
