@@ -252,7 +252,7 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<String>> {
                 if comment.is_empty() {
                     return Some(None);
                 }
-                if let Some(comment) = comment.strip_prefix(":") {
+                if let Some(comment) = comment.strip_prefix(':') {
                     return Some(Some(comment.to_owned()));
                 }
             }
