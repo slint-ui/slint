@@ -1833,6 +1833,317 @@ declare_item_vtable! {
 }
 
 #[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[pin]
+pub struct NativeTabWidget {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub cached_rendering_data: CachedRenderingData,
+    pub native_padding_left: Property<f32>,
+    pub native_padding_right: Property<f32>,
+    pub native_padding_top: Property<f32>,
+    pub native_padding_bottom: Property<f32>,
+}
+
+impl Item for NativeTabWidget {
+    fn init(self: Pin<&Self>, _window: &WindowRc) {
+        let paddings = Rc::pin(Property::<qttypes::QMargins>::default());
+
+        paddings.set_binding(move || {
+            cpp!(unsafe [] -> qttypes::QMargins as "QMargins" {
+                ensure_initialized();
+                QStyleOptionTabWidgetFrame option;
+                auto style = qApp->style();
+                option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
+                option.shape = QTabBar::RoundedNorth;
+                //int base_height = style->pixelMetric(QStyle::PM_TabBarBaseHeight, 0, nullptr);
+
+                // Just some size big enough to be sure that the frame fits in it
+                option.rect = QRect(0, 0, 10000, 10000);
+            	QRect contentsRect = style->subElementRect(QStyle::SE_TabWidgetTabContents, &option, nullptr);
+
+                auto hs = style->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, &option);
+                auto vs = style->pixelMetric(QStyle::PM_LayoutVerticalSpacing, &option);
+                return {
+                    (contentsRect.left() + hs),
+                    (contentsRect.top() + vs),
+                    (option.rect.right() - contentsRect.right() + hs),
+                    (option.rect.bottom() - contentsRect.bottom() + vs)
+                };
+            })
+        });
+
+        self.native_padding_left.set_binding({
+            let paddings = paddings.clone();
+            move || paddings.as_ref().get().left as _
+        });
+        self.native_padding_right.set_binding({
+            let paddings = paddings.clone();
+            move || paddings.as_ref().get().right as _
+        });
+        self.native_padding_top.set_binding({
+            let paddings = paddings.clone();
+            move || paddings.as_ref().get().top as _
+        });
+        self.native_padding_bottom.set_binding({
+            let paddings = paddings;
+            move || paddings.as_ref().get().bottom as _
+        });
+    }
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
+    }
+
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &WindowRc,
+    ) -> LayoutInfo {
+        LayoutInfo {
+            min: match orientation {
+                Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
+                Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
+            },
+            stretch: 1.,
+            ..LayoutInfo::default()
+        }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &WindowRc,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &WindowRc,
+        _self_rc: &sixtyfps_corelib::items::ItemRc,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+
+    fn_render! { _this dpr size painter =>
+        cpp!(unsafe [
+            painter as "QPainter*",
+            size as "QSize",
+            dpr as "float"
+        ] {
+            QStyleOptionTabWidgetFrame option;
+            auto style = qApp->style();
+            option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
+            option.shape = QTabBar::RoundedNorth;
+            if (true /*enabled*/) {
+                option.state |= QStyle::State_Enabled;
+            } else {
+                option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
+            option.rect = QRect(QPoint(), size / dpr);
+            qApp->style()->drawPrimitive(QStyle::PE_FrameTabWidget, &option, painter, nullptr);
+        });
+    }
+}
+
+impl ItemConsts for NativeTabWidget {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn sixtyfps_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidget
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[pin]
+pub struct NativeTab {
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub title: Property<SharedString>,
+    pub icon: Property<sixtyfps_corelib::graphics::Image>,
+    pub enabled: Property<bool>,
+    pub pressed: Property<bool>,
+    pub current: Property<bool>,
+    pub clicked: Callback<VoidArg>,
+    pub cached_rendering_data: CachedRenderingData,
+    /// 0 = Begin, 1 = Middle, 2 = End, 3 = Single
+    pub tab_position: Property<i32>,
+}
+
+impl Item for NativeTab {
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
+    }
+
+    fn layouting_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &WindowRc,
+    ) -> LayoutInfo {
+        let text: qttypes::QString = self.title().as_str().into();
+        let icon: qttypes::QPixmap = crate::qt_window::load_image_from_resource(
+            (&self.icon()).into(),
+            None,
+            Default::default(),
+        )
+        .unwrap_or_default();
+        let position: i32 = self.tab_position();
+        let size = cpp!(unsafe [
+            text as "QString",
+            icon as "QPixmap",
+            position as "int"
+        ] -> qttypes::QSize as "QSize" {
+            ensure_initialized();
+            QStyleOptionTab option;
+            option.rect = option.fontMetrics.boundingRect(text);
+            option.text = text;
+            option.icon = icon;
+            option.shape = QTabBar::RoundedNorth;
+            option.position = QStyleOptionTab::TabPosition(position);
+            auto style = qApp->style();
+            int hframe = style->pixelMetric(QStyle::PM_TabBarTabHSpace, &option, nullptr);
+            int vframe = style->pixelMetric(QStyle::PM_TabBarTabVSpace, &option, nullptr);
+            int padding = icon.isNull() ? 0 : 4;
+            int textWidth = option.fontMetrics.size(Qt::TextShowMnemonic, text).width();
+            auto iconSize = icon.isNull() ? 0 : style->pixelMetric(QStyle::PM_TabBarIconSize, nullptr, nullptr);
+            QSize csz = QSize(textWidth + iconSize + hframe + padding, qMax(option.fontMetrics.height(), iconSize) + vframe);
+            return style->sizeFromContents(QStyle::CT_TabBarTab, &option, csz, nullptr);
+        });
+        LayoutInfo {
+            min: match orientation {
+                // FIXME: the minimum width is arbitrary, Qt uses the size of two letters + ellipses
+                Orientation::Horizontal => size.width.min(size.height * 2) as f32,
+                Orientation::Vertical => size.height as f32,
+            },
+            preferred: match orientation {
+                Orientation::Horizontal => size.width as f32,
+                Orientation::Vertical => size.height as f32,
+            },
+            ..LayoutInfo::default()
+        }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &WindowRc,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardEvent
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &WindowRc,
+        _self_rc: &sixtyfps_corelib::items::ItemRc,
+    ) -> InputEventResult {
+        let enabled = self.enabled();
+        if !enabled {
+            return InputEventResult::EventIgnored;
+        }
+
+        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
+            MouseEvent::MousePressed { .. } => true,
+            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
+            MouseEvent::MouseMoved { .. } => {
+                return if self.pressed() {
+                    InputEventResult::GrabMouse
+                } else {
+                    InputEventResult::EventIgnored
+                }
+            }
+            MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
+        });
+        let click_on_press = cpp!(unsafe [] -> bool as "bool" {
+            return qApp->style()->styleHint(QStyle::SH_TabBar_SelectMouseType, nullptr, nullptr) == QEvent::MouseButtonPress;
+        });
+        if matches!(event, MouseEvent::MouseReleased { .. } if !click_on_press)
+            || matches!(event, MouseEvent::MousePressed { .. } if click_on_press)
+        {
+            Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+            InputEventResult::EventAccepted
+        } else {
+            InputEventResult::GrabMouse
+        }
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+
+    fn_render! { this dpr size painter =>
+        let down: bool = this.pressed();
+        let text: qttypes::QString = this.title().as_str().into();
+        let icon: qttypes::QPixmap = crate::qt_window::load_image_from_resource(
+            (&this.icon()).into(),
+            None,
+            Default::default(),
+        )
+        .unwrap_or_default();
+        let enabled: bool = this.enabled();
+        let position: i32 = this.tab_position();
+
+        cpp!(unsafe [
+            painter as "QPainter*",
+            text as "QString",
+            icon as "QPixmap",
+            enabled as "bool",
+            size as "QSize",
+            down as "bool",
+            dpr as "float",
+            position as "int"
+        ] {
+            ensure_initialized();
+            QStyleOptionTab option;
+            option.rect = QRect(QPoint(), size / dpr);;
+            option.text = text;
+            option.icon = icon;
+            option.shape = QTabBar::RoundedNorth;
+            option.position = QStyleOptionTab::TabPosition(position);
+            if (down)
+                option.state |= QStyle::State_Sunken;
+            else
+                option.state |= QStyle::State_Raised;
+            if (enabled) {
+                option.state |= QStyle::State_Enabled;
+            } else {
+                option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
+            qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter, nullptr);
+        });
+    }
+}
+
+impl ItemConsts for NativeTab {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn sixtyfps_get_NativeTabVTable() -> NativeTabVTable for NativeTab
+}
+
+#[repr(C)]
 #[derive(FieldOffsets, SixtyFPSElement)]
 #[pin]
 pub struct NativeStyleMetrics {
