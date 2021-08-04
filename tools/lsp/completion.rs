@@ -357,7 +357,7 @@ fn complete_path_in_string(base: &Path, text: &str, offset: u32) -> Option<Vec<C
     if offset as usize > text.len() || offset == 0 {
         return None;
     }
-    let mut text = text.strip_prefix("\"")?;
+    let mut text = text.strip_prefix('\"')?;
     text = &text[..(offset - 1) as usize];
     let path = if let Some(last_slash) = text.rfind('/') {
         base.parent()?.join(Path::new(&text[..last_slash]))
