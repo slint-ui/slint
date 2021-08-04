@@ -126,6 +126,10 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         #[allow(non_snake_case)]
         #[allow(clippy::style)]
         #[allow(clippy::complexity)]
+        #[allow(clippy::approx_constant)]
+        #[allow(clippy::float_cmp)]
+        #[allow(clippy::if_same_then_else)]
+        #[allow(clippy::erasing_op)]
         mod #compo_module {
             use sixtyfps::re_exports::*;
             #(#structs)*
