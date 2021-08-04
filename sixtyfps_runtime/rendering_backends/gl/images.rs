@@ -296,7 +296,7 @@ impl CachedImage {
                 Some(Self::new_on_gpu(canvas, image_id))
             }
             #[cfg(feature = "svg")]
-            ImageData::Svg(svg_tree) => match super::svg::render(&svg_tree, target_size) {
+            ImageData::Svg(svg_tree) => match super::svg::render(svg_tree, target_size) {
                 Ok(rendered_svg_image) => Some(Self::new_on_cpu(rendered_svg_image)),
                 Err(err) => {
                     eprintln!("Error rendering SVG: {}", err);
@@ -352,7 +352,7 @@ impl CachedImage {
         .expect("internal error: Cannot filter non-GPU images");
 
         let filtered_image = Self::new_empty_on_gpu(
-            &canvas,
+            canvas,
             size.width.ceil() as usize,
             size.height.ceil() as usize,
         )

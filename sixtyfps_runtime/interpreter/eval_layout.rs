@@ -218,7 +218,7 @@ fn box_layout_data(
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    Some(&window),
+                    Some(window),
                 );
                 instance.run_setup_code();
                 instance
@@ -276,7 +276,7 @@ fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> 
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    Some(&window),
+                    Some(window),
                 );
                 instance.run_setup_code();
                 instance

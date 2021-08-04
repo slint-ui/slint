@@ -81,7 +81,7 @@ fn visit_named_object(ty: &Type, visitor: &mut impl FnMut(&String, &Type)) {
         Type::Array(x) => visit_named_object(x, visitor),
         Type::Callback { return_type, args } => {
             if let Some(rt) = return_type {
-                visit_named_object(&rt, visitor);
+                visit_named_object(rt, visitor);
             }
             for a in args {
                 visit_named_object(a, visitor);

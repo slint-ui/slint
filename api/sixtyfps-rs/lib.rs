@@ -271,7 +271,7 @@ pub mod internal {
     impl<C: 'static> StrongComponentRef for VRc<ComponentVTable, C> {
         type Weak = VWeak<ComponentVTable, C>;
         fn to_weak(&self) -> Self::Weak {
-            VRc::downgrade(&self)
+            VRc::downgrade(self)
         }
         fn from_weak(weak: &Self::Weak) -> Option<Self> {
             weak.upgrade()
@@ -490,7 +490,7 @@ mod weak_handle {
     impl<T: ComponentHandle> Weak<T> {
         #[doc(hidden)]
         pub fn new(rc: &vtable::VRc<re_exports::ComponentVTable, T::Inner>) -> Self {
-            Self { inner: vtable::VRc::downgrade(&rc), thread: std::thread::current().id() }
+            Self { inner: vtable::VRc::downgrade(rc), thread: std::thread::current().id() }
         }
 
         /// Returns a new strongly referenced component if some other instance still

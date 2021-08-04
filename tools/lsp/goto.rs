@@ -122,7 +122,7 @@ pub fn goto_definition(
             }) {
                 return goto_node(document_cache, &p);
             }
-            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            let n = find_property_declaration_in_base(document_cache, element, prop_name)?;
             return goto_node(document_cache, &n);
         } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
             if token.kind() != SyntaxKind::Identifier {
@@ -140,7 +140,7 @@ pub fn goto_definition(
             }) {
                 return goto_node(document_cache, &p);
             }
-            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            let n = find_property_declaration_in_base(document_cache, element, prop_name)?;
             return goto_node(document_cache, &n);
         } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
             if token.kind() != SyntaxKind::Identifier {
@@ -158,7 +158,7 @@ pub fn goto_definition(
             }) {
                 return goto_node(document_cache, &p);
             }
-            let n = find_property_declaration_in_base(&document_cache, element, prop_name)?;
+            let n = find_property_declaration_in_base(document_cache, element, prop_name)?;
             return goto_node(document_cache, &n);
         }
         node = node.parent()?;

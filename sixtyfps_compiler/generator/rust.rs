@@ -703,7 +703,7 @@ fn generate_component(
     } else {
         let item_fields = item_names
             .iter()
-            .map(|field_name| access_component_field_offset(&format_ident!("Self"), &field_name));
+            .map(|field_name| access_component_field_offset(&format_ident!("Self"), field_name));
         (
             Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #inner_component_id {
                 fn drop(self: core::pin::Pin<&mut #inner_component_id>) {

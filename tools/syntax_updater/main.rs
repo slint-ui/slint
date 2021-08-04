@@ -160,7 +160,7 @@ fn process_file(
     }
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path), &mut diag);
+    let syntax_node = sixtyfps_compilerlib::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     visit_node(syntax_node, &mut file, &mut State::default(), args)?;
     if diag.has_error() {
@@ -202,12 +202,12 @@ fn visit_node(
         _ => (),
     }
 
-    if fold_node(&node, file, &mut state, &args)? {
+    if fold_node(&node, file, &mut state, args)? {
         return Ok(());
     }
     for n in node.children_with_tokens() {
         match n {
-            NodeOrToken::Node(n) => visit_node(n, file, &mut state, &args)?,
+            NodeOrToken::Node(n) => visit_node(n, file, &mut state, args)?,
             NodeOrToken::Token(t) => fold_token(t, file, &mut state)?,
         };
     }

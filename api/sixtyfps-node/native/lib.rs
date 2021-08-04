@@ -67,7 +67,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     compiler.set_include_paths(include_paths);
     let c = spin_on::spin_on(compiler.build_from_path(path));
 
-    sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
+    sixtyfps_interpreter::print_diagnostics(compiler.diagnostics());
 
     let c = if let Some(c) = c { c } else { return cx.throw_error("Compilation error") };
 
