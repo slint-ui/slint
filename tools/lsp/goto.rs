@@ -106,7 +106,7 @@ pub fn goto_definition(
             let doc = document_cache.documents.get_document(&import_file)?;
             let doc_node = doc.node.clone()?;
             return goto_node(document_cache, &*doc_node);
-        } else if let Some(_) = syntax_nodes::BindingExpression::new(node.clone()) {
+        } else if syntax_nodes::BindingExpression::new(node.clone()).is_some() {
             // don't fallback to the Binding
             return None;
         } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {

@@ -112,7 +112,7 @@ pub(crate) fn completion_at(
         SyntaxKind::Type | SyntaxKind::ArrayType | SyntaxKind::ObjectType | SyntaxKind::ReturnType
     ) {
         return resolve_type_scope(token, document_cache);
-    } else if let Some(_) = syntax_nodes::PropertyDeclaration::new(node.clone()) {
+    } else if syntax_nodes::PropertyDeclaration::new(node.clone()).is_some() {
         if token.kind() == SyntaxKind::LAngle {
             return resolve_type_scope(token, document_cache);
         }
