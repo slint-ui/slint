@@ -363,7 +363,7 @@ fn show_preview_command(
     let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
     preview::load_preview(
         connection.sender.clone(),
-        preview::PreviewComponent { path: path_canon.into(), component },
+        preview::PreviewComponent { path: path_canon, component },
         preview::PostLoadBehavior::ShowAfterLoad,
     );
     Ok(())

@@ -369,7 +369,7 @@ pub mod internal {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> re_exports::WindowRc {
-    sixtyfps_rendering_backend_default::backend().create_window().into()
+    sixtyfps_rendering_backend_default::backend().create_window()
 }
 
 /// Enters the main event loop. This is necessary in order to receive
@@ -587,7 +587,7 @@ pub mod testing {
             &dyn_rc,
             x,
             y,
-            &rc.window_handle().clone().into(),
+            &rc.window_handle().clone(),
         );
     }
 
@@ -616,7 +616,7 @@ pub mod testing {
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             KEYBOARD_MODIFIERS.with(|x| x.get()),
-            &component.window_handle().clone().into(),
+            &component.window_handle().clone(),
         )
     }
 
