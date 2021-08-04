@@ -100,7 +100,7 @@ pub fn goto_definition(
                 .source_file
                 .path()
                 .parent()
-                .unwrap_or(Path::new("/"))
+                .unwrap_or_else(|| Path::new("/"))
                 .join(n.child_text(SyntaxKind::StringLiteral)?.trim_matches('\"'));
             let import_file = dunce::canonicalize(&import_file).unwrap_or(import_file);
             let doc = document_cache.documents.get_document(&import_file)?;
