@@ -271,9 +271,15 @@ impl From<&String> for SharedString {
     }
 }
 
-impl Into<String> for SharedString {
-    fn into(self) -> String {
-        self.as_str().to_string()
+impl From<SharedString> for String {
+    fn from(s: SharedString) -> String {
+        s.as_str().to_string()
+    }
+}
+
+impl From<&SharedString> for String {
+    fn from(s: &SharedString) -> String {
+        s.as_str().to_string()
     }
 }
 
