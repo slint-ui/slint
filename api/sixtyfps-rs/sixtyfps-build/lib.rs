@@ -233,7 +233,7 @@ pub fn compile_with_config(
         .join(
             path.file_stem()
                 .map(Path::new)
-                .unwrap_or(Path::new("sixtyfps_out"))
+                .unwrap_or_else(|| Path::new("sixtyfps_out"))
                 .with_extension("rs"),
         );
 
