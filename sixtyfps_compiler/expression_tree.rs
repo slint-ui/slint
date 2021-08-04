@@ -855,40 +855,41 @@ impl Expression {
                     rhs: Box::new(Expression::NumberLiteral(0.01, Unit::None)),
                     op: '*',
                 },
-                (Type::Struct { fields: ref a, .. }, Type::Struct { fields: b, name, node: n })
-                    if a != b =>
-                {
+                (
+                    Type::Struct { fields: ref left, .. },
+                    Type::Struct { fields: right, name, node: n },
+                ) if left != right => {
                     if let Expression::Struct { mut values, .. } = self {
                         let mut new_values = HashMap::new();
-                        for (k, ty) in b {
-                            let (k, e) = values.remove_entry(k).map_or_else(
-                                || (k.clone(), Expression::default_value_for_type(ty)),
+                        for (key, ty) in right {
+                            let (key, expression) = values.remove_entry(key).map_or_else(
+                                || (key.clone(), Expression::default_value_for_type(ty)),
                                 |(k, e)| (k, e.maybe_convert_to(ty.clone(), node, diag)),
                             );
-                            new_values.insert(k, e);
+                            new_values.insert(key, expression);
                         }
                         return Expression::Struct { values: new_values, ty: target_type };
                     }
                     let var_name = "tmpobj";
                     let mut new_values = HashMap::new();
-                    for (k, ty) in b {
-                        let e = if a.contains_key(k) {
+                    for (key, ty) in right {
+                        let expression = if left.contains_key(key) {
                             Expression::StructFieldAccess {
                                 base: Box::new(Expression::ReadLocalVariable {
                                     name: var_name.into(),
                                     ty: Type::Struct {
-                                        fields: a.clone(),
+                                        fields: left.clone(),
                                         name: name.clone(),
                                         node: n.clone(),
                                     },
                                 }),
-                                name: k.clone(),
+                                name: key.clone(),
                             }
                             .maybe_convert_to(ty.clone(), node, diag)
                         } else {
                             Expression::default_value_for_type(ty)
                         };
-                        new_values.insert(k.clone(), e);
+                        new_values.insert(key.clone(), expression);
                     }
                     return Expression::CodeBlock(vec![
                         Expression::StoreLocalVariable {
@@ -898,9 +899,9 @@ impl Expression {
                         Expression::Struct { values: new_values, ty: target_type },
                     ]);
                 }
-                (Type::Struct { .. }, Type::Component(c)) => {
+                (Type::Struct { .. }, Type::Component(component)) => {
                     let struct_type_for_component = Type::Struct {
-                        fields: c
+                        fields: component
                             .root_element
                             .borrow()
                             .property_declarations
@@ -914,9 +915,10 @@ impl Expression {
                     };
                     self.maybe_convert_to(struct_type_for_component, node, diag)
                 }
-                (a, b) => match (a.as_unit_product(), b.as_unit_product()) {
-                    (Some(a), Some(b)) => {
-                        if let Some(power) = crate::langtype::unit_product_length_conversion(&a, &b)
+                (left, right) => match (left.as_unit_product(), right.as_unit_product()) {
+                    (Some(left), Some(right)) => {
+                        if let Some(power) =
+                            crate::langtype::unit_product_length_conversion(&left, &right)
                         {
                             let op = if power < 0 { '*' } else { '/' };
                             let mut result = self;
@@ -943,8 +945,8 @@ impl Expression {
                 },
             };
             Expression::Cast { from: Box::new(from), to: target_type }
-        } else if matches!((&ty, &target_type, &self), (Type::Array(a), Type::Array(b), Expression::Array{..})
-            if a.can_convert(b) || **a == Type::Invalid)
+        } else if matches!((&ty, &target_type, &self), (Type::Array(left), Type::Array(right), Expression::Array{..})
+            if left.can_convert(right) || **left == Type::Invalid)
         {
             // Special case for converting array literals
             match (self, target_type) {
