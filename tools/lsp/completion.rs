@@ -206,7 +206,7 @@ pub(crate) fn completion_at(
             _ => (),
         }
     }
-    return None;
+    None
 }
 
 fn with_insert_text(

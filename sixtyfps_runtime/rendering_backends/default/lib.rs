@@ -59,7 +59,7 @@ pub fn backend() -> &'static dyn sixtyfps_corelib::backend::Backend {
             // If Qt is not available always fallback to Gl
             return Box::new(sixtyfps_rendering_backend_gl::Backend);
         }
-        return Box::new(default_backend::Backend);
+        Box::new(default_backend::Backend)
     })
 }
 
