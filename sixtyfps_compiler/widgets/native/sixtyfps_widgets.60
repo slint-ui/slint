@@ -160,3 +160,15 @@ export GridBox := GridLayout {
     spacing: NativeStyleMetrics.layout_spacing;
     padding: NativeStyleMetrics.layout_spacing;
 }
+
+export TabWidgetImpl := NativeTabWidget {
+    VerticalLayout {
+        padding_left: root.native_padding_left;
+        padding_right: root.native_padding_right;
+        padding_top: root.native_padding_top;
+        padding_bottom: root.native_padding_bottom;
+        @children
+    }
+}
+
+export TabImpl := NativeTab {}
