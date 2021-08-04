@@ -765,7 +765,7 @@ impl ComponentInstance {
     pub fn invoke_callback(&self, name: &str, args: &[Value]) -> Result<Value, CallCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        Ok(comp.description().invoke_callback(comp.borrow(), name, &args).map_err(|()| todo!())?)
+        comp.description().invoke_callback(comp.borrow(), name, &args).map_err(|()| todo!())
     }
 
     /// Marks the window of this component to be shown on the screen. This registers

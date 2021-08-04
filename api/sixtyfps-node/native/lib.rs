@@ -35,15 +35,14 @@ fn run_scoped<'cx, T>(
 ) -> NeonResult<T> {
     let persistent_context =
         persistent_context::PersistentContext::from_object(cx, object_with_persistent_context)?;
-    Ok(cx
-        .execute_scoped(|cx| {
-            let cx = RefCell::new(cx);
-            let cx_fn = move |callback: &GlobalContextCallback| {
-                callback(&mut *cx.borrow_mut(), &persistent_context)
-            };
-            GLOBAL_CONTEXT.set(&&cx_fn, functor)
-        })
-        .or_else(|e| cx.throw_error(e))?)
+    cx.execute_scoped(|cx| {
+        let cx = RefCell::new(cx);
+        let cx_fn = move |callback: &GlobalContextCallback| {
+            callback(&mut *cx.borrow_mut(), &persistent_context)
+        };
+        GLOBAL_CONTEXT.set(&&cx_fn, functor)
+    })
+    .or_else(|e| cx.throw_error(e))
 }
 
 fn run_with_global_context(f: &GlobalContextCallback) {
