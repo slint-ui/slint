@@ -483,7 +483,7 @@ declare_types! {
 
         method show(mut cx) {
             let this = cx.this();
-            let window = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone()));
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             window.show();
             Ok(JsUndefined::new().as_value(&mut cx))
@@ -491,7 +491,7 @@ declare_types! {
 
         method hide(mut cx) {
             let this = cx.this();
-            let window = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone()));
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             window.hide();
             Ok(JsUndefined::new().as_value(&mut cx))
