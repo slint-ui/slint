@@ -96,7 +96,7 @@ enum ImageData {
     Texture(Texture),
     DecodedImage(image::DynamicImage),
     #[cfg(feature = "svg")]
-    SVG(usvg::Tree),
+    Svg(usvg::Tree),
     #[cfg(target_arch = "wasm32")]
     HTMLImage(HTMLImage),
 }
@@ -111,7 +111,7 @@ impl std::fmt::Debug for ImageData {
             ImageData::DecodedImage(i) => {
                 write!(f, "ImageData::DecodedImage({}x{})", i.width(), i.height())
             }
-            ImageData::SVG(_) => {
+            ImageData::Svg(_) => {
                 write!(f, "ImageData::SVG(...)")
             }
             #[cfg(target_arch = "wasm32")]
@@ -157,7 +157,7 @@ impl CachedImage {
 
     #[cfg(feature = "svg")]
     fn new_on_cpu_svg(tree: usvg::Tree) -> Self {
-        Self(RefCell::new(ImageData::SVG(tree)))
+        Self(RefCell::new(ImageData::Svg(tree)))
     }
 
     pub fn new_from_resource(resource: &ImageInner) -> Option<Self> {
@@ -296,7 +296,7 @@ impl CachedImage {
                 Some(Self::new_on_gpu(canvas, image_id))
             }
             #[cfg(feature = "svg")]
-            ImageData::SVG(svg_tree) => match super::svg::render(&svg_tree, target_size) {
+            ImageData::Svg(svg_tree) => match super::svg::render(&svg_tree, target_size) {
                 Ok(rendered_svg_image) => Some(Self::new_on_cpu(rendered_svg_image)),
                 Err(err) => {
                     eprintln!("Error rendering SVG: {}", err);
@@ -325,7 +325,7 @@ impl CachedImage {
             }
 
             #[cfg(feature = "svg")]
-            ImageData::SVG(tree) => {
+            ImageData::Svg(tree) => {
                 let size = tree.svg_node().size.to_screen_size();
                 Some([size.width() as f32, size.height() as f32].into())
             }
