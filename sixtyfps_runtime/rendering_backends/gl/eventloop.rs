@@ -63,7 +63,7 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
     }
 
     fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<CustomEvent> {
-        &self.event_loop_proxy
+        self.event_loop_proxy
     }
 }
 
@@ -273,7 +273,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
                         {
                             let ev = match state {
                                 winit::event::ElementState::Pressed => {
@@ -297,7 +297,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
                         {
                             let location = touch.location.to_logical(window.scale_factor() as f64);
                             let pos = euclid::point2(location.x, location.y);
@@ -360,7 +360,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
                         {
                             let delta = match delta {
                                 winit::event::MouseScrollDelta::LineDelta(lx, ly) => {
@@ -385,7 +385,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
                         {
                             if let Some(key_code) =
                                 input.virtual_keycode.and_then(|virtual_keycode| {
@@ -444,7 +444,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         corelib::animations::update_animations();
                         ALL_WINDOWS.with(|windows| {
                             if let Some(Some(window)) =
-                                windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                                windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
                             {
                                 let modifiers = window.current_keyboard_modifiers();
 
@@ -468,7 +468,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 } => {
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
                         {
                             // To provide an easier cross-platform behavior, we map the command key to control
                             // on macOS, and control to meta.
@@ -493,7 +493,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 } => {
                     ALL_WINDOWS.with(|windows| {
                         if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
                         {
                             window.self_weak.upgrade().unwrap().set_focus(have_focus);
                         }

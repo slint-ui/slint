@@ -298,7 +298,7 @@ fn resolve_element_scope(
 fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<CompletionItem>> {
     let mut r = Vec::new();
     let global = sixtyfps_compilerlib::lookup::global_lookup();
-    global.for_each_entry(&lookup_context, &mut |str, expr| -> Option<()> {
+    global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
         r.push(completion_item_from_expression(str, expr));
         None
     });

@@ -32,7 +32,7 @@ use crate::{
 
 pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components(
-        &root_component,
+        root_component,
         &None,
         &mut |elem: &ElementRc, parent: &Option<ElementRc>| {
             fix_percent_size(elem, parent, "width", diag);

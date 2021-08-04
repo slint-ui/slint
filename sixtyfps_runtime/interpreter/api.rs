@@ -765,7 +765,7 @@ impl ComponentInstance {
     pub fn invoke_callback(&self, name: &str, args: &[Value]) -> Result<Value, CallCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.description().invoke_callback(comp.borrow(), name, &args).map_err(|()| todo!())
+        comp.description().invoke_callback(comp.borrow(), name, args).map_err(|()| todo!())
     }
 
     /// Marks the window of this component to be shown on the screen. This registers
@@ -897,7 +897,7 @@ pub mod testing {
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
-            &comp.window().window_handle(),
+            comp.window().window_handle(),
         );
     }
     /// Wrapper around [`sixtyfps_corelib::tests::send_keyboard_string_sequence`]
@@ -908,7 +908,7 @@ pub mod testing {
         sixtyfps_corelib::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
-            &comp.window().window_handle(),
+            comp.window().window_handle(),
         );
     }
 }

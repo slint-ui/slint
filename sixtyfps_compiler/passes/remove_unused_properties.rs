@@ -14,7 +14,7 @@ use std::collections::HashSet;
 
 pub fn remove_unused_properties(component: &Component) {
     crate::object_tree::recurse_elem_including_sub_components_no_borrow(
-        &component,
+        component,
         &(),
         &mut |elem, _| {
             let mut to_remove = HashSet::new();

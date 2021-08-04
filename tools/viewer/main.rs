@@ -53,7 +53,7 @@ fn main() -> Result<()> {
     let mut compiler = init_compiler(&args, fswatcher);
 
     let c = spin_on::spin_on(compiler.build_from_path(args.path));
-    sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
+    sixtyfps_interpreter::print_diagnostics(compiler.diagnostics());
 
     let c = match c {
         Some(c) => c,
@@ -126,14 +126,14 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
 async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
     let mut compiler = init_compiler(&args, Some(fswatcher));
     let c = compiler.build_from_path(&args.path).await;
-    sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
+    sixtyfps_interpreter::print_diagnostics(compiler.diagnostics());
 
     if let Some(c) = c {
         CURRENT_INSTANCE.with(|current| {
             let mut current = current.borrow_mut();
             if let Some(handle) = current.take() {
                 let window = handle.window();
-                current.replace(c.create_with_existing_window(&window));
+                current.replace(c.create_with_existing_window(window));
             } else {
                 let handle = c.create();
                 handle.show();

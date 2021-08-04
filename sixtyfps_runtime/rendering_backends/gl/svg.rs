@@ -33,7 +33,7 @@ pub fn render(
     let skya_buffer =
         tiny_skia::PixmapMut::from_bytes(buffer.as_mut_slice(), size.width(), size.height())
             .ok_or(usvg::Error::InvalidSize)?;
-    resvg::render(&tree, fit, skya_buffer).ok_or(usvg::Error::InvalidSize)?;
+    resvg::render(tree, fit, skya_buffer).ok_or(usvg::Error::InvalidSize)?;
     Ok(image::DynamicImage::ImageRgba8(
         image::RgbaImage::from_raw(size.width(), size.height(), buffer)
             .ok_or(usvg::Error::InvalidSize)?,

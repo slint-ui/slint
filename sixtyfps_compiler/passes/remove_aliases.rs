@@ -108,7 +108,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     }
 
     // Do the replacements
-    visit_all_named_references(&component, &mut |nr: &mut NamedReference| {
+    visit_all_named_references(component, &mut |nr: &mut NamedReference| {
         if let Some(new) = aliases_to_remove.get(nr) {
             *nr = new.clone();
         }

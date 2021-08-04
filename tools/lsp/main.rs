@@ -531,8 +531,8 @@ fn get_document_color(
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
                     range: Range::new(
-                        document_cache.byte_offset_to_position(range.start().into(), &uri)?,
-                        document_cache.byte_offset_to_position(range.end().into(), &uri)?,
+                        document_cache.byte_offset_to_position(range.start().into(), uri)?,
+                        document_cache.byte_offset_to_position(range.end().into(), uri)?,
                     ),
                     color: Color {
                         alpha: shift(24),
@@ -569,8 +569,8 @@ fn get_document_symbols(
     let mut make_range = |node: &SyntaxNode| {
         let r = node.text_range();
         Some(Range::new(
-            document_cache.byte_offset_to_position(r.start().into(), &uri)?,
-            document_cache.byte_offset_to_position(r.end().into(), &uri)?,
+            document_cache.byte_offset_to_position(r.start().into(), uri)?,
+            document_cache.byte_offset_to_position(r.end().into(), uri)?,
         ))
     };
 
@@ -616,8 +616,8 @@ fn get_code_lenses(
     let mut make_range = |node: &SyntaxNode| {
         let r = node.text_range();
         Some(Range::new(
-            document_cache.byte_offset_to_position(r.start().into(), &uri)?,
-            document_cache.byte_offset_to_position(r.end().into(), &uri)?,
+            document_cache.byte_offset_to_position(r.start().into(), uri)?,
+            document_cache.byte_offset_to_position(r.end().into(), uri)?,
         ))
     };
 

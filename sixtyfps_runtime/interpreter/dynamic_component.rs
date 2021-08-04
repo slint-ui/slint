@@ -1106,7 +1106,7 @@ pub fn instantiate(
                 let mut e = Some(&binding.expression);
                 while let Some(Expression::TwoWayBinding(nr, next)) = &e {
                     // Safety: The compiler must have ensured that the properties exist and are of the same type
-                    prop_info.link_two_ways(item, get_property_ptr(&nr, instance_ref));
+                    prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
                     e = next.as_deref();
                 }
                 if let Some(e) = e {
@@ -1143,7 +1143,7 @@ pub fn instantiate(
                     let mut e = Some(&binding.expression);
                     while let Some(Expression::TwoWayBinding(nr, next)) = &e {
                         // Safety: The compiler must have ensured that the properties exist and are of the same type
-                        prop_rtti.link_two_ways(item, get_property_ptr(&nr, instance_ref));
+                        prop_rtti.link_two_ways(item, get_property_ptr(nr, instance_ref));
                         e = next.as_deref();
                     }
                     if let Some(e) = e {

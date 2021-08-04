@@ -242,12 +242,12 @@ impl Window {
             old_focus_item
                 .borrow()
                 .as_ref()
-                .focus_event(&crate::input::FocusEvent::FocusOut, &window);
+                .focus_event(&crate::input::FocusEvent::FocusOut, window);
         }
 
         *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
 
-        focus_item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &window);
+        focus_item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, window);
     }
 
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
@@ -261,7 +261,7 @@ impl Window {
         };
 
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            focus_item.borrow().as_ref().focus_event(&event, &window);
+            focus_item.borrow().as_ref().focus_event(&event, window);
         }
     }
 

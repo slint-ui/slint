@@ -77,7 +77,7 @@ pub(crate) fn try_load_app_font(
     let family = request
         .family
         .as_ref()
-        .map_or(fontdb::Family::SansSerif, |family| fontdb::Family::Name(&family));
+        .map_or(fontdb::Family::SansSerif, |family| fontdb::Family::Name(family));
 
     let query = fontdb::Query {
         families: &[family],
@@ -89,7 +89,7 @@ pub(crate) fn try_load_app_font(
         font_db.query(&query).and_then(|id| {
             font_db.with_face_data(id, |data, _index| {
                 // pass index to femtovg once femtovg/femtovg/pull/21 is merged
-                text_context.add_font_mem(&data).unwrap()
+                text_context.add_font_mem(data).unwrap()
             })
         })
     })
@@ -108,7 +108,7 @@ pub(crate) fn load_system_font(
     let handle = font_kit::source::SystemSource::new()
         .select_best_match(
             &[family_name, font_kit::family_name::FamilyName::SansSerif],
-            &font_kit::properties::Properties::new()
+            font_kit::properties::Properties::new()
                 .weight(font_kit::properties::Weight(request.weight.unwrap() as f32)),
         )
         .unwrap();
@@ -392,8 +392,8 @@ impl FontCache {
                 weight: request.weight.unwrap(),
             })
             .or_insert_with(|| {
-                try_load_app_font(&text_context, &request)
-                    .unwrap_or_else(|| load_system_font(&text_context, &request))
+                try_load_app_font(&text_context, request)
+                    .unwrap_or_else(|| load_system_font(&text_context, request))
             })
     }
 
@@ -410,9 +410,7 @@ impl FontCache {
         let fallbacks = font_fallbacks_for_request(&request, reference_text);
 
         let fonts = core::iter::once(primary_font)
-            .chain(
-                fallbacks.iter().map(|fallback_request| self.load_single_font(&fallback_request)),
-            )
+            .chain(fallbacks.iter().map(|fallback_request| self.load_single_font(fallback_request)))
             .collect::<SharedVector<_>>();
 
         Font {

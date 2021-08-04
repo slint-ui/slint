@@ -1154,7 +1154,7 @@ impl ItemRenderer for GLItemRenderer {
             cached_image
         });
         let image_id = match cache_entry {
-            Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(&self),
+            Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(self),
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
             Some(ItemGraphicsCacheEntry::Font(_)) => unreachable!(),
             None => return,
@@ -1267,7 +1267,7 @@ impl GLItemRenderer {
             None => return original_cache_entry,
         };
 
-        let image_id = original_image.ensure_uploaded_to_gpu(&self);
+        let image_id = original_image.ensure_uploaded_to_gpu(self);
         let colorized_image = self
             .shared_data
             .canvas
@@ -1352,12 +1352,12 @@ impl GLItemRenderer {
                         .lookup_image_in_cache_or_create(cache_key, || {
                             crate::IMAGE_CACHE
                                 .with(|global_cache| {
-                                    global_cache.borrow_mut().load_image_resource(&image_inner)
+                                    global_cache.borrow_mut().load_image_resource(image_inner)
                                 })
                                 .and_then(|image| {
                                     image
                                         .upload_to_gpu(
-                                            &self, // The condition at the entry of the function ensures that width/height are positive
+                                            self, // The condition at the entry of the function ensures that width/height are positive
                                             [
                                                 (target_width.get() * self.scale_factor) as u32,
                                                 (target_height.get() * self.scale_factor) as u32,
@@ -1394,7 +1394,7 @@ impl GLItemRenderer {
             break cached_image.as_image().clone();
         };
 
-        let image_id = cached_image.ensure_uploaded_to_gpu(&self);
+        let image_id = cached_image.ensure_uploaded_to_gpu(self);
         let image_size = cached_image.size().unwrap_or_default();
 
         let (source_width, source_height) = if source_clip_rect.is_empty() {

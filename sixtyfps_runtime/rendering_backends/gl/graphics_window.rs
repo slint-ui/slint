@@ -581,7 +581,7 @@ impl GraphicsWindowBackendState {
             GraphicsWindowBackendState::Unmapped => panic!(
                 "internal error: tried to access window functions that require a mapped window"
             ),
-            GraphicsWindowBackendState::Mapped(mw) => &mw,
+            GraphicsWindowBackendState::Mapped(mw) => mw,
         }
     }
 }

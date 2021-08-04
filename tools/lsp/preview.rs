@@ -240,7 +240,7 @@ async fn reload_preview(
             let mut preview_state = preview_state.borrow_mut();
             if let Some(handle) = preview_state.handle.take() {
                 let window = handle.window();
-                let handle = compiled.create_with_existing_window(&window);
+                let handle = compiled.create_with_existing_window(window);
                 match post_load_behavior {
                     PostLoadBehavior::ShowAfterLoad => handle.show(),
                     PostLoadBehavior::DoNothing => {}
@@ -269,7 +269,7 @@ fn notify_diagnostics(
             continue;
         }
         let uri = lsp_types::Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags.entry(uri).or_default().push(crate::util::to_lsp_diag(&d));
+        lsp_diags.entry(uri).or_default().push(crate::util::to_lsp_diag(d));
     }
 
     for (uri, diagnostics) in lsp_diags {

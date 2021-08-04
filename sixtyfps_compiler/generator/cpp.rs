@@ -420,7 +420,7 @@ fn handle_property_binding(
             } else {
                 match animation {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
-                        let anim = property_animation_code(&component, anim);
+                        let anim = property_animation_code(component, anim);
                         format!("{}.set_animated_binding({}, {});", cpp_prop, binding_code, anim)
                     }
                     Some(crate::object_tree::PropertyAnimation::Transition {
@@ -693,7 +693,7 @@ fn generate_component(
                 args.iter().map(|t| get_cpp_type(t, property_decl, diag)).collect::<Vec<_>>();
             let return_type = return_type
                 .as_ref()
-                .map_or("void".into(), |t| get_cpp_type(&t, property_decl, diag));
+                .map_or("void".into(), |t| get_cpp_type(t, property_decl, diag));
             if property_decl.expose_in_public_api && is_root {
                 let callback_emitter = vec![format!(
                     "return {}.call({});",
@@ -1633,11 +1633,11 @@ fn compile_expression(
             _ => {
                 let mut args = arguments.iter().map(|e| compile_expression(e, component));
 
-                format!("{}({})", compile_expression(&function, component), args.join(", "))
+                format!("{}({})", compile_expression(function, component), args.join(", "))
             }
         },
         Expression::SelfAssignment { lhs, rhs, op } => {
-            let rhs = compile_expression(&*rhs, &component);
+            let rhs = compile_expression(&*rhs, component);
             compile_assignment(lhs, *op, rhs, component)
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
@@ -1746,7 +1746,7 @@ fn compile_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             let cache = access_named_reference(layout_cache_prop, component, "self");
             if let Some(ri) = repeater_index {
-                format!("[&](auto cache) {{ return cache[int(cache[{}]) + {} * 2]; }} ({}.get())", index, compile_expression(&ri, component), cache)
+                format!("[&](auto cache) {{ return cache[int(cache[{}]) + {} * 2]; }} ({}.get())", index, compile_expression(ri, component), cache)
             } else {
                 format!("{}.get()[{}]", cache, index)
             }
@@ -2089,7 +2089,7 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                         .cpp_type
                         .as_ref()
                         .map(|cpp_type| {
-                            new_struct_with_bindings(&cpp_type, &element.bindings, component)
+                            new_struct_with_bindings(cpp_type, &element.bindings, component)
                         })
                         .unwrap_or_default();
                     format!(
