@@ -1367,7 +1367,7 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
             .original
             .parent_element
             .upgrade()
-            .and_then(|e| e.borrow().item_index.get().map(|x| *x));
+            .and_then(|e| e.borrow().item_index.get().cloned());
         if let (Some(parent_offset), Some(parent_index)) =
             (instance_ref.component_type.parent_component_offset, parent_item_index)
         {

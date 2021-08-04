@@ -188,7 +188,7 @@ pub fn set_contents(path: &Path, content: String) {
 /// In any was, register it as a dependency
 fn get_file_from_cache(path: PathBuf) -> Option<String> {
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
-    let r = cache.source_code.get(&path).map(|r| r.clone());
+    let r = cache.source_code.get(&path).cloned();
     cache.dependency.insert(path);
     r
 }
