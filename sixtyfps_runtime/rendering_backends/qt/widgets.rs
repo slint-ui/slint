@@ -1841,56 +1841,102 @@ pub struct NativeTabWidget {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
-    pub native_padding_left: Property<f32>,
-    pub native_padding_right: Property<f32>,
-    pub native_padding_top: Property<f32>,
-    pub native_padding_bottom: Property<f32>,
+    pub content_preferred_height: Property<f32>,
+    pub content_preferred_width: Property<f32>,
+    pub tabbar_preferred_height: Property<f32>,
+    pub tabbar_preferred_width: Property<f32>,
+
+    // outputs
+    pub content_x: Property<f32>,
+    pub content_y: Property<f32>,
+    pub content_height: Property<f32>,
+    pub content_width: Property<f32>,
+    pub tabbar_x: Property<f32>,
+    pub tabbar_y: Property<f32>,
+    pub tabbar_height: Property<f32>,
+    pub tabbar_width: Property<f32>,
 }
 
 impl Item for NativeTabWidget {
     fn init(self: Pin<&Self>, _window: &WindowRc) {
-        let paddings = Rc::pin(Property::<qttypes::QMargins>::default());
+        #[derive(Default, Clone)]
+        #[repr(C)]
+        struct TabWidgetRects {
+            content: qttypes::QRectF,
+            tabbar: qttypes::QRectF,
+        }
+        cpp! {{ struct TabWidgetRects { QRectF content, tabbar; }; }}
 
-        paddings.set_binding(move || {
-            cpp!(unsafe [] -> qttypes::QMargins as "QMargins" {
+        #[repr(C)]
+        #[derive(FieldOffsets, Default)]
+        #[pin]
+        struct TabBarSharedData {
+            width: Property<f32>,
+            height: Property<f32>,
+            tabbar_preferred_height: Property<f32>,
+            tabbar_preferred_width: Property<f32>,
+            rects: Property<TabWidgetRects>,
+        }
+        let shared_data = Rc::pin(TabBarSharedData::default());
+        macro_rules! link {
+            ($prop:ident) => {
+                Property::link_two_way(
+                    Self::FIELD_OFFSETS.$prop.apply_pin(self),
+                    TabBarSharedData::FIELD_OFFSETS.$prop.apply_pin(shared_data.as_ref()),
+                );
+            };
+        }
+        link!(width);
+        link!(height);
+        link!(tabbar_preferred_width);
+        link!(tabbar_preferred_height);
+
+        let shared_data_weak = pin_weak::rc::PinWeak::downgrade(shared_data.clone());
+        shared_data.rects.set_binding(move || {
+            let shared_data = shared_data_weak.upgrade().unwrap();
+            let size = qttypes::QSizeF {
+                width: TabBarSharedData::FIELD_OFFSETS.width.apply_pin(shared_data.as_ref()).get() as _,
+                height: TabBarSharedData::FIELD_OFFSETS.height.apply_pin(shared_data.as_ref()).get() as _,
+            };
+            let tabbar_size = qttypes::QSizeF {
+                width: TabBarSharedData::FIELD_OFFSETS.tabbar_preferred_width.apply_pin(shared_data.as_ref()).get() as _,
+                height: TabBarSharedData::FIELD_OFFSETS.tabbar_preferred_height.apply_pin(shared_data.as_ref()).get() as _,
+            };
+            cpp!(unsafe [size as "QSizeF", tabbar_size as "QSizeF"] -> TabWidgetRects as "TabWidgetRects" {
                 ensure_initialized();
                 QStyleOptionTabWidgetFrame option;
                 auto style = qApp->style();
                 option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
                 option.shape = QTabBar::RoundedNorth;
-                //int base_height = style->pixelMetric(QStyle::PM_TabBarBaseHeight, 0, nullptr);
-
-                // Just some size big enough to be sure that the frame fits in it
-                option.rect = QRect(0, 0, 10000, 10000);
+                option.rect = QRect(QPoint(), size.toSize());
+                option.tabBarSize = tabbar_size.toSize();
+                option.tabBarRect = QRect(QPoint(), option.tabBarSize);
+                option.rightCornerWidgetSize = QSize(0, 0);
+                option.leftCornerWidgetSize = QSize(0, 0);
             	QRect contentsRect = style->subElementRect(QStyle::SE_TabWidgetTabContents, &option, nullptr);
-
-                auto hs = style->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, &option);
-                auto vs = style->pixelMetric(QStyle::PM_LayoutVerticalSpacing, &option);
-                return {
-                    (contentsRect.left() + hs),
-                    (contentsRect.top() + vs),
-                    (option.rect.right() - contentsRect.right() + hs),
-                    (option.rect.bottom() - contentsRect.bottom() + vs)
-                };
+                QRect tabbarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, nullptr);
+                return {contentsRect, tabbarRect};
             })
         });
 
-        self.native_padding_left.set_binding({
-            let paddings = paddings.clone();
-            move || paddings.as_ref().get().left as _
-        });
-        self.native_padding_right.set_binding({
-            let paddings = paddings.clone();
-            move || paddings.as_ref().get().right as _
-        });
-        self.native_padding_top.set_binding({
-            let paddings = paddings.clone();
-            move || paddings.as_ref().get().top as _
-        });
-        self.native_padding_bottom.set_binding({
-            let paddings = paddings;
-            move || paddings.as_ref().get().bottom as _
-        });
+        macro_rules! bind {
+            ($prop:ident = $field1:ident.$field2:ident) => {
+                let shared_data = shared_data.clone();
+                self.$prop.set_binding(move || {
+                    let rects =
+                        TabBarSharedData::FIELD_OFFSETS.rects.apply_pin(shared_data.as_ref()).get();
+                    rects.$field1.$field2 as f32
+                });
+            };
+        }
+        bind!(content_x = content.x);
+        bind!(content_y = content.y);
+        bind!(content_width = content.width);
+        bind!(content_height = content.height);
+        bind!(tabbar_x = tabbar.x);
+        bind!(tabbar_y = tabbar.y);
+        bind!(tabbar_width = tabbar.width);
+        bind!(tabbar_height = tabbar.height);
     }
 
     fn geometry(self: Pin<&Self>) -> Rect {
@@ -1902,10 +1948,34 @@ impl Item for NativeTabWidget {
         orientation: Orientation,
         _window: &WindowRc,
     ) -> LayoutInfo {
+        let content_size = qttypes::QSizeF {
+            width: self.content_preferred_width() as _,
+            height: self.content_preferred_height() as _,
+        };
+        let tabbar_size = qttypes::QSizeF {
+            width: self.tabbar_preferred_width() as _,
+            height: self.tabbar_preferred_height() as _,
+        };
+        let size = cpp!(unsafe [content_size as "QSizeF", tabbar_size as "QSizeF"] -> qttypes::QSize as "QSize" {
+            ensure_initialized();
+
+            QStyleOptionTabWidgetFrame option;
+            auto style = qApp->style();
+            option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
+            option.shape = QTabBar::RoundedNorth;
+            option.tabBarSize = tabbar_size.toSize();
+            option.rightCornerWidgetSize = QSize(0, 0);
+            option.leftCornerWidgetSize = QSize(0, 0);
+            return style->sizeFromContents(QStyle::CT_TabWidget, &option, content_size.toSize(), nullptr);
+        });
         LayoutInfo {
             min: match orientation {
-                Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
-                Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
+                Orientation::Horizontal => size.width as f32,
+                Orientation::Vertical => size.height as f32,
+            },
+            preferred: match orientation {
+                Orientation::Horizontal => size.width as f32,
+                Orientation::Vertical => size.height as f32,
             },
             stretch: 1.,
             ..LayoutInfo::default()
@@ -1936,11 +2006,16 @@ impl Item for NativeTabWidget {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { _this dpr size painter =>
+    fn_render! { this dpr size painter =>
+        let tabbar_size = qttypes::QSizeF {
+            width: this.tabbar_preferred_width() as _,
+            height: this.tabbar_preferred_height() as _,
+        };
         cpp!(unsafe [
             painter as "QPainter*",
             size as "QSize",
-            dpr as "float"
+            dpr as "float",
+            tabbar_size as "QSizeF"
         ] {
             QStyleOptionTabWidgetFrame option;
             auto style = qApp->style();
@@ -1952,7 +2027,27 @@ impl Item for NativeTabWidget {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
             option.rect = QRect(QPoint(), size / dpr);
-            qApp->style()->drawPrimitive(QStyle::PE_FrameTabWidget, &option, painter, nullptr);
+            option.tabBarSize = tabbar_size.toSize();
+            option.rightCornerWidgetSize = QSize(0, 0);
+            option.leftCornerWidgetSize = QSize(0, 0);
+            option.tabBarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, nullptr);
+            option.rect = style->subElementRect(QStyle::SE_TabWidgetTabPane, &option, nullptr);
+            style->drawPrimitive(QStyle::PE_FrameTabWidget, &option, painter, nullptr);
+
+            /* -- we don't need to draw the base since we already draw the frame
+            QStyleOptionTab tabOverlap;
+            tabOverlap.shape = option.shape;
+            int overlap = style->pixelMetric(QStyle::PM_TabBarBaseOverlap, &tabOverlap, nullptr);
+            QStyleOptionTabBarBase optTabBase;
+            static_cast<QStyleOption&>(optTabBase) = (option);
+            optTabBase.shape = option.shape;
+            optTabBase.rect = option.tabBarRect;
+            if (overlap > 0) {
+                optTabBase.rect.setHeight(optTabBase.rect.height() - overlap);
+            }
+            optTabBase.tabBarRect = option.tabBarRect;
+            optTabBase.selectedTabRect = option.selectedTabRect;
+            style->drawPrimitive(QStyle::PE_FrameTabBarBase, &optTabBase, painter, nullptr);*/
         });
     }
 }
@@ -2102,6 +2197,7 @@ impl Item for NativeTab {
         .unwrap_or_default();
         let enabled: bool = this.enabled();
         let position: i32 = this.tab_position();
+        let current: bool = this.current();
 
         cpp!(unsafe [
             painter as "QPainter*",
@@ -2111,7 +2207,8 @@ impl Item for NativeTab {
             size as "QSize",
             down as "bool",
             dpr as "float",
-            position as "int"
+            position as "int",
+            current as "bool"
         ] {
             ensure_initialized();
             QStyleOptionTab option;
@@ -2129,6 +2226,8 @@ impl Item for NativeTab {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
+            if (current)
+                option.state |= QStyle::State_Selected;
             qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter, nullptr);
         });
     }
