@@ -541,8 +541,8 @@ export NativeTabWidget := _ {
     property <length> tabbar_width: native_output;
     property <length> tabbar_preferred_height;
     property <length> tabbar_preferred_width;
-    property <length> content_preferred_height;
-    property <length> content_preferred_width;
+    property <length> content_min_height;
+    property <length> content_min_width;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -557,10 +557,9 @@ export NativeTab := _ {
     property<image> icon;
     property<bool> enabled : true;
     property<bool> pressed;
-    property<bool> current;
-    callback clicked;
-    /// 0 = Begin, 1 = Middle, 2 = End, 3 = Single
-    property <int> tab_position : 1;
+    property<int> current: native_output; // supposed to be a binding to the tab
+    property<int> tab_index;
+    property<int> num_tabs;
     //-is_internal
 }
 

@@ -335,6 +335,8 @@ fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "NativeScrollView",
         "NativeStandardListViewItem",
         "NativeComboBox",
+        "NativeTabWidget",
+        "NativeTab",
     ];
 
     config.export.include = items.iter().map(|x| x.to_string()).collect();

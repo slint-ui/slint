@@ -308,6 +308,64 @@ export GroupBox := GridLayout {
     }
 }
 
+export TabWidgetImpl := Rectangle {
+    property <length> content_x: 0;
+    property <length> content_y: tabbar_preferred_height;
+    property <length> content_height: height - tabbar_preferred_height;
+    property <length> content_width: width;
+    property <length> tabbar_x: 0;
+    property <length> tabbar_y: 0;
+    property <length> tabbar_height: tabbar_preferred_height;
+    property <length> tabbar_width: width;
+
+    property <length> tabbar_preferred_height;
+    property <length> tabbar_preferred_width;
+    property <length> content_min_height;
+    property <length> content_min_width;
+
+    border_width: 1px;
+    border_color: Palette.border_color;
+    border_radius: 2px;
+
+    preferred_width: content_min_width;
+    min_width: content_min_width;
+    preferred_height: content_min_height;
+    min_height: content_min_height;
+
+}
+export TabImpl := Rectangle {
+    property<string> title <=> t.text;
+    //property<image> icon;
+    property<bool> enabled : true;
+    property<bool> pressed;
+    property<int> current;
+    property<int> tab_index;
+    property<int> num_tabs;
+    preferred_height: t.preferred_height + 8px;
+    preferred_width: t.preferred_width + 12px;
+
+    border_width: 1px;
+    border_radius: 2px;
+    border_color: black;
+    background: !enabled ? Palette.button_background_disabled : (touch.pressed || current == tab_index) ? Palette.button_pressed : (touch.has_hover ? Palette.button_hover : Palette.button_background);
+    animate background { duration: 100ms; }
+    touch := TouchArea {
+        clicked => {
+            current = tab_index;
+        }
+    }
+    t:= Text {
+        x: enabled && (touch.pressed || current == tab_index) ? 1px : 0px;
+        y: enabled && (touch.pressed || current == tab_index) ? 1px : 0px;
+        width: parent.width;
+        height: parent.height;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+    }
+}
+
+
 export LineEdit := Rectangle {
     property <string> text;
     property <string> placeholder_text;

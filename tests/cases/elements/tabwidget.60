@@ -1,0 +1,75 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// TODO: one should naturaly not use the Impl directly, but use TabWidget instead but that's not yet implemented
+import { TabWidgetImpl, TabImpl  } from "sixtyfps_widgets.60";
+
+TestCase := Window {
+    preferred_height: 500px;
+    preferred_width: 500px;
+
+    property <int> current_tab;
+
+    VerticalLayout {
+        padding: 20px;
+        tw := TabWidgetImpl {
+            tabbar_preferred_width: tabbar.preferred_width;
+            tabbar_preferred_height: tabbar.preferred_height;
+            tabbar := HorizontalLayout {
+                x: tw.tabbar_x;
+                y: tw.tabbar_y;
+                width: tw.tabbar_width;
+                height: tw.tabbar_height;
+                alignment: start;
+                TabImpl {
+                    title: "Hello";
+                    current <=> current_tab;
+                    tab_index: 0;
+                    num_tabs: 3;
+
+                }
+                TabImpl {
+                    title: "World";
+                    current <=> current_tab;
+                    tab_index: 1;
+                    num_tabs: 3;
+                }
+                TabImpl {
+                    title: "Cruel";
+                    current <=> current_tab;
+                    tab_index: 2;
+                    num_tabs: 3;
+
+                }
+            }
+
+            Rectangle {
+                visible: current_tab == 1;
+                x: parent.content_x;
+                y: parent.content_y;
+                width: parent.content_width;
+                height: parent.content_height;
+                background: #8555;
+            }
+            Rectangle {
+                visible: current_tab == 2;
+                x: parent.content_x;
+                y: parent.content_y;
+                width: parent.content_width;
+                height: parent.content_height;
+                background: pink;
+            }
+
+        }
+
+    }
+}
+
+
