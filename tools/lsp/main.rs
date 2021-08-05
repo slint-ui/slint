@@ -254,11 +254,8 @@ fn handle_request(
             .and_then(|token| get_code_actions(document_cache, token.0.parent()));
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     } else if let Some((id, params)) = cast::<ExecuteCommand>(&mut req) {
-        match params.command.as_str() {
-            SHOW_PREVIEW_COMMAND => {
-                show_preview_command(&params.arguments, connection, document_cache)?
-            }
-            _ => (),
+        if params.command.as_str() == SHOW_PREVIEW_COMMAND {
+            show_preview_command(&params.arguments, connection, document_cache)?
         }
         connection
             .sender
