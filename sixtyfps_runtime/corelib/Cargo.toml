@@ -13,7 +13,7 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [features]
-# Allow the vewer to query at runtime information about item types
+# Allow the viewer to query at runtime information about item types
 rtti = []
 ffi = []
 
