@@ -20,7 +20,7 @@ use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use std::rc::Rc;
 
-pub fn lower_layouts<'a>(
+pub fn lower_layouts(
     component: &Rc<Component>,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,

@@ -191,7 +191,7 @@ fn is_declaration(x: &NamedReference) -> bool {
 }
 
 /// Out of two named reference, return the one which is the best to keep.
-fn best_property<'a>(
+fn best_property(
     component: &Rc<Component>,
     p1: NamedReference,
     p2: NamedReference,
