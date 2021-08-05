@@ -28,6 +28,7 @@ impl Span {
         self.offset != usize::MAX
     }
 
+    #[allow(clippy::needless_update)] // needed when `proc_macro_span` is enabled
     pub fn new(offset: usize) -> Self {
         Self { offset, ..Default::default() }
     }
