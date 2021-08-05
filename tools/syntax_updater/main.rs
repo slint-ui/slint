@@ -221,10 +221,8 @@ fn fold_node(
     state: &mut State,
     args: &Cli,
 ) -> std::io::Result<bool> {
-    if args.from == "0.0.5" {
-        if from_0_0_5::fold_node(node, file, state)? {
-            return Ok(true);
-        }
+    if args.from == "0.0.5" && from_0_0_5::fold_node(node, file, state)? {
+        return Ok(true);
     }
     if args.from.as_str() <= "0.0.6" {
         from_0_0_6::fold_node(node, file, state)

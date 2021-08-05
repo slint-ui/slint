@@ -112,11 +112,11 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
     std::thread::spawn(move || {
         while let Ok(event) = rx.recv() {
             use notify::DebouncedEvent::*;
-            if matches!(event, Write(_) | Remove(_) | Create(_)) {
-                if PENDING_EVENTS.load(Ordering::SeqCst) == 0 {
-                    PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-                    run_in_ui_thread(Box::pin(reload(args.clone(), w2.clone())));
-                }
+            if (matches!(event, Write(_) | Remove(_) | Create(_)))
+                && PENDING_EVENTS.load(Ordering::SeqCst) == 0
+            {
+                PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
+                run_in_ui_thread(Box::pin(reload(args.clone(), w2.clone())));
             }
         }
     });
