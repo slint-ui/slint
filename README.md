@@ -145,7 +145,7 @@ We welcome your contributions: in the form of code, bug reports or feedback.
 This software is provided under a dual licensing scheme:
 
  - **GNU GPLv3**: Open source license ideal for free software.
- - **Commercial SixtyFPS license**: More details to come.
+ - **Commercial SixtyFPS license**: <https://sixtyfps.io/#offering>
 
 See also the [Licensing FAQ](FAQ.md#licensing)
 
