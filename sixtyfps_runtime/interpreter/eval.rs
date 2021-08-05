@@ -10,7 +10,6 @@ LICENSE END */
 use crate::api::{Struct, Value};
 use crate::dynamic_component::InstanceRef;
 use core::convert::TryInto;
-use core::iter::FromIterator;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
@@ -899,15 +898,18 @@ fn convert_from_lyon_path<'a>(
 
     PathData::Events(
         SharedVector::from(events.as_slice()),
-        SharedVector::from_iter(coordinates.into_iter().cloned()),
+        coordinates.into_iter().cloned().collect::<SharedVector<_>>(),
     )
 }
 
 pub fn convert_path(path: &ExprPath, local_context: &mut EvalLocalContext) -> PathData {
     match path {
-        ExprPath::Elements(elements) => PathData::Elements(SharedVector::<PathElement>::from_iter(
-            elements.iter().map(|element| convert_path_element(element, local_context)),
-        )),
+        ExprPath::Elements(elements) => PathData::Elements(
+            elements
+                .iter()
+                .map(|element| convert_path_element(element, local_context))
+                .collect::<SharedVector<PathElement>>(),
+        ),
         ExprPath::Events(events) => convert_from_lyon_path(events.iter()),
     }
 }
@@ -953,9 +955,9 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Image => Value::Image(Default::default()),
         Type::Bool => Value::Bool(false),
         Type::Callback { .. } => Value::Void,
-        Type::Struct { fields, .. } => Value::Struct(Struct::from_iter(
-            fields.iter().map(|(n, t)| (n.clone(), default_value_for_type(t))),
-        )),
+        Type::Struct { fields, .. } => Value::Struct(
+            fields.iter().map(|(n, t)| (n.clone(), default_value_for_type(t))).collect::<Struct>(),
+        ),
         Type::Array(_) => Value::Array(Default::default()),
         Type::Percent => Value::Number(0.),
         Type::Enumeration(e) => {
