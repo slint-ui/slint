@@ -288,7 +288,7 @@ fn lower_box_layout(
                 }
             };
             let actual_elem = &item.elem;
-            set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index + 0, rep_idx, diag);
+            set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, diag);
             if !fixed_size {
                 set_prop_from_cache(
                     actual_elem,
