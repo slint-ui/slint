@@ -74,7 +74,7 @@ macro_rules! fn_render {
                 // Fallback: this happen when the Qt backend is not used and the gl backend is used instead
                 backend.draw_cached_pixmap(
                     &self.cached_rendering_data,
-                    &mut |callback| {
+                    &|callback| {
                         let width = self.width() * $dpr;
                         let height = self.height() * $dpr;
                         if width < 1. || height < 1. {
