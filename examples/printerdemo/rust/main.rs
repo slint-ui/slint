@@ -84,7 +84,7 @@ pub fn main() {
         sixtyfps::TimerMode::Repeated,
         std::time::Duration::from_secs(1),
         move || {
-            printer_queue_weak.upgrade().map(|printer_queue| {
+            if let Some(printer_queue) = printer_queue_weak.upgrade() {
                 if printer_queue.data.row_count() > 0 {
                     let mut top_item = printer_queue.data.row_data(0);
                     top_item.progress += 1;
@@ -100,7 +100,7 @@ pub fn main() {
                 } else {
                     // FIXME: stop this timer?
                 }
-            });
+            }
         },
     );
 

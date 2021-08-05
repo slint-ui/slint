@@ -283,10 +283,18 @@ pub struct Padding {
 
 impl Padding {
     fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
-        self.left.as_mut().map(|e| visitor(&mut *e));
-        self.right.as_mut().map(|e| visitor(&mut *e));
-        self.top.as_mut().map(|e| visitor(&mut *e));
-        self.bottom.as_mut().map(|e| visitor(&mut *e));
+        if let Some(e) = self.left.as_mut() {
+            visitor(&mut *e)
+        }
+        if let Some(e) = self.right.as_mut() {
+            visitor(&mut *e)
+        }
+        if let Some(e) = self.top.as_mut() {
+            visitor(&mut *e)
+        }
+        if let Some(e) = self.bottom.as_mut() {
+            visitor(&mut *e)
+        }
     }
 
     // Return reference to the begin and end padding for a given orientation
@@ -309,8 +317,12 @@ pub struct LayoutGeometry {
 impl LayoutGeometry {
     pub fn visit_named_references(&mut self, visitor: &mut impl FnMut(&mut NamedReference)) {
         self.rect.visit_named_references(visitor);
-        self.spacing.as_mut().map(|e| visitor(&mut *e));
-        self.alignment.as_mut().map(|e| visitor(&mut *e));
+        if let Some(e) = self.spacing.as_mut() {
+            visitor(&mut *e)
+        }
+        if let Some(e) = self.alignment.as_mut() {
+            visitor(&mut *e)
+        }
         self.padding.visit_named_references(visitor);
     }
 }
