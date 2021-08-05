@@ -307,11 +307,9 @@ declare_types! {
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let properties = ct.properties_and_callbacks().filter(|(_, prop_type)| prop_type.is_property_type());
             let array = JsArray::new(&mut cx, 0);
-            let mut len: u32 = 0;
-            for (p, _) in properties {
+            for (len, (p, _)) in properties.enumerate() {
                 let prop_name = JsString::new(&mut cx, p);
-                array.set(&mut cx, len, prop_name)?;
-                len += 1;
+                array.set(&mut cx, len as u32, prop_name)?;
             }
             Ok(array.as_value(&mut cx))
         }
@@ -321,11 +319,9 @@ declare_types! {
             let ct = ct.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let callbacks = ct.properties_and_callbacks().filter(|(_, prop_type)| matches!(prop_type, Type::Callback{..}));
             let array = JsArray::new(&mut cx, 0);
-            let mut len: u32 = 0;
-            for (p, _) in callbacks {
+            for (len , (p, _)) in callbacks.enumerate() {
                 let prop_name = JsString::new(&mut cx, p);
-                array.set(&mut cx, len, prop_name)?;
-                len += 1;
+                array.set(&mut cx, len as u32, prop_name)?;
             }
             Ok(array.as_value(&mut cx))
         }
