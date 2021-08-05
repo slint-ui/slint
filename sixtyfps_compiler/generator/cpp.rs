@@ -903,7 +903,6 @@ fn generate_component(
                 ty: "sixtyfps::Window".into(),
                 name: "m_window".into(),
                 init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
-                ..Var::default()
             }),
         ));
     } else if !component.is_global() {
@@ -913,7 +912,6 @@ fn generate_component(
                 ty: "sixtyfps::Window".into(),
                 name: "m_window".into(),
                 init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
-                ..Var::default()
             }),
         ));
 
