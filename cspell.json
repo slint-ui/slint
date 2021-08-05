@@ -34,7 +34,8 @@
                 "maxy",
                 "minx",
                 "miny",
-                "Rgba"
+                "Rgba",
+                "ARGB"
             ],
             "ignoreRegExpList": [
                 "/#\\[cfg\\b.+\\]/",

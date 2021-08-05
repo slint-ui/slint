@@ -41,6 +41,8 @@ weak-table =  "0.3"
 scopeguard = "1.1.0"
 cfg-if = "1"
 unicode-segmentation = "1.8.0"
+imgref = "1"
+rgb = "0.8.27"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }

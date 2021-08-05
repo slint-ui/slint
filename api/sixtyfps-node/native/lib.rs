@@ -255,7 +255,7 @@ fn to_js_value<'cx>(
             &ImageInner::AbsoluteFilePath(ref path) => {
                 JsString::new(cx, path.as_str()).as_value(cx)
             }
-            &ImageInner::EmbeddedData { .. } | &ImageInner::EmbeddedRgbaImage { .. } => {
+            &ImageInner::EmbeddedData { .. } | &ImageInner::EmbeddedImage { .. } => {
                 JsNull::new().as_value(cx)
             } // TODO: maybe pass around node buffers?
         },
