@@ -74,6 +74,6 @@ developing needs to be accounted for. However, support for bug fixes requires a 
 
 ## I want to develop a free software product using SixtyFPS, but I don't like the GPL and prefer to use a non-copyleft license.
 
-You can still publish your own source code under a permissisive license compatible with the GPL, such as BSD, MIT, or Apache license.
+You can still publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license.
 The distribution of a binary or a package containing SixtyFPS still needs to be licensed under the GPL.
 It is up to those who want to distribute a non-free version of the application to acquire a commercial license.
