@@ -99,7 +99,8 @@ pub trait PropertyInfo<Item, Value> {
 
     /// Calls Property::link_two_ways with the property represented here and the property pointer
     ///
-    /// Safety: the property2 must be a pinned pointer to a Property of the same type
+    /// # Safety
+    /// the property2 must be a pinned pointer to a Property of the same type
     #[allow(unsafe_code)]
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ());
 }

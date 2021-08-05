@@ -1022,10 +1022,16 @@ impl core::ops::Deref for FlickableDataBox {
     }
 }
 
+/// # Safety
+/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
+/// hold a FlickableDataBox
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_flickable_data_init(data: *mut FlickableDataBox) {
     std::ptr::write(data, FlickableDataBox::default());
 }
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to an initialized FlickableDataBox
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBox) {
     std::ptr::drop_in_place(data);
