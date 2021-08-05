@@ -396,7 +396,7 @@ impl<'a> IntoIterator for &'a BindingsMap {
     type IntoIter = std::collections::btree_map::Iter<'a, String, BindingExpression>;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.0).into_iter()
+        (&self.0).iter()
     }
 }
 
