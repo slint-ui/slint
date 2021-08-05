@@ -8,6 +8,7 @@
 - [Licensing](#licensing)
   - [What is the commercial licensing model?](#what-is-the-commercial-licensing-model)
   - [Can I try SixtyFPS using the GPL version and then switch to the commercial license later?](#can-i-try-sixtyfps-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
+  - [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
   - [I want to develop a free software product using SixtyFPS, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-sixtyfps-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
 
 # General
@@ -49,7 +50,7 @@ languages.
 SixtyFPS is available under two licenses:
 
  * GPLv3, for the growing ecosystem of Free and Open Source Software.
- * Commercial, for use in closed-source projects.
+ * Commercial, for use in closed-source projects. See <https://sixtyfps.io/#offering>
 
 ## What is the commercial licensing model?
 
@@ -72,8 +73,13 @@ evaluate SixtyFPS and develop your product internally using the GPL license, and
 license when you want to ship your product. If you choose a per seat licensing model, the time spent
 developing needs to be accounted for. However, support for bug fixes requires a commercial license.
 
+## Is there a discount or reduction for independent developers or small businesses?
+
+Yes, check out our [Ambassador program](https://sixtyfps.io/ambassador-program.html)
+
 ## I want to develop a free software product using SixtyFPS, but I don't like the GPL and prefer to use a non-copyleft license.
 
 You can still publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license.
 The distribution of a binary or a package containing SixtyFPS still needs to be licensed under the GPL.
 It is up to those who want to distribute a non-free version of the application to acquire a commercial license.
+
