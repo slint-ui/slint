@@ -286,7 +286,7 @@ impl TimerList {
 
 thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
 
-fn lower_bound<T>(vec: &Vec<T>, mut less_than: impl FnMut(&T) -> bool) -> usize {
+fn lower_bound<T>(vec: &[T], mut less_than: impl FnMut(&T) -> bool) -> usize {
     let mut left = 0;
     let mut right = vec.len();
 

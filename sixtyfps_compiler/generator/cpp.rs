@@ -2128,7 +2128,7 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
     }
 }
 
-fn compile_path_events(events: &crate::expression_tree::PathEvents) -> (Vec<String>, Vec<String>) {
+fn compile_path_events(events: &[crate::expression_tree::PathEvent]) -> (Vec<String>, Vec<String>) {
     use lyon_path::Event;
 
     let mut coordinates = Vec::new();

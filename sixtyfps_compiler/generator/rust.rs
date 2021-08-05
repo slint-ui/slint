@@ -1891,7 +1891,7 @@ fn get_layout_info(
     }
 }
 
-fn compile_path_events(events: &crate::expression_tree::PathEvents) -> TokenStream {
+fn compile_path_events(events: &[crate::expression_tree::PathEvent]) -> TokenStream {
     use lyon_path::Event;
 
     let mut coordinates = Vec::new();
