@@ -1841,8 +1841,8 @@ pub struct NativeTabWidget {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
-    pub content_preferred_height: Property<f32>,
-    pub content_preferred_width: Property<f32>,
+    pub content_min_height: Property<f32>,
+    pub content_min_width: Property<f32>,
     pub tabbar_preferred_height: Property<f32>,
     pub tabbar_preferred_width: Property<f32>,
 
@@ -1949,8 +1949,8 @@ impl Item for NativeTabWidget {
         _window: &WindowRc,
     ) -> LayoutInfo {
         let content_size = qttypes::QSizeF {
-            width: self.content_preferred_width() as _,
-            height: self.content_preferred_height() as _,
+            width: self.content_min_width() as _,
+            height: self.content_min_height() as _,
         };
         let tabbar_size = qttypes::QSizeF {
             width: self.tabbar_preferred_width() as _,
@@ -2073,8 +2073,9 @@ pub struct NativeTab {
     pub icon: Property<sixtyfps_corelib::graphics::Image>,
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
-    pub current: Property<bool>,
-    pub clicked: Callback<VoidArg>,
+    pub current: Property<i32>,
+    pub num_tabs: Property<i32>,
+    pub tab_index: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
     /// 0 = Begin, 1 = Middle, 2 = End, 3 = Single
     pub tab_position: Property<i32>,
@@ -2173,7 +2174,7 @@ impl Item for NativeTab {
         if matches!(event, MouseEvent::MouseReleased { .. } if !click_on_press)
             || matches!(event, MouseEvent::MousePressed { .. } if click_on_press)
         {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+            self.current.set(self.tab_index());
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse
@@ -2196,8 +2197,9 @@ impl Item for NativeTab {
         )
         .unwrap_or_default();
         let enabled: bool = this.enabled();
-        let position: i32 = this.tab_position();
-        let current: bool = this.current();
+        let current: i32 = this.current();
+        let tab_index: i32 = this.tab_index();
+        let num_tabs: i32 = this.num_tabs();
 
         cpp!(unsafe [
             painter as "QPainter*",
@@ -2207,8 +2209,9 @@ impl Item for NativeTab {
             size as "QSize",
             down as "bool",
             dpr as "float",
-            position as "int",
-            current as "bool"
+            tab_index as "int",
+            current as "int",
+            num_tabs as "int"
         ] {
             ensure_initialized();
             QStyleOptionTab option;
@@ -2216,7 +2219,13 @@ impl Item for NativeTab {
             option.text = text;
             option.icon = icon;
             option.shape = QTabBar::RoundedNorth;
-            option.position = QStyleOptionTab::TabPosition(position);
+            option.position = num_tabs == 1 ? QStyleOptionTab::OnlyOneTab
+                : tab_index == 0 ? QStyleOptionTab::Beginning
+                : tab_index == num_tabs - 1 ? QStyleOptionTab::End
+                : QStyleOptionTab::Middle;
+            /* -- does not render correctly with the fusion style because we don't draw the selected on top
+            option.selectedPosition = current == tab_index - 1 ? QStyleOptionTab::NextIsSelected
+                : current == tab_index + 1 ? QStyleOptionTab::PreviousIsSelected : QStyleOptionTab::NotAdjacent;*/
             if (down)
                 option.state |= QStyle::State_Sunken;
             else
@@ -2226,7 +2235,7 @@ impl Item for NativeTab {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            if (current)
+            if (current == tab_index)
                 option.state |= QStyle::State_Selected;
             qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter, nullptr);
         });
