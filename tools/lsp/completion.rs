@@ -180,8 +180,7 @@ pub(crate) fn completion_at(
                     let global = sixtyfps_compilerlib::lookup::global_lookup();
                     let mut expr_it = global.lookup(ctx, &first)?.expression;
                     let mut has_dot = false;
-                    loop {
-                        let t = if let Some(t) = it.next() { t } else { break };
+                    for t in it {
                         has_dot |= t.kind() == SyntaxKind::Dot;
                         if t.token == token.token {
                             break;

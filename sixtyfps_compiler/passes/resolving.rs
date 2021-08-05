@@ -865,7 +865,7 @@ impl Expression {
             )
         });
         let mut result = exprs.next().unwrap_or_default();
-        while let Some(x) = exprs.next() {
+        for x in exprs {
             result = Expression::BinaryExpression {
                 lhs: Box::new(std::mem::take(&mut result)),
                 rhs: Box::new(x),
