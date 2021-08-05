@@ -1172,7 +1172,8 @@ pub struct BindingAnalysis {
     pub is_const: bool,
 }
 
-pub type PathEvents = Vec<lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>;
+pub type PathEvent = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>;
+pub type PathEvents = Vec<PathEvent>;
 
 #[derive(Debug, Clone)]
 pub enum Path {
