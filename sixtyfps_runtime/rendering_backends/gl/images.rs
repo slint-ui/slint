@@ -56,7 +56,7 @@ impl HTMLImage {
 
         let image_load_pending = Rc::pin(Property::new(true));
 
-        let event_loop_proxy = crate::eventloop::with_window_target(|event_loop| {
+        let event_loop_proxy = crate::event_loop::with_window_target(|event_loop| {
             event_loop.event_loop_proxy().clone()
         });
 
@@ -72,7 +72,7 @@ impl HTMLImage {
                     // be dispatched as the next event. We are however not in an event loop
                     // call, so we also need to wake up the event loop and redraw then.
                     event_loop_proxy
-                        .send_event(crate::eventloop::CustomEvent::RedrawAllWindows)
+                        .send_event(crate::event_loop::CustomEvent::RedrawAllWindows)
                         .ok();
                 }
             })

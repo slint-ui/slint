@@ -35,7 +35,7 @@ use sixtyfps_corelib::SharedString;
 
 mod graphics_window;
 use graphics_window::*;
-pub(crate) mod eventloop;
+pub(crate) mod event_loop;
 mod images;
 mod svg;
 use images::*;
@@ -206,7 +206,7 @@ impl OpenGLContext {
     ) -> (Self, femtovg::renderer::OpenGl) {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let windowed_context = crate::eventloop::with_window_target(|event_loop| {
+            let windowed_context = crate::event_loop::with_window_target(|event_loop| {
                 let builder = glutin::ContextBuilder::new().with_vsync(true);
 
                 // With latest Windows 10 and Vmware glutin's default for srgb produces surfaces that are always rendered black :(
@@ -257,7 +257,7 @@ impl OpenGLContext {
                 canvas.client_height() as u32,
             );
 
-            let window = Rc::new(crate::eventloop::with_window_target(|event_loop| {
+            let window = Rc::new(crate::event_loop::with_window_target(|event_loop| {
                 window_builder
                     .with_canvas(Some(canvas.clone()))
                     .build(&event_loop.event_loop_target())
@@ -278,10 +278,10 @@ impl OpenGLContext {
 
                     window.set_inner_size(existing_canvas_size);
                     window.request_redraw();
-                    crate::eventloop::with_window_target(|event_loop| {
+                    crate::event_loop::with_window_target(|event_loop| {
                         event_loop
                             .event_loop_proxy()
-                            .send_event(crate::eventloop::CustomEvent::RedrawAllWindows)
+                            .send_event(crate::event_loop::CustomEvent::RedrawAllWindows)
                             .ok();
                     })
                 }
@@ -1602,12 +1602,12 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     }
 
     fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
-        crate::eventloop::run(behavior);
+        crate::event_loop::run(behavior);
     }
 
     fn quit_event_loop(&'static self) {
-        crate::eventloop::with_window_target(|event_loop| {
-            event_loop.event_loop_proxy().send_event(crate::eventloop::CustomEvent::Exit).ok();
+        crate::event_loop::with_window_target(|event_loop| {
+            event_loop.event_loop_proxy().send_event(crate::event_loop::CustomEvent::Exit).ok();
         })
     }
 
@@ -1636,11 +1636,11 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     }
 
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
-        let e = crate::eventloop::CustomEvent::UserEvent(event);
+        let e = crate::event_loop::CustomEvent::UserEvent(event);
         #[cfg(not(target_arch = "wasm32"))]
-        crate::eventloop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
+        crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
         #[cfg(target_arch = "wasm32")]
-        crate::eventloop::with_window_target(|event_loop| {
+        crate::event_loop::with_window_target(|event_loop| {
             event_loop.event_loop_proxy().send_event(e).ok();
         })
     }

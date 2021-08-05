@@ -227,7 +227,7 @@ impl GraphicsWindow {
             constraints: Default::default(),
         }));
 
-        crate::eventloop::register_window(id, self);
+        crate::event_loop::register_window(id, self);
     }
     /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
     /// by calling [`PlatformWindow::map_window`].
@@ -458,9 +458,9 @@ impl PlatformWindow for GraphicsWindow {
             GraphicsWindowBackendState::Mapped(window) => {
                 let backend = window.backend.borrow();
                 let window_id = backend.window().id();
-                crate::eventloop::with_window_target(|event_loop| {
+                crate::event_loop::with_window_target(|event_loop| {
                     event_loop.event_loop_proxy().send_event(
-                        crate::eventloop::CustomEvent::UpdateWindowProperties(window_id),
+                        crate::event_loop::CustomEvent::UpdateWindowProperties(window_id),
                     )
                 })
                 .ok();
@@ -566,7 +566,7 @@ struct MappedWindow {
 
 impl Drop for MappedWindow {
     fn drop(&mut self) {
-        crate::eventloop::unregister_window(self.backend.borrow().window().id());
+        crate::event_loop::unregister_window(self.backend.borrow().window().id());
     }
 }
 
