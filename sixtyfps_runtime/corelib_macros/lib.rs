@@ -63,10 +63,9 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
                 attr.parse_meta()
                     .ok()
                     .map(|meta| match meta {
-                        syn::Meta::Path(path) => path
-                            .get_ident()
-                            .map(|ident| ident.to_string() == "rtti_field")
-                            .unwrap_or(false),
+                        syn::Meta::Path(path) => {
+                            path.get_ident().map(|ident| *ident == "rtti_field").unwrap_or(false)
+                        }
                         _ => false,
                     })
                     .unwrap_or(false)
@@ -142,9 +141,7 @@ fn property_type(ty: &syn::Type) -> Option<&syn::Type> {
         }) = segments.first()
         {
             match args.first() {
-                Some(syn::GenericArgument::Type(property_type))
-                    if ident.to_string() == "Property" =>
-                {
+                Some(syn::GenericArgument::Type(property_type)) if *ident == "Property" => {
                     return Some(property_type)
                 }
                 _ => {}
