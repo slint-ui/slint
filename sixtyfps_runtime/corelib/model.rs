@@ -538,7 +538,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let listview_geometry_tracker =
             unsafe { self.map_unchecked(|s| &s.listview_geometry_tracker) };
         let init = &init;
-        if listview_geometry_tracker
+
+        let geometry_changed = listview_geometry_tracker
             .evaluate_if_dirty(|| {
                 let listview_height = listview_height.get();
                 // Compute the element height
@@ -603,19 +604,18 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     break;
                 }
             })
-            .is_none()
-        {
-            if self.inner.borrow().borrow().is_dirty.as_ref().get() {
-                let count = self
-                    .inner
-                    .borrow()
-                    .borrow()
-                    .components
-                    .len()
-                    .min(row_count.saturating_sub(self.inner.borrow().borrow().offset));
-                self.ensure_updated_impl(init, &model, count);
-                self.compute_layout_listview(viewport_width, listview_width);
-            }
+            .is_none();
+
+        if geometry_changed && self.inner.borrow().borrow().is_dirty.as_ref().get() {
+            let count = self
+                .inner
+                .borrow()
+                .borrow()
+                .components
+                .len()
+                .min(row_count.saturating_sub(self.inner.borrow().borrow().offset));
+            self.ensure_updated_impl(init, &model, count);
+            self.compute_layout_listview(viewport_width, listview_width);
         }
     }
 
