@@ -1,0 +1,40 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+import { Slider, GroupBox } from "sixtyfps_widgets.60";
+
+export MainWindow := Window {
+    title: "SixtyFPS Plotter Integration Example";
+    preferred-width: 800px;
+    preferred-height: 600px;
+
+    property plot_image <=> img.source;
+    property pitch <=> pitch_slider.value;
+    callback redraw();
+
+    VerticalLayout {
+        Text {
+            font-size: 20px;
+            text: "2D Gaussian PDF";
+            horizontal-alignment: center;
+        }
+        img := Image {
+        }
+        GroupBox {
+            title: "Pitch";
+            pitch_slider := Slider {
+                minimum: 0;
+                maximum: 180;
+                value: 42;
+                changed => { root.redraw(); }
+            }
+        }
+
+    }
+}

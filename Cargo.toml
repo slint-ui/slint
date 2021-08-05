@@ -27,6 +27,7 @@ members = [
     'examples/slide_puzzle',
     'examples/7gui',
     'examples/memory',
+    'examples/plotter',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
