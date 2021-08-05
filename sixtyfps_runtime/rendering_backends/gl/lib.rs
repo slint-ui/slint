@@ -1354,29 +1354,36 @@ impl GLItemRenderer {
                 .load_item_graphics_cache_with_function(item_cache, || {
                     let image = source_property.get();
                     let image_inner = (&image).into();
-                    let cache_key = ImageCacheKey::new(image_inner)?;
 
-                    self.graphics_window
-                        .texture_cache
-                        .borrow_mut()
-                        .lookup_image_in_cache_or_create(cache_key, || {
-                            crate::IMAGE_CACHE
-                                .with(|global_cache| {
-                                    global_cache.borrow_mut().load_image_resource(image_inner)
-                                })
-                                .and_then(|image| {
-                                    image
-                                        .upload_to_gpu(
-                                            self, // The condition at the entry of the function ensures that width/height are positive
-                                            [
-                                                (target_width.get() * self.scale_factor) as u32,
-                                                (target_height.get() * self.scale_factor) as u32,
-                                            ]
-                                            .into(),
-                                        )
-                                        .map(Rc::new)
+                    ImageCacheKey::new(image_inner)
+                        .and_then(|cache_key| {
+                            self.graphics_window
+                                .texture_cache
+                                .borrow_mut()
+                                .lookup_image_in_cache_or_create(cache_key, || {
+                                    crate::IMAGE_CACHE
+                                        .with(|global_cache| {
+                                            global_cache
+                                                .borrow_mut()
+                                                .load_image_resource(image_inner)
+                                        })
+                                        .and_then(|image| {
+                                            image
+                                                .upload_to_gpu(
+                                                    self, // The condition at the entry of the function ensures that width/height are positive
+                                                    [
+                                                        (target_width.get() * self.scale_factor)
+                                                            as u32,
+                                                        (target_height.get() * self.scale_factor)
+                                                            as u32,
+                                                    ]
+                                                    .into(),
+                                                )
+                                                .map(Rc::new)
+                                        })
                                 })
                         })
+                        .or_else(|| CachedImage::new_from_resource(image_inner).map(Rc::new))
                         .map(ItemGraphicsCacheEntry::Image)
                         .map(|cache_entry| self.colorize_image(cache_entry, colorize_property))
                 });

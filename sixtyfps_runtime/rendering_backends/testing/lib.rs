@@ -73,8 +73,8 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
         let inner: &ImageInner = image.into();
         match &inner {
             ImageInner::None => Default::default(),
-            ImageInner::EmbeddedRgbaImage { width, height, .. } => {
-                Size::new(*width as _, *height as _)
+            ImageInner::EmbeddedImage { buffer } => {
+                Size::new(buffer.width() as _, buffer.height() as _)
             }
             ImageInner::AbsoluteFilePath(path) => image::open(Path::new(path.as_str()))
                 .map(|img| {

@@ -12,9 +12,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use sixtyfps_corelib::graphics::{SharedImageBuffer, Size};
 #[cfg(target_arch = "wasm32")]
 use sixtyfps_corelib::Property;
-use sixtyfps_corelib::{graphics::Size, slice::Slice, ImageInner, SharedString};
+use sixtyfps_corelib::{slice::Slice, ImageInner, SharedString};
 
 use super::{CanvasRc, GLItemRenderer};
 
@@ -95,6 +96,7 @@ impl HTMLImage {
 enum ImageData {
     Texture(Texture),
     DecodedImage(image::DynamicImage),
+    EmbeddedImage(SharedImageBuffer),
     #[cfg(feature = "svg")]
     Svg(usvg::Tree),
     #[cfg(target_arch = "wasm32")]
@@ -110,6 +112,9 @@ impl std::fmt::Debug for ImageData {
             }
             ImageData::DecodedImage(i) => {
                 write!(f, "ImageData::DecodedImage({}x{})", i.width(), i.height())
+            }
+            ImageData::EmbeddedImage(buffer) => {
+                write!(f, "ImageData::EmbeddedImage({}x{})", buffer.width(), buffer.height())
             }
             ImageData::Svg(_) => {
                 write!(f, "ImageData::SVG(...)")
@@ -165,7 +170,9 @@ impl CachedImage {
             ImageInner::None => None,
             ImageInner::AbsoluteFilePath(path) => Self::new_from_path(path),
             ImageInner::EmbeddedData { data, format } => Self::new_from_data(data, format),
-            ImageInner::EmbeddedRgbaImage { .. } => todo!(),
+            ImageInner::EmbeddedImage { buffer } => {
+                Some(Self(RefCell::new(ImageData::EmbeddedImage(buffer.clone()))))
+            }
         }
     }
 
@@ -249,7 +256,11 @@ impl CachedImage {
             .unwrap();
 
             *img = Texture { id: image_id, canvas: canvas.clone() }.into()
-        };
+        } else if let ImageData::EmbeddedImage(buffer) = img {
+            let (image_source, flags) = image_buffer_to_image_source(buffer);
+            let image_id = canvas.borrow_mut().create_image(image_source, flags).unwrap();
+            *img = Texture { id: image_id, canvas: canvas.clone() }.into()
+        }
 
         #[cfg(target_arch = "wasm32")]
         if let ImageData::HTMLImage(html_image) = img {
@@ -295,6 +306,12 @@ impl CachedImage {
 
                 Some(Self::new_on_gpu(canvas, image_id))
             }
+            ImageData::EmbeddedImage(_) => {
+                // embedded images have no cache key and therefore it would be a bug if they entered this code path
+                // that is used to transition images from the image cache to the texture cache.
+                eprintln!("internal error: upload_to_gpu called on embedded image, which implies that the image was entered into the cache");
+                None
+            }
             #[cfg(feature = "svg")]
             ImageData::Svg(svg_tree) => match super::svg::render(svg_tree, target_size) {
                 Ok(rendered_svg_image) => Some(Self::new_on_cpu(rendered_svg_image)),
@@ -322,6 +339,9 @@ impl CachedImage {
             ImageData::DecodedImage(decoded_image) => {
                 let (width, height) = decoded_image.dimensions();
                 Some([width as f32, height as f32].into())
+            }
+            ImageData::EmbeddedImage(buffer) => {
+                Some([buffer.width() as f32, buffer.height() as f32].into())
             }
 
             #[cfg(feature = "svg")]
@@ -414,7 +434,7 @@ impl ImageCacheKey {
             ImageInner::EmbeddedData { data, format: _ } => {
                 Self::EmbeddedData(by_address::ByAddress(data.as_slice()))
             }
-            ImageInner::EmbeddedRgbaImage { .. } => return None,
+            ImageInner::EmbeddedImage { .. } => return None,
         })
     }
 }
@@ -446,11 +466,13 @@ impl ImageCache {
 
     // Try to load the image the given resource points to
     pub(crate) fn load_image_resource(&mut self, resource: &ImageInner) -> Option<Rc<CachedImage>> {
-        let cache_key = ImageCacheKey::new(resource)?;
-
-        self.lookup_image_in_cache_or_create(cache_key, || {
-            CachedImage::new_from_resource(resource).map(Rc::new)
-        })
+        ImageCacheKey::new(resource)
+            .and_then(|cache_key| {
+                self.lookup_image_in_cache_or_create(cache_key, || {
+                    CachedImage::new_from_resource(resource).map(Rc::new)
+                })
+            })
+            .or_else(|| CachedImage::new_from_resource(resource).map(Rc::new))
     }
 
     pub(crate) fn drain(&mut self) {
@@ -469,5 +491,18 @@ impl ImageCache {
 
     pub(crate) fn remove_textures(&mut self) {
         self.0.retain(|_, cached_image| !cached_image.is_on_gpu());
+    }
+}
+
+fn image_buffer_to_image_source(
+    buffer: &SharedImageBuffer,
+) -> (femtovg::ImageSource<'_>, femtovg::ImageFlags) {
+    use imgref::ImgExt;
+    match buffer {
+        SharedImageBuffer::RGB8(buffer) => (buffer.as_ref().into(), femtovg::ImageFlags::empty()),
+        SharedImageBuffer::RGBA8(buffer) => (buffer.as_ref().into(), femtovg::ImageFlags::empty()),
+        SharedImageBuffer::RGBA8Premultiplied(buffer) => {
+            (buffer.as_ref().into(), femtovg::ImageFlags::PREMULTIPLIED)
+        }
     }
 }

@@ -13,7 +13,9 @@ LICENSE END */
 use cpp::*;
 use euclid::approxeq::ApproxEq;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use sixtyfps_corelib::graphics::{Brush, FontRequest, Image, Point, Rect, RenderingCache, Size};
+use sixtyfps_corelib::graphics::{
+    Brush, FontRequest, Image, Point, Rect, RenderingCache, SharedImageBuffer, Size,
+};
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
@@ -797,7 +799,34 @@ pub(crate) fn load_image_from_resource(
         ImageInner::EmbeddedData { data, format: _ } => {
             (false, qttypes::QByteArray::from(data.as_slice()))
         }
-        ImageInner::EmbeddedRgbaImage { .. } => todo!(),
+        ImageInner::EmbeddedImage { buffer } => {
+            use imgref::ImgExt;
+            use rgb::ComponentBytes;
+            let (format, bytes_per_line, buffer_ptr) = match buffer {
+                SharedImageBuffer::RGBA8(img) => (
+                    qttypes::ImageFormat::RGBA8888,
+                    img.stride() * 4,
+                    img.as_ref().to_contiguous_buf().0.as_bytes().as_ptr(),
+                ),
+                SharedImageBuffer::RGBA8Premultiplied(img) => (
+                    qttypes::ImageFormat::RGBA8888_Premultiplied,
+                    img.stride() * 4,
+                    img.as_ref().to_contiguous_buf().0.as_bytes().as_ptr(),
+                ),
+                SharedImageBuffer::RGB8(img) => (
+                    qttypes::ImageFormat::RGB888,
+                    img.stride() * 3,
+                    img.as_ref().to_contiguous_buf().0.as_bytes().as_ptr(),
+                ),
+            };
+            let width: i32 = buffer.width() as _;
+            let height: i32 = buffer.height() as _;
+            let pixmap = cpp! { unsafe [format as "QImage::Format", width as "int", height as "int", bytes_per_line as "size_t", buffer_ptr as "const uchar *"] -> qttypes::QPixmap as "QPixmap" {
+                QImage img(buffer_ptr, width, height, bytes_per_line, format);
+                return QPixmap::fromImage(img);
+            } };
+            return Some(pixmap);
+        }
     };
     let size_requested = is_svg(resource) && source_size.is_some();
     let source_size = source_size.unwrap_or_default();
@@ -882,7 +911,7 @@ fn is_svg(resource: &ImageInner) -> bool {
         ImageInner::None => false,
         ImageInner::AbsoluteFilePath(path) => path.as_str().ends_with(".svg"),
         ImageInner::EmbeddedData { format, .. } => format.as_slice() == b"svg",
-        ImageInner::EmbeddedRgbaImage { .. } => false,
+        ImageInner::EmbeddedImage { .. } => false,
     }
 }
 
