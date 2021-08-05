@@ -155,7 +155,7 @@ cpp! {{
         void customEvent(QEvent *event) override {
             if (event->type() == QEvent::User) {
                 rust!(SFPS_updateWindowProps [rust_window: &QtWindow as "void*"]{
-                   rust_window.self_weak.upgrade().map(|window| window.update_window_properties());
+                   if let Some(window) = rust_window.self_weak.upgrade() { window.update_window_properties() }
                 });
             } else {
                 QWidget::customEvent(event);
