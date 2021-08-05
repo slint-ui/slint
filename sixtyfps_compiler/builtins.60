@@ -531,10 +531,18 @@ export NativeTabWidget := _ {
     property <length> width;
     property <length> height;
 
-    property <length> native_padding_left: native_output;
-    property <length> native_padding_right: native_output;
-    property <length> native_padding_top: native_output;
-    property <length> native_padding_bottom: native_output;
+    property <length> content_x: native_output;
+    property <length> content_y: native_output;
+    property <length> content_height: native_output;
+    property <length> content_width: native_output;
+    property <length> tabbar_x: native_output;
+    property <length> tabbar_y: native_output;
+    property <length> tabbar_height: native_output;
+    property <length> tabbar_width: native_output;
+    property <length> tabbar_preferred_height;
+    property <length> tabbar_preferred_width;
+    property <length> content_preferred_height;
+    property <length> content_preferred_width;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -547,7 +555,7 @@ export NativeTab := _ {
 
     property<string> title;
     property<image> icon;
-    property<bool> enabled;
+    property<bool> enabled : true;
     property<bool> pressed;
     property<bool> current;
     callback clicked;
