@@ -23,7 +23,18 @@
                 "codemap",
                 "subspan",
                 "fontdb",
-                "canonicalize" // std::path::Path::canonicalize
+                "canonicalize", // std::path::Path::canonicalize
+                "glutin",
+                "glutin's",
+                "vsync",
+                "winit",
+                "FBOs", // plural of FBO (frame buffer object)
+                "bbox",
+                "maxx",
+                "maxy",
+                "minx",
+                "miny",
+                "Rgba"
             ],
             "ignoreRegExpList": [
                 "/#\\[cfg\\b.+\\]/",
@@ -91,7 +102,10 @@
         "vtable",
         "wasm",
         "windowrc", // used in sixtyfps_windowrc_foo FFI functions
-        "xtask"
+        "xtask",
+        "unmapping", // present participle of unmap
+        "opengl",
+        "pixmap"
     ],
     "ignorePaths": [
         "cspell.json",

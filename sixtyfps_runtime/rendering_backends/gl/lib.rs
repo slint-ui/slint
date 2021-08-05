@@ -115,7 +115,7 @@ impl ItemGraphicsCache {
     }
 }
 
-// glutin's WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
+// glutin::WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
 // in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
 enum OpenGLContextState {
     #[cfg(not(target_arch = "wasm32"))]
@@ -209,7 +209,7 @@ impl OpenGLContext {
             let windowed_context = crate::event_loop::with_window_target(|event_loop| {
                 let builder = glutin::ContextBuilder::new().with_vsync(true);
 
-                // With latest Windows 10 and Vmware glutin's default for srgb produces surfaces that are always rendered black :(
+                // With latest Windows 10 and VmWare glutin's default for srgb produces surfaces that are always rendered black :(
                 #[cfg(target_os = "windows")]
                 let builder = builder.with_srgb(false);
 
@@ -829,7 +829,7 @@ impl ItemRenderer for GLItemRenderer {
 
         let (offset, path_events) = path.fitted_path_events();
 
-        let mut fpath = femtovg::Path::new();
+        let mut femtovg_path = femtovg::Path::new();
 
         /// Contrary to the SVG spec, femtovg does not use the orientation of the path to
         /// know if it needs to fill or not some part, it uses its own Solidity enum.
@@ -854,17 +854,21 @@ impl ItemRenderer for GLItemRenderer {
         for x in path_events.iter() {
             match x {
                 lyon_path::Event::Begin { at } => {
-                    fpath.solidity(if orient.area < 0. { Solidity::Hole } else { Solidity::Solid });
-                    fpath.move_to(at.x * self.scale_factor, at.y * self.scale_factor);
+                    femtovg_path.solidity(if orient.area < 0. {
+                        Solidity::Hole
+                    } else {
+                        Solidity::Solid
+                    });
+                    femtovg_path.move_to(at.x * self.scale_factor, at.y * self.scale_factor);
                     orient.area = 0.;
                     orient.prev = at;
                 }
                 lyon_path::Event::Line { from: _, to } => {
-                    fpath.line_to(to.x * self.scale_factor, to.y * self.scale_factor);
+                    femtovg_path.line_to(to.x * self.scale_factor, to.y * self.scale_factor);
                     orient.add_point(to);
                 }
                 lyon_path::Event::Quadratic { from: _, ctrl, to } => {
-                    fpath.quad_to(
+                    femtovg_path.quad_to(
                         ctrl.x * self.scale_factor,
                         ctrl.y * self.scale_factor,
                         to.x * self.scale_factor,
@@ -874,7 +878,7 @@ impl ItemRenderer for GLItemRenderer {
                 }
 
                 lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
-                    fpath.bezier_to(
+                    femtovg_path.bezier_to(
                         ctrl1.x * self.scale_factor,
                         ctrl1.y * self.scale_factor,
                         ctrl2.x * self.scale_factor,
@@ -885,34 +889,40 @@ impl ItemRenderer for GLItemRenderer {
                     orient.add_point(to);
                 }
                 lyon_path::Event::End { last: _, first: _, close } => {
-                    fpath.solidity(if orient.area < 0. { Solidity::Hole } else { Solidity::Solid });
+                    femtovg_path.solidity(if orient.area < 0. {
+                        Solidity::Hole
+                    } else {
+                        Solidity::Solid
+                    });
                     if close {
-                        fpath.close()
+                        femtovg_path.close()
                     }
                 }
             }
         }
 
-        let fill_paint = self.brush_to_paint(path.fill(), &mut fpath).map(|mut fill_paint| {
-            fill_paint.set_fill_rule(match path.fill_rule() {
-                FillRule::nonzero => femtovg::FillRule::NonZero,
-                FillRule::evenodd => femtovg::FillRule::EvenOdd,
+        let fill_paint =
+            self.brush_to_paint(path.fill(), &mut femtovg_path).map(|mut fill_paint| {
+                fill_paint.set_fill_rule(match path.fill_rule() {
+                    FillRule::nonzero => femtovg::FillRule::NonZero,
+                    FillRule::evenodd => femtovg::FillRule::EvenOdd,
+                });
+                fill_paint
             });
-            fill_paint
-        });
 
-        let border_paint = self.brush_to_paint(path.stroke(), &mut fpath).map(|mut paint| {
-            paint.set_line_width(path.stroke_width() * self.scale_factor);
-            paint
-        });
+        let border_paint =
+            self.brush_to_paint(path.stroke(), &mut femtovg_path).map(|mut paint| {
+                paint.set_line_width(path.stroke_width() * self.scale_factor);
+                paint
+            });
 
         self.shared_data.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(offset.x, offset.y);
             if let Some(fill_paint) = fill_paint {
-                canvas.fill_path(&mut fpath, fill_paint);
+                canvas.fill_path(&mut femtovg_path, fill_paint);
             }
             if let Some(border_paint) = border_paint {
-                canvas.stroke_path(&mut fpath, border_paint);
+                canvas.stroke_path(&mut femtovg_path, border_paint);
             }
         })
     }
@@ -1474,9 +1484,9 @@ impl GLItemRenderer {
                     let mut canvas = self.shared_data.canvas.borrow_mut();
                     canvas.save();
                     canvas.reset_transform();
-                    let bbox = canvas.path_bbox(path);
+                    let bounding_box = canvas.path_bbox(path);
                     canvas.restore();
-                    bbox
+                    bounding_box
                 };
 
                 let path_width = path_bounds.maxx - path_bounds.minx;
