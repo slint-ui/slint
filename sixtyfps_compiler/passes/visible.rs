@@ -24,9 +24,11 @@ pub fn handle_visible(component: &Rc<Component>, type_register: &TypeRegister) {
         component,
         &(),
         &mut |elem: &ElementRc, _| {
-            if elem.borrow().native_class().map_or(false, |n| {
-                Rc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("_visibility")
-            }) {
+            let is_lowered_from_visible_property =
+                elem.borrow().native_class().map_or(false, |n| {
+                    Rc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("_visibility")
+                });
+            if is_lowered_from_visible_property {
                 // This is the element we just created. Skip it.
                 return;
             }

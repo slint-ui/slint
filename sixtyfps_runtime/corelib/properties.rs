@@ -405,12 +405,14 @@ impl PropertyHandle {
 
     /// Implementation of Self::set_binding.
     fn set_binding_impl(&self, binding: *mut BindingHolder) {
-        if self.access(|b| {
+        let previous_binding_intercepted = self.access(|b| {
             b.map_or(false, |b| unsafe {
                 // Safety: b is a BindingHolder<T>
                 (b.vtable.intercept_set_binding)(&*b as *const BindingHolder, binding)
             })
-        }) {
+        });
+
+        if previous_binding_intercepted {
             return;
         }
 
@@ -608,21 +610,24 @@ impl<T: Clone> Property<T> {
     where
         T: PartialEq,
     {
-        if !self.handle.access(|b| {
+        let previous_binding_intercepted = self.handle.access(|b| {
             b.map_or(false, |b| unsafe {
                 // Safety: b is a BindingHolder<T>
                 (b.vtable.intercept_set)(&*b as *const BindingHolder, &t as *const T as *const ())
             })
-        }) {
+        });
+        if !previous_binding_intercepted {
             self.handle.remove_binding();
         }
+
         // Safety: PropertyHandle::access ensure that the value is locked
-        if self.handle.access(|_| unsafe {
+        let has_value_changed = self.handle.access(|_| unsafe {
             *self.value.get() != t && {
                 *self.value.get() = t;
                 true
             }
-        }) {
+        });
+        if has_value_changed {
             self.handle.mark_dirty();
         }
     }

@@ -75,13 +75,13 @@ impl FlickableData {
                 }
             }
             MouseEvent::MouseMoved { pos } => {
-                if inner.capture_events
+                let do_intercept = inner.capture_events
                     || inner.pressed_time.map_or(false, |pressed_time| {
                         crate::animations::current_tick() - pressed_time < DURATION_THRESHOLD
                             && (pos - inner.pressed_pos).square_length()
                                 > DISTANCE_THRESHOLD * DISTANCE_THRESHOLD
-                    })
-                {
+                    });
+                if do_intercept {
                     InputEventFilterResult::Intercept
                 } else if inner.pressed_time.is_some() {
                     InputEventFilterResult::ForwardAndInterceptGrab
