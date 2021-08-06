@@ -1913,7 +1913,7 @@ impl Item for NativeTabWidget {
                 option.tabBarRect = QRect(QPoint(), option.tabBarSize);
                 option.rightCornerWidgetSize = QSize(0, 0);
                 option.leftCornerWidgetSize = QSize(0, 0);
-            	QRect contentsRect = style->subElementRect(QStyle::SE_TabWidgetTabContents, &option, nullptr);
+            	  QRect contentsRect = style->subElementRect(QStyle::SE_TabWidgetTabContents, &option, nullptr);
                 QRect tabbarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, nullptr);
                 return {contentsRect, tabbarRect};
             })
@@ -2079,8 +2079,6 @@ pub struct NativeTab {
     pub num_tabs: Property<i32>,
     pub tab_index: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
-    /// 0 = Begin, 1 = Middle, 2 = End, 3 = Single
-    pub tab_position: Property<i32>,
 }
 
 impl Item for NativeTab {
