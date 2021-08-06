@@ -11,7 +11,7 @@ import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView
 
 App := Window {
     preferred-width: 500px;
-    preferred-height: 750px;
+    preferred-height: 600px;
     title: "SixtyFPS Gallery";
 
     VerticalBox {
