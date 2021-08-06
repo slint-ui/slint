@@ -22,6 +22,7 @@ use sixtyfps_corelib::graphics::{Image, Size};
 #[cfg(not(no_qt))]
 use sixtyfps_corelib::items::ImageFit;
 use sixtyfps_corelib::window::Window;
+use sixtyfps_corelib::ImageInner;
 
 #[cfg(not(no_qt))]
 mod qt_widgets;
@@ -265,12 +266,19 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     fn image_size(&'static self, _image: &Image) -> Size {
         #[cfg(not(no_qt))]
         {
-            qt_window::load_image_from_resource(_image.into(), None, ImageFit::fill)
-                .map(|img| {
-                    let qsize = img.size();
-                    euclid::size2(qsize.width as f32, qsize.height as f32)
-                })
-                .unwrap_or_default()
+            let inner: &ImageInner = _image.into();
+            match inner {
+                sixtyfps_corelib::ImageInner::None => return Default::default(),
+                sixtyfps_corelib::ImageInner::EmbeddedImage { buffer } => {
+                    [buffer.width() as _, buffer.height() as _].into()
+                }
+                _ => qt_window::load_image_from_resource(&inner, None, ImageFit::fill)
+                    .map(|img| {
+                        let qsize = img.size();
+                        euclid::size2(qsize.width as f32, qsize.height as f32)
+                    })
+                    .unwrap_or_default(),
+            }
         }
         #[cfg(no_qt)]
         return Default::default();
