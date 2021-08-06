@@ -299,8 +299,8 @@ Example := Window {
 
 ## `TabWidget`
 
-The container for a set of tabs. TabWidget can only have `Tab` elements as children. Only one tab will be rendered at
-the time.
+TabWidget is a container for a set of tabs. It can only have `Tab` elements as children and only one tab will be visible at
+a time.
 
 ### Properties of the `Tab` element
 

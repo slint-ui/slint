@@ -71,7 +71,7 @@ fn process_tabwidget(
     for child in &mut children {
         if child.borrow().repeated.is_some() {
             diag.push_error(
-                "dynamic tabs ('if' or 'for') are not yet supported".into(),
+                "dynamic tabs ('if' or 'for') are currently not supported".into(),
                 &*child.borrow(),
             );
             continue;

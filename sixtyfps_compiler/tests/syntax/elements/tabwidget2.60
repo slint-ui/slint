@@ -27,7 +27,7 @@ Test2 := Rectangle {
         }
 
         if (true) : Tab {
-//                  ^error{dynamic tabs \('if' or 'for'\) are not yet supported}
+//                  ^error{dynamic tabs \('if' or 'for'\) are currently not supported}
             title: "hello";
         }
     }
