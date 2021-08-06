@@ -2100,13 +2100,11 @@ impl Item for NativeTab {
             Default::default(),
         )
         .unwrap_or_default();
-        let current: i32 = self.current();
         let tab_index: i32 = self.tab_index();
         let num_tabs: i32 = self.num_tabs();
         let size = cpp!(unsafe [
             text as "QString",
             icon as "QPixmap",
-            current as "int",
             tab_index as "int",
             num_tabs as "int"
         ] -> qttypes::QSize as "QSize" {
