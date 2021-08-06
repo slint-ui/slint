@@ -25,5 +25,10 @@ Test2 := Rectangle {
             visible <=> f.visible;
 //          ^error{The property 'visible' cannot be set for Tabs inside a TabWidget}
         }
+
+        if (true) : Tab {
+//                  ^error{dynamic tabs \('if' or 'for'\) are not yet supported}
+            title: "hello";
+        }
     }
 }
