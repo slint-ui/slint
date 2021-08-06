@@ -30,6 +30,7 @@ All notable changes to this project will be documented in this file.
  - Support of `*=` and `/=` on types with unit such as length.
  - Proper compilation error when using a self assignment operator on an invalid type instead of a panic
  - Angle conversion for values specified in radians, gradians and turns
+ - SharedVector was sometimes not allocating big enough storage.
 
 ## [0.1.0] - 2021-06-30
 

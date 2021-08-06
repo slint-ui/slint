@@ -65,7 +65,7 @@ fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedVectorInner<T>> {
 /// Return a new capacity suitable for this vector
 /// Loosely based on alloc::raw_vec::RawVec::grow_amortized.
 fn capacity_for_grow(current_cap: usize, required_cap: usize, elem_size: usize) -> usize {
-    if current_cap >= elem_size {
+    if current_cap >= required_cap {
         return current_cap;
     }
     let cap = core::cmp::max(current_cap * 2, required_cap);
@@ -315,7 +315,7 @@ impl<T> FromIterator<T> for SharedVector<T> {
                         while *begin < size {
                             unsafe {
                                 core::ptr::write(
-                                    result.inner.as_mut().data.as_mut_ptr().add(size),
+                                    result.inner.as_mut().data.as_mut_ptr().add(*begin),
                                     core::ptr::read(old_inner.as_ref().data.as_ptr().add(*begin)),
                                 );
                                 *begin += 1;
@@ -481,6 +481,49 @@ fn push_test() {
 #[should_panic]
 fn invalid_capacity_test() {
     let _: SharedVector<u8> = SharedVector::with_capacity(usize::MAX / 2 - 1000);
+}
+
+#[test]
+fn collect_from_iter_with_no_size_hint() {
+    struct NoSizeHintIter<'a> {
+        data: &'a [&'a str],
+        i: usize,
+    }
+
+    impl<'a> Iterator for NoSizeHintIter<'a> {
+        type Item = String;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.i >= self.data.len() {
+                return None;
+            }
+            let item = self.data[self.i];
+            self.i += 1;
+            Some(item.to_string())
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (0, None)
+        }
+    }
+
+    // 5 elements to be above the initial "grow"-capacity of 4 and thus require one realloc.
+    let input = NoSizeHintIter { data: &["Hello", "sweet", "world", "of", "iterators"], i: 0 };
+
+    let shared_vec: SharedVector<String> = input.collect();
+    assert_eq!(shared_vec.as_slice(), &["Hello", "sweet", "world", "of", "iterators"]);
+}
+
+#[test]
+fn test_capacity_grows_only_when_needed() {
+    let mut vec: SharedVector<u8> = SharedVector::with_capacity(2);
+    vec.push(0);
+    assert_eq!(vec.capacity(), 2);
+    vec.push(0);
+    assert_eq!(vec.capacity(), 2);
+    vec.push(0);
+    assert_eq!(vec.len(), 3);
+    assert!(vec.capacity() > 2);
 }
 
 #[cfg(feature = "ffi")]
