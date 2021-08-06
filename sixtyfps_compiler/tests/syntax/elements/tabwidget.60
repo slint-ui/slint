@@ -1,0 +1,24 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+
+Test1 := Rectangle {
+    TabWidget {
+        Rectangle {}
+//      ^error{Rectangle is not allowed within TabWidget. Only Tab are valid children}
+        Tab {
+            Tab {}
+//          ^error{Tab can only be within a TabWidget element}
+        }
+    }
+
+    Tab {}
+//  ^error{Tab can only be within a TabWidget element}
+}

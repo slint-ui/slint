@@ -15,7 +15,6 @@ App := Window {
     title: "SixtyFPS Gallery";
 
     VerticalBox {
-
         HorizontalBox {
             Text {
                 text: "Below are some of the standard widgets that application developers can easily re-use.";
@@ -31,87 +30,102 @@ App := Window {
             }
         }
 
-        HorizontalBox {
-            alignment: start;
-            GroupBox {
-                title: "Button";
-                enabled: !disable_toggle.checked;
+        TabWidget {
+            Tab {
+                title: "Controls";
+                VerticalBox {
+                    alignment: start;
+                    HorizontalBox {
+                        alignment: start;
+                        GroupBox {
+                            title: "Button";
+                            enabled: !disable_toggle.checked;
 
-                Button {
-                    text: "Regular Button";
-                    enabled: !disable_toggle.checked;
+                            Button {
+                                text: "Regular Button";
+                                enabled: !disable_toggle.checked;
+                            }
+                        }
+
+                        GroupBox {
+                            title: "Button with Icon";
+                            enabled: !disable_toggle.checked;
+
+                            Button {
+                                text: "Regular Button";
+                                icon: @image-url("thumbsup.png");
+                                enabled: !disable_toggle.checked;
+                            }
+                        }
+
+                        GroupBox {
+                            title: "CheckBox";
+                            enabled: !disable_toggle.checked;
+                            checkbox := CheckBox {
+                                text: checkbox.checked ? "(checked)" : "(unchecked)";
+                                checked: true;
+                                enabled: !disable_toggle.checked;
+                            }
+                        }
+                    }
+
+                    HorizontalBox {
+                        alignment: start;
+                        GroupBox {
+                            title: "SpinBox";
+                            enabled: !disable_toggle.checked;
+                            SpinBox {
+                                value: 42;
+                                enabled: !disable_toggle.checked;
+                            }
+                        }
+
+                        GroupBox {
+                            title: "ComboBox";
+                            enabled: !disable_toggle.checked;
+                            ComboBox {
+                                model: ["Select Something", "From this", "Combobox"];
+                                enabled: !disable_toggle.checked;
+                            }
+                        }
+                    }
+
+                    GroupBox {
+                        title: "Slider";
+                        enabled: !disable_toggle.checked;
+                        Slider {
+                            value: 42;
+                            enabled: !disable_toggle.checked;
+                        }
+                    }
+
+                    GroupBox {
+                        title: "LineEdit";
+                        enabled: !disable_toggle.checked;
+                        LineEdit {
+                            placeholder-text: "Enter some text";
+                            enabled: !disable_toggle.checked;
+                        }
+                    }
                 }
             }
-
-            GroupBox {
-                title: "Button with Icon";
-                enabled: !disable_toggle.checked;
-
-                Button {
-                    text: "Regular Button";
-                    icon: @image-url("thumbsup.png");
+            Tab {
+                title: "List View";
+                GroupBox {
+                    title: "StandardListView";
                     enabled: !disable_toggle.checked;
+                    StandardListView {
+                        model: [
+                            {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                            {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                            {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                            {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                            {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                            {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                            {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
+                        ];
+                    }
                 }
-            }
-
-            GroupBox {
-                title: "CheckBox";
-                enabled: !disable_toggle.checked;
-                checkbox := CheckBox {
-                    text: checkbox.checked ? "(checked)" : "(unchecked)";
-                    checked: true;
-                    enabled: !disable_toggle.checked;
-                }
-            }
-        }
-
-        HorizontalBox {
-            alignment: start;
-            GroupBox {
-                title: "SpinBox";
-                enabled: !disable_toggle.checked;
-                SpinBox {
-                    value: 42;
-                    enabled: !disable_toggle.checked;
-                }
-            }
-
-            GroupBox {
-                title: "ComboBox";
-                enabled: !disable_toggle.checked;
-                ComboBox {
-                    model: ["Select Something", "From this", "Combobox"];
-                    enabled: !disable_toggle.checked;
-                }
-            }
-        }
-
-        GroupBox {
-            title: "Slider";
-            enabled: !disable_toggle.checked;
-            Slider {
-                value: 42;
-                enabled: !disable_toggle.checked;
-            }
-        }
-
-        GroupBox {
-            title: "LineEdit";
-            enabled: !disable_toggle.checked;
-            LineEdit {
-                placeholder-text: "Enter some text";
-                enabled: !disable_toggle.checked;
-            }
-        }
-
-        GroupBox {
-            title: "StandardListView";
-            enabled: !disable_toggle.checked;
-            StandardListView {
-                model: [
-                    {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
-                    {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
-                ];
             }
         }
     }

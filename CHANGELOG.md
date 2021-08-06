@@ -20,6 +20,7 @@ All notable changes to this project will be documented in this file.
  - The `clip` property can now be any expression
  - Every element now have a `visible` property
  - Added `changed` callback to the `Slider` widget
+ - Added `TabWidget` widget
 
 ### Fixed
 

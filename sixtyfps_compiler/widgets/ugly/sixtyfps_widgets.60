@@ -322,6 +322,7 @@ export TabWidgetImpl := Rectangle {
     property <length> tabbar_preferred_width;
     property <length> content_min_height;
     property <length> content_min_width;
+    property <int> current_index;
 
     border_width: 1px;
     border_color: Palette.border_color;
@@ -365,6 +366,9 @@ export TabImpl := Rectangle {
     }
 }
 
+export TabBarImpl := HorizontalLayout {
+    alignment: start;
+}
 
 export LineEdit := Rectangle {
     property <string> text;

@@ -148,8 +148,13 @@ export ComboBox := NativeComboBox {
     }
 }
 
-export TabWidgetImpl := NativeTabWidget { }
+export TabWidgetImpl := NativeTabWidget {
+    property <int> current_index;
+}
 export TabImpl := NativeTab {}
+export TabBarImpl := HorizontalLayout {
+    alignment: start;
+}
 
 export VerticalBox := VerticalLayout {
     spacing: NativeStyleMetrics.layout_spacing;

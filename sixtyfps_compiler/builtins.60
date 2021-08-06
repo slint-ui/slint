@@ -367,6 +367,8 @@ export TabWidget := _ {
     property <length> width;
     property <length> height;
 
+    property <int> current_index;
+
     //-disallow_global_types_as_child_elements
     Tab {}
     //-default_size_binding:expands_to_parent_geometry
@@ -466,6 +468,7 @@ export NativeGroupBox := _ {
     property <length> native_padding_right: native_output;
     property <length> native_padding_top: native_output;
     property <length> native_padding_bottom: native_output;
+    //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
 

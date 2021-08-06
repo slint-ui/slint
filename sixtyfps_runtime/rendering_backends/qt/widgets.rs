@@ -1966,7 +1966,9 @@ impl Item for NativeTabWidget {
             option.tabBarSize = tabbar_size.toSize();
             option.rightCornerWidgetSize = QSize(0, 0);
             option.leftCornerWidgetSize = QSize(0, 0);
-            return style->sizeFromContents(QStyle::CT_TabWidget, &option, content_size.toSize(), nullptr);
+            auto sz = QSize(qMax(content_size.width(), tabbar_size.width()),
+                content_size.height() + tabbar_size.height());
+            return style->sizeFromContents(QStyle::CT_TabWidget, &option, sz, nullptr);
         });
         LayoutInfo {
             min: match orientation {
