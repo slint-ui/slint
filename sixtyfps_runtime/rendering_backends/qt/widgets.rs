@@ -2100,11 +2100,15 @@ impl Item for NativeTab {
             Default::default(),
         )
         .unwrap_or_default();
-        let position: i32 = self.tab_position();
+        let current: i32 = self.current();
+        let tab_index: i32 = self.tab_index();
+        let num_tabs: i32 = self.num_tabs();
         let size = cpp!(unsafe [
             text as "QString",
             icon as "QPixmap",
-            position as "int"
+            current as "int",
+            tab_index as "int",
+            num_tabs as "int"
         ] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionTab option;
@@ -2112,7 +2116,10 @@ impl Item for NativeTab {
             option.text = text;
             option.icon = icon;
             option.shape = QTabBar::RoundedNorth;
-            option.position = QStyleOptionTab::TabPosition(position);
+            option.position = num_tabs == 1 ? QStyleOptionTab::OnlyOneTab
+                : tab_index == 0 ? QStyleOptionTab::Beginning
+                : tab_index == num_tabs - 1 ? QStyleOptionTab::End
+                : QStyleOptionTab::Middle;
             auto style = qApp->style();
             int hframe = style->pixelMetric(QStyle::PM_TabBarTabHSpace, &option, nullptr);
             int vframe = style->pixelMetric(QStyle::PM_TabBarTabVSpace, &option, nullptr);
