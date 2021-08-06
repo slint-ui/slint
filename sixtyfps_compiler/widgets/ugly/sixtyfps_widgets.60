@@ -330,8 +330,8 @@ export TabWidgetImpl := Rectangle {
 
     preferred_width: content_min_width;
     min_width: content_min_width;
-    preferred_height: content_min_height;
-    min_height: content_min_height;
+    preferred_height: content_min_height + tabbar_preferred_height;
+    min_height: content_min_height + tabbar_preferred_height;
 
 }
 export TabImpl := Rectangle {
