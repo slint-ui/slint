@@ -518,8 +518,12 @@ impl Expression {
                 let false_type = false_expr.ty();
                 if true_type == false_type {
                     true_type
+                } else if true_type == Type::Invalid {
+                    false_type
+                } else if false_type == Type::Invalid {
+                    true_type
                 } else {
-                    Type::Invalid
+                    Type::Void
                 }
             }
             Expression::BinaryExpression { op, lhs, rhs } => {
