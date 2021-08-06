@@ -24,9 +24,9 @@ use sixtyfps_corelib::items::ImageFit;
 use sixtyfps_corelib::window::Window;
 
 #[cfg(not(no_qt))]
-mod qt_window;
+mod qt_widgets;
 #[cfg(not(no_qt))]
-mod widgets;
+mod qt_window;
 
 mod key_generated;
 
@@ -41,7 +41,7 @@ pub fn use_modules() -> usize {
     #[cfg(not(no_qt))]
     {
         qt_window::ffi::sixtyfps_qt_get_widget as usize
-            + (&widgets::NativeButtonVTable) as *const _ as usize
+            + (&qt_widgets::NativeButtonVTable) as *const _ as usize
     }
 }
 
@@ -78,28 +78,28 @@ mod ffi {
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
 pub type NativeWidgets =
-    (widgets::NativeButton,
-    (widgets::NativeCheckBox,
-    (widgets::NativeSlider,
-    (widgets::NativeSpinBox,
-    (widgets::NativeGroupBox,
-    (widgets::NativeLineEdit,
-    (widgets::NativeScrollView,
-    (widgets::NativeStandardListViewItem,
-    (widgets::NativeComboBox,
-    (widgets::NativeTabWidget,
-    (widgets::NativeTab,
+    (qt_widgets::NativeButton,
+    (qt_widgets::NativeCheckBox,
+    (qt_widgets::NativeSlider,
+    (qt_widgets::NativeSpinBox,
+    (qt_widgets::NativeGroupBox,
+    (qt_widgets::NativeLineEdit,
+    (qt_widgets::NativeScrollView,
+    (qt_widgets::NativeStandardListViewItem,
+    (qt_widgets::NativeComboBox,
+    (qt_widgets::NativeTabWidget,
+    (qt_widgets::NativeTab,
             ())))))))))));
 
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
 pub type NativeGlobals =
-    (widgets::NativeStyleMetrics,
+    (qt_widgets::NativeStyleMetrics,
         ());
 
 pub mod native_widgets {
     #[cfg(not(no_qt))]
-    pub use super::widgets::*;
+    pub use super::qt_widgets::*;
 }
 
 #[cfg(no_qt)]
