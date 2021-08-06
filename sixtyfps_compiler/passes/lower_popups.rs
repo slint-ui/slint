@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-//! Passe that compute the layout constraint
+//! Passe that transform the PopupWindow element into a component
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
@@ -16,7 +16,6 @@ use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use std::rc::Rc;
 
-/// Currently this just removes the layout from the tree
 pub fn lower_popups(
     component: &Rc<Component>,
     type_register: &TypeRegister,

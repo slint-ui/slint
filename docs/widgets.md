@@ -297,6 +297,36 @@ Example := Window {
 }
 ```
 
+## `TabWidget`
+
+The container for a set of tabs. TabWidget can only have `Tab` elements as children. Only one tab will be rendered at
+the time.
+
+### Properties of the `Tab` element
+
+* **`title`** (*string*): The text written in the tab bar.
+
+### Example
+
+```60
+Example := Window {
+    width: 200px;
+    height: 200px;
+    TabWidget {
+        Tab {
+            title: "First";
+            Rectangle { background: orange; }
+        }
+        Tab {
+            title: "Second";
+            Rectangle { background: pink; }
+        }
+    }
+}
+```
+
+
+
 ## `HorizontalBox`, `VerticalBox`, `GridBox`
 
 That's the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the spacing and padding values

@@ -31,6 +31,7 @@ mod lower_layout;
 mod lower_popups;
 mod lower_shadows;
 mod lower_states;
+mod lower_tabwidget;
 mod materialize_fake_properties;
 mod move_declarations;
 mod remove_aliases;
@@ -73,6 +74,7 @@ pub async fn run_passes(
         .chain(std::iter::once(root_component))
     {
         compile_paths::compile_paths(component, &doc.local_registry, diag);
+        lower_tabwidget::lower_tabwidget(component, &mut type_loader, diag).await;
     }
 
     if compiler_config.embed_resources {
