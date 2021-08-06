@@ -1,0 +1,668 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+global Palette := {
+    property<color> themeDarker: #004578;
+    property<color> themeDark: #005a9e;
+    property<color> themeDarkAlt: #106ebe;
+    property<color> themePrimary: #0078d4;
+    property<color> themeSecondary: #2b88d8;
+    property<color> themeTertiary: #71afe5;
+    property<color> themeLight: #c7e0f4;
+    property<color> themeLighter: #deecf9;
+    property<color> themeLighterAlt: #eff6fc;
+    property<color> black: #000000;
+    property<color> blackTranslucent40: rgba(0,0,0,0.4);
+    property<color> neutralDark: #201f1e;
+    property<color> neutralPrimary: #323130;
+    property<color> neutralPrimaryAlt: #3b3a39;
+    property<color> neutralSecondary: #605e5c;
+    property<color> neutralSecondaryAlt: #8a8886;
+    property<color> neutralTertiary: #a19f9d;
+    property<color> neutralTertiaryAlt: #c8c6c4;
+    property<color> neutralQuaternary: #d2d0ce;
+    property<color> neutralQuaternaryAlt: #e1dfdd;
+    property<color> neutralLight: #edebe9;
+    property<color> neutralLighter: #f3f2f1;
+    property<color> neutralLighterAlt: #faf9f8;
+    property<color> accent: #0078d4;
+    property<color> white: #ffffff;
+    property<color> whiteTranslucent40: rgba(255,255,255,0.4);
+    property<color> yellowDark: #d29200;
+    property<color> yellow: #ffb900;
+    property<color> yellowLight: #fff100;
+    property<color> orange: #d83b01;
+    property<color> orangeLight: #ea4300;
+    property<color> orangeLighter: #ff8c00;
+    property<color> redDark: #a4262c;
+    property<color> red: #e81123;
+    property<color> magentaDark: #5c005c;
+    property<color> magenta: #b4009e;
+    property<color> magentaLight: #e3008c;
+    property<color> purpleDark: #32145a;
+    property<color> purple: #5c2d91;
+    property<color> purpleLight: #b4a0ff;
+    property<color> blueDark: #002050;
+    property<color> blueMid: #00188f;
+    property<color> blue: #0078d4;
+    property<color> blueLight: #00bcf2;
+    property<color> tealDark: #004b50;
+    property<color> teal: #008272;
+    property<color> tealLight: #00b294;
+    property<color> greenDark: #004b1c;
+    property<color> green: #107c10;
+    property<color> greenLight: #bad80a;
+}
+
+export global StyleMetrics := {
+    property<length> layout_spacing: 8px;
+    property<length> layout_padding: 8px;
+    property<length> text_cursor_width: 2px;
+    property<color> window_background: white; //FIXME: Palette.white  does not compile (cannot access globals from other globals #175)
+}
+
+export Button := Rectangle {
+    callback clicked <=> touch.clicked;
+    property<string> text <=> text.text;
+    property<bool> pressed: self.enabled && touch.pressed;
+    property<bool> enabled <=> touch.enabled;
+    property<image> icon;
+
+    border-width: 1px;
+    border-radius: 2px;
+    border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
+    background: !enabled ? Palette.neutralLighter
+        : touch.pressed ? Palette.neutralLight
+        : touch.has_hover ? Palette.neutralLighter
+        : Palette.white;
+    min-height: 32px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 8px;
+
+        if (icon.width > 0 && icon.height > 0): Image {
+            source <=> icon;
+            width: 24px;
+        }
+
+        text := Text {
+            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            horizontal_alignment: center;
+            vertical_alignment: center;
+            font_weight: 600;
+        }
+    }
+
+
+    touch := TouchArea {}
+}
+
+export CheckBox := Rectangle {
+    callback toggled;
+    property <string> text <=> text.text;
+    property <bool> checked;
+    property<bool> enabled <=> touch.enabled;
+    min-height: 20px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+    HorizontalLayout {
+        spacing: 8px;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                border-width: 1px;
+                border-radius: 2px;
+               /* border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
+                background: !enabled ? Palette.white
+                    : touch.pressed ? Palette.neutralLight
+                    : touch.has_hover ? Palette.neutralLighter
+                    : Palette.themePrimary;*/
+
+                border-color: checked ? background : !enabled ? Palette.neutralTertiaryAlt : Palette.neutralSecondaryAlt;
+                background: !checked ? Palette.white
+                            : !enabled ? Palette.neutralTertiaryAlt
+                            : touch.has_hover || touch.pressed ? Palette.themeDark
+                            : Palette.themePrimary;
+                animate background { duration: 250ms; easing: ease; }
+
+                //width: height;
+                vertical_stretch: 0;
+                width: 20px;
+                height: 20px;
+
+                if (checked || touch.has_hover || touch.pressed) : Path {
+                    width: 66%;
+                    height: 66%;
+                    x: (parent.width - width) / 2;
+                    y: (parent.height - height) / 2;
+                    commands: "M23.5 11.875a.968.968 0 0 1-.289.711l-8.25 8.25c-.192.193-.43.289-.711.289s-.519-.096-.711-.289l-4.75-4.75a.965.965 0 0 1-.289-.711c0-.125.027-.25.082-.375s.129-.234.223-.328a.953.953 0 0 1 .695-.297c.135 0 .266.025.391.074.125.05.231.121.32.215l4.039 4.047 7.539-7.547a.886.886 0 0 1 .32-.215c.125-.049.255-.074.391-.074a1.004 1.004 0 0 1 .922.625.97.97 0 0 1 .078.375z";
+                    fill: checked ? Palette.white : Palette.neutralSecondaryAlt;
+                }
+            }
+        }
+
+        text := Text {
+            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            horizontal_alignment: left;
+            vertical_alignment: center;
+            vertical_stretch: 1;
+        }
+
+    }
+
+    touch := TouchArea {
+        clicked => {
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
+        }
+    }
+
+}
+
+SpinBoxButton := Rectangle {
+    callback clicked <=> touch.clicked;
+    property<string> text;
+    property <length> font-size;
+    property<bool> enabled <=> touch.enabled;
+    background: !enabled ? transparent
+        : touch.pressed ? Palette.neutralLight
+        : touch.has_hover ? Palette.neutralLighter
+        : Palette.white;
+
+    property <color> symbol_color: !enabled ? Palette.neutralTertiary
+        : touch.pressed || touch.has_hover ? Palette.neutralPrimary
+        : Palette.neutralSecondary;
+    touch := TouchArea { }
+}
+
+export SpinBox := FocusScope {
+    property <bool> checked;
+    property <int> value;
+    property <int> minimum;
+    property <int> maximum: 100;
+    property <bool> enabled: true;
+    property <image> icon;
+
+    min-height: 32px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+
+    Rectangle {
+        background: !enabled ? Palette.neutralLighter : Palette.white;
+    }
+
+    GridLayout {
+        padding-left: 8px;
+        text := Text {
+            rowspan: 2;
+            text: value;
+            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            horizontal_alignment: left;
+            vertical_alignment: center;
+        }
+        SpinBoxButton {
+            width: 25px;
+            enabled: root.enabled;
+            Path {
+                commands: "M978.2,688.9l-84.2,82.1c-15.7,15.3-41.1,15.3-56.7,0l-341-304.2L162.6,764.5c-15.5,15.1-41,15.1-56.6,0l-84.3-82.1c-15.6-15.2-15.6-39.9,0-55.2l446.6-398.2c15.7-15.3,41-15.3,56.7,0l6.9,6.7l446.3,398.1C993.9,649,993.9,673.7,978.2,688.9z";
+                fill: parent.symbol_color;
+                height: 33%;
+                x: (parent.width - width) / 2;
+                y: (parent.height - height) / 2;
+            }
+            clicked => {
+                if (root.value < root.maximum) {
+                    root.value += 1;
+                }
+            }
+        }
+        SpinBoxButton {
+            row: 1; col: 1;
+            enabled: root.enabled;
+            Path {
+                commands: "M21.8,311.1l84.2-82.1c15.7-15.2,41-15.2,56.7,0l341.1,304.1l333.7-297.5c15.5-15.2,41-15.2,56.6,0l84.3,82.1c15.6,15.2,15.6,40,0,55.2L531.7,771c-15.7,15.3-41,15.3-56.7,0l-6.9-6.7L21.8,366.3C6.1,351,6.1,326.3,21.8,311.1z";
+                fill: parent.symbol_color;
+                height: 33%;
+                x: (parent.width - width) / 2;
+                y: (parent.height - height) / 2;
+            }
+            clicked => {
+                if (root.value > root.minimum) {
+                    root.value -= 1;
+                }
+            }
+        }
+
+    }
+
+    Rectangle {
+        x: enabled && has_focus ? -2px : 0px;
+        y: x;
+        width: parent.width - 2*x;
+        height: parent.height - 2*y;
+        border-radius: 2px;
+        border-width: !enabled ? 0px : has_focus ? 3px : 1px;
+        border-color: !enabled ? Palette.neutralLighter
+            : has_focus ? Palette.themeSecondary
+            : Palette.neutralDark;
+    }
+
+}
+
+export Slider := Rectangle {
+    property<float> maximum: 100;
+    property<float> minimum: 0;
+    property<float> value;
+    property<bool> enabled <=> touch.enabled;
+    callback changed(float);
+
+    min-height: 24px;
+    min-width: 100px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+
+    Rectangle {
+        width: parent.width - parent.min-height;
+        x: parent.height / 2;
+        height: parent.min-height / 4;
+        y: (parent.height - height) / 2;
+        border_radius: height/2;
+        background: !root.enabled ? Palette.neutralLighter
+            : touch.has_hover ? Palette.themeLight
+            : Palette.neutralTertiaryAlt;
+    }
+
+    Rectangle {
+        width: (parent.width - parent.min-height) * (handle.new_value / maximum);
+        x: parent.height / 2;
+        height: parent.min-height / 4;
+        y: (parent.height - height) / 2;
+        border_radius: height/2;
+        background: !root.enabled ? Palette.neutralTertiary
+            : touch.has_hover ? Palette.themeSecondary
+            : Palette.neutralSecondary;
+    }
+
+    handle := Rectangle {
+        width: height;
+        height: parent.height;
+        border_width: 3px;
+        border_radius: height / 2;
+        border_color: !root.enabled ? Palette.neutralTertiaryAlt
+            : touch.has_hover ? Palette.themePrimary
+            : Palette.neutralSecondary;
+        background: Palette.white;
+        x: (root.width - handle.width) * (new_value - minimum)/(maximum - minimum);
+        property<float> new_value_tmp : (touch.pressed && enabled)
+            ? root.value + (touch.mouse_x - touch.pressed_x) * (maximum - minimum) / (root.width - handle.width)
+            : root.value;
+        property<float> new_value : new_value_tmp < root.minimum ? root.minimum
+            : new_value_tmp > root.maximum ? root.maximum : new_value_tmp;
+    }
+    touch := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            if (enabled) {
+                root.value = handle.new_value;
+                root.changed(root.value);
+            }
+        }
+    }
+}
+
+
+
+export GroupBox := VerticalLayout {
+    property <string> title;
+    property<bool> enabled: true;
+    spacing: 8px;
+    padding-top: 16px;
+    padding-bottom: 8px;
+    Text {
+        text: root.title;
+        vertical-stretch: 0;
+        color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+        font_weight: 600;
+    }
+    @children
+}
+
+
+
+export TabWidgetImpl := Rectangle {
+    property <length> content_x: 0;
+    property <length> content_y: tabbar_preferred_height;
+    property <length> content_height: height - tabbar_preferred_height;
+    property <length> content_width: width;
+    property <length> tabbar_x: 0;
+    property <length> tabbar_y: 0;
+    property <length> tabbar_height: tabbar_preferred_height;
+    property <length> tabbar_width: width;
+
+    property <length> tabbar_preferred_height;
+    property <length> tabbar_preferred_width;
+    property <length> content_min_height;
+    property <length> content_min_width;
+    property <int> current_index;
+
+    preferred_width: content_min_width;
+    min_width: content_min_width;
+    preferred_height: content_min_height + tabbar_preferred_height;
+    min_height: content_min_height + tabbar_preferred_height;
+
+}
+export TabImpl := Rectangle {
+    property<string> title <=> t.text;
+    //property<image> icon;
+    property<bool> enabled : true;
+    property<bool> pressed;
+    property<int> current;
+    property<int> tab_index;
+    property<int> num_tabs;
+
+    min-height: t.preferred_height + 16px;
+    preferred_width: t.preferred_width + 16px;
+
+
+    background: !enabled ? Palette.neutralLighter
+        : touch.pressed ? Palette.neutralLight
+        : touch.has_hover ? Palette.neutralLighter
+        : Palette.white;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+    touch := TouchArea {
+        clicked => {
+            current = tab_index;
+        }
+    }
+    t:= Text {
+        width: parent.width;
+        height: parent.height;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
+        font_weight: root.current == root.tab_index ? 600 : 500;
+    }
+
+    Rectangle {
+        height: 3px;
+        width: touch.has_hover && root.current == root.tab_index ? parent.width : parent.width - 16px;
+        animate width { duration: 250ms; easing: ease-out; }
+        background: root.current == root.tab_index ? Palette.themeSecondary : transparent;
+        y: parent.height - height;
+        x: (parent.width - width) / 2;
+    }
+}
+
+export TabBarImpl := HorizontalLayout {
+    spacing: 8px;
+    alignment: start;
+}
+
+export LineEdit := Rectangle {
+    property <string> text <=> input.text;
+    property <string> placeholder_text;
+    property <bool> has_focus: input.has_focus;
+    property <bool> enabled <=> input.enabled;
+    callback accepted(string);
+    callback edited(string);
+    forward-focus: input;
+  //  border_color: root.has_focus ? Palette.highlight_background : #ffffff;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    min-height: 32px;
+    min-width: 50px;
+
+    background: !enabled ? Palette.neutralLighter : Palette.white;
+    border-radius: 2px;
+    border-width: !enabled ? 0px : has_focus ? 3px : 1px;
+    border-color: !enabled ? Palette.neutralLighter
+        : has_focus ? Palette.themeSecondary
+        : Palette.neutralPrimary;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        input := TextInput {
+            vertical_alignment: center;
+            accepted => { root.accepted(self.text); }
+            edited => { root.edited(self.text); }
+            color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
+            Text {
+                color: !enabled ? Palette.neutralTertiary : Palette.neutralSecondary;
+                text: root.text == "" ? root.placeholder_text : "";
+            }
+        }
+    }
+}
+
+ScrollBar := Rectangle {
+    background: white;
+   // border_color: Palette.button_background;
+    border_width: 1px;
+    property <bool> horizontal;
+    property<length> max;
+    property<length> page_size;
+    // this is always negative and migger than  -max
+    property<length> value;
+
+    handle := Rectangle {
+        width: !horizontal ? parent.width : max <= 0phx ? 0phx : parent.width * (page_size / (max + page_size));
+        height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page_size / (max + page_size));
+
+        border_radius: (horizontal ? self.height : self.width) / 2;
+        background: touch_area.pressed ? Palette.themePrimary :
+            touch_area.has_hover ? Palette.themeSecondary : Palette.neutralTertiary;
+        x: !horizontal ? 0phx : (root.width - handle.width) * (new_value / max);
+        y: horizontal ? 0phx : (root.height - handle.height) * (new_value / max);
+        property<length> new_value_tmp : -root.value + (
+            !touch_area.pressed ? 0phx
+            : horizontal ?  (touch_area.mouse_x - touch_area.pressed_x) * (max / (root.width - handle.width))
+            : (touch_area.mouse_y - touch_area.pressed_y) * (max / (root.height - handle.height)));
+        property<length> new_value : new_value_tmp < 0phx ? 0phx
+            : root.max < 0phx ? 0phx
+            : new_value_tmp > root.max ? root.max : new_value_tmp;
+    }
+    touch_area := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            root.value = -handle.new_value;
+        }
+    }
+
+}
+
+export ScrollView := Rectangle {
+    property <length> viewport_width <=> fli.viewport_width;
+    property <length> viewport_height <=> fli.viewport_height;
+    property <length> viewport_x <=> fli.viewport_x;
+    property <length> viewport_y <=> fli.viewport_y;
+    property <length> visible_width <=> fli.width;
+    property <length> visible_height <=> fli.height;
+    min_height: 50px;
+    min_width: 50px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    fli := Flickable {
+        @children
+        x: 1px;
+        y: 1px;
+        interactive: false;
+        viewport_y <=> vbar.value;
+        viewport_x <=> hbar.value;
+        viewport_height: 1000px;
+        viewport_width: 1000px;
+        width: parent.width - vbar.width - 1px;
+        height: parent.height - hbar.height -1px;
+    }
+    vbar := ScrollBar {
+        width: 16px;
+        x: fli.width + fli.x;
+        height: fli.height + fli.y;
+        horizontal: false;
+        max: fli.viewport_height - fli.height;
+        page_size: fli.height;
+    }
+    hbar := ScrollBar {
+        height: 16px;
+        y: fli.height + fli.y;
+        width: fli.width + fli.x;
+        horizontal: true;
+        max: fli.viewport_width - fli.width;
+        page_size: fli.width;
+    }
+}
+
+export ListView := ScrollView {
+    @children
+}
+
+export StandardListView := ListView {
+    property<[StandardListViewItem]> model;
+    property<int> current_item: -1;
+    for item[idx] in model : Rectangle {
+        l := HorizontalLayout {
+            padding: 8px;
+            spacing: 0px;
+            t := Text {
+                text: item.text;
+                color: Palette.neutralPrimary;
+            }
+        }
+        width: parent.visible_width;
+        background: idx == root.current_item ? Palette.neutralLighter
+                    : touch.has_hover ? Palette.neutralLighterAlt : transparent;
+        touch := TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => { current_item = idx; }
+        }
+    }
+}
+
+export ComboBox := FocusScope {
+    property <[string]> model;
+    property <int> current_index : -1;
+    property <string> current_value;
+    //property <bool> is_open: false;
+    property<bool> enabled <=> touch.enabled;
+    callback selected(string);
+
+    Rectangle {
+        background: !enabled ? Palette.neutralLighter : Palette.white;
+        border-radius: 2px;
+        border-width: !enabled ? 0px : has_focus ? 3px : 1px;
+        border-color: !enabled ? Palette.neutralLighter
+            : has_focus ? Palette.themeSecondary
+            : Palette.neutralPrimary;
+    }
+
+
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    min-width: 170px;
+    min-height: 32px;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 8px;
+        t := Text {
+            text <=> root.current_value;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            color: !enabled ? Palette.neutralTertiary
+                : root.has_focus || touch.has_hover ? Palette.neutralPrimary
+                : Palette.neutralSecondary;
+            min-width: 0;
+        }
+        Rectangle {
+            width: 25px;
+            Path {
+                x: (parent.width - width) / 2;
+                y: (parent.height - height) / 2;
+                height: 8px;
+                width: 25px;
+                commands: "M21.8,311.1l84.2-82.1c15.7-15.2,41-15.2,56.7,0l341.1,304.1l333.7-297.5c15.5-15.2,41-15.2,56.6,0l84.3,82.1c15.6,15.2,15.6,40,0,55.2L531.7,771c-15.7,15.3-41,15.3-56.7,0l-6.9-6.7L21.8,366.3C6.1,351,6.1,326.3,21.8,311.1z";
+                fill: t.color;
+            }
+        }
+
+    }
+
+    touch := TouchArea {
+        clicked => {
+            root.focus();
+            popup.show();
+        }
+    }
+
+    popup := PopupWindow {
+        y: root.height;
+        width: root.width;
+        Rectangle {
+            border-color: Palette.neutralLighter;
+            border-width: 1px;
+            /*drop_shadow_color: Palette.neutralTertiary;
+            drop_shadow_blur: 5px;*/
+            background: Palette.white;
+        }
+        VerticalLayout {
+            for value[idx] in root.model: Rectangle {
+                background: idx == root.current_index ? Palette.neutralLighter
+                    : item_area.has_hover ? Palette.neutralLighterAlt : transparent;
+                VerticalLayout {
+                    padding: 10px;
+                    Text {
+                        text: value;
+                        item_area := TouchArea {
+                            width: 100%;
+                            height: 100%;
+                            clicked => {
+                                if (root.enabled) {
+                                    root.current_index = idx;
+                                    root.current_value = value;
+                                    root.selected(root.current_value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export VerticalBox := VerticalLayout {
+    spacing: StyleMetrics.layout_spacing;
+    padding: StyleMetrics.layout_padding;
+}
+export HorizontalBox := HorizontalLayout {
+    spacing: StyleMetrics.layout_spacing;
+    padding: StyleMetrics.layout_padding;
+}
+export GridBox := GridLayout {
+    spacing: StyleMetrics.layout_spacing;
+    padding: StyleMetrics.layout_padding;
+}
+
