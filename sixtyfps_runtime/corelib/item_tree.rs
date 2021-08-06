@@ -106,7 +106,7 @@ pub struct ItemVisitorVTable {
     /// Called for each children of the visited item
     ///
     /// The `component` parameter is the component in which the item live which might not be the same
-    /// as the parent's component.
+    /// as the parent´s component.
     /// `index` is to be used again in the visit_item_children function of the Component (the one passed as parameter)
     /// and `item` is a reference to the item itself
     visit_item: fn(

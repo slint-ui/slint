@@ -329,5 +329,5 @@ Example := Window {
 
 ## `HorizontalBox`, `VerticalBox`, `GridBox`
 
-That's the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the spacing and padding values
+That is the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the spacing and padding values
  depending on the style instead of defaulting to 0.

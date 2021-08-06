@@ -91,7 +91,7 @@ fn parse_if_statement(p: &mut impl Parser) {
         }
     } else {
         // We need an expression so fake an empty block.
-        // FIXME: this shouldn't be needed
+        // FIXME: this should not be needed
         let mut p = p.start_node(SyntaxKind::Expression);
         let _ = p.start_node(SyntaxKind::CodeBlock);
     }

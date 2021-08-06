@@ -15,9 +15,9 @@ LICENSE END */
 
 namespace sixtyfps {
 
-/// SharedVector is a vector template class similar to std::vector that's primarily used for passing
+/// SharedVector is a vector template class similar to std::vector that is primarily used for passing
 /// data in and out of the SixtyFPS run-time library. It uses implicit-sharing to make creating
-/// copies cheap. Only when a function changes the vector's data, a copy is is made.
+/// copies cheap. Only when a function changes the vector´s data, a copy is is made.
 template<typename T>
 struct SharedVector
 {
@@ -63,7 +63,7 @@ struct SharedVector
         }
         return *this;
     }
-    /// Move-assign's \a other to this vector and returns a reference to this vector.
+    /// Move-assigns \a other to this vector and returns a reference to this vector.
     SharedVector &operator=(SharedVector &&other)
     {
         std::swap(inner, other.inner);

@@ -79,7 +79,7 @@ impl<'a> LookupCtx<'a> {
 pub struct LookupResult {
     pub expression: Expression,
     /// When set, this is deprecated, and the string is the deprecated name
-    /// (the new name can be found in the expression's NamedReference)
+    /// (the new name can be found in the expression´s NamedReference)
     pub deprecated: Option<String>,
 }
 
@@ -308,7 +308,7 @@ fn expression_from_reference(n: NamedReference, ty: &Type) -> Expression {
 }
 
 /// Lookup for Globals and Enum.
-/// Note: for enums, the expression's value is `usize::MAX`
+/// Note: for enums, the expression´s value is `usize::MAX`
 struct LookupType;
 impl LookupObject for LookupType {
     fn for_each_entry<R>(
@@ -562,7 +562,7 @@ impl<'a> LookupObject for StringExpression<'a> {
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| Expression::MemberFunction {
             base: Box::new(self.0.clone()),
-            base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+            base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function´s node
             member: Box::new(Expression::BuiltinFunctionReference(
                 f,
                 ctx.current_token.as_ref().map(|t| t.to_source_location()),
@@ -581,7 +581,7 @@ impl<'a> LookupObject for ColorExpression<'a> {
     ) -> Option<R> {
         let member_function = |f: BuiltinFunction| Expression::MemberFunction {
             base: Box::new(self.0.clone()),
-            base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+            base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function´s node
             member: Box::new(Expression::BuiltinFunctionReference(
                 f,
                 ctx.current_token.as_ref().map(|t| t.to_source_location()),

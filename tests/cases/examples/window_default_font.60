@@ -20,7 +20,7 @@ TestCase := Window {
 
     GridLayout {
         Text {
-            text: "This text should be shown in 48px Courier New\nIt's a fixed width font so the characters should align";
+            text: "This text should be shown in 48px Courier New\nIt is a fixed width font so the characters should align";
         }
     }
 }

@@ -66,7 +66,7 @@ pub struct PathArcTo {
     /// The radius on the y-axis of the arc.
     pub radius_y: f32,
     #[rtti_field]
-    /// The rotation along the x-axis of the arc in degress.
+    /// The rotation along the x-axis of the arc in degrees.
     pub x_rotation: f32,
     #[rtti_field]
     /// large_arc indicates whether to take the long or the shorter path to complete the arc.
@@ -80,46 +80,46 @@ pub struct PathArcTo {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
 #[pin]
-/// PathCubicTo describes a smooth Bézier curve from the path's current position
+/// PathCubicTo describes a smooth Bézier curve from the path´s current position
 /// to the specified x/y location, using two control points.
 pub struct PathCubicTo {
     #[rtti_field]
-    /// The x coordinate of the curve's end point.
+    /// The x coordinate of the curve´s end point.
     pub x: f32,
     #[rtti_field]
-    /// The y coordinate of the curve's end point.
+    /// The y coordinate of the curve´s end point.
     pub y: f32,
     #[rtti_field]
-    /// The x coordinate of the curve's first control point.
+    /// The x coordinate of the curvé´s first control point.
     pub control_1_x: f32,
     #[rtti_field]
-    /// The y coordinate of the curve's first control point.
+    /// The y coordinate of the curve´s first control point.
     pub control_1_y: f32,
     #[rtti_field]
-    /// The x coordinate of the curve's second control point.
+    /// The x coordinate of the curve´s second control point.
     pub control_2_x: f32,
     #[rtti_field]
-    /// The y coordinate of the curve's second control point.
+    /// The y coordinate of the curve´s second control point.
     pub control_2_y: f32,
 }
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
 #[pin]
-/// PathCubicTo describes a smooth Bézier curve from the path's current position
+/// PathCubicTo describes a smooth Bézier curve from the path´s current position
 /// to the specified x/y location, using one control points.
 pub struct PathQuadraticTo {
     #[rtti_field]
-    /// The x coordinate of the curve's end point.
+    /// The x coordinate of the curve´s end point.
     pub x: f32,
     #[rtti_field]
-    /// The y coordinate of the curve's end point.
+    /// The y coordinate of the curve´s end point.
     pub y: f32,
     #[rtti_field]
-    /// The x coordinate of the curve's control point.
+    /// The x coordinate of the curve´s control point.
     pub control_x: f32,
     #[rtti_field]
-    /// The y coordinate of the curve's control point.
+    /// The y coordinate of the curve´s control point.
     pub control_y: f32,
 }
 

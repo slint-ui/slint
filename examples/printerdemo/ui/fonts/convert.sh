@@ -12,7 +12,7 @@
 # This script converts the NotoSans font from https://www.google.com/get/noto/#sans-lgc
 # to a subset for this demo
 
-# You need to install `pyftsubset` from the `fonttools`. That's available via `brew install fonttools`,
+# You need to install `pyftsubset` from the `fonttools`. That is available via `brew install fonttools`,
 # or `sudo apt-get install fonttools`.
 
 cp NotoSans-unhinted/LICENSE_OFL.txt .

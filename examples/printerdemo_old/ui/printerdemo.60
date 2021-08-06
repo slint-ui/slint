@@ -80,7 +80,7 @@ MainWindow := Window {
     /// Aliased to the fax number in the fax page
     property <string> fax_number;
     callback fax_number_erase;
-    /// That's just a default implementation for the viewer, but the .cpp and .rs code
+    /// That is just a default implementation for the viewer, but the .cpp and .rs code
     /// overwrite that to erase only the last character
     fax_number_erase => { fax_number = ""; }
     callback fax_send;

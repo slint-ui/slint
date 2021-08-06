@@ -472,7 +472,7 @@ impl LicenseHeaderCheck {
         if !source.has_tag() {
             if self.fix_it {
                 eprintln!(
-                    "Fixing up {} as instructed. It's missing a license header.",
+                    "Fixing up {} as instructed. It is missing a license header.",
                     path.to_str().unwrap()
                 );
                 let source = source.replace_tag(&EXPECTED_HEADER);

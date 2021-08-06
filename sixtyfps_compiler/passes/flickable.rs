@@ -144,7 +144,7 @@ fn is_layout(base_type: &Type) -> bool {
 }
 
 /// Set the property binding on the given element to the given expression (computed lazily).
-/// The parameter to the lazily calculation is the element's children
+/// The parameter to the lazily calculation is the element´s children
 pub fn set_binding_if_not_explicit(
     elem: &ElementRc,
     property: &str,

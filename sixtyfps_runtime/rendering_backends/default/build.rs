@@ -15,8 +15,8 @@ fn main() {
     // use the native style automatically if Qt is available.
     //
     // The way this work is this
-    // 1. `qttypes`' crate's build script already detects Qt and set the DEP_QT_VERSION
-    // 2. The qt rendering backend's build script will check if the qttype crates found Qt and
+    // 1. The build script of the `qttypes` crate already detects Qt and set the DEP_QT_VERSION
+    // 2. The qt rendering backend´s build script will check if the qttype crates found Qt and
     //    look at the SIXTYFPS_NO_QT env variable, and sets the DEP_SIXTYFPS_RENDERING_BACKEND_QT_SUPPORTS_NATIVE_STYLE
     //    env variable so that the default rendering backend can know if Qt was there.
     // 3. here, in the default rendering backend, we know if we depends on the qt backend and if it

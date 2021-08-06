@@ -86,7 +86,7 @@ pub trait Model {
         ModelIterator { model: self, row: 0 }
     }
 
-    /// Return something that can be downcast'ed (typically self)
+    /// Return something that can be downcast (typically self)
     ///
     /// This is useful to get back to the actual model from a ModelHandle stored
     /// in a component.
@@ -328,7 +328,7 @@ pub trait RepeatedComponent: crate::component::Component {
     ) {
     }
 
-    /// Returns what's needed to perform the layout if this component is in a box layout
+    /// Returns what is needed to perform the layout if this component is in a box layout
     fn box_layout_data(
         self: Pin<&Self>,
         _orientation: Orientation,
@@ -667,7 +667,7 @@ impl<C: RepeatedComponent> Repeater<C> {
         order: TraversalOrder,
         mut visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
-        // We can't keep self.inner borrowed because the event might modify the model
+        // We can not keep self.inner borrowed because the event might modify the model
         let count = self.inner.borrow().borrow().components.len();
         for i in 0..count {
             let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };

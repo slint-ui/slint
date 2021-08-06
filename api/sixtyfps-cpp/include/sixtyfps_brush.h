@@ -34,10 +34,10 @@ public:
     {
     }
 
-    /// Returns the linear gradient's angle in degrees.
+    /// Returns the linear gradient´s angle in degrees.
     float angle() const
     {
-        // The gradient's first stop is a fake stop to store the angle
+        // The gradient´s first stop is a fake stop to store the angle
         return inner[0].position;
     }
 
@@ -89,7 +89,7 @@ public:
     inline Color color() const;
 
     /// Returns true if \a a is equal to \a b. If \a a holds a color, then \a b must also hold a
-    /// color that is identical to \a a's color. If it holds a gradient, then the gradients must be
+    /// color that is identical to \a a´s color. If it holds a gradient, then the gradients must be
     /// identical. Returns false if the brushes differ in what they hold or their respective color
     /// or gradient are not equal.
     friend bool operator==(const Brush &a, const Brush &b) { return a.data == b.data; }

@@ -13,7 +13,7 @@ Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated component,
     this is existing for any evaluation of a binding
  - `self_rc` is of type `VRc<ComponentVTable, ComponentType>` or Rc<ComponentType> for globals
-    this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
+    this is usually a local variable to the init code that should not be relied upon by the binding code.
 */
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
@@ -519,7 +519,7 @@ fn generate_component(
                     quote!(sixtyfps::re_exports::ModelHandle::new(std::rc::Rc::<bool>::new(#model)))
             }
 
-            // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
+            // FIXME: there could be an optimization if `repeated.model.is_constant()`, we do not need a binding
             init.push(quote! {
                 _self.#repeater_id.set_model_binding({
                     let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_rc);
@@ -1226,7 +1226,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 let base_e = compile_expression(base, component);
                 quote!((#base_e).#name)
             }
-            _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
+            _ => panic!("Expression::ObjectAccess´s base expression is not an Object type"),
         },
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, component));
@@ -1634,7 +1634,7 @@ fn compile_assignment(
                     let n = format_ident!("r#{}", name);
                     (quote!(#n), fields[name].clone())
                 }
-                _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
+                _ => panic!("Expression::ObjectAccess´s base expression is not an Object type"),
             };
 
             let conv = if member_ty == Type::String {
@@ -1995,7 +1995,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
 
 // In Rust debug builds, accessing the member of the FIELD_OFFSETS ends up copying the
 // entire FIELD_OFFSETS into a new stack allocation, which with large property
-// binding initialization functions isn't re-used and with large generated inner
+// binding initialization functions is not re-used and with large generated inner
 // components ends up large amounts of stack space (see issue #133)
 fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
     quote!({ *&#component_id::FIELD_OFFSETS.#field })

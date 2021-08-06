@@ -1,7 +1,7 @@
 # Memory Tile
 
-With the skeleton in place, let's look at the first element of the game, the memory tile. It will be the
-visual building block that consists of an underlying filled rectangle background, the icon image. Later we'll add a
+With the skeleton in place, let us look at the first element of the game, the memory tile. It will be the
+visual building block that consists of an underlying filled rectangle background, the icon image. Later we will add a
 covering rectangle that acts as a curtain. The background rectangle is declared to be 64 logical pixels wide and tall,
 and it is filled with a soothing tone of blue. Note how lengths in the `.60` language have a unit, here
 the `px` suffix. That makes the code easier to read and the compiler can detect when your are accidentally
@@ -15,7 +15,7 @@ We copy the following code into the `memory.60` file:
 
 Inside the <span class="hljs-built_in">Rectangle</span> we place an <span class="hljs-built_in">Image</span> element that
 loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. The path is relative to the folder in which
-the `memory.60` is located. This icon and others we're going to use later need to be installed first. You can download a
+the `memory.60` is located. This icon and others we are going to use later need to be installed first. You can download a
 [Zip archive](https://sixtyfps.io/blog/memory-game-tutorial/icons.zip) that we have prepared and extract it with the
 following two commands:
 

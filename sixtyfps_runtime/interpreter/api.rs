@@ -89,7 +89,7 @@ impl From<LangType> for ValueType {
 #[non_exhaustive]
 #[repr(C)]
 pub enum Value {
-    /// There is nothing in this value. That's the default.
+    /// There is nothing in this value. That is the default.
     /// For example, a function that do not return a result would return a Value::Void
     Void,
     /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
@@ -548,10 +548,11 @@ impl ComponentCompiler {
 
 /// ComponentDefinition is a representation of a compiled component from .60 markup.
 ///
-/// It can be constructed from a .60 file using the [`ComponentCompiler::build_from_path`] or [`ComponentCompiler::build_from_source`] functions.
-/// And then it can be instantiated with the [`Self::create`] function.
+/// It can be constructed from a .60 file using the [`ComponentCompiler::build_from_path`] or
+/// [`ComponentCompiler::build_from_source`] functions. And then it can be instantiated with
+/// the [`Self::create`] function.
 ///
-/// The ComponentDefinition acts as a factory to create new instances. When you've finished
+/// The ComponentDefinition acts as a factory to create new instances. When you have finished
 /// creating the instances it is safe to drop the ComponentDefinition.
 #[derive(Clone)]
 pub struct ComponentDefinition {
@@ -710,7 +711,7 @@ impl ComponentInstance {
         let comp = self.inner.unerase(guard);
         comp.description()
             .set_property(comp.borrow(), name, value)
-            .map_err(|()| todo!("set_property don't return the right error type"))
+            .map_err(|()| todo!("set_property did not return the right error type"))
     }
 
     /// Set a handler for the callback with the given name. A callback with that

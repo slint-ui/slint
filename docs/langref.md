@@ -294,7 +294,7 @@ Example := Rectangle {
 }
 ```
 
-This pattern of expressing the `width` or `height` in percent of the parent's property with the same name is
+This pattern of expressing the `width` or `height` in percent of the parent´s property with the same name is
 common. For convenience, a short-hand syntax exists for this scenario:
 
 * The property is `width` or `height`
@@ -318,7 +318,7 @@ Example := Rectangle {
 
 Components may declare callbacks, that allow it to communicate changes of state to the outside. Callbacks are emitted by "calling" them
 and you can react to callback emissions by declaring a handler using the `=>` arrow syntax. The built-in `TouchArea`
-element comes with a `clicked` callback, that's emitted when the user touches the rectangular area covered by the element, or clicks into
+element comes with a `clicked` callback, that is emitted when the user touches the rectangular area covered by the element, or clicks into
 it with the mouse. In the example below, the emission of that callback is forwarded to another custom callback (`hello`) by declaring a
 handler and emitting our custom callback:
 
@@ -473,14 +473,14 @@ that is rotated by the specified angle. This is called a linear gradient and is 
 
 **`@linear-gradient(angle, color percentage, color percentage, ...)`**
 
-The first parameter to the macro is an angle (see [Types](#types)). The gradient line's starting point
+The first parameter to the macro is an angle (see [Types](#types)). The gradient line´s starting point
 will be rotated by the specified value.
 
 Following the initial angle is one or multiple color stops, describe as a space separated pair of a
 `color` value and a `percentage`. The color specifies which value the linear color interpolation should
 reach at the specified percentage along the axis of the gradient.
 
-The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
+The following example shows a rectangle that is filled with a linear gradient that starts with a light blue
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
 ```60
@@ -747,9 +747,9 @@ Button := Rectangle {
 export { Button }
 ```
 
-In the above example, `Button` is usable from other .60 files, but `ButtonHelper` isn't.
+In the above example, `Button` is usable from other .60 files, but `ButtonHelper` is not.
 
-It's also possible to change the name just for the purpose of exporting, without affecting its internal use:
+It is also possible to change the name just for the purpose of exporting, without affecting its internal use:
 
 ```60
 Button := Rectangle {

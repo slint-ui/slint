@@ -21,7 +21,7 @@ corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.to
     CRATES sixtyfps-compiler sixtyfps-cpp xtask)
 
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
-    # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
+    # For the CMake build do not rely on qmake being in PATH but use CMake to locate Qt. This
     # means usually CMAKE_PREFIX_PATH is set.
     find_package(Qt5 5.15 QUIET COMPONENTS Core Widgets)
     if (TARGET Qt5::qmake)

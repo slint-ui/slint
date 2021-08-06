@@ -55,8 +55,8 @@ pub trait PlatformWindow {
     fn apply_window_properties(&self, window_item: Pin<&crate::items::WindowItem>);
 
     /// Return a font metrics trait object for the given font request. This is typically provided by the backend and
-    /// requested by text related items in order to measure text metrics with the item's chosen font.
-    /// Note that if the FontRequest's pixel_size is 0, it is interpreted as the undefined size and that the
+    /// requested by text related items in order to measure text metrics with the item´s chosen font.
+    /// Note that if the FontRequest´s pixel_size is 0, it is interpreted as the undefined size and that the
     /// system default font size should be used for the returned font.
     /// With some back ends this may return none unless the window is mapped.
     fn font_metrics(
@@ -174,12 +174,12 @@ impl Window {
     }
 
     /// return the component.
-    /// Panics if it wasn't set.
+    /// Panics if it was not set.
     pub fn component(&self) -> ComponentRc {
         self.component.borrow().upgrade().unwrap()
     }
 
-    /// returns the component or None if it isn't set.
+    /// returns the component or None if it is not set.
     pub fn try_component(&self) -> Option<ComponentRc> {
         self.component.borrow().upgrade()
     }
@@ -219,7 +219,7 @@ impl Window {
         }
     }
 
-    /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
+    /// Installs a binding on the specified property that is toggled whenever the text cursor is supposed to be visible or not.
     pub fn set_cursor_blink_binding(&self, prop: &crate::Property<bool>) {
         let existing_blinker = self.cursor_blinker.borrow().clone();
 
@@ -262,7 +262,7 @@ impl Window {
         }
     }
 
-    /// If the component's root item is a Window element, then this function synchronizes its properties, such as the title
+    /// If the component´s root item is a Window element, then this function synchronizes its properties, such as the title
     /// for example, with the properties known to the windowing system.
     pub fn update_window_properties(&self) {
         if let Some(window_properties_tracker) = self.window_properties_tracker.get() {
@@ -292,7 +292,7 @@ impl Window {
         }
     }
 
-    /// Registers the window with the windowing system, in order to render the component's items and react
+    /// Registers the window with the windowing system, in order to render the component´s items and react
     /// to input events once the event loop spins.
     pub fn show(&self) {
         self.platform_window.get().unwrap().clone().show();
@@ -326,7 +326,7 @@ pub type WindowRc = std::rc::Rc<Window>;
 /// Internal module to define the public Window API, for re-export in the regular Rust crate
 /// and the interpreter crate.
 pub mod api {
-    /// This type represents a window towards the windowing system, that's used to render the
+    /// This type represents a window towards the windowing system, that´s used to render the
     /// scene of a component. It provides API to control windowing system specific aspects such
     /// as the position on the screen.
     #[repr(transparent)]

@@ -98,7 +98,7 @@ impl NamedReference {
                 return true;
             }
             match &e.base_type {
-                Type::Native(_) => return false, // after resolving we don't know anymore if the property can be changed natively
+                Type::Native(_) => return false, // after resolving we do not know anymore if the property can be changed natively
                 Type::Component(c) => {
                     let next = c.root_element.clone();
                     drop(e);

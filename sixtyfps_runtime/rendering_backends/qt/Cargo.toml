@@ -7,7 +7,7 @@ license = "GPL-3.0-only"
 description = "Qt rendering backend for SixtyFPS"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
-links = "sixtyfps_rendering_backend_qt" # just so we can pass metadata to the dependee's build script
+links = "sixtyfps_rendering_backend_qt" # just so we can pass metadata to the dependee´s build script
 
 [features]
 rtti = ["sixtyfps-corelib/rtti"]

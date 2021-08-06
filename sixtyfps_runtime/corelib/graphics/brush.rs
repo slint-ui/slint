@@ -26,7 +26,7 @@ pub enum Brush {
     /// The color variant of brush is a plain color that is to be used for the fill.
     SolidColor(Color),
     /// The linear gradient variant of a brush describes the gradient stops for a fill
-    /// where all color stops are along a line that's rotated by the specified angle.
+    /// where all color stops are along a line that is rotated by the specified angle.
     LinearGradient(LinearGradientBrush),
 }
 
@@ -66,8 +66,8 @@ impl Brush {
 }
 
 /// The LinearGradientBrush describes a way of filling a shape with different colors, which
-/// are interpolated between different stops. The colors are aligned with a line that's rotated
-/// by the LinearGradient's angle.
+/// are interpolated between different stops. The colors are aligned with a line that is rotated
+/// by the LinearGradient´s angle.
 #[derive(Clone, PartialEq, Debug)]
 #[repr(transparent)]
 pub struct LinearGradientBrush(SharedVector<GradientStop>);
@@ -76,11 +76,11 @@ impl LinearGradientBrush {
     /// Creates a new linear gradient, described by the specified angle and the provided color stops.
     ///
     /// The angle need to be specified in degrees.
-    /// The stops don't need to be sorted as this function will sort them.
+    /// The stops do not need to be sorted as this function will sort them.
     pub fn new(angle: f32, stops: impl IntoIterator<Item = GradientStop>) -> Self {
         let stop_iter = stops.into_iter();
         let mut encoded_angle_and_stops = SharedVector::with_capacity(stop_iter.size_hint().0 + 1);
-        // The gradient's first stop is a fake stop to store the angle
+        // The gradient´s first stop is a fake stop to store the angle
         encoded_angle_and_stops.push(GradientStop { color: Default::default(), position: angle });
         encoded_angle_and_stops.extend(stop_iter);
         Self(encoded_angle_and_stops)

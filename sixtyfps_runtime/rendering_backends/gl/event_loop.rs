@@ -333,7 +333,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         }
                     });
                 }
-                // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
+                // On the html canvas, we do not get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
                 #[cfg(target_arch = "wasm32")]
                 winit::event::Event::WindowEvent {
                     ref window_id,

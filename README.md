@@ -13,12 +13,12 @@ Our design goals are:
    The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
    should describe the APIs, teach concepts and how to use them.
  - **Native**: We support many different target platforms, from embedded devices to desktops including mobile and web. Both the user and the developer should feel at
-   home on each platform. The look and feel and experience should match the users' expectations of a
+   home on each platform. The look and feel and experience should match the users´ expectations of a
    native application.
 
 ### Current Status
 
-It's possible to create user interfaces from C++, Rust, or NodeJS. These user interfaces can be compiled and
+It´s possible to create user interfaces from C++, Rust, or NodeJS. These user interfaces can be compiled and
 shown on Linux, macOS, Windows, and in Web Browsers (using WebAssembly). You can also try out SixtyFPS using
 our [online editor](https://sixtyfps.io/editor).
 
@@ -69,7 +69,7 @@ Click on the screenshots to run the WebAssembly simulation
 ## The .60 Markup Language
 
 SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
-powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
+powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy of elements and property bindings. Here´s the obligatory "Hello World":
 
 ```60
 HelloWorld := Window {
@@ -117,7 +117,7 @@ memory allocations.
 Rendering backends and styles are configurable at compile time. Current there are two back-ends:
 
  * The `gl` backend uses OpenGL ES 2.0 for rendering.
- * The `qt` backend uses Qt's QStyle to achieve native looking widgets. In the future it could also use
+ * The `qt` backend uses Qt´s QStyle to achieve native looking widgets. In the future it could also use
    QPainter.
 
 ### Tooling

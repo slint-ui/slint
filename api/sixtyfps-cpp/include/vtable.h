@@ -28,7 +28,7 @@ struct Layout {
     std::size_t align;
 };
 
-// For the C++'s purpose, they are all the same
+// For the C++´s purpose, they are all the same
 template<typename T>
 using VRef = VRefMut<T>;
 template<typename T>

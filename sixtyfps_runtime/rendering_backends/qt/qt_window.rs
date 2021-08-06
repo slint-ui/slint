@@ -488,7 +488,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         };
 
-        // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
+        // convert byte offsets to offsets in Qt UTF-16 encoded string, as that is
         // what QTextLayout expects.
         let cursor_position_as_offset: i32 = text_input.cursor_position();
         let anchor_position_as_offset: i32 = text_input.anchor_position();
@@ -645,7 +645,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     unsafe[img as "QImage*", blur_radius as "float"] -> qttypes::QPixmap as "QPixmap" {
                         class PublicGraphicsBlurEffect : public QGraphicsBlurEffect {
                         public:
-                            // Make public what's protected
+                            // Make public what is protected
                             using QGraphicsBlurEffect::draw;
                         };
 
@@ -1371,7 +1371,7 @@ thread_local! {
     static ALL_WINDOWS: RefCell<Vec<Weak<QtWindow>>> = Default::default();
 }
 
-/// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
+/// Called by C++´s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
     sixtyfps_corelib::animations::update_animations();
     sixtyfps_corelib::timers::TimerList::maybe_activate_timers();
@@ -1414,7 +1414,7 @@ pub(crate) fn timer_event() {
 fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedString {
     // First try to see if we received one of the non-ascii keys that we have
     // a special representation for. If that fails, try to use the provided
-    // text. If that's empty, then try to see if the provided key has an ascii
+    // text. If that is empty, then try to see if the provided key has an ascii
     // representation. The last step is needed because modifiers may result in
     // the text to be empty otherwise, for example Ctrl+C.
     if let Some(special_key_code) = match key as key_generated::Qt_Key {

@@ -14,7 +14,7 @@ path = "lib.rs"
 crate-type = ["lib", "cdylib"]
 
 [features]
-# In the future, this shouldn't be a default feature, but should be enabled by cmake
+# In the future, this should not be a default feature, but should be enabled by cmake
 default = ["sixtyfps-interpreter"]
 
 # Enable some function used by the integration tests

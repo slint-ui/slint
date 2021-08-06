@@ -22,7 +22,7 @@ LICENSE END */
    Properties can have default binding which must be an expression without any reference to
    another properties. These binding will be then set by the compiler.
    Or they can have a binding `native_output` which mean that the property can be modified
-   by the native Item. If they don't have that, it is assumed the native item don't write
+   by the native Item. If they do not have that, it is assumed the native item do not write
    to that property.
  */
 

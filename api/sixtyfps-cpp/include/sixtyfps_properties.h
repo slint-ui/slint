@@ -220,12 +220,12 @@ void set_state_binding(const Property<StateInfo> &property, F binding)
 /// PropertyTracker allows keeping track of when properties change and lazily evaluate code
 /// if necessary.
 /// Once constructed, you can call evaluate() with a functor that will be invoked. Any
-/// Property<T> types that have their value read from within the invoked functor or any code that's
+/// Property<T> types that have their value read from within the invoked functor or any code that is
 /// reached from there are added to internal book-keeping. When after returning from evaluate(),
-/// any of these accessed properties change their value, the property tracker's is_dirt() function
+/// any of these accessed properties change their value, the property tracker´s is_dirt() function
 /// will return true.
 ///
-/// PropertyTracker instances nest, so if during the evaluation of one tracker, another tracker's
+/// PropertyTracker instances nest, so if during the evaluation of one tracker, another tracker´s
 /// evaluate() function gets called and properties from within that evaluation change their value
 /// later, both tracker instances will report true for is_dirty(). If you would like to disable the
 /// nesting, use the evaluate_as_dependency_root() function instead.

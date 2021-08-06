@@ -287,7 +287,7 @@ impl Default for Unit {
 pub enum Expression {
     /// Something went wrong (and an error will be reported)
     Invalid,
-    /// We haven't done the lookup yet
+    /// We have not done the lookup yet
     Uncompiled(SyntaxNode),
 
     /// Special expression that can be the value of a two way binding
@@ -326,7 +326,7 @@ pub enum Expression {
     /// These should be transformed to other expression before reaching generation
     BuiltinMacroReference(BuiltinMacroFunction, Option<NodeOrToken>),
 
-    /// A reference to a specific element. This isn't possible to create in .60 syntax itself, but intermediate passes may generate this
+    /// A reference to a specific element. This is not possible to create in .60 syntax itself, but intermediate passes may generate this
     /// type of expression.
     ElementReference(Weak<RefCell<Element>>),
 
@@ -475,7 +475,7 @@ impl Expression {
             Expression::PropertyReference(nr) => nr.ty(),
             Expression::BuiltinFunctionReference(funcref, _) => funcref.ty(),
             Expression::MemberFunction { member, .. } => member.ty(),
-            Expression::BuiltinMacroReference { .. } => Type::Invalid, // We don't know the type
+            Expression::BuiltinMacroReference { .. } => Type::Invalid, // We do not know the type
             Expression::ElementReference(_) => Type::ElementReference,
             Expression::RepeaterIndexReference { .. } => Type::Int32,
             Expression::RepeaterModelReference { element } => {
@@ -1119,7 +1119,7 @@ impl BindingExpression {
 
     /// Merge the other into this one. Normally, &self is kept intact (has priority), unless two ways binding are
     /// involved then they need to be merged.
-    /// Also the animation is taken if the other don't have one
+    /// Also the animation is taken if the other do not have one
     pub fn merge_with(&mut self, other: &Self) {
         fn maybe_merge_two_ways(
             binding: &mut Expression,
@@ -1172,7 +1172,8 @@ pub struct BindingAnalysis {
     pub is_const: bool,
 }
 
-pub type PathEvents = Vec<lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>;
+pub type PathEvent = lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>;
+pub type PathEvents = Vec<PathEvent>;
 
 #[derive(Debug, Clone)]
 pub enum Path {

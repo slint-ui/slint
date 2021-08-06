@@ -14,7 +14,7 @@ if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
 endif()
 
-# Note, we can't name it simply "memory" because there is a C++ standard header with the same name
+# Note, we can not name it simply "memory" because there is a C++ standard header with the same name
 # so `#include<memory>` includes the generated binary when it exists
 add_executable(memory_game memory.cpp)
 target_link_libraries(memory_game PRIVATE SixtyFPS::SixtyFPS)

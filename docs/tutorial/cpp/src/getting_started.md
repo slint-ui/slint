@@ -8,7 +8,7 @@ We do not provide binaries of SixtyFPS yet, so we will use the CMake integration
 the tools and library from source. Since it is implemented in the Rust programming language, this means that
 you also need to install a Rust compiler (1.48). You can easily install a Rust compiler
 following the instruction from [the Rust website](https://www.rust-lang.org/learn/get-started).
-We are going to use `cmake`'s builtin FetchContent module to fetch the source code of SixtyFPS.
+We are going to use `cmake`´s builtin FetchContent module to fetch the source code of SixtyFPS.
 
 In a new directory, we create a new `CMakeLists.txt` file.
 
@@ -35,13 +35,13 @@ This should look familiar to people familiar with CMake. We see that this CMakeL
 references a `main.cpp`, which we will add later, and it also has a line
 `sixtyfps_target_60_sources(memory_game memory.60)`, which is a SixtyFPS function used to
 add the `memory.60` file to the target. We must then create, in the same directory,
-the `memory.60` file. Let's just fill it with a hello world for now:
+the `memory.60` file. Let us just fill it with a hello world for now:
 
 ```60
 {{#include memory.60:main_window}}
 ```
 
-What's still missing is the `main.cpp`:
+What is still missing is the `main.cpp`:
 
 ```cpp
 {{#include main_initial.cpp:main}}

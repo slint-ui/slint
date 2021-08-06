@@ -22,7 +22,7 @@ use core::pin::Pin;
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
 /// FIXME: this is currently physical pixels, but it should be logical
 const DISTANCE_THRESHOLD: f32 = 4.;
-/// Time required before we stop caring about child event if the mouse hasn't been moved
+/// Time required before we stop caring about child event if the mouse has not been moved
 const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
 
 #[derive(Default, Debug)]

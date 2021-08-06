@@ -181,7 +181,7 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().layout_info(orientation)
     }
     fn get_item_ref(self: Pin<&Self>, index: usize) -> Pin<ItemRef> {
-        // We're having difficulties transferring the lifetime to a pinned reference
+        // We are having difficulties transferring the lifetime to a pinned reference
         // to the other ComponentVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
         unsafe { get_item_ref(self.get_ref().borrow(), index) }

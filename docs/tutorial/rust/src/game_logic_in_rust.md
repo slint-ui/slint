@@ -1,12 +1,12 @@
 # Game Logic In Rust
 
-We'll implement the rules of the game in Rust as well. The general philosophy of SixtyFPS is that merely the user
+We will implement the rules of the game in Rust as well. The general philosophy of SixtyFPS is that merely the user
 interface is implemented in the `.60` language and the business logic in your favorite programming
 language. The game rules shall enforce that at most two tiles have their curtain open. If the tiles match, then we
 consider them solved and they remain open. Otherwise we wait for a little while, so the player can memorize
 the location of the icons, and then close them again.
 
-We'll modify the `.60` markup inside the `sixtyfps!` macro to signal to the Rust code when the user clicks on a tile.
+We will modify the `.60` markup inside the `sixtyfps!` macro to signal to the Rust code when the user clicks on a tile.
 Two changes to <span class="hljs-title">MainWindow</span> are needed: We need to add a way for the MainWindow to call to the Rust code that it should
 check if a pair of tiles has been solved. And we need to add a property that Rust code can toggle to disable further
 tile interaction, to prevent the player from opening more tiles than allowed. No cheating allowed! First, we paste
@@ -24,7 +24,7 @@ We add the following handler in <span class="hljs-title">MainWindow</span>:
 ```
 
 On the Rust side, we can now add an handler to the `check_if_pair_solved` callback, that will check if
-two tiles are opened. If they match, the `solved` property is set to true in the model. If they don't
+two tiles are opened. If they match, the `solved` property is set to true in the model. If they do not
 match, start a timer that will close them after one second. While the timer is running, we disable every tile so
 one cannot click anything during this time.
 

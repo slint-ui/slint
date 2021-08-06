@@ -110,7 +110,7 @@ impl<'a> TypeLoader<'a> {
         }
     }
 
-    /// Imports of files that don't have the .60 extension are returned.
+    /// Imports of files that do not have the `.60` extension are returned.
     pub async fn load_dependencies_recursively(
         &mut self,
         doc: &syntax_nodes::Document,
@@ -296,7 +296,7 @@ impl<'a> TypeLoader<'a> {
             .await;
 
         if diagnostics.has_error() {
-            // If there was error (esp parse error) we don't want to report further error in this document.
+            // If there was error (esp parse error) we do not want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
             // But we still want to create a document to give better error messages in the root document.
             let mut ignore_diag = BuildDiagnostics::default();

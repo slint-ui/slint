@@ -25,7 +25,6 @@
                 "fontdb",
                 "canonicalize", // std::path::Path::canonicalize
                 "glutin",
-                "glutin's",
                 "vsync",
                 "winit",
                 "FBOs", // plural of FBO (frame buffer object)

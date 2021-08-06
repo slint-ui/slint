@@ -31,7 +31,7 @@ directly from the market place.
 
 ### Syntax Highlighting
 
-Kate relies on the presence of syntax highlighting file for the usage of the LSP so we'll setup
+Kate relies on the presence of syntax highlighting file for the usage of the LSP so we will setup
 that first.
 The file [sixtyfps.ksyntaxhighlighter.xml](./sixtyfps.ksyntaxhighlighter.xml) needs to be copied
 in a location where kate can find it. See the [kate documentation](https://docs.kde.org/stable5/en/kate/katepart/highlight.html#katehighlight-xml-format)
@@ -75,7 +75,7 @@ To setup the lsp:
  2. Then in Qt creator, go to *Tools > Option* and select the *Language Client* section.
  3. Click *Add*
  4. As a name, use "SixtyFPS"
- 5. use `*.60` as a file pattern. (don't use MIME types)
+ 5. use `*.60` as a file pattern. (do not use MIME types)
  6. As executable, select the `~/.cargo/bin/sixtyfps-lsp` binary (no arguments required)
  7. Click *Apply* or *Ok*
 
@@ -138,7 +138,7 @@ To setup the lsp:
    https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/LSP.sublime-settings
 5. Modify the sixtyfps command path in `LSP.sublime-settings` to point to the cargo instalation path in your home folder (**Replace YOUR_USER by your username**):
    `"command": ["/home/YOUR_USER/.cargo/bin/sixtyfps-lsp"]`
-6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Lanuage Server in Project" from Sublime's Command Palette to allow the server to start.
+6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Lanuage Server in Project" from Sublime´s Command Palette to allow the server to start.
 7. Open a .60 file - if the server starts its name will be in the left side of the status bar.
 
 In order to **preview a component**, when you have a .60 file open, place your cursor to

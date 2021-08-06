@@ -14,7 +14,7 @@ lazy_static::lazy_static! {
     static ref NODE_API_JS_PATH: PathBuf = {
         let  node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/sixtyfps-node");
 
-        // On Windows npm is 'npm.cmd', which Rust's process::Command doesn't look for as extension, because
+        // On Windows npm is 'npm.cmd', which Rust´s process::Command does not look for as extension, because
          // it tries to emulate CreateProcess.
          let npm = which::which("npm").unwrap();
 

@@ -201,7 +201,7 @@ class ArrayModel<T> implements Model<T> {
         this.notify.rowDataChanged(row);
     }
     /**
-     * Pushes new values to the array that's backing the model and notifies
+     * Pushes new values to the array that is backing the model and notifies
      * the run-time about the added rows.
      * @param values
      */
@@ -212,7 +212,7 @@ class ArrayModel<T> implements Model<T> {
     }
     // FIXME: should this be named splice and have the splice api?
     /**
-     * Removes the specified number of element from the array that's backing
+     * Removes the specified number of element from the array that is backing
      * the model, starting at the specified index. This is equivalent to calling
      * Array.slice() on the array and notifying the run-time about the removed
      * rows.

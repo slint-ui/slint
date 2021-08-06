@@ -82,7 +82,7 @@ impl ItemGraphicsCacheEntry {
 struct ItemGraphicsCache(RenderingCache<Option<ItemGraphicsCacheEntry>>);
 
 impl ItemGraphicsCache {
-    /// Convenience method for releasing an item's cached graphics data.
+    /// Convenience method for releasing an item´s cached graphics data.
     fn release(&mut self, item_data: &CachedRenderingData) -> Option<ItemGraphicsCacheEntry> {
         item_data.release(&mut self.0).flatten()
     }
@@ -93,7 +93,7 @@ impl ItemGraphicsCache {
         self.0.clear();
     }
 
-    /// Convenience method that will return what's in the item's graphics cache
+    /// Convenience method that will return what is in the item´s graphics cache
     /// and call update_fn if the cache is outdated and needs refreshing. If
     /// update_fn is called, the data is persisted in the cache.
     fn ensure_up_to_date(
@@ -105,7 +105,7 @@ impl ItemGraphicsCache {
     }
 
     // Load the item cache entry from the specified load factory fn, unless it was cached in the
-    // item's rendering cache.
+    // item´s rendering cache.
     fn load_item_graphics_cache_with_function(
         &mut self,
         item_cache: &CachedRenderingData,
@@ -115,8 +115,8 @@ impl ItemGraphicsCache {
     }
 }
 
-// glutin::WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
-// in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
+// glutin::WindowedContext tries to enforce being current or not. Since we need the WindowedContext´s window() function
+// in the GL renderer regardless whether we are current or not, we wrap the two states back into one type.
 enum OpenGLContextState {
     #[cfg(not(target_arch = "wasm32"))]
     NotCurrent(glutin::WindowedContext<glutin::NotCurrent>),
@@ -209,7 +209,7 @@ impl OpenGLContext {
             let windowed_context = crate::event_loop::with_window_target(|event_loop| {
                 let builder = glutin::ContextBuilder::new().with_vsync(true);
 
-                // With latest Windows 10 and VmWare glutin's default for srgb produces surfaces that are always rendered black :(
+                // With latest Windows 10 and VmWare glutin´s default for srgb produces surfaces that are always rendered black :(
                 #[cfg(target_os = "windows")]
                 let builder = builder.with_srgb(false);
 
@@ -326,7 +326,7 @@ struct GLRendererData {
 
     opengl_context: OpenGLContext,
 
-    // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
+    // Layers that were scheduled for rendering where we can not delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
     layer_images_to_delete_after_flush: RefCell<Vec<CachedImage>>,
@@ -383,7 +383,7 @@ impl GLRenderer {
             let mut canvas = self.shared_data.canvas.borrow_mut();
             // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
             // text metrics. Since we do the entire translation from logical pixels to physical
-            // pixels on our end, we don't need femtovg to scale a second time.
+            // pixels on our end, we do not need femtovg to scale a second time.
             canvas.set_size(size.width, size.height, 1.0);
             canvas.clear_rect(0, 0, size.width, size.height, to_femtovg_color(clear_color));
         }
@@ -445,7 +445,7 @@ pub struct GLItemRenderer {
     graphics_window: Rc<GraphicsWindow>,
     scale_factor: f32,
     default_font_properties: Pin<Rc<Property<FontRequest>>>,
-    /// track the state manually since femtovg don't have accessor for its state
+    /// track the state manually since femtovg do not have accessor for its state
     state: Vec<State>,
 }
 
@@ -455,7 +455,7 @@ fn rect_with_radius_to_path(rect: Rect, border_radius: f32) -> femtovg::Path {
     let y = rect.origin.y;
     let width = rect.size.width;
     let height = rect.size.height;
-    // If we're drawing a circle, use directly connected bezier curves instead of
+    // If we are drawing a circle, use directly connected bezier curves instead of
     // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
     // rendering artifacts due to those edges.
     if width.approx_eq(&height) && (border_radius * 2.).approx_eq(&width) {
@@ -734,7 +734,7 @@ impl ItemRenderer for GLItemRenderer {
             letter_spacing,
         );
 
-        // This way of drawing selected text isn't quite 100% correct. Due to femtovg only being able to
+        // This way of drawing selected text is not quite 100% correct. Due to femtovg only being able to
         // have a simple rectangular selection - due to the use of the scissor clip - the selected text is
         // drawn *over* the unselected text. If the selection background color is transparent, then that means
         // that glyphs are blended twice, which may lead to artifacts.
@@ -744,7 +744,7 @@ impl ItemRenderer for GLItemRenderer {
             let mut selection_start_x = 0.;
             let mut selection_end_x = 0.;
             // Determine the first and last (inclusive) glyph of the selection. The anchor
-            // will always be at the start of a grapheme boundary, so there's at ShapedGlyph
+            // will always be at the start of a grapheme boundary, so there is at ShapedGlyph
             // that has a matching byte index. For the selection end we have to look for the
             // visual end of glyph before the cursor, because due to for example ligatures
             // (or generally glyph substitution) there may not be a dedicated glyph.
@@ -1076,7 +1076,7 @@ impl ItemRenderer for GLItemRenderer {
 
         // Femtovg renders evenly 50% inside and 50% outside of the border width. The
         // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
-        // would be entirely an *inner* border. However for clipping we want the rect that's
+        // would be entirely an *inner* border. However for clipping we want the rect that is
         // entirely inside, hence the doubling of the width and consequently radius adjustment.
         radius -= border_width * KAPPA90;
         border_width *= 2.;
@@ -1381,7 +1381,7 @@ impl GLItemRenderer {
                         .map(|cache_entry| self.colorize_image(cache_entry, colorize_property))
                 });
 
-            // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
+            // Check if the image in the cache is loaded. If not, do not draw any image and we will return
             // later when the callback from load_html_image has issued a repaint
             let cached_image = match image_cache_entry {
                 Some(entry) if entry.as_image().size().is_some() => entry,
@@ -1390,8 +1390,8 @@ impl GLItemRenderer {
                 }
             };
 
-            // It's possible that our item cache contains an image but it's not colorized yet because it was only
-            // placed there via the `image_size` function (which doesn't colorize). So we may have to invalidate our
+            // It is possible that our item cache contains an image but it is not colorized yet because it was only
+            // placed there via the `image_size` function (which does not colorize). So we may have to invalidate our
             // item cache and try again.
             if colorize_property.map_or(false, |prop| !prop.get().is_transparent())
                 && !cached_image.is_colorized_image()
@@ -1477,7 +1477,7 @@ impl GLItemRenderer {
         Some(match brush {
             Brush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
             Brush::LinearGradient(gradient) => {
-                // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
+                // `canvas.path_bbox()` applies the current transform. However we are not interested in that, since
                 // we operate in item local coordinates with the `path` parameter as well as the resulting
                 // paint.
                 let path_bounds = {

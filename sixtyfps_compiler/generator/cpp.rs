@@ -134,7 +134,7 @@ mod cpp_ast {
         /// The list of statement instead the function.  When None,  this is just a function
         /// declaration without the definition
         pub statements: Option<Vec<String>>,
-        /// What's inside template<...> if any
+        /// What is inside template<...> if any
         pub template_parameters: Option<String>,
         /// Explicit initializers, such as FooClass::FooClass() : someMember(42) {}
         pub constructor_member_initializers: Vec<String>,
@@ -491,7 +491,7 @@ fn handle_repeater(
     let mut model = compile_expression(&repeated.model, parent_component);
     if repeated.is_conditional_element {
         // bool converts to int
-        // FIXME: don't do a heap allocation here
+        // FIXME: do not do a heap allocation here
         model = format!("std::make_shared<sixtyfps::private_api::IntModel>({})", model)
     };
 
@@ -1520,7 +1520,7 @@ fn compile_expression(
             Type::Struct{..} => {
                 format!("{}.{}", compile_expression(base, component), name)
             }
-            _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
+            _ => panic!("Expression::ObjectAccess´s base expression is not an Object type"),
         },
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, component);
@@ -1871,7 +1871,7 @@ fn compile_assignment(
                     format!("std::get<{}>({})", index, tmpobj)
                 }
                 Type::Struct { .. } => format!("{}.{}", tmpobj, name),
-                _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
+                _ => panic!("Expression::ObjectAccess´s base expression is not an Object type"),
             };
             let op = if op == '=' { ' ' } else { op };
             let new_value = format!(

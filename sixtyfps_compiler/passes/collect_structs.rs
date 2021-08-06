@@ -16,7 +16,7 @@ use crate::{diagnostics::BuildDiagnostics, langtype::Type};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-/// Fill the root_component's used_types.structs
+/// Fill the root_component´s used_types.structs
 pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
     let mut hash = BTreeMap::new();
 

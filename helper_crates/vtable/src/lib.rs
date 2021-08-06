@@ -82,14 +82,14 @@ pub use vrc::*;
 /// And there should be a VTable::VTable::new<T> function that returns a
 /// VTable suitable for the type T.
 pub unsafe trait VTableMeta {
-    /// That's the trait object that implements the functions
+    /// That is the trait object that implements the functions
     ///
     /// NOTE: the size must be `2*size_of::<usize>`
     /// and a `repr(C)` with `(vtable, ptr)` so it has the same layout as
     /// the inner and VBox/VRef/VRefMut
     type Target;
 
-    /// That's the VTable itself (so most likely Self)
+    /// That is the VTable itself (so most likely Self)
     type VTable: 'static;
 }
 

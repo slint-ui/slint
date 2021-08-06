@@ -838,7 +838,7 @@ impl Expression {
         let mut values: Vec<Expression> =
             node.Expression().map(|e| Expression::from_expression_node(e, ctx)).collect();
 
-        // FIXME: what's the type of an empty array ?
+        // FIXME: what is the type of an empty array ?
         let element_ty =
             Self::common_target_type_for_type_list(values.iter().map(|expr| expr.ty()));
 
@@ -875,7 +875,7 @@ impl Expression {
         result
     }
 
-    /// This function is used to find a type that's suitable for casting each instance of a bunch of expressions
+    /// This function is used to find a type that is suitable for casting each instance of a bunch of expressions
     /// to a type that captures most aspects. For example for an array of object literals the result is a merge of
     /// all seen fields.
     fn common_target_type_for_type_list(types: impl Iterator<Item = Type>) -> Type {

@@ -31,7 +31,7 @@ First you need to install the prerequisites:
 * **cmake** (3.16 or newer)
 * A C++ compiler that supports C++17 (e.g., **MSVC 2019** on Windows)
 
-You can include SixtyFPS in your CMake project using CMake's `FetchContent` feature. Insert the following snippet into your
+You can include SixtyFPS in your CMake project using CMake´s `FetchContent` feature. Insert the following snippet into your
 `CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:
 
 ```cmake
@@ -53,16 +53,16 @@ CMake project, install it into a prefix directory of your choice and use `find_p
 It is possible to cross-compile SixtyFPS to a different target architecture when building with CMake. In order to complete
 that, you need to make sure that your CMake setup is ready for cross-compilation. You can find more information about
 how to set this up in the [upstream CMake documentation](https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html#cross-compiling).
-If you are building against a Yocto SDK, it is sufficient to source the SDK's environment setup file.
+If you are building against a Yocto SDK, it is sufficient to source the SDK´s environment setup file.
 
 Since SixtyFPS is implemented using the Rust programming language, you need to determine which Rust target
-matches the target architecture that you're compiling to. Please consult the [upstream Rust documentation](https://doc.rust-lang.org/nightly/rustc/platform-support.html) to find the correct target name. Now you need to install the Rust toolchain:
+matches the target architecture that you are compiling to. Please consult the [upstream Rust documentation](https://doc.rust-lang.org/nightly/rustc/platform-support.html) to find the correct target name. Now you need to install the Rust toolchain:
 
 ```sh
 rustup target add <target-name>
 ```
 
-Then you're ready to invoke CMake and you need to add `-DRust_CARGO_TARGET=<target name>` to the CMake command line.
+Then you are ready to invoke CMake and you need to add `-DRust_CARGO_TARGET=<target name>` to the CMake command line.
 This ensures that the SixtyFPS library is built for the correct architecture.
 
 For example if you are building against an embedded Linux Yocto SDK targeting an ARM64 board, the following commands
@@ -125,7 +125,7 @@ necessary to link your executable or library against the `SixtyFPS::SixtyFPS` ta
 
 ## Tutorial
 
-Let's make a UI for a todo list application using the SixtyFPS UI description language.
+Let us make a UI for a todo list application using the SixtyFPS UI description language.
 Hopefully this should be self explanatory. Check out the documentation of the language for help
 
 ```60
@@ -180,7 +180,7 @@ sixtyfps-compiler my_application_ui.60 > my_application_ui.h
 ```
 
 Note: You would usually not type this command yourself, this is done automatically by the build system.
-(that's what the `sixtyfps_target_60_sources` cmake function does)
+(that´s what the `sixtyfps_target_60_sources` cmake function does)
 
 This will generate a `my_application_ui.h` header file. It basically contains the following code
 (edited for brevity)
@@ -214,17 +214,17 @@ We can then use this from out .cpp file
 #include "my_application_ui.h"
 
 int main() {
-    // Let's instantiate our window
+    // Let us instantiate our window
     auto todo_app = MainWindow::create();
 
-    // let's create a model:
+    // let us create a model:
     auto todo_model = std::make_shared<sixtyfps::VectorModel<TodoItem>>(std::vector {
         TodoItem { false, "Write documentation" },
     });
     // set the model as the model of our view
     todo_app->set_todo_model(todo_model);
 
-    // let's connect our "add" button to add an item in the model
+    // let us connect our "add" button to add an item in the model
     todo_app->on_todo_added([todo_model](const sixtyfps::SharedString &s) {
          todo_model->push_back(TodoItem { false, s} );
     });
@@ -234,6 +234,6 @@ int main() {
 }
 ```
 
-That's it.
+That´s it.
 
 Check the rest of the documentation for the reference.

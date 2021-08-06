@@ -9,7 +9,7 @@
 .. LICENSE END
 .. SixtyFPS C++ documentation master file
 
-Welcome to SixtyFPS C++'s documentation!
+Welcome to SixtyFPS C++´s documentation!
 ========================================
 
 .. toctree::
@@ -57,7 +57,7 @@ The .60 Markup Language
 
 SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
 powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy
-of elements and property bindings. Here's the obligatory "Hello World":
+of elements and property bindings. Here´s the obligatory "Hello World":
 
 .. code-block:: 60-no-preview
 

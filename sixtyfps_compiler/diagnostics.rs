@@ -238,7 +238,7 @@ pub struct BuildDiagnostics {
 
     /// This is the list of all loaded files (with or without diagnostic)
     /// does not include the main file.
-    /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
+    /// FIXME: this does not really belong in the diagnostics, it should be somehow returned in another way
     /// (maybe in a compilation state that include the diagnostics?)
     pub all_loaded_files: Vec<PathBuf>,
 }

@@ -97,7 +97,7 @@ pub mod generated_code {
         /// For each callback declared at the root of the component, a function connect to that callback
         /// is generated. This is the function that registers the function f as callback when the
         /// callback `hello` is emitted. In order to access
-        /// the component in the callback, you'd typically capture a weak reference obtained using
+        /// the component in the callback, you would typically capture a weak reference obtained using
         /// [`ComponentHandle::as_weak`]
         /// and then upgrade it to a strong reference when the callback is run:
         /// ```ignore
@@ -120,7 +120,7 @@ pub mod generated_code {
             unimplemented!()
         }
 
-        /// Returns a clone of this handle that's a strong reference.
+        /// Returns a clone of this handle that is a strong reference.
         fn clone_strong(&self) -> Self {
             unimplemented!();
         }

@@ -110,7 +110,7 @@ impl SharedString {
                 if pos == 0 {
                     return Some(MaybeUninit::new(0));
                 }
-                // I don't know if the compiler will be smart enough to exit the loop here.
+                // I do not know if the compiler will be smart enough to exit the loop here.
                 // It would be nice if triomphe::Arc would allow to leave uninitialized memory
                 Some(MaybeUninit::uninit())
             }

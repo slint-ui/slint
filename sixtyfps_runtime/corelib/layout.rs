@@ -59,7 +59,7 @@ impl Default for LayoutInfo {
 }
 
 impl LayoutInfo {
-    // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout infos.
+    // Note: This "logic" is duplicated in the cpp generator´s generated code for merging layout infos.
     pub fn merge(&self, other: &LayoutInfo) -> Self {
         Self {
             min: self.min.max(other.min),
@@ -620,7 +620,7 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
     use lyon_geom::*;
     use lyon_path::iterator::PathIterator;
 
-    // Clone of path elements is cheap because it's a clone of underlying SharedVector
+    // Clone of path elements is cheap because it is a clone of underlying SharedVector
     let mut path_iter = data.elements.clone().iter();
     path_iter.fit(data.width, data.height, None);
 

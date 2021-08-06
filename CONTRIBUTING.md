@@ -1,6 +1,6 @@
 # Contributing
 
-We warmly welcome contributions to the project. Let's discuss ideas or questions in [Github discussions](https://github.com/sixtyfpsui/sixtyfps/discussions).
+We warmly welcome contributions to the project. Let us discuss ideas or questions in [Github discussions](https://github.com/sixtyfpsui/sixtyfps/discussions).
 Please feel welcome to open github issues, pull requests or comment for example on [RFC tagged](https://github.com/sixtyfpsui/sixtyfps/labels/rfc) issues.
 
 ## Coding Style

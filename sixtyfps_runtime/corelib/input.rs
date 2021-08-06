@@ -232,7 +232,7 @@ pub struct KeyEvent {
     pub event_type: KeyEventType,
 }
 
-/// Represents how an item's key_event handler dealt with a key event.
+/// Represents how an item´s key_event handler dealt with a key event.
 /// An accepted event results in no further event propagation.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -433,9 +433,9 @@ pub fn process_mouse_input(
 }
 
 /// The TextCursorBlinker takes care of providing a toggled boolean property
-/// that can be used to animate a blinking cursor. It's typically stored in the
+/// that can be used to animate a blinking cursor. It is typically stored in the
 /// Window using a Weak and set_binding() can be used to set up a binding on a given
-/// property that'll keep it up-to-date. That binding keeps a strong reference to the
+/// property that will keep it up-to-date. That binding keeps a strong reference to the
 /// blinker. If the underlying item that uses it goes away, the binding goes away and
 /// so does the blinker.
 #[derive(FieldOffsets)]

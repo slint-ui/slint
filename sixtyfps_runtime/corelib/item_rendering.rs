@@ -57,7 +57,7 @@ impl CachedRenderingData {
     }
 
     /// This function can be used to remove an entry from the rendering cache for a given item, if it
-    /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
+    /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend´s
     /// implementation of the release_item_graphics_cache function.
     pub fn release<T>(&self, cache: &mut RenderingCache<T>) -> Option<T> {
         if self.cache_generation.get() == cache.generation() {
@@ -101,7 +101,7 @@ pub fn render_component_items(
             let item_geometry = item.as_ref().geometry();
             let item_origin = item_geometry.origin;
 
-            // Don't render items that are clipped, with the exception of the Clip or Flickable since
+            // Do not render items that are clipped, with the exception of the Clip or Flickable since
             // they themselves clip their content.
             if !renderer.borrow().get_current_clip().intersects(&item_geometry)
                 && !is_clipping_item(item)

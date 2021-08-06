@@ -1,6 +1,6 @@
 # From One To Multiple Tiles
 
-After modeling a single tile, let's create a grid of them. For the grid to be our game board, we need two features:
+After modeling a single tile, let us create a grid of them. For the grid to be our game board, we need two features:
 
 1. A data model: This shall be an array where each element describes the tile data structure, such as the
    url of the image, whether the image shall be visible and if this tile has been solved. We modify the model

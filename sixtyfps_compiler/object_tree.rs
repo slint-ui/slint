@@ -446,7 +446,7 @@ pub struct Element {
     pub states: Vec<State>,
     pub transitions: Vec<Transition>,
 
-    /// true when this item's geometry is handled by a layout
+    /// true when this item´s geometry is handled by a layout
     pub child_of_layout: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
@@ -1673,13 +1673,13 @@ impl Exports {
 /// Note that no reference to the base component must exist outside of repeated_element.base_type
 pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root: ElementRc) {
     let component = repeated_element.borrow().base_type.as_component().clone();
-    // Since we're going to replace the repeated element's component, we need to assert that
+    // Since we are going to replace the repeated element´s component, we need to assert that
     // outside this function no strong reference exists to it. Then we can unwrap and
     // replace the root element.
     debug_assert_eq!(Rc::strong_count(&component), 2);
     let old_root = &component.root_element;
 
-    // Any elements with a weak reference to the repeater's component will need fixing later.
+    // Any elements with a weak reference to the repeater´s component will need fixing later.
     let mut elements_with_enclosing_component_reference = Vec::new();
     recurse_elem(old_root, &(), &mut |element: &ElementRc, _| {
         if let Some(enclosing_component) = element.borrow().enclosing_component.upgrade() {
@@ -1695,7 +1695,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     new_root.borrow_mut().child_of_layout =
         std::mem::replace(&mut old_root.borrow_mut().child_of_layout, false);
 
-    // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
+    // Replace the repeated component´s element with our shadow element. That requires a bit of reference counting
     // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.
     drop(std::mem::take(&mut repeated_element.borrow_mut().base_type));
 

@@ -144,7 +144,7 @@ public:
     /// color space and multiplying the brightness (value) with (1 + factor).
     /// The result is converted back to RGB and the alpha channel is unchanged.
     /// So for example `brighter(0.2)` will increase the brightness by 20%, and
-    /// calling `brighter(-0.5)` will return a color that's 50% darker.
+    /// calling `brighter(-0.5)` will return a color that´s 50% darker.
     inline Color brighter(float factor) const;
     /// Returns a new version of this color that has the brightness decreased
     /// by the specified factor. This is done by converting the color to the HSV

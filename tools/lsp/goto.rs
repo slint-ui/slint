@@ -107,7 +107,7 @@ pub fn goto_definition(
             let doc_node = doc.node.clone()?;
             return goto_node(document_cache, &*doc_node);
         } else if syntax_nodes::BindingExpression::new(node.clone()).is_some() {
-            // don't fallback to the Binding
+            // do not fallback to the Binding
             return None;
         } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
             if token.kind() != SyntaxKind::Identifier {

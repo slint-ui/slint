@@ -11,7 +11,7 @@ LICENSE END */
 use std::path::Path;
 
 fn main() {
-    // This file is written by the sixtyfps-rendering-backend-default's built script. At this point
+    // This file is written by the sixtyfps-rendering-backend-default´s built script. At this point
     // the build script might not have ran yet, but we just need to pass the path to the build directory
     // to the macro crate itself.
     let out_dir = std::env::var_os("OUT_DIR").unwrap();

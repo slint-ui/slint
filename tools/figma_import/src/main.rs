@@ -28,7 +28,7 @@ struct Opt {
     /// If present, load the specific child node at the specified index
     #[structopt(long = "child")]
     child_index: Option<usize>,
-    /// If set, don't connect to the network, but use the `figma_output/cache.json`
+    /// If set, do not connect to the network, but use the `figma_output/cache.json`
     #[structopt(long)]
     read_from_cache: bool,
     /// Figma file

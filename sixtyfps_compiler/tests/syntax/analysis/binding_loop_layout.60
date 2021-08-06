@@ -27,7 +27,7 @@ TC := Rectangle {
 
 Test := Rectangle {
     VerticalLayout {
-//  ^error{The binding for the property 'layoutinfo_h' is part of a binding loop}  // FIXME: That's an internal property, but people might understand
+//  ^error{The binding for the property 'layoutinfo_h' is part of a binding loop}  // FIXME: That is an internal property, but people might understand
 //  ^^error{The binding for the property 'min_width' is part of a binding loop}
         Rectangle {
             width: parent.min_width;
@@ -37,7 +37,7 @@ Test := Rectangle {
 
 
     l := HorizontalLayout {
-//      ^error{The binding for the property 'layoutinfo_h' is part of a binding loop}  // FIXME: That's an internal property, but people might understand
+//      ^error{The binding for the property 'layoutinfo_h' is part of a binding loop}  // FIXME: That is an internal property, but people might understand
 //      ^^error{The binding for the property 'preferred_width' is part of a binding loop}
         Text {
             text: "hello \{l.preferred-width/1px}x\{l.preferred-height/1px}";

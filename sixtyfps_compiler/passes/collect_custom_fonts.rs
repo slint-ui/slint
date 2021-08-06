@@ -17,7 +17,7 @@ use crate::{
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-/// Fill the root_component's used_globals
+/// Fill the root_component´s used_globals
 pub fn collect_custom_fonts<'a>(
     root_component: &Rc<Component>,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,

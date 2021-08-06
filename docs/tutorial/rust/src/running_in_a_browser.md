@@ -2,7 +2,7 @@
 
 Right now, we used `cargo run` to build and run our program as a native application.
 Native applications are the primary target of the SixtyFPS framework, but we also support WebAssembly
-for demonstration purposes. So in this section we'll use the standard rust tool `wasm-bindgen` and
+for demonstration purposes. So in this section we will use the standard rust tool `wasm-bindgen` and
 `wasm-pack` to run the game in the browser. The [wasm-bindgen](https://rustwasm.github.io/docs/wasm-bindgen/examples/without-a-bundler.html)
 documentation explains all you need to know about using wasm and rust.
 
@@ -12,7 +12,7 @@ Make sure to have wasm-back installed using
 cargo install wasm-pack
 ```
 
-You'll need to edit your `Cargo.toml` to add the dependencies.
+You will need to edit your `Cargo.toml` to add the dependencies.
 
 ```toml
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -48,7 +48,7 @@ pub fn main() {
 
 Now, we can compile our program with `wasm-pack build --release --target web`. This
 will create a `pkg` directory containing a few files, including a `.js` file
-named after your program name. We just have to import that from a HTML file. So let's create a minimal
+named after your program name. We just have to import that from a HTML file. So let us create a minimal
 `index.html` that declares a `<canvas>` element for rendering and loads our generated wasm
 file. The SixtyFPS runtime expects the `<canvas>` element to have the id `id = "canvas"`.
 (Replace `memory.js` by the correct file name).
@@ -67,7 +67,7 @@ file. The SixtyFPS runtime expects the `<canvas>` element to have the id `id = "
 ```
 
 Unfortunately, loading ES modules is not allowed for files on the file system when accessed from a
-`file://` URL, so we can't simply open the index.html. Instead we need to serve it through a web server.
+`file://` URL, so we can not simply open the index.html. Instead we need to serve it through a web server.
 For example, using Python, it is as simple as running
 
 ```sh

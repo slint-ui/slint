@@ -258,7 +258,7 @@ pub struct TextInput {
 impl Item for TextInput {
     fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
-    // FIXME: width / height.  or maybe it doesn't matter?  (
+    // FIXME: width / height.  or maybe it does not matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
@@ -393,7 +393,7 @@ impl Item for TextInput {
                 self.as_ref().anchor_position.set(new_cursor_pos);
 
                 // Keep the cursor visible when inserting text. Blinking should only occur when
-                // nothing is entered or the cursor isn't moved.
+                // nothing is entered or the cursor is not moved.
                 self.as_ref().show_cursor(window);
 
                 Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
@@ -521,7 +521,7 @@ impl TextInput {
         }
 
         // Keep the cursor visible when moving. Blinking should only occur when
-        // nothing is entered or the cursor isn't moved.
+        // nothing is entered or the cursor is not moved.
         self.as_ref().show_cursor(window);
 
         new_cursor_pos != last_cursor_pos

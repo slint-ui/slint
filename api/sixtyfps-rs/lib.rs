@@ -45,7 +45,7 @@ sixtyfps::sixtyfps!{
     }
 }
 fn main() {
-#   return; // Don't run a window in an example
+#   return; // Do not run a window in an example
     HelloWorld::new().run();
 }
 ```
@@ -120,7 +120,7 @@ For each top-level callback
 
 After instantiating the component you can call just [`ComponentHandle::run()`] on it, in order to show it and spin the event loop to
 render and react to input events. If you want to show multiple components simultaneously, then you can also call just
-[`ComponentHandle::show()`] first. When you're ready to enter the event loop, just call [`run_event_loop()`].
+[`ComponentHandle::show()`] first. When you are ready to enter the event loop, just call [`run_event_loop()`].
 
 The generated component struct act as a handle holding a strong reference (similar to a `Rc`). It does not implement
 `Clone` because we want to make explicit if we are cloning a strong reference (with [`ComponentHandle::clone_strong`]),
@@ -412,7 +412,7 @@ pub fn quit_event_loop() {
 ///     let handle_copy = handle_weak.clone();
 ///     sixtyfps::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
 /// });
-/// # thread.join().unwrap(); return; // don't run the event loop in examples
+/// # thread.join().unwrap(); return; // do not run the event loop in examples
 /// handle.run();
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
@@ -433,7 +433,7 @@ pub trait ComponentHandle {
     where
         Self: Sized;
 
-    /// Returns a clone of this handle that's a strong reference.
+    /// Returns a clone of this handle that is a strong reference.
     fn clone_strong(&self) -> Self;
 
     /// Internal function used when upgrading a weak reference to a strong one.
@@ -464,7 +464,7 @@ mod weak_handle {
 
     use super::*;
 
-    /// Struct that's used to hold weak references of [SixtyFPS component](mod@crate#generated-components)
+    /// Struct that is used to hold weak references of [SixtyFPS component](mod@crate#generated-components)
     ///
     /// In order to create a Weak, you should use [`ComponentHandle::as_weak`].
     ///
@@ -536,7 +536,7 @@ mod weak_handle {
         ///     // now forward the data to the main thread using upgrade_in_event_loop
         ///     handle_weak.upgrade_in_event_loop(move |handle| handle.set_foo(foo));
         /// });
-        /// # thread.join().unwrap(); return; // don't run the event loop in examples
+        /// # thread.join().unwrap(); return; // do not run the event loop in examples
         /// handle.run();
         /// ```
         pub fn upgrade_in_event_loop(self, func: impl FnOnce(T) + Send + 'static)
@@ -620,7 +620,7 @@ pub mod testing {
         )
     }
 
-    /// Applies the specified scale factor to the window that's associated with the given component.
+    /// Applies the specified scale factor to the window that is associated with the given component.
     /// This overrides the value provided by the windowing system.
     pub fn set_window_scale_factor<
         X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>

@@ -249,7 +249,7 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
     );
 
     fn check_alias(e: &ElementRc, name: &str, binding: &Expression) {
-        // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
+        // Note: since the analysis has not been run, any property access will result in a non constant binding. this is slightly non-optimal
         let is_binding_constant = binding.is_constant();
         if is_binding_constant && !NamedReference::new(e, name).is_externally_modified() {
             return;

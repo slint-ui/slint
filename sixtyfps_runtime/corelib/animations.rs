@@ -29,7 +29,7 @@ impl Default for EasingCurve {
     }
 }
 
-/// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
+/// Represent an instant, in milliseconds since the AnimationDriver´s initial_instant
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq, Ord, PartialOrd, Eq)]
 pub struct Instant(pub u64);
@@ -123,7 +123,7 @@ impl AnimationDriver {
 }
 
 thread_local!(
-/// This is the default instance of the animation driver that's used to advance all property animations
+/// This is the default instance of the animation driver that is used to advance all property animations
 /// at the same time.
 pub static CURRENT_ANIMATION_DRIVER : AnimationDriver = AnimationDriver::default()
 );

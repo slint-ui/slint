@@ -558,7 +558,7 @@ fn get_document_symbols(
     let uri = &text_document.uri;
     let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
 
-    // SymbolInformation doesn't implement default and some field depends on features or are deprecated
+    // SymbolInformation does not implement default and some field depends on features or are deprecated
     let si: SymbolInformation = serde_json::from_value(
         serde_json::json!({ "name" : "", "kind": 255, "location" : Location::new(uri.clone(), Range::default()) })
     )

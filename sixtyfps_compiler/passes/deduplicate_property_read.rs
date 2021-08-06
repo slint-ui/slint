@@ -18,8 +18,8 @@ use std::collections::HashMap;
 pub fn deduplicate_property_read(component: &Component) {
     visit_all_expressions(component, |expr, ty| {
         if matches!(ty(), Type::Callback { .. }) {
-            // Callback handler can't be optimizes because they can have side effect.
-            // But that's fine as they also do not register dependencies
+            // Callback handler can not be optimizes because they can have side effect.
+            // But that is fine as they also do not register dependencies
             return;
         }
         process_expression(expr, &DedupPropState::default());

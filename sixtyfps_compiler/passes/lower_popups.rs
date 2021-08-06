@@ -77,13 +77,13 @@ fn lower_popup_window(
     });
 
     // Generate a x and y property, relative to the window coordinate
-    // FIXME: this is a hack that doesn't always work, perhaps should we store an item ref or something
+    // FIXME: this is a hack that does not always work, perhaps should we store an item ref or something
     let coord_x = create_coordinate(&popup_comp, parent_stack, "x");
     let coord_y = create_coordinate(&popup_comp, parent_stack, "y");
 
     // Throw error when accessing the popup from outside
     // FIXME:
-    // - the span is the span of the PopupWindow, that's wrong, we should have the span of the reference
+    // - the span is the span of the PopupWindow, that is wrong, we should have the span of the reference
     // - There are other object reference than in the NamedReference
     // - Maybe this should actually be allowed
     visit_all_named_references(&parent_component, &mut |nr| {

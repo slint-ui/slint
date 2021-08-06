@@ -48,7 +48,7 @@ pub use self::image::*;
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
 /// for a lazy computation. Typically back ends store either compute intensive data or handles that refer to
-/// data that's stored in GPU memory.
+/// data that is stored in GPU memory.
 pub struct CachedGraphicsData<T> {
     /// The backend specific data.
     pub data: T,
@@ -67,9 +67,9 @@ impl<T> CachedGraphicsData<T> {
     }
 }
 
-/// The RenderingCache, in combination with CachedGraphicsData, allows back ends to store data that's either
+/// The RenderingCache, in combination with CachedGraphicsData, allows back ends to store data that is either
 /// intensive to compute or has bad CPU locality. Back ends typically keep a RenderingCache instance and use
-/// the item's cached_rendering_data() integer as index in the vec_arena::Arena.
+/// the item´s cached_rendering_data() integer as index in the vec_arena::Arena.
 pub struct RenderingCache<T> {
     slab: slab::Slab<CachedGraphicsData<T>>,
     generation: usize,
@@ -108,7 +108,7 @@ impl<T> RenderingCache<T> {
         self.slab.remove(index)
     }
 
-    /// Removes all entries from the cache and increases the cache's generation count, so
+    /// Removes all entries from the cache and increases the cache´s generation count, so
     /// that stale index access can be avoided.
     pub fn clear(&mut self) {
         self.slab.clear();
@@ -154,7 +154,7 @@ pub trait FontMetrics {
     /// Returns the height of a line of text.
     fn line_height(&self) -> f32;
     /// Returns the (UTF-8) byte offset in the given text that refers to the character that contributed to
-    /// the glyph cluster that's visually nearest to the given x coordinate. This is used for hit-testing,
+    /// the glyph cluster that is visually nearest to the given x coordinate. This is used for hit-testing,
     /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
     /// position.
     fn text_offset_for_x_position(&self, text: &str, x: f32) -> usize;

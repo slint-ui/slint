@@ -24,7 +24,7 @@ class QWidget;
 #endif
 
 namespace sixtyfps::cbindgen_private {
-//  This has to stay opaque, but VRc don't compile if it is just forward declared
+//  This has to stay opaque, but VRc do not compile if it is just forward declared
 struct ErasedComponentBox : vtable::Dyn
 {
     ~ErasedComponentBox() = delete;
@@ -101,7 +101,7 @@ public:
     /// Creates a new struct with the fields produced by the iterator \a it. \a it is
     /// advanced until it equals \a end.
     template<typename InputIterator
-// Doxygen doesn't understand this template wizardry
+// Doxygen does not understand this template wizardry
 #if !defined(DOXYGEN)
              ,
              typename std::enable_if_t<
@@ -134,7 +134,7 @@ public:
     ///
     /// Note that the order in which the iterator exposes the fields is not defined.
     ///
-    /// If you're using C++ 17, you can use the convenience destructuring syntax to extract the name
+    /// If you are using C++ 17, you can use the convenience destructuring syntax to extract the name
     /// and value in one go:
     ///
     /// ```
@@ -151,7 +151,7 @@ public:
     /// ```
     struct iterator
     {
-        /// A typedef for std::pair<std::string_view, const Value &> that's returned
+        /// A typedef for std::pair<std::string_view, const Value &> that is returned
         /// when dereferencing the iterator.
         using value_type = std::pair<std::string_view, const Value &>;
 
@@ -626,7 +626,7 @@ public:
     ///
     /// Returns true if the property was correctly set. Returns false if the property
     /// could not be set because it either do not exist (was not declared in .60) or if
-    /// the value is not of the proper type for the property's type.
+    /// the value is not of the proper type for the property´s type.
     bool set_property(std::string_view name, const Value &value) const
     {
         using namespace cbindgen_private;
@@ -658,7 +658,7 @@ public:
     ///     instance->invoke_callback("foo", { args, 2 });
     /// ```
     ///
-    /// Returns an null optional if the callback don't exist or if the argument don't match
+    /// Returns an null optional if the callback does not exist or if the argument do not match.
     /// Otherwise return the returned value from the callback, which may be an empty Value if
     /// the callback did not return a value.
     std::optional<Value> invoke_callback(std::string_view name, Slice<Value> args) const
@@ -713,7 +713,7 @@ public:
 #if !defined(DOXYGEN)
 using PropertyDescriptor = sixtyfps::cbindgen_private::PropertyDescriptor;
 #else
-/// PropertyDescriptor is a simple structure that's used to describe a property declared in .60
+/// PropertyDescriptor is a simple structure that is used to describe a property declared in .60
 /// code. It is returned from in a vector from
 /// sixtyfps::interpreter::ComponentDefinition::properties().
 struct PropertyDescriptor
@@ -731,7 +731,7 @@ struct PropertyDescriptor
 /// ComponentCompiler::build_from_source() functions. And then it can be instantiated with the
 /// create() function.
 ///
-/// The ComponentDefinition acts as a factory to create new instances. When you've finished
+/// The ComponentDefinition acts as a factory to create new instances. When you have finished
 /// creating the instances it is safe to destroy the ComponentDefinition.
 class ComponentDefinition
 {

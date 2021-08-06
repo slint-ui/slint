@@ -39,7 +39,7 @@ pub fn handle_clip(
                 match elem.builtin_type().as_ref().map(|ty| ty.name.as_str()) {
                     Some("Rectangle") => {}
                     Some("Path") => {
-                        // it's an actual property, so keep it as is
+                        // it is an actual property, so keep it as is
                         return;
                     }
                     _ => {
@@ -68,7 +68,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     }));
 
     parent.children.push(clip.clone());
-    drop(parent); // NamedReference::new will borrow() the parent, so we can't hold a mutable ref
+    drop(parent); // NamedReference::new will borrow() the parent, so we can not hold a mutable ref
     clip.borrow_mut().bindings = ["width", "height"]
         .iter()
         .map(|prop| -> (String, BindingExpression) {

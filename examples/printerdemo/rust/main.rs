@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 sixtyfps::include_modules!();
 
-/// Returns the current time formated as a string
+/// Returns the current time formatted as a string
 fn current_time() -> sixtyfps::SharedString {
     #[cfg(not(target_arch = "wasm32"))]
     return chrono::Local::now().format("%H:%M:%S %d/%m/%Y").to_string().into();
@@ -45,7 +45,7 @@ impl PrinterQueue {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     // This provides better error messages in debug mode.
-    // It's disabled in release mode so it doesn't bloat up the file size.
+    // It is disabled in release mode so it does not bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 

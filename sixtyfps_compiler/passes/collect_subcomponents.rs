@@ -17,7 +17,7 @@ use crate::object_tree::*;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-/// Fill the root_component's used_types.sub_components
+/// Fill the root_component´s used_types.sub_components
 pub fn collect_subcomponents(root_component: &Rc<Component>) {
     let mut result = vec![];
     let mut hash = HashSet::new();

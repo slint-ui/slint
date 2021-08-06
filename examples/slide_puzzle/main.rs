@@ -19,7 +19,7 @@ sixtyfps::include_modules!();
 
 fn shuffle() -> Vec<i8> {
     fn is_solvable(positions: &[i8]) -> bool {
-        // Same source as the flutter's slide_puzzle:
+        // Same source as the flutter´s slide_puzzle:
         // https://www.cs.bham.ac.uk/~mdr/teaching/modules04/java2/TilesSolvability.html
 
         let mut inversions = 0;
@@ -172,7 +172,7 @@ impl AppState {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     // This provides better error messages in debug mode.
-    // It's disabled in release mode so it doesn't bloat up the file size.
+    // It is disabled in release mode so it does not bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 

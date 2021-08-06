@@ -55,7 +55,7 @@ All notable changes to this project will be documented in this file.
  - `sixtyfps::run_event_loop()` and `sixtyfps::quit_event_loop()` were added to the Rust and C++ APIs to start and quit the main event loop.
  - `z` property on items.
  - The type in two-way bindings can now be omitted.
- - It's possible to declare aliases for callbacks (`callback clicked <=> other.clicked;`)
+ - It´s possible to declare aliases for callbacks (`callback clicked <=> other.clicked;`)
  - `abs()` function to get the absolute value
  - The root element of an `if` or `for` can be given a name (`if (condition) name := Rectangle {}`)
  - `sixtyfps::Image` is a new type in the public Rust and C++ API to load images from a path.
@@ -100,7 +100,7 @@ All notable changes to this project will be documented in this file.
  - Ability to load custom fonts using `import` statements
 
 ### Fixed
- - `Image::image-fit`'s `cover` and `contains` variant are fixed to match the CSS spec
+ - `Image::image-fit`´s `cover` and `contains` variant are fixed to match the CSS spec
  - Flickable without scrollbar
  - Multiplying and dividing different units.
  - Many more bugfixes
@@ -187,7 +187,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
  - Fix occasional hang when navigating in `TextInput` fields with the cursor keys.
  - Fix access to aliased properties from within `for` and `if` expressions.
- - Fix `ScrollView` being scrollable when it shouldn't.
+ - Fix `ScrollView` being scrollable when it should not be.
  - Fix appearance of natively styled scrollbars.
  - Allow converting an object type to another even if it is missing some properties.
  - Add missing frame drawing around `ScrollView`.

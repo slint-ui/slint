@@ -45,7 +45,7 @@ pub struct GraphicsWindow {
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
 
     mouse_input_state: std::cell::Cell<corelib::input::MouseInputState>,
-    /// Current popup's component and position
+    /// Current popup´s component and position
     /// FIXME: the popup should actually be another window, not just some overlay
     active_popup: std::cell::RefCell<Option<(ComponentRc, Point)>>,
 
@@ -60,7 +60,7 @@ impl GraphicsWindow {
     /// Creates a new reference-counted instance.
     ///
     /// Arguments:
-    /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that's called when the state
+    /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that is called when the state
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
     pub(crate) fn new(
@@ -137,7 +137,7 @@ impl GraphicsWindow {
 
                     #[cfg(target_arch = "wasm32")]
                     {
-                        // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
+                        // set_max_inner_size / set_min_inner_size do not work on wasm, so apply the size manually
                         let existing_size = window.backend.borrow().window().inner_size();
                         if !(min_width..=max_width).contains(&(existing_size.width as f32))
                             || !(min_height..=max_height).contains(&(existing_size.height as f32))
@@ -206,7 +206,7 @@ impl GraphicsWindow {
                 layout_info_v.preferred_bounded(),
             );
             if s.width > 0. && s.height > 0. {
-                // Make sure that the window's inner size is in sync with the root window item's
+                // Make sure that the window´s inner size is in sync with the root window item´s
                 // width/height.
                 self.set_geometry(s.width, s.height);
                 window_builder.with_inner_size(s)

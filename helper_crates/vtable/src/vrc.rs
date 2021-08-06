@@ -73,7 +73,7 @@ struct VRcInner<'vt, VTable: VTableMeta, X> {
     /// since the alignment of X may not be the same as u8.
     data_offset: u16,
     /// Actual data, or an instance of `Self::Layout` iff `strong_ref == 0`.
-    /// Can be seen as `union {data: X, layout: Layout}`  (but that's not stable)
+    /// Can be seen as `union {data: X, layout: Layout}`  (but that is not stable)
     data: X,
 }
 
@@ -120,7 +120,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
                 if inner.weak_ref.load(Ordering::SeqCst) > 1 {
                     // at this point we are sure that no other thread can access the data
                     // since we still hold a weak reference, so the other weak references
-                    // in other thread won't start destroying the object.
+                    // in other thread will not start destroying the object.
                     self.inner.cast::<VRcInner<VTable, Layout>>().as_mut().data = layout;
                 }
                 if inner.weak_ref.fetch_sub(1, Ordering::SeqCst) == 1 {
@@ -180,7 +180,7 @@ impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> VRc<VTable, X> {
 impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     /// Create a Pinned reference to the inner.
     ///
-    /// This is safe because we don't allow mutable reference to the inner
+    /// This is safe because we do not allow mutable reference to the inner
     pub fn as_pin_ref(&self) -> Pin<&X> {
         unsafe { Pin::new_unchecked(&*self) }
     }
@@ -216,7 +216,7 @@ impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
         unsafe { this.inner.as_ref().strong_ref.load(Ordering::SeqCst) as usize }
     }
 
-    /// Returns true if the two VRc's point to the same allocation
+    /// Returns true if the two VRc´s point to the same allocation
     pub fn ptr_eq(this: &Self, other: &Self) -> bool {
         this.inner == other.inner
     }

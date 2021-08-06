@@ -17,7 +17,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
  - In the compiler: builtins.60
  - In the interpreter (new item only): dynamic_component.rs
  - For the C++ code (new item only): the cbindgen.rs to export the new item
- - Don't forget to update the documentation
+ - Do not forget to update the documentation
 */
 
 #![allow(unsafe_code)]
@@ -639,7 +639,7 @@ declare_item_vtable! {
 #[pin]
 /// The Opacity Item is not meant to be used directly by the .60 code, instead, the `opacity: xxx` or `visible: false` should be used
 pub struct Opacity {
-    // FIXME: this element shouldn't need these geometry property
+    // FIXME: this element should not need these geometry property
     pub x: Property<f32>,
     pub y: Property<f32>,
     pub width: Property<f32>,

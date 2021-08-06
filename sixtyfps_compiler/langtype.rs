@@ -384,7 +384,7 @@ impl Type {
     /// Return true if the type can be converted to the other type
     pub fn can_convert(&self, other: &Self) -> bool {
         let can_convert_struct = |a: &BTreeMap<String, Type>, b: &BTreeMap<String, Type>| {
-            // the struct `b` has property that the struct `a` doesn't
+            // the struct `b` has property that the struct `a` does not
             let mut has_more_property = false;
             for (k, v) in b {
                 match a.get(k) {
@@ -394,7 +394,7 @@ impl Type {
                 }
             }
             if has_more_property {
-                // we should reject the conversion if `a` has property that `b` doesn't have
+                // we should reject the conversion if `a` has property that `b` does not have
                 if a.keys().any(|k| !b.contains_key(k)) {
                     return false;
                 }
@@ -597,7 +597,7 @@ pub enum DefaultSizeBinding {
     None,
     /// The size should default to `width:100%; height:100%`
     ExpandsToParentGeometry,
-    /// The size should default to the item's implicit size
+    /// The size should default to the item´s implicit size
     ImplicitSize,
 }
 

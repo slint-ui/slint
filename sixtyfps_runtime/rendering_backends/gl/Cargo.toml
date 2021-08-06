@@ -43,7 +43,7 @@ derive_more = "0.99.5"
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }
 wasm-bindgen = { version = "0.2" }
 winit = { version = "0.25", default-features = false, features = ["web-sys"] }
-# Use the same version was femtovg's rustybuzz, to avoid duplicate crates
+# Use the same version was femtovg´s rustybuzz, to avoid duplicate crates
 ttf-parser = "0.12.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -57,7 +57,7 @@ fontdb = { version = "0.5.1", features = ["fs"] }
 # Require font-config from the system on Linux. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
 # with distros at times.
 servo-fontconfig = { version = "0.5", features = [ "force_system_lib" ] }
-# On Windows and macOS we don't need freetype (font-kit has coretext/directwrite backends)
+# On Windows and macOS we do not need freetype (font-kit has coretext/directwrite backends)
 font-kit = { version = "0.10", features = ["loader-freetype"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

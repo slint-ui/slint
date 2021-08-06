@@ -130,7 +130,7 @@ export ComboBox := NativeComboBox {
             for value[i] in root.model: NativeStandardListViewItem {
                 item: { text: value };
                 is_selected: current_index == i;
-                VerticalLayout {  // FIXME: ideally this layout shouldn't be required
+                VerticalLayout {  // FIXME: ideally this layout should not be required
                     TouchArea {
                         height: 25px;
                         clicked => {

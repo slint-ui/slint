@@ -389,7 +389,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             // Add unsafe: The function are not safe to call unless the self parameter is of the correct type
             f.unsafety = Some(Default::default());
 
-            // Add extern "C" if it isn't there
+            // Add extern "C" if it is not there
             if let Some(a) = &f.abi {
                 if !a.name.as_ref().map(|s| s.value() == "C").unwrap_or(false) {
                     return Error::new(a.span(), "invalid ABI").to_compile_error().into();
@@ -552,7 +552,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let erase_return_type_lifetime = match &sig_extern.output {
                     ReturnType::Default => quote!(),
                     // If the return type contains a implicit lifetime, it is safe to erase it while returning it
-                    // because a sound implementation of the trait wouldn't allow unsound things here
+                    // because a sound implementation of the trait would not allow unsound things here
                     ReturnType::Type(_, r) => quote!(core::mem::transmute::<#r, #r>),
                 };
                 vtable_ctor.push(quote!(#ident: {

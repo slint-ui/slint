@@ -2,7 +2,7 @@
 
 Once SixtyFPS is built, you can use it in your CMake application or library target in two steps:
 
-1. Associate the `.60` files that you'd like to use by calling the `sixtyfps_target_60_sources` cmake command. The first parameter is
+1. Associate the `.60` files that you would like to use by calling the `sixtyfps_target_60_sources` cmake command. The first parameter is
    your application (or library) CMake target, and the parameters following are the names of the `.60` files. This will result in the
    `.60` files to be compiled into C++ source code.
 2. The generated C++ source code also needs the SixtyFPS run-time library. This dependency is satisfied by linking `SixtyFPS::SixtyFPS`
@@ -37,7 +37,7 @@ HelloWorld := Window {
     width: 400px;
     height: 400px;
 
-    // Declare an alias that exposes the label's text property to C++
+    // Declare an alias that exposes the label´s text property to C++
     property my_label <=> label.text;
 
     label := Text {

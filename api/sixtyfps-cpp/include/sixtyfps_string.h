@@ -21,7 +21,7 @@ namespace sixtyfps {
 /// The class provides constructors from std::string_view as well as the automatic conversion to
 /// a std::string_view.
 ///
-/// For convenience, it's also possible to convert a number to a string using
+/// For convenience, it is also possible to convert a number to a string using
 /// SharedString::from_number(double).
 ///
 /// Under the hood the string data is UTF-8 encoded and it is always terminated with a null

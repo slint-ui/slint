@@ -25,7 +25,7 @@ To achieve the graphical effect of a visually elevated shape that shows a shadow
 an element, it is possible to set the following `drop-shadow` properties:
 
 * **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (*length*): The horizontal and vertical distance of the
-  of the shadow from the element's frame. A negative value places the shadow left / above of the element.
+  of the shadow from the element´s frame. A negative value places the shadow left / above of the element.
 * **`drop-shadow-color`** (*color*): The base color of the shadow to use. Typically that color is the starting color
   of a gradient that fades into transparency.
 * **`drop-shadow-blur`** (*length*): The radius of the shadow that also describes the level of blur applied to the shadow.
@@ -38,7 +38,7 @@ The `drop-shadow` effect is supported for `Rectangle` and `Clip` elements.
 Window is the root of what is on the screen
 
 The Window geometry will be restricted by its layout constraints: setting the `width` will result in a fixed width,
-and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
+and the window manager will respect the `min-width` and `max-width` so the window can not be resized bigger
 or smaller. The initial width can be controlled with the `preferred-width` property. The same applies for the height.
 
 ### Properties
@@ -46,11 +46,11 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 * **`title`** (*string*): The window title that is shown in the title bar.
 * **`icon`** (*image*): The window icon shown in the title bar or the task bar on window managers supporting it.
 * **`background`** (*color*): The background color of the Window. (default value: depends on the style)
-* **`default-font-family`** (*string*): The font family to use as default in text elements inside this window, that don't
+* **`default-font-family`** (*string*): The font family to use as default in text elements inside this window, that do not
   have their family set.
-* **`default-font-size`** (*length*): The font size to use as default in text elements inside this window, that don't
+* **`default-font-size`** (*length*): The font size to use as default in text elements inside this window, that do not
   have their size set.
-* **`default-font-weight`** (*int*): The font weight to use as default in text elements inside this window, that don't
+* **`default-font-weight`** (*int*): The font weight to use as default in text elements inside this window, that do not
   have their weight set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 
 ## `Rectangle`
@@ -133,8 +133,8 @@ An Image can be used to represent an image loaded from an image file.
   image coordinates that, when specified, can be used to render only a portion of the specified image.
 * **`image-fit`** (*enum*): Specifies how the source image shall be fit into the image element. Possible values are:
   * `fill`: Scales and stretches the image to fit the width and height of the element.
-  * `contain`: The source image is scaled to fit into the image element's dimension while preserving the aspect ratio.
-  * `cover`: The source image is scaled to cover into the image element's dimension while preserving the aspect ratio.
+  * `contain`: The source image is scaled to fit into the image element´s dimension while preserving the aspect ratio.
+  * `cover`: The source image is scaled to cover into the image element´s dimension while preserving the aspect ratio.
 
   When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
 
@@ -179,7 +179,7 @@ it also allows configuring different visual aspects through the `font-family`, `
 
 The `Text` element can break long text into multiple lines of text. A line feed character (`\n`) in the string of the `text`
 property will trigger a manual line break. For automatic line breaking you need to set the `wrap` property to a value other than
-`no-wrap` and it is important to specify a `width` and `height` for the `Text` element, in order to know where to break. It's
+`no-wrap` and it is important to specify a `width` and `height` for the `Text` element, in order to know where to break. It is
 recommended to place the `Text` element in a layout and let it set the `width` and `height` based on the available screen space
 and the text itself.
 
@@ -337,7 +337,7 @@ will it as their starting point, therefore this starts a new sub-path.
 
 ##### `LineTo` Sub-element for `Path`
 
-The `LineTo` sub-element describes a line from the path's current position to the
+The `LineTo` sub-element describes a line from the path´s current position to the
 location specified by the `x` and `y` properties.
 
 ###### Properties
@@ -347,7 +347,7 @@ location specified by the `x` and `y` properties.
 
 ##### `ArcTo` Sub-element for `Path`
 
-The `ArcTo` sub-element describes the portion of an ellipse. The arc is drawn from the path's
+The `ArcTo` sub-element describes the portion of an ellipse. The arc is drawn from the path´s
 current position to the location specified by the `x` and `y` properties. The remaining properties
 are modelled after the SVG specification and allow tuning visual features such as the direction
 or angle.
@@ -367,7 +367,7 @@ or angle.
 
 ##### `CubicTo` Sub-element for `Path`
 
-The `CubicTo` sub-element describes a smooth Bézier from the path's current position to the
+The `CubicTo` sub-element describes a smooth Bézier from the path´s current position to the
 location specified by the `x` and `y` properties, using two control points specified by their
 respective properties.
 
@@ -375,14 +375,14 @@ respective properties.
 
 * **`x`** (*float): The target x position of the curve.
 * **`y`** (*float): The target y position of the curve.
-* **`control-1-x`** (*float): The x coordinate of the curve's first control point.
-* **`control-1-y`** (*float): The y coordinate of the curve's first control point.
-* **`control-2-x`** (*float): The x coordinate of the curve's second control point.
-* **`control-2-y`** (*float): The y coordinate of the curve's second control point.
+* **`control-1-x`** (*float): The x coordinate of the curve´s first control point.
+* **`control-1-y`** (*float): The y coordinate of the curve´s first control point.
+* **`control-2-x`** (*float): The x coordinate of the curve´s second control point.
+* **`control-2-y`** (*float): The y coordinate of the curve´s second control point.
 
 ##### `QuadraticTo` Sub-element for `Path`
 
-The `QuadraticTo` sub-element describes a smooth Bézier from the path's current position to the
+The `QuadraticTo` sub-element describes a smooth Bézier from the path´s current position to the
 location specified by the `x` and `y` properties, using the control points specified by the
 `control-x` and `control-y` properties.
 
@@ -390,8 +390,8 @@ location specified by the `x` and `y` properties, using the control points speci
 
 * **`x`** (*float): The target x position of the curve.
 * **`y`** (*float): The target y position of the curve.
-* **`control-x`** (*float): The x coordinate of the curve's control point.
-* **`control-y`** (*float): The y coordinate of the curve's control point.
+* **`control-x`** (*float): The x coordinate of the curve´s control point.
+* **`control-y`** (*float): The y coordinate of the curve´s control point.
 
 ##### `Close` Sub-element for `Path`
 
@@ -721,7 +721,7 @@ This enum describes whether an event was rejected or accepted by an event handle
 ### Values
 
 * **`EventResult.reject`**: The event is rejected by this event handler and may then be handled by parent item
-* **`EventResult.accept`**: The event is accepted and won't be processed further
+* **`EventResult.accept`**: The event is accepted and will not be processed further
 
 ## `FillRule`
 

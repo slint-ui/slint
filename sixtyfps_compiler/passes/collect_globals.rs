@@ -18,7 +18,7 @@ use crate::object_tree::*;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-/// Fill the root_component's used_types.globals
+/// Fill the root_component´s used_types.globals
 pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
     let mut set = HashSet::new();
 

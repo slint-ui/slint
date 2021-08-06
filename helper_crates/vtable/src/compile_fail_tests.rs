@@ -83,7 +83,7 @@ mod test_vrefmut {
     const _1: u32 = 0;
 
     /**
-    VRefMut's dereference cannot be copied
+    VRefMut´s dereference cannot be copied
     ```compile_fail
     use vtable::*;
     #[vtable]
@@ -98,7 +98,7 @@ mod test_vrefmut {
 }
 
 mod test_new_vref {
-    /** can't return something local
+    /** Can not return something local
     ```compile_fail
     use vtable::*;
     #[vtable]
@@ -115,7 +115,7 @@ mod test_new_vref {
     #[cfg(doctest)]
     const _1: u32 = 0;
 
-    /** Can't outlive the vtable
+    /** Can not outlive the vtable
     ```compile_fail
     use vtable::*;
     #[vtable]

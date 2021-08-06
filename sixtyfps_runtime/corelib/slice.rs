@@ -14,7 +14,7 @@ LICENSE END */
 
 use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 
-/// That's basically the same as `&'a [T]`  but `repr(C)`
+/// That is basically the same as `&'a [T]`  but `repr(C)`
 ///
 /// Can be constructed from a slice using the from trait.
 ///

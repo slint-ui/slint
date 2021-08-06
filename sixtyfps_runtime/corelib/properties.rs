@@ -39,7 +39,7 @@ mod single_linked_list_pin {
         fn drop(&mut self) {
             // Use a loop instead of relying on the Drop of NodePtr to avoid recursion
             while let Some(mut x) = core::mem::take(&mut self.0) {
-                // Safety: we don't touch the `x.value` which is the one protected by the Pin
+                // Safety: we do not touch the `x.value` which is the one protected by the Pin
                 self.0 = std::mem::take(unsafe { &mut Pin::get_unchecked_mut(x.as_mut()).next });
             }
         }
@@ -358,7 +358,7 @@ impl PropertyHandle {
         self.handle.get() & 0b1 == 1
     }
     /// Sets the lock_flag.
-    /// Safety: the lock flag must not be unset if there exist reference to what's inside the cell
+    /// Safety: the lock flag must not be unset if there exist reference to what is inside the cell
     unsafe fn set_lock_flag(&self, set: bool) {
         self.handle.set(if set { self.handle.get() | 0b1 } else { self.handle.get() & !0b1 })
     }
@@ -678,7 +678,7 @@ impl<T: Clone> Property<T> {
 }
 
 impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
-    /// Change the value of this property, by animating (interpolating) from the current property's value
+    /// Change the value of this property, by animating (interpolating) from the current property´s value
     /// to the specified parameter value. The animation is done according to the parameters described by
     /// the PropertyAnimation object.
     ///
@@ -734,7 +734,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             compute_animation_details: || -> AnimationDetail { None },
         };
 
-        // Safety: the `AnimatedBindingCallable`'s type match the property type
+        // Safety: the `AnimatedBindingCallable`´s type match the property type
         unsafe { self.handle.set_binding(binding_callable) };
         self.handle.mark_dirty();
     }
@@ -767,7 +767,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
             compute_animation_details: move || Some(compute_animation_details()),
         };
 
-        // Safety: the `AnimatedBindingCallable`'s type match the property type
+        // Safety: the `AnimatedBindingCallable`´s type match the property type
         unsafe { self.handle.set_binding(binding_callable) };
         self.handle.mark_dirty();
     }
@@ -849,7 +849,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         };
         let common_property =
             Rc::pin(Property { handle, value: UnsafeCell::new(value), pinned: PhantomPinned });
-        // Safety: TwoWayBinding's T is the same as the type for both properties
+        // Safety: TwoWayBinding´s T is the same as the type for both properties
         unsafe {
             prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
             prop2.handle.set_binding(TwoWayBinding { common_property });
@@ -1017,10 +1017,10 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
 
 /// InterpolatedPropertyValue is a trait used to enable properties to be used with
 /// animations that interpolate values. The basic requirement is the ability to apply
-/// a progress that's typically between 0 and 1 to a range.
+/// a progress that is typically between 0 and 1 to a range.
 pub trait InterpolatedPropertyValue: PartialEq + Default + 'static {
     /// Returns the interpolated value between self and target_value according to the
-    /// progress parameter t that's usually between 0 and 1. With certain animation
+    /// progress parameter t that is usually between 0 and 1. With certain animation
     /// easing curves it may over- or undershoot though.
     fn interpolate(&self, target_value: &Self, t: f32) -> Self;
 }
@@ -1457,7 +1457,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
         // clear all the nodes so that we can start from scratch
         *self.holder.dep_nodes.borrow_mut() = Default::default();
 
-        // Safety: it is safe to project the holder as we don't implement drop or unpin
+        // Safety: it is safe to project the holder as we do not implement drop or unpin
         let pinned_holder = unsafe {
             self.map_unchecked(|s| {
                 core::mem::transmute::<&BindingHolder<ChangeHandler>, &BindingHolder<()>>(&s.holder)
@@ -1607,7 +1607,7 @@ fn test_property_tracker_drop() {
     assert_eq!(r, 42);
 
     drop(inner_tracker);
-    prop.as_ref().set(200); // don't crash
+    prop.as_ref().set(200); // do not crash
 }
 
 #[test]
@@ -1623,7 +1623,7 @@ fn test_nested_property_tracker_dirty() {
     assert!(!outer_tracker.is_dirty());
     assert!(!inner_tracker.is_dirty());
 
-    // Let's pretend that there was another dependency unaccounted first, mark the inner tracker as dirty
+    // Let us pretend that there was another dependency unaccounted first, mark the inner tracker as dirty
     // by hand.
     inner_tracker.as_ref().set_dirty();
     assert!(outer_tracker.is_dirty());

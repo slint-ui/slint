@@ -17,7 +17,7 @@ TestCase := Rectangle {
         fake-image := Rectangle {
             background: blue;
             preferred-width: 25phx;
-            // Don't apply the preferred height for the horizontal layout.
+            // Do not apply the preferred height for the horizontal layout.
             preferred-height: 500phx;
             horizontal-stretch: 0;
             vertical-stretch: 0;

@@ -11,7 +11,7 @@ TestCase := Rectangle {
     width: 100phx;
     height: 100phx;
     property <int> value;
-    callback clicked; // this callback shouldn't conflict with the other callback
+    callback clicked; // this callback should not conflict with the other callback
 
     TouchArea {
         clicked => { value += 1; }

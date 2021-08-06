@@ -342,7 +342,7 @@ fn init_fake_property(
     {
         if let Some(e) = lazy_default() {
             if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
-                // Don't reference self
+                // Do not reference self
                 return;
             }
             grid_layout_element

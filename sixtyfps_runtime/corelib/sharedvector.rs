@@ -166,7 +166,7 @@ impl<T: Clone> SharedVector<T> {
     }
 
     /// Ensure that the reference count is 1 so the array can be changed.
-    /// If that's not tha case, the array will be cloned
+    /// If that is not tha case, the array will be cloned
     fn detach(&mut self, new_capacity: usize) {
         let is_shared =
             unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } != 1;

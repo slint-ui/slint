@@ -396,7 +396,7 @@ jobs:
               api/sixtyfps-node/docs
               docs/tutorial/rust/book/html
               docs/tutorial/cpp/book/html
-    - name: Clean cache # Don't cache docs to avoid them including removed classes being published
+    - name: Clean cache # Do not cache docs to avoid them including removed classes being published
       run: |
           rm -rf target/doc target/cppdocs api/sixtyfps-node/docs docs/tutorial/rust/book docs/tutorial/cpp/book
 

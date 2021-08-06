@@ -53,7 +53,7 @@ pub async fn run_passes(
     compiler_config: &crate::CompilerConfiguration,
 ) {
     if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
-        // If there isn't a root component, we shouldn't do any of these passes
+        // If there is no root component, we should not do any of these passes
         return;
     }
 

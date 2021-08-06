@@ -18,7 +18,7 @@ option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" ON)
 
 if(SIXTYFPS_BUILD_EXAMPLES)
     # Place all compiled examples into the same bin directory
-    # on Windows, where we'll also put the dll
+    # on Windows, where we will also put the dll
     if (WIN32)
         set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
     endif()

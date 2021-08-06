@@ -189,7 +189,7 @@ fn process_file_source(
     }
 
     if has_parse_error {
-        // Still try to compile to make sure it doesn't panic
+        // Still try to compile to make sure it does not panic
         spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
             syntax_node,
             compile_diagnostics,

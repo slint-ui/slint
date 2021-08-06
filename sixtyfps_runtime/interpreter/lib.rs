@@ -63,7 +63,7 @@ let definition =
 assert!(compiler.diagnostics().is_empty());
 let instance = definition.unwrap().create();
 instance.set_property("my_name", Value::from(SharedString::from("World"))).unwrap();
-# return; // we don't want to call run in the tests
+# return; // we do not want to call run in the tests
 instance.run();
 ```
 

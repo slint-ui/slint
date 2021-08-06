@@ -172,7 +172,7 @@ impl Color {
     /// color space and multiplying the brightness (value) with (1 + factor).
     /// The result is converted back to RGB and the alpha channel is unchanged.
     /// So for example `brighter(0.2)` will increase the brightness by 20%, and
-    /// calling `brighter(-0.5)` will return a color that's 50% darker.
+    /// calling `brighter(-0.5)` will return a color that is 50% darker.
     pub fn brighter(&self, factor: f32) -> Self {
         let rgba: RgbaColor<f32> = (*self).into();
         let mut hsva: HsvaColor = rgba.into();

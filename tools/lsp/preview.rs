@@ -24,10 +24,10 @@ use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 
 #[derive(PartialEq)]
 enum RequestedGuiEventLoopState {
-    /// The UI event loop hasn't been started yet because no preview has been requested
+    /// The UI event loop has not been started yet because no preview has been requested
     Uninitialized,
     /// The LSP thread requested the UI loop to start because a preview was requested,
-    /// But the loop hasn't been started yet
+    /// But the loop has not been started yet
     StartLoop,
     /// The Loop is now started so the LSP thread can start posting events
     LoopStated,
@@ -72,7 +72,7 @@ fn run_in_ui_thread(fut: Pin<Box<dyn Future<Output = ()>>>) {
             *state_request = RequestedGuiEventLoopState::StartLoop;
             GUI_EVENT_LOOP_NOTIFIER.notify_one();
         }
-        // We don't want to call post_event before the loop is properly initialized
+        // We do not want to call post_event before the loop is properly initialized
         while *state_request == RequestedGuiEventLoopState::StartLoop {
             state_request = GUI_EVENT_LOOP_NOTIFIER.wait(state_request).unwrap();
         }
@@ -110,7 +110,7 @@ pub fn start_ui_event_loop() {
 }
 
 pub fn quit_ui_event_loop() {
-    // Wake up the main thread, in case it wasn't woken up earlier. If it wasn't, then don't request
+    // Wake up the main thread, in case it was not woken up earlier. If it was not, then do not request
     // a start of the event loop.
     {
         let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();

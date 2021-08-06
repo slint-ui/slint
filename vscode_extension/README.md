@@ -18,11 +18,11 @@ automatically activated when editing files with the `.60` extension.
 ## Live-Preview
 
 In addition to the usual code editing features such as completion and syntax highlighting, this extension
-also offers the ability to view a rendering of the file you're editing and update it on-the-fly when making
+also offers the ability to view a rendering of the file you are editing and update it on-the-fly when making
 changes.
 
 You can issue the "SixtyFPS: Show Preview" command from the command palette when editing a `.60` file. This
-will create a new top-level window that renders the file you're editing. Any changes you make are immediately
+will create a new top-level window that renders the file you are editing. Any changes you make are immediately
 visible, it is not necessary to save the file.
 
 ## Reporting Issues
@@ -49,7 +49,7 @@ npm install
 
 At the moment you need to load this directory in VS code and then start debugging (Run -> Start Debugging).
 That will "debug" the vs code extension and create a new VS code window. The LSP server binary will be started if previously built
-You can see the output in the output pane "SixtyFPS LSP" (that's the drop-down that usually shows "Tasks").
+You can see the output in the output pane "SixtyFPS LSP" (that is the drop-down that usually shows "Tasks").
 
 ## How to build the extension package
 

@@ -2,7 +2,7 @@
 
 All visual elements are shown in a window. Their position is stored in the `x` and `y`
 properties as coordinates relative to their parent element. The absolute position of an element
-in a window is calculated by adding the parent's position to the element's position. If the
+in a window is calculated by adding the parent´s position to the element´s position. If the
 parent has a grandparent element, then that one is added as well. This calculation continues until
 the top-level element is reached.
 
@@ -47,7 +47,7 @@ Example := Window {
 ```
 
 The position of both rectangles is fixed, as well as the size of the inner green one.
-The outer blue rectangle however has a size that's automatically calculated using binding
+The outer blue rectangle however has a size that is automatically calculated using binding
 expressions for the `width` and `height` properties. The calculation results in the
 bottom left corner aligning with the corner of the window - it is updated whenever
 the `width` and `height` of the window changes.
@@ -65,7 +65,7 @@ interface scales without any adaptations.
 
 Additionally, the `width` and `height` properties can also be specified as a `%` percentage
 unit, which applies relative to the parent element. For example a `width: 50%` means half
-of the parent's `width`.
+of the parent´s `width`.
 
 The default values for `x` and `y` properties are 0, which means they align with their parent
 on the screen.
