@@ -47,7 +47,7 @@ fn main() {
     config.include(std::env::var("DEP_QT_INCLUDE_PATH").unwrap()).build("lib.rs");
 
     println!("cargo:rerun-if-changed=qt_window.rs");
-    println!("cargo:rerun-if-changed=widgets.rs");
+    println!("cargo:rerun-if-changed=qt_widgets.rs");
     println!("cargo:rerun-if-changed=lib.rs");
     println!("cargo:SUPPORTS_NATIVE_STYLE=1");
 }
