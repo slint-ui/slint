@@ -1252,11 +1252,14 @@ pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *c
                 .items
                 .get(element.id.as_str())
                 .unwrap_or_else(|| panic!("Unknown element for {}.{}", element.id, nr.name()));
+            let prop_info = item_info
+                .rtti
+                .properties
+                .get(nr.name())
+                .unwrap_or_else(|| panic!("Property {} not in {}", nr.name(), element.id));
             core::mem::drop(element);
             let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-            unsafe {
-                item.as_ptr().add(item_info.rtti.properties.get(nr.name()).unwrap().offset()).cast()
-            }
+            unsafe { item.as_ptr().add(prop_info.offset()).cast() }
         }
         eval::ComponentInstance::GlobalComponent(glob) => glob.as_ref().get_property_ptr(nr.name()),
     }
