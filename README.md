@@ -27,7 +27,7 @@ from potential customers or users.
 
 ## Table Of Contents  <!-- omit in toc -->
 
-- [Reference](#reference)
+- [Documentation](#documentation)
 - [Demos running in WebAssembly Simulation](#demos-running-in-webassembly-simulation)
 - [Desktop Native Widgets](#desktop-native-widgets)
 - [The .60 Markup Language](#the-60-markup-language)
@@ -41,13 +41,13 @@ from potential customers or users.
 - [About us](#about-us)
 - [Contact us](#contact-us)
 
-## Reference
+## Documentation
 
 Refer to the README of each language directory in the `api` sub-folder:
 
- * [SixtyFPS-cpp](api/sixtyfps-cpp) ([Documentation](https://sixtyfps.io/docs/cpp))
- * [SixtyFPS-rs](api/sixtyfps-rs) ([Documentation](https://sixtyfps.io/docs/rust/sixtyfps/) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps))
- * [SixtyFPS-node](api/sixtyfps-node) ([Documentation](https://sixtyfps.io/docs/node) [![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps))
+ * [SixtyFPS-cpp](api/sixtyfps-cpp) ([Documentation](https://sixtyfps.io/docs/cpp) | [Tutorial](https://sixtyfps.io/docs/tutorial/cpp))
+ * [SixtyFPS-rs](api/sixtyfps-rs) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps) ([Documentation](https://sixtyfps.io/docs/rust/sixtyfps/) | [Tutorial](https://sixtyfps.io/docs/tutorial/rust))
+ * [SixtyFPS-node](api/sixtyfps-node) [![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps) ([Documentation](https://sixtyfps.io/docs/node))
 
 The [examples](/examples) folder contains examples and demos. The `docs` folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
 
