@@ -50,10 +50,24 @@ pub async fn compile_from_string(
     base_url: String,
     optional_import_callback: Option<js_sys::Function>,
 ) -> Result<CompilationResult, JsValue> {
+    compile_from_string_with_style(source, base_url, String::new(), optional_import_callback).await
+}
+
+/// Same as [`compile_from_string`], but also takes a style parameter
+#[wasm_bindgen]
+pub async fn compile_from_string_with_style(
+    source: String,
+    base_url: String,
+    style: String,
+    optional_import_callback: Option<js_sys::Function>,
+) -> Result<CompilationResult, JsValue> {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
     let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
+    if !style.is_empty() {
+        compiler.set_style(style)
+    }
 
     if let Some(load_callback) = optional_import_callback {
         let open_import_fallback = move |file_name: &Path| -> core::pin::Pin<

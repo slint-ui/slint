@@ -45,7 +45,7 @@ export Demo := Window {
         div.innerHTML = "";
         div.appendChild(canvas);
 
-        let { component, error_string } = await sixtyfps.compile_from_string(source, base_url, async (url: string): Promise<string> => {
+        let { component, error_string } = await sixtyfps.compile_from_string_with_style(source, base_url, style, async (url: string): Promise<string> => {
             let file_source = loaded_documents.get(url);
             if (file_source === undefined) {
                 const response = await fetch(url);
@@ -71,6 +71,7 @@ export Demo := Window {
     const params = new URLSearchParams(window.location.search);
     const code = params.get("snippet");
     const load_url = params.get("load_url");
+    const style = params.get("style") || "";
 
     if (code) {
         main_source = code;

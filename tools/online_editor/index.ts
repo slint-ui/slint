@@ -76,6 +76,9 @@ export Demo := Window {
     }
     select.onchange = select_combo_changed;
 
+    let style_combo = (<HTMLInputElement>document.getElementById("style_combo"));
+    style_combo.onchange = update_preview;
+
     let compile_button = (<HTMLButtonElement>document.getElementById("compile_button"));
     compile_button.onclick = function () {
         update_preview();
@@ -184,6 +187,9 @@ export Demo := Window {
     }
 
     async function render_or_error(source: string, base_url: string, div: HTMLDivElement) {
+
+        let style_combo = (<HTMLInputElement>document.getElementById("style_combo"));
+
         let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
         let canvas = document.createElement("canvas");
         canvas.width = 800;
@@ -192,7 +198,7 @@ export Demo := Window {
         div.innerHTML = "";
         div.appendChild(canvas);
         var markers = [];
-        let { component, diagnostics, error_string } = await sixtyfps.compile_from_string(source, base_url, async (url: string): Promise<string> => {
+        let { component, diagnostics, error_string } = await sixtyfps.compile_from_string_with_style(source, base_url, style_combo.value, async (url: string): Promise<string> => {
             let model_and_state = editor_documents.get(url);
             if (model_and_state === undefined) {
                 const response = await fetch(url);
