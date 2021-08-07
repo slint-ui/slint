@@ -477,7 +477,7 @@ impl ComponentCompiler {
             Some(Rc::new(move |path| file_loader_fallback(Path::new(path.as_str()))));
     }
 
-    /// Returns the diagnostics that were produced in the last call to [[Self::build_from_path]] or [[Self::build_from_source]].
+    /// Returns the diagnostics that were produced in the last call to [`Self::build_from_path`] or [`Self::build_from_source`].
     pub fn diagnostics(&self) -> &Vec<Diagnostic> {
         &self.diagnostics
     }
@@ -487,7 +487,7 @@ impl ComponentCompiler {
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
-    /// in this ComponentCompiler and can be retrieved after the call using the [[Self::diagnostics()]]
+    /// in this ComponentCompiler and can be retrieved after the call using the [`Self::diagnostics()`]
     /// function. The [`print_diagnostics`] function can be used to display the diagnostics
     /// to the users.
     ///
@@ -523,7 +523,7 @@ impl ComponentCompiler {
     /// paths while importing.
     ///
     /// Any diagnostics produced during the compilation, such as warnings or errors, are collected
-    /// in this ComponentCompiler and can be retrieved after the call using the [[Self::diagnostics()]]
+    /// in this ComponentCompiler and can be retrieved after the call using the [`Self::diagnostics()`]
     /// function. The [`print_diagnostics`] function can be used to display the diagnostics
     /// to the users.
     ///
