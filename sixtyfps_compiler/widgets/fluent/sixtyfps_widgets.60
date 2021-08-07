@@ -82,13 +82,13 @@ export Button := Rectangle {
         : touch.pressed ? Palette.neutralLight
         : touch.has_hover ? Palette.neutralLighter
         : Palette.white;
-    min-height: 32px;
     horizontal-stretch: 0;
     vertical-stretch: 0;
     HorizontalLayout {
         padding-left: 16px;
         padding-right: 16px;
         spacing: 8px;
+        min-height: 32px;
 
         if (icon.width > 0 && icon.height > 0): Image {
             source <=> icon;
