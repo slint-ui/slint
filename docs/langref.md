@@ -7,7 +7,7 @@ This page is work in progress as the language is not yet set in stones.
 
 The basic idea is that the `.60` files contains one or several components.
 These components contain a tree of elements. Each declared component can be
-given a name and re-used under that name as an an element later.
+given a name and re-used under that name as an element later.
 
 By default, the SixtyFPS comes with some [builtin elements](builtin_elements.md) and [widgets](widgets.md).
 
@@ -68,7 +68,7 @@ These names are reserved and cannot be used as element names.
 ### Container Components
 
 When creating components, it may sometimes be useful to influence where child elements
-are placed when they are used. For example, imagine a component that draws label above
+are placed when they are used. For example, imagine a component that draws a label above
 whatever element the user places inside:
 
 ```60,ignore
@@ -620,7 +620,7 @@ Example := Window {
 
 ## Animations
 
-Simple animation that animates a property can be declared with `animate` like so:
+Simple animation that animates a property can be declared with `animate` like this:
 
 ```60
 Example := Rectangle {
@@ -653,7 +653,7 @@ animate y { duration: 100ms; }
 
 ## States
 
-The `states` statement alow to declare states like so:
+The `states` statement allow to declare states like this:
 
 ```60
 Example := Rectangle {
@@ -891,10 +891,13 @@ Square root
 
 * **`rgb(int, int, int) -> color`**,  **`rgba(int, int, int, float) -> color`**
 
-Return the color as in CSS. Like in CSS, These two functions are actually aliases that can take 3 or for parameter.
-The first 3 parameters can be either number between 0 and 255, or percentage with a `%` unit.
+Return the color as in CSS. Like in CSS, these two functions are actually aliases that can take
+three or four parameters.
+
+The first 3 parameters can be either number between 0 and 255, or a percentage with a `%` unit.
 The fourth value, if present, is an alpha value between 0 and 1.
-(Unlike in CSS, the comas are mandatory)
+
+Unlike in CSS, the commas are mandatory.
 
 ## Font Handling
 

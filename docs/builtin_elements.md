@@ -15,8 +15,8 @@ These properties are valid on all visible items
   When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
 * **`opacity`** (*float*): A value between 0 and 1 (or a percentage) that is used to draw the element and its
   children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
-* **`visible`** (*bool*): When set to false, the element and all his children will not be drawn
-  and not reply to mouse input (default: true)
+* **`visible`** (*bool*): When set to `false`, the element and all his children will not be drawn
+  and not react to mouse input (default: `true`)
 
 
 ### Drop Shadows
@@ -24,7 +24,7 @@ These properties are valid on all visible items
 To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
 an element, it is possible to set the following `drop-shadow` properties:
 
-* **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (*length*): The horizontal and vertical distance of the
+* **`drop-shadow-offset-x`** and **`drop-shadow-offset-y`** (*length*): The horizontal and vertical distance
   of the shadow from the element's frame. A negative value places the shadow left / above of the element.
 * **`drop-shadow-color`** (*color*): The base color of the shadow to use. Typically that color is the starting color
   of a gradient that fades into transparency.
@@ -67,8 +67,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`border_color`** (*brush*): The color of the border. (default value: transparent)
 * **`border_radius`** (*length*): The size of the radius. (default value: 0)
 * **`clip`** (*bool*): By default, when an item is bigger or outside another item, it is still shown.
-  But when this property is set to true, then the children element of this Rectangle are going to be clipped.
-  (default: false)
+  But when this property is set to `true`, then the children element of this Rectangle are going
+  to be clipped. (default: `false`)
 
 ### Example
 
@@ -199,7 +199,7 @@ and the text itself.
 
 ### Example
 
-This example shows a just a red text label:
+This example shows the text "Hello World" in red, using the default font:
 
 ```60
 Example := Window {
@@ -213,9 +213,8 @@ Example := Window {
 }
 ```
 
-This example breaks a longer paragraph of text into
-multiple lines, by setting a `wrap` policy and assigning a limited `width` and
-enough `height` for the text to flow down:
+This example breaks a longer paragraph of text into multiple lines, by setting a `wrap`
+policy and assigning a limited `width` and enough `height` for the text to flow down:
 
 ```60
 Example := Window {
@@ -256,13 +255,15 @@ accordingly.
 * **`stroke-width`** (*length*): The width of the outline.
 * **`width`** (*length*): If non-zero, the path will be scaled to fit into the specified width.
 * **`height`** (*length*): If non-zero, the path will be scaled to fit into the specified height.
-* **`viewbox-x`**/**`viewbox-y`**/**`viewbox-width`**/**`viewbox-height`** (*float*) These four properties allow
-  defining the position and size of the viewport of the path in path coordinates. In the rendered output, the
-  If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are ignored
-  and instead the bounding rectangle of all path elements are used to define the view port.
-* **`clip`** (*bool*): By default, when a path has a view box defined and the elements render outside of it, they are still
-  rendered. When this property is set to true, then rendering will be clipped at the boundaries of the view box.
-  This property must be a literal `true` or `false` (default: false)
+* **`viewbox-x`**/**`viewbox-y`**/**`viewbox-width`**/**`viewbox-height`** (*float*) These four
+  properties allow defining the position and size of the viewport of the path in path coordinates.
+
+  If the `viewbox-width` or `viewbox-height` is less or equal than zero, the viewbox properties are
+  ignored and instead the bounding rectangle of all path elements is used to define the view port.
+* **`clip`** (*bool*): By default, when a path has a view box defined and the elements render
+  outside of it, they are still rendered. When this property is set to `true`, then rendering will be
+  clipped at the boundaries of the view box.
+  This property must be a literal `true` or `false` (default: `false`)
 
 #### Path Using SVG commands
 
@@ -328,12 +329,12 @@ coordinate system of the scalable path.
 
 The `MoveTo` sub-element closes the current sub-path, if present, and moves the current point
 to the location specified by the `x` and `y` properties. Subsequent elements such as `LineTo`
-will it as their starting point, therefore this starts a new sub-path.
+will use this new position as their starting point, therefore this starts a new sub-path.
 
 ###### Properties
 
-* **`x`** (*float): The x position of the new current point.
-* **`y`** (*float): The y position of the new current point.
+* **`x`** (*float*): The x position of the new current point.
+* **`y`** (*float*): The y position of the new current point.
 
 ##### `LineTo` Sub-element for `Path`
 
@@ -342,8 +343,8 @@ location specified by the `x` and `y` properties.
 
 ###### Properties
 
-* **`x`** (*float): The target x position of the line.
-* **`y`** (*float): The target y position of the line.
+* **`x`** (*float*): The target x position of the line.
+* **`y`** (*float*): The target y position of the line.
 
 ##### `ArcTo` Sub-element for `Path`
 
@@ -354,15 +355,15 @@ or angle.
 
 ###### Properties
 
-* **`x`** (*float): The target x position of the line.
-* **`y`** (*float): The target y position of the line.
-* **`radius-x`** (*float): The x-radius of the ellipse.
-* **`radius-y`** (*float): The y-radius of the ellipse.
-* **`x-rotation`** (*float): The x-axis of the ellipse will be rotated by the value of this
+* **`x`** (*float*): The target x position of the line.
+* **`y`** (*float*): The target y position of the line.
+* **`radius-x`** (*float*): The x-radius of the ellipse.
+* **`radius-y`** (*float*): The y-radius of the ellipse.
+* **`x-rotation`** (*float*): The x-axis of the ellipse will be rotated by the value of this
   properties, specified in as angle in degrees from 0 to 360.
-* **`large-arc`** (*bool): Out of the two arcs of a closed ellipse, this flag selects that the
-  larger arc is to be rendered. If the property is false, the shorter arc is rendered instead.
-* **`sweep`** (*bool): If the property is true, the arc will be drawn as a clockwise turning arc;
+* **`large-arc`** (*bool*): Out of the two arcs of a closed ellipse, this flag selects that the
+  larger arc is to be rendered. If the property is `false`, the shorter arc is rendered instead.
+* **`sweep`** (*bool*): If the property is `true`, the arc will be drawn as a clockwise turning arc;
   anti-clockwise otherwise.
 
 ##### `CubicTo` Sub-element for `Path`
@@ -373,12 +374,12 @@ respective properties.
 
 ###### Properties
 
-* **`x`** (*float): The target x position of the curve.
-* **`y`** (*float): The target y position of the curve.
-* **`control-1-x`** (*float): The x coordinate of the curve's first control point.
-* **`control-1-y`** (*float): The y coordinate of the curve's first control point.
-* **`control-2-x`** (*float): The x coordinate of the curve's second control point.
-* **`control-2-y`** (*float): The y coordinate of the curve's second control point.
+* **`x`** (*float*): The target x position of the curve.
+* **`y`** (*float*): The target y position of the curve.
+* **`control-1-x`** (*float*): The x coordinate of the curve's first control point.
+* **`control-1-y`** (*float*): The y coordinate of the curve's first control point.
+* **`control-2-x`** (*float*): The x coordinate of the curve's second control point.
+* **`control-2-y`** (*float*): The y coordinate of the curve's second control point.
 
 ##### `QuadraticTo` Sub-element for `Path`
 
@@ -388,10 +389,10 @@ location specified by the `x` and `y` properties, using the control points speci
 
 ###### Properties
 
-* **`x`** (*float): The target x position of the curve.
-* **`y`** (*float): The target y position of the curve.
-* **`control-x`** (*float): The x coordinate of the curve's control point.
-* **`control-y`** (*float): The y coordinate of the curve's control point.
+* **`x`** (*float*): The target x position of the curve.
+* **`y`** (*float*): The target y position of the curve.
+* **`control-x`** (*float*): The x coordinate of the curve's control point.
+* **`control-y`** (*float*): The y coordinate of the curve's control point.
 
 ##### `Close` Sub-element for `Path`
 
@@ -400,17 +401,17 @@ position to the beginning of the path.
 
 ## `TouchArea`
 
-The TouchArea control what happens when the zone covered by it is touched or interacted with the mouse.
+The TouchArea control what happens when the zone covered by it is touched or interacted with 
+using the mouse.
 
-When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+When not part of a layout, its width or height default to 100% of the parent element if not specified.
 
 ### Properties
 
-* **`pressed`** (*bool*): Set to true by the TouchArea when the mouse is pressed over it.
-* **`has_hover`** (*bool*): Set to true by the TouchArea when the mouse is over it.
+* **`pressed`** (*bool*): Set to `true` by the TouchArea when the mouse is pressed over it.
+* **`has_hover`** (*bool*): Set to `true` by the TouchArea when the mouse is over it.
 * **`mouse_x`**, **`mouse_y`** (*length*): Set by the TouchArea to the position of the mouse within it.
-* **`pressed_x`**, **`mouse_y`** (*length*): Set to true by the TouchArea to the position of the
-    mouse at the moment it was last pressed.
+* **`pressed_x`**, **`mouse_y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
 
 ### Callbacks
 
@@ -448,7 +449,7 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 ### Properties
 
-* **`has_focus`** (*bool*): Set to true when item is focused and receives keyboard events.
+* **`has_focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
 
 ### Methods
 
@@ -523,7 +524,7 @@ Alternatively, the item can be put in a `Row` element.
 
 ### Examples
 
-This example use the `Row` element
+This example uses the `Row` element
 
 ```60
 Foo := Window {
@@ -543,7 +544,7 @@ Foo := Window {
 }
 ```
 
-This example use the `col` and `row` property
+This example uses the `col` and `row` properties
 
 ```60
 Foo := Window {
@@ -584,7 +585,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`color`** (*brush*): The color of the text (default: transparent)
 * **`horizontal_alignment`** (enum *[`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
 * **`vertical_alignment`** (enum *[`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
-* **`has_focus`** (*bool*): Set to true when item is focused and receives keyboard events.
+* **`has_focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
 * **`letter_spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
 
@@ -623,7 +624,7 @@ FIXME: deprecate this item as it can be replaced by the `clip:` property
 
 This allow to show a popup window like a tooltip or a popup menu.
 
-Note: it is not allowed to access properties on element within the popup from outside of the popup
+Note: It is not allowed to access properties of elements within the popup from outside of the popup.
 
 ### Methods
 
@@ -667,10 +668,10 @@ are pressed during the generation of a key event.
 
 ### Fields
 
-* **`control`** (*bool*): True if the control key is pressed. On macOS this corresponds to the command key.
-* **`alt`** (*bool*): True if alt key is pressed.
-* **`shift`** (*bool*): True if the shift key is pressed.
-* **`meta`** (*bool*): True if the windows key is pressed on Windows, or the control key on macOS.
+* **`control`** (*bool*): `true` if the control key is pressed. On macOS this corresponds to the command key.
+* **`alt`** (*bool*): `true` if alt key is pressed.
+* **`shift`** (*bool*): `true` if the shift key is pressed.
+* **`meta`** (*bool*): `true` if the windows key is pressed on Windows, or the control key on macOS.
 
 # Builtin Enums
 
@@ -682,9 +683,9 @@ This enum describes the different types of alignment of text along the horizonta
 
 ### Values
 
-* **`TextHorizontalAlignment.left`**: The text will be aligned with the left edge of the contained box.
-* **`TextHorizontalAlignment.center`**: The text will be horizontally centered within the contained box.
-* **`TextHorizontalAlignment.right`** The text will be aligned to the right right of the contained box.
+* **`TextHorizontalAlignment.left`**: The text will be aligned with the left edge of the containing box.
+* **`TextHorizontalAlignment.center`**: The text will be horizontally centered within the containing box.
+* **`TextHorizontalAlignment.right`** The text will be aligned to the right right of the containing box.
 
 ## `TextVerticalAlignment`
 
@@ -692,9 +693,9 @@ This enum describes the different types of alignment of text along the vertical 
 
 ### Values
 
-* **`TextVerticalAlignment.top`**: The text will be aligned to the top of the contained box.
-* **`TextVerticalAlignment.center`**: The text will be vertically centered within the contained box.
-* **`TextVerticalAlignment.bottom`** The text will be alignt to the bottom of the contained box.
+* **`TextVerticalAlignment.top`**: The text will be aligned to the top of the containing box.
+* **`TextVerticalAlignment.center`**: The text will be vertically centered within the containing box.
+* **`TextVerticalAlignment.bottom`** The text will be alignt to the bottom of the containing box.
 
 ## `TextWrap`
 
@@ -720,7 +721,7 @@ This enum describes whether an event was rejected or accepted by an event handle
 
 ### Values
 
-* **`EventResult.reject`**: The event is rejected by this event handler and may then be handled by parent item
+* **`EventResult.reject`**: The event is rejected by this event handler and may then be handled by the parent item
 * **`EventResult.accept`**: The event is accepted and won't be processed further
 
 ## `FillRule`
