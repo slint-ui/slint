@@ -10,7 +10,7 @@ LICENSE END */
 //! Datastructures used to represent layouts in the compiler
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, NamedReference, Path};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference, Path};
 use crate::langtype::{PropertyLookupResult, Type};
 use crate::object_tree::ElementRc;
 
@@ -154,15 +154,24 @@ impl LayoutConstraints {
             fixed_width: false,
             fixed_height: false,
         };
-        let mut apply_size_constraint = |prop, binding, op: &mut Option<NamedReference>| {
-            if let Some(other_prop) = op {
-                diag.push_error(
-                    format!("Cannot specify both '{}' and '{}'", prop, other_prop.name()),
-                    binding,
-                )
-            }
-            *op = Some(NamedReference::new(element, prop))
-        };
+        let mut apply_size_constraint =
+            |prop, binding: &BindingExpression, op: &mut Option<NamedReference>| {
+                if let Some(other_prop) = op {
+                    let old_priority = other_prop
+                        .element()
+                        .borrow()
+                        .bindings
+                        .get(other_prop.name())
+                        .map_or(0, |b| b.priority);
+                    if old_priority <= binding.priority {
+                        diag.push_error(
+                            format!("Cannot specify both '{}' and '{}'", prop, other_prop.name()),
+                            binding,
+                        )
+                    }
+                }
+                *op = Some(NamedReference::new(element, prop))
+            };
         let e = element.borrow();
         if let Some(s) = e.bindings.get("height") {
             constraints.fixed_height = true;

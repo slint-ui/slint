@@ -7,6 +7,12 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+
+SubWithConstraints := Rectangle {
+    min-height: 20px;
+}
+
 TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
@@ -26,7 +32,7 @@ TestCase := Rectangle {
         }
 
         Row {
-            rect3 := Rectangle {
+            rect3 := SubWithConstraints { // min-height should be ignored because we override
                 background: green;
                 height: 20phx;
             }
