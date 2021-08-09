@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView, ComboBox, HorizontalBox, VerticalBox, GridBox } from "sixtyfps_widgets.60";
+import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView, ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget } from "sixtyfps_widgets.60";
 
 App := Window {
     preferred-width: 500px;

@@ -416,6 +416,8 @@ export TabBarImpl := HorizontalLayout {
     alignment: start;
 }
 
+export TabWidget := TabWidget {}
+
 export LineEdit := Rectangle {
     property <string> text <=> input.text;
     property <string> placeholder_text;

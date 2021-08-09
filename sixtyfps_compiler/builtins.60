@@ -372,6 +372,7 @@ export TabWidget := _ {
     //-disallow_global_types_as_child_elements
     Tab {}
     //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
 }
 
 // Note: not a a native class, handled in the lower_popups pass

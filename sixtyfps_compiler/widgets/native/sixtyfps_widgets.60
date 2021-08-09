@@ -155,6 +155,7 @@ export TabImpl := NativeTab {}
 export TabBarImpl := HorizontalLayout {
     alignment: start;
 }
+export TabWidget := TabWidget {}
 
 export VerticalBox := VerticalLayout {
     spacing: NativeStyleMetrics.layout_spacing;

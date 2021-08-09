@@ -366,6 +366,8 @@ export TabImpl := Rectangle {
     }
 }
 
+export TabWidget := TabWidget {}
+
 export TabBarImpl := HorizontalLayout {
     alignment: start;
 }
