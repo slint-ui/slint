@@ -177,6 +177,7 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
 ///
 
 #[derive(Clone, Debug)]
+#[repr(C)]
 pub enum SharedImageBuffer {
     /// This variant holds the data for an image where each pixel has three color channels (red, green,
     /// and blue) and each channel is encoded as unsigned byte.
@@ -300,6 +301,24 @@ pub(crate) mod ffi {
 
     use super::super::Size;
     use super::*;
+
+    /// Expand RGB8 so that cbindgen can see it. (is in fact rgb::RGB<u8>)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct RGB8 {
+        r: u8,
+        g: u8,
+        b: u8,
+    }
+
+    /// Expand RGBA8 so that cbindgen can see it. (is in fact rgb::RGBA<u8>)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct RGBA8 {
+        r: u8,
+        g: u8,
+        b: u8,
+    }
 
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_image_size(image: &Image) -> Size {
