@@ -23,11 +23,17 @@ TestCase := Rectangle {
                     accept
                 }
 
+                if (false) : Rectangle { FocusScope {} }
+
                 input2 := TextInput {
                     width: 75%;
                     height: 100%;
                 }
             }
+        }
+        Rectangle {
+            width: 0%;
+            FocusScope {  }
         }
     }
 

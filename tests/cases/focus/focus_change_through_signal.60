@@ -7,6 +7,17 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+SubElement := Rectangle {
+    property text <=> input.text;
+    property has-focus <=> input.has-focus;
+    forward_focus: input;
+    input := TextInput {
+        width: 100%;
+        height: 100%;
+    }
+}
+
 TestCase := Rectangle {
     width: 400phx;
     height: 400phx;
@@ -17,16 +28,20 @@ TestCase := Rectangle {
     callback focus_input2();
     focus_input2 => { (input2.focus)(); }
 
-    input1 := TextInput {
-        width: parent.width;
-        height: 200phx;
+    Rectangle {
+        input1 := TextInput {
+            width: parent.width;
+            height: 200phx;
+        }
     }
 
-    input2 := TextInput {
+    input2 := SubElement {
         y: 200phx;
         width: parent.width;
         height: 200phx;
     }
+
+    if (false) : SubElement {  }
 
     property<bool> input1_focused: input1.has_focus;
     property<string> input1_text: input1.text;

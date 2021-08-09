@@ -107,7 +107,7 @@ pub fn generate(
 #[allow(dead_code)]
 pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&ElementRc, u32, u32)) {
     visit_item(&component.root_element, 1, 0);
-    visit_children(&component.root_element, &mut 0, 1, &mut visit_item);
+    visit_children(&component.root_element, 0, 1, &mut visit_item);
 
     fn sub_children_count(e: &ElementRc) -> usize {
         let mut count = e.borrow().children.len();
@@ -119,23 +119,24 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
 
     fn visit_children(
         item: &ElementRc,
-        index: &mut u32,
+        index: u32,
         children_offset: u32,
         visit_item: &mut impl FnMut(&ElementRc, u32, u32),
     ) {
+        debug_assert_eq!(index, item.borrow().item_index.get().map(|x| *x as u32).unwrap_or(index));
         let mut offset = children_offset + item.borrow().children.len() as u32;
 
         for i in &item.borrow().children {
-            visit_item(i, offset, *index);
+            visit_item(i, offset, index);
             offset += sub_children_count(i) as u32;
         }
 
-        *index += 1;
-
         let mut offset = children_offset + item.borrow().children.len() as u32;
+        let mut index = children_offset;
 
         for e in &item.borrow().children {
             visit_children(e, index, offset, visit_item);
+            index += 1;
             offset += sub_children_count(e) as u32;
         }
     }

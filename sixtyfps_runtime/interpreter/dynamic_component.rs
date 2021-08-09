@@ -1390,7 +1390,7 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
         }
         return;
     }
-    let parent_index = match &instance_ref.component_type.item_tree.as_slice()[index] {
+    let parent_index = match dbg!(&instance_ref.component_type.item_tree.as_slice()[index]) {
         ItemTreeNode::Item { parent_index, .. } => parent_index,
         ItemTreeNode::DynamicTree { parent_index, .. } => parent_index,
     };
