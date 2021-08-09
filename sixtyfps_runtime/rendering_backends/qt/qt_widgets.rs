@@ -106,7 +106,7 @@ impl QImageWrapArray {
     pub fn new(size: qttypes::QSize, dpr: f32) -> Self {
         let mut array = SharedVector::default();
         array.resize((size.width * size.height * 4) as usize, 0);
-        let array_ptr = array.as_slice_mut().as_mut_ptr();
+        let array_ptr = array.as_mut_slice().as_mut_ptr();
         let img = cpp!(unsafe [size as "QSize", array_ptr as "uchar*", dpr as "float"] -> qttypes::QImage as "QImage" {
             QImage img(array_ptr, size.width(), size.height(), size.width() * 4, QImage::Format_ARGB32_Premultiplied);
             img.setDevicePixelRatio(dpr);

@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
  - Fixed lookup scope when resolving model expression in `for` or `if` construct:
    the `self` element now refer to the correct element instead of the root.
  - Rust: defaults to the native style if Qt is available
+ - Rust: deprecated `SharedVector::as_slice_mut()`. Use `SharedVector::as_mut_slice()` instead.
 
 ### Added
 

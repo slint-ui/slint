@@ -190,7 +190,13 @@ impl<T: Clone> SharedVector<T> {
     }
 
     /// Return a mutable slice to the array. If the array was shared, this will make a copy of the array.
+    #[deprecated(note = "Use as_mut_slice() instead")]
     pub fn as_slice_mut(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+
+    /// Return a mutable slice to the array. If the array was shared, this will make a copy of the array.
+    pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.detach(self.len());
         unsafe { core::slice::from_raw_parts_mut(self.as_ptr() as *mut T, self.len()) }
     }
@@ -257,7 +263,7 @@ impl<T> Deref for SharedVector<T> {
 /* FIXME: is this a good idea to implement DerefMut knowing what it might detach?
 impl<T> DerefMut for SharedVector<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.as_slice_mut()
+        self.as_mut_slice()
     }
 }*/
 
