@@ -235,6 +235,7 @@ lazy_static! {
         (".+\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".+\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".+\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".*README$", LicenseLocation::NoLicense),
         (".*README\\.txt$", LicenseLocation::NoLicense),
         ("LICENSE\\..*", LicenseLocation::NoLicense),

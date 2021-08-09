@@ -151,7 +151,7 @@ pub(crate) fn completion_at(
                     tr.all_types()
                         .into_iter()
                         // manually filter deprecated or undocumented cases
-                        .filter(|(k, _)| k != "Clip" && k != "Rotate")
+                        .filter(|(k, _)| k != "Clip")
                         .filter_map(|(k, t)| {
                             match t {
                                 Type::Component(c) if !c.is_global() => (),
