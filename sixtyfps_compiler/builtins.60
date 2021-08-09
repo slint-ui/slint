@@ -73,6 +73,7 @@ export Rotate := _ {
     property <length> width;
     property <length> height;
     //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
 }
 
 export Text := _ {
