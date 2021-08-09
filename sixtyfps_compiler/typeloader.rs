@@ -232,7 +232,8 @@ impl<'a> TypeLoader<'a> {
         }
 
         // Drop &self lifetime attached to is_builtin, in order to mutable borrow self below
-        let is_builtin = is_builtin.map(|s| s.to_owned());
+        let builtin = is_builtin.map(|s| s.to_owned());
+        let is_builtin = builtin.is_some();
 
         if !self.all_documents.currently_loading.insert(path_canon.clone()) {
             diagnostics
@@ -240,7 +241,7 @@ impl<'a> TypeLoader<'a> {
             return None;
         }
 
-        let source_code_result = if let Some(builtin) = is_builtin {
+        let source_code_result = if let Some(builtin) = builtin {
             Ok(builtin)
         } else if let Some(fallback) = &self.compiler_config.open_import_fallback {
             let result = fallback(path_canon.to_string_lossy().into()).await;
@@ -270,7 +271,7 @@ impl<'a> TypeLoader<'a> {
             }
         };
 
-        self.load_file(&path_canon, &path, source_code, diagnostics).await;
+        self.load_file(&path_canon, &path, source_code, is_builtin, diagnostics).await;
         let _ok = self.all_documents.currently_loading.remove(path_canon.as_path());
         assert!(_ok);
         Some(path_canon)
@@ -284,6 +285,7 @@ impl<'a> TypeLoader<'a> {
         path: &Path,
         source_path: &Path,
         source_code: String,
+        is_builtin: bool,
         diagnostics: &mut BuildDiagnostics,
     ) {
         let dependency_doc: syntax_nodes::Document =
@@ -291,6 +293,7 @@ impl<'a> TypeLoader<'a> {
 
         let dependency_registry =
             Rc::new(RefCell::new(TypeRegister::new(&self.global_type_registry)));
+        dependency_registry.borrow_mut().expose_internal_types = is_builtin;
         let foreign_imports = self
             .load_dependencies_recursively(&dependency_doc, diagnostics, &dependency_registry)
             .await;

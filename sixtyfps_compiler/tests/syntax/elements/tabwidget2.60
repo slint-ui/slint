@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+import { TabWidget  } from "sixtyfps_widgets.60";
 
 Test2 := Rectangle {
     TabWidget {

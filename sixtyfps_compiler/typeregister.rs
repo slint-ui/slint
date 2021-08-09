@@ -120,6 +120,8 @@ pub struct TypeRegister {
     /// used to construct helpful error messages, such as "Row can only be within a GridLayout element".
     context_restricted_types: HashMap<String, HashSet<String>>,
     parent_registry: Option<Rc<RefCell<TypeRegister>>>,
+    /// If the lookup function should return types that are marked as internal
+    pub(crate) expose_internal_types: bool,
 }
 
 impl TypeRegister {
@@ -206,7 +208,11 @@ impl TypeRegister {
     }
 
     pub fn new(parent: &Rc<RefCell<TypeRegister>>) -> Self {
-        Self { parent_registry: Some(parent.clone()), ..Default::default() }
+        Self {
+            parent_registry: Some(parent.clone()),
+            expose_internal_types: parent.borrow().expose_internal_types,
+            ..Default::default()
+        }
     }
 
     pub fn lookup(&self, name: &str) -> Type {
