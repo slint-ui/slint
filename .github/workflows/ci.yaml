@@ -589,6 +589,13 @@ jobs:
           git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
           # Remove printerdemo_old from Cargo.toml because this directory was not there in 0.0.5
           sed -i "/printerdemo_old/d" Cargo.toml
+    - name: Remove newer examples
+      run: |
+          # Remove imagefilter and plotter from Cargo.toml because these directories were not there before 0.1.1
+          sed -i "/imagefilter/d;/plotter/d" Cargo.toml
+      if: matrix.from_version == '0.0.5' || matrix.from_version == '0.0.6' || matrix.from_version == '0.1.0'
+    - name: "Commit old checkout"
+      run: |
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
           git config --global user.name "${GITHUB_ACTOR}"
           git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
