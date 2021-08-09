@@ -31,7 +31,7 @@ an element, it is possible to set the following `drop-shadow` properties:
 * **`drop-shadow-blur`** (*length*): The radius of the shadow that also describes the level of blur applied to the shadow.
   Negative values are ignored and zero means no blur (default).
 
-The `drop-shadow` effect is supported for `Rectangle` and `Clip` elements.
+The `drop-shadow` effect is supported for `Rectangle` elements.
 
 ## `Window`
 
@@ -610,15 +610,6 @@ Example := Window {
     }
 }
 ```
-
-## `Clip`
-
-By default, when an item is bigger or outside another item, it is still shown.
-But the `Clip` element  make sure to clip any children outside of the rectangle bounds
-
-When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
-
-FIXME: deprecate this item as it can be replaced by the `clip:` property
 
 ## `PopupWindow`
 
