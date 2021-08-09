@@ -22,6 +22,7 @@ use crate::{SharedString, SharedVector};
 /// See the documentation for [`SharedImageBuffer`] for examples how to use this type to integrate
 /// SixtyFPS with external rendering functions.
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub struct SharedPixelBuffer<Pixel> {
     width: usize,
     height: usize,
