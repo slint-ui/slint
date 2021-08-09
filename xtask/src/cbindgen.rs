@@ -29,6 +29,8 @@ fn default_config() -> cbindgen::Config {
                 ("Callback".into(), "private_api::CallbackHelper".into()),
                 ("VoidArg".into(), "void".into()),
                 ("KeyEventArg".into(), "KeyEvent".into()),
+                ("RGB8".into(), "Pixel_RGB8".into()),
+                ("RGBA8".into(), "Pixel_RGBA8".into()),
             ]
             .iter()
             .cloned()
@@ -184,7 +186,14 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 
     for (rust_types, extra_excluded_types, internal_header) in [
         (
-            vec!["ImageInner", "Image", "Size", "sixtyfps_image_size"],
+            vec![
+                "ImageInner",
+                "Image",
+                "Size",
+                "sixtyfps_image_size",
+                "SharedImageBuffer",
+                "SharedPixelBuffer",
+            ],
             vec![],
             "sixtyfps_image_internal.h",
         ),
