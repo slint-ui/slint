@@ -69,7 +69,8 @@ MainWindow := Window {
             border-radius: 30px;
             background: DemoPalette.page_background_color;
 
-            Clip {
+            Rectangle {
+                clip: true;
                 x: main_view.border_radius / 2;
                 y: main_view.border_radius / 2;
                 width: main_view.width - main_view.border_radius;
