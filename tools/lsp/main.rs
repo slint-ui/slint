@@ -418,7 +418,13 @@ fn reload_document(
     let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
     preview::set_contents(&path_canon, content.clone());
     let mut diag = BuildDiagnostics::default();
-    spin_on::spin_on(document_cache.documents.load_file(&path_canon, &path, content, &mut diag));
+    spin_on::spin_on(document_cache.documents.load_file(
+        &path_canon,
+        &path,
+        content,
+        false,
+        &mut diag,
+    ));
 
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)

@@ -328,7 +328,13 @@ impl Type {
             }
             _ => {}
         };
-        tr.lookup_element(name)
+        tr.lookup_element(name).and_then(|t| {
+            if !tr.expose_internal_types && matches!(&t, Type::Builtin(e) if e.is_internal) {
+                Err(format!("Unknown type {}. (The type exist as an internal type, but cannot be accessed in this scope)", name))
+            } else {
+                Ok(t)
+            }
+        })
     }
 
     pub fn lookup_member_function(&self, name: &str) -> Expression {

@@ -309,6 +309,7 @@ a time.
 ### Example
 
 ```60
+import { TabWidget } from "sixtyfps_widgets.60";
 Example := Window {
     width: 200px;
     height: 200px;
