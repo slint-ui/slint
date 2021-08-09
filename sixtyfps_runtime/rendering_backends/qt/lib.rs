@@ -22,6 +22,7 @@ use sixtyfps_corelib::graphics::{Image, Size};
 #[cfg(not(no_qt))]
 use sixtyfps_corelib::items::ImageFit;
 use sixtyfps_corelib::window::Window;
+#[cfg(not(no_qt))]
 use sixtyfps_corelib::ImageInner;
 
 #[cfg(not(no_qt))]
