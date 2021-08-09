@@ -12,7 +12,6 @@ name = "plotter"
 
 [dependencies]
 sixtyfps = { path = "../../api/sixtyfps-rs" }
-#plotters = { version = "0.3.1", default-features = false, features = ["bitmap"] }
 plotters = { version = "0.3.1", default-features = false, features = ["bitmap_backend", "surface_series"] }
 imgref = "1"
 rgb = "0.8.27"
