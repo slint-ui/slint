@@ -11,9 +11,8 @@ LICENSE END */
 use crate::slice::Slice;
 use crate::{SharedString, SharedVector};
 
-/// SharedPixelBuffer is a container for storing image data as pixels, backed by
-/// [`SharedVector`]. That means it is internally reference counted and cheap
-/// to clone.
+/// SharedPixelBuffer is a container for storing image data as pixels. It is
+/// internally reference counted and cheap to clone.
 ///
 /// You can construct new a new empty shared pixel buffer with [`SharedPixelBuffer::new`],
 /// or you can clone it from an existing contiguous buffer that you might already have, using
