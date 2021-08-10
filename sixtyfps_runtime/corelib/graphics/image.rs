@@ -56,7 +56,7 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
 
 impl<Pixel> SharedPixelBuffer<Pixel> {
     /// Return a slice to the pixel data.
-    pub fn as_slice(&mut self) -> &[Pixel] {
+    pub fn as_slice(&self) -> &[Pixel] {
         self.data.as_slice()
     }
 }
