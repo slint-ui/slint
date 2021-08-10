@@ -20,22 +20,30 @@ export MainWindow := Window {
     property selected_filter <=> filter_combo.current_index;
     callback filter_selected <=> filter_combo.selected;
 
-    VerticalBox {
-        Text {
-            font-size: 20px;
-            text: "Original Image";
-            horizontal-alignment: center;
-        }
-        original := Image { }
-        HorizontalBox { 
+    HorizontalBox {
+        VerticalBox {
             Text {
-                text: "Select an image filter:";
+                font-size: 20px;
+                text: "Original Image";
+                horizontal-alignment: center;
             }
+            original := Image { }
+        }
+        VerticalBox {
+            alignment: center;
             filter_combo := ComboBox {
                 current-value: "Brighten";
                 current-index: 0;
-            }
+                vertical-stretch: 0;
+            }            
         }
-        filtered := Image { }
+        VerticalBox { 
+            Text {
+                font-size: 20px;
+                text: "Filtered Image";
+                horizontal-alignment: center;
+            }
+            filtered := Image { }
+        }
     }
 }
