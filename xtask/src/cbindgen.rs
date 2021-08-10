@@ -29,8 +29,6 @@ fn default_config() -> cbindgen::Config {
                 ("Callback".into(), "private_api::CallbackHelper".into()),
                 ("VoidArg".into(), "void".into()),
                 ("KeyEventArg".into(), "KeyEvent".into()),
-                ("RGB8".into(), "Pixel_RGB8".into()),
-                ("RGBA8".into(), "Pixel_RGBA8".into()),
             ]
             .iter()
             .cloned()
