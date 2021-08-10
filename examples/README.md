@@ -76,6 +76,17 @@ and feed the result into SixtyFPS.
 
 ![Screenshot of the imagefilter example](https://sixtyfps.io/resources/imagefilter_screenshot.png "Image Filter")
 
+### [`plotter`](./plotter)
+
+A Rust-only example that shows how to use the Rust plotters crate to do plot a
+graph and integrate the result into SixtyFPS.
+
+| `.60` Design | Rust Source |
+| --- | --- |
+| [`plotter.60`](./plotter/plotter.60) | [`main.rs`](./plotter/main.rs)   |
+
+![Screenshot of the plotter example](https://sixtyfps.io/resources/plotter_screenshot.png "Plotter")
+
 ### External examples
 
 * [cargo-ui](https://github.com/sixtyfpsui/cargo-ui): A rust application that makes use of threads in the background.
