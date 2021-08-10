@@ -9,7 +9,6 @@
 LICENSE END */
 
 use sixtyfps::SharedString;
-use std::path::PathBuf;
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
@@ -51,9 +50,15 @@ pub fn main() {
 
     let main_window = MainWindow::new();
 
-    let mut cat_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    cat_path.push("cat_preview_round.png");
-    let source_image = image::open(&cat_path).expect("Error loading cat image").into_rgba8();
+    #[cfg(target_arch = "wasm32")]
+    let source_image =
+        { image::load_from_memory(include_bytes!("cat_preview_round.png")).unwrap().into_rgba8() };
+    #[cfg(not(target_arch = "wasm32"))]
+    let source_image = {
+        let mut cat_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        cat_path.push("cat_preview_round.png");
+        image::open(&cat_path).expect("Error loading cat image").into_rgba8()
+    };
 
     main_window.set_original_image(
         sixtyfps::Image::from_rgba8(sixtyfps::SharedPixelBuffer::clone_from_slice(
