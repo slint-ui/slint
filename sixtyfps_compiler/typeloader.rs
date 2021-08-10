@@ -91,12 +91,12 @@ impl<'a> TypeLoader<'a> {
             let is_wasm = cfg!(target_arch = "wasm32")
                 || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
             if !is_wasm {
-                diag.push_diagnostic_with_span("SIXTYFPS_STYLE not defined, defaulting to 'ugly', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
+                diag.push_diagnostic_with_span("SIXTYFPS_STYLE not defined, defaulting to 'fluent', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
                     Default::default(),
                     crate::diagnostics::DiagnosticLevel::Warning
                 );
             }
-            Cow::from("ugly")
+            Cow::from("fluent")
         });
 
         let builtin_library =
@@ -471,7 +471,7 @@ fn test_dependency_loading() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
     compiler_config.include_paths = vec![incdir];
-    compiler_config.style = Some("ugly".into());
+    compiler_config.style = Some("fluent".into());
 
     let mut main_test_path = test_source_path.clone();
     main_test_path.push("dependency_test_main.60");
@@ -506,7 +506,7 @@ fn test_load_from_callback_ok() {
 
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-    compiler_config.style = Some("ugly".into());
+    compiler_config.style = Some("fluent".into());
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
         let ok_ = ok_.clone();
         Box::pin(async move {
@@ -548,7 +548,7 @@ X := XX {}
 fn test_manual_import() {
     let mut compiler_config =
         CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
-    compiler_config.style = Some("ugly".into());
+    compiler_config.style = Some("fluent".into());
     let global_registry = TypeRegister::builtin();
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);

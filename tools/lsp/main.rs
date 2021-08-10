@@ -51,7 +51,7 @@ struct Cli {
     )]
     include_paths: Vec<std::path::PathBuf>,
 
-    /// The style name for the preview ('native' or 'ugly')
+    /// The style name for the preview ('native', 'fluent' or 'ugly')
     #[structopt(long, name = "style name", default_value)]
     style: String,
 
@@ -178,7 +178,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     let mut compiler_config =
         CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Interpreter);
     compiler_config.style =
-        Some(if cli_args.style.is_empty() { "ugly".into() } else { cli_args.style });
+        Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
 
     let mut document_cache = DocumentCache::new(&compiler_config);

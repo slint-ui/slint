@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
    the `self` element now refer to the correct element instead of the root.
  - Rust: defaults to the native style if Qt is available
  - Rust: deprecated `SharedVector::as_slice_mut()`. Use `SharedVector::as_mut_slice()` instead.
+ - The default non-native widget style is now the new "fluent" style.
 
 ### Added
 

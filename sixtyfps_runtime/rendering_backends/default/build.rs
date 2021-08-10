@@ -39,6 +39,6 @@ fn main() {
     // and we want to write to a common directory, so write in the build/ dir
     let target_path =
         Path::new(&out_dir).parent().unwrap().parent().unwrap().join("SIXTYFPS_DEFAULT_STYLE.txt");
-    std::fs::write(target_path, if has_native_style { b"native\n" as &[u8] } else { b"ugly\n" })
+    std::fs::write(target_path, if has_native_style { b"native\n" as &[u8] } else { b"fluent\n" })
         .unwrap();
 }

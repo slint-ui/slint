@@ -22,7 +22,7 @@ jobs:
           - aarch64-unknown-linux-gnu
     env:
       SIXTYFPS_NO_QT: 1
-      SIXTYFPS_STYLE: ugly
+      SIXTYFPS_STYLE: fluent
     steps:
     - uses: actions/checkout@v2
     - name: Set up Docker Buildx

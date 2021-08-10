@@ -639,7 +639,7 @@ pub async fn load(
         compiler_config.style = Some(if sixtyfps_rendering_backend_default::HAS_NATIVE_STYLE {
             "native".to_owned()
         } else {
-            "ugly".to_owned()
+            "fluent".to_owned()
         });
     }
 

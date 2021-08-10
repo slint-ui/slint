@@ -163,7 +163,7 @@ fn process_file_source(
     let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
         sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
     );
-    compiler_config.style = Some("ugly".into());
+    compiler_config.style = Some("fluent".into());
     let compile_diagnostics = if !parse_diagnostics.has_error() {
         let (_, build_diags) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
             syntax_node.clone(),
