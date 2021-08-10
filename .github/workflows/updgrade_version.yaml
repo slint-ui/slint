@@ -24,9 +24,9 @@ jobs:
     - name: Do replacements
       run: |
         # Each Cargo.toml need to have the version updated
-        sed -i 's/^version = "[0-9]*\.[0-9]*\.[0-9]*"/version = "${{ github.event.inputs.new_version }}"/' **/Cargo.toml
+        git ls-files | grep Cargo.toml | xargs sed -i 's/^version = "[0-9]*\.[0-9]*\.[0-9]*"/version = "${{ github.event.inputs.new_version }}"/'
         # Each dependencies in cargo.toml
-        sed -i 's/\(sixtyfps.*version = \)"=[0-9]*\.[0-9]*\.[0-9]*"/\1"=${{ github.event.inputs.new_version }}"/' **/Cargo.toml
+        git ls-files | grep Cargo.toml | xargs sed -i 's/\(sixtyfps.*version = \)"=[0-9]*\.[0-9]*\.[0-9]*"/\1"=${{ github.event.inputs.new_version }}"/'
 
         # Update the version in CmakeLists.txt
         sed -i 's/ VERSION [0-9]*\.[0-9]*\.[0-9]*$/ VERSION ${{ github.event.inputs.new_version }}"/' api/sixtyfps-cpp/CMakeLists.txt
