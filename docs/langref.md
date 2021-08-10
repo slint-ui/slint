@@ -118,7 +118,7 @@ C-style comments are supported:
 
 Identifiers can be composed of letter (`a-zA-Z`), of numbers (`0-9`), or of the underscore (`_`) or the dash (`-`).
 They cannot start with a number or a dash (but they can start with underscore)
-The dashes are normalized to underscore. Which means that these two identifiers are the same: `foo-bar` and `foo_bar`.
+The underscore are normalized to dashes. Which means that these two identifiers are the same: `foo_bar` and `foo-bar`.
 
 ## Properties
 
@@ -140,11 +140,11 @@ language bindings:
 
 ```60
 Example := Rectangle {
-    // declare a property of type int with the name `my_property`
-    property<int> my_property;
+    // declare a property of type int with the name `my-property`
+    property<int> my-property;
 
     // declare a property with a default value
-    property<int> my_second_property: 42;
+    property<int> my-second-property: 42;
 }
 ```
 
@@ -173,9 +173,9 @@ The type can be omitted in a property declaration to have the type automatically
 
 ```60
 Example := Window {
-    property<brush> rect_color <=> r.background;
+    property<brush> rect-color <=> r.background;
     // it is allowed to omit the type to have it automatically inferred
-    property rect_color2 <=> r.background;
+    property rect-color2 <=> r.background;
     r:= Rectangle {
         width: parent.width;
         height: parent.height;
@@ -195,7 +195,7 @@ All properties in elements have a type. The following types are supported:
 | `string` | UTF-8 encoded, reference counted string. |
 | `color` | RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as `#RRGGBBAA` or `#RGB`. |
 | `brush` | A brush is a special type that can be either initialized from a color or a gradient specification. See the [Colors Section](#colors) for more information. |
-| `physical_length` | This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1phx`. |
+| `physical-length` | This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1phx`. |
 | `length` | The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
 | `duration` | Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision. |
 | `angle` | Angle measurement, corresponds to a literal like `90deg`, `1.2rad`, `0.25turn` |
@@ -240,8 +240,8 @@ basically used as models for the `for` expression.
 
 ```60
 Example := Window {
-    property<[int]> list_of_int: [1,2,3];
-    property<[{a: int, b: string}]> list_of_structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
+    property<[int]> list-of-int: [1,2,3];
+    property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
 }
 ```
 
@@ -249,17 +249,17 @@ Example := Window {
 
 * `int` can be converted implicitly to `float` and vice-versa
 * `int` and `float` can be converted implicitly to `string`
-* `physical_length` and `length` can be converted implicitly to each other only in
+* `physical-length` and `length` can be converted implicitly to each other only in
    context where the pixel ratio is known.
-* the units type (`length`, `physical_length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
+* the units type (`length`, `physical-length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
   but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
   these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
 * The literal `0` can be converted to any of these types that have associated unit.
 * Struct types convert with another struct type if they have the same property names and their types can be converted.
     The source struct can have either missing properties, or extra properties. But not both.
 * Array generally do not convert between each other. But array literal can be converted if the type does convert.
-* String can be converted to float by using the `to_float` function. That function returns 0 if the string is not
-   a valid number. you can check with `is_float` if the string contains a valid number
+* String can be converted to float by using the `to-float` function. That function returns 0 if the string is not
+   a valid number. you can check with `is-float` if the string contains a valid number
 
 ```60
 Example := Window {
@@ -273,8 +273,8 @@ Example := Window {
     // property<{a: string, b: int}> prop4: { a: "x", c: 42 };
 
     property<string> xxx: "42.1";
-    property<float> xxx1: xxx.to_float(); // 42.1
-    property<bool> xxx2: xxx.is_float(); // true
+    property<float> xxx1: xxx.to-float(); // 42.1
+    property<bool> xxx2: xxx.is-float(); // true
 }
 ```
 
@@ -378,15 +378,15 @@ to the property the expression is associated with:
 ```60
 Example := Rectangle {
     // declare a property of type int
-    property<int> my_property;
+    property<int> my-property;
 
     // This accesses the property
-    width: root.my_property * 20px;
+    width: root.my-property * 20px;
 
 }
 ```
 
-If something changes `my_property`, the width will be updated automatically.
+If something changes `my-property`, the width will be updated automatically.
 
 Arithmetic in expression works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
@@ -520,19 +520,19 @@ Inside callback handlers, more complicated statements are allowed:
 Assignment:
 
 ```ignore
-clicked => { some_property = 42; }
+clicked => { some-property = 42; }
 ```
 
 Self-assignment with `+=` `-=` `*=` `/=`
 
 ```ignore
-clicked => { some_property += 42; }
+clicked => { some-property += 42; }
 ```
 
 Calling a callback
 
 ```ignore
-clicked => { root.some_callback(); }
+clicked => { root.some-callback(); }
 ```
 
 Conditional expression
@@ -541,7 +541,7 @@ Conditional expression
 clicked => {
     if (condition) {
         foo = 42;
-    } else if (other_condition) {
+    } else if (other-condition) {
         bar = 28;
     } else {
         foo = 4;
@@ -578,11 +578,11 @@ The *id* is also optional.
 Example := Window {
     height: 100px;
     width: 300px;
-    for my_color[index] in [ #e11, #1a2, #23d ]: Rectangle {
+    for my-color[index] in [ #e11, #1a2, #23d ]: Rectangle {
         height: 100px;
         width: 60px;
         x: width * index;
-        background: my_color;
+        background: my-color;
     }
 }
 ```
@@ -596,7 +596,7 @@ Example := Window {
         {foo: "def", col: #00f },
     ];
     VerticalLayout {
-        for data in root.model: my_repeated_text := Text {
+        for data in root.model: my-repeated-text := Text {
             color: data.col;
             text: data.foo;
         }
@@ -637,8 +637,8 @@ This will animate the color property for 100ms when it changes.
 Animation can be configured with the following parameter:
 
 * `duration`: the amount of time it takes for the animation to complete
-* `loop_count`: FIXME
-* `easing`: can be `linear`, `ease`, `ease_in`, `ease_out`, `ease_in_out`, `cubic_bezier(a, b, c, d)` as in CSS
+* `loop-count`: FIXME
+* `easing`: can be `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier(a, b, c, d)` as in CSS
 
 It is also possible to animate several properties with the same animation:
 
@@ -659,10 +659,10 @@ The `states` statement allow to declare states like this:
 Example := Rectangle {
     text := Text { text: "hello"; }
     property<bool> pressed;
-    property<bool> is_enabled;
+    property<bool> is-enabled;
 
     states [
-        disabled when !is_enabled : {
+        disabled when !is-enabled : {
             color: gray; // same as root.color: gray;
             text.color: white;
         }
@@ -673,7 +673,7 @@ Example := Rectangle {
 }
 ```
 
-In that example, when the `is_enabled` property is set to false, the `disabled` state will be entered
+In that example, when the `is-enabled` property is set to false, the `disabled` state will be entered
 This will change the color of the Rectangle and of the Text.
 
 ### Transitions
@@ -684,10 +684,10 @@ Complex animations can be declared on state transitions:
 Example := Rectangle {
     text := Text { text: "hello"; }
     property<bool> pressed;
-    property<bool> is_enabled;
+    property<bool> is-enabled;
 
     states [
-        disabled when !is_enabled : {
+        disabled when !is-enabled : {
             color: gray; // same as root.color: gray;
             text.color: white;
         }
@@ -787,11 +787,11 @@ of assigning a different name at import time:
 
 ```60,ignore
 import { Button } from "./button.60";
-import { Button as CoolButton } from "../other_theme/button.60";
+import { Button as CoolButton } from "../other-theme/button.60";
 
 App := Rectangle {
     // ...
-    CoolButton {} // from cool_button.60
+    CoolButton {} // from cool-button.60
     Button {} // from button.60
 }
 ```
@@ -802,7 +802,7 @@ Elements, globals and structs can be exported and imported.
 
 Certain elements such as ```TextInput``` accept not only input from the mouse/finger but
 also key events originating from (virtual) keyboards. In order for an item to receive
-these events, it must have the focus. This is visible through the `has_focus` property.
+these events, it must have the focus. This is visible through the `has-focus` property.
 
 You can manually activate the focus on an element by calling `focus()`:
 

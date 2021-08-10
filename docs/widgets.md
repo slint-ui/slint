@@ -137,8 +137,8 @@ Example := Window {
 ### Properties
 
 * **`text`** (*string*): The test being edited
-* **`has_focus`**: (*bool*): Set to true when the line edit currently has the focus
-* **`placeholder_text`**: (*string*): A placeholder text being shown when there is no text in the edit field
+* **`has-focus`**: (*bool*): Set to true when the line edit currently has the focus
+* **`placeholder-text`**: (*string*): A placeholder text being shown when there is no text in the edit field
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
 
 ### Callbacks
@@ -156,7 +156,7 @@ Example := Window {
     LineEdit {
         width: parent.width;
         height: parent.height;
-        placeholder_text: "Enter text here";
+        placeholder-text: "Enter text here";
     }
 }
 ```
@@ -168,9 +168,9 @@ It has scrollbar to interact with.
 
 ### Properties
 
-* **`viewport_width`** and **`viewport_height`** (*length*): The `width` and `length` properties of the viewport
-* **`viewport_x`** and **`viewport_y`** (*length*): The `x` and `y` properties of the viewport. Usually these are negative
-* **`visible_width`** and **`visible_height`** (*length*): The size of the visible area of the ScrollView (not including the scrollbar)
+* **`viewport-width`** and **`viewport-height`** (*length*): The `width` and `length` properties of the viewport
+* **`viewport-x`** and **`viewport-y`** (*length*): The `x` and `y` properties of the viewport. Usually these are negative
+* **`visible-width`** and **`visible-height`** (*length*): The size of the visible area of the ScrollView (not including the scrollbar)
 
 ### Example
 
@@ -182,8 +182,8 @@ Example := Window {
     ScrollView {
         width: 200px;
         height: 200px;
-        viewport_width: 300px;
-        viewport_height: 300px;
+        viewport-width: 300px;
+        viewport-height: 300px;
         Rectangle { width: 30px; height: 30px; x: 275px; y: 50px; background: blue; }
         Rectangle { width: 30px; height: 30px; x: 175px; y: 130px; background: red; }
         Rectangle { width: 30px; height: 30px; x: 25px; y: 210px; background: yellow; }
@@ -246,7 +246,7 @@ The `StandardListViewItem` is equivalent to `{ text: string }` but will be impro
 Same as ListView, and in addition:
 
 * **`model`** (*`[StandardListViewItem]`*): The model
-* **`current_item`** (*int*): The index of the currently active item. -1 mean none is selected, which is the default
+* **`current-item`** (*int*): The index of the currently active item. -1 mean none is selected, which is the default
 
 ### Example
 
@@ -273,8 +273,8 @@ A button that, when clicked, opens a popup to select a value.
 ### Properties
 
 * **`model`** (*\[string\]*): The list of possible values
-* **`current_index`**: (*int*): The index of the selected value (-1 if no value is selected)
-* **`current_value`**: (*string*): The currently selected text
+* **`current-index`**: (*int*): The index of the selected value (-1 if no value is selected)
+* **`current-value`**: (*string*): The currently selected text
 * **`enabled`**: (*bool*): When false, the combobox cannot be opened (default: true)
 
 ### Callbacks
@@ -292,7 +292,7 @@ Example := Window {
         width: preferred-width;
         height: preferred-height;
         model: ["first", "second", "third"];
-        current_value: "first";
+        current-value: "first";
     }
 }
 ```

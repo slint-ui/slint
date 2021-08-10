@@ -94,10 +94,10 @@ You can tune the automatic placement using different constraints, to accommodate
 interface. For example each element has a minimum and a maximum size. Set these explicitly using the
 following properties:
 
-* `min_width`
-* `min_height`
-* `max_width`
-* `max_height`
+* `min-width`
+* `min-height`
+* `max-width`
+* `max-height`
 
 A layout element also affects the minimum and maximum size of its parent.
 
@@ -106,8 +106,8 @@ An element is considered to have a fixed size in a layout when the `width` and `
 When there is extra space in a layout, elements can stretch along the layout axis. You can control this stretch
 factor between the element and its siblings with these properties:
 
-* `horizontal_stretch`
-* `vertical_stretch`
+* `horizontal-stretch`
+* `vertical-stretch`
 
 A value of `0` means that the element will not be stretched at all; unless all siblings also have a stretch
 factor of `0`. Then all the elements will be equally stretched.
@@ -142,8 +142,8 @@ Example := Window {
     width: 200px;
     height: 200px;
     HorizontalLayout {
-        Rectangle { background: blue; min_width: 20px; }
-        Rectangle { background: yellow; min_width: 30px; }
+        Rectangle { background: blue; min-width: 20px; }
+        Rectangle { background: yellow; min-width: 30px; }
     }
 }
 ```
@@ -159,8 +159,8 @@ Example := Window {
     height: 200px;
     HorizontalLayout {
         alignment: start;
-        Rectangle { background: blue; min_width: 20px; }
-        Rectangle { background: yellow; min_width: 30px; }
+        Rectangle { background: blue; min-width: 20px; }
+        Rectangle { background: yellow; min-width: 30px; }
     }
 }
 ```
@@ -217,44 +217,44 @@ Example := Window {
         HorizontalLayout {
             alignment: stretch;
             Text { text: "stretch (default)"; }
-            Rectangle { background: blue; min_width: 20px; }
-            Rectangle { background: yellow; min_width: 30px; }
+            Rectangle { background: blue; min-width: 20px; }
+            Rectangle { background: yellow; min-width: 30px; }
         }
         HorizontalLayout {
             alignment: start;
             Text { text: "start"; }
-            Rectangle { background: blue; min_width: 20px; }
-            Rectangle { background: yellow; min_width: 30px; }
+            Rectangle { background: blue; min-width: 20px; }
+            Rectangle { background: yellow; min-width: 30px; }
         }
         HorizontalLayout {
             alignment: end;
             Text { text: "end"; }
-            Rectangle { background: blue; min_width: 20px; }
-            Rectangle { background: yellow; min_width: 30px; }
+            Rectangle { background: blue; min-width: 20px; }
+            Rectangle { background: yellow; min-width: 30px; }
         }
         HorizontalLayout {
             alignment: start;
             Text { text: "start"; }
-            Rectangle { background: blue; min_width: 20px; }
-            Rectangle { background: yellow; min_width: 30px; }
+            Rectangle { background: blue; min-width: 20px; }
+            Rectangle { background: yellow; min-width: 30px; }
         }
         HorizontalLayout {
             alignment: center;
             Text { text: "center"; }
-            Rectangle { background: blue; min_width: 20px; }
-            Rectangle { background: yellow; min_width: 30px; }
+            Rectangle { background: blue; min-width: 20px; }
+            Rectangle { background: yellow; min-width: 30px; }
         }
         HorizontalLayout {
             alignment: space-between;
             Text { text: "space-between"; }
-            Rectangle { background: blue; min_width: 20px; }
-            Rectangle { background: yellow; min_width: 30px; }
+            Rectangle { background: blue; min-width: 20px; }
+            Rectangle { background: yellow; min-width: 30px; }
         }
         HorizontalLayout {
             alignment: space-around;
             Text { text: "space-around"; }
-            Rectangle { background: blue; min_width: 20px; }
-            Rectangle { background: yellow; min_width: 30px; }
+            Rectangle { background: blue; min-width: 20px; }
+            Rectangle { background: yellow; min-width: 30px; }
         }
     }
 }
