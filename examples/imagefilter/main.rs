@@ -71,6 +71,10 @@ pub fn main() {
 
     let filters = Filters(vec![
         Filter {
+            name: "Blur".into(),
+            apply_function: |image: &image::RgbaImage| image::imageops::blur(image, 4.),
+        },
+        Filter {
             name: "Brighten".into(),
             apply_function: |image: &image::RgbaImage| {
                 image::imageops::colorops::brighten(image, 30)
