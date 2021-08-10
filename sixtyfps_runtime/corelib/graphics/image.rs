@@ -235,7 +235,7 @@ pub struct LoadImageError(());
 /// let mut pixel_buffer = SharedPixelBuffer::<Rgb8Pixel>::new(320, 200);
 ///
 /// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
-///                  pixel_buffer.as_bytes_mut());
+///                  pixel_buffer.make_mut_bytes());
 ///
 /// let image = Image::from_rgb8(pixel_buffer);
 /// ```
