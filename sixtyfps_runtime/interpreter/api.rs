@@ -356,7 +356,7 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
 }
 
 /// Normalize the identifier to use dashes
-fn normalize_identifier(ident: &str) -> Cow<'_, str> {
+pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
     if ident.contains('_') {
         ident.replace('_', "-").into()
     } else {

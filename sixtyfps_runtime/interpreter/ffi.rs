@@ -316,7 +316,10 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_get_property(
 ) -> bool {
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
-    match comp.description().get_property(comp.borrow(), std::str::from_utf8(&name).unwrap()) {
+    match comp
+        .description()
+        .get_property(comp.borrow(), &normalize_identifier(std::str::from_utf8(&name).unwrap()))
+    {
         Ok(val) => {
             std::ptr::write(out as *mut Value, val);
             true
@@ -334,7 +337,11 @@ pub extern "C" fn sixtyfps_interpreter_component_instance_set_property(
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
     comp.description()
-        .set_property(comp.borrow(), std::str::from_utf8(&name).unwrap(), val.as_value().clone())
+        .set_property(
+            comp.borrow(),
+            &normalize_identifier(std::str::from_utf8(&name).unwrap()),
+            val.as_value().clone(),
+        )
         .is_ok()
 }
 
@@ -353,7 +360,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_invoke_callback
     let comp = inst.unerase(guard);
     match comp.description().invoke_callback(
         comp.borrow(),
-        std::str::from_utf8(&name).unwrap(),
+        &normalize_identifier(std::str::from_utf8(&name).unwrap()),
         args.as_slice(),
     ) {
         Ok(val) => {
@@ -400,7 +407,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_callback(
     comp.description()
         .set_callback_handler(
             comp.borrow(),
-            std::str::from_utf8(&name).unwrap(),
+            &normalize_identifier(std::str::from_utf8(&name).unwrap()),
             Box::new(callback),
         )
         .is_ok()
