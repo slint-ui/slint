@@ -225,7 +225,7 @@ pub struct LoadImageError(());
 ///
 /// The following example creates a 320x200 RGB pixel buffer and calls an external
 /// low_level_render() function to draw a shape into it. Finally the result is
-/// stored in an Image with [`Self::new_rgb8()`]:
+/// stored in an Image with [`Self::from_rgb8()`]:
 /// ```
 /// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, RGB8Pixel};
 ///
@@ -238,7 +238,7 @@ pub struct LoadImageError(());
 /// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
 ///                  pixel_buffer.as_bytes_mut());
 ///
-/// let image = Image::new_rgb8(pixel_buffer);
+/// let image = Image::from_rgb8(pixel_buffer);
 /// ```
 ///
 /// Another use-case is to import existing image data into SixtyFPS, by
@@ -258,7 +258,7 @@ pub struct LoadImageError(());
 ///     cat_image.width() as _,
 ///     cat_image.height() as _,
 /// );
-/// let image = Image::new_rgba8(buffer);
+/// let image = Image::from_rgba8(buffer);
 /// ```
 ///
 #[repr(transparent)]
@@ -273,22 +273,22 @@ impl Image {
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
     /// channels (red, green and blue) encoded as u8.
-    pub fn new_rgb8(buffer: SharedPixelBuffer<RGB8Pixel>) -> Self {
+    pub fn from_rgb8(buffer: SharedPixelBuffer<RGB8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGB8(buffer)))
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
     /// channels (red, green, blue and alpha) encoded as u8.
-    pub fn new_rgba8(buffer: SharedPixelBuffer<RGBA8Pixel>) -> Self {
+    pub fn from_rgba8(buffer: SharedPixelBuffer<RGBA8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8(buffer)))
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
-    /// channels (red, green, blue and alpha) encoded as u8 and, in contrast to [`Self::new_rgba8`],
+    /// channels (red, green, blue and alpha) encoded as u8 and, in contrast to [`Self::from_rgba8`],
     /// the alpha channel is also assumed to be multiplied to the red, green and blue channels.
     ///
     /// Only construct an Image with this function if you know that your pixels are encoded this way.
-    pub fn new_rgba8_premultiplied(buffer: SharedPixelBuffer<RGBA8Pixel>) -> Self {
+    pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<RGBA8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8Premultiplied(buffer)))
     }
 
@@ -314,7 +314,7 @@ fn test_image_size_from_buffer_without_backend() {
     }
     {
         let buffer = SharedPixelBuffer::<RGB8Pixel>::new(320, 200);
-        let image = Image::new_rgb8(buffer);
+        let image = Image::from_rgb8(buffer);
         assert_eq!(image.size(), [320., 200.].into())
     }
 }

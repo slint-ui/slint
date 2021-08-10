@@ -63,7 +63,7 @@ fn render_plot(pitch: f32) -> sixtyfps::Image {
     drop(chart);
     drop(root);
 
-    sixtyfps::Image::new_rgb8(pixel_buffer)
+    sixtyfps::Image::from_rgb8(pixel_buffer)
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
