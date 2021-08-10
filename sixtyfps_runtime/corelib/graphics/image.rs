@@ -80,7 +80,7 @@ impl<Pixel> SharedPixelBuffer<Pixel> {
 
 impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
     /// Creates a new SharedPixelBuffer with the given width and height. Each pixel will be initialized with the value
-    /// that `[Default::default()`] returns for the Pixel type.
+    /// that [`Default::default()`] returns for the Pixel type.
     pub fn new(width: usize, height: usize) -> Self {
         Self {
             width,
