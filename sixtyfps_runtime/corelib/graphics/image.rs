@@ -322,10 +322,28 @@ impl Image {
 
     /// Returns the size of the Image in pixels.
     pub fn size(&self) -> crate::graphics::Size {
-        match crate::backend::instance() {
-            Some(backend) => backend.image_size(self),
-            None => panic!("sixtyfps::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
+        match &self.0 {
+            ImageInner::None => Default::default(),
+            ImageInner::AbsoluteFilePath(_) |  ImageInner::EmbeddedData { .. } => {
+                match crate::backend::instance() {
+                    Some(backend) => backend.image_size(self),
+                    None => panic!("sixtyfps::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
+                }
+            },
+            ImageInner::EmbeddedImage(buffer) => [buffer.width() as _, buffer.height() as _].into(),
         }
+    }
+}
+
+#[test]
+fn test_image_size_from_buffer_without_backend() {
+    {
+        assert_eq!(Image::default().size(), Default::default());
+    }
+    {
+        let buffer = SharedPixelBuffer::<RGB8Pixel>::new(320, 200);
+        let image = Image::new_rgb8(buffer);
+        assert_eq!(image.size(), [320., 200.].into())
     }
 }
 
