@@ -38,9 +38,9 @@ Rectangle := _ {
 }
 
 BorderRectangle := Rectangle {
-    property <length> border_width;
-    property <length> border_radius;
-    property <brush> border_color;
+    property <length> border-width;
+    property <length> border-radius;
+    property <brush> border-color;
     //-default_size_binding:expands_to_parent_geometry
 }
 
@@ -52,7 +52,7 @@ ImageItem := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <ImageFit> image_fit;
+    property <ImageFit> image-fit;
 }
 
 export ClippedImage := ImageItem {
@@ -78,12 +78,12 @@ export Rotate := _ {
 
 export Text := _ {
     property <string> text;
-    property <string> font_family;
-    property <length> font_size;
-    property <int> font_weight;
+    property <string> font-family;
+    property <length> font-size;
+    property <int> font-weight;
     property <brush> color: #000;
-    property <TextHorizontalAlignment> horizontal_alignment;
-    property <TextVerticalAlignment> vertical_alignment;
+    property <TextHorizontalAlignment> horizontal-alignment;
+    property <TextVerticalAlignment> vertical-alignment;
     property <TextOverflow> overflow;
     property <TextWrap> wrap;
     property <length> letter_spacing;
@@ -129,7 +129,7 @@ export FocusScope := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <bool> has_focus: native_output;
+    property <bool> has-focus: native_output;
     callback key_pressed(KeyEvent) -> EventResult;
     callback key_released(KeyEvent) -> EventResult;
     //-default_size_binding:expands_to_parent_geometry
@@ -143,10 +143,10 @@ export Flickable := _ {
     property <length> height;
                 // These properties are actually going to be forwarded to the viewport by the
                 // code generator
-    property <length> viewport_height;
-    property <length> viewport_width;
-    property <length> viewport_x: native_output;
-    property <length> viewport_y: native_output;
+    property <length> viewport-height;
+    property <length> viewport-width;
+    property <length> viewport-x: native_output;
+    property <length> viewport-y: native_output;
     property <bool> interactive: true;
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -157,9 +157,9 @@ export WindowItem := _ {
     property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
     property <color> color <=> background;
     property <string> title: "SixtyFPS Window";
-    property <string> default_font_family;
-    property <length> default_font_size;
-    property <int> default_font_weight;
+    property <string> default-font-family;
+    property <length> default-font-size;
+    property <int> default-font-weight;
     property <image> icon;
 }
 
@@ -181,23 +181,23 @@ export BoxShadow := _ {
 
 export TextInput := _ {
     property <string> text: native_output;
-    property <string> font_family;
-    property <length> font_size;
-    property <int> font_weight;
+    property <string> font-family;
+    property <length> font-size;
+    property <int> font-weight;
     property <brush> color: #000;
-    property <color> selection_foreground_color: #000;
-    property <color> selection_background_color: #808080;
-    property <TextHorizontalAlignment> horizontal_alignment;
-    property <TextVerticalAlignment> vertical_alignment;
-    property <length> letter_spacing;
+    property <color> selection-foreground-color: #000;
+    property <color> selection-background-color: #808080;
+    property <TextHorizontalAlignment> horizontal-alignment;
+    property <TextVerticalAlignment> vertical-alignment;
+    property <length> letter-spacing;
     property <length> x;
     property <length> y;
     property <length> width;
     property <length> height;
-    property <length> text_cursor_width; // StyleMetrics.text_cursor_width  set in apply_default_properties_from_style
-    property <int> cursor_position: native_output;
-    property <int> anchor_position: native_output;
-    property <bool> has_focus: native_output;
+    property <length> text-cursor-width; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
+    property <int> cursor-position: native_output;
+    property <int> anchor-position: native_output;
+    property <bool> has-focus: native_output;
     callback accepted;
     callback edited;
     property <bool> enabled: true;
@@ -210,8 +210,8 @@ export Clip := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <length> border_radius;
-    property <length> border_width;
+    property <length> border-radius;
+    property <length> border-width;
     property <bool> clip;
     //-default_size_binding:expands_to_parent_geometry
     // Note, this should be 'is_internal'  but isn't because it is in fact deprecated
@@ -270,9 +270,9 @@ LineTo := _ {
 ArcTo := _ {
     property <float> x;
     property <float> y;
-    property <float> radius_x;
-    property <float> radius_y;
-    property <float> x_rotation;
+    property <float> radius-x;
+    property <float> radius-y;
+    property <float> x-rotation;
     property <bool> large_arc;
     property <bool> sweep;
 
@@ -282,10 +282,10 @@ ArcTo := _ {
 }
 
 CubicTo := _ {
-    property <float> control_1_x;
-    property <float> control_1_y;
-    property <float> control_2_x;
-    property <float> control_2_y;
+    property <float> control-1-x;
+    property <float> control-1-y;
+    property <float> control-2-x;
+    property <float> control-2-y;
     property <float> x;
     property <float> y;
 
@@ -295,8 +295,8 @@ CubicTo := _ {
 }
 
 QuadraticTo := _ {
-    property <float> control_x;
-    property <float> control_y;
+    property <float> control-x;
+    property <float> control-y;
     property <float> x;
     property <float> y;
 
@@ -317,16 +317,16 @@ export Path := _ {
     property <length> width;
     property <length> height;
     property <brush> fill;
-    property <brush> fill_color <=> fill;
-    property <FillRule> fill_rule;
+    property <brush> fill-color <=> fill;
+    property <FillRule> fill-rule;
     property <brush> stroke;
-    property <color> stroke_color <=> stroke;
-    property <length> stroke_width;
+    property <color> stroke-color <=> stroke;
+    property <length> stroke-width;
     property <string> commands;
-    property <float> viewbox_x;
-    property <float> viewbox_y;
-    property <float> viewbox_width;
-    property <float> viewbox_height;
+    property <float> viewbox-x;
+    property <float> viewbox-y;
+    property <float> viewbox-width;
+    property <float> viewbox-height;
     property <bool> clip;
 
     //-disallow_global_types_as_child_elements
@@ -391,7 +391,7 @@ export PopupWindow := _ {
 PropertyAnimation := _ {
     property <duration> duration;
     property <easing> easing;
-    property <int> loop_count;
+    property <int> loop-count;
     //-is_non_item_type
 }
 
@@ -465,10 +465,10 @@ export NativeGroupBox := _ {
     property <length> height;
     property <bool> enabled: true;
     property <string> title;
-    property <length> native_padding_left: native_output;
-    property <length> native_padding_right: native_output;
-    property <length> native_padding_top: native_output;
-    property <length> native_padding_bottom: native_output;
+    property <length> native-padding-left: native_output;
+    property <length> native-padding-right: native_output;
+    property <length> native-padding-top: native_output;
+    property <length> native-padding-bottom: native_output;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -478,10 +478,10 @@ export NativeLineEdit := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <length> native_padding_left: native_output;
-    property <length> native_padding_right: native_output;
-    property <length> native_padding_top: native_output;
-    property <length> native_padding_bottom: native_output;
+    property <length> native-padding-left: native_output;
+    property <length> native-padding-right: native_output;
+    property <length> native-padding-top: native_output;
+    property <length> native-padding-bottom: native_output;
     property <bool> focused: native_output;
     property <bool> enabled: true;
     //-is_internal
@@ -492,16 +492,16 @@ export NativeScrollView := _ {
     property <length> y;
     property <length> width;
     property <length> height;
-    property <length> horizontal_max;
-    property <length> horizontal_page_size;
-    property <length> horizontal_value;
-    property <length> vertical_max;
-    property <length> vertical_page_size;
-    property <length> vertical_value: native_output;
-    property <length> native_padding_left: native_output;
-    property <length> native_padding_right: native_output;
-    property <length> native_padding_top: native_output;
-    property <length> native_padding_bottom: native_output;
+    property <length> horizontal-max;
+    property <length> horizontal-page-size;
+    property <length> horizontal-value;
+    property <length> vertical-max;
+    property <length> vertical-page-size;
+    property <length> vertical-value: native_output;
+    property <length> native-padding-left: native_output;
+    property <length> native-padding-right: native_output;
+    property <length> native-padding-top: native_output;
+    property <length> native-padding-bottom: native_output;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -535,18 +535,18 @@ export NativeTabWidget := _ {
     property <length> width;
     property <length> height;
 
-    property <length> content_x: native_output;
-    property <length> content_y: native_output;
-    property <length> content_height: native_output;
-    property <length> content_width: native_output;
-    property <length> tabbar_x: native_output;
-    property <length> tabbar_y: native_output;
-    property <length> tabbar_height: native_output;
-    property <length> tabbar_width: native_output;
-    property <length> tabbar_preferred_height;
-    property <length> tabbar_preferred_width;
-    property <length> content_min_height;
-    property <length> content_min_width;
+    property <length> content-x: native_output;
+    property <length> content-y: native_output;
+    property <length> content-height: native_output;
+    property <length> content-width: native_output;
+    property <length> tabbar-x: native_output;
+    property <length> tabbar-y: native_output;
+    property <length> tabbar-height: native_output;
+    property <length> tabbar-width: native_output;
+    property <length> tabbar-preferred-height;
+    property <length> tabbar-preferred-width;
+    property <length> content-min-height;
+    property <length> content-min-width;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -568,9 +568,9 @@ export NativeTab := _ {
 }
 
 export global NativeStyleMetrics := {
-    property <length> layout_spacing;
-    property <length> layout_padding;
-    property <length> text_cursor_width;
+    property <length> layout-spacing;
+    property <length> layout-padding;
+    property <length> text-cursor-width;
     //-is_non_item_type
     //-is_internal
 }
