@@ -312,7 +312,7 @@ namespace sixtyfps {{
     namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; class WindowRc; }}
     namespace cbindgen_private {{ using sixtyfps::private_api::WindowRc; using namespace vtable; struct KeyEvent; using private_api::Property; using private_api::PathData; }}
 }}",
-            0, 1, 0,
+            env!("CARGO_PKG_VERSION_MAJOR"), env!("CARGO_PKG_VERSION_MINOR"), env!("CARGO_PKG_VERSION_PATCH"),
         ))
         .with_trailer(gen_item_declarations(&items))
         .generate()

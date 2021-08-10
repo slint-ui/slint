@@ -146,7 +146,7 @@ configure_package_config_file("cmake/SixtyFPSConfig.cmake.in" "${CMAKE_CURRENT_B
 write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSConfigVersion.cmake
   VERSION 0.1.0
-  COMPATIBILITY ExactVersion
+  COMPATIBILITY SameMinorVersion
 )
 
 install(FILES
