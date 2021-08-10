@@ -184,7 +184,7 @@ SCENARIO("Struct API")
     for (auto [k, value] : struc) {
         REQUIRE(count == 0);
         count++;
-        REQUIRE(k == "field_a");
+        REQUIRE(k == "field-a");
         REQUIRE(value.to_string().value() == "Hallo");
     }
 
@@ -195,8 +195,8 @@ SCENARIO("Struct API")
 
     REQUIRE(map
             == std::map<std::string, sixtyfps::SharedString> {
-                    { "field_a", sixtyfps::SharedString("Hallo") },
-                    { "field_b", sixtyfps::SharedString("World") } });
+                    { "field-a", sixtyfps::SharedString("Hallo") },
+                    { "field-b", sixtyfps::SharedString("World") } });
 }
 
 SCENARIO("Struct Iterator Constructor")
@@ -244,9 +244,9 @@ SCENARIO("Struct field iteration")
     REQUIRE(it != end);
 
     auto check_valid_entry = [](const auto &key, const auto &value) -> bool {
-        if (key == "field_a")
+        if (key == "field-a")
             return value == Value(true);
-        if (key == "field_b")
+        if (key == "field-b")
             return value == Value(42.0);
         return false;
     };
@@ -362,17 +362,17 @@ SCENARIO("Invoke callback")
     SECTION("valid")
     {
         auto result = compiler.build_from_source(
-                "export Dummy := Rectangle { callback foo(string, int) -> string; }", "");
+                "export Dummy := Rectangle { callback some_callback(string, int) -> string; }", "");
         REQUIRE(result.has_value());
         auto instance = result->create();
-        REQUIRE(instance->set_callback("foo", [](auto args) {
+        REQUIRE(instance->set_callback("some_callback", [](auto args) {
             SharedString arg1 = *args[0].to_string();
             int arg2 = int(*args[1].to_number());
             std::string res = std::string(arg1) + ":" + std::to_string(arg2);
             return Value(SharedString(res));
         }));
         Value args[] = { SharedString("Hello"), 42. };
-        auto res = instance->invoke_callback("foo", Slice<Value> { args, 2 });
+        auto res = instance->invoke_callback("some_callback", Slice<Value> { args, 2 });
         REQUIRE(res.has_value());
         REQUIRE(*res->to_string() == SharedString("Hello:42"));
     }
@@ -434,13 +434,13 @@ SCENARIO("Angle between .60 and C++")
     ComponentCompiler compiler;
 
     auto result = compiler.build_from_source(
-            "export Dummy := Rectangle { property <angle> angle: 0.25turn;  property <bool> test: angle == 0.5turn; }", "");
+            "export Dummy := Rectangle { property <angle> the_angle: 0.25turn;  property <bool> test: the_angle == 0.5turn; }", "");
     REQUIRE(result.has_value());
     auto instance = result->create();
 
     SECTION("Read property")
     {
-        auto angle_value = instance->get_property("angle");
+        auto angle_value = instance->get_property("the-angle");
         REQUIRE(angle_value.has_value());
         REQUIRE(angle_value->type() == Value::Type::Number);
         auto angle = angle_value->to_number();
@@ -450,9 +450,9 @@ SCENARIO("Angle between .60 and C++")
     SECTION("Write property")
     {
         REQUIRE(!*instance->get_property("test")->to_bool());
-        bool ok = instance->set_property("angle", 180.);
+        bool ok = instance->set_property("the_angle", 180.);
         REQUIRE(ok);
-        REQUIRE(*instance->get_property("angle")->to_number() == 180);
+        REQUIRE(*instance->get_property("the_angle")->to_number() == 180);
         REQUIRE(*instance->get_property("test")->to_bool());
     }
 }
