@@ -9,7 +9,6 @@
 LICENSE END */
 
 use plotters::prelude::*;
-use rgb::ComponentBytes;
 use sixtyfps::SharedPixelBuffer;
 
 #[cfg(target_arch = "wasm32")]
@@ -29,11 +28,10 @@ fn pdf(x: f64, y: f64) -> f64 {
 }
 
 fn render_plot(pitch: f32) -> sixtyfps::Image {
-    let mut pixel_buffer = SharedPixelBuffer::<rgb::RGB8>::new(640, 480);
+    let mut pixel_buffer = SharedPixelBuffer::new(640, 480);
     let size = (pixel_buffer.width() as u32, pixel_buffer.height() as u32);
 
-    let root = BitMapBackend::with_buffer(pixel_buffer.as_mut_slice().as_bytes_mut(), size)
-        .into_drawing_area();
+    let root = BitMapBackend::with_buffer(pixel_buffer.as_bytes_mut(), size).into_drawing_area();
 
     root.fill(&WHITE).expect("error filling drawing area");
 
