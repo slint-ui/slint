@@ -190,13 +190,13 @@ impl<T: Clone> SharedVector<T> {
     }
 
     /// Return a mutable slice to the array. If the array was shared, this will make a copy of the array.
-    #[deprecated(note = "Use as_mut_slice() instead")]
+    #[deprecated(note = "Use make_mut_slice() instead")]
     pub fn as_slice_mut(&mut self) -> &mut [T] {
-        self.as_mut_slice()
+        self.make_mut_slice()
     }
 
     /// Return a mutable slice to the array. If the array was shared, this will make a copy of the array.
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
+    pub fn make_mut_slice(&mut self) -> &mut [T] {
         self.detach(self.len());
         unsafe { core::slice::from_raw_parts_mut(self.as_ptr() as *mut T, self.len()) }
     }

@@ -63,7 +63,7 @@ impl Model for ValueModel {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         match &mut *self.value.borrow_mut() {
             Value::Array(a) => {
-                a.as_mut_slice()[row] = data;
+                a.make_mut_slice()[row] = data;
                 self.notify.row_changed(row)
             }
             Value::Model(model_ptr) => model_ptr.set_row_data(row, data),

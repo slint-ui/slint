@@ -127,7 +127,7 @@ impl InterpolatedPropertyValue for Brush {
             }
             (Brush::SolidColor(col), Brush::LinearGradient(grad)) => {
                 let mut new_grad = grad.clone();
-                for x in new_grad.0.as_mut_slice().iter_mut().skip(1) {
+                for x in new_grad.0.make_mut_slice().iter_mut().skip(1) {
                     x.color = col.interpolate(&x.color, t);
                 }
                 Brush::LinearGradient(new_grad)
@@ -140,7 +140,7 @@ impl InterpolatedPropertyValue for Brush {
                     Self::interpolate(target_value, self, 1. - t)
                 } else {
                     let mut new_grad = lhs.clone();
-                    let mut iter = new_grad.0.as_mut_slice().iter_mut();
+                    let mut iter = new_grad.0.make_mut_slice().iter_mut();
                     {
                         let angle = &mut iter.next().unwrap().position;
                         *angle = angle.interpolate(&rhs.angle(), t);

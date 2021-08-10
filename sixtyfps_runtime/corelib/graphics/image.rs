@@ -48,8 +48,8 @@ impl<Pixel> SharedPixelBuffer<Pixel> {
 
 impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     /// Return a mutable slice to the pixel data. If the SharedPixelBuffer was shared, this will make a copy of the buffer.
-    pub fn as_mut_slice(&mut self) -> &mut [Pixel] {
-        self.data.as_mut_slice()
+    pub fn make_mut_slice(&mut self) -> &mut [Pixel] {
+        self.data.make_mut_slice()
     }
 }
 
@@ -64,9 +64,9 @@ where
     }
 
     /// Returns the pixels interpreted as raw bytes.
-    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+    pub fn make_mut_bytes(&mut self) -> &mut [u8] {
         use rgb::ComponentBytes;
-        self.data.as_mut_slice().as_bytes_mut()
+        self.data.make_mut_slice().as_bytes_mut()
     }
 }
 
