@@ -12,8 +12,8 @@ import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } fro
 
 
 export CopyPage := Page {
-    callback start_job(string);
-    has_back_button: true;
+    callback start-job(string);
+    has-back-button: true;
     header: "Copy";
 
     GridLayout {
@@ -23,8 +23,8 @@ export CopyPage := Page {
         Row {
             Text {
                 text: "Choose Settings";
-                color: DemoPalette.secondary_foreground_color;
-                font-size: DemoPalette.base_font_size * 1.125;
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }
@@ -101,7 +101,7 @@ export CopyPage := Page {
                     icon: @image-url("images/copy.svg");
                     text: "Start copying";
                     clicked => {
-                        root.start_job("Copy");
+                        root.start-job("Copy");
                     }
                 }
                 Rectangle {

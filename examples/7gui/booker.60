@@ -12,56 +12,56 @@ import { LineEdit, Button, ComboBox, VerticalBox } from "sixtyfps_widgets.60";
 
 Booker := Window {
     // returns true if the string parameter is a valid date
-    callback validate_date(string) -> bool;
-    validate_date(_) => { true }
+    callback validate-date(string) -> bool;
+    validate-date(_) => { true }
     // returns true if the first date is before the second date and they are both valid
-    callback compare_date(string, string) -> bool;
-    compare_date(a, b) => { a <= b }
-    property <bool> message_visible;
+    callback compare-date(string, string) -> bool;
+    compare-date(a, b) => { a <= b }
+    property <bool> message-visible;
     VerticalBox {
         combo := ComboBox {
             model: ["one-way flight", "return flight"];
-            current_value: "one-way flight";
-            current_index: 0;
+            current-value: "one-way flight";
+            current-index: 0;
         }
         t1 := LineEdit {
             text: "27.03.2014";
             Rectangle {
                 width: 100%;
                 height: 100%;
-                background: validate_date(t1.text) ? transparent : #f008;
+                background: validate-date(t1.text) ? transparent : #f008;
             }
         }
         t2 := LineEdit {
             text: "27.03.2014";
-            enabled: combo.current_index == 1;
+            enabled: combo.current-index == 1;
             Rectangle {
                 width: 100%;
                 height: 100%;
-                background: validate_date(t2.text) ? transparent : #f008;
+                background: validate-date(t2.text) ? transparent : #f008;
             }
         }
         Button {
             text: "Book";
-            clicked() => { message_visible = true; }
-            enabled: combo.current_index != 1 ? validate_date(t1.text) : compare_date(t1.text, t2.text);
+            clicked() => { message-visible = true; }
+            enabled: combo.current-index != 1 ? validate-date(t1.text) : compare-date(t1.text, t2.text);
         }
     }
-    if (message_visible) : Rectangle {
+    if (message-visible) : Rectangle {
         width: 100%;
         height: 100%;
         background: #ee8;
         Text {
             width: 100%;
             height: 100%;
-            text: "You have booked a " + combo.current_value + " on " + t1.text;
+            text: "You have booked a " + combo.current-value + " on " + t1.text;
             vertical-alignment: center;
             horizontal-alignment: center;
         }
         TouchArea {
             width: 100%;
             height: 100%;
-            clicked => { message_visible = false; }
+            clicked => { message-visible = false; }
         }
     }
 }

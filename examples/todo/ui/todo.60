@@ -18,10 +18,10 @@ export struct TodoItem := {
 MainWindow := Window {
     preferred-width: 400px;
     preferred-height: 600px;
-    callback todo_added(string);
-    callback remove_done();
+    callback todo-added(string);
+    callback remove-done();
 
-    property <[TodoItem]> todo_model: [
+    property <[TodoItem]> todo-model: [
         { title: "Implement the .60 file", checked: true },
         { title: "Do the Rust part", checked: false },
         { title: "Make the C++ code", checked: false },
@@ -34,23 +34,23 @@ MainWindow := Window {
 
     VerticalBox {
         HorizontalBox {
-            text_edit := LineEdit {
+            text-edit := LineEdit {
                 placeholder-text: "What needs to be done?";
                 accepted(text) => {
-                    todo_added(text);
+                    todo-added(text);
                 }
             }
             btn := Button {
                 text: "Add New Entry";
-                enabled: text_edit.text != "";
+                enabled: text-edit.text != "";
                 clicked => {
-                    todo_added(text_edit.text);
+                    todo-added(text-edit.text);
                 }
             }
         }
 
-        list_view := ListView {
-            for todo in todo_model:  HorizontalLayout {
+        list-view := ListView {
+            for todo in todo-model:  HorizontalLayout {
                 CheckBox {
                     text: todo.title;
                     checked: todo.checked;
@@ -64,7 +64,7 @@ MainWindow := Window {
             alignment: end;
             Button {
                 text: "Remove Done Items";
-                clicked => { root.remove_done(); }
+                clicked => { root.remove-done(); }
             }
         }
     }

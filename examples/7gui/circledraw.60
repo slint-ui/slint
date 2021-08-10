@@ -13,8 +13,8 @@ import { LineEdit, Button, Slider, StandardListView, VerticalBox } from "sixtyfp
 struct Circle := { x: float, y: float, r: float }
 
 CircleDraw := Window {
-    preferred_width: 500px;
-    preferred_height: 400px;
+    preferred-width: 500px;
+    preferred-height: 400px;
 
     property <[Circle]> model: [
         { x: 0.1, y:0.1, r: 5  },
@@ -23,8 +23,8 @@ CircleDraw := Window {
         { x: 0.5, y:0.31, r:2  },
     ];
 
-    property<int> clicked_idx: -1;
-    property<Circle> selected_circle;
+    property<int> clicked-idx: -1;
+    property<Circle> selected-circle;
 
     VerticalBox {
         HorizontalLayout {
@@ -39,7 +39,7 @@ CircleDraw := Window {
             border-width: 2px;
 
             for circle[idx] in model : Rectangle {
-                background: clicked_idx == idx ? gray : white;
+                background: clicked-idx == idx ? gray : white;
                 border-color: black;
                 border-width: 2px;
                 border-radius: width / 2;
@@ -51,8 +51,8 @@ CircleDraw := Window {
                     height: 100%;
                     width: 100%;
                     clicked => {
-                        selected_circle = circle;
-                        clicked_idx = idx;
+                        selected-circle = circle;
+                        clicked-idx = idx;
                     }
                 }
             }
@@ -60,12 +60,12 @@ CircleDraw := Window {
         }
     }
 
-    if (clicked_idx != -1) : TouchArea {
+    if (clicked-idx != -1) : TouchArea {
         height: 100%;
         width: 100%;
-        clicked => { clicked_idx = -1; }
+        clicked => { clicked-idx = -1; }
     }
-    if (clicked_idx != -1) : Rectangle {
+    if (clicked-idx != -1) : Rectangle {
         background: lightgray;
         height: 30%;
         width: 70%;
@@ -78,12 +78,12 @@ CircleDraw := Window {
 
         VerticalBox {
             Text {
-                text: "Adjust diameter of cercle at (" + selected_circle.x + ", " +  selected_circle.y + ").";
+                text: "Adjust diameter of cercle at (" + selected-circle.x + ", " +  selected-circle.y + ").";
                 wrap: word-wrap;
             }
             Slider {
                 maximum: 100;
-                value: selected_circle.r;
+                value: selected-circle.r;
             }
         }
     }

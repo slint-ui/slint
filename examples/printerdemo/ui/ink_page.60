@@ -18,8 +18,8 @@ export struct InkLevel := {
 export InkPage := Page {
     header: "Ink Level";
 
-    property <[InkLevel]> ink_levels;
-    property <bool> page_visible;
+    property <[InkLevel]> ink-levels;
+    property <bool> page-visible;
 
 
     Rectangle {
@@ -30,30 +30,30 @@ export InkPage := Page {
 
         HorizontalLayout {
             spacing: root.width * 5%;
-            for color_info in ink_levels : Rectangle {
+            for color-info in ink-levels : Rectangle {
                 ink := Rectangle {
                     width: parent.width;
-                    height: parent.height * color_info.level;
+                    height: parent.height * color-info.level;
                     y: parent.height - self.height;
                     clip: true;
                     Rectangle {
-                        background: color_info.color;
+                        background: color-info.color;
                         border-radius: width / 2;
                         border-width: 2px;
                         height: parent.height + parent.y;
                         y: -parent.y;
                     }
                     states [
-                        innactive when !root.page_visible : {
+                        innactive when !root.page-visible : {
                             height: 0;
                         }
                     ]
                     transitions [
                         out innactive : {
-                            animate height { duration: 750ms; easing: ease_in_out; }
+                            animate height { duration: 750ms; easing: ease-in-out; }
                         }
                         in innactive : {
-                            animate height { duration: 200ms; easing: ease_in; }
+                            animate height { duration: 200ms; easing: ease-in; }
                         }
                     ]
                 }
@@ -66,12 +66,12 @@ export InkPage := Page {
                     property <length> y2: max(0phx, max(r - y, y - parent.height + r));
                     width: 2*sqrt((r*r - y2*y2)/(1phx * 1phx))*1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
                     x: (parent.width - width) / 2;
-                    background: DemoPalette.neutral_box;
+                    background: DemoPalette.neutral-box;
                 }
 
                 Rectangle {
                     border-radius: width / 2;
-                    border-color: DemoPalette.neutral_box;
+                    border-color: DemoPalette.neutral-box;
                     border-width: 2px;
                 }
             }

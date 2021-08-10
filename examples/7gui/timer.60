@@ -11,9 +11,9 @@ LICENSE END */
 import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "sixtyfps_widgets.60";
 
 Timer := Window {
-    property <duration> total_time: slider.value * 1s;
+    property <duration> total-time: slider.value * 1s;
     property <float> progress: 0.5;
-    animate progress { duration: total_time; }
+    animate progress { duration: total-time; }
     VerticalBox {
         HorizontalBox {
             Text { text: "Elapsed Time:"; }
@@ -28,7 +28,7 @@ Timer := Window {
             }
         }
         Text{
-            text: (total_time / 1s) + "s";
+            text: (total-time / 1s) + "s";
         }
         HorizontalBox {
             Text { text: "Duration:"; }
