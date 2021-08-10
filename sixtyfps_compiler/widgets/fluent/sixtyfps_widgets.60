@@ -176,7 +176,7 @@ export CheckBox := Rectangle {
 
 SpinBoxButton := Rectangle {
     callback clicked <=> touch.clicked;
-    property<string> text;
+    property<string> text; // text and font-size are not used, but present in the other styles
     property <length> font-size;
     property<bool> enabled <=> touch.enabled;
     background: !enabled ? transparent
@@ -197,6 +197,7 @@ export SpinBox := FocusScope {
     property <int> maximum: 100;
     property <bool> enabled: true;
     property <image> icon;
+    property <length> font-size <=> button.font-size;
 
     min-height: 32px;
     horizontal-stretch: 1;
@@ -216,7 +217,7 @@ export SpinBox := FocusScope {
             vertical_alignment: center;
         }
         Rectangle { width: 8px; }
-        SpinBoxButton {
+        button := SpinBoxButton {
             width: 25px;
             enabled: root.enabled;
             Path {
