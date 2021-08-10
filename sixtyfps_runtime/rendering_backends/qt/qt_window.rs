@@ -799,7 +799,7 @@ pub(crate) fn load_image_from_resource(
         ImageInner::EmbeddedData { data, format: _ } => {
             (false, qttypes::QByteArray::from(data.as_slice()))
         }
-        ImageInner::EmbeddedImage { buffer } => {
+        ImageInner::EmbeddedImage(buffer) => {
             use imgref::ImgExt;
             use rgb::ComponentBytes;
             let (format, bytes_per_line, buffer_ptr) = match buffer {

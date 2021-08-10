@@ -170,7 +170,7 @@ impl CachedImage {
             ImageInner::None => None,
             ImageInner::AbsoluteFilePath(path) => Self::new_from_path(path),
             ImageInner::EmbeddedData { data, format } => Self::new_from_data(data, format),
-            ImageInner::EmbeddedImage { buffer } => {
+            ImageInner::EmbeddedImage(buffer) => {
                 Some(Self(RefCell::new(ImageData::EmbeddedImage(buffer.clone()))))
             }
         }
