@@ -56,7 +56,7 @@ pub fn main() {
     let source_image = image::open(&cat_path).expect("Error loading cat image").into_rgba8();
 
     main_window.set_original_image(
-        sixtyfps::SharedImageBuffer::RGBA8(sixtyfps::SharedPixelBuffer::clone_from_slice(
+        sixtyfps::Image::new_rgba8(sixtyfps::SharedPixelBuffer::clone_from_slice(
             source_image.as_raw(),
             source_image.width() as _,
             source_image.height() as _,
@@ -109,14 +109,13 @@ pub fn main() {
         let filter_index = main_window.get_selected_filter() as usize;
         let filter_fn = filters.0[filter_index].apply_function;
         let filtered_image = filter_fn(&source_image);
-        main_window.set_filtered_image(
-            sixtyfps::SharedImageBuffer::RGBA8(sixtyfps::SharedPixelBuffer::clone_from_slice(
+        main_window.set_filtered_image(sixtyfps::Image::new_rgba8(
+            sixtyfps::SharedPixelBuffer::clone_from_slice(
                 filtered_image.as_raw(),
                 filtered_image.width() as _,
                 filtered_image.height() as _,
-            ))
-            .into(),
-        );
+            ),
+        ));
     };
 
     filter_callback();
