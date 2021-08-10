@@ -12,9 +12,9 @@ import { DemoPalette, PrinterQueueItem, PushButton } from "./common.60";
 
 PrintQueueDetailsLabel := Text {
     font-weight: 500;
-    color: DemoPalette.control_foreground;
+    color: DemoPalette.control-foreground;
     horizontal-stretch: 0;
-    font-size: DemoPalette.base_font_size * 0.9375;
+    font-size: DemoPalette.base-font-size * 0.9375;
 }
 
 PrintQueueSeparator := Rectangle {
@@ -25,7 +25,7 @@ PrintQueueSeparator := Rectangle {
 }
 
 PrintDetails := GridLayout {
-    property <PrinterQueueItem> queue_item;
+    property <PrinterQueueItem> queue-item;
     spacing: 3px;
 
     Row {
@@ -33,11 +33,11 @@ PrintDetails := GridLayout {
             text: "Owner";
         }
         Text {
-            text: queue_item.owner;
-            color: DemoPalette.secondary_foreground_color;
+            text: queue-item.owner;
+            color: DemoPalette.secondary-foreground-color;
             overflow: elide;
             horizontal-stretch: 1;
-            font-size: DemoPalette.base_font_size * 0.9375;
+            font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
     Row {
@@ -50,11 +50,11 @@ PrintDetails := GridLayout {
             text: "Pages";
         }
         Text {
-            text: queue_item.pages;
-            color: DemoPalette.secondary_foreground_color;
+            text: queue-item.pages;
+            color: DemoPalette.secondary-foreground-color;
             overflow: elide;
             horizontal-stretch: 1;
-            font-size: DemoPalette.base_font_size * 0.9375;
+            font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
     Row {
@@ -67,11 +67,11 @@ PrintDetails := GridLayout {
             text: "Size";
         }
         Text {
-            text: queue_item.pages;
-            color: DemoPalette.secondary_foreground_color;
+            text: queue-item.pages;
+            color: DemoPalette.secondary-foreground-color;
             overflow: elide;
             horizontal-stretch: 1;
-            font-size: DemoPalette.base_font_size * 0.9375;
+            font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
     Row {
@@ -84,43 +84,43 @@ PrintDetails := GridLayout {
             text: "Submitted";
         }
         Text {
-            text: queue_item.submission_date;
-            color: DemoPalette.secondary_foreground_color;
+            text: queue-item.submission-date;
+            color: DemoPalette.secondary-foreground-color;
             overflow: elide;
             horizontal-stretch: 1;
-            font-size: DemoPalette.base_font_size * 0.9375;
+            font-size: DemoPalette.base-font-size * 0.9375;
         }
     }
 }
 
 NarrowPrintQueueElement := Rectangle {
-    property <PrinterQueueItem> queue_item;
-    callback show_job_details();
+    property <PrinterQueueItem> queue-item;
+    callback show-job-details();
 
-    border-color: DemoPalette.control_outline_color;
+    border-color: DemoPalette.control-outline-color;
     border-radius: 14px;
     border-width: 2px;
-    background: DemoPalette.printer_queue_item_background_color;
+    background: DemoPalette.printer-queue-item-background-color;
     clip: true;
 
     property <bool> expanded;
-    property <float> expanded_opacity: 0;
+    property <float> expanded-opacity: 0;
 
-    height: always_visible.min-height + layout.padding * 2;
+    height: always-visible.min-height + layout.padding * 2;
     states [
         expanded when expanded : {
             height: layout.min-height;
-            expanded_opacity: 1;
+            expanded-opacity: 1;
         }
     ]
     transitions [
         in expanded : {
             animate height { duration: 200ms; easing: ease; }
-            animate expanded_opacity { duration: 200ms; }
+            animate expanded-opacity { duration: 200ms; }
         }
         out expanded : {
             animate height { duration: 200ms; easing: ease; }
-            animate expanded_opacity { duration: 200ms; }
+            animate expanded-opacity { duration: 200ms; }
         }
     ]
 
@@ -133,55 +133,55 @@ NarrowPrintQueueElement := Rectangle {
     Rectangle {
         height: 100%;
         layout := VerticalLayout {
-            padding: root.border_radius;
+            padding: root.border-radius;
             spacing: 4px;
             alignment: start;
 
-            always_visible := VerticalLayout {
+            always-visible := VerticalLayout {
                 padding: 0;
                 spacing: parent.spacing;
 
                 Text {
                     // TODO: text-transform: uppercase
                     text: {
-                        if (queue_item.status == "PRINTING") {
-                        "\{queue_item.progress}% - \{queue_item.status}"
+                        if (queue-item.status == "PRINTING") {
+                        "\{queue-item.progress}% - \{queue-item.status}"
                         } else {
-                            queue_item.status
+                            queue-item.status
                         }
                     }
-                    color: DemoPalette.status_label_text_color;
-                    font-size: DemoPalette.base_font_size * 0.75;
+                    color: DemoPalette.status-label-text-color;
+                    font-size: DemoPalette.base-font-size * 0.75;
                     font-weight: 800;
                     letter-spacing: 1.56px;
                 }
 
                 Text {
-                    text: queue_item.title;
+                    text: queue-item.title;
                     overflow: elide;
-                    color: DemoPalette.text_foreground_color;
+                    color: DemoPalette.text-foreground-color;
                     font-weight: 800;
-                    font-size: DemoPalette.base_font_size * 1.125;
+                    font-size: DemoPalette.base-font-size * 1.125;
                 }
             }
 
-            if (expanded || expanded_opacity > 0) : PrintDetails {
+            if (expanded || expanded-opacity > 0) : PrintDetails {
                 padding: 0px;
                 padding-bottom: root.border-radius / 2;
-                queue_item: root.queue_item;
-                opacity: expanded_opacity;
+                queue-item: root.queue-item;
+                opacity: expanded-opacity;
             }
 
-            if (expanded || expanded_opacity > 0) : HorizontalLayout {
+            if (expanded || expanded-opacity > 0) : HorizontalLayout {
                 Rectangle {
                     horizontal-stretch: 0;
                     width: 10%;
                 }
                 PushButton {
-                    opacity: expanded_opacity;
+                    opacity: expanded-opacity;
                     text: "More   ";
                     clicked => {
-                        root.show_job_details();
+                        root.show-job-details();
                     }
                 }
                 Rectangle {
@@ -194,18 +194,18 @@ NarrowPrintQueueElement := Rectangle {
 }
 
 NarrowPrinterQueueList := Flickable {
-    callback show_job_details(int);
-    property <[PrinterQueueItem]> printer_queue;
+    callback show-job-details(int);
+    property <[PrinterQueueItem]> printer-queue;
     VerticalLayout {
         alignment: start;
         padding: 0px;
         spacing: 13.5px;
 
-        for queue_item[idx] in root.printer_queue: NarrowPrintQueueElement {
+        for queue-item[idx] in root.printer-queue: NarrowPrintQueueElement {
             width: root.width;
-            queue_item: queue_item;
-            show_job_details => {
-                root.show_job_details(idx)
+            queue-item: queue-item;
+            show-job-details => {
+                root.show-job-details(idx)
             }
         }
     }
@@ -223,29 +223,29 @@ ProgressBar := Rectangle {
         height: 6px;
 
         border-radius: 3px;
-        background: DemoPalette.neutral_box;
+        background: DemoPalette.neutral-box;
 
         Rectangle {
             width: max(6px, progress * parent.width / 100);
             border-radius: parent.border-radius;
-            background: DemoPalette.control_foreground;
+            background: DemoPalette.control-foreground;
         }
     }
 }
 
 WidePrintQueueElement := Rectangle {
-    callback cancel_job();
-    callback pause_job();
+    callback cancel-job();
+    callback pause-job();
 
-    property <PrinterQueueItem> queue_item;
+    property <PrinterQueueItem> queue-item;
 
-    border-color: DemoPalette.neutral_box;
+    border-color: DemoPalette.neutral-box;
     border-radius: 14px;
     border-width: 2px;
-    background: DemoPalette.printer_queue_item_background_color;
+    background: DemoPalette.printer-queue-item-background-color;
 
     GridLayout {
-        padding: parent.border_radius;
+        padding: parent.border-radius;
         spacing: 3px;
 
         HorizontalLayout {
@@ -253,14 +253,14 @@ WidePrintQueueElement := Rectangle {
             Text {
                 // TODO: text-transform: uppercase
                 text: {
-                    if (queue_item.status == "PRINTING") {
-                    "\{queue_item.progress}% - \{queue_item.status}"
+                    if (queue-item.status == "PRINTING") {
+                    "\{queue-item.progress}% - \{queue-item.status}"
                     } else {
-                        queue_item.status
+                        queue-item.status
                     }
                 }
-                color: DemoPalette.status_label_text_color;
-                font-size: DemoPalette.base_font_size * 0.75;
+                color: DemoPalette.status-label-text-color;
+                font-size: DemoPalette.base-font-size * 0.75;
                 font-weight: 700;
                 letter-spacing: 1.56px;
                 horizontal-stretch: 1;
@@ -270,18 +270,18 @@ WidePrintQueueElement := Rectangle {
                 // In principle it should be the smaller size which would fit next to the text foe each entry
                 // But since it is too hard to compute, just hardcode that for now
                 width: 50%; // 164px;
-                progress: queue_item.progress;
+                progress: queue-item.progress;
             }
         }
 
         Text {
             col: 0;
             row: 1;
-            text: queue_item.title;
-            color: DemoPalette.text_foreground_color;
+            text: queue-item.title;
+            color: DemoPalette.text-foreground-color;
             overflow: elide;
             font-weight: 700;
-            font-size: DemoPalette.base_font_size * 1.125;
+            font-size: DemoPalette.base-font-size * 1.125;
             horizontal-stretch: 1;
         }
 
@@ -295,13 +295,13 @@ WidePrintQueueElement := Rectangle {
             PushButton {
                 text: "Pause";
                 icon: @image-url("images/pause.svg");
-                clicked => { pause_job(); }
+                clicked => { pause-job(); }
             }
             PushButton {
                 primary: false;
                 text: "Delete";
                 icon: @image-url("images/delete.svg");
-                clicked => { cancel_job(); }
+                clicked => { cancel-job(); }
             }
         }
 
@@ -312,37 +312,37 @@ WidePrintQueueElement := Rectangle {
             width: 40%;
             padding: 0px;
             padding-bottom: root.border-radius / 2;
-            queue_item: root.queue_item;
-            horizontal_stretch: 1;
+            queue-item: root.queue-item;
+            horizontal-stretch: 1;
         }
     }
 }
 
 
 export WidePrinterQueueList := Flickable {
-    callback cancel_job(int);
-    callback pause_job(int);
-    property <[PrinterQueueItem]> printer_queue;
+    callback cancel-job(int);
+    callback pause-job(int);
+    property <[PrinterQueueItem]> printer-queue;
 
     VerticalLayout {
         alignment: start;
         padding: 0px;
         spacing: 13.5px;
 
-        for queue_item[idx] in root.printer_queue: WidePrintQueueElement {
-            queue_item: queue_item;
-            cancel_job => { root.cancel_job(idx) }
-            pause_job => { root.pause_job(idx) }
+        for queue-item[idx] in root.printer-queue: WidePrintQueueElement {
+            queue-item: queue-item;
+            cancel-job => { root.cancel-job(idx) }
+            pause-job => { root.pause-job(idx) }
         }
     }
 }
 
 export PrinterQueue := Rectangle {
-    property <[PrinterQueueItem]> printer_queue <=> queue_list.printer_queue;
-    callback show_job_details(int);
+    property <[PrinterQueueItem]> printer-queue <=> queue-list.printer-queue;
+    callback show-job-details(int);
 
     border-radius: 27px;
-    background: DemoPalette.night_mode ? DemoPalette.printer_action_background_color : #F4F6FF;
+    background: DemoPalette.night-mode ? DemoPalette.printer-action-background-color : #F4F6FF;
 
     VerticalLayout {
         padding: 16px;
@@ -350,15 +350,15 @@ export PrinterQueue := Rectangle {
 
         Text {
             text: "Printing-Queue";
-            color: DemoPalette.text_foreground_color;
-            font-size: DemoPalette.base_font_size * 1.5;
+            color: DemoPalette.text-foreground-color;
+            font-size: DemoPalette.base-font-size * 1.5;
             font-weight: 700;
         }
 
-        queue_list := NarrowPrinterQueueList {
+        queue-list := NarrowPrinterQueueList {
             width: root.width - 2*parent.padding; // FIXME why do we need this? bug in layout?
-            show_job_details(idx) => {
-                root.show_job_details(idx)
+            show-job-details(idx) => {
+                root.show-job-details(idx)
             }
         }
     }

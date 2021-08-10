@@ -92,24 +92,24 @@ global Skin := {
 }
 
 export Clock :=  VerticalLayout {
-    property <string> time <=> time_label.text;
+    property <string> time <=> time-label.text;
     Text {
         text: "Current time";
-        font_size: Skin.TitleFont;
-        font_weight: 700;
+        font-size: Skin.TitleFont;
+        font-weight: 700;
     }
-    time_label := Text {
+    time-label := Text {
         // FIXME: actual time
         text: "10:02:45";
-        font_size: Skin.HugeFont;
-        font_weight: 700;
+        font-size: Skin.HugeFont;
+        font-weight: 700;
         color: #6776FF;
     }
 }
 
 PieChartBackground := Path {
     property <float> thickness;
-    property <float> inner_radius;
+    property <float> inner-radius;
 
     fill: #aaaaaa40;
 
@@ -139,14 +139,14 @@ PieChartBackground := Path {
         y: thickness;
     }
     ArcTo {
-        radius-x: inner_radius;
-        radius-y: inner_radius;
+        radius-x: inner-radius;
+        radius-y: inner-radius;
         x: 50;
         y: 100 - thickness;
     }
     ArcTo {
-        radius-x: inner_radius;
-        radius-y: inner_radius;
+        radius-x: inner-radius;
+        radius-y: inner-radius;
         x: 50;
         y: thickness;
     }
@@ -154,7 +154,7 @@ PieChartBackground := Path {
 
 PieChartFill := Path {
     property <float> thickness;
-    property <float> inner_radius;
+    property <float> inner-radius;
     property <float> progress;
     property <float> start : 0;
 
@@ -166,14 +166,14 @@ PieChartFill := Path {
         x: 50 - 50 * sin(-start * 360deg);
     }
     LineTo {
-        y: 50 - inner_radius * cos(-start * 360deg);
-        x: 50 - inner_radius * sin(-start * 360deg);
+        y: 50 - inner-radius * cos(-start * 360deg);
+        x: 50 - inner-radius * sin(-start * 360deg);
     }
     ArcTo {
-        radius-x: inner_radius;
-        radius-y: inner_radius;
-        y: 50 - inner_radius*cos(-(start + progress) * 360deg);
-        x: 50 - inner_radius*sin(-(start + progress) * 360deg);
+        radius-x: inner-radius;
+        radius-y: inner-radius;
+        y: 50 - inner-radius*cos(-(start + progress) * 360deg);
+        x: 50 - inner-radius*sin(-(start + progress) * 360deg);
         sweep: progress > 0;
         large-arc: progress > 0.5;
     }
@@ -200,20 +200,20 @@ PieChartPainted := Rectangle {
     property <float> progress;
 
     property <float> thickness: 15;
-    property <float> inner_radius: 50 - thickness;
+    property <float> inner-radius: 50 - thickness;
 
     back := PieChartBackground {
         width: 100%;
         height: 100%;
         thickness: root.thickness;
-        inner_radius: root.inner_radius;
+        inner-radius: root.inner-radius;
     }
 
     p := PieChartFill {
         width: 100%;
         height: 100%;
         thickness: root.thickness;
-        inner_radius: root.inner_radius;
+        inner-radius: root.inner-radius;
         progress: root.progress;
     }
 }
@@ -236,7 +236,7 @@ export TopBar := HorizontalLayout {
         padding: 0px;
         spacing: 0px;
         Text {
-            font_size: Skin.SmallFont;
+            font-size: Skin.SmallFont;
             text: item.string;
         }
         HorizontalLayout {
@@ -246,11 +246,11 @@ export TopBar := HorizontalLayout {
                 Text {
                     width: 100%;
                     height: 100%;
-                    vertical_alignment: center;
-                    horizontal_alignment: center;
+                    vertical-alignment: center;
+                    horizontal-alignment: center;
                     text: item.progress + "%";
                     color: item.color;
-                    font_size: Skin.TinyFont;
+                    font-size: Skin.TinyFont;
                 }
             }
             VerticalLayout {
@@ -285,8 +285,8 @@ Box := BoxBase {
     VerticalLayout {
         if (root.title != "") : Text {
             text <=> root.title;
-            font_size: Skin.TitleFont;
-            font_weight: 700;
+            font-size: Skin.TitleFont;
+            font-weight: 700;
         }
         spacing: 10px;
         padding: 15px;
@@ -298,7 +298,7 @@ Box := BoxBase {
 RoundedIcon := Rectangle {
     property <bool> isBright;
     property <bool> isSmall;
-    property <image> iconName <=> m_graphicLabel.source;
+    property <image> iconName <=> m-graphicLabel.source;
     property <float> background-opacity <=> background-fill.opacity;
     height: isSmall ? 60px : 68px;
     width: isSmall ? 60px : 68px;
@@ -307,7 +307,7 @@ RoundedIcon := Rectangle {
         border-radius: 6px;
         opacity: 1.0;
     }
-    m_graphicLabel := Image {
+    m-graphicLabel := Image {
         x: (parent.width - width) / 2;
         y: (parent.height - height) / 2;
     }
@@ -316,45 +316,45 @@ RoundedIcon := Rectangle {
 //from Usage.cpp
 UsageSpacer := Text {
     text: "_____";
-    font_size: Skin.SmallFont;
+    font-size: Skin.SmallFont;
     color: #dddddd;
-    horizontal_stretch: 2;
+    horizontal-stretch: 2;
 }
 
 // Deviation: To align the items visually better, this is using a grid layout
 export Usage := Box {
     title: "Usage";
-    horizontal_stretch: 1;
+    horizontal-stretch: 1;
     GridLayout {
         spacing: 0px;
-        vertical_stretch: 1;
-        Row { Rectangle { vertical_stretch: 0; } }
+        vertical-stretch: 1;
+        Row { Rectangle { vertical-stretch: 0; } }
         Row {
-            Text { text: "Usage Today"; font_size: Skin.SmallFont; }
+            Text { text: "Usage Today"; font-size: Skin.SmallFont; }
             UsageSpacer { }
-            Text { text: "0,5 kwH"; font_size: Skin.SmallFont; }
+            Text { text: "0,5 kwH"; font-size: Skin.SmallFont; }
         }
         Row {
-            Text { text: "Usage this month"; font_size: Skin.SmallFont; }
+            Text { text: "Usage this month"; font-size: Skin.SmallFont; }
             UsageSpacer { }
-            Text { text: "60 kwH"; font_size: Skin.SmallFont; }
+            Text { text: "60 kwH"; font-size: Skin.SmallFont; }
         }
         Row {
-            Text { text: "Total working hours"; font_size: Skin.SmallFont; }
+            Text { text: "Total working hours"; font-size: Skin.SmallFont; }
             UsageSpacer { }
-            Text { text: "125 hrs"; font_size: Skin.SmallFont; }
+            Text { text: "125 hrs"; font-size: Skin.SmallFont; }
         }
     }
 }
 
 // From UpAndDownButton.cpp
 RoundButton := Image { //### QskPushButton
-    property <bool> is_up; // ### QskAspect
+    property <bool> is-up; // ### QskAspect
     callback clicked <=> ta.clicked;
     property <color> color: #929CB2; // Taken from the fill in the svg itself.
     width: 30px;
     Image {
-        source: is_up ? @image-url("images/up.svg") : @image-url("images/down.svg");
+        source: is-up ? @image-url("images/up.svg") : @image-url("images/down.svg");
         x: (parent.width - width) / 2;
         y: (parent.height - height) / 2;
         // Deviation from qskinny: Show a darker color when pressing the button to provide feedback.
@@ -368,16 +368,16 @@ UpAndDownButton := Rectangle {
     border-radius: width/2;
     background: Skin.palette.roundButton;
     VerticalLayout {
-        u := RoundButton { is_up: true;  clicked => { changed(+1) }}
-        d := RoundButton { is_up: false; clicked => { changed(-1) }}
+        u := RoundButton { is-up: true;  clicked => { changed(+1) }}
+        d := RoundButton { is-up: false; clicked => { changed(-1) }}
     }
 }
 
 // From BoxWithButtons.cpp
 ButtonValueLabel := Text {
     property <string> value <=> text;
-    font_size: Skin.HugeFont;
-    font_weight: 700;
+    font-size: Skin.HugeFont;
+    font-weight: 700;
     color: #929cb2;
 }
 
@@ -392,14 +392,14 @@ BoxWithButtons := Box {
     property <image> iconFile <=> ri.iconName; //### in original, this is derived from title
     property <string> value <=> val.value;
     property <bool> isBright <=> ri.isBright;
-    property <string> title_ <=> titleLabel.text;
+    property <string> title- <=> titleLabel.text;
     HorizontalLayout {
         spacing: 20px;
         ri := RoundedIcon { }
         TitleAndValueBox {
             titleLabel := Text {
-                font_size: Skin.TitleFont;
-                font_weight: 700;
+                font-size: Skin.TitleFont;
+                font-weight: 700;
             }
             val := ButtonValueLabel { }
         }
@@ -409,19 +409,19 @@ BoxWithButtons := Box {
 
 export IndoorTemperature := BoxWithButtons {
     property <int> temperature: 24;
-    title_: "Indoor Temperature";
+    title-: "Indoor Temperature";
     iconFile: @image-url("images/indoor-temperature.png");
     value: (temperature < 0 ? "" : "+") + temperature;
     isBright: true;
     changed(delta) => { temperature += delta; }
 }
 export Humidity := BoxWithButtons {
-    property <int> humidity_percent : 30;
-    title_: "Humidity";
+    property <int> humidity-percent : 30;
+    title-: "Humidity";
     iconFile: @image-url("images/humidity.png");
-    value: humidity_percent + "%";
+    value: humidity-percent + "%";
     isBright: false;
-    changed(delta) => { humidity_percent += delta; }
+    changed(delta) => { humidity-percent += delta; }
 }
 
 // from MyDevices.cpp
@@ -435,8 +435,8 @@ Device := VerticalLayout {
         isSmall: true;
     }
     t := Text {
-        font_size: Skin.TinyFont;
-        horizontal_alignment: center;
+        font-size: Skin.TinyFont;
+        horizontal-alignment: center;
     }
 }
 
@@ -476,7 +476,7 @@ export UsageDiagram := Box {
     // WeekDayBox
     boxes := HorizontalLayout {
         padding: 0px;
-        padding_bottom: 6px;
+        padding-bottom: 6px;
         spacing: 6px;
         for _ in 7 : Rectangle {
             background: Skin.palette.box;
@@ -516,13 +516,13 @@ export UsageDiagram := Box {
                         Rectangle {
                             height: 8px;
                             width: 9px;
-                            border_radius: 4px;
+                            border-radius: 4px;
                             background: caption.color;
                         }
                     }
                     Text {
                         text: caption.text;
-                        horizontal_alignment: center;
+                        horizontal-alignment: center;
                         font-size: Skin.TinyFont;
                     }
                 }
@@ -545,75 +545,75 @@ export UsageDiagram := Box {
                 ] : Path {
                     opacity: 0.7;
                     fill: @linear-gradient(180deg, datapoints.color, transparent 100%);
-                    viewbox_width: width/1px;
-                    viewbox_height: height/1px;
+                    viewbox-width: width/1px;
+                    viewbox-height: height/1px;
                     MoveTo {
                         x: 0;
-                        y: viewbox_height;
+                        y: viewbox-height;
                     }
                     LineTo {
                         x: 0;
-                        y: viewbox_height - datapoints.values.a / 100 * viewbox_height;
+                        y: viewbox-height - datapoints.values.a / 100 * viewbox-height;
                     }
                     QuadraticTo {
-                        x: 0.5/7 * viewbox_width;
-                        y: viewbox_height - datapoints.values.b / 100 * viewbox_height;
-                        control_x: 0/7 * viewbox_width;
-                        control_y: viewbox_height - datapoints.values.b / 100 * viewbox_height;
+                        x: 0.5/7 * viewbox-width;
+                        y: viewbox-height - datapoints.values.b / 100 * viewbox-height;
+                        control-x: 0/7 * viewbox-width;
+                        control-y: viewbox-height - datapoints.values.b / 100 * viewbox-height;
                     }
                     CubicTo {
-                        x: 1.5/7 * viewbox_width;
-                        control_1_x: 1/7 * viewbox_width;
-                        control_2_x: 1/7 * viewbox_width;
-                        y: viewbox_height - datapoints.values.c / 100 * viewbox_height;
-                        control_1_y: viewbox_height - datapoints.values.b / 100 * viewbox_height;
-                        control_2_y: viewbox_height - datapoints.values.c / 100 * viewbox_height;
+                        x: 1.5/7 * viewbox-width;
+                        control-1-x: 1/7 * viewbox-width;
+                        control-2-x: 1/7 * viewbox-width;
+                        y: viewbox-height - datapoints.values.c / 100 * viewbox-height;
+                        control-1-y: viewbox-height - datapoints.values.b / 100 * viewbox-height;
+                        control-2-y: viewbox-height - datapoints.values.c / 100 * viewbox-height;
                     }
                     CubicTo {
-                        x: 3.5/7 * viewbox_width;
-                        control_1_x: 3/7 * viewbox_width;
-                        control_2_x: 3/7 * viewbox_width;
-                        y: viewbox_height - datapoints.values.e / 100 * viewbox_height;
-                        control_1_y: viewbox_height - datapoints.values.d / 100 * viewbox_height;
-                        control_2_y: viewbox_height - datapoints.values.e / 100 * viewbox_height;
+                        x: 3.5/7 * viewbox-width;
+                        control-1-x: 3/7 * viewbox-width;
+                        control-2-x: 3/7 * viewbox-width;
+                        y: viewbox-height - datapoints.values.e / 100 * viewbox-height;
+                        control-1-y: viewbox-height - datapoints.values.d / 100 * viewbox-height;
+                        control-2-y: viewbox-height - datapoints.values.e / 100 * viewbox-height;
                     }
                     CubicTo {
-                        x: 4.5/7 * viewbox_width;
-                        control_1_x: 4/7 * viewbox_width;
-                        control_2_x: 4/7 * viewbox_width;
-                        y: viewbox_height - datapoints.values.f / 100 * viewbox_height;
-                        control_1_y: viewbox_height - datapoints.values.e / 100 * viewbox_height;
-                        control_2_y: viewbox_height - datapoints.values.f / 100 * viewbox_height;
+                        x: 4.5/7 * viewbox-width;
+                        control-1-x: 4/7 * viewbox-width;
+                        control-2-x: 4/7 * viewbox-width;
+                        y: viewbox-height - datapoints.values.f / 100 * viewbox-height;
+                        control-1-y: viewbox-height - datapoints.values.e / 100 * viewbox-height;
+                        control-2-y: viewbox-height - datapoints.values.f / 100 * viewbox-height;
                     }
                     CubicTo {
-                        x: 5.5/7 * viewbox_width;
-                        control_1_x: 5/7 * viewbox_width;
-                        control_2_x: 5/7 * viewbox_width;
-                        y: viewbox_height - datapoints.values.g / 100 * viewbox_height;
-                        control_1_y: viewbox_height - datapoints.values.f / 100 * viewbox_height;
-                        control_2_y: viewbox_height - datapoints.values.g / 100 * viewbox_height;
+                        x: 5.5/7 * viewbox-width;
+                        control-1-x: 5/7 * viewbox-width;
+                        control-2-x: 5/7 * viewbox-width;
+                        y: viewbox-height - datapoints.values.g / 100 * viewbox-height;
+                        control-1-y: viewbox-height - datapoints.values.f / 100 * viewbox-height;
+                        control-2-y: viewbox-height - datapoints.values.g / 100 * viewbox-height;
                     }
                     CubicTo {
-                        x: 6.5/7 * viewbox_width;
-                        y: viewbox_height - datapoints.values.h / 100 * viewbox_height;
-                        control_1_x: 6/7 * viewbox_width;
-                        control_1_y: viewbox_height - datapoints.values.g / 100 * viewbox_height;
-                        control_2_x: 6/7 * viewbox_width;
-                        control_2_y: viewbox_height - datapoints.values.h / 100 * viewbox_height;
+                        x: 6.5/7 * viewbox-width;
+                        y: viewbox-height - datapoints.values.h / 100 * viewbox-height;
+                        control-1-x: 6/7 * viewbox-width;
+                        control-1-y: viewbox-height - datapoints.values.g / 100 * viewbox-height;
+                        control-2-x: 6/7 * viewbox-width;
+                        control-2-y: viewbox-height - datapoints.values.h / 100 * viewbox-height;
                     }
                     QuadraticTo {
-                        x: viewbox_width;
-                        y: viewbox_height - datapoints.values.i / 100 * viewbox_height;
-                        control_x: 7/7 * viewbox_width;
-                        control_y: viewbox_height - datapoints.values.h / 100 * viewbox_height;
+                        x: viewbox-width;
+                        y: viewbox-height - datapoints.values.i / 100 * viewbox-height;
+                        control-x: 7/7 * viewbox-width;
+                        control-y: viewbox-height - datapoints.values.h / 100 * viewbox-height;
                     }
                     LineTo {
-                        x: viewbox_width;
-                        y: viewbox_height;
+                        x: viewbox-width;
+                        y: viewbox-height;
                     }
                     LineTo {
                         x: 0;
-                        y: viewbox_height;
+                        y: viewbox-height;
                     }
                 }
             }
@@ -628,8 +628,8 @@ export UsageDiagram := Box {
             //background: blue;
             color: Skin.palette.text;
             text: day;
-            font_size: Skin.TinyFont;
-            horizontal_alignment: center;
+            font-size: Skin.TinyFont;
+            horizontal-alignment: center;
         }
 
     }
@@ -641,27 +641,27 @@ LightDimmer := Rectangle {
     property <brush> warmGradient <=> warm.fill;
 
     property <float> thickness: 8;
-    property <float> inner_radius: 50 - thickness;
+    property <float> inner-radius: 50 - thickness;
 
     property <float> value : 50%;
-    property <float> display_value : touch.pressed ? touch.new_value : value;
+    property <float> display-value : touch.pressed ? touch.new-value : value;
 
-    property <angle> angle : -180deg + 180deg * display_value;
+    property <angle> angle : -180deg + 180deg * display-value;
 
 
     back := PieChartBackground {
         width: 100%;
         height: 100%;
         thickness: root.thickness;
-        inner_radius: root.inner_radius;
+        inner-radius: root.inner-radius;
     }
 
     warm := PieChartFill {
         width: 100%;
         height: 100%;
         thickness: root.thickness;
-        inner_radius: root.inner_radius;
-        start: (display_value - 0.5) / 2;
+        inner-radius: root.inner-radius;
+        start: (display-value - 0.5) / 2;
         progress: 0.25 - start;
 
     }
@@ -670,8 +670,8 @@ LightDimmer := Rectangle {
         width: 100%;
         height: 100%;
         thickness: root.thickness;
-        inner_radius: root.inner_radius;
-        start: (display_value - 0.5) / 2;
+        inner-radius: root.inner-radius;
+        start: (display-value - 0.5) / 2;
         progress: -0.25 - start;
     }
 
@@ -706,10 +706,10 @@ LightDimmer := Rectangle {
 
     touch := TouchArea {
 
-        property<float> new_value : min(1, max(0, mouse_x / height));
+        property<float> new-value : min(1, max(0, mouse-x / height));
 
         clicked => {
-            root.value = new_value;
+            root.value = new-value;
         }
     }
 }
@@ -720,11 +720,11 @@ export LightIntensity := Box {
     preferred-height: width;
 
     Rectangle {
-        vertical_stretch: 1;
+        vertical-stretch: 1;
         HorizontalLayout {
             leftLabel := Text {
                 text: "  0";
-                font_size: Skin.SmallFont;
+                font-size: Skin.SmallFont;
                 vertical-alignment: center;
             }
 
@@ -735,7 +735,7 @@ export LightIntensity := Box {
 
             rightLabel := Text {
                 text: "100";
-                font_size: Skin.SmallFont;
+                font-size: Skin.SmallFont;
                 vertical-alignment: center;
             }
         }
@@ -746,8 +746,8 @@ export LightIntensity := Box {
             x: dimmer.x;
             y: dimmer.y;
             color: #929cb2;
-            text: "\{round(dimmer.display_value * 100)}%";
-            font_size: Skin.MediumFont;
+            text: "\{round(dimmer.display-value * 100)}%";
+            font-size: Skin.MediumFont;
             vertical-alignment: center;
             horizontal-alignment: center;
         }
@@ -759,7 +759,7 @@ MenuItem := Rectangle {
     property <image> icon <=> i.source;
     property<string> name <=> t.text;
     property<bool> active;
-    background: active ? rgba(100%, 100%, 100%, 14%) : ma.has_hover ? rgba(100%, 100%, 100%, 9%) : transparent;
+    background: active ? rgba(100%, 100%, 100%, 14%) : ma.has-hover ? rgba(100%, 100%, 100%, 9%) : transparent;
     ma := TouchArea {}
     HorizontalLayout {
         alignment: start;

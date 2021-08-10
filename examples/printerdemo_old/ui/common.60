@@ -9,12 +9,12 @@
 LICENSE END */
 export Label := Text {
     font-size: 28px;
-    horizontal_stretch: 1;
+    horizontal-stretch: 1;
 }
 
 export Page := Rectangle {
     background: white;
-    animate y { duration: 300ms; easing: ease_out; }
+    animate y { duration: 300ms; easing: ease-out; }
 }
 
 export Preview := Image {

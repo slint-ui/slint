@@ -32,67 +32,67 @@ SideBarIcon := Rectangle {
 
 MainWindow := Window {
     callback quit();
-    callback start_job(string);
-    callback cancel_job(int);
-    callback pause_job(int);
+    callback start-job(string);
+    callback cancel-job(int);
+    callback pause-job(int);
 
-    property <[PrinterQueueItem]> printer_queue: [
-        { status: "PRINTING", progress: 63, title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission_date: "11:41 25/01/21" },
-        { status: "WAITING...", title: "Adressliste.docx", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission_date: "11:41 25/01/21" },
-        { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission_date: "11:41 25/01/21" },
+    property <[PrinterQueueItem]> printer-queue: [
+        { status: "PRINTING", progress: 63, title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: "WAITING...", title: "Adressliste.docx", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
     ];
 
     width: 772px;
     height: 504px;
     title: "SixtyFPS printer demo";
-    background: DemoPalette.main_background;
+    background: DemoPalette.main-background;
     default-font-family: "Noto Sans";
-    default-font-size: DemoPalette.base_font_size;
+    default-font-size: DemoPalette.base-font-size;
 
     /// Note that this property is overwriten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
-    property <[InkLevel]> ink_levels: [
+    property <[InkLevel]> ink-levels: [
                 {color: #0ff, level: 60%},
                 {color: #ff0, level: 80%},
                 {color: #f0f, level: 70%},
                 {color: #000, level: 30%},
             ];
 
-    property<int> active_page: 0;
+    property<int> active-page: 0;
 
     HorizontalLayout {
         padding: 10px;
         padding-left: 67px;
 
-        main_view := Rectangle {
+        main-view := Rectangle {
             height: 100%;
             border-radius: 30px;
-            background: DemoPalette.page_background_color;
+            background: DemoPalette.page-background-color;
 
             Rectangle {
                 clip: true;
-                x: main_view.border_radius / 2;
-                y: main_view.border_radius / 2;
-                width: main_view.width - main_view.border_radius;
-                height: main_view.height - main_view.border_radius;
+                x: main-view.border-radius / 2;
+                y: main-view.border-radius / 2;
+                width: main-view.width - main-view.border-radius;
+                height: main-view.height - main-view.border-radius;
 
-                home_page := HomePage {
-                    y: active_page == 0 ? 0 : active_page < 0 ? - height - 1px : parent.height + 1px;
+                home-page := HomePage {
+                    y: active-page == 0 ? 0 : active-page < 0 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
-                    printer_queue: root.printer_queue;
-                    start_job(title) => { root.start_job(title); }
-                    cancel_job(title) => { root.cancel_job(title); }
-                    pause_job(title) => { root.pause_job(title); }
+                    printer-queue: root.printer-queue;
+                    start-job(title) => { root.start-job(title); }
+                    cancel-job(title) => { root.cancel-job(title); }
+                    pause-job(title) => { root.pause-job(title); }
                 }
                 SettingsPage {
-                    y: active_page == 1 ? 0 : active_page < 1 ? - height - 1px : parent.height + 1px;
+                    y: active-page == 1 ? 0 : active-page < 1 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
                 }
                 InkPage {
-                    y: active_page == 2 ? 0 : active_page < 2 ? - height - 1px : parent.height + 1px;
+                    y: active-page == 2 ? 0 : active-page < 2 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
-                    ink_levels <=> root.ink_levels;
-                    page_visible: active_page == 2;
+                    ink-levels <=> root.ink-levels;
+                    page-visible: active-page == 2;
                 }
             }
         }
@@ -102,51 +102,51 @@ MainWindow := Window {
         width: 57px;
         x: 10px;
 
-        callback icon_y(int) -> length;
-        icon_y(index) => {
+        callback icon-y(int) -> length;
+        icon-y(index) => {
             return 100px // top padding
                 + index * 72px;
         }
 
         Image {
             source: @image-url("images/page_selection.svg");
-            y: sidebar.icon_y(root.active_page) - self.width / 2;
+            y: sidebar.icon-y(root.active-page) - self.width / 2;
             animate y {
                 duration: 125ms;
             }
-            width: main_view.x - sidebar.x + 1px;
+            width: main-view.x - sidebar.x + 1px;
             height: 1.77 * self.width;
-            colorize: DemoPalette.page_background_color;
+            colorize: DemoPalette.page-background-color;
         }
 
-        for page_icon[idx] in [
+        for page-icon[idx] in [
             @image-url("images/home.svg"),
             @image-url("images/settings.svg"),
             @image-url("images/ink.svg"),
         ] : SideBarIcon {
-            y: sidebar.icon_y(idx);
+            y: sidebar.icon-y(idx);
             x: 16px;
             height: 35px;
             width: 30px;
 
             icon := Image {
-                colorize: (root.active_page == idx) ? DemoPalette.active_page_icon_color : DemoPalette.inactive_page_icon_color;
+                colorize: (root.active-page == idx) ? DemoPalette.active-page-icon-color : DemoPalette.inactive-page-icon-color;
                 animate colorize {
                     duration: 125ms;
                 }
-                source: page_icon;
+                source: page-icon;
                 image-fit: contain;
                 width: 100%;
                 height: 100%;
             }
 
             activate => {
-                root.active_page = idx;
+                root.active-page = idx;
             }
         }
 
         Rectangle {
-            y: sidebar.icon_y(3) + 17px;
+            y: sidebar.icon-y(3) + 17px;
             x: 12px;
             background: #6284FF;
             height: 2px;
@@ -154,21 +154,21 @@ MainWindow := Window {
         }
 
         SideBarIcon {
-            y: sidebar.icon_y(4);
+            y: sidebar.icon-y(4);
             x: 16px;
             height: 35px;
             width: 30px;
 
             Image {
-                colorize: DemoPalette.night_mode ? #F1FF98 : DemoPalette.inactive_page_icon_color;
-                source: DemoPalette.night_mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
+                colorize: DemoPalette.night-mode ? #F1FF98 : DemoPalette.inactive-page-icon-color;
+                source: DemoPalette.night-mode ? @image-url("images/moon_full.svg") : @image-url("images/moon.svg");
                 image-fit: contain;
                 width: 100%;
                 height: 100%;
             }
 
             activate => {
-                DemoPalette.night_mode = !DemoPalette.night_mode;
+                DemoPalette.night-mode = !DemoPalette.night-mode;
             }
         }
 

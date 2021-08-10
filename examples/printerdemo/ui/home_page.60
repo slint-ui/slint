@@ -27,21 +27,21 @@ ActionButton := Rectangle {
         Rectangle {
             border-radius: 25px;
             border-width: 5px;
-            border-color: DemoPalette.control_outline_color;
-            background: DemoPalette.printer_action_background_color;
+            border-color: DemoPalette.control-outline-color;
+            background: DemoPalette.printer-action-background-color;
 
             img := Image {
                 x: (parent.width / 2) - (self.width / 2);
                 y: (parent.height / 2) - (self.height / 2);
-                colorize: DemoPalette.text_foreground_color;
+                colorize: DemoPalette.text-foreground-color;
             }
         }
 
         label := Text {
-            font-size: DemoPalette.base_font_size * 1.375;
+            font-size: DemoPalette.base-font-size * 1.375;
             font-weight: 800;
             horizontal-alignment: center;
-            color: DemoPalette.text_foreground_color;
+            color: DemoPalette.text-foreground-color;
         }
     }
 
@@ -49,19 +49,19 @@ ActionButton := Rectangle {
 }
 
 export HomePage := Page {
-    callback start_job(string);
-    callback cancel_job(int);
-    callback pause_job(int);
-    property <length> header_row_height: 40px;
-    property <[PrinterQueueItem]> printer_queue;
+    callback start-job(string);
+    callback cancel-job(int);
+    callback pause-job(int);
+    property <length> header-row-height: 40px;
+    property <[PrinterQueueItem]> printer-queue;
 
-    property <length> button_spacing: 35px;
-    property <length> button_width: 127px;
-    property <length> button_height: button_width + 37px;
+    property <length> button-spacing: 35px;
+    property <length> button-width: 127px;
+    property <length> button-height: button-width + 37px;
 
     header: "Xerol 1347 hdp";
 
-    property <int> current_subpage: 0;
+    property <int> current-subpage: 0;
 
 
     for action[idx] in [
@@ -70,50 +70,50 @@ export HomePage := Page {
         { name: "Copy", icon: @image-url("images/copy.svg") },
         { name: "USB", icon: @image-url("images/usb.svg") },
     ]: ActionButton {
-        x: mod(idx, 2) * (button_width + button_spacing);
-        y: floor(idx / 2) * (button_height + button_spacing)
+        x: mod(idx, 2) * (button-width + button-spacing);
+        y: floor(idx / 2) * (button-height + button-spacing)
            + /* header row height */ 46px
            + /* top-padding of printer queue */ 27px; // align with the first item of the printer queue
-        width: button_width;
-        height: button_height;
+        width: button-width;
+        height: button-height;
         icon: action.icon;
         text: action.name;
-        clicked => { current_subpage = idx + 1; }
+        clicked => { current-subpage = idx + 1; }
     }
 
-    queue_view := PrinterQueue {
+    queue-view := PrinterQueue {
         x: parent.width - width;
         width: 313px;
-        printer_queue: root.printer_queue;
-        show_job_details(idx) => {
-            current_subpage = 1; // Not nice to hard-code the index here...
+        printer-queue: root.printer-queue;
+        show-job-details(idx) => {
+            current-subpage = 1; // Not nice to hard-code the index here...
         }
     }
 
     PrintPage {
-        x: current_subpage == 1 ? 0 : parent.width + parent.x + 2px;
+        x: current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current_subpage = 0 }
-        printer_queue: root.printer_queue;
-        cancel_job(id) => { root.cancel_job(id); }
-        pause_job(id) => { root.pause_job(id); }
+        back => { current-subpage = 0 }
+        printer-queue: root.printer-queue;
+        cancel-job(id) => { root.cancel-job(id); }
+        pause-job(id) => { root.pause-job(id); }
     }
     ScanPage {
-        x: current_subpage == 2 ? 0 : parent.width + parent.x + 2px;
+        x: current-subpage == 2 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current_subpage = 0 }
-        start_job(title) => { root.start_job(title); }
+        back => { current-subpage = 0 }
+        start-job(title) => { root.start-job(title); }
     }
     CopyPage {
-        x: current_subpage == 3 ? 0 : parent.width + parent.x + 2px;
+        x: current-subpage == 3 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current_subpage = 0 }
-        start_job(title) => { root.start_job(title); }
+        back => { current-subpage = 0 }
+        start-job(title) => { root.start-job(title); }
     }
     UsbPage {
-        x: current_subpage == 4 ? 0 : parent.width + parent.x + 2px;
+        x: current-subpage == 4 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
-        back => { current_subpage = 0 }
-        start_job(title) => { root.start_job(title); }
+        back => { current-subpage = 0 }
+        start-job(title) => { root.start-job(title); }
     }
 }

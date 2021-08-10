@@ -12,8 +12,8 @@ import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "./commo
 
 
 export ScanPage := Page {
-    callback start_job(string);
-    has_back_button: true;
+    callback start-job(string);
+    has-back-button: true;
     header: "Scan";
 
     GridLayout {
@@ -23,8 +23,8 @@ export ScanPage := Page {
         Row {
             Text {
                 text: "Choose Settings";
-                color: DemoPalette.secondary_foreground_color;
-                font-size: DemoPalette.base_font_size * 1.125;
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }
@@ -89,7 +89,7 @@ export ScanPage := Page {
                     icon: @image-url("images/scan.svg");
                     text: "Start scanning";
                     clicked => {
-                        root.start_job("Scan");
+                        root.start-job("Scan");
                     }
                 }
                 Rectangle {

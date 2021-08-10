@@ -16,9 +16,9 @@ export MainWindow := Window {
 
     property original-image <=> original.source;
     property filtered-image <=> filtered.source;
-    property filters <=> filter_combo.model;
-    property selected_filter <=> filter_combo.current_index;
-    callback filter_selected <=> filter_combo.selected;
+    property filters <=> filter-combo.model;
+    property selected-filter <=> filter-combo.current-index;
+    callback filter-selected <=> filter-combo.selected;
 
     HorizontalBox {
         VerticalBox {
@@ -31,7 +31,7 @@ export MainWindow := Window {
         }
         VerticalBox {
             alignment: center;
-            filter_combo := ComboBox {
+            filter-combo := ComboBox {
                 current-value: "Brighten";
                 current-index: 0;
                 vertical-stretch: 0;

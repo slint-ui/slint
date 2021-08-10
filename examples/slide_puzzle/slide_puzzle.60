@@ -10,11 +10,11 @@ LICENSE END */
 
 struct Piece := {
     // col/row position of the tile in the puzzle
-    pos_x: int,
-    pos_y: int,
+    pos-x: int,
+    pos-y: int,
     // offset in pixel from the base position for the kicking animation
-    offset_x: length,
-    offset_y: length,
+    offset-x: length,
+    offset-y: length,
 }
 
 struct Theme := {
@@ -46,21 +46,21 @@ struct Theme := {
 Checkbox := Rectangle {
     property <bool> checked;
     callback toggled(bool);
-    property<color> checked_color;
-    property<color> unchecked_color;
+    property<color> checked-color;
+    property<color> unchecked-color;
 
-    hover_rect := Rectangle {
+    hover-rect := Rectangle {
         background: #f5f5f5;
         x: - parent.width / 4;
         y: - parent.height / 4;
-        width: ta.has_hover ? root.width * 1.5 : 0px;
+        width: ta.has-hover ? root.width * 1.5 : 0px;
         height: self.width;
         border-radius: width;
     }
 
-    checkbox_rect := Rectangle {
+    checkbox-rect := Rectangle {
         border-width: height * 10%;
-        border-color: unchecked_color;
+        border-color: unchecked-color;
         border-radius: 2px;
 
         clip := Rectangle {
@@ -96,19 +96,19 @@ Checkbox := Rectangle {
         }*/
         checked when root.checked : {
             clip.width: root.width;
-            checkbox_rect.border-color: checked_color;
-            checkbox_rect.border-width: root.width;
+            checkbox-rect.border-color: checked-color;
+            checkbox-rect.border-width: root.width;
         }
     ]
     transitions [
         in checked : {
             animate clip.width { duration: 200ms; easing: ease-in; }
-            animate checkbox_rect.border-width { duration: 100ms; easing: ease-out; }
+            animate checkbox-rect.border-width { duration: 100ms; easing: ease-out; }
         }
         out checked : {
             animate clip.width { duration: 100ms; easing: ease; }
-            animate checkbox_rect.border-width { duration: 200ms; easing: ease-in-out; }
-            animate checkbox_rect.border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
+            animate checkbox-rect.border-width { duration: 200ms; easing: ease-in-out; }
+            animate checkbox-rect.border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
         }
 
     ]
@@ -119,28 +119,28 @@ import "./plaster-font/Plaster-Regular.ttf";
 export MainWindow := Window {
     title: "Slide Puzzle - SixtyFPS Demo";
 
-    callback piece_clicked(int);
+    callback piece-clicked(int);
     callback reset();
-    callback enable_auto_mode(bool);
-    property <bool> auto_play;
+    callback enable-auto-mode(bool);
+    property <bool> auto-play;
     property <int> moves;
     property <int> tiles-left;
     property <[Piece]> pieces: [
-        { pos_x: 0, pos_y: 0 },
-        { pos_x: 0, pos_y: 1 },
-        { pos_x: 0, pos_y: 2 },
-        { pos_x: 0, pos_y: 3 },
-        { pos_x: 1, pos_y: 0 },
-        { pos_x: 1, pos_y: 1 },
-        { pos_x: 1, pos_y: 2 },
-        { pos_x: 1, pos_y: 3 },
-        { pos_x: 2, pos_y: 0 },
-        { pos_x: 2, pos_y: 1 },
-        { pos_x: 2, pos_y: 2 },
-        { pos_x: 2, pos_y: 3 },
-        { pos_x: 3, pos_y: 0 },
-        { pos_x: 3, pos_y: 1 },
-        { pos_x: 3, pos_y: 2 },
+        { pos-x: 0, pos-y: 0 },
+        { pos-x: 0, pos-y: 1 },
+        { pos-x: 0, pos-y: 2 },
+        { pos-x: 0, pos-y: 3 },
+        { pos-x: 1, pos-y: 0 },
+        { pos-x: 1, pos-y: 1 },
+        { pos-x: 1, pos-y: 2 },
+        { pos-x: 1, pos-y: 3 },
+        { pos-x: 2, pos-y: 0 },
+        { pos-x: 2, pos-y: 1 },
+        { pos-x: 2, pos-y: 2 },
+        { pos-x: 2, pos-y: 3 },
+        { pos-x: 3, pos-y: 0 },
+        { pos-x: 3, pos-y: 1 },
+        { pos-x: 3, pos-y: 2 },
     ];
 
     property <[Theme]> themes: [
@@ -238,11 +238,11 @@ export MainWindow := Window {
             piece-spacing: 10%,
     };
 
-    property<length> pieces_size: min(width, height) / 6;
-    property<length> pieces_spacing: current-theme.game-use-background-image && tiles-left == 0 ?
-        2px : (pieces_size * current-theme.piece-spacing);
+    property<length> pieces-size: min(width, height) / 6;
+    property<length> pieces-spacing: current-theme.game-use-background-image && tiles-left == 0 ?
+        2px : (pieces-size * current-theme.piece-spacing);
 
-    animate pieces_spacing { duration: 500ms; easing: ease-out; }
+    animate pieces-spacing { duration: 500ms; easing: ease-out; }
 
     Image {
         height: 100%; width: 100%;
@@ -261,15 +261,15 @@ export MainWindow := Window {
         border-color: current-theme.game-text-color;
         border-width: current-theme.game-border;
         border-radius: current-theme.game-radius;
-        width: pieces_size * 4.6;
-        height: pieces_size * 5.4;
+        width: pieces-size * 4.6;
+        height: pieces-size * 5.4;
         x: (parent.width - width)/2;
         y: (parent.height - height)/2;
         animate background, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
 
         Rectangle {
             width: parent.width * 90%;
-            height: pieces_size/2;
+            height: pieces-size/2;
             x: (parent.width - width) / 2;
             HorizontalLayout {
                 spacing: 0px;
@@ -296,13 +296,13 @@ export MainWindow := Window {
 
 
         for p[i] in pieces : Rectangle {
-            x: py * (pieces_size + pieces_spacing) + p.offset_x
-                + (parent.width - (4*pieces_size + 3*pieces_spacing))/2;
-            y: px * (pieces_size + pieces_spacing) + p.offset_y
-                + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
-            width: pieces_size;
-            height: pieces_size;
-            property <bool> is_correct: i == p.pos_x * 4 + p.pos_y;
+            x: py * (pieces-size + pieces-spacing) + p.offset-x
+                + (parent.width - (4*pieces-size + 3*pieces-spacing))/2;
+            y: px * (pieces-size + pieces-spacing) + p.offset-y
+                + (parent.height - (4*pieces-size + 3*pieces-spacing))/2;
+            width: pieces-size;
+            height: pieces-size;
+            property <bool> is-correct: i == p.pos-x * 4 + p.pos-y;
 
             drop-shadow-offset-x: 1px;
             drop-shadow-offset-y: 1px;
@@ -311,8 +311,8 @@ export MainWindow := Window {
             border-radius: current-theme.piece-radius;
             clip: true;
 
-            property<float> px: p.pos_x;
-            property<float> py: p.pos_y;
+            property<float> px: p.pos-x;
+            property<float> py: p.pos-y;
             animate px , py { duration: 170ms; easing: cubic-bezier(0.17,0.76,0.4,1.75); }
 
             if (current-theme.game-use-background-image) : Image {
@@ -330,7 +330,7 @@ export MainWindow := Window {
                     x: (parent.width - width) / 2;
                     y: (parent.height - height) / 2;
                     border-radius: width;
-                    background: is_correct ? #0008 : #fff8;
+                    background: is-correct ? #0008 : #fff8;
                 }
             }
 
@@ -344,9 +344,9 @@ export MainWindow := Window {
 
             if (!current-theme.game-use-background-image || tiles-left > 0) : Text {
                 text: i+1;
-                color: ((!current-theme.game-use-background-image && i >= 8) || (current-theme.game-use-background-image && is_correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
-                font-size: pieces_size / 3;
-                font-weight: is_correct ? current-theme.piece-text-weight-correct-pos : current-theme.piece-text-weight-incorrect-pos;
+                color: ((!current-theme.game-use-background-image && i >= 8) || (current-theme.game-use-background-image && is-correct)) ? current-theme.piece-text-color-2 : current-theme.piece-text-color-1;
+                font-size: pieces-size / 3;
+                font-weight: is-correct ? current-theme.piece-text-weight-correct-pos : current-theme.piece-text-weight-incorrect-pos;
                 font-family: current-theme.piece-text-font-family;
                 vertical-alignment: center;
                 horizontal-alignment: center;
@@ -355,7 +355,7 @@ export MainWindow := Window {
             }
 
             touch := TouchArea {
-                clicked => { root.piece_clicked(i); }
+                clicked => { root.piece-clicked(i); }
             }
 
             shadow := Rectangle {
@@ -363,8 +363,8 @@ export MainWindow := Window {
                     height: width;
                     border-radius: width/2;
                     background: #0002;
-                    x: touch.pressed_x - width/2;
-                    y: touch.pressed_y - width/2;
+                    x: touch.pressed-x - width/2;
+                    y: touch.pressed-y - width/2;
                 }
             }
 
@@ -373,7 +373,7 @@ export MainWindow := Window {
                     shadow.color: #0002;
                     circle.width: shadow.width * 2 * 1.4142;
                 }
-                hover when touch.has_hover: {
+                hover when touch.has-hover: {
                     shadow.color: #0000000d;
                 }
 
@@ -390,15 +390,15 @@ export MainWindow := Window {
         }
 
         if (root.tiles-left == 0) : Text {
-            width: pieces_size;
-            height: pieces_size;
-            x: 3 * (pieces_size + pieces_spacing)
-                + (parent.width - (4*pieces_size + 3*pieces_spacing))/2;
-            y: 3 * (pieces_size + pieces_spacing)
-                + (parent.height - (4*pieces_size + 3*pieces_spacing))/2;
+            width: pieces-size;
+            height: pieces-size;
+            x: 3 * (pieces-size + pieces-spacing)
+                + (parent.width - (4*pieces-size + 3*pieces-spacing))/2;
+            y: 3 * (pieces-size + pieces-spacing)
+                + (parent.height - (4*pieces-size + 3*pieces-spacing))/2;
 
             color: current-theme.game-highlight-color;
-            font-size: pieces_size / 2;
+            font-size: pieces-size / 2;
             vertical-alignment: center;
             horizontal-alignment: center;
             text: "🖒";
@@ -418,12 +418,12 @@ export MainWindow := Window {
             width: parent.width;
             height: 1px;
             background: current-theme.game-text-color;
-            y: parent.height - pieces_size / 2;
+            y: parent.height - pieces-size / 2;
         }
 
         HorizontalLayout {
-            height: pieces_size / 2;
-            y: parent.height - pieces_size / 2;
+            height: pieces-size / 2;
+            y: parent.height - pieces-size / 2;
             width: parent.width;
             padding: height * 25%;
             Text {
@@ -437,10 +437,10 @@ export MainWindow := Window {
             }
             Checkbox {
                 width: parent.height - 2 * parent.padding;
-                checked <=> auto_play;
-                toggled(checked) => { root.enable_auto_mode(checked) }
-                checked_color: current-theme.game-highlight-color;
-                unchecked_color: current-theme.game-text-color;
+                checked <=> auto-play;
+                toggled(checked) => { root.enable-auto-mode(checked) }
+                checked-color: current-theme.game-highlight-color;
+                unchecked-color: current-theme.game-text-color;
             }
             Rectangle {} // stretch
             Text {

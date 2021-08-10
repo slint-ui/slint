@@ -242,5 +242,12 @@ fn fold_token(
             return write!(file, "{}ms", node.text());
         }
     }*/
+    /* Example: replace _ by - in identifiers
+    if node.kind() == SyntaxKind::Identifier
+        && node.text().contains('_')
+        && !node.text().starts_with("_")
+    {
+        return file.write_all(node.text().replace('_', "-").as_bytes())
+    }*/
     file.write_all(node.text().as_bytes())
 }

@@ -14,8 +14,8 @@ export MainWindow := Window {
     preferred-width: 800px;
     preferred-height: 600px;
 
-    property plot_image <=> img.source;
-    property pitch <=> pitch_slider.value;
+    property plot-image <=> img.source;
+    property pitch <=> pitch-slider.value;
     callback redraw();
 
     VerticalLayout {
@@ -28,7 +28,7 @@ export MainWindow := Window {
         }
         GroupBox {
             title: "Pitch";
-            pitch_slider := Slider {
+            pitch-slider := Slider {
                 minimum: 0;
                 maximum: 180;
                 value: 42;

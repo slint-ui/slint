@@ -13,16 +13,16 @@ import { Label, Page, Preview } from "common.60";
 
 export FaxPage := Page {
 
-    property<string> fax_number <=> text.text;
-    callback fax_number_erase;
-    callback fax_send;
+    property<string> fax-number <=> text.text;
+    callback fax-number-erase;
+    callback fax-send;
 
     layout := GridLayout {
-        padding_left: 40px;
-        padding_right: 40px;
+        padding-left: 40px;
+        padding-right: 40px;
         spacing: 20px;
-        padding_top: 20px;
-        padding_bottom: 20px;
+        padding-top: 20px;
+        padding-bottom: 20px;
 
         preview := Preview {
             rowspan: 5;
@@ -33,10 +33,10 @@ export FaxPage := Page {
             colspan: 2;
             horizontal-alignment: center;
             font-size: 40px;
-            horizontal_stretch: 1;
+            horizontal-stretch: 1;
             overflow: elide;
-            min_width: 0;
-            preferred_width: 0;
+            min-width: 0;
+            preferred-width: 0;
         }
 
         Rectangle {
@@ -45,9 +45,9 @@ export FaxPage := Page {
             colspan: 2;
             background: #333;
             height: 50%;
-            border_radius: 4px;
+            border-radius: 4px;
 
-            for row_model[r] in [
+            for row-model[r] in [
                 [ 7, 8, 9 ],
                 [ 4, 5, 6 ],
                 [ 1, 2, 3 ],
@@ -57,12 +57,12 @@ export FaxPage := Page {
                 height: 25% * (parent.height - 5*10px);
                 y: r * (self.height + 10px) + 10px;
 
-                for num[c] in row_model : Rectangle {
+                for num[c] in row-model : Rectangle {
                     height: parent.height;
                     width: (parent.width - 4*10px) / 3;
                     x: c * (self.width + 10px) + 10px;
-                    border_radius: 4px;
-                    background: key_area.pressed ? #566 : #555 ;
+                    border-radius: 4px;
+                    background: key-area.pressed ? #566 : #555 ;
                     Text {
                         width: 100%;
                         height: 100%;
@@ -71,14 +71,14 @@ export FaxPage := Page {
                         color: white;
                         text: num >= 0 ? num : "⌫";
                     }
-                    key_area := TouchArea {
+                    key-area := TouchArea {
                         width: 100%;
                         height: 100%;
                         clicked => {
                             if (num >= 0) {
-                                fax_number += num;
+                                fax-number += num;
                             } else {
-                                fax_number_erase();
+                                fax-number-erase();
                             }
                         }
                     }
@@ -91,7 +91,7 @@ export FaxPage := Page {
             col: 2;
             text: "Send";
             font-size: 28px;
-            clicked => { root.fax_send(); }
+            clicked => { root.fax-send(); }
         }
     }
 }

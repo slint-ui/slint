@@ -20,8 +20,8 @@ export SettingsPage := Page {
         Row {
             Text {
                 text: "General";
-                color: DemoPalette.secondary_foreground_color;
-                font-size: DemoPalette.base_font_size * 1.125;
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }
@@ -41,8 +41,8 @@ export SettingsPage := Page {
         Row {
             Text {
                 text: "Defaults";
-                color: DemoPalette.secondary_foreground_color;
-                font-size: DemoPalette.base_font_size * 1.125;
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }

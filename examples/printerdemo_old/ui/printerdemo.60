@@ -16,7 +16,7 @@ import { PrintPage } from "print_page.60";
 import { SettingsPage } from "settings_page.60";
 
 TopPanel := Rectangle {
-   property<int> active_page: 0;
+   property<int> active-page: 0;
    callback quit();
 
    background: white;
@@ -25,7 +25,7 @@ TopPanel := Rectangle {
         alignment: center;
         Text {
             text: "PrintMachine";
-            color: active_page == 0 ? black : #0000;
+            color: active-page == 0 ? black : #0000;
             animate color { duration: 200ms; }
             font-size: root.width * 5%;
             horizontal-alignment: center;
@@ -33,7 +33,7 @@ TopPanel := Rectangle {
         }
         Text {
             text: "2000";
-            color: active_page == 0 ? #918e8c : #0000;
+            color: active-page == 0 ? #918e8c : #0000;
             animate color { duration: 200ms; }
             font-size: root.width * 5%;
             horizontal-alignment: center;
@@ -41,7 +41,7 @@ TopPanel := Rectangle {
 
         }
     }
-    power_button := Image {
+    power-button := Image {
         x: parent.width - self.width - 20px;
         y: (parent.height - height) / 2;
         source: @image-url("images/power.svg");
@@ -71,51 +71,51 @@ MainWindow := Window {
 
     /// Note that this property is overwriten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
-    property <[InkLevel]> ink_levels: [
+    property <[InkLevel]> ink-levels: [
                 {color: #0ff, level: 60%},
                 {color: #ff0, level: 80%},
                 {color: #f0f, level: 70%},
                 {color: #000, level: 30%},
             ];
     /// Aliased to the fax number in the fax page
-    property <string> fax_number;
-    callback fax_number_erase;
+    property <string> fax-number;
+    callback fax-number-erase;
     /// That's just a default implementation for the viewer, but the .cpp and .rs code
     /// overwrite that to erase only the last character
-    fax_number_erase => { fax_number = ""; }
-    callback fax_send;
+    fax-number-erase => { fax-number = ""; }
+    callback fax-send;
 
-    property<int> active_page: 0;
+    property<int> active-page: 0;
 
     panel := TopPanel {
-        active_page: root.active_page;
+        active-page: root.active-page;
         width: 100%;
         height: 12.5%;
         quit => { root.quit(); }
     }
 
-    for page_info[idx] in [
-        { color: #1ac80a, text: "Copy", img_small: @image-url("images/replicate.svg") },
-        { color: #00c889, text: "Fax", img_small: @image-url("images/laptop.svg") },
-        { color: #00bbc8, text: "Print", img_small: @image-url("images/printer.svg") },
-        { color: #009dc8, text: "Settings", img_small: @image-url("images/list.svg") },
+    for page-info[idx] in [
+        { color: #1ac80a, text: "Copy", img-small: @image-url("images/replicate.svg") },
+        { color: #00c889, text: "Fax", img-small: @image-url("images/laptop.svg") },
+        { color: #00bbc8, text: "Print", img-small: @image-url("images/printer.svg") },
+        { color: #009dc8, text: "Settings", img-small: @image-url("images/list.svg") },
     ] : Rectangle {
         property <length> w: root.width / 5;
         width: w;
         height: root.height / 3;
         y: root.height / 4;
         x: idx * (w + (root.width - w*4) / 5) + (root.width - w*4)/5;
-        border_radius: 25px;
-        background: page_info.color;
+        border-radius: 25px;
+        background: page-info.color;
         img := Image {
             y: 5px;
             x: (w - (root.width / 6.25)) / 2;
             width: root.width / 6.25;
             height: root.height / 4.68;
-            source: page_info.img_small;
+            source: page-info.img-small;
             animate width, height, x, y {
                 duration: 300ms;
-                easing: ease_in_out;
+                easing: ease-in-out;
             }
         }
         text := Text {
@@ -125,44 +125,44 @@ MainWindow := Window {
             height: 100%;
             horizontal-alignment: center;
             vertical-alignment: center;
-            text: page_info.text;
+            text: page-info.text;
             font-size: 28px;
             animate x, y {
                 duration: 300ms;
-                easing: ease_in_out;
+                easing: ease-in-out;
             }
         }
         touch := TouchArea {
             clicked => {
-                if (root.active_page == 0) {
-                    root.active_page = idx + 1;
+                if (root.active-page == 0) {
+                    root.active-page = idx + 1;
                 }
             }
         }
 
-        animate x, y, height, width, background, border_radius {
+        animate x, y, height, width, background, border-radius {
             duration: 300ms;
-            easing: ease_in_out;
+            easing: ease-in-out;
         }
 
         states [
-            active when root.active_page == idx + 1: {
+            active when root.active-page == idx + 1: {
                 x: 0phx;
                 y: 0phx;
                 height: root.height * 12.5%;
                 width: root.width;
-                border_radius: 0px;
+                border-radius: 0px;
                 img.x: root.height * 12.5%;
                 img.width: root.height * 10%;
                 img.height: root.height * 10%;
                 text.y: 0phx;
             }
-            pressed when root.active_page == 0 && touch.pressed : {
+            pressed when root.active-page == 0 && touch.pressed : {
                 w: root.width / 5 + 6px;
                 height: root.height / 3 + 6px ;
                 y: root.height / 4 - 3px;
             }
-            invisible when root.active_page > 0 && root.active_page != idx + 1 : {
+            invisible when root.active-page > 0 && root.active-page != idx + 1 : {
                 color: transparent;
                 // FIXME: should probaby hide the entire item under with z-ordering
                 img.y: 1000000000px;
@@ -171,7 +171,7 @@ MainWindow := Window {
         ]
     }
 
-    if (root.active_page != 0) : Rectangle {
+    if (root.active-page != 0) : Rectangle {
         width: height;
         height: 12.5%;
         Text {
@@ -184,7 +184,7 @@ MainWindow := Window {
             vertical-alignment: center;
         }
         TouchArea {
-            clicked => { root.active_page = 0; }
+            clicked => { root.active-page = 0; }
         }
     }
 
@@ -199,30 +199,30 @@ MainWindow := Window {
         HorizontalLayout {
             spacing: 10px;
             padding: 10px;
-            for color_info[idx] in ink_levels : Rectangle {
+            for color-info[idx] in ink-levels : Rectangle {
                 background: white;
                 Rectangle {
                     width: parent.width;
-                    height: parent.height * color_info.level;
+                    height: parent.height * color-info.level;
                     y: parent.height - self.height;
-                    background: color_info.color;
+                    background: color-info.color;
                     states [
-                        innactive when root.active_page != 0 : {
+                        innactive when root.active-page != 0 : {
                             height: 0phx;
                         }
                     ]
                     transitions [
                         out innactive : {
-                            animate height { duration: 750ms; easing: ease_in_out; }
+                            animate height { duration: 750ms; easing: ease-in-out; }
                         }
                     ]
                 }
             }
         }
 
-        property <bool> full_screen;
+        property <bool> full-screen;
         states [
-            full_screen when full_screen : {
+            full-screen when full-screen : {
                 width: root.width - 35px;
                 height: 7/8 * root.height - 40px ;
             }
@@ -230,8 +230,8 @@ MainWindow := Window {
         animate width, height { duration: 200ms; easing: ease;  }
         TouchArea {
             clicked => {
-                if (active_page == 0) {
-                    parent.full_screen = !parent.full_screen;
+                if (active-page == 0) {
+                    parent.full-screen = !parent.full-screen;
                 }
             }
         }
@@ -242,7 +242,7 @@ MainWindow := Window {
         width: 100%;
         y: root.height;
         states [
-            active when root.active_page == 1: {
+            active when root.active-page == 1: {
                 y: root.height / 8;
             }
         ]
@@ -253,13 +253,13 @@ MainWindow := Window {
         width: 100%;
         y: root.height;
         states [
-            active when root.active_page == 2: {
+            active when root.active-page == 2: {
                 y: root.height / 8;
             }
         ]
-        fax_number <=> root.fax_number;
-        fax_number_erase => { root.fax_number_erase(); }
-        fax_send => { root.fax_send(); }
+        fax-number <=> root.fax-number;
+        fax-number-erase => { root.fax-number-erase(); }
+        fax-send => { root.fax-send(); }
     }
 
     PrintPage {
@@ -267,7 +267,7 @@ MainWindow := Window {
         width: 100%;
         y: root.height;
         states [
-            active when root.active_page == 3: {
+            active when root.active-page == 3: {
                 y: root.height / 8;
             }
         ]
@@ -278,7 +278,7 @@ MainWindow := Window {
         width: 100%;
         y: root.height;
         states [
-            active when root.active_page == 4: {
+            active when root.active-page == 4: {
                 y: root.height / 8;
             }
         ]

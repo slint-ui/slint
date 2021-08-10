@@ -13,12 +13,12 @@ import { WidePrinterQueueList } from "./printer_queue.60";
 
 
 export PrintPage := Page {
-    has_back_button: true;
+    has-back-button: true;
     header: "Print";
-    callback cancel_job(int);
-    callback pause_job(int);
+    callback cancel-job(int);
+    callback pause-job(int);
 
-    property <[PrinterQueueItem]> printer_queue <=> queue.printer_queue;
+    property <[PrinterQueueItem]> printer-queue <=> queue.printer-queue;
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -27,17 +27,17 @@ export PrintPage := Page {
         Row {
             Text {
                 text: "Printing-Queue";
-                color: DemoPalette.secondary_foreground_color;
-                font-size: DemoPalette.base_font_size * 1.125;
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
             }
         }
 
         Row {
             queue := WidePrinterQueueList {
-                cancel_job(id) => { root.cancel_job(id); }
-                pause_job(id) => { root.pause_job(id); }
-                viewport_width: width;
+                cancel-job(id) => { root.cancel-job(id); }
+                pause-job(id) => { root.pause-job(id); }
+                viewport-width: width;
             }
         }
     }
