@@ -7,11 +7,11 @@ These properties are valid on all visible items
 * **`x`** and **`y`** (*length*): the position of the element relative to its parent
 * **`z`** (*float*): Allows to specify a different order to stack the items with its siblings. (default: 0)
 * **`width`** and **`height`** (*length*): The size of the element. When set, this overrides the default size.
-* **`max_width`** and **`max_height`** (*length*): The maximum size of an element when used in a layout.
-* **`min_width`** and **`min_height`** (*length*): The minimum size of an element when used in a layout.
-* **`preferred_width`** and **`preferred_height`** (*length*): The minimum size of an element when used in a layout.
+* **`max-width`** and **`max-height`** (*length*): The maximum size of an element when used in a layout.
+* **`min-width`** and **`min-height`** (*length*): The minimum size of an element when used in a layout.
+* **`preferred-width`** and **`preferred-height`** (*length*): The minimum size of an element when used in a layout.
 * **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
-* **`horizontal_stretch`** and **`vertical_stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
+* **`horizontal-stretch`** and **`vertical-stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
   When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
 * **`opacity`** (*float*): A value between 0 and 1 (or a percentage) that is used to draw the element and its
   children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
@@ -63,9 +63,9 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Properties
 
 * **`background`** (*brush*): The background brush of the Rectangle, typically a color. (default value: transparent)
-* **`border_width`** (*length*): The width of the border. (default value: 0)
-* **`border_color`** (*brush*): The color of the border. (default value: transparent)
-* **`border_radius`** (*length*): The size of the radius. (default value: 0)
+* **`border-width`** (*length*): The width of the border. (default value: 0)
+* **`border-color`** (*brush*): The color of the border. (default value: transparent)
+* **`border-radius`** (*length*): The size of the radius. (default value: 0)
 * **`clip`** (*bool*): By default, when an item is bigger or outside another item, it is still shown.
   But when this property is set to `true`, then the children element of this Rectangle are going
   to be clipped. (default: `false`)
@@ -92,8 +92,8 @@ Example := Window {
         width: 50px;
         height: 50px;
         background: green;
-        border_width: 2px;
-        border_color: red;
+        border-width: 2px;
+        border-color: red;
     }
 
     // Transparent Rectangle with a border and a radius
@@ -102,9 +102,9 @@ Example := Window {
         y: 10px;
         width: 50px;
         height: 50px;
-        border_width: 4px;
-        border_color: black;
-        border_radius: 10px;
+        border-width: 4px;
+        border-color: black;
+        border-radius: 10px;
     }
 
     // A radius of width/2 makes it a circle
@@ -114,9 +114,9 @@ Example := Window {
         width: 50px;
         height: 50px;
         background: yellow;
-        border_width: 2px;
-        border_color: blue;
-        border_radius: width/2;
+        border-width: 2px;
+        border-color: blue;
+        border-radius: width/2;
     }
 }
 ```
@@ -186,15 +186,15 @@ and the text itself.
 ### Properties
 
 * **`text`** (*string*): The actual text.
-* **`font_family`** (*string*): The font name
-* **`font_size`** (*length*): The font size of the text
-* **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+* **`font-family`** (*string*): The font name
+* **`font-size`** (*length*): The font size of the text
+* **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*brush*): The color of the text (default: black)
-* **`horizontal_alignment`** (*enum [`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
-* **`vertical_alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
+* **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
+* **`vertical-alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
 * **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text wraps (default: no-wrap).
 * **`overflow`** (*enum [`TextOverflow`](#textoverflow)*): What happens when the text overflows (default: clip).
-* **`letter_spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
+* **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
 
 ### Example
@@ -409,9 +409,9 @@ When not part of a layout, its width or height default to 100% of the parent ele
 ### Properties
 
 * **`pressed`** (*bool*): Set to `true` by the TouchArea when the mouse is pressed over it.
-* **`has_hover`** (*bool*): Set to `true` by the TouchArea when the mouse is over it.
-* **`mouse_x`**, **`mouse_y`** (*length*): Set by the TouchArea to the position of the mouse within it.
-* **`pressed_x`**, **`mouse_y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
+* **`has-hover`** (*bool*): Set to `true` by the TouchArea when the mouse is over it.
+* **`mouse-x`**, **`mouse-y`** (*length*): Set by the TouchArea to the position of the mouse within it.
+* **`pressed-x`**, **`mouse-y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
 
 ### Callbacks
 
@@ -449,7 +449,7 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 ### Properties
 
-* **`has_focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
+* **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
 
 ### Methods
 
@@ -457,15 +457,15 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 ### Callbacks
 
-* **`key_pressed(KeyEvent) -> EventResult`**: Emitted when a key is pressed, the argument is a `KeyEvent` struct
-* **`key_released(KeyEvent) -> EventResult`**: Emitted when a key is released, the argument is a `KeyEvent` struct
+* **`key-pressed(KeyEvent) -> EventResult`**: Emitted when a key is pressed, the argument is a `KeyEvent` struct
+* **`key-released(KeyEvent) -> EventResult`**: Emitted when a key is released, the argument is a `KeyEvent` struct
 
 ### Example
 
 ```60
 Example := Window {
-    forward-focus: my_key_handler;
-    my_key_handler := FocusScope {
+    forward-focus: my-key-handler;
+    my-key-handler := FocusScope {
         key-pressed(event) => {
             debug(event.text);
             if (event.modifiers.control) {
@@ -487,10 +487,10 @@ they will be computed by the layout respecting the minimum and maximum sizes and
 
 * **`spacing`** (*length*): The distance between the elements in the layout.
 * **`padding`** (*length*): the padding within the layout.
-* **`padding_left`**, **`padding_right`**, **`padding_top`** and **`padding_bottom`** (*length*):
+* **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (*length*):
   override the padding in specific sides.
 * **`alignment`** (*FIXME enum*): Can be one of  `stretch`, `center`, `start`, `end`,
-  `space_between`, `space_around`. Defaults to `stretch`. Matches the CSS flex.
+  `space-between`, `space-around`. Defaults to `stretch`. Matches the CSS flex.
 
 ## Example
 
@@ -519,7 +519,7 @@ Alternatively, the item can be put in a `Row` element.
 
 * **`spacing`** (*length*): The distance between the elements in the layout.
 * **`padding`** (*length*): the padding within the layout.
-* **`padding_left`**, **`padding_right`**, **`padding_top`** and **`padding_bottom`** (*length*):
+* **`padding-left`**, **`padding-right`**, **`padding-top`** and **`padding-bottom`** (*length*):
   override the padding in specific sides.
 
 ### Examples
@@ -579,14 +579,14 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 ### Properties
 
 * **`text`** (*string*): The actual text.
-* **`font_family`** (*string*): The font name
-* **`font_size`** (*length*): The font size of the text
-* **`font_weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
+* **`font-family`** (*string*): The font name
+* **`font-size`** (*length*): The font size of the text
+* **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*brush*): The color of the text (default: transparent)
-* **`horizontal_alignment`** (enum *[`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
-* **`vertical_alignment`** (enum *[`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
-* **`has_focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
-* **`letter_spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
+* **`horizontal-alignment`** (enum *[`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
+* **`vertical-alignment`** (enum *[`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
+* **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
+* **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
 
 ### Methods
