@@ -305,7 +305,7 @@ impl TransitionPropertyAnimation {
         Expression::BinaryExpression {
             lhs: Box::new(Expression::StructFieldAccess {
                 base: Box::new(state),
-                name: (if self.is_out { "previous_state" } else { "current_state" }).into(),
+                name: (if self.is_out { "previous-state" } else { "current-state" }).into(),
             }),
             rhs: Box::new(Expression::NumberLiteral(self.state_id as _, Unit::None)),
             op: '=',
@@ -972,11 +972,11 @@ impl Element {
     ) -> ElementRc {
         let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
             Some(ListViewInfo {
-                viewport_y: NamedReference::new(parent, "viewport_y"),
-                viewport_height: NamedReference::new(parent, "viewport_height"),
-                viewport_width: NamedReference::new(parent, "viewport_width"),
-                listview_height: NamedReference::new(parent, "visible_height"),
-                listview_width: NamedReference::new(parent, "visible_width"),
+                viewport_y: NamedReference::new(parent, "viewport-y"),
+                viewport_height: NamedReference::new(parent, "viewport-height"),
+                viewport_width: NamedReference::new(parent, "viewport-width"),
+                listview_height: NamedReference::new(parent, "visible-height"),
+                listview_width: NamedReference::new(parent, "visible-width"),
             })
         } else {
             None

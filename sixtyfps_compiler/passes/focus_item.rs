@@ -24,14 +24,14 @@ enum FocusCheckResult {
 }
 
 fn element_focus_check(element: &ElementRc) -> FocusCheckResult {
-    if let Some(forwarded_focus_binding) = element.borrow().bindings.get("forward_focus") {
+    if let Some(forwarded_focus_binding) = element.borrow().bindings.get("forward-focus") {
         if let Expression::ElementReference(target) = &forwarded_focus_binding.expression {
             return FocusCheckResult::FocusForwarded(
                 target.upgrade().unwrap(),
                 forwarded_focus_binding.to_source_location(),
             );
         } else {
-            panic!("internal error: forward_focus property is of type ElementReference but received non-element-reference binding");
+            panic!("internal error: forward-focus property is of type ElementReference but received non-element-reference binding");
         }
     }
 
@@ -117,10 +117,10 @@ pub fn determine_initial_focus_item(component: &Rc<Component>, diag: &mut BuildD
     }
 }
 
-/// The `forward_focus` property is not a real property that can be generated, so remove any bindings to it
+/// The `forward-focus` property is not a real property that can be generated, so remove any bindings to it
 /// to avoid them being materialized.
 pub fn erase_forward_focus_properties(component: &Rc<Component>) {
     recurse_elem_no_borrow(&component.root_element, &(), &mut |elem, _| {
-        elem.borrow_mut().bindings.remove("forward_focus");
+        elem.borrow_mut().bindings.remove("forward-focus");
     })
 }

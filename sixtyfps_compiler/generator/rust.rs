@@ -27,6 +27,14 @@ use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::{collections::BTreeMap, rc::Rc};
 
+fn ident(ident: &str) -> proc_macro2::Ident {
+    if ident.contains('-') {
+        format_ident!("r#{}", ident.replace('-', "_"))
+    } else {
+        format_ident!("r#{}", ident)
+    }
+}
+
 impl quote::ToTokens for Orientation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let tks = match self {
@@ -61,7 +69,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             Some(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
         }
         Type::Enumeration(e) => {
-            let e = format_ident!("r#{}", e.name);
+            let e = ident(&e.name);
             Some(quote!(sixtyfps::re_exports::#e))
         }
         Type::Brush => Some(quote!(sixtyfps::Brush)),
@@ -98,7 +106,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .iter()
         .filter_map(|ty| {
             if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
-                Some((format_ident!("r#{}", name), generate_struct(name, fields, diag)))
+                Some((ident(name), generate_struct(name, fields, diag)))
             } else {
                 None
             }
@@ -147,10 +155,7 @@ fn generate_struct(
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) = fields
         .iter()
         .map(|(name, ty)| {
-            (
-                format_ident!("r#{}", name),
-                get_rust_type(ty, &crate::diagnostics::SourceLocation::default(), diag),
-            )
+            (ident(name), get_rust_type(ty, &crate::diagnostics::SourceLocation::default(), diag))
         })
         .unzip();
 
@@ -309,7 +314,7 @@ fn generate_component(
     let mut declared_callbacks_ret = vec![];
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let prop_ident = format_ident!("r#{}", prop_name);
+        let prop_ident = ident(prop_name);
         let prop = if let Some(alias) = &property_decl.is_alias {
             access_named_reference(alias, component, quote!(_self))
         } else {
@@ -330,7 +335,7 @@ fn generate_component(
                 let args_name = (0..callback_args.len())
                     .map(|i| format_ident!("arg_{}", i))
                     .collect::<Vec<_>>();
-                let caller_ident = format_ident!("invoke_{}", prop_name);
+                let caller_ident = format_ident!("invoke_{}", prop_ident);
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -339,7 +344,7 @@ fn generate_component(
                     }
                 ));
 
-                let on_ident = format_ident!("on_{}", prop_name);
+                let on_ident = format_ident!("on_{}", prop_ident);
                 let args_index =
                     (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
                 property_and_callback_accessors.push(
@@ -366,8 +371,8 @@ fn generate_component(
             let rust_property_type =
                 get_rust_type(&property_decl.property_type, &property_decl.type_node(), diag);
             if property_decl.expose_in_public_api {
-                let getter_ident = format_ident!("get_{}", prop_name);
-                let setter_ident = format_ident!("set_{}", prop_name);
+                let getter_ident = format_ident!("get_{}", prop_ident);
+                let setter_ident = format_ident!("set_{}", prop_ident);
 
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
@@ -435,7 +440,7 @@ fn generate_component(
         } else if let Some(repeated) = &item.repeated {
             let base_component = item.base_type.as_component();
             let repeater_index = repeated_element_names.len();
-            let repeater_id = format_ident!("repeater_{}", item.id);
+            let repeater_id = format_ident!("repeater_{}", ident(&item.id));
             let rep_inner_component_id = self::inner_component_id(&*base_component);
 
             extra_components.push(generate_component(&*base_component, diag).unwrap_or_else(
@@ -593,10 +598,8 @@ fn generate_component(
             repeated_element_names.push(repeater_id);
             repeated_element_components.push(rep_inner_component_id);
         } else if item.is_flickable_viewport {
-            let field_name = format_ident!(
-                "r#{}",
-                crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id
-            );
+            let field_name =
+                ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id);
             let children_count = item.children.len() as u32;
             let field = access_component_field_offset(&inner_component_id, &field_name);
 
@@ -609,7 +612,7 @@ fn generate_component(
                 }
             ));
         } else {
-            let field_name = format_ident!("r#{}", item.id);
+            let field_name = ident(&item.id);
             let children_count = item.children.len() as u32;
             let field = access_component_field_offset(&inner_component_id, &field_name);
 
@@ -622,7 +625,7 @@ fn generate_component(
                 }
             ));
             item_names.push(field_name);
-            item_types.push(format_ident!("r#{}", item.base_type.as_native().class_name));
+            item_types.push(ident(&item.base_type.as_native().class_name));
         }
     });
 
@@ -955,16 +958,16 @@ fn inner_component_id(component: &Component) -> proc_macro2::Ident {
 /// Return an identifier suitable for this component for the developer facing API
 fn public_component_id(component: &Component) -> proc_macro2::Ident {
     if component.is_global() {
-        format_ident!("r#{}", component.root_element.borrow().id)
+        ident(&component.root_element.borrow().id)
     } else if component.id.is_empty() {
         let s = &component.root_element.borrow().id;
         // Capitalize first letter:
         let mut it = s.chars();
         let id =
             it.next().map(|c| c.to_ascii_uppercase()).into_iter().chain(it).collect::<String>();
-        format_ident!("r#{}", id)
+        ident(&id)
     } else {
-        format_ident!("r#{}", component.id)
+        ident(&component.id)
     }
 }
 
@@ -974,7 +977,7 @@ fn property_animation_tokens(
 ) -> Option<TokenStream> {
     let animation = animation.borrow();
     let bindings = animation.bindings.iter().map(|(prop, initializer)| {
-        let prop_ident = format_ident!("r#{}", prop);
+        let prop_ident = ident(prop);
         let initializer = compile_expression(initializer, component);
         quote!(#prop_ident: #initializer as _)
     });
@@ -1019,15 +1022,13 @@ fn access_member(
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
         let inner_component_id = inner_component_id(&enclosing_component);
-        let name_ident = format_ident!("r#{}", name);
+        let name_ident = ident(name);
         if e.property_declarations.contains_key(name) || is_special || component.is_global() {
             let field = access_component_field_offset(&inner_component_id, &name_ident);
             quote!(#field.apply_pin(#component_rust))
         } else if e.is_flickable_viewport {
-            let elem_ident = format_ident!(
-                "r#{}",
-                crate::object_tree::find_parent_element(element).unwrap().borrow().id
-            );
+            let elem_ident =
+                ident(&crate::object_tree::find_parent_element(element).unwrap().borrow().id);
             let element_field = access_component_field_offset(&inner_component_id, &elem_ident);
 
             quote!((#element_field
@@ -1036,8 +1037,8 @@ fn access_member(
                     .apply_pin(#component_rust)
             )
         } else {
-            let elem_ident = format_ident!("r#{}", e.id);
-            let elem_ty = format_ident!("r#{}", e.base_type.as_native().class_name);
+            let elem_ident = ident(&e.id);
+            let elem_ty = ident(&e.base_type.as_native().class_name);
             let element_field = access_component_field_offset(&inner_component_id, &elem_ident);
 
             quote!((#element_field + #elem_ty::FIELD_OFFSETS.#name_ident)
@@ -1110,7 +1111,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 (Type::Struct { ref fields, .. }, Type::Component(c)) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
-                        let name = format_ident!("r#{}", name);
+                        let name = ident(name);
                         quote!(#name: obj.#index as _)
                     });
                     let id : TokenStream = c.id.parse().unwrap();
@@ -1119,7 +1120,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 (Type::Struct { ref fields, .. }, Type::Struct{  name: Some(n), .. }) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {
                         let index = proc_macro2::Literal::usize_unsuffixed(index);
-                        let name = format_ident!("r#{}", name);
+                        let name = ident(name);
                         quote!(#name: obj.#index as _)
                     });
                     let id = struct_name_to_tokens(n);
@@ -1222,7 +1223,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 quote!((#base_e).#index )
             }
             Type::Struct { .. } => {
-                let name = format_ident!("r#{}", name);
+                let name = ident(name);
                 let base_e = compile_expression(base, component);
                 quote!((#base_e).#name)
             }
@@ -1284,7 +1285,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     if let Expression::ElementReference(item) = &arguments[0] {
                         let item = item.upgrade().unwrap();
                         let item = item.borrow();
-                        let item_id = format_ident!("r#{}", item.id);
+                        let item_id = ident(&item.id);
                         let item_field = access_component_field_offset(&format_ident!("Self"), &item_id);
                         quote!(
                             #item_field.apply_pin(_self).layouting_info(#orient, &_self.window.window_handle())
@@ -1450,7 +1451,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 });
                 if let Some(name) = name {
                     let name : TokenStream = struct_name_to_tokens(name.as_str());
-                    let keys = fields.keys().map(|k| k.parse::<TokenStream>().unwrap());
+                    let keys = fields.keys().map(|k| ident(&k));
                     quote!(#name { #(#keys: #elem,)* })
                 } else {
                     // This will produce a tuple
@@ -1463,11 +1464,11 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         Expression::PathElements { elements } => compile_path(elements, component),
         Expression::StoreLocalVariable { name, value } => {
             let value = compile_expression(value, component);
-            let name = format_ident!("r#{}", name);
+            let name = ident(name);
             quote!(let #name = #value;)
         }
         Expression::ReadLocalVariable { name, .. } => {
-            let name = format_ident!("r#{}", name);
+            let name = ident(name);
             quote!(#name)
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
@@ -1488,8 +1489,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             ))
         }
         Expression::EnumerationValue(value) => {
-            let base_ident = format_ident!("r#{}", value.enumeration.name);
-            let value_ident = format_ident!("r#{}", value.to_string());
+            let base_ident = ident(&value.enumeration.name);
+            let value_ident = ident(&value.to_string());
             quote!(sixtyfps::re_exports::#base_ident::#value_ident)
         }
         Expression::ReturnStatement(expr) => {
@@ -1590,7 +1591,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
 /// Return a TokenStream for a name (as in [`Type::Struct::name`])
 fn struct_name_to_tokens(name: &str) -> TokenStream {
     // the name match the C++ signature so we need to change that to the rust namespace
-    let mut name = name.replace("::private_api::", "::re_exports::");
+    let mut name = name.replace("::private_api::", "::re_exports::").replace('-', "_");
     if !name.contains("::") {
         name.insert_str(0, "r#")
     }
@@ -1631,7 +1632,7 @@ fn compile_assignment(
                     (quote!(#index), fields[name].clone())
                 }
                 Type::Struct { fields, name: Some(_), .. } => {
-                    let n = format_ident!("r#{}", name);
+                    let n = ident(name);
                     (quote!(#n), fields[name].clone())
                 }
                 _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
@@ -1762,7 +1763,7 @@ fn box_layout_data(
         let mut repeater_idx = 0usize;
         for item in &layout.elems {
             if item.element.borrow().repeated.is_some() {
-                let repeater_id = format_ident!("repeater_{}", item.element.borrow().id);
+                let repeater_id = format_ident!("repeater_{}", ident(&item.element.borrow().id));
                 let rep_inner_component_id =
                     self::inner_component_id(item.element.borrow().base_type.as_component());
                 repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
@@ -1869,7 +1870,7 @@ fn get_layout_info(
         let li = access_named_reference(layout_info_prop, component, quote!(_self));
         quote! {#li.get()}
     } else {
-        let elem_id = format_ident!("r#{}", elem.borrow().id);
+        let elem_id = ident(&elem.borrow().id);
         let inner_component_id = inner_component_id(component);
         quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(#orientation, &_self.window.window_handle()))
     };
@@ -1877,9 +1878,7 @@ fn get_layout_info(
     if constraints.has_explicit_restrictions() {
         let (name, expr): (Vec<_>, Vec<_>) = constraints
             .for_each_restrictions(orientation)
-            .map(|(e, s)| {
-                (format_ident!("r#{}", s), access_named_reference(e, component, quote!(_self)))
-            })
+            .map(|(e, s)| (ident(s), access_named_reference(e, component, quote!(_self))))
             .unzip();
         quote!({
             let mut layout_info = #layout_info;
@@ -1954,7 +1953,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
                         .bindings
                         .iter()
                         .map(|(property, expr)| {
-                            let prop_ident = format_ident!("r#{}", property);
+                            let prop_ident = ident(property);
                             let binding_expr = compile_expression(expr, component);
 
                             quote!(#prop_ident: #binding_expr as _).to_string()

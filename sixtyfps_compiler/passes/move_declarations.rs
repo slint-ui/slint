@@ -124,7 +124,7 @@ fn fixup_reference(nr: &mut NamedReference) {
 }
 
 fn map_name(e: &ElementRc, s: &str) -> String {
-    format!("{}_{}", e.borrow().id, s)
+    format!("{}-{}", e.borrow().id, s)
 }
 
 /// Optimized item are not used for the fact that they are items, but their properties

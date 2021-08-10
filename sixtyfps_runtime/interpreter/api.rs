@@ -12,6 +12,7 @@ use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::graphics::Image;
 use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::path::{Path, PathBuf};
@@ -281,7 +282,9 @@ macro_rules! declare_value_enum_conversion {
                             return Err(());
                         }
 
-                        <$ty>::from_str(value.as_str()).map_err(|_| ())
+                        <$ty>::from_str(value.as_str())
+                            .or_else(|_| <$ty>::from_str(&value.as_str().replace('-', "_")))
+                            .map_err(|_| ())
                     }
                     _ => Err(()),
                 }
@@ -352,6 +355,15 @@ impl TryInto<sixtyfps_corelib::Color> for Value {
     }
 }
 
+/// Normalize the identifier to use dashes
+fn normalize_identifier(ident: &str) -> Cow<'_, str> {
+    if ident.contains('_') {
+        ident.replace('_', "-").into()
+    } else {
+        ident.into()
+    }
+}
+
 /// This type represents a runtime instance of structure in `.60`.
 ///
 /// This can either be an instance of a name structure introduced
@@ -378,11 +390,15 @@ pub struct Struct(HashMap<String, Value>);
 impl Struct {
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
-        self.0.get(name)
+        self.0.get(&*normalize_identifier(name))
     }
     /// Set the value of a given struct field
     pub fn set_field(&mut self, name: String, value: Value) {
-        self.0.insert(name, value);
+        if name.contains('_') {
+            self.0.insert(name.replace('_', "-"), value);
+        } else {
+            self.0.insert(name, value);
+        }
     }
 
     /// Iterate over all the fields in this struct
@@ -393,7 +409,11 @@ impl Struct {
 
 impl FromIterator<(String, Value)> for Struct {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
-        Self(iter.into_iter().collect())
+        Self(
+            iter.into_iter()
+                .map(|(s, v)| (if s.contains('_') { s.replace('_', "-") } else { s }, v))
+                .collect(),
+        )
     }
 }
 
@@ -700,7 +720,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .get_property(comp.borrow(), name)
+            .get_property(comp.borrow(), &normalize_identifier(name))
             .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
@@ -709,7 +729,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .set_property(comp.borrow(), name, value)
+            .set_property(comp.borrow(), &normalize_identifier(name), value)
             .map_err(|()| todo!("set_property don't return the right error type"))
     }
 
@@ -754,7 +774,7 @@ impl ComponentInstance {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
-            .set_callback_handler(comp.borrow(), name, Box::new(callback))
+            .set_callback_handler(comp.borrow(), &normalize_identifier(name), Box::new(callback))
             .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
@@ -765,7 +785,9 @@ impl ComponentInstance {
     pub fn invoke_callback(&self, name: &str, args: &[Value]) -> Result<Value, CallCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.description().invoke_callback(comp.borrow(), name, args).map_err(|()| todo!())
+        comp.description()
+            .invoke_callback(comp.borrow(), &normalize_identifier(name), args)
+            .map_err(|()| todo!())
     }
 
     /// Marks the window of this component to be shown on the screen. This registers

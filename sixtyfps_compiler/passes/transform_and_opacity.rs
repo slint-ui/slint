@@ -75,7 +75,7 @@ pub(crate) fn handle_transform_and_opacity(
 
 fn create_opacity_element(child: &ElementRc, type_register: &TypeRegister) -> ElementRc {
     let element = Element {
-        id: format!("{}_opacity", child.borrow().id),
+        id: format!("{}-opacity", child.borrow().id),
         base_type: type_register.lookup_element("Opacity").unwrap(),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: std::iter::once((

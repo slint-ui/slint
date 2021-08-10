@@ -23,7 +23,7 @@ SuperSimple := Rectangle {
         Rectangle {
             background: blue;
             foo_bar: blue;
-//          ^error{Unknown property foo_bar in Rectangle}
+//          ^error{Unknown property foo-bar in Rectangle}
         }
     }
 
@@ -45,7 +45,7 @@ SuperSimple := Rectangle {
 
     Rectangle {
         foo_bar: blue;
-//      ^error{Unknown property foo_bar in Rectangle}
+//      ^error{Unknown property foo-bar in Rectangle}
     }
 
     NativeLineEdit { }

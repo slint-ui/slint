@@ -51,7 +51,7 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
     let mut flickable = flickable_elem.borrow_mut();
     let flickable = &mut *flickable;
     let viewport = Rc::new(RefCell::new(Element {
-        id: format!("{}_viewport", flickable.id),
+        id: format!("{}-viewport", flickable.id),
         base_type: Type::Native(native_rect.clone()),
         children: std::mem::take(&mut flickable.children),
         enclosing_component: flickable.enclosing_component.clone(),
@@ -59,7 +59,7 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
         ..Element::default()
     }));
     for (prop, info) in &flickable.base_type.as_builtin().properties {
-        if let Some(vp_prop) = prop.strip_prefix("viewport_") {
+        if let Some(vp_prop) = prop.strip_prefix("viewport-") {
             let nr = NamedReference::new(&viewport, vp_prop);
             flickable.property_declarations.insert(prop.to_owned(), info.ty.clone().into());
             match flickable.bindings.entry(prop.to_owned()) {
@@ -93,35 +93,35 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
     };
 
     if !flickable_elem.borrow().bindings.contains_key("height") {
-        forward_minmax_of("max_height", '<');
-        forward_minmax_of("preferred_height", '<');
+        forward_minmax_of("max-height", '<');
+        forward_minmax_of("preferred-height", '<');
     }
     if !flickable_elem.borrow().bindings.contains_key("width") {
-        forward_minmax_of("max_width", '<');
-        forward_minmax_of("preferred_width", '<');
+        forward_minmax_of("max-width", '<');
+        forward_minmax_of("preferred-width", '<');
     }
-    set_binding_if_not_explicit(flickable_elem, "viewport_width", || {
+    set_binding_if_not_explicit(flickable_elem, "viewport-width", || {
         Some(
             flickable_elem
                 .borrow()
                 .children
                 .iter()
                 .filter(|x| is_layout(&x.borrow().base_type))
-                .map(|x| Expression::PropertyReference(NamedReference::new(x, "min_width")))
+                .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "width")),
                     |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'),
                 ),
         )
     });
-    set_binding_if_not_explicit(flickable_elem, "viewport_height", || {
+    set_binding_if_not_explicit(flickable_elem, "viewport-height", || {
         Some(
             flickable_elem
                 .borrow()
                 .children
                 .iter()
                 .filter(|x| is_layout(&x.borrow().base_type))
-                .map(|x| Expression::PropertyReference(NamedReference::new(x, "min_height")))
+                .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "height")),
                     |lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'),

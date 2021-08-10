@@ -90,7 +90,7 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                                 let PropertyLookupResult {
                                     resolved_name: image_fit_prop_name,
                                     property_type: image_fit_prop_type,
-                                } = elem.borrow().lookup_property("image_fit");
+                                } = elem.borrow().lookup_property("image-fit");
 
                                 elem.borrow_mut().bindings.set_binding_if_not_set(
                                     image_fit_prop_name.into(),
@@ -137,12 +137,12 @@ fn gen_layout_info_prop(elem: &ElementRc) {
 
     let li_v = super::lower_layout::create_new_prop(
         elem,
-        "layoutinfo_v",
+        "layoutinfo-v",
         crate::layout::layout_info_type(),
     );
     let li_h = super::lower_layout::create_new_prop(
         elem,
-        "layoutinfo_h",
+        "layoutinfo-h",
         crate::layout::layout_info_type(),
     );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));

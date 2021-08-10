@@ -11,10 +11,10 @@ LICENSE END */
 TC := Rectangle {
     outer := VerticalLayout {
 //          ^error{The binding for the property 'width' is part of a binding loop}
-//          ^^error{The binding for the property 'layoutinfo_h' is part of a binding loop}
+//          ^^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
         inner := HorizontalLayout {
 //              ^error{The binding for the property 'width' is part of a binding loop}
-//              ^^error{The binding for the property 'layoutinfo_h' is part of a binding loop}
+//              ^^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
             inner_inner := VerticalLayout {
                 width: parent.width;
 //                    ^error{The binding for the property 'width' is part of a binding loop}
@@ -27,8 +27,8 @@ TC := Rectangle {
 
 Test := Rectangle {
     VerticalLayout {
-//  ^error{The binding for the property 'layoutinfo_h' is part of a binding loop}  // FIXME: That's an internal property, but people might understand
-//  ^^error{The binding for the property 'min_width' is part of a binding loop}
+//  ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}  // FIXME: That's an internal property, but people might understand
+//  ^^error{The binding for the property 'min-width' is part of a binding loop}
         Rectangle {
             width: parent.min_width;
             //    ^error{The binding for the property 'width' is part of a binding loop}
@@ -37,8 +37,8 @@ Test := Rectangle {
 
 
     l := HorizontalLayout {
-//      ^error{The binding for the property 'layoutinfo_h' is part of a binding loop}  // FIXME: That's an internal property, but people might understand
-//      ^^error{The binding for the property 'preferred_width' is part of a binding loop}
+//      ^error{The binding for the property 'layoutinfo-h' is part of a binding loop}  // FIXME: That's an internal property, but people might understand
+//      ^^error{The binding for the property 'preferred-width' is part of a binding loop}
         Text {
             text: "hello \{l.preferred-width/1px}x\{l.preferred-height/1px}";
 //               ^error{The binding for the property 'text' is part of a binding loop}
@@ -46,8 +46,8 @@ Test := Rectangle {
     }
 
     tc := TC {
-//       ^error{The binding for the property 'preferred_width' is part of a binding loop}
-//       ^^error{The binding for the property 'layoutinfo_h' is part of a binding loop}
+//       ^error{The binding for the property 'preferred-width' is part of a binding loop}
+//       ^^error{The binding for the property 'layoutinfo-h' is part of a binding loop}
         width: preferred-width;
 //            ^error{The binding for the property 'width' is part of a binding loop}
     }

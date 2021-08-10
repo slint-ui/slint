@@ -22,8 +22,8 @@ Xxx := Rectangle {
     }
 
     minimum-height: root.maximum-width;
-//  ^warning{The property 'minimum_height' has been deprecated. Please use 'min_height' instead}
-//                       ^^warning{The property 'maximum_width' has been deprecated. Please use 'max_width' instead}
+//  ^warning{The property 'minimum-height' has been deprecated. Please use 'min-height' instead}
+//                       ^^warning{The property 'maximum-width' has been deprecated. Please use 'max-width' instead}
 
     callback not_called;
     not_called() => {

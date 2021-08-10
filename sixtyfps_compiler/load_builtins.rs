@@ -132,7 +132,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
         n.rust_type_constructor = parse_annotation("rust_type_constructor", &e).map(|x| x.unwrap());
         let global = if let Some(base) = e.QualifiedName() {
             let base = QualifiedTypeName::from_node(base).to_string();
-            if base != "_" {
+            if base != "-" {
                 n.parent = Some(natives.get(&base).unwrap().native_class.clone())
             };
             false

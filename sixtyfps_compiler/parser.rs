@@ -846,7 +846,7 @@ pub fn identifier_text(node: &SyntaxNode) -> Option<String> {
 }
 
 pub fn normalize_identifier(ident: &str) -> String {
-    ident.replace('-', "_")
+    ident.replace('_', "-")
 }
 
 // Actual parser

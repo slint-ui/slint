@@ -84,13 +84,13 @@ fn lower_grid_layout(
     };
 
     let layout_cache_prop_h =
-        create_new_prop(grid_layout_element, "layout_cache_h", Type::LayoutCache);
+        create_new_prop(grid_layout_element, "layout-cache-h", Type::LayoutCache);
     let layout_cache_prop_v =
-        create_new_prop(grid_layout_element, "layout_cache_v", Type::LayoutCache);
+        create_new_prop(grid_layout_element, "layout-cache-v", Type::LayoutCache);
     let layout_info_prop_h =
-        create_new_prop(grid_layout_element, "layoutinfo_h", layout_info_type());
+        create_new_prop(grid_layout_element, "layoutinfo-h", layout_info_type());
     let layout_info_prop_v =
-        create_new_prop(grid_layout_element, "layoutinfo_v", layout_info_type());
+        create_new_prop(grid_layout_element, "layoutinfo-v", layout_info_type());
 
     let mut row = 0;
     let mut col = 0;
@@ -244,9 +244,9 @@ fn lower_box_layout(
         geometry: LayoutGeometry::new(layout_element),
     };
 
-    let layout_cache_prop = create_new_prop(layout_element, "layout_cache", Type::LayoutCache);
-    let layout_info_prop_v = create_new_prop(layout_element, "layoutinfo_v", layout_info_type());
-    let layout_info_prop_h = create_new_prop(layout_element, "layoutinfo_h", layout_info_type());
+    let layout_cache_prop = create_new_prop(layout_element, "layout-cache", Type::LayoutCache);
+    let layout_info_prop_v = create_new_prop(layout_element, "layoutinfo-v", layout_info_type());
+    let layout_info_prop_h = create_new_prop(layout_element, "layoutinfo-h", layout_info_type());
 
     let layout_children = std::mem::take(&mut layout_element.borrow_mut().children);
 
@@ -342,7 +342,7 @@ fn lower_path_layout(
     layout_element: &ElementRc,
     diag: &mut BuildDiagnostics,
 ) {
-    let layout_cache_prop = create_new_prop(layout_element, "layout_cache", Type::LayoutCache);
+    let layout_cache_prop = create_new_prop(layout_element, "layout-cache", Type::LayoutCache);
 
     let path_elements_expr = match layout_element.borrow_mut().bindings.remove("elements") {
         Some(BindingExpression { expression: Expression::PathElements { elements }, .. }) => {
@@ -426,14 +426,14 @@ fn create_layout_item(
         }
         let mut item = item.borrow_mut();
         let b = item.bindings.remove(prop).unwrap();
-        item.bindings.insert(format!("min_{}", prop), b.clone());
-        item.bindings.insert(format!("max_{}", prop), b);
+        item.bindings.insert(format!("min-{}", prop), b.clone());
+        item.bindings.insert(format!("max-{}", prop), b);
         item.property_declarations.insert(
-            format!("min_{}", prop),
+            format!("min-{}", prop),
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
         );
         item.property_declarations.insert(
-            format!("max_{}", prop),
+            format!("max-{}", prop),
             PropertyDeclaration { property_type: Type::Percent, ..PropertyDeclaration::default() },
         );
     };

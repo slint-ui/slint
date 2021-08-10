@@ -43,23 +43,23 @@ fn create_box_shadow_element(
     }
 
     let mut element = Element {
-        id: format!("{}_shadow", sibling_element.borrow().id),
+        id: format!("{}-shadow", sibling_element.borrow().id),
         base_type: type_register.lookup_element("BoxShadow").unwrap(),
         enclosing_component: sibling_element.borrow().enclosing_component.clone(),
         bindings: shadow_property_bindings
             .into_iter()
             .map(|(shadow_prop_name, expr)| {
-                (shadow_prop_name.strip_prefix("drop_shadow_").unwrap().to_string(), expr)
+                (shadow_prop_name.strip_prefix("drop-shadow-").unwrap().to_string(), expr)
             })
             .collect(),
         ..Default::default()
     };
 
-    // FIXME: remove the border_radius manual mapping.
-    if sibling_element.borrow().bindings.contains_key("border_radius") {
+    // FIXME: remove the border-radius manual mapping.
+    if sibling_element.borrow().bindings.contains_key("border-radius") {
         element.bindings.insert(
-            "border_radius".to_string(),
-            Expression::PropertyReference(NamedReference::new(sibling_element, "border_radius"))
+            "border-radius".to_string(),
+            Expression::PropertyReference(NamedReference::new(sibling_element, "border-radius"))
                 .into(),
         );
     }

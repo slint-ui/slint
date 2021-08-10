@@ -163,7 +163,7 @@ impl Display for Type {
             Type::String => write!(f, "string"),
             Type::Duration => write!(f, "duration"),
             Type::Angle => write!(f, "angle"),
-            Type::PhysicalLength => write!(f, "physical_length"),
+            Type::PhysicalLength => write!(f, "physical-length"),
             Type::LogicalLength => write!(f, "length"),
             Type::Percent => write!(f, "percent"),
             Type::Color => write!(f, "color"),

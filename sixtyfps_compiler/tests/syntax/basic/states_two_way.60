@@ -26,7 +26,7 @@ export Demo := Window {
             t.y: 100px;
 //          ^error{Cannot change the property 'y' in a state because it is initialized with a two-way binding}
             some_prop: "plop";
-//          ^error{Cannot change the property 'some_prop' in a state because it is initialized with a two-way binding}
+//          ^error{Cannot change the property 'some-prop' in a state because it is initialized with a two-way binding}
         }
     ]
 }

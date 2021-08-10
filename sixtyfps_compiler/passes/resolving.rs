@@ -502,9 +502,12 @@ impl Expression {
         let result = match global_lookup.lookup(ctx, &first_str) {
             None => {
                 if let Some(minus_pos) = first.text().find('-') {
-                    // Attempt to recover if the user wanted to write "-"
+                    // Attempt to recover if the user wanted to write "-" for minus
                     let first_str = &first.text()[0..minus_pos];
-                    if global_lookup.lookup(ctx, first_str).is_some() {
+                    if global_lookup
+                        .lookup(ctx, &crate::parser::normalize_identifier(first_str))
+                        .is_some()
+                    {
                         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a subtraction", first.text()), &node);
                         return Expression::Invalid;
                     }
@@ -993,7 +996,10 @@ fn continue_lookup_within_element(
         };
         if let Some(minus_pos) = second.text().find('-') {
             // Attempt to recover if the user wanted to write "-"
-            if elem.borrow().lookup_property(&second.text()[0..minus_pos]).property_type
+            if elem
+                .borrow()
+                .lookup_property(&crate::parser::normalize_identifier(&second.text()[0..minus_pos]))
+                .property_type
                 != Type::Invalid
             {
                 err(". Use space before the '-' if you meant a subtraction");

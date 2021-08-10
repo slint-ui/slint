@@ -119,7 +119,7 @@ fn create<'cx>(
         let properties =
             component_type.properties_and_callbacks().collect::<std::collections::HashMap<_, _>>();
         for x in args.get_own_property_names(cx)?.to_vec(cx)? {
-            let prop_name = x.to_string(cx)?.value();
+            let prop_name = x.to_string(cx)?.value().replace('_', "-");
             let value = args.get(cx, x)?;
             let ty = properties
                 .get(&prop_name)
@@ -212,7 +212,7 @@ fn to_eval_value<'cx>(
                         Ok((
                             pro_name.clone(),
                             to_eval_value(
-                                obj.get(cx, pro_name.as_str())?,
+                                obj.get(cx, pro_name.replace('-', "_").as_str())?,
                                 pro_ty.clone(),
                                 cx,
                                 persistent_context,
@@ -271,7 +271,7 @@ fn to_js_value<'cx>(
             let js_object = JsObject::new(cx);
             for (k, e) in o.iter() {
                 let v = to_js_value(e.clone(), cx)?;
-                js_object.set(cx, k, v)?;
+                js_object.set(cx, k.replace('-', "_").as_str(), v)?;
             }
             js_object.as_value(cx)
         }
