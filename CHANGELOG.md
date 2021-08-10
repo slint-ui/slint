@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
  - Added `TabWidget` widget
  - Rust: `sixtyfps::Image` can now be constructed from image data provided by `sixtyfps::SharedPixelBuffer`.
    This enables integrating with other low-level software rendering or the the popular Rust image crate.
+ - Added `moved` callback to `TouchArea`.
 
 ### Fixed
 

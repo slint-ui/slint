@@ -107,6 +107,7 @@ export TouchArea := _ {
     property <length> pressed_x: native_output;
     property <length> pressed_y: native_output;
     callback clicked;
+    callback moved;
     //-default_size_binding:expands_to_parent_geometry
 }
 

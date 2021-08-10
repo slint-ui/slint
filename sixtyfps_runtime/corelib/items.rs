@@ -349,6 +349,7 @@ pub struct TouchArea {
     pub mouse_x: Property<f32>,
     pub mouse_y: Property<f32>,
     pub clicked: Callback<VoidArg>,
+    pub moved: Callback<VoidArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -378,8 +379,14 @@ impl Item for TouchArea {
             return InputEventFilterResult::ForwardAndIgnore;
         }
         if let Some(pos) = event.pos() {
-            Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x);
-            Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y);
+            let moved = self.mouse_x() != pos.x || self.mouse_y() != pos.y;
+
+            self.as_ref().mouse_x.set(pos.x);
+            self.as_ref().mouse_y.set(pos.y);
+
+            if moved {
+                self.as_ref().moved.call(&());
+            }
         }
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::MouseExit));
         InputEventFilterResult::ForwardAndInterceptGrab
