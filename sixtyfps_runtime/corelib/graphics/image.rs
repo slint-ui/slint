@@ -218,7 +218,7 @@ pub struct LoadImageError(());
 /// An image type that can be displayed by the Image element. You can construct
 /// Image objects from a path to an image file on disk, using [`Self::load_from_path`].
 ///
-/// Another typical use-case is to have an external crate for rendering some content as an image.
+/// Another typical use-case is to render the image content with rust code.
 /// For this it's most efficient to create a new SharedPixelBuffer with the known dimensions
 /// and pass the the mutable slice to your rendering function. Afterwards you can create an
 /// Image.
