@@ -78,34 +78,6 @@ impl<Pixel> SharedPixelBuffer<Pixel> {
     }
 }
 
-impl<Pixel> imgref::ImgExt<Pixel> for SharedPixelBuffer<Pixel> {
-    fn width_padded(&self) -> usize {
-        self.stride
-    }
-
-    fn height_padded(&self) -> usize {
-        self.data.len() / self.stride
-    }
-
-    fn rows_padded(&self) -> std::slice::Chunks<'_, Pixel> {
-        self.data.as_ref().chunks(self.stride)
-    }
-
-    fn as_ref(&self) -> imgref::ImgRef<Pixel> {
-        imgref::Img::new(self.data.as_ref(), self.width, self.height)
-    }
-}
-
-impl<Pixel: Clone> imgref::ImgExtMut<Pixel> for SharedPixelBuffer<Pixel> {
-    fn rows_padded_mut(&mut self) -> std::slice::ChunksMut<'_, Pixel> {
-        self.data.as_mut_slice().chunks_mut(self.stride)
-    }
-
-    fn as_mut(&mut self) -> imgref::ImgRefMut<Pixel> {
-        imgref::Img::new(self.data.as_mut_slice(), self.width, self.height)
-    }
-}
-
 impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
     /// Creates a new SharedPixelBuffer with the given width and height. Each pixel will be initialized with the value
     /// that `[Default::default()`] returns for the Pixel type.

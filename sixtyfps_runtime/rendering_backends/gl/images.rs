@@ -497,12 +497,18 @@ impl ImageCache {
 fn image_buffer_to_image_source(
     buffer: &SharedImageBuffer,
 ) -> (femtovg::ImageSource<'_>, femtovg::ImageFlags) {
-    use imgref::ImgExt;
     match buffer {
-        SharedImageBuffer::RGB8(buffer) => (buffer.as_ref().into(), femtovg::ImageFlags::empty()),
-        SharedImageBuffer::RGBA8(buffer) => (buffer.as_ref().into(), femtovg::ImageFlags::empty()),
-        SharedImageBuffer::RGBA8Premultiplied(buffer) => {
-            (buffer.as_ref().into(), femtovg::ImageFlags::PREMULTIPLIED)
-        }
+        SharedImageBuffer::RGB8(buffer) => (
+            { imgref::ImgRef::new(buffer.as_slice(), buffer.width(), buffer.height()).into() },
+            femtovg::ImageFlags::empty(),
+        ),
+        SharedImageBuffer::RGBA8(buffer) => (
+            { imgref::ImgRef::new(buffer.as_slice(), buffer.width(), buffer.height()).into() },
+            femtovg::ImageFlags::empty(),
+        ),
+        SharedImageBuffer::RGBA8Premultiplied(buffer) => (
+            { imgref::ImgRef::new(buffer.as_slice(), buffer.width(), buffer.height()).into() },
+            femtovg::ImageFlags::PREMULTIPLIED,
+        ),
     }
 }

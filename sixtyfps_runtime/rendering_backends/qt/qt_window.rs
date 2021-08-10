@@ -800,24 +800,18 @@ pub(crate) fn load_image_from_resource(
             (false, qttypes::QByteArray::from(data.as_slice()))
         }
         ImageInner::EmbeddedImage(buffer) => {
-            use imgref::ImgExt;
-            use rgb::ComponentBytes;
             let (format, bytes_per_line, buffer_ptr) = match buffer {
-                SharedImageBuffer::RGBA8(img) => (
-                    qttypes::ImageFormat::RGBA8888,
-                    img.stride() * 4,
-                    img.as_ref().to_contiguous_buf().0.as_bytes().as_ptr(),
-                ),
+                SharedImageBuffer::RGBA8(img) => {
+                    (qttypes::ImageFormat::RGBA8888, img.stride() * 4, img.as_bytes().as_ptr())
+                }
                 SharedImageBuffer::RGBA8Premultiplied(img) => (
                     qttypes::ImageFormat::RGBA8888_Premultiplied,
                     img.stride() * 4,
-                    img.as_ref().to_contiguous_buf().0.as_bytes().as_ptr(),
+                    img.as_bytes().as_ptr(),
                 ),
-                SharedImageBuffer::RGB8(img) => (
-                    qttypes::ImageFormat::RGB888,
-                    img.stride() * 3,
-                    img.as_ref().to_contiguous_buf().0.as_bytes().as_ptr(),
-                ),
+                SharedImageBuffer::RGB8(img) => {
+                    (qttypes::ImageFormat::RGB888, img.stride() * 3, img.as_bytes().as_ptr())
+                }
             };
             let width: i32 = buffer.width() as _;
             let height: i32 = buffer.height() as _;
