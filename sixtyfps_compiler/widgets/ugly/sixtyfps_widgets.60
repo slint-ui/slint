@@ -9,51 +9,51 @@
 LICENSE END */
 
 global Palette := {
-    property<color> window_background: #ecedeb;
-    property<color> text_color: #090909;
-    property<color> text_color_disabled: lightgray;
-    property<color> text_color_secondary: #111;
-    property<color> button_background: #aaa;
-    property<color> button_background_disabled: #aaa;
-    property<color> button_hover: #8c8c8c;
-    property<color> button_pressed: #575757;
-    property<color> highlight_background: #2b60ae;
-    property<color> placeholder_text: #ccc;
-    property<color> border_color: #d0d3cf;
-    property<color> base_background_color: white;
-    property<color> checkbox_unchecked_indicator: #aaa;
+    property<color> window-background: #ecedeb;
+    property<color> text-color: #090909;
+    property<color> text-color-disabled: lightgray;
+    property<color> text-color-secondary: #111;
+    property<color> button-background: #aaa;
+    property<color> button-background-disabled: #aaa;
+    property<color> button-hover: #8c8c8c;
+    property<color> button-pressed: #575757;
+    property<color> highlight-background: #2b60ae;
+    property<color> placeholder-text: #ccc;
+    property<color> border-color: #d0d3cf;
+    property<color> base-background-color: white;
+    property<color> checkbox-unchecked-indicator: #aaa;
 }
 
 export global StyleMetrics := {
-    property<length> layout_spacing: 5px;
-    property<length> layout_padding: 5px;
-    property<length> text_cursor_width: 2px;
-    property<color> window_background: #ecedeb; //FIXME: Palette.window_background  does not compile (cannot access globals from other globals #175)
+    property<length> layout-spacing: 5px;
+    property<length> layout-padding: 5px;
+    property<length> text-cursor-width: 2px;
+    property<color> window-background: #ecedeb; //FIXME: Palette.window-background  does not compile (cannot access globals from other globals #175)
 }
 
 export Button := Rectangle {
     callback clicked;
     property<string> text;
     property<length> font-size;
-    property<bool> pressed: self.enabled && touch_area.pressed;
-    property<bool> enabled <=> touch_area.enabled;
+    property<bool> pressed: self.enabled && touch-area.pressed;
+    property<bool> enabled <=> touch-area.enabled;
     property<image> icon;
 
-    border_width: 1px;
-    border_radius: 2px;
-    border_color: Palette.text_color;
-    background: !self.enabled ? Palette.button_background_disabled: self.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
+    border-width: 1px;
+    border-radius: 2px;
+    border-color: Palette.text-color;
+    background: !self.enabled ? Palette.button-background-disabled: self.pressed ? Palette.button-pressed : (touch-area.has-hover ? Palette.button-hover : Palette.button-background);
     animate background { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
 
 
     HorizontalLayout {
-        padding-top: root.border_radius + 8px;
-        padding-bottom: root.border_radius + 8px;
-        padding-left: root.border_radius + 16px;
-        padding-right: root.border_radius + 16px;
-        spacing: StyleMetrics.layout_spacing;
+        padding-top: root.border-radius + 8px;
+        padding-bottom: root.border-radius + 8px;
+        padding-left: root.border-radius + 16px;
+        padding-right: root.border-radius + 16px;
+        spacing: StyleMetrics.layout-spacing;
 
         if (icon.width > 0 && icon.height > 0): Image {
             source <=> icon;
@@ -68,11 +68,11 @@ export Button := Rectangle {
             font-size: root.font-size;
             horizontal-alignment: center;
             vertical-alignment: center;
-            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+            color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
         }
     }
 
-    touch_area := TouchArea {
+    touch-area := TouchArea {
         width: root.width;
         height: root.height;
         clicked => {
@@ -85,7 +85,7 @@ export CheckBox := Rectangle {
     callback toggled;
     property <string> text;
     property <bool> checked;
-    property<bool> enabled <=> touch_area.enabled;
+    property<bool> enabled <=> touch-area.enabled;
     height: 20px;
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -95,34 +95,34 @@ export CheckBox := Rectangle {
         // the check box iteself
         indicator := Rectangle {
             width: 40px;
-            border_width: 1px;
-            border_radius: root.height / 2;
-            border_color: root.enabled ? (root.checked ? Palette.highlight_background : black) : Palette.text_color_disabled;
-            background: root.checked ? (root.enabled ? Palette.highlight_background : Palette.text_color_disabled) : white;
+            border-width: 1px;
+            border-radius: root.height / 2;
+            border-color: root.enabled ? (root.checked ? Palette.highlight-background : black) : Palette.text-color-disabled;
+            background: root.checked ? (root.enabled ? Palette.highlight-background : Palette.text-color-disabled) : white;
             animate background { duration: 100ms; }
 
             bubble := Rectangle {
                 width: root.height - 8px;
                 height: bubble.width;
-                border_radius: bubble.height / 2;
+                border-radius: bubble.height / 2;
                 y: 4px;
                 x: 4px + a * (indicator.width - bubble.width - 8px);
                 property <float> a: root.checked ? 1 : 0;
-                background: root.checked ? white : (root.enabled ? Palette.button_background : Palette.text_color_disabled);
+                background: root.checked ? white : (root.enabled ? Palette.button-background : Palette.text-color-disabled);
                 animate a, background { duration: 200ms; easing: ease;}
             }
         }
 
         Text {
-            min_width: max(100px, preferred_width);
+            min-width: max(100px, preferred-width);
             text: root.text;
             vertical-alignment: center;
-            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+            color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
         }
 
     }
 
-    touch_area := TouchArea {
+    touch-area := TouchArea {
         width: root.width;
         height: root.height;
         clicked => {
@@ -140,10 +140,10 @@ SpinBoxButton := Rectangle {
     property<string> text;
     property <length> font-size;
     property<bool> enabled <=> touch.enabled;
-    border_width: 1px;
-    border_radius: 2px;
-    border_color: black;
-    background: !enabled ? Palette.button_background_disabled : touch.pressed ? Palette.button_pressed : (touch.has_hover ? Palette.button_hover : Palette.button_background);
+    border-width: 1px;
+    border-radius: 2px;
+    border-color: black;
+    background: !enabled ? Palette.button-background-disabled : touch.pressed ? Palette.button-pressed : (touch.has-hover ? Palette.button-hover : Palette.button-background);
     animate background { duration: 100ms; }
     touch := TouchArea {
         clicked => {
@@ -159,7 +159,7 @@ SpinBoxButton := Rectangle {
         horizontal-alignment: center;
         text: root.text;
         font-size: root.font-size;
-        color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+        color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
     }
 }
 
@@ -175,9 +175,9 @@ export SpinBox := Rectangle {
 
     background: white;
 
-    max_height: 32px;
-    min_height: 32px;
-    min_width: 120px;
+    max-height: 32px;
+    min-height: 32px;
+    min-width: 120px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
@@ -194,7 +194,7 @@ export SpinBox := Rectangle {
         enabled <=> root.enabled;
     }
 
-    plus_button := SpinBoxButton {
+    plus-button := SpinBoxButton {
         width: parent.height;
         height: parent.height;
         enabled <=> root.enabled;
@@ -212,11 +212,11 @@ export SpinBox := Rectangle {
         text: root.value;
         font-size: root.font-size;
         x: parent.height + 15px;
-        width: plus_button.x - self.x - 15px;
+        width: plus-button.x - self.x - 15px;
         height: parent.height;
         horizontal-alignment: center;
         vertical-alignment: center;
-        color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+        color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
     }
 }
 
@@ -224,57 +224,57 @@ export Slider := Rectangle {
     property<float> maximum: 100;
     property<float> minimum: 0;
     property<float> value;
-    property<bool> enabled <=> touch_area.enabled;
+    property<bool> enabled <=> touch-area.enabled;
     callback changed(float);
 
-    max_height: 32px;
-    min_height: 32px;
-    min_width: 120px;
+    max-height: 32px;
+    min-height: 32px;
+    min-width: 120px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
-    slider_filled := Rectangle {
+    slider-filled := Rectangle {
         width: parent.width;
         y: parent.height / 3;
         height: parent.height / 3;
-        border_width: 1px;
-        border_radius: 2px;
-        border_color: black;
-        background: root.enabled ? Palette.highlight_background : Palette.text_color_disabled;
+        border-width: 1px;
+        border-radius: 2px;
+        border-color: black;
+        background: root.enabled ? Palette.highlight-background : Palette.text-color-disabled;
     }
 
-    slider_empty := Rectangle {
-        y: slider_filled.y;
+    slider-empty := Rectangle {
+        y: slider-filled.y;
         x: handle.x;
         width: parent.width - self.x;
-        height: slider_filled.height;
-        border_width: slider_filled.border_width;
-        border_radius: slider_filled.border_radius;
-        border_color: slider_filled.border_color;
-        background: root.enabled ? Palette.button_background : white;
+        height: slider-filled.height;
+        border-width: slider-filled.border-width;
+        border-radius: slider-filled.border-radius;
+        border-color: slider-filled.border-color;
+        background: root.enabled ? Palette.button-background : white;
     }
 
     handle := Rectangle {
         width: parent.height / 3;
         height: parent.height;
-        border_width: 1px;
-        border_radius: 3px;
-        border_color: black;
-        background: (touch_area.pressed && enabled) ? Palette.button_pressed : white;
+        border-width: 1px;
+        border-radius: 3px;
+        border-color: black;
+        background: (touch-area.pressed && enabled) ? Palette.button-pressed : white;
         animate background { duration: 100ms; }
-        x: (root.width - handle.width) * (new_value - minimum)/(maximum - minimum);
-        property<float> new_value_tmp : (touch_area.pressed && enabled)
-            ? root.value + (touch_area.mouse_x - touch_area.pressed_x) * (maximum - minimum) / (root.width - handle.width)
+        x: (root.width - handle.width) * (new-value - minimum)/(maximum - minimum);
+        property<float> new-value-tmp : (touch-area.pressed && enabled)
+            ? root.value + (touch-area.mouse-x - touch-area.pressed-x) * (maximum - minimum) / (root.width - handle.width)
             : root.value;
-        property<float> new_value : new_value_tmp < root.minimum ? root.minimum
-            : new_value_tmp > root.maximum ? root.maximum : new_value_tmp;
+        property<float> new-value : new-value-tmp < root.minimum ? root.minimum
+            : new-value-tmp > root.maximum ? root.maximum : new-value-tmp;
     }
-    touch_area := TouchArea {
+    touch-area := TouchArea {
         width: parent.width;
         height: parent.height;
         clicked => {
             if (enabled) {
-                root.value = handle.new_value;
+                root.value = handle.new-value;
                 root.changed(root.value);
             }
         }
@@ -290,14 +290,14 @@ export GroupBox := GridLayout {
         Text {
             text: root.title;
             vertical-stretch: 0;
-            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+            color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
         }
     }
     Row {
         Rectangle {
-            border_width: 1px;
-            border_color: Palette.border_color;
-            border_radius: 2px;
+            border-width: 1px;
+            border-color: Palette.border-color;
+            border-radius: 2px;
             background: white;
 
             GridLayout {
@@ -309,29 +309,29 @@ export GroupBox := GridLayout {
 }
 
 export TabWidgetImpl := Rectangle {
-    property <length> content_x: 0;
-    property <length> content_y: tabbar_preferred_height;
-    property <length> content_height: height - tabbar_preferred_height;
-    property <length> content_width: width;
-    property <length> tabbar_x: 0;
-    property <length> tabbar_y: 0;
-    property <length> tabbar_height: tabbar_preferred_height;
-    property <length> tabbar_width: width;
+    property <length> content-x: 0;
+    property <length> content-y: tabbar-preferred-height;
+    property <length> content-height: height - tabbar-preferred-height;
+    property <length> content-width: width;
+    property <length> tabbar-x: 0;
+    property <length> tabbar-y: 0;
+    property <length> tabbar-height: tabbar-preferred-height;
+    property <length> tabbar-width: width;
 
-    property <length> tabbar_preferred_height;
-    property <length> tabbar_preferred_width;
-    property <length> content_min_height;
-    property <length> content_min_width;
-    property <int> current_index;
+    property <length> tabbar-preferred-height;
+    property <length> tabbar-preferred-width;
+    property <length> content-min-height;
+    property <length> content-min-width;
+    property <int> current-index;
 
-    border_width: 1px;
-    border_color: Palette.border_color;
-    border_radius: 2px;
+    border-width: 1px;
+    border-color: Palette.border-color;
+    border-radius: 2px;
 
-    preferred_width: content_min_width;
-    min_width: content_min_width;
-    preferred_height: content_min_height + tabbar_preferred_height;
-    min_height: content_min_height + tabbar_preferred_height;
+    preferred-width: content-min-width;
+    min-width: content-min-width;
+    preferred-height: content-min-height + tabbar-preferred-height;
+    min-height: content-min-height + tabbar-preferred-height;
 
 }
 export TabImpl := Rectangle {
@@ -340,29 +340,29 @@ export TabImpl := Rectangle {
     property<bool> enabled : true;
     property<bool> pressed;
     property<int> current;
-    property<int> tab_index;
-    property<int> num_tabs;
-    preferred_height: t.preferred_height + 8px;
-    preferred_width: t.preferred_width + 12px;
+    property<int> tab-index;
+    property<int> num-tabs;
+    preferred-height: t.preferred-height + 8px;
+    preferred-width: t.preferred-width + 12px;
 
-    border_width: 1px;
-    border_radius: 2px;
-    border_color: black;
-    background: !enabled ? Palette.button_background_disabled : (touch.pressed || current == tab_index) ? Palette.button_pressed : (touch.has_hover ? Palette.button_hover : Palette.button_background);
+    border-width: 1px;
+    border-radius: 2px;
+    border-color: black;
+    background: !enabled ? Palette.button-background-disabled : (touch.pressed || current == tab-index) ? Palette.button-pressed : (touch.has-hover ? Palette.button-hover : Palette.button-background);
     animate background { duration: 100ms; }
     touch := TouchArea {
         clicked => {
-            current = tab_index;
+            current = tab-index;
         }
     }
     t:= Text {
-        x: enabled && (touch.pressed || current == tab_index) ? 1px : 0px;
-        y: enabled && (touch.pressed || current == tab_index) ? 1px : 0px;
+        x: enabled && (touch.pressed || current == tab-index) ? 1px : 0px;
+        y: enabled && (touch.pressed || current == tab-index) ? 1px : 0px;
         width: parent.width;
         height: parent.height;
         vertical-alignment: center;
         horizontal-alignment: center;
-        color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+        color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
     }
 }
 
@@ -374,16 +374,16 @@ export TabBarImpl := HorizontalLayout {
 
 export LineEdit := Rectangle {
     property <string> text;
-    property <string> placeholder_text;
-    property <bool> has_focus: input.has_focus;
+    property <string> placeholder-text;
+    property <bool> has-focus: input.has-focus;
     property <bool> enabled <=> input.enabled;
     callback accepted(string);
     callback edited(string);
     forward-focus: input;
 
-    border_color: root.has_focus ? Palette.highlight_background : #ffffff;
-    border_radius: 1px;
-    border_width: 2px;
+    border-color: root.has-focus ? Palette.highlight-background : #ffffff;
+    border-radius: 1px;
+    border-width: 2px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
@@ -391,9 +391,9 @@ export LineEdit := Rectangle {
         padding: 3px;
 
         Rectangle {
-            border_color: #ecedeb;
-            border_radius: 1px;
-            border_width: 1px;
+            border-color: #ecedeb;
+            border-radius: 1px;
+            border-width: 1px;
             background: white;
 
             GridLayout {
@@ -406,13 +406,13 @@ export LineEdit := Rectangle {
                     edited => {
                         root.edited(self.text);
                     }
-                    color: enabled ? Palette.text_color : Palette.text_color_disabled;
+                    color: enabled ? Palette.text-color : Palette.text-color-disabled;
                 }
                 Text {
-                    color: Palette.placeholder_text;
+                    color: Palette.placeholder-text;
                     col: 0;
                     row: 0;
-                    text: (root.text == "" && !input.has-focus) ? root.placeholder_text : "";
+                    text: (root.text == "" && !input.has-focus) ? root.placeholder-text : "";
                 }
             }
         }
@@ -422,53 +422,53 @@ export LineEdit := Rectangle {
 
 ScrollBar := Rectangle {
     background: white;
-    border_color: Palette.button_background;
-    border_width: 1px;
+    border-color: Palette.button-background;
+    border-width: 1px;
     property <bool> horizontal;
     property<length> max;
-    property<length> page_size;
+    property<length> page-size;
     // this is always negative and migger than  -max
     property<length> value;
 
     handle := Rectangle {
-        width: !horizontal ? parent.width : max <= 0phx ? 0phx : parent.width * (page_size / (max + page_size));
-        height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page_size / (max + page_size));
+        width: !horizontal ? parent.width : max <= 0phx ? 0phx : parent.width * (page-size / (max + page-size));
+        height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page-size / (max + page-size));
 
-        border_radius: (horizontal ? self.height : self.width) / 2;
-        background: touch_area.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
+        border-radius: (horizontal ? self.height : self.width) / 2;
+        background: touch-area.pressed ? Palette.button-pressed : (touch-area.has-hover ? Palette.button-hover : Palette.button-background);
         animate background { duration: 100ms; }
-        x: !horizontal ? 0phx : (root.width - handle.width) * (new_value / max);
-        y: horizontal ? 0phx : (root.height - handle.height) * (new_value / max);
-        property<length> new_value_tmp : -root.value + (
-            !touch_area.pressed ? 0phx
-            : horizontal ?  (touch_area.mouse_x - touch_area.pressed_x) * (max / (root.width - handle.width))
-            : (touch_area.mouse_y - touch_area.pressed_y) * (max / (root.height - handle.height)));
-        property<length> new_value : new_value_tmp < 0phx ? 0phx
+        x: !horizontal ? 0phx : (root.width - handle.width) * (new-value / max);
+        y: horizontal ? 0phx : (root.height - handle.height) * (new-value / max);
+        property<length> new-value-tmp : -root.value + (
+            !touch-area.pressed ? 0phx
+            : horizontal ?  (touch-area.mouse-x - touch-area.pressed-x) * (max / (root.width - handle.width))
+            : (touch-area.mouse-y - touch-area.pressed-y) * (max / (root.height - handle.height)));
+        property<length> new-value : new-value-tmp < 0phx ? 0phx
             : root.max < 0phx ? 0phx
-            : new_value_tmp > root.max ? root.max : new_value_tmp;
+            : new-value-tmp > root.max ? root.max : new-value-tmp;
     }
-    touch_area := TouchArea {
+    touch-area := TouchArea {
         width: parent.width;
         height: parent.height;
         clicked => {
-            root.value = -handle.new_value;
+            root.value = -handle.new-value;
         }
     }
 
 }
 
 export ScrollView := Rectangle {
-    property <length> viewport_width <=> fli.viewport_width;
-    property <length> viewport_height <=> fli.viewport_height;
-    property <length> viewport_x <=> fli.viewport_x;
-    property <length> viewport_y <=> fli.viewport_y;
-    property <length> visible_width <=> fli.width;
-    property <length> visible_height <=> fli.height;
-    min_height: 50px;
-    min_width: 50px;
-    border_width: 1px;
-    border_color: Palette.border_color;
-    background: Palette.base_background_color;
+    property <length> viewport-width <=> fli.viewport-width;
+    property <length> viewport-height <=> fli.viewport-height;
+    property <length> viewport-x <=> fli.viewport-x;
+    property <length> viewport-y <=> fli.viewport-y;
+    property <length> visible-width <=> fli.width;
+    property <length> visible-height <=> fli.height;
+    min-height: 50px;
+    min-width: 50px;
+    border-width: 1px;
+    border-color: Palette.border-color;
+    background: Palette.base-background-color;
     horizontal-stretch: 1;
     vertical-stretch: 1;
 
@@ -477,10 +477,10 @@ export ScrollView := Rectangle {
         x: 1px;
         y: 1px;
         interactive: false;
-        viewport_y <=> vbar.value;
-        viewport_x <=> hbar.value;
-        viewport_height: 1000px;
-        viewport_width: 1000px;
+        viewport-y <=> vbar.value;
+        viewport-x <=> hbar.value;
+        viewport-height: 1000px;
+        viewport-width: 1000px;
         width: parent.width - vbar.width - 1px;
         height: parent.height - hbar.height -1px;
     }
@@ -489,16 +489,16 @@ export ScrollView := Rectangle {
         x: fli.width + fli.x;
         height: fli.height + fli.y;
         horizontal: false;
-        max: fli.viewport_height - fli.height;
-        page_size: fli.height;
+        max: fli.viewport-height - fli.height;
+        page-size: fli.height;
     }
     hbar := ScrollBar {
         height: 16px;
         y: fli.height + fli.y;
         width: fli.width + fli.x;
         horizontal: true;
-        max: fli.viewport_width - fli.width;
-        page_size: fli.width;
+        max: fli.viewport-width - fli.width;
+        page-size: fli.width;
     }
 }
 
@@ -508,69 +508,69 @@ export ListView := ScrollView {
 
 export StandardListView := ListView {
     property<[StandardListViewItem]> model;
-    property<int> current_item: -1;
+    property<int> current-item: -1;
     for item[idx] in model : Rectangle {
         l := HorizontalLayout {
             padding: 0px;
             spacing: 0px;
             t := Text {
                 text: item.text;
-                color: Palette.text_color;
+                color: Palette.text-color;
             }
         }
-        width: parent.visible_width;
-        background: current_item == idx ? Palette.highlight_background : transparent;
+        width: parent.visible-width;
+        background: current-item == idx ? Palette.highlight-background : transparent;
         TouchArea {
             width: parent.width;
             height: parent.height;
-            clicked => { current_item = idx; }
+            clicked => { current-item = idx; }
         }
     }
 }
 
 export ComboBox := Rectangle {
     property <[string]> model;
-    property <int> current_index : -1;
-    property <string> current_value;
-    //property <bool> is_open: false;
-    property<bool> enabled <=> touch_area.enabled;
+    property <int> current-index : -1;
+    property <string> current-value;
+    //property <bool> is-open: false;
+    property<bool> enabled <=> touch-area.enabled;
     callback selected(string);
 
-    border_width: 1px;
-    border_radius: 2px;
-    border_color: Palette.text_color;
-    background: !enabled ? Palette.button_background_disabled : touch_area.pressed ? Palette.button_pressed : (touch_area.has_hover ? Palette.button_hover : Palette.button_background);
+    border-width: 1px;
+    border-radius: 2px;
+    border-color: Palette.text-color;
+    background: !enabled ? Palette.button-background-disabled : touch-area.pressed ? Palette.button-pressed : (touch-area.has-hover ? Palette.button-hover : Palette.button-background);
     animate background { duration: 100ms; }
     horizontal-stretch: 0;
     vertical-stretch: 0;
-    min_width: 170px;
+    min-width: 170px;
 
     HorizontalLayout {
-        padding-top: root.border_radius + 8px;
-        padding-bottom: root.border_radius + 8px;
-        padding-left: root.border_radius + 8px;
-        padding-right: root.border_radius + 8px;
+        padding-top: root.border-radius + 8px;
+        padding-bottom: root.border-radius + 8px;
+        padding-left: root.border-radius + 8px;
+        padding-right: root.border-radius + 8px;
 
         t := Text {
-            text <=> root.current_value;
+            text <=> root.current-value;
             horizontal-alignment: left;
             vertical-alignment: center;
-            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+            color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
             horizontal-stretch: 1;
         }
         Text {
             text:"▼";
-            color: root.enabled ? Palette.text_color : Palette.text_color_disabled;
+            color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
             horizontal-stretch: 0;
             vertical-alignment: center;
         }
     }
 
-    touch_area := TouchArea {
+    touch-area := TouchArea {
         width: 100%;
         height: 100%;
         clicked => {
-            //is_open = !is_open;
+            //is-open = !is-open;
             popup.show();
         }
     }
@@ -581,20 +581,20 @@ export ComboBox := Rectangle {
         VerticalLayout {
             spacing: 0px;
             for value[idx] in root.model: Rectangle {
-                background: item_area.has_hover ? Palette.highlight_background : Palette.base_background_color;
+                background: item-area.has-hover ? Palette.highlight-background : Palette.base-background-color;
                 VerticalLayout { // FIXME: ideally this layout shouldn't be required
                     Text {
                         text: value;
-                        item_area := TouchArea {
+                        item-area := TouchArea {
                             width: 100%;
                             height: 100%;
                             clicked => {
                                 if (root.enabled) {
-                                    root.current_index = idx;
-                                    root.current_value = value;
-                                    root.selected(root.current_value);
+                                    root.current-index = idx;
+                                    root.current-value = value;
+                                    root.selected(root.current-value);
                                 }
-                                //is_open = false;
+                                //is-open = false;
                             }
                         }
                     }
@@ -605,14 +605,14 @@ export ComboBox := Rectangle {
 }
 
 export VerticalBox := VerticalLayout {
-    spacing: StyleMetrics.layout_spacing;
-    padding: StyleMetrics.layout_spacing;
+    spacing: StyleMetrics.layout-spacing;
+    padding: StyleMetrics.layout-spacing;
 }
 export HorizontalBox := HorizontalLayout {
-    spacing: StyleMetrics.layout_spacing;
-    padding: StyleMetrics.layout_spacing;
+    spacing: StyleMetrics.layout-spacing;
+    padding: StyleMetrics.layout-spacing;
 }
 export GridBox := GridLayout {
-    spacing: StyleMetrics.layout_spacing;
-    padding: StyleMetrics.layout_spacing;
+    spacing: StyleMetrics.layout-spacing;
+    padding: StyleMetrics.layout-spacing;
 }

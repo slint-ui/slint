@@ -10,7 +10,7 @@ LICENSE END */
 
 export { NativeStyleMetrics as StyleMetrics }
 
-// FIXME: the font-size should be removed but is required right now to compile the printer_demo
+// FIXME: the font-size should be removed but is required right now to compile the printer-demo
 export Button := NativeButton {
     property<length> font-size;
     enabled: true;
@@ -20,26 +20,26 @@ export SpinBox := NativeSpinBox { property<length> font-size; }
 export Slider := NativeSlider { }
 export GroupBox := NativeGroupBox {
     GridLayout {
-        padding_left: root.native_padding_left;
-        padding_right: root.native_padding_right;
-        padding_top: root.native_padding_top;
-        padding_bottom: root.native_padding_bottom;
+        padding-left: root.native-padding-left;
+        padding-right: root.native-padding-right;
+        padding-top: root.native-padding-top;
+        padding-bottom: root.native-padding-bottom;
         @children
     }
  }
 export LineEdit := NativeLineEdit {
     property <string> text;
-    property <string> placeholder_text;
+    property <string> placeholder-text;
     enabled: true;
-    focused: input.has_focus;
+    focused: input.has-focus;
     forward-focus: input;
     callback accepted(string);
     callback edited(string);
     GridLayout {
-        padding_left: root.native_padding_left;
-        padding_right: root.native_padding_right;
-        padding_top: root.native_padding_top;
-        padding_bottom: root.native_padding_bottom;
+        padding-left: root.native-padding-left;
+        padding-right: root.native-padding-right;
+        padding-top: root.native-padding-top;
+        padding-bottom: root.native-padding-bottom;
         input := TextInput {
             text <=> root.text;
             enabled: root.enabled;
@@ -54,37 +54,37 @@ export LineEdit := NativeLineEdit {
             color: #ecedeb; // FIXME: use the palette
             col: 0;
             row: 0;
-            text: root.text == "" ? root.placeholder_text : "";
+            text: root.text == "" ? root.placeholder-text : "";
         }
     }
 }
 
 export ScrollView := NativeScrollView {
-    property <length> viewport_width <=> fli.viewport_width;
-    property <length> viewport_height <=> fli.viewport_height;
-    property <length> viewport_x <=> fli.viewport_x;
-    property <length> viewport_y <=> fli.viewport_y;
-    property <length> visible_width <=> fli.width;
-    property <length> visible_height <=> fli.height;
+    property <length> viewport-width <=> fli.viewport-width;
+    property <length> viewport-height <=> fli.viewport-height;
+    property <length> viewport-x <=> fli.viewport-x;
+    property <length> viewport-y <=> fli.viewport-y;
+    property <length> visible-width <=> fli.width;
+    property <length> visible-height <=> fli.height;
 
-    vertical_max: fli.viewport_height > fli.height ? fli.viewport_height - fli.height : 0phx;
-    vertical_page_size: fli.height;
+    vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;
+    vertical-page-size: fli.height;
 
-    horizontal_max: fli.viewport_width > fli.width ? fli.viewport_width - fli.width : 0phx;
-    horizontal_page_size: fli.width;
+    horizontal-max: fli.viewport-width > fli.width ? fli.viewport-width - fli.width : 0phx;
+    horizontal-page-size: fli.width;
 
     fli := Flickable {
-        x: root.native_padding_left;
-        width: root.width - root.native_padding_left - root.native_padding_right;
-        y: root.native_padding_top;
-        height: root.height - root.native_padding_top - root.native_padding_bottom;
+        x: root.native-padding-left;
+        width: root.width - root.native-padding-left - root.native-padding-right;
+        y: root.native-padding-top;
+        height: root.height - root.native-padding-top - root.native-padding-bottom;
 
         @children
         interactive: false;
-        viewport_y <=> root.vertical_value;
-        viewport_x <=> root.horizontal_value;
-        viewport_height: 1000px;
-        viewport_width: 1000px;
+        viewport-y <=> root.vertical-value;
+        viewport-x <=> root.horizontal-value;
+        viewport-height: 1000px;
+        viewport-width: 1000px;
     }
 }
 
@@ -94,16 +94,16 @@ export ListView := ScrollView {
 
 export StandardListView := ListView {
     property<[StandardListViewItem]> model;
-    property<int> current_item: -1;
+    property<int> current-item: -1;
     for item[i] in model : NativeStandardListViewItem {
         item: item;
         index: i;
-        width: parent.visible_width;
-        is_selected: current_item == i;
+        width: parent.visible-width;
+        is-selected: current-item == i;
         TouchArea {
             width: parent.width;
             height: parent.height;
-            clicked => { current_item = i; }
+            clicked => { current-item = i; }
         }
     }
 }
@@ -111,9 +111,9 @@ export StandardListView := ListView {
 
 export ComboBox := NativeComboBox {
     property <[string]> model;
-    property <int> current_index : -1;
+    property <int> current-index : -1;
     enabled: true;
-    open_popup => { popup.show(); }
+    open-popup => { popup.show(); }
     callback selected(string);
 
     popup := PopupWindow {
@@ -129,17 +129,17 @@ export ComboBox := NativeComboBox {
             spacing: 0px;
             for value[i] in root.model: NativeStandardListViewItem {
                 item: { text: value };
-                is_selected: current_index == i;
+                is-selected: current-index == i;
                 VerticalLayout {  // FIXME: ideally this layout shouldn't be required
                     TouchArea {
                         height: 25px;
                         clicked => {
                             if (root.enabled) {
-                                current_index = i;
-                                current_value = value;
-                                selected(current_value);
+                                current-index = i;
+                                current-value = value;
+                                selected(current-value);
                             }
-                            //is_open = false;
+                            //is-open = false;
                         }
                     }
                 }
@@ -149,7 +149,7 @@ export ComboBox := NativeComboBox {
 }
 
 export TabWidgetImpl := NativeTabWidget {
-    property <int> current_index;
+    property <int> current-index;
 }
 export TabImpl := NativeTab {}
 export TabBarImpl := HorizontalLayout {
@@ -158,15 +158,15 @@ export TabBarImpl := HorizontalLayout {
 export TabWidget := TabWidget {}
 
 export VerticalBox := VerticalLayout {
-    spacing: NativeStyleMetrics.layout_spacing;
-    padding: NativeStyleMetrics.layout_spacing;
+    spacing: NativeStyleMetrics.layout-spacing;
+    padding: NativeStyleMetrics.layout-spacing;
 }
 export HorizontalBox := HorizontalLayout {
-    spacing: NativeStyleMetrics.layout_spacing;
-    padding: NativeStyleMetrics.layout_spacing;
+    spacing: NativeStyleMetrics.layout-spacing;
+    padding: NativeStyleMetrics.layout-spacing;
 }
 export GridBox := GridLayout {
-    spacing: NativeStyleMetrics.layout_spacing;
-    padding: NativeStyleMetrics.layout_spacing;
+    spacing: NativeStyleMetrics.layout-spacing;
+    padding: NativeStyleMetrics.layout-spacing;
 }
 
