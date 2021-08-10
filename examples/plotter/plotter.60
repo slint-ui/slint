@@ -25,6 +25,17 @@ export MainWindow := Window {
             horizontal-alignment: center;
         }
         img := Image {
+            dnd-area := TouchArea {
+                property <float> drag-start-pitch;
+                moved => {
+                    if (self.pressed) {
+                        pitch_slider.value = self.drag-start-pitch + (self.mouse_y - self.pressed_y) * pitch_slider.maximum / self.height;
+                        root.redraw();
+                    } else {
+                        self.drag-start-pitch = pitch_slider.value;
+                    }
+                }
+            }
         }
         GroupBox {
             title: "Pitch";
