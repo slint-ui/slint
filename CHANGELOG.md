@@ -9,6 +9,9 @@ All notable changes to this project will be documented in this file.
  - Rust: defaults to the native style if Qt is available
  - Rust: deprecated `SharedVector::as_slice_mut()`. Use `SharedVector::make_mut_slice()` instead.
  - The default non-native widget style is now the new "fluent" style.
+ - The internal normalization of identifier is using `-` instead of `_`, this is an internal
+   change, but it can be seen in error messages, or when listing properties or fields with the
+   interpreter API.
 
 ### Added
 
