@@ -65,6 +65,17 @@ Also show how a way to dynamically load widgets with the interpreter from C++.
 
 ![Screenshot of the IOT Dashboard](https://sixtyfps.io/resources/iot-dashboard_screenshot.png "IOT Dashboard")
 
+### [`imagefilter`](./imagefilter)
+
+A Rust-only example that shows how to use the Rust image crate to do image manipulations
+and feed the result into SixtyFPS.
+
+| `.60` Design | Rust Source | Online wasm Preview |
+| --- | --- | --- |
+| [`imagefilter.60`](./imagefilter/imagefilter.60) | [`main.rs`](./imagefilter/main.rs)   | [Online simulation](https://sixtyfps.io/snapshots/master/demos/imagefilter/) |
+
+![Screenshot of the imagefilter example](https://sixtyfps.io/resources/imagefilter_screenshot.png "Image Filter")
+
 ### External examples
 
 * [cargo-ui](https://github.com/sixtyfpsui/cargo-ui): A rust application that makes use of threads in the background.
