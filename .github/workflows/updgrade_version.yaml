@@ -41,7 +41,7 @@ jobs:
         git ls-files | grep package.json | xargs sed -i 's/"version": ".*"/"version": "${{ github.event.inputs.new_version }}"/'
 
         # VersionCheck
-        sed -i "s/VersionCheck_[0-9]*_[0-9]*_[0-9]*;/VersionCheck_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\1/"`_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\2/"`_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\3/"`/
+        sed -i "s/VersionCheck_[0-9]*_[0-9]*_[0-9]*;/VersionCheck_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\1/"`_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\2/"`_`echo ${{ github.event.inputs.new_version }} | sed "s/\([0-9]*\)\.\([0-9]*\).\([0-9]*\)/\3/"`/"
 
         echo "Note that the version is not updated in the documentation and README yet"
 
@@ -54,4 +54,8 @@ jobs:
       run: |
         git diff
 
-    #TODO: commit the result
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        branch: wip/version-bump
+
