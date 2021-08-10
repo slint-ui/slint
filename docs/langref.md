@@ -118,7 +118,7 @@ C-style comments are supported:
 
 Identifiers can be composed of letter (`a-zA-Z`), of numbers (`0-9`), or of the underscore (`_`) or the dash (`-`).
 They cannot start with a number or a dash (but they can start with underscore)
-The underscore are normalized to dashes. Which means that these two identifiers are the same: `foo_bar` and `foo-bar`.
+The underscores are normalized to dashes. Which means that these two identifiers are the same: `foo_bar` and `foo-bar`.
 
 ## Properties
 
@@ -787,11 +787,11 @@ of assigning a different name at import time:
 
 ```60,ignore
 import { Button } from "./button.60";
-import { Button as CoolButton } from "../other-theme/button.60";
+import { Button as CoolButton } from "../other_theme/button.60";
 
 App := Rectangle {
     // ...
-    CoolButton {} // from cool-button.60
+    CoolButton {} // from other_theme/button.60
     Button {} // from button.60
 }
 ```
