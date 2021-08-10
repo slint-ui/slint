@@ -978,7 +978,7 @@ fn component_definition_properties2() {
     let props = comp_def.properties().collect::<Vec<(_, _)>>();
 
     assert_eq!(props.len(), 1);
-    assert_eq!(props[0].0, "sub_text");
+    assert_eq!(props[0].0, "sub-text");
     assert_eq!(props[0].1, ValueType::String);
 
     let callbacks = comp_def.callbacks().collect::<Vec<_>>();
