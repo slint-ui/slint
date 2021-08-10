@@ -74,6 +74,7 @@ export Button := Rectangle {
     property<bool> pressed: self.enabled && touch.pressed;
     property<bool> enabled <=> touch.enabled;
     property<image> icon;
+    property<length> font-size <=> text.font-size;
 
     border-width: 1px;
     border-radius: 2px;
