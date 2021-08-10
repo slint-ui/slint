@@ -1321,7 +1321,11 @@ fn get_font(request: FontRequest) -> QFont {
         // from the widget hierarchy. Later we call QPainter::setFont, which would
         // merge in unset properties (such as bold, etc.) that it retrieved from
         // the widget the painter is associated with.
+    #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
         f.resolve(QFont::AllPropertiesResolved);
+    #else
+        f.setResolveMask(QFont::AllPropertiesResolved);
+    #endif
         return f;
     })
 }
