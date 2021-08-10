@@ -114,10 +114,10 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
 
 /// Convenience alias for a pixel with three color channels (red, green and blue), each
 /// encoded as u8.
-pub type RGB8Pixel = rgb::RGB8;
+pub type Rgb8Pixel = rgb::RGB8;
 /// Convenience alias for a pixel with four color channels (red, green, blue and alpha), each
 /// encoded as u8.
-pub type RGBA8Pixel = rgb::RGBA8;
+pub type Rgba8Pixel = rgb::RGBA8;
 
 /// SharedImageBuffer is a container for images that are stored in CPU accessible memory.
 ///
@@ -128,17 +128,17 @@ pub type RGBA8Pixel = rgb::RGBA8;
 pub enum SharedImageBuffer {
     /// This variant holds the data for an image where each pixel has three color channels (red, green,
     /// and blue) and each channel is encoded as unsigned byte.
-    RGB8(SharedPixelBuffer<RGB8Pixel>),
+    RGB8(SharedPixelBuffer<Rgb8Pixel>),
     /// This variant holds the data for an image where each pixel has four color channels (red, green,
     /// blue and alpha) and each channel is encoded as unsigned byte.
-    RGBA8(SharedPixelBuffer<RGBA8Pixel>),
+    RGBA8(SharedPixelBuffer<Rgba8Pixel>),
     /// This variant holds the data for an image where each pixel has four color channels (red, green,
     /// blue and alpha) and each channel is encoded as unsigned byte. In contrast to [`Self::RGBA8`],
     /// this variant assumes that the alpha channel is also already multiplied to each red, green and blue
     /// component of each pixel.
     /// Only construct this format if you know that your pixels are encoded this way. It is more efficient
     /// for rendering.
-    RGBA8Premultiplied(SharedPixelBuffer<RGBA8Pixel>),
+    RGBA8Premultiplied(SharedPixelBuffer<Rgba8Pixel>),
 }
 
 impl SharedImageBuffer {
@@ -226,13 +226,13 @@ pub struct LoadImageError(());
 /// low_level_render() function to draw a shape into it. Finally the result is
 /// stored in an Image with [`Self::from_rgb8()`]:
 /// ```
-/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, RGB8Pixel};
+/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgb8Pixel};
 ///
 /// fn low_level_render(width: usize, height: usize, buffer: &mut [u8]) {
 ///     // render beautiful circle or other shapes here
 /// }
 ///
-/// let mut pixel_buffer = SharedPixelBuffer::<RGB8Pixel>::new(320, 200);
+/// let mut pixel_buffer = SharedPixelBuffer::<Rgb8Pixel>::new(320, 200);
 ///
 /// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
 ///                  pixel_buffer.as_bytes_mut());
@@ -247,12 +247,12 @@ pub struct LoadImageError(());
 /// load a `.png` file from disk, apply brightening filter on it and then import
 /// it into an `[Image]`:
 /// ```no_run
-/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, RGBA8Pixel};
+/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
 /// let mut cat_image = image::open("cat.png").expect("Error loading cat image").into_rgba8();
 ///
 /// image::imageops::colorops::brighten_in_place(&mut cat_image, 20);
 ///
-/// let buffer = SharedPixelBuffer::<RGBA8Pixel>::clone_from_slice(
+/// let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
 ///     cat_image.as_raw(),
 ///     cat_image.width() as _,
 ///     cat_image.height() as _,
@@ -272,13 +272,13 @@ impl Image {
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
     /// channels (red, green and blue) encoded as u8.
-    pub fn from_rgb8(buffer: SharedPixelBuffer<RGB8Pixel>) -> Self {
+    pub fn from_rgb8(buffer: SharedPixelBuffer<Rgb8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGB8(buffer)))
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
     /// channels (red, green, blue and alpha) encoded as u8.
-    pub fn from_rgba8(buffer: SharedPixelBuffer<RGBA8Pixel>) -> Self {
+    pub fn from_rgba8(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8(buffer)))
     }
 
@@ -287,7 +287,7 @@ impl Image {
     /// the alpha channel is also assumed to be multiplied to the red, green and blue channels.
     ///
     /// Only construct an Image with this function if you know that your pixels are encoded this way.
-    pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<RGBA8Pixel>) -> Self {
+    pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8Premultiplied(buffer)))
     }
 
@@ -312,7 +312,7 @@ fn test_image_size_from_buffer_without_backend() {
         assert_eq!(Image::default().size(), Default::default());
     }
     {
-        let buffer = SharedPixelBuffer::<RGB8Pixel>::new(320, 200);
+        let buffer = SharedPixelBuffer::<Rgb8Pixel>::new(320, 200);
         let image = Image::from_rgb8(buffer);
         assert_eq!(image.size(), [320., 200.].into())
     }
@@ -325,19 +325,19 @@ pub(crate) mod ffi {
     use super::super::Size;
     use super::*;
 
-    /// Expand RGB8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
+    /// Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
     #[cfg(cbindgen)]
     #[repr(C)]
-    struct RGB8Pixel {
+    struct Rgb8Pixel {
         r: u8,
         g: u8,
         b: u8,
     }
 
-    /// Expand RGBA8 so that cbindgen can see it. (is in fact rgb::RGBA<u8>)
+    /// Expand Rgba8Pixel so that cbindgen can see it. (is in fact rgb::RGBA<u8>)
     #[cfg(cbindgen)]
     #[repr(C)]
-    struct RGBA8Pixel {
+    struct Rgba8Pixel {
         r: u8,
         g: u8,
         b: u8,
