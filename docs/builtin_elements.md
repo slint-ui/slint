@@ -416,7 +416,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 ### Callbacks
 
 * **`clicked`**: Emitted when the mouse is released
-* **`moved`**: Emitted when the value of `mouse_x` or `mouse_y` has changed.
+* **`moved`**: Emitted when the value of `mouse-x` or `mouse-y` has changed.
 
 ### Example
 
