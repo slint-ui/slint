@@ -118,8 +118,8 @@ jobs:
           rm -rf target/*/incremental
           rm -rf target/*/*/*sixtyfps*
           rm -rf target/*/*sixtyfps*
-          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/sixtyfps-viewer* target/*/*/todo* target/*/*/slide_puzzle* target/*/*/memory*
-          rm -rf target/*/sixtyfps-viewer target/*/printerdemo target/*/gallery target/*/todo target/*/slide_puzzle target/*/memory
+          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/sixtyfps-viewer* target/*/*/todo* target/*/*/slide_puzzle* target/*/*/memory* target/*/*/imagefilter target/*/*/plotter*
+          rm -rf target/*/sixtyfps-viewer target/*/printerdemo target/*/gallery target/*/todo target/*/slide_puzzle target/*/memory target/*/imagefilter target/*/plotter
           rm -rf target/*/*test*
           du -hs target
     - name: Clean cache # Otherwise the cache is much too big
@@ -142,6 +142,8 @@ jobs:
           rm -Recurse -Force target/*/todo
           rm -Recurse -Force target/*/slide_puzzle
           rm -Recurse -Force target/*/memory
+          rm -Recurse -Force target/*/imagefilter
+          rm -Recurse -Force target/*/plotter
           rm -Recurse -Force target/*/*test*
           du -hs target
   cpp_test_driver:
@@ -527,6 +529,11 @@ jobs:
         sed -i "s/#wasm# //" Cargo.toml
         wasm-pack build --release --target web
       working-directory: examples/memory
+    - name: Imagefilter example WASM build
+      run: |
+        sed -i "s/#wasm# //" Cargo.toml
+        wasm-pack build --release --target web
+      working-directory: examples/imagefilter
     - name: "Upload Demo Artifacts"
       uses: actions/upload-artifact@v2
       with:
@@ -538,6 +545,7 @@ jobs:
               examples/todo/
               examples/memory/
               examples/slide_puzzle/
+              examples/imagefilter/
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
@@ -649,7 +657,7 @@ jobs:
             rm -rf snapshots/$target_branch/demos
             mkdir -p snapshots/$target_branch/demos
 
-            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory,; do
+            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter,; do
                 IFS=',' read demo subdir <<< "${demo_subdir}"
 
                 mkdir -p snapshots/$target_branch/demos/$demo
