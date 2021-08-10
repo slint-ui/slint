@@ -77,18 +77,18 @@ interface Callback {
 require.extensions['.60'] =
     function (module, filename) {
         var c = native.load(filename);
-        module.exports[c.name().replaceAll('-', '_')] = function (init_properties: any) {
+        module.exports[c.name().replace(/-/g, '_')] = function (init_properties: any) {
             let comp = c.create(init_properties);
             let ret = new Component(comp);
             c.properties().forEach((x: string) => {
-                Object.defineProperty(ret, x.replaceAll('-', '_'), {
+                Object.defineProperty(ret, x.replace(/-/g, '_'), {
                     get() { return comp.get_property(x); },
                     set(newValue) { comp.set_property(x, newValue); },
                     enumerable: true,
                 })
             });
             c.callbacks().forEach((x: string) => {
-                Object.defineProperty(ret, x.replaceAll('-', '_'), {
+                Object.defineProperty(ret, x.replace(/-/g, '_'), {
                     get() {
                         let callback = function () { return comp.invoke_callback(x, [...arguments]); } as Callback;
                         callback.setHandler = function (callback) { comp.connect_callback(x, callback) };
