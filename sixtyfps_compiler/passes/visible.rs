@@ -26,7 +26,7 @@ pub fn handle_visible(component: &Rc<Component>, type_register: &TypeRegister) {
         &mut |elem: &ElementRc, _| {
             let is_lowered_from_visible_property =
                 elem.borrow().native_class().map_or(false, |n| {
-                    Rc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("_visibility")
+                    Rc::ptr_eq(&n, &native_clip) && elem.borrow().id.ends_with("-visibility")
                 });
             if is_lowered_from_visible_property {
                 // This is the element we just created. Skip it.
@@ -72,7 +72,7 @@ pub fn handle_visible(component: &Rc<Component>, type_register: &TypeRegister) {
 
 fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -> ElementRc {
     let element = Element {
-        id: format!("{}_visibility", child.borrow().id),
+        id: format!("{}-visibility", child.borrow().id),
         base_type: Type::Native(native_clip.clone()),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: std::iter::once((

@@ -60,7 +60,7 @@ pub fn handle_clip(
 fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     let mut parent = parent_elem.borrow_mut();
     let clip = Rc::new(RefCell::new(Element {
-        id: format!("{}_clip", parent.id),
+        id: format!("{}-clip", parent.id),
         base_type: Type::Native(native_clip.clone()),
         children: std::mem::take(&mut parent.children),
         enclosing_component: parent.enclosing_component.clone(),
@@ -78,7 +78,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
             )
         })
         .collect();
-    for optional_binding in ["border_radius", "border_width"].iter() {
+    for optional_binding in ["border-radius", "border-width"].iter() {
         if parent_elem.borrow().bindings.contains_key(*optional_binding) {
             clip.borrow_mut().bindings.insert(
                 optional_binding.to_string(),

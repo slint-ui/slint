@@ -210,10 +210,10 @@ fn visit_implicit_layout_info_dependencies(
         }
         "Text" => {
             vis(&NamedReference::new(item, "text"));
-            vis(&NamedReference::new(item, "font_family"));
-            vis(&NamedReference::new(item, "font_size"));
-            vis(&NamedReference::new(item, "font_weight"));
-            vis(&NamedReference::new(item, "letter_spacing"));
+            vis(&NamedReference::new(item, "font-family"));
+            vis(&NamedReference::new(item, "font-size"));
+            vis(&NamedReference::new(item, "font-weight"));
+            vis(&NamedReference::new(item, "letter-spacing"));
             vis(&NamedReference::new(item, "wrap"));
             vis(&NamedReference::new(item, "overflow"));
             if orientation == Orientation::Vertical {

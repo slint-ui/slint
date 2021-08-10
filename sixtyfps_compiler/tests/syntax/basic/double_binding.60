@@ -18,7 +18,7 @@ X := Rectangle {
 //  ^error{Duplicated property binding}
 
     not_exist <=> 12phx;
-//  ^error{Unknown property not_exist in Rectangle}
+//  ^error{Unknown property not-exist in Rectangle}
 
     property <int> foo: 12;
     foo: 13;

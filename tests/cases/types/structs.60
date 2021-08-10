@@ -66,6 +66,7 @@ let super_player = { name: "Super Player", score: 99, energy_level: 0.4 };
 instance.player_2 = super_player;
 assert.equal(instance.player_2.name, "Super Player");
 assert.equal(instance.player_2_score, 99);
+assert.equal(instance.player_2.energy_level, 0.4);
 ```
 
 */

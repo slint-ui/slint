@@ -88,7 +88,7 @@ fn process_tabwidget(
         set_geometry_prop(elem, child, "width", diag);
         set_geometry_prop(elem, child, "height", diag);
         let condition = Expression::BinaryExpression {
-            lhs: Expression::PropertyReference(NamedReference::new(elem, "current_index")).into(),
+            lhs: Expression::PropertyReference(NamedReference::new(elem, "current-index")).into(),
             rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
             op: '=',
         };
@@ -101,7 +101,7 @@ fn process_tabwidget(
         }
 
         let mut tab = Element {
-            id: format!("{}_tab{}", elem.borrow().id, index),
+            id: format!("{}-tab{}", elem.borrow().id, index),
             base_type: tab_impl.clone(),
             enclosing_component: elem.borrow().enclosing_component.clone(),
             ..Default::default()
@@ -112,21 +112,21 @@ fn process_tabwidget(
         );
         tab.bindings.insert(
             "current".to_owned(),
-            Expression::TwoWayBinding(NamedReference::new(elem, "current_index"), None).into(),
+            Expression::TwoWayBinding(NamedReference::new(elem, "current-index"), None).into(),
         );
         tab.bindings.insert(
-            "tab_index".to_owned(),
+            "tab-index".to_owned(),
             Expression::NumberLiteral(index as _, Unit::None).into(),
         );
         tab.bindings.insert(
-            "num_tabs".to_owned(),
+            "num-tabs".to_owned(),
             Expression::NumberLiteral(num_tabs as _, Unit::None).into(),
         );
         tabs.push(Rc::new(RefCell::new(tab)));
     }
 
     let tabbar = Element {
-        id: format!("{}_tabbar", elem.borrow().id),
+        id: format!("{}-tabbar", elem.borrow().id),
         base_type: tabbar_impl.clone(),
         enclosing_component: elem.borrow().enclosing_component.clone(),
         children: tabs,
@@ -138,27 +138,27 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
     elem.borrow_mut().bindings.insert(
-        "tabbar_preferred_width".to_owned(),
-        Expression::TwoWayBinding(NamedReference::new(&tabbar, "preferred_width"), None).into(),
+        "tabbar-preferred-width".to_owned(),
+        Expression::TwoWayBinding(NamedReference::new(&tabbar, "preferred-width"), None).into(),
     );
     elem.borrow_mut().bindings.insert(
-        "tabbar_preferred_height".to_owned(),
-        Expression::TwoWayBinding(NamedReference::new(&tabbar, "preferred_height"), None).into(),
+        "tabbar-preferred-height".to_owned(),
+        Expression::TwoWayBinding(NamedReference::new(&tabbar, "preferred-height"), None).into(),
     );
 
     if let Some(expr) = children
         .iter()
-        .map(|x| Expression::PropertyReference(NamedReference::new(x, "min_width")))
+        .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
         .fold1(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'))
     {
-        elem.borrow_mut().bindings.insert("content_min_width".into(), expr.into());
+        elem.borrow_mut().bindings.insert("content-min-width".into(), expr.into());
     };
     if let Some(expr) = children
         .iter()
-        .map(|x| Expression::PropertyReference(NamedReference::new(x, "min_height")))
+        .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
         .fold1(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'))
     {
-        elem.borrow_mut().bindings.insert("content_min_height".into(), expr.into());
+        elem.borrow_mut().bindings.insert("content-min-height".into(), expr.into());
     };
 
     children.push(tabbar);
@@ -175,7 +175,7 @@ fn set_geometry_prop(
         prop.into(),
         Expression::PropertyReference(NamedReference::new(
             tab_widget,
-            &format!("content_{}", prop),
+            &format!("content-{}", prop),
         ))
         .into(),
     );
@@ -190,7 +190,7 @@ fn set_geometry_prop(
 fn set_tabbar_geometry_prop(tab_widget: &ElementRc, tabbar: &ElementRc, prop: &str) {
     tabbar.borrow_mut().bindings.insert(
         prop.into(),
-        Expression::PropertyReference(NamedReference::new(tab_widget, &format!("tabbar_{}", prop)))
+        Expression::PropertyReference(NamedReference::new(tab_widget, &format!("tabbar-{}", prop)))
             .into(),
     );
 }

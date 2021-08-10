@@ -39,6 +39,7 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
     };
 
     let mut pub_prop_field_names = Vec::new();
+    let mut pub_prop_field_names_normalized = Vec::new();
     let mut pub_prop_field_types = Vec::new();
     let mut property_names = Vec::new();
     let mut property_visibility = Vec::new();
@@ -47,6 +48,7 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
         if let Some(property_type) = property_type(&field.ty) {
             let name = field.ident.as_ref().unwrap();
             if matches!(field.vis, syn::Visibility::Public(_)) {
+                pub_prop_field_names_normalized.push(normalize_identifier(name));
                 pub_prop_field_names.push(name);
                 pub_prop_field_types.push(&field.ty);
             }
@@ -73,14 +75,18 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
         })
         .map(|f| (f.ident.as_ref().unwrap(), &f.ty))
         .unzip();
+    let plain_field_names_normalized =
+        plain_field_names.iter().map(|f| normalize_identifier(*f)).collect::<Vec<_>>();
 
     let mut callback_field_names = Vec::new();
+    let mut callback_field_names_normalized = Vec::new();
     let mut callback_args = Vec::new();
     let mut callback_rets = Vec::new();
     for field in fields {
         if let Some((arg, ret)) = callback_arg(&field.ty) {
             if matches!(field.vis, syn::Visibility::Public(_)) {
                 let name = field.ident.as_ref().unwrap();
+                callback_field_names_normalized.push(normalize_identifier(name));
                 callback_field_names.push(name);
                 callback_args.push(arg);
                 callback_rets.push(ret);
@@ -101,21 +107,21 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
                 vec![#( {
                     const O : MaybeAnimatedPropertyInfoWrapper<#item_name, #pub_prop_field_types> =
                         MaybeAnimatedPropertyInfoWrapper(#item_name::FIELD_OFFSETS.#pub_prop_field_names);
-                    (stringify!(#pub_prop_field_names), (&O).as_property_info())
+                    (#pub_prop_field_names_normalized, (&O).as_property_info())
                 } ),*]
             }
             fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)> {
                 vec![#( {
                     const O : const_field_offset::FieldOffset<#item_name, #plain_field_types, const_field_offset::AllowPin> =
                         #item_name::FIELD_OFFSETS.#plain_field_names;
-                    (stringify!(#plain_field_names), &O as &'static dyn FieldInfo<Self, Value>)
+                    (#plain_field_names_normalized, &O as &'static dyn FieldInfo<Self, Value>)
                 } ),*]
             }
             fn callbacks<Value: ValueType>() -> Vec<(&'static str, &'static dyn CallbackInfo<Self, Value>)> {
                 vec![#( {
                     const O : const_field_offset::FieldOffset<#item_name, Callback<#callback_args, #callback_rets>, const_field_offset::AllowPin> =
                          #item_name::FIELD_OFFSETS.#callback_field_names;
-                    (stringify!(#callback_field_names), &O as  &'static dyn CallbackInfo<Self, Value>)
+                    (#callback_field_names_normalized, &O as  &'static dyn CallbackInfo<Self, Value>)
                 } ),*]
             }
         }
@@ -129,6 +135,10 @@ pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
         }
     )
     .into()
+}
+
+fn normalize_identifier(name: &syn::Ident) -> String {
+    name.to_string().replace('_', "-")
 }
 
 // Try to match `Property<Foo>` on the syn tree and return Foo if found

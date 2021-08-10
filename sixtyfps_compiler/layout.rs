@@ -143,14 +143,14 @@ pub struct LayoutConstraints {
 impl LayoutConstraints {
     pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics) -> Self {
         let mut constraints = Self {
-            min_width: binding_reference(element, "min_width"),
-            max_width: binding_reference(element, "max_width"),
-            min_height: binding_reference(element, "min_height"),
-            max_height: binding_reference(element, "max_height"),
-            preferred_width: binding_reference(element, "preferred_width"),
-            preferred_height: binding_reference(element, "preferred_height"),
-            horizontal_stretch: binding_reference(element, "horizontal_stretch"),
-            vertical_stretch: binding_reference(element, "vertical_stretch"),
+            min_width: binding_reference(element, "min-width"),
+            max_width: binding_reference(element, "max-width"),
+            min_height: binding_reference(element, "min-height"),
+            max_height: binding_reference(element, "max-height"),
+            preferred_width: binding_reference(element, "preferred-width"),
+            preferred_height: binding_reference(element, "preferred-height"),
+            horizontal_stretch: binding_reference(element, "horizontal-stretch"),
+            vertical_stretch: binding_reference(element, "vertical-stretch"),
             fixed_width: false,
             fixed_height: false,
         };
@@ -368,16 +368,16 @@ impl LayoutGeometry {
         let alignment = binding_reference(layout_element, "alignment");
 
         let padding = || binding_reference(layout_element, "padding");
-        init_fake_property(layout_element, "padding_left", padding);
-        init_fake_property(layout_element, "padding_right", padding);
-        init_fake_property(layout_element, "padding_top", padding);
-        init_fake_property(layout_element, "padding_bottom", padding);
+        init_fake_property(layout_element, "padding-left", padding);
+        init_fake_property(layout_element, "padding-right", padding);
+        init_fake_property(layout_element, "padding-top", padding);
+        init_fake_property(layout_element, "padding-bottom", padding);
 
         let padding = Padding {
-            left: binding_reference(layout_element, "padding_left").or_else(padding),
-            right: binding_reference(layout_element, "padding_right").or_else(padding),
-            top: binding_reference(layout_element, "padding_top").or_else(padding),
-            bottom: binding_reference(layout_element, "padding_bottom").or_else(padding),
+            left: binding_reference(layout_element, "padding-left").or_else(padding),
+            right: binding_reference(layout_element, "padding-right").or_else(padding),
+            top: binding_reference(layout_element, "padding-top").or_else(padding),
+            bottom: binding_reference(layout_element, "padding-bottom").or_else(padding),
         };
 
         let rect = LayoutRect::install_on_element(layout_element);

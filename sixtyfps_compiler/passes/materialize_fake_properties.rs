@@ -132,14 +132,14 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
 /// Initialize a sensible default binding for the now materialized property
 fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
     let expr = match name {
-        "min_height" => layout_constraint_prop(elem, "min", Orientation::Vertical),
-        "min_width" => layout_constraint_prop(elem, "min", Orientation::Horizontal),
-        "max_height" => layout_constraint_prop(elem, "max", Orientation::Vertical),
-        "max_width" => layout_constraint_prop(elem, "max", Orientation::Horizontal),
-        "preferred_height" => layout_constraint_prop(elem, "preferred", Orientation::Vertical),
-        "preferred_width" => layout_constraint_prop(elem, "preferred", Orientation::Horizontal),
-        "horizontal_stretch" => layout_constraint_prop(elem, "stretch", Orientation::Horizontal),
-        "vertical_stretch" => layout_constraint_prop(elem, "stretch", Orientation::Vertical),
+        "min-height" => layout_constraint_prop(elem, "min", Orientation::Vertical),
+        "min-width" => layout_constraint_prop(elem, "min", Orientation::Horizontal),
+        "max-height" => layout_constraint_prop(elem, "max", Orientation::Vertical),
+        "max-width" => layout_constraint_prop(elem, "max", Orientation::Horizontal),
+        "preferred-height" => layout_constraint_prop(elem, "preferred", Orientation::Vertical),
+        "preferred-width" => layout_constraint_prop(elem, "preferred", Orientation::Horizontal),
+        "horizontal-stretch" => layout_constraint_prop(elem, "stretch", Orientation::Horizontal),
+        "vertical-stretch" => layout_constraint_prop(elem, "stretch", Orientation::Vertical),
         "opacity" => Expression::NumberLiteral(1., Unit::None),
         "visible" => Expression::BoolLiteral(true),
         _ => return None,

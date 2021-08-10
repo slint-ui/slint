@@ -24,19 +24,19 @@ pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
-    ("min_width", Type::LogicalLength),
-    ("min_height", Type::LogicalLength),
-    ("max_width", Type::LogicalLength),
-    ("max_height", Type::LogicalLength),
+    ("min-width", Type::LogicalLength),
+    ("min-height", Type::LogicalLength),
+    ("max-width", Type::LogicalLength),
+    ("max-height", Type::LogicalLength),
     ("padding", Type::LogicalLength),
-    ("padding_left", Type::LogicalLength),
-    ("padding_right", Type::LogicalLength),
-    ("padding_top", Type::LogicalLength),
-    ("padding_bottom", Type::LogicalLength),
-    ("preferred_width", Type::LogicalLength),
-    ("preferred_height", Type::LogicalLength),
-    ("horizontal_stretch", Type::Float32),
-    ("vertical_stretch", Type::Float32),
+    ("padding-left", Type::LogicalLength),
+    ("padding-right", Type::LogicalLength),
+    ("padding-top", Type::LogicalLength),
+    ("padding-bottom", Type::LogicalLength),
+    ("preferred-width", Type::LogicalLength),
+    ("preferred-height", Type::LogicalLength),
+    ("horizontal-stretch", Type::Float32),
+    ("vertical-stretch", Type::Float32),
     ("col", Type::Int32),
     ("row", Type::Int32),
     ("colspan", Type::Int32),
@@ -50,10 +50,10 @@ const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
-    ("drop_shadow_offset_x", Type::LogicalLength),
-    ("drop_shadow_offset_y", Type::LogicalLength),
-    ("drop_shadow_blur", Type::LogicalLength),
-    ("drop_shadow_color", Type::Color),
+    ("drop-shadow-offset-x", Type::LogicalLength),
+    ("drop-shadow-offset-y", Type::LogicalLength),
+    ("drop-shadow-blur", Type::LogicalLength),
+    ("drop-shadow-color", Type::Color),
 ];
 
 /// list of reserved property injected in every item
@@ -65,7 +65,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone()))
         .chain(std::array::IntoIter::new([
-            ("forward_focus", Type::ElementReference),
+            ("forward-focus", Type::ElementReference),
             ("focus", BuiltinFunction::SetFocusItem.ty()),
         ]))
 }
@@ -83,10 +83,10 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
         if let Some(a) = name.strip_prefix(pre) {
             for suf in &["width", "height"] {
                 if let Some(b) = a.strip_suffix(suf) {
-                    if b == "imum_" {
+                    if b == "imum-" {
                         return PropertyLookupResult {
                             property_type: Type::LogicalLength,
-                            resolved_name: format!("{}_{}", pre, suf).into(),
+                            resolved_name: format!("{}-{}", pre, suf).into(),
                         };
                     }
                 }
@@ -164,11 +164,11 @@ impl TypeRegister {
 
         declare_enum("TextHorizontalAlignment", &["left", "center", "right"]);
         declare_enum("TextVerticalAlignment", &["top", "center", "bottom"]);
-        declare_enum("TextWrap", &["no_wrap", "word_wrap"]);
+        declare_enum("TextWrap", &["no-wrap", "word-wrap"]);
         declare_enum("TextOverflow", &["clip", "elide"]);
         declare_enum(
             "LayoutAlignment",
-            &["stretch", "center", "start", "end", "space_between", "space_around"],
+            &["stretch", "center", "start", "end", "space-between", "space-around"],
         );
         declare_enum("ImageFit", &["fill", "contain", "cover"]);
         declare_enum("EventResult", &["reject", "accept"]);

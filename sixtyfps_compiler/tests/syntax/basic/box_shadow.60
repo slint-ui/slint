@@ -9,11 +9,11 @@
 LICENSE END */
 SuperSimple := Rectangle {
     drop-shadow-color: #00000080;
-//                    ^warning{The drop_shadow_color property cannot be used on the root element, the shadow will not be visible}
+//                    ^warning{The drop-shadow-color property cannot be used on the root element, the shadow will not be visible}
 
     Text {
         drop-shadow-color: black;
-//                        ^error{The drop_shadow_color property is only supported on Rectangle and Clip elements right now}
+//                        ^error{The drop-shadow-color property is only supported on Rectangle and Clip elements right now}
     }
 }
 

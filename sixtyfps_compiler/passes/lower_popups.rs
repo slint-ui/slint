@@ -123,7 +123,7 @@ fn create_coordinate(
         };
     }
     let parent_element = parent_stack.last().unwrap();
-    let property_name = format!("{}_popup_{}", popup_comp.root_element.borrow().id, coord);
+    let property_name = format!("{}-popup-{}", popup_comp.root_element.borrow().id, coord);
     parent_element
         .borrow_mut()
         .property_declarations

@@ -27,7 +27,7 @@ pub fn assign_unique_id(component: &Rc<Component>) {
         } else {
             elem_mut.base_type.to_string().to_ascii_lowercase()
         };
-        elem_mut.id = format!("{}_{}", old_id, count);
+        elem_mut.id = format!("{}-{}", old_id, count);
     });
 
     rename_globals(component, count);
@@ -42,7 +42,7 @@ fn rename_globals(component: &Rc<Component>, mut count: u32) {
             // builtin global keeps its name
             root.id = g.id.clone();
         } else {
-            root.id = format!("{}_{}", g.id, count);
+            root.id = format!("{}-{}", g.id, count);
         }
     }
 }

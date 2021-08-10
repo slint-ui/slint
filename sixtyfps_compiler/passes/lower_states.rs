@@ -44,7 +44,7 @@ fn lower_state_in_element(
     let state_property_ref = if has_transitions {
         Expression::StructFieldAccess {
             base: Box::new(state_property.clone()),
-            name: "current_state".into(),
+            name: "current-state".into(),
         }
     } else {
         state_property.clone()
@@ -172,7 +172,7 @@ fn compute_state_property_name(root_element: &ElementRc) -> String {
     while root_element.borrow().lookup_property(property_name.as_ref()).property_type
         != Type::Invalid
     {
-        property_name += "_";
+        property_name += "-";
     }
     property_name
 }

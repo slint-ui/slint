@@ -409,14 +409,14 @@ impl LookupObject for EasingSpecific {
         use EasingCurve::CubicBezier;
         None.or_else(|| f("linear", Expression::EasingCurve(EasingCurve::Linear)))
             .or_else(|| f("ease", Expression::EasingCurve(CubicBezier(0.25, 0.1, 0.25, 1.0))))
-            .or_else(|| f("ease_in", Expression::EasingCurve(CubicBezier(0.42, 0.0, 1.0, 1.0))))
+            .or_else(|| f("ease-in", Expression::EasingCurve(CubicBezier(0.42, 0.0, 1.0, 1.0))))
             .or_else(|| {
-                f("ease_in_out", Expression::EasingCurve(CubicBezier(0.42, 0.0, 0.58, 1.0)))
+                f("ease-in-out", Expression::EasingCurve(CubicBezier(0.42, 0.0, 0.58, 1.0)))
             })
-            .or_else(|| f("ease_out", Expression::EasingCurve(CubicBezier(0.0, 0.0, 0.58, 1.0))))
+            .or_else(|| f("ease-out", Expression::EasingCurve(CubicBezier(0.0, 0.0, 0.58, 1.0))))
             .or_else(|| {
                 f(
-                    "cubic_bezier",
+                    "cubic-bezier",
                     Expression::BuiltinMacroReference(
                         BuiltinMacroFunction::CubicBezier,
                         ctx.current_token.clone(),
@@ -568,8 +568,8 @@ impl<'a> LookupObject for StringExpression<'a> {
                 ctx.current_token.as_ref().map(|t| t.to_source_location()),
             )),
         };
-        None.or_else(|| f("is_float", member_function(BuiltinFunction::StringIsFloat)))
-            .or_else(|| f("to_float", member_function(BuiltinFunction::StringToFloat)))
+        None.or_else(|| f("is-float", member_function(BuiltinFunction::StringIsFloat)))
+            .or_else(|| f("to-float", member_function(BuiltinFunction::StringToFloat)))
     }
 }
 struct ColorExpression<'a>(&'a Expression);

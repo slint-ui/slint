@@ -229,8 +229,17 @@ use crate::object_tree::{
 };
 use cpp_ast::*;
 use itertools::Itertools;
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+
+fn ident(ident: &str) -> Cow<'_, str> {
+    if ident.contains('-') {
+        ident.replace('-', "_").into()
+    } else {
+        ident.into()
+    }
+}
 
 impl CppType for Type {
     fn cpp_type(&self) -> Option<String> {
@@ -246,9 +255,9 @@ impl CppType for Type {
             Type::LogicalLength => Some("float".to_owned()),
             Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
-            Type::Struct { name: Some(name), node: Some(_), .. } => Some(name.clone()),
+            Type::Struct { name: Some(name), node: Some(_), .. } => Some(ident(name).into_owned()),
             Type::Struct { name: Some(name), node: None, .. } => {
-                Some(format!("sixtyfps::cbindgen_private::{}", name))
+                Some(format!("sixtyfps::cbindgen_private::{}", ident(name)))
             }
             Type::Struct { fields, .. } => {
                 let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
@@ -260,7 +269,7 @@ impl CppType for Type {
             Type::Image => Some("sixtyfps::Image".to_owned()),
             Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => {
-                Some(format!("sixtyfps::cbindgen_private::{}", enumeration.name))
+                Some(format!("sixtyfps::cbindgen_private::{}", ident(&enumeration.name)))
             }
             Type::Brush => Some("sixtyfps::Brush".to_owned()),
             Type::LayoutCache => Some("sixtyfps::SharedVector<float>".into()),
@@ -301,7 +310,7 @@ fn new_struct_with_bindings(
         .iter()
         .map(|(prop, initializer)| {
             let initializer = compile_expression(initializer, component);
-            format!("var.{} = {};", prop, initializer)
+            format!("var.{} = {};", ident(prop), initializer)
         })
         .collect();
 
@@ -358,10 +367,10 @@ fn handle_property_binding(
     } else if item.is_flickable_viewport {
         format!(
             "{id}.viewport.",
-            id = crate::object_tree::find_parent_element(elem).unwrap().borrow().id
+            id = ident(&crate::object_tree::find_parent_element(elem).unwrap().borrow().id)
         )
     } else {
-        format!("{id}.", id = item.id)
+        format!("{id}.", id = ident(&item.id))
     };
     let prop_type = item.lookup_property(prop_name).property_type;
     if let Type::Callback { args, .. } = &prop_type {
@@ -376,7 +385,7 @@ fn handle_property_binding(
                         return {code};
                     }});",
             accessor_prefix = accessor_prefix,
-            prop = prop_name,
+            prop = ident(prop_name),
             params = params.join(", "),
             code = compile_expression_wrap_return(binding_expression, &component)
         ));
@@ -401,7 +410,7 @@ fn handle_property_binding(
         let component = &item.enclosing_component.upgrade().unwrap();
 
         let init_expr = compile_expression_wrap_return(binding_expression, component);
-        let cpp_prop = format!("{}{}", accessor_prefix, prop_name);
+        let cpp_prop = format!("{}{}", accessor_prefix, ident(prop_name));
 
         init.push(if is_constant {
             format!("{}.set({});", cpp_prop, init_expr)
@@ -466,8 +475,11 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct) {
     main_struct.members.push((
         Access::Private,
         Declaration::Var(Var {
-            ty: format!("sixtyfps::cbindgen_private::{}", item.base_type.as_native().class_name),
-            name: item.id.clone(),
+            ty: format!(
+                "sixtyfps::cbindgen_private::{}",
+                ident(&item.base_type.as_native().class_name)
+            ),
+            name: ident(&item.id).into_owned(),
             init: Some("{}".to_owned()),
         }),
     ));
@@ -486,7 +498,7 @@ fn handle_repeater(
     diag: &mut BuildDiagnostics,
 ) {
     let parent_element = base_component.parent_element.upgrade().unwrap();
-    let repeater_id = format!("repeater_{}", parent_element.borrow().id);
+    let repeater_id = format!("repeater_{}", ident(&parent_element.borrow().id));
 
     let mut model = compile_expression(&repeated.model, parent_component);
     if repeated.is_conditional_element {
@@ -609,7 +621,7 @@ fn generate_struct(
         .iter()
         .map(|(name, t)| {
             use std::fmt::Write;
-            write!(operator_eq, " && a.{0} == b.{0}", name).unwrap();
+            write!(operator_eq, " && a.{0} == b.{0}", ident(name)).unwrap();
             (
                 Access::Public,
                 Declaration::Var(Var {
@@ -620,7 +632,7 @@ fn generate_struct(
                         );
                         Default::default()
                     }),
-                    name: name.clone(),
+                    name: ident(name).into_owned(),
                     ..Default::default()
                 }),
             )
@@ -681,7 +693,8 @@ fn generate_component(
     let is_root = component.parent_element.upgrade().is_none();
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
-    for (cpp_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
+    for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
+        let cpp_name = ident(&prop_name);
         let access = if let Some(alias) = &property_decl.is_alias {
             access_named_reference(alias, component, "this")
         } else {
@@ -750,7 +763,7 @@ fn generate_component(
                 let set_value = if let Some(alias) = &property_decl.is_alias {
                     property_set_value_code(component, &alias.element(), alias.name(), "value")
                 } else {
-                    property_set_value_code(component, &component.root_element, cpp_name, "value")
+                    property_set_value_code(component, &component.root_element, prop_name, "value")
                 };
 
                 let prop_setter: Vec<String> = vec![
@@ -773,7 +786,7 @@ fn generate_component(
         if property_decl.is_alias.is_none() {
             component_struct.members.push((
                 if component.is_global() { Access::Public } else { Access::Private },
-                Declaration::Var(Var { ty, name: cpp_name.clone(), init: None }),
+                Declaration::Var(Var { ty, name: cpp_name.into_owned(), init: None }),
             ));
         }
     }
@@ -1057,7 +1070,7 @@ fn generate_component(
                 tree_array.push(format!(
                     "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
                     &component_id,
-                    crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id,
+                    ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id),
                     item.children.len(),
                     children_offset,
                     parent_index,
@@ -1066,7 +1079,7 @@ fn generate_component(
                 tree_array.push(format!(
                     "sixtyfps::private_api::make_item_node(offsetof({}, {}), {}, {}, {}, {})",
                     component_id,
-                    item.id,
+                    ident(&item.id),
                     item.base_type.as_native().cpp_vtable_getter,
                     item.children.len(),
                     children_offset,
@@ -1074,8 +1087,10 @@ fn generate_component(
                 ));
             }
             handle_item(item_rc, &mut component_struct);
-            item_names_and_vt_symbols
-                .push((item.id.clone(), item.base_type.as_native().cpp_vtable_getter.clone()));
+            item_names_and_vt_symbols.push((
+                ident(&item.id).into_owned(),
+                item.base_type.as_native().cpp_vtable_getter.clone(),
+            ));
         }
     });
 
@@ -1261,7 +1276,7 @@ fn generate_component(
                 statements: Some(vec![format!(
                     "return {{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
                     vt = root_elem.base_type.as_native().cpp_vtable_getter,
-                    id = root_elem.id
+                    id = ident(&root_elem.id)
                 )]),
                 ..Default::default()
             }),
@@ -1303,11 +1318,11 @@ fn generate_component(
 
 fn component_id(component: &Rc<Component>) -> String {
     if component.is_global() {
-        component.root_element.borrow().id.clone()
+        ident(&component.root_element.borrow().id).into_owned()
     } else if component.id.is_empty() {
-        format!("Component_{}", component.root_element.borrow().id)
+        format!("Component_{}", ident(&component.root_element.borrow().id))
     } else {
-        component.id.clone()
+        ident(&component.id).into_owned()
     }
 }
 
@@ -1351,16 +1366,16 @@ fn access_member(
     let enclosing_component = e.enclosing_component.upgrade().unwrap();
     if Rc::ptr_eq(component, &enclosing_component) {
         if e.property_declarations.contains_key(name) || name.is_empty() || component.is_global() {
-            format!("{}->{}", component_cpp, name)
+            format!("{}->{}", component_cpp, ident(name))
         } else if e.is_flickable_viewport {
             format!(
                 "{}->{}.viewport.{}",
                 component_cpp,
-                crate::object_tree::find_parent_element(element).unwrap().borrow().id,
-                name
+                ident(&crate::object_tree::find_parent_element(element).unwrap().borrow().id),
+                ident(name)
             )
         } else {
-            format!("{}->{}.{}", component_cpp, e.id.as_str(), name)
+            format!("{}->{}.{}", component_cpp, ident(&e.id), ident(name))
         }
     } else if enclosing_component.is_global() {
         let mut root_component = component.clone();
@@ -1506,9 +1521,9 @@ fn compile_expression(
         }
         Expression::FunctionParameterReference { index, .. } => format!("arg_{}", index),
         Expression::StoreLocalVariable { name, value } => {
-            format!("auto {} = {};", name, compile_expression(value, component))
+            format!("auto {} = {};", ident(name), compile_expression(value, component))
         }
-        Expression::ReadLocalVariable { name, .. } => name.clone(),
+        Expression::ReadLocalVariable { name, .. } => ident(name).into_owned(),
         Expression::StructFieldAccess { base, name } => match base.ty() {
             Type::Struct { fields, name : None, .. } => {
                 let index = fields
@@ -1518,7 +1533,7 @@ fn compile_expression(
                 format!("std::get<{}>({})", index, compile_expression(base, component))
             }
             Type::Struct{..} => {
-                format!("{}.{}", compile_expression(base, component), name)
+                format!("{}.{}", compile_expression(base, component), ident(name))
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
@@ -1611,7 +1626,7 @@ fn compile_expression(
                     format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &m_window.window_handle())",
                         vt = native_item.cpp_vtable_getter,
                         ty = native_item.class_name,
-                        id = item.id,
+                        id = ident(&item.id),
                         o = to_cpp_orientation(*orientation),
                     )
                 } else {
@@ -1706,7 +1721,7 @@ fn compile_expression(
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
                 if let Some(name) = name {
-                    format!("{}{{{}}}", name, elem.join(", "))
+                    format!("{}{{{}}}", ident(name), elem.join(", "))
                 } else {
                     format!("std::make_tuple({})", elem.join(", "))
                 }
@@ -1733,7 +1748,7 @@ fn compile_expression(
             )
         }
         Expression::EnumerationValue(value) => {
-            format!("sixtyfps::cbindgen_private::{}::{}", value.enumeration.name, value.to_string())
+            format!("sixtyfps::cbindgen_private::{}::{}", value.enumeration.name, ident(&value.to_string()))
         }
         Expression::ReturnStatement(Some(expr)) => format!(
             "throw sixtyfps::private_api::ReturnWrapper<{}>({})",
@@ -1870,7 +1885,7 @@ fn compile_assignment(
                         .expect("Expression::ObjectAccess: Cannot find a key in an object");
                     format!("std::get<{}>({})", index, tmpobj)
                 }
-                Type::Struct { .. } => format!("{}.{}", tmpobj, name),
+                Type::Struct { .. } => format!("{}.{}", tmpobj, ident(name)),
                 _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
             };
             let op = if op == '=' { ' ' } else { op };
@@ -1902,7 +1917,7 @@ fn compile_assignment(
                 "self",
             );
             let index_access = access_member(&parent_component.root_element, "", component, "self");
-            let repeater_id = format!("repeater_{}", element.borrow().id);
+            let repeater_id = format!("repeater_{}", ident(&element.borrow().id));
             if op == '=' {
                 format!(
                     "{}{}.model_set_row_data({}index.get(), {})",
@@ -1983,14 +1998,16 @@ fn box_layout_data(
         let mut repeater_idx = 0usize;
         for item in &layout.elems {
             if item.element.borrow().repeated.is_some() {
-                push_code +=
-                    &format!("self->repeater_{}.ensure_updated(self);", item.element.borrow().id);
+                push_code += &format!(
+                    "self->repeater_{}.ensure_updated(self);",
+                    ident(&item.element.borrow().id)
+                );
                 if repeated_indices.is_some() {
                     push_code += &format!("repeater_indices[{}] = cells.size();", repeater_idx * 2);
                     push_code += &format!(
                         "repeater_indices[{c}] = self->repeater_{id}.inner ? self->repeater_{id}.inner->data.size() : 0;",
                         c = repeater_idx * 2 + 1,
-                        id = item.element.borrow().id
+                        id = ident(&item.element.borrow().id)
                     );
                 }
                 repeater_idx += 1;
@@ -1998,7 +2015,7 @@ fn box_layout_data(
                     "if (self->repeater_{id}.inner) \
                         for (auto &&sub_comp : self->repeater_{id}.inner->data) \
                            cells.push_back((*sub_comp.ptr)->box_layout_data({o}));",
-                    id = item.element.borrow().id,
+                    id = ident(&item.element.borrow().id),
                     o = to_cpp_orientation(orientation),
                 );
             } else {
@@ -2056,7 +2073,7 @@ fn get_layout_info(
             "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &self->m_window.window_handle())",
             vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
             ty = elem.borrow().base_type.as_native().class_name,
-            id = elem.borrow().id,
+            id = ident(&elem.borrow().id),
             o = to_cpp_orientation(orientation),
         )
     };

@@ -34,13 +34,13 @@ SubElements := Rectangle {
     }
 
     does_not_exist => {
-//  ^error{'does_not_exist' is not a callback in Rectangle}
+//  ^error{'does-not-exist' is not a callback in Rectangle}
         root.does_not_exist();
     }
 
     foobar() => { foobar() }
     callback_with_arg(a, b, c, d) => { }
-//  ^error{'callback_with_arg' only has 2 arguments, but 4 were provided}
+//  ^error{'callback-with-arg' only has 2 arguments, but 4 were provided}
 
 }
 

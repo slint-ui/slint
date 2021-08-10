@@ -65,7 +65,7 @@ Hello := Rectangle {
         y: pp.b;
 //        ^error{Cannot convert string to length}
         property<int> ggg: pp;
-//                        ^error{Cannot convert \{ a: physical_length,b: string,\} to int}
+//                        ^error{Cannot convert \{ a: physical-length,b: string,\} to int}
     }
 
 
