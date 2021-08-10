@@ -54,6 +54,23 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     }
 }
 
+impl<Pixel: Clone + rgb::Pod> SharedPixelBuffer<Pixel>
+where
+    [Pixel]: rgb::ComponentBytes<u8>,
+{
+    /// Returns the pixels interpreted as raw bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        use rgb::ComponentBytes;
+        self.data.as_slice().as_bytes()
+    }
+
+    /// Returns the pixels interpreted as raw bytes.
+    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
+        use rgb::ComponentBytes;
+        self.data.as_mut_slice().as_bytes_mut()
+    }
+}
+
 impl<Pixel> SharedPixelBuffer<Pixel> {
     /// Return a slice to the pixel data.
     pub fn as_slice(&self) -> &[Pixel] {
@@ -232,7 +249,6 @@ pub struct LoadImageError(());
 /// stored in an Image with [`Self::new_rgb8()`]:
 /// ```
 /// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image};
-/// use rgb::ComponentBytes; // Allow converting the RGB8 struct to u8 slices.
 ///
 /// fn low_level_render(width: usize, height: usize, buffer: &mut [u8]) {
 ///     // render beautiful circle or other shapes here
@@ -241,7 +257,7 @@ pub struct LoadImageError(());
 /// let mut pixel_buffer = SharedPixelBuffer::<rgb::RGB8>::new(320, 200);
 ///
 /// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
-///                  pixel_buffer.as_mut_slice().as_bytes_mut());
+///                  pixel_buffer.as_bytes_mut());
 ///
 /// let image = Image::new_rgb8(pixel_buffer);
 /// ```
