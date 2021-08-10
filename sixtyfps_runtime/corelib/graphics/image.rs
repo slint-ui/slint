@@ -19,7 +19,7 @@ use crate::{SharedString, SharedVector};
 /// or you can clone it from an existing contiguous buffer that you might already have, using
 /// [`SharedPixelBuffer::clone_from_slice`].
 ///
-/// See the documentation for [`SharedImageBuffer`] for examples how to use this type to integrate
+/// See the documentation for [`Image`] for examples how to use this type to integrate
 /// SixtyFPS with external rendering functions.
 #[derive(Debug, Clone)]
 #[repr(C)]
@@ -128,54 +128,6 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
 ///
 /// The SharedImageBuffer's variants represent the different common formats for encoding
 /// images in pixels.
-///
-/// A typical use-case is to have an external crate for rendering some content as an image.
-/// For this it's most efficient to create a new SharedPixelBuffer with the known dimensions
-/// and pass the the mutable slice to your rendering function. Afterwards you can create a
-/// SharedImageBuffer variant that tells SixtyFPS about the format of the image.
-///
-/// The following example creates a 320x200 RGB pixel buffer and calls an external
-/// low_level_render() function to draw a shape into it. Finally the result is
-/// stored in a SharedImageBuffer, which in turn can be converted into an `[Image]`
-/// via `[std::convert::Into`]:
-/// ```
-/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, SharedImageBuffer, Image};
-/// use rgb::ComponentBytes; // Allow converting the RGB8 struct to u8 slices.
-///
-/// fn low_level_render(width: usize, height: usize, buffer: &mut [u8]) {
-///     // render beautiful circle or other shapes here
-/// }
-///
-/// let mut pixel_buffer = SharedPixelBuffer::<rgb::RGB8>::new(320, 200);
-///
-/// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
-///                  pixel_buffer.as_mut_slice().as_bytes_mut());
-///
-/// let image: Image = SharedImageBuffer::RGB8(pixel_buffer).into();
-/// ```
-///
-/// Another use-case is to import existing image data into SixtyFPS, by
-/// creating a new SharedImageBuffer through cloning of another image
-/// type.
-///
-/// The following example uses the popular [image crate](https://docs.rs/image/) to
-/// load a `.png` file from disk, apply brightening filter on it and then import
-/// it into an `[Image]`:
-/// ```no_run
-/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, SharedImageBuffer, Image};
-/// let mut cat_image = image::open("cat.png").expect("Error loading cat image").into_rgba8();
-///
-/// image::imageops::colorops::brighten_in_place(&mut cat_image, 20);
-///
-/// let buffer = SharedImageBuffer::RGBA8(SharedPixelBuffer::clone_from_slice(
-///     cat_image.as_raw(),
-///     cat_image.width() as _,
-///     cat_image.height() as _,
-/// ));
-/// let image: Image = buffer.into();
-/// ```
-///
-
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub enum SharedImageBuffer {
@@ -248,9 +200,7 @@ pub enum ImageInner {
         data: Slice<'static, u8>,
         format: Slice<'static, u8>,
     },
-    EmbeddedImage {
-        buffer: SharedImageBuffer,
-    },
+    EmbeddedImage(SharedImageBuffer),
 }
 
 impl Default for ImageInner {
@@ -269,7 +219,53 @@ impl<'a> From<&'a Image> for &'a ImageInner {
 #[derive(Default, Debug, PartialEq)]
 pub struct LoadImageError(());
 
-/// An image type that can be displayed by the Image element
+/// An image type that can be displayed by the Image element. You can construct
+/// Image objects from a path to an image file on disk, using [`Self::load_from_path`].
+///
+/// Another typical use-case is to have an external crate for rendering some content as an image.
+/// For this it's most efficient to create a new SharedPixelBuffer with the known dimensions
+/// and pass the the mutable slice to your rendering function. Afterwards you can create an
+/// Image.
+///
+/// The following example creates a 320x200 RGB pixel buffer and calls an external
+/// low_level_render() function to draw a shape into it. Finally the result is
+/// stored in an Image with [`Self::new_rgb8()`]:
+/// ```
+/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image};
+/// use rgb::ComponentBytes; // Allow converting the RGB8 struct to u8 slices.
+///
+/// fn low_level_render(width: usize, height: usize, buffer: &mut [u8]) {
+///     // render beautiful circle or other shapes here
+/// }
+///
+/// let mut pixel_buffer = SharedPixelBuffer::<rgb::RGB8>::new(320, 200);
+///
+/// low_level_render(pixel_buffer.width(), pixel_buffer.height(),
+///                  pixel_buffer.as_mut_slice().as_bytes_mut());
+///
+/// let image = Image::new_rgb8(pixel_buffer);
+/// ```
+///
+/// Another use-case is to import existing image data into SixtyFPS, by
+/// creating a new Image through cloning of another image type.
+///
+/// The following example uses the popular [image crate](https://docs.rs/image/) to
+/// load a `.png` file from disk, apply brightening filter on it and then import
+/// it into an `[Image]`:
+/// ```no_run
+/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image};
+/// let mut cat_image = image::open("cat.png").expect("Error loading cat image").into_rgba8();
+///
+/// image::imageops::colorops::brighten_in_place(&mut cat_image, 20);
+///
+/// let buffer = SharedPixelBuffer::clone_from_slice(
+///     cat_image.as_raw(),
+///     cat_image.width() as _,
+///     cat_image.height() as _,
+/// );
+/// let image = Image::new_rgba8(buffer);
+/// ```
+///
 #[repr(transparent)]
 #[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
 pub struct Image(ImageInner);
@@ -280,18 +276,33 @@ impl Image {
         Ok(Image(ImageInner::AbsoluteFilePath(path.to_str().ok_or(LoadImageError(()))?.into())))
     }
 
+    /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
+    /// channels (red, green and blue) encoded as u8.
+    pub fn new_rgb8(buffer: SharedPixelBuffer<rgb::RGB8>) -> Self {
+        Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGB8(buffer)))
+    }
+
+    /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
+    /// channels (red, green, blue and alpha) encoded as u8.
+    pub fn new_rgba8(buffer: SharedPixelBuffer<rgb::RGBA8>) -> Self {
+        Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8(buffer)))
+    }
+
+    /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
+    /// channels (red, green, blue and alpha) encoded as u8 and, in contrast to [`Self::new_rgba8`],
+    /// the alpha channel is also assumed to be multiplied to the red, green and blue channels.
+    ///
+    /// Only construct an Image with this function if you know that your pixels are encoded this way.
+    pub fn new_rgba8_premultiplied(buffer: SharedPixelBuffer<rgb::RGBA8>) -> Self {
+        Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8Premultiplied(buffer)))
+    }
+
     /// Returns the size of the Image in pixels.
     pub fn size(&self) -> crate::graphics::Size {
         match crate::backend::instance() {
             Some(backend) => backend.image_size(self),
             None => panic!("sixtyfps::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
         }
-    }
-}
-
-impl From<SharedImageBuffer> for Image {
-    fn from(buffer: SharedImageBuffer) -> Self {
-        Self(ImageInner::EmbeddedImage { buffer })
     }
 }
 

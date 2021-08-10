@@ -186,7 +186,7 @@ struct MyStruct {
 pub use sixtyfps_macros::sixtyfps;
 
 pub use sixtyfps_corelib::graphics::{
-    Brush, Color, Image, LoadImageError, RgbaColor, SharedImageBuffer, SharedPixelBuffer,
+    Brush, Color, Image, LoadImageError, RgbaColor, SharedPixelBuffer,
 };
 pub use sixtyfps_corelib::model::{
     Model, ModelHandle, ModelNotify, ModelPeer, StandardListViewItem, VecModel,

@@ -186,14 +186,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 
     for (rust_types, extra_excluded_types, internal_header) in [
         (
-            vec![
-                "ImageInner",
-                "Image",
-                "Size",
-                "sixtyfps_image_size",
-                "SharedImageBuffer",
-                "SharedPixelBuffer",
-            ],
+            vec!["ImageInner", "Image", "Size", "sixtyfps_image_size", "SharedPixelBuffer"],
             vec![],
             "sixtyfps_image_internal.h",
         ),
