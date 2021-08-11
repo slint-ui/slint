@@ -234,13 +234,7 @@ impl<T: Clone> SharedVector<T> {
         let mut inner = unsafe { self.inner.as_mut() };
 
         if inner.header.size >= new_len {
-            while inner.header.size > new_len {
-                inner.header.size -= 1;
-                // Safety: The array was of size inner.header.size, so there should be an element there
-                unsafe {
-                    core::ptr::drop_in_place(inner.data.as_mut_ptr().add(inner.header.size));
-                }
-            }
+            self.shrink(new_len);
         } else {
             while inner.header.size < new_len {
                 // Safety: The array must have a capacity of at least new_len because of the detach call earlier
@@ -250,6 +244,32 @@ impl<T: Clone> SharedVector<T> {
                 inner.header.size += 1;
             }
         }
+    }
+
+    fn shrink(&mut self, new_len: usize) {
+        if self.len() == new_len {
+            return;
+        }
+
+        debug_assert!(
+            unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } == 1
+        );
+        // Safety: caller (and above debug_assert) must ensure that the array is not shared.
+        let mut inner = unsafe { self.inner.as_mut() };
+
+        while inner.header.size > new_len {
+            inner.header.size -= 1;
+            // Safety: The array was of size inner.header.size, so there should be an element there
+            unsafe {
+                core::ptr::drop_in_place(inner.data.as_mut_ptr().add(inner.header.size));
+            }
+        }
+    }
+
+    /// Clears the vector and removes all elements. The capacity remains unaffected.
+    pub fn clear(&mut self) {
+        self.detach(self.capacity());
+        self.shrink(0)
     }
 }
 
@@ -529,6 +549,30 @@ fn test_capacity_grows_only_when_needed() {
     vec.push(0);
     assert_eq!(vec.len(), 3);
     assert!(vec.capacity() > 2);
+}
+
+#[test]
+fn test_vector_clear() {
+    let mut vec: SharedVector<String> = Default::default();
+    vec.push("Hello".into());
+    vec.push("World".into());
+    vec.push("of".into());
+    vec.push("Vectors".into());
+
+    let copy = vec.clone();
+
+    assert_eq!(vec.len(), 4);
+    let orig_cap = vec.capacity();
+    assert!(orig_cap >= vec.len());
+    vec.clear();
+    assert_eq!(vec.len(), 0);
+    assert_eq!(vec.capacity(), orig_cap);
+    vec.push("Welcome back".into());
+    assert_eq!(vec.len(), 1);
+    assert_eq!(vec.capacity(), orig_cap);
+
+    assert_eq!(copy.len(), 4);
+    assert_eq!(copy.capacity(), orig_cap);
 }
 
 #[cfg(feature = "ffi")]
