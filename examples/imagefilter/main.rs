@@ -15,7 +15,46 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 sixtyfps::sixtyfps! {
-    import { MainWindow } from "imagefilter.60";
+    import { Slider, HorizontalBox, VerticalBox, GroupBox, ComboBox } from "sixtyfps_widgets.60";
+
+    export MainWindow := Window {
+        title: "SixtyFPS Image Filter Integration Example";
+        preferred-width: 800px;
+        preferred-height: 600px;
+
+        property original-image <=> original.source;
+        property filtered-image <=> filtered.source;
+        property filters <=> filter-combo.model;
+        property selected-filter <=> filter-combo.current-index;
+        callback filter-selected <=> filter-combo.selected;
+
+        HorizontalBox {
+            VerticalBox {
+                Text {
+                    font-size: 20px;
+                    text: "Original Image";
+                    horizontal-alignment: center;
+                }
+                original := Image { }
+            }
+            VerticalBox {
+                alignment: center;
+                filter-combo := ComboBox {
+                    current-value: "Brighten";
+                    current-index: 0;
+                    vertical-stretch: 0;
+                }
+            }
+            VerticalBox {
+                Text {
+                    font-size: 20px;
+                    text: "Filtered Image";
+                    horizontal-alignment: center;
+                }
+                filtered := Image { }
+            }
+        }
+    }
 }
 
 struct Filter {

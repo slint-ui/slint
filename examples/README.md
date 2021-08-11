@@ -37,7 +37,7 @@ A simple todo mvc application
 Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
 
 | `.60` Design | Rust Source | Online wasm Preview | Open in code editor |
-| --- | --- | --- | --- 
+| --- | --- | --- | --- |
 | [`slide_puzzle.60`](./slide_puzzle/slide_puzzle.60) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60) |
 
 ![Screenshot of the Slide Puzzle](https://sixtyfps.io/resources/puzzle_screenshot.png "Slide Puzzle")
@@ -60,7 +60,7 @@ A clone of one demo from the [QSkinny framework](https://qskinny.github.io/).
 Also show how a way to dynamically load widgets with the interpreter from C++.
 
 | `.60` Design | C++ Source | Online wasm Preview | Open in code editor |
-| --- | --- | --- | --- | 
+| --- | --- | --- | --- |
 | [`main.60`](./iot-dashboard/main.60) | [`main.cpp`](./iot-dashboard/main.cpp)   | [Online preview](https://sixtyfps.io/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60) |
 
 ![Screenshot of the IOT Dashboard](https://sixtyfps.io/resources/iot-dashboard_screenshot.png "IOT Dashboard")
@@ -70,9 +70,9 @@ Also show how a way to dynamically load widgets with the interpreter from C++.
 A Rust-only example that shows how to use the Rust image crate to do image manipulations
 and feed the result into SixtyFPS.
 
-| `.60` Design | Rust Source | Online wasm Preview |
-| --- | --- | --- |
-| [`imagefilter.60`](./imagefilter/imagefilter.60) | [`main.rs`](./imagefilter/main.rs)   | [Online simulation](https://sixtyfps.io/snapshots/master/demos/imagefilter/) |
+|  Source | Online wasm Preview |
+| --- | --- |
+| [`main.rs`](./imagefilter/main.rs)   | [Online simulation](https://sixtyfps.io/snapshots/master/demos/imagefilter/) |
 
 ![Screenshot of the imagefilter example](https://sixtyfps.io/resources/imagefilter_screenshot.png "Image Filter")
 
