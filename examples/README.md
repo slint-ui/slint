@@ -81,9 +81,9 @@ and feed the result into SixtyFPS.
 A Rust-only example that shows how to use the Rust plotters crate to do plot a
 graph and integrate the result into SixtyFPS.
 
-| `.60` Design | Rust Source |
-| --- | --- |
-| [`plotter.60`](./plotter/plotter.60) | [`main.rs`](./plotter/main.rs)   |
+| `.60` Design | Rust Source | Online wasm Preview |
+| --- |  --- | --- |
+| [`plotter.60`](./plotter/plotter.60) | [`main.rs`](./plotter/main.rs) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/plotter/) |
 
 ![Screenshot of the plotter example](https://sixtyfps.io/resources/plotter_screenshot.png "Plotter")
 
