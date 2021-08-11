@@ -56,7 +56,7 @@
     const rustDoc = document.querySelector('meta[name="generator"]')?.content == "rustdoc";
     if (rustDoc) {
       // Only highlight .60 blocks, leave the others to rustdoc
-      for (dot60Block of document.querySelectorAll("pre code.language-60")) {
+      for (dot60Block of document.querySelectorAll(".language-60")) {
         hljs.highlightElement(dot60Block)
       }
 
