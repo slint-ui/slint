@@ -92,7 +92,6 @@ PathViewBox := Window {
             viewbox-y: 0;
             viewbox-width: 100;
             viewbox-height: 100;
-        }        
+        }
     }
 }
-

@@ -12,4 +12,3 @@ export Y := Rectangle {
     property <int> hello: max;
 //                        ^error{Builtin function must be called}
 }
-

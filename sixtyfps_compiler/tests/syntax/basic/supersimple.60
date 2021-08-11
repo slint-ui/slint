@@ -12,4 +12,3 @@ LICENSE END */
 SuperSimple := Rectangle {
     	background: green;
 }
-

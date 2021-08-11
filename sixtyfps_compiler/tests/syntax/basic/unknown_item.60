@@ -55,4 +55,3 @@ SuperSimple := Rectangle {
 //  ^error{Unknown type Opacity. \(The type exist as an internal type, but cannot be accessed in this scope\)}
 
 }
-

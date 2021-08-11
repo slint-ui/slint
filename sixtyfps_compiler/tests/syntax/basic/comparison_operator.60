@@ -24,4 +24,3 @@ SuperSimple := Rectangle {
 //         ^error{Use parentheses to disambiguate equality expression on the same level}
 
 }
-

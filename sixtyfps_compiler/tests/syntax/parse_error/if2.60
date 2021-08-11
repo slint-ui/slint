@@ -14,4 +14,3 @@ TestCase := Window {
 
     }
 //  ^error{Syntax error: expected Identifier}
-

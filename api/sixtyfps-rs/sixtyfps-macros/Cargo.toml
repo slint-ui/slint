@@ -18,4 +18,3 @@ quote = "1.0"
 proc-macro2 = "1.0.17"
 sixtyfps-compilerlib = { version = "=0.1.1", path = "../../../sixtyfps_compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
 spin_on = "0.1"
-

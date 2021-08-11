@@ -16,4 +16,3 @@ path = "lib.rs"
 sixtyfps-corelib = { version = "=0.1.1", path = "../../corelib" }
 image = { version = "0.23", default-features = false }
 weak-table = "0.3"
-

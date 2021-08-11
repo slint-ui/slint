@@ -38,4 +38,3 @@ SuperSimple := Rectangle {
 //                        ^error{Cannot convert brush to float}
 //                                    ^^error{Cannot convert brush to float}
 }
-

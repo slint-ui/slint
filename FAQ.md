@@ -15,7 +15,7 @@
 
 ## Where does the name come from?
 
-The name SixtyFPS comes from *60 frames per second*, which is the common refresh rate of screens. 
+The name SixtyFPS comes from *60 frames per second*, which is the common refresh rate of screens.
 This means that the screen shows a new image 60 times per second. To the human eye, animations updating
 at this frequency look pleasantly fluid. Consequently, in games and user interfaces, 60 FPS is synonymous
 with a perfectly smooth user interface.
@@ -82,4 +82,3 @@ Yes, check out our [Ambassador program](https://sixtyfps.io/ambassador-program.h
 You can still publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license.
 The distribution of a binary or a package containing SixtyFPS still needs to be licensed under the GPL.
 It is up to those who want to distribute a non-free version of the application to acquire a commercial license.
-

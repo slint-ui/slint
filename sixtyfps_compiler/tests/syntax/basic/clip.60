@@ -30,4 +30,3 @@ SubElements := Rectangle {
     Clip {}
 //  ^warning{The 'Clip' element is deprecated, use the 'clip' property on a Rectangle instead}
 }
-

@@ -24,8 +24,7 @@ Test := Rectangle {
 
         for x in 5: Text {
 //                  ^error{'if' or 'for' expressions are not currently supported in grid layouts}
-            
+
          }
     }
 }
-

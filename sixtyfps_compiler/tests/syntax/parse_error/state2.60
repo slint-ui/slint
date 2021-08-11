@@ -13,4 +13,3 @@ TestCase := Rectangle {
 
   }
 //^error{Syntax error: expected RBracket}
-

@@ -38,5 +38,3 @@ spin_on = "0.1"
 
 [package.metadata.docs.rs]
 features = ["display-diagnostics"]
-
-

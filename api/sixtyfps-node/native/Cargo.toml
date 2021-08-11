@@ -36,5 +36,3 @@ rand = "0.8"
 
 [build-dependencies]
 neon-build = "0.8.0"
-
-

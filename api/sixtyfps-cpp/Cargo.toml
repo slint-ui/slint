@@ -25,4 +25,3 @@ sixtyfps-corelib = { version = "=0.1.1", path="../../sixtyfps_runtime/corelib", 
 sixtyfps-rendering-backend-default = { version = "=0.1.1", path="../../sixtyfps_runtime/rendering_backends/default" }
 sixtyfps-rendering-backend-testing = { version = "=0.1.1", path="../../sixtyfps_runtime/rendering_backends/testing", optional = true }
 sixtyfps-interpreter = { version = "=0.1.1", path="../../sixtyfps_runtime/interpreter", features = ["ffi"], optional = true }
-

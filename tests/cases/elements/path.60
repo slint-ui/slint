@@ -14,5 +14,5 @@ TestCase := Path {
     LineTo {
         x: root.my_x;
         y: root.my_y;
-    }    
+    }
 }

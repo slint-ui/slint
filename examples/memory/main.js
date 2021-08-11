@@ -67,4 +67,3 @@ window.check_if_pair_solved.setHandler(function () {
 })
 
 window.run();
-

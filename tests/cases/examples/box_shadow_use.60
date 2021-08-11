@@ -70,7 +70,7 @@ TestCase := Window {
     for i in 3: Rectangle {
         background: green;
         border-color: black;
-        border-width: 1px;     
+        border-width: 1px;
 
         x: 100px + i * 50px;
         y: 300px + i * 30px;
@@ -83,4 +83,3 @@ TestCase := Window {
         drop-shadow-blur: 5px;
     }
 }
-

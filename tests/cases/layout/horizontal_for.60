@@ -82,5 +82,3 @@ instance.send_mouse_click(45., 15.);
 assert.equal(instance.value, 9);
 ```
 */
-
-

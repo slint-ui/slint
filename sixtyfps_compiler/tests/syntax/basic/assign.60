@@ -34,4 +34,3 @@ SuperSimple := Rectangle {
         clicked => { plop = "string"; }
     }
 }
-

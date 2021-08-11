@@ -23,4 +23,3 @@ export TestCase := BoxWithButtons {
 
     property <bool> test: value == "+24";
 }
-

@@ -10,4 +10,3 @@ LICENSE END */
 
 import { A } yo;
 //           ^error{Expected from keyword for import statement}
-

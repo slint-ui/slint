@@ -16,4 +16,3 @@ TestCase := Rectangle {
 //      ^error{Unknown property x in PropertyAnimation}
     }
 }
-

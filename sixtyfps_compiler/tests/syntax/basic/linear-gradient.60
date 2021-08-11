@@ -34,4 +34,3 @@ X := Rectangle {
 //                                        ^error{Cannot convert float to angle. Use an unit, or multiply by 1deg to convert explicitly}
     property<brush> g13: @linear-gradient(90deg + 0.5turn, true ? blue : red 45%, red 88% + 0.1);
 }
-

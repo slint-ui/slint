@@ -30,14 +30,3 @@ sixtyfps-rendering-backend-qt = { version = "=0.1.1", path = "../qt" }
 # Other platform uses the Gl backend
 [target.'cfg(not(any(target_os="windows", target_os="macos", target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd")))'.dependencies]
 sixtyfps-rendering-backend-gl = { version = "=0.1.1", path = "../gl" }
-
-
-
-
-
-
-
-
-
-
-

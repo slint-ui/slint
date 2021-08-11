@@ -20,4 +20,3 @@ export Z := Rectangle {
     property <int> b2: b1;
                     //^error{loop}
 }
-

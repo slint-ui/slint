@@ -16,4 +16,3 @@ TestCase := Rectangle {
 //      ^error{Syntax error: expected Colon}
     ]
 }
-

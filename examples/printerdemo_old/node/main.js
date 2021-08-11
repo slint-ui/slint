@@ -30,4 +30,3 @@ window.fax_send.setHandler(function () {
 })
 
 window.run();
-

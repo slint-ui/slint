@@ -18,14 +18,14 @@ import textwrap
 
 # -- Project information -----------------------------------------------------
 
-project = 'SixtyFPS C++'
-copyright = '2021, info@sixtyfps.io'
-author = 'info@sixtyfps.io'
+project = "SixtyFPS C++"
+copyright = "2021, info@sixtyfps.io"
+author = "info@sixtyfps.io"
 
 # The full version, including alpha/beta/rc tags
-version = '0.1.1'
+version = "0.1.1"
 
-cpp_index_common_prefix = [ "sixtyfps::", "sixtyfps::interpreter::" ]
+cpp_index_common_prefix = ["sixtyfps::", "sixtyfps::interpreter::"]
 
 # -- General configuration ---------------------------------------------------
 
@@ -34,16 +34,15 @@ cpp_index_common_prefix = [ "sixtyfps::", "sixtyfps::interpreter::" ]
 # ones.
 extensions = ["breathe", "myst_parser", "exhale", "sphinx_markdown_tables"]
 
-breathe_projects = {
-        "SixtyFPS": "./docs/xml"
-}
+breathe_projects = {"SixtyFPS": "./docs/xml"}
 breathe_default_project = "SixtyFPS"
 
 exhale_args = {
-        "containmentFolder": "./api",
-        "rootFileName": "library_root.rst",
-        "rootFileTitle": "C++ API Reference",
-        "afterTitleDescription": textwrap.dedent('''
+    "containmentFolder": "./api",
+    "rootFileName": "library_root.rst",
+    "rootFileTitle": "C++ API Reference",
+    "afterTitleDescription": textwrap.dedent(
+        """
             The following sections present the C++ API Reference. All types are
             within the :ref:`sixtyfps<namespace_sixtyfps>` namespace and are accessible by including
             the :code:`sixtyfps.h` header file.
@@ -52,27 +51,36 @@ exhale_args = {
             you can use the classes in :ref:`sixtyfps::interpreter<namespace_sixtyfps__interpreter>`, starting at
             :cpp:class:`sixtyfps::interpreter::ComponentCompiler`. You need to include
             the :code:`sixtyfps_interpreter.h` header file.
-        '''),
-        "doxygenStripFromPath": "..",
-        "createTreeView": True,
-        "exhaleExecutesDoxygen": True,
-        "exhaleDoxygenStdin": '''INPUT = ../../api/sixtyfps-cpp/include
+        """
+    ),
+    "doxygenStripFromPath": "..",
+    "createTreeView": True,
+    "exhaleExecutesDoxygen": True,
+    "exhaleDoxygenStdin": """INPUT = ../../api/sixtyfps-cpp/include
 EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api* vtable*
 EXCLUDE = ../../api/sixtyfps-cpp/include/vtable.h ../../api/sixtyfps-cpp/include/sixtyfps_testing.h
 ENABLE_PREPROCESSING = YES
 PREDEFINED += DOXYGEN
-WARN_AS_ERROR = YES'''
+WARN_AS_ERROR = YES""",
 }
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'html/_static/collapsible-lists/LICENSE.md', 'Thumbs.db', '.DS_Store', 'markdown/tutorial',
-    'markdown/building.md', 'markdown/development.md', 'markdown/install_qt.md',
-    'markdown/README.md', 'README.md'
+exclude_patterns = [
+    "_build",
+    "html/_static/collapsible-lists/LICENSE.md",
+    "Thumbs.db",
+    ".DS_Store",
+    "markdown/tutorial",
+    "markdown/building.md",
+    "markdown/development.md",
+    "markdown/install_qt.md",
+    "markdown/README.md",
+    "README.md",
 ]
 
 
@@ -81,16 +89,14 @@ exclude_patterns = ['_build', 'html/_static/collapsible-lists/LICENSE.md', 'Thum
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
-html_theme_options = {
-    "collapse_navigation" : False
-}
+html_theme_options = {"collapse_navigation": False}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 html_show_sourcelink = False
 
@@ -110,5 +116,6 @@ rst_epilog = """
 .. _Repetition: ../markdown/langref.html#repetition
 """
 
+
 def setup(app):
-    app.add_css_file('theme_tweak.css')
+    app.add_css_file("theme_tweak.css")

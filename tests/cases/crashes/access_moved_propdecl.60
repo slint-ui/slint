@@ -14,7 +14,7 @@ App := Rectangle {
     gallery_button := Rectangle {
         property<string> text: gallery_button.pressed ? "Button pressed" : "Button not pressed";
         property<bool> pressed: touch_area.pressed;
-        
+
         touch_area := TouchArea { }
     }
 }

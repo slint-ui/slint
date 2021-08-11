@@ -21,4 +21,3 @@ Test := Rectangle {
 
     property <color> c: @linear-gradient(90deg,#e2e1e1,#c5c5c5);
 }
-

@@ -670,4 +670,3 @@ export GridBox := GridLayout {
     spacing: StyleMetrics.layout-spacing;
     padding: StyleMetrics.layout-padding;
 }
-
