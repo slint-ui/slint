@@ -1,0 +1,32 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+    -   id: check-added-large-files
+    -   id: fix-byte-order-marker
+    -   id: check-case-conflict
+    -   id: check-executables-have-shebangs
+    # -   id: check-json ### tsconfig.json has non-stadard comments
+    -   id: check-toml
+    -   id: check-yaml
+    -   id: check-merge-conflict
+    -   id: check-shebang-scripts-are-executable
+    -   id: check-symlinks
+    -   id: destroyed-symlinks
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+-   repo: https://github.com/psf/black
+    rev: 21.7b0
+    hooks:
+    -   id: black
+# -   repo: https://github.com/cheshirekow/cmake-format-precommit
+#     rev: v0.6.13
+#     hooks:
+#     -   id: cmake-format ### breaks the copyright headers
+#     -   id: cmake-lint ### This suggests 2 space indent, do we want that?
+-   repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+    -   id: fmt
+    # -   id: cargo-check ### slow...
+    # -   id: clippy ### slow...
