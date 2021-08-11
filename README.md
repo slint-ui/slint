@@ -1,4 +1,4 @@
-# SixtyFPS  <!-- omit in toc -->
+# SixtyFPS
 
 [![Build Status](https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg)](https://github.com/sixtyfpsui/sixtyfps/actions)
 [![Discussions](https://img.shields.io/github/discussions/sixtyfpsui/sixtyfps)](https://github.com/sixtyfpsui/sixtyfps/discussions)
@@ -24,23 +24,6 @@ our [online editor](https://sixtyfps.io/editor).
 
 We plan to support the development of this project through dual-licensing and services. We seek feedback
 from potential customers or users.
-
-## Table Of Contents  <!-- omit in toc -->
-
-- [Documentation](#documentation)
-- [Demos running in WebAssembly Simulation](#demos-running-in-webassembly-simulation)
-- [Desktop Native Widgets](#desktop-native-widgets)
-- [The .60 Markup Language](#the-60-markup-language)
-- [Architecture](#architecture)
-  - [Compiler](#compiler)
-  - [Runtime](#runtime)
-  - [Tooling](#tooling)
-- [Contributions](#contributions)
-- [License](#license)
-- [Frequently Asked Questions](#frequently-asked-questions)
-- [About us](#about-us)
-- [Contact us](#contact-us)
-
 ## Documentation
 
 Refer to the README of each language directory in the `api` sub-folder:
