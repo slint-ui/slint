@@ -14,9 +14,7 @@ export MainWindow := Window {
     preferred-width: 800px;
     preferred-height: 600px;
 
-    property plot-image <=> img.source;
-    property pitch <=> pitch-slider.value;
-    callback redraw();
+    callback render_plot(float) -> image;
 
     VerticalLayout {
         Text {
@@ -24,7 +22,8 @@ export MainWindow := Window {
             text: "2D Gaussian PDF";
             horizontal-alignment: center;
         }
-        img := Image {
+        Image {
+            source: root.render_plot(pitch-slider.value);
         }
         GroupBox {
             title: "Pitch";
@@ -32,7 +31,6 @@ export MainWindow := Window {
                 minimum: 0;
                 maximum: 180;
                 value: 42;
-                changed => { root.redraw(); }
             }
         }
 

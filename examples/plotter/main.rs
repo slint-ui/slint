@@ -85,16 +85,7 @@ pub fn main() {
 
     let main_window = MainWindow::new();
 
-    main_window.on_redraw({
-        let main_window_weak = main_window.as_weak();
-        move || {
-            let main_window = main_window_weak.upgrade().unwrap();
-            let plot = render_plot(main_window.get_pitch());
-            main_window.set_plot_image(plot);
-        }
-    });
-
-    main_window.invoke_redraw();
+    main_window.on_render_plot(render_plot);
 
     main_window.run();
 }
