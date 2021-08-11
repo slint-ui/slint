@@ -94,3 +94,29 @@ TEST_CASE("Image")
         REQUIRE(size.height == 128.);
     }
 }
+
+TEST_CASE("SharedVector")
+{
+    using namespace sixtyfps;
+
+    SharedVector<SharedString> vec;
+    vec.push_back("Hello");
+    vec.push_back("World");
+    vec.push_back("of");
+    vec.push_back("Vectors");
+
+    auto copy = vec;
+
+    REQUIRE(vec.size() == 4);
+    auto orig_cap = vec.capacity();
+    REQUIRE(orig_cap >= vec.size());
+    vec.clear();
+    REQUIRE(vec.size() == 0);
+    REQUIRE(vec.capacity() == orig_cap);
+    vec.push_back("Welcome back");
+    REQUIRE(vec.size() == 1);
+    REQUIRE(vec.capacity() == orig_cap);
+
+    REQUIRE(copy.size() == 4);
+    REQUIRE(copy.capacity() == orig_cap);
+}

@@ -127,6 +127,21 @@ struct SharedVector
         inner->size++;
     }
 
+    /// Clears the vector and removes all elements. The capacity remains unaffected.
+    void clear()
+    {
+        // Detach first to retain capacity, so that the begin() call doesn't detach
+        // (which it would to inner->size instead of capacity)
+        detach(inner->capacity);
+        {
+            auto b = begin(), e = end();
+            inner->size = 0;
+            for (auto it = b; it < e; ++it) {
+                it->~T();
+            }
+        }
+    }
+
     /// Returns true if the vector \a a has the same number of elements as \a b
     /// and all the elements also compare equal; false otherwise.
     friend bool operator==(const SharedVector &a, const SharedVector &b)
@@ -138,6 +153,9 @@ struct SharedVector
     /// Returns false if the vector \a a has the same number of elements as \a b
     /// and all the elements also compare equal; true otherwise.
     friend bool operator!=(const SharedVector &a, const SharedVector &b) { return !(a == b); }
+
+    /// \private
+    std::size_t capacity() const { return inner->capacity; }
 
 private:
     void detach(std::size_t expected_capacity)
