@@ -40,7 +40,7 @@ sixtyfps::sixtyfps! {
             VerticalBox {
                 alignment: center;
                 filter-combo := ComboBox {
-                    current-value: "Brighten";
+                    current-value: "Blur";
                     current-index: 0;
                     vertical-stretch: 0;
                 }
