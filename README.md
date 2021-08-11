@@ -15,15 +15,21 @@ Our design goals are:
  - **Native**: We support many different target platforms, from embedded devices to desktops including mobile and web. Both the user and the developer should feel at
    home on each platform. The look and feel and experience should match the users' expectations of a
    native application.
+   
+## Current Status
 
-### Current Status
+SixtyFPS is in active development. Its state of development depends on the kind of application.
 
-It's possible to create user interfaces from C++, Rust, or NodeJS. These user interfaces can be compiled and
-shown on Linux, macOS, Windows, and in Web Browsers (using WebAssembly). You can also try out SixtyFPS using
-our [online editor](https://sixtyfps.io/editor).
+ - **Embedded**: *Ready!* SixtyFPS is already hapily used by customer on embedded device
+   (running on a Arm processor with Linux). We are looking into also supporting microcontrolers
+ - **Desktop**: *In Progress*. SixtyFPS is usable on Windows, Linux and Mac, but we
+   still need a lot of work to get to the level of integration we are aiming at.
+ - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platform, but it is our
+   intention to do so in the future.
+ - **Web**: We our focus is on Embedded and Desktop applications. We do not intend to compete in 
+   the web space as a primary platform. That said, SixtyFPS can compile to WebAssembly and the 
+   demo are running in a web browser. But the web support is currently limited to demo purposes.
 
-We plan to support the development of this project through dual-licensing and services. We seek feedback
-from potential customers or users.
 ## Documentation
 
 Refer to the README of each language directory in the `api` sub-folder:
