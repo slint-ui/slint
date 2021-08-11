@@ -23,10 +23,8 @@ sixtyfps::sixtyfps! {
         preferred-height: 600px;
 
         property original-image <=> original.source;
-        property filtered-image <=> filtered.source;
         property filters <=> filter-combo.model;
-        property selected-filter <=> filter-combo.current-index;
-        callback filter-selected <=> filter-combo.selected;
+        callback filter-image(int) -> image;
 
         HorizontalBox {
             VerticalBox {
@@ -51,7 +49,9 @@ sixtyfps::sixtyfps! {
                     text: "Filtered Image";
                     horizontal-alignment: center;
                 }
-                filtered := Image { }
+                Image {
+                    source: filter-image(filter-combo.current-index);
+                }
             }
         }
     }
@@ -150,25 +150,15 @@ pub fn main() {
 
     main_window.set_filters(sixtyfps::ModelHandle::new(filters.clone()));
 
-    let main_window_weak = main_window.as_weak();
-
-    let filter_callback = move || {
-        let main_window = main_window_weak.upgrade().unwrap();
-        let filter_index = main_window.get_selected_filter() as usize;
-        let filter_fn = filters.0[filter_index].apply_function;
+    main_window.on_filter_image(move |filter_index| {
+        let filter_fn = filters.0[filter_index as usize].apply_function;
         let filtered_image = filter_fn(&source_image);
-        main_window.set_filtered_image(sixtyfps::Image::from_rgba8(
-            sixtyfps::SharedPixelBuffer::clone_from_slice(
-                filtered_image.as_raw(),
-                filtered_image.width() as _,
-                filtered_image.height() as _,
-            ),
-        ));
-    };
-
-    filter_callback();
-
-    main_window.on_filter_selected(move |_| filter_callback());
+        sixtyfps::Image::from_rgba8(sixtyfps::SharedPixelBuffer::clone_from_slice(
+            filtered_image.as_raw(),
+            filtered_image.width() as _,
+            filtered_image.height() as _,
+        ))
+    });
 
     main_window.run();
 }
