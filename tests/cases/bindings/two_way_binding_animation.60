@@ -138,4 +138,3 @@ assert.equal(instance.binding_dep, 125);
 
 ```
 */
-

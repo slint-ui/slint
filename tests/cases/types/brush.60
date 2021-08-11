@@ -42,4 +42,3 @@ t.color_brush = "#00ff00"; // css-color-parser2 can't parse #rrggbbaa yet
 assert.equal(t.color_brush, green);
 ```
 */
-

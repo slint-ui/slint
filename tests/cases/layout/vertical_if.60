@@ -156,5 +156,3 @@ instance.send_mouse_click(5., 70.);
 assert.equal(instance.value, 2);
 ```
 */
-
-

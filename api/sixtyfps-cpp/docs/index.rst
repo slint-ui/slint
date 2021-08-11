@@ -94,4 +94,3 @@ For a quick edit and preview cycle, you can also use the :code:`sixtyfps-viewer`
 if you have `Cargo <https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode>`_ installed.
 
 In the next section you will learn how to install the SixtyFPS C++ library and the CMake build system integration.
-

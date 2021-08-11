@@ -50,4 +50,3 @@ Test := Rectangle {
 //                       ^error{The binding for the property 'extra-background' is part of a binding loop}
     }
 }
-

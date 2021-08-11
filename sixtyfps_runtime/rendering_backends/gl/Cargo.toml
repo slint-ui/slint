@@ -64,4 +64,3 @@ font-kit = { version = "0.10", features = ["loader-freetype"] }
 cocoa = { version = "0.24.0" }
 core-text = { version = "19.1.0" }
 core-foundation = { version = "0.9.1" }
-

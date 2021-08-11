@@ -26,4 +26,3 @@ X := Rectangle {
     property <int> f; animate f { easing: cubic-bezier(0,0+0,0,0,0); }
     //                                                   ^error{Arguments to cubic bezier curve must be number literal}
 }
-

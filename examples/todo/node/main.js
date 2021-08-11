@@ -67,4 +67,3 @@ app.remove_done.setHandler(function () {
 })
 
 app.run();
-

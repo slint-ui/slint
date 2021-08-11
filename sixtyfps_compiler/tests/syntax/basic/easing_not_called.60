@@ -14,4 +14,3 @@ X := Rectangle {
     property <int> g; animate g { easing: cubic-bezier; }
     //                                    ^error{must be called}
 }
-

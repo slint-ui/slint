@@ -40,4 +40,3 @@ SuperSimple := Rectangle {
 //          ^error{Can only refer to property in the current element}
 
 }
-

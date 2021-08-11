@@ -30,4 +30,3 @@ This will create a `figma_output` directory with a `main.60` file and some image
 Other options:
 * `--node <id>` to generate a specific node (eg: "123:12")
 * `--child <index>` to generate from one of the direct children of the canvas.
-

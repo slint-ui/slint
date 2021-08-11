@@ -35,5 +35,3 @@ export Demo := Window {
         }
     ]
 }
-
-

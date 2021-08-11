@@ -39,4 +39,3 @@ assert_eq!(instance.get_val(), 0.);
 ```
 
 */
-

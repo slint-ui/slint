@@ -52,4 +52,3 @@ Test := Rectangle {
 //            ^error{The binding for the property 'width' is part of a binding loop}
     }
 }
-

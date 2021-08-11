@@ -107,4 +107,3 @@ contexts:
         - meta_scope: comment.line
         - match: '\*/'
           pop: true
-

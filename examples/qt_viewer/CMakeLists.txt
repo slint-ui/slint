@@ -21,4 +21,3 @@ if (Qt5Widgets_FOUND)
     add_executable(qt_viewer qt_viewer.cpp)
     target_link_libraries(qt_viewer PRIVATE SixtyFPS::SixtyFPS Qt5::Core Qt5::Widgets)
 endif(Qt5Widgets_FOUND)
-

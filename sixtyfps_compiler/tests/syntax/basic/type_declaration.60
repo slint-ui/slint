@@ -46,6 +46,3 @@ SuperSimple := Rectangle {
         ccc: "hello";
     }
 }
-
-
-

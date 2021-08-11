@@ -22,4 +22,3 @@ window.ink_levels = [
     { color: "#000000", level: 0.90 }];
 
 window.run();
-

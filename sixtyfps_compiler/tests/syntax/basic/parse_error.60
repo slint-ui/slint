@@ -28,4 +28,3 @@ SuperSimple := Rectangle {
 //      ^error{Parse error}
     }
 }
-

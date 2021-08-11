@@ -105,4 +105,3 @@ assert.equal(callback_3_int_value, 55); // same as before
 
 
 */
-

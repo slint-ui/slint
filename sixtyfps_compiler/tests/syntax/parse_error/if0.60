@@ -13,4 +13,3 @@ TestCase := Window {
 //    ^error{Parse error}
     Foo { }
   }
-

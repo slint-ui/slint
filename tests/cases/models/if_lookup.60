@@ -83,4 +83,3 @@ instance.send_mouse_click(5., 5.);
 assert.equal(instance.top_level, 92);
 ```
 */
-

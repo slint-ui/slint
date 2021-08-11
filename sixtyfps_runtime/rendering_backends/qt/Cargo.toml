@@ -32,7 +32,3 @@ qttypes = { version = "0.2", default-features = false }
 
 [build-dependencies]
 cpp_build = "0.5.5"
-
-
-
-

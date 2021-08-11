@@ -10,4 +10,3 @@ LICENSE END */
 
 import { } from yo;
 //              ^error{Expected plain string literal}
-

@@ -136,5 +136,3 @@ instance.send_mouse_click(5., 15.);
 assert.equal(instance.value, 3000+13+42);
 ```
 */
-
-

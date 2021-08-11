@@ -15,7 +15,7 @@ Our design goals are:
  - **Native**: We support many different target platforms, from embedded devices to desktops including mobile and web. Both the user and the developer should feel at
    home on each platform. The look and feel and experience should match the users' expectations of a
    native application.
-   
+
 ## Current Status
 
 SixtyFPS is in active development. Its state of development depends on the kind of application.
@@ -26,8 +26,8 @@ SixtyFPS is in active development. Its state of development depends on the kind 
    is still needed to get to the level of integration we are aiming at.
  - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platforms yet, but it
    is our intention to do so in the future.
- - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in 
-   the web space as a primary platform. That said, SixtyFPS can compile to WebAssembly and the 
+ - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in
+   the web space as a primary platform. That said, SixtyFPS can compile to WebAssembly and the
    demos are running in a web browser. But the web support is currently limited to demo purposes.
 
 ## Documentation

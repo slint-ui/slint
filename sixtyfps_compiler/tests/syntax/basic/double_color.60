@@ -14,4 +14,3 @@ SuperSimple := Rectangle {
     background: red;
 //  ^error{Duplicated property}
 }
-

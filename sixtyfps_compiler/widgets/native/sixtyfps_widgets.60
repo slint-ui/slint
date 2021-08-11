@@ -166,4 +166,3 @@ export GridBox := GridLayout {
     spacing: NativeStyleMetrics.layout-spacing;
     padding: NativeStyleMetrics.layout-spacing;
 }
-

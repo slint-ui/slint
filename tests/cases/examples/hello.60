@@ -170,4 +170,3 @@ Hello := Rectangle {
         stroke_width: 2px;
     }
 }
-

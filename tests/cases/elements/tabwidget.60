@@ -42,5 +42,3 @@ TestCase := Window {
 
     property <bool> test: tw.vertical_stretch == 1 && tw.horizontal_stretch == 1 && tw.min_height > 200px ;
 }
-
-

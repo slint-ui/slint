@@ -30,4 +30,3 @@ sixtyfps-build = { path = "../../../api/sixtyfps-rs/sixtyfps-build" }
 #wasm# wasm-bindgen = { version = "0.2" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
-

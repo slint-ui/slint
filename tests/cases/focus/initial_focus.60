@@ -85,6 +85,3 @@ assert(!instance.input1_focused);
 assert(instance.input2_focused);
 ```
 */
-
-
-

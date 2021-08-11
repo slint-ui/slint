@@ -16,4 +16,3 @@ SuperSimple := Rectangle {
 //                        ^error{The drop-shadow-color property is only supported on Rectangle and Clip elements right now}
     }
 }
-

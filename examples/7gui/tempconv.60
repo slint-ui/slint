@@ -33,4 +33,3 @@ TempConv := Window {
         Text { text: "Fahrenheit"; }
     }
 }
-

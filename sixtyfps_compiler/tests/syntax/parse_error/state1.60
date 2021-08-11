@@ -34,4 +34,3 @@ TestCase := Rectangle {
     touch := TouchArea {}
 
 }
-

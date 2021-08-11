@@ -80,5 +80,3 @@ instance.send_mouse_click(5., 95.);
 assert.equal(instance.last_clicked, 1);
 ```
 */
-
-

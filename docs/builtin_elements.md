@@ -401,7 +401,7 @@ position to the beginning of the path.
 
 ## `TouchArea`
 
-The TouchArea control what happens when the zone covered by it is touched or interacted with 
+The TouchArea control what happens when the zone covered by it is touched or interacted with
 using the mouse.
 
 When not part of a layout, its width or height default to 100% of the parent element if not specified.

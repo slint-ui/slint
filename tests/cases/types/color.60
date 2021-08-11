@@ -157,4 +157,3 @@ assert.equal(t.i1, "#00ff00ff");
 
 ```
 */
-
