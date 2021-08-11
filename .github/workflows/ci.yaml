@@ -538,6 +538,11 @@ jobs:
         sed -i "s/#wasm# //" Cargo.toml
         wasm-pack build --release --target web
       working-directory: examples/imagefilter
+    - name: Plotter example WASM build
+      run: |
+        sed -i "s/#wasm# //" Cargo.toml
+        wasm-pack build --release --target web
+      working-directory: examples/plotter
     - name: "Upload Demo Artifacts"
       uses: actions/upload-artifact@v2
       with:
@@ -550,6 +555,7 @@ jobs:
               examples/memory/
               examples/slide_puzzle/
               examples/imagefilter/
+              examples/plotter/
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
@@ -661,7 +667,7 @@ jobs:
             rm -rf snapshots/$target_branch/demos
             mkdir -p snapshots/$target_branch/demos
 
-            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter,; do
+            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter, plotter,; do
                 IFS=',' read demo subdir <<< "${demo_subdir}"
 
                 mkdir -p snapshots/$target_branch/demos/$demo

@@ -14,6 +14,9 @@ use sixtyfps::SharedPixelBuffer;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(target_arch = "wasm32")]
+mod wasm_backend;
+
 sixtyfps::sixtyfps! {
     import { MainWindow } from "plotter.60";
 }
@@ -31,7 +34,14 @@ fn render_plot(pitch: f32) -> sixtyfps::Image {
     let mut pixel_buffer = SharedPixelBuffer::new(640, 480);
     let size = (pixel_buffer.width() as u32, pixel_buffer.height() as u32);
 
-    let root = BitMapBackend::with_buffer(pixel_buffer.make_mut_bytes(), size).into_drawing_area();
+    let backend = BitMapBackend::with_buffer(pixel_buffer.make_mut_bytes(), size);
+
+    // Plotters requires TrueType fonts from the file system to draw axis text - we skip that for
+    // WASM for now.
+    #[cfg(target_arch = "wasm32")]
+    let backend = wasm_backend::BackendWithoutText { backend };
+
+    let root = backend.into_drawing_area();
 
     root.fill(&WHITE).expect("error filling drawing area");
 
