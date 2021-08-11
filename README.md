@@ -20,15 +20,15 @@ Our design goals are:
 
 SixtyFPS is in active development. Its state of development depends on the kind of application.
 
- - **Embedded**: *Ready!* SixtyFPS is already hapily used by customer on embedded device
-   (running on a Arm processor with Linux). We are looking into also supporting microcontrolers
- - **Desktop**: *In Progress*. SixtyFPS is usable on Windows, Linux and Mac, but we
-   still need a lot of work to get to the level of integration we are aiming at.
- - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platform, but it is our
-   intention to do so in the future.
- - **Web**: We our focus is on Embedded and Desktop applications. We do not intend to compete in 
+ - **Embedded**: *Ready!* SixtyFPS is already happily used by customer on embedded device
+   (running on a Arm processor with Linux). We are also looking into supporting microcontrollers.
+ - **Desktop**: *In Progress*. SixtyFPS is usable on Windows, Linux and Mac, but a lot of work
+   is still needed to get to the level of integration we are aiming at.
+ - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platforms yet, but it
+   is our intention to do so in the future.
+ - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in 
    the web space as a primary platform. That said, SixtyFPS can compile to WebAssembly and the 
-   demo are running in a web browser. But the web support is currently limited to demo purposes.
+   demos are running in a web browser. But the web support is currently limited to demo purposes.
 
 ## Documentation
 

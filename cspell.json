@@ -106,7 +106,9 @@
         "xtask",
         "unmapping", // present participle of unmap
         "opengl",
-        "pixmap"
+        "pixmap",
+        "microcontroller",
+        "microcontrollers"
     ],
     "ignorePaths": [
         "cspell.json",
