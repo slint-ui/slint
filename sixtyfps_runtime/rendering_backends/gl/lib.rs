@@ -713,6 +713,7 @@ impl ItemRenderer for GLItemRenderer {
             .unwrap()
             .as_font()
             .clone();
+        let font_height = font.height();
 
         let paint = match self.brush_to_paint(
             text_input.color(),
@@ -723,16 +724,23 @@ impl ItemRenderer for GLItemRenderer {
         };
 
         let letter_spacing = text_input.letter_spacing() * self.scale_factor;
+        let horizontal_alignment = text_input.horizontal_alignment();
+        let vertical_alignment = text_input.vertical_alignment();
         let metrics = self.draw_text_impl(
             width,
             height,
             sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
             &font,
             paint,
-            text_input.horizontal_alignment(),
-            text_input.vertical_alignment(),
+            horizontal_alignment,
+            vertical_alignment,
             letter_spacing,
         );
+        let cursor_y = match vertical_alignment {
+            TextVerticalAlignment::top => 0.,
+            TextVerticalAlignment::center => (height - font_height) / 2.,
+            TextVerticalAlignment::bottom => (height - font_height),
+        };
 
         // This way of drawing selected text isn't quite 100% correct. Due to femtovg only being able to
         // have a simple rectangular selection - due to the use of the scissor clip - the selected text is
@@ -759,8 +767,8 @@ impl ItemRenderer for GLItemRenderer {
             }
 
             let selection_rect = Rect::new(
-                [selection_start_x, 0.].into(),
-                [selection_end_x - selection_start_x, font.height()].into(),
+                [selection_start_x, cursor_y].into(),
+                [selection_end_x - selection_start_x, font_height].into(),
             );
 
             {
@@ -787,8 +795,8 @@ impl ItemRenderer for GLItemRenderer {
                 sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
                 &font,
                 femtovg::Paint::color(to_femtovg_color(&text_input.selection_foreground_color())),
-                text_input.horizontal_alignment(),
-                text_input.vertical_alignment(),
+                horizontal_alignment,
+                vertical_alignment,
                 letter_spacing,
             );
 
@@ -811,9 +819,9 @@ impl ItemRenderer for GLItemRenderer {
             let mut cursor_rect = femtovg::Path::new();
             cursor_rect.rect(
                 cursor_x,
-                0.,
+                cursor_y,
                 text_input.text_cursor_width() * self.scale_factor,
-                font.height(),
+                font_height,
             );
             if let Some(text_paint) = self.brush_to_paint(text_input.color(), &mut cursor_rect) {
                 self.shared_data.canvas.borrow_mut().fill_path(&mut cursor_rect, text_paint)
