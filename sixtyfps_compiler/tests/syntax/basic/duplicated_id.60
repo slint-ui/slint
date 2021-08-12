@@ -14,19 +14,19 @@ SubElement := Rectangle {
     foo := Rectangle {
         background: yellow;
         hello := Rectangle {}
-//              ^error{duplicated element id 'hello'}
+//              ^warning{duplicated element id 'hello'}
     }
 
     unique := Rectangle {
         background: yellow;
         world := Rectangle {}
-//              ^error{duplicated element id 'world'}
+//              ^warning{duplicated element id 'world'}
     }
 
     if (true) : hello := Rectangle {
-//                      ^error{duplicated element id 'hello'}
+//                      ^warning{duplicated element id 'hello'}
         world := Rectangle { }
-//              ^error{duplicated element id 'world'}
+//              ^warning{duplicated element id 'world'}
     }
 }
 
@@ -34,16 +34,16 @@ TestCase := Rectangle {
 
     unique := Rectangle {
         foo := SubElement { }
-//            ^error{duplicated element id 'foo'}
+//            ^warning{duplicated element id 'foo'}
     }
 
     bar := TouchArea {}
-//        ^error{duplicated element id 'bar'}
+//        ^warning{duplicated element id 'bar'}
 
     Rectangle {
         foo := Text {}
-//            ^error{duplicated element id 'foo'}
+//            ^warning{duplicated element id 'foo'}
         bar := Text {}
-//            ^error{duplicated element id 'bar'}
+//            ^warning{duplicated element id 'bar'}
     }
 }
