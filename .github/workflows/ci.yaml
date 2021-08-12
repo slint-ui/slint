@@ -632,7 +632,8 @@ jobs:
       with:
           command: test
           # skip example_printerdemo_old because that was not in 0.0.5
-          args: --bin test-driver-interpreter -- --skip example_printerdemo_old
+          # skip test_interpreter_examples_rotate because the internal rotate element was removed
+          args: --bin test-driver-interpreter -- --skip example_printerdemo_old --skip test_interpreter_examples_rotate
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
