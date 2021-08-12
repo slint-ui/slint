@@ -11,3 +11,5 @@ LICENSE END */
 export MainWindow := Window {
     property <int> some_prop: 42;
 }
+
+export { MainWindow as Main-Window }
