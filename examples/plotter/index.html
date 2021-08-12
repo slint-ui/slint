@@ -35,14 +35,9 @@
     </p>
     <script type="module">
         import init from "./pkg/plotter.js";
-        async function start() {
-            try {
-                await init();
-            } finally {
-                document.getElementById("spinner").remove();
-            }
-        };
-        start();
+        init().finally(() => {
+            document.getElementById("spinner").remove();
+        });
     </script>
 </body>
 
