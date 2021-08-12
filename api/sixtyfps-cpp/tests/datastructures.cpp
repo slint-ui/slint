@@ -100,6 +100,7 @@ TEST_CASE("SharedVector")
     using namespace sixtyfps;
 
     SharedVector<SharedString> vec;
+    vec.clear();
     vec.push_back("Hello");
     vec.push_back("World");
     vec.push_back("of");
@@ -112,11 +113,13 @@ TEST_CASE("SharedVector")
     REQUIRE(orig_cap >= vec.size());
     vec.clear();
     REQUIRE(vec.size() == 0);
-    REQUIRE(vec.capacity() == orig_cap);
+    REQUIRE(vec.capacity() == 0); // vec was shared, so start with new empty vector.
     vec.push_back("Welcome back");
     REQUIRE(vec.size() == 1);
-    REQUIRE(vec.capacity() == orig_cap);
+    REQUIRE(vec.capacity() >= vec.size());
 
     REQUIRE(copy.size() == 4);
+    REQUIRE(copy.capacity() == orig_cap);
+    copy.clear(); // copy is not shared (anymore), retain capacity.
     REQUIRE(copy.capacity() == orig_cap);
 }
