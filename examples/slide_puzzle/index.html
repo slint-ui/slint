@@ -33,12 +33,27 @@
     grid-template-columns: auto;
     grid-template-rows: max-content auto max-content;
   }
+
+  /* beautify ignore:start */
+  .spinner:before {
+    content: ''; box-sizing: border-box; position: absolute;
+    top: 50%; left: 50%; width: 100px; height: 100px;
+    margin-top: -10px; margin-left: -10px;
+    border-radius: 50%;  border: 2px solid transparent;
+    border-top-color: #07d; border-bottom-color: #07d;
+    animation: spinner 1s ease infinite;
+  }
+  @keyframes spinner { to { transform: rotate(360deg); } }
+  /* beautify ignore:end */
 </style>
 
 <body>
   <div id="container">
     <p>This is the SixtyFPS Slide Puzzle compiled to WebAssembly. Note that the wasm
       build is done for demonstration purposes. Native applications are the real target of the toolkit.</p>
+    <div id="spinner" style="position: relative;">
+      <div class="spinner">Loading...</div>
+    </div>
     <canvas id="canvas"></canvas>
     <p>
       <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/slide_puzzle/">
@@ -51,7 +66,9 @@
   </div>
   <script type="module">
     import init from './pkg/slide_puzzle.js';
-    init();
+    init().finally(() => {
+      document.getElementById("spinner").remove();
+    });
   </script>
 </body>
 
