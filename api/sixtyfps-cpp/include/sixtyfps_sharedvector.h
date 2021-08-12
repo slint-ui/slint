@@ -130,10 +130,9 @@ struct SharedVector
     /// Clears the vector and removes all elements. The capacity remains unaffected.
     void clear()
     {
-        // Detach first to retain capacity, so that the begin() call doesn't detach
-        // (which it would to inner->size instead of capacity)
-        detach(inner->capacity);
-        {
+        if (inner->refcount != 1) {
+            *this = SharedVector();
+        } else {
             auto b = begin(), e = end();
             inner->size = 0;
             for (auto it = b; it < e; ++it) {
