@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::object_tree::{self, Document};
-use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
+use crate::parser::{normalize_identifier, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
 
@@ -58,10 +58,11 @@ impl ImportedName {
     }
 
     pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
-        let external_name = importident.ExternalName().text().to_string().trim().to_string();
+        let external_name =
+            normalize_identifier(importident.ExternalName().text().to_string().trim());
 
         let internal_name = match importident.InternalName() {
-            Some(name_ident) => name_ident.text().to_string().trim().to_string(),
+            Some(name_ident) => normalize_identifier(name_ident.text().to_string().trim()),
             None => external_name.clone(),
         };
 
