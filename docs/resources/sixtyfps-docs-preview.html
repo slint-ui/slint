@@ -28,16 +28,13 @@
     }
 
     async function run() {
-
         await sixtyfps.default();
-
         var elements = document.querySelectorAll("code.language-60, pre.language-60, div.highlight-60 div");
         for (var i = 0; i < elements.length; ++i) {
             let source = elements[i].innerText;
             let div = document.createElement("div");
             div.style = "float: right; padding:0; margin:0;";
-            div.innerHTML = "<p>Preview:</p>";
-            elements[i].parentElement.insertBefore(div, elements[i])
+            elements[i].prepend(div);
             setTimeout(function () { render_or_error(source, div); }, 1);
         }
     }

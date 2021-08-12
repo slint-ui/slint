@@ -22,8 +22,6 @@ Their appearance can change depending on the style
 ```60
 import { Button } from "sixtyfps_widgets.60";
 Example := Window {
-    width: 100px;
-    height: 25px;
     Button {
         width: parent.width;
         height: parent.height;
