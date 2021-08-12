@@ -251,7 +251,7 @@ impl<T: Clone> SharedVector<T> {
             return;
         }
 
-        debug_assert!(
+        assert!(
             unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } == 1
         );
         // Safety: caller (and above debug_assert) must ensure that the array is not shared.
@@ -266,10 +266,20 @@ impl<T: Clone> SharedVector<T> {
         }
     }
 
-    /// Clears the vector and removes all elements. The capacity remains unaffected.
+    /// Clears the vector and removes all elements.
     pub fn clear(&mut self) {
-        self.detach(self.capacity());
-        self.shrink(0)
+        let is_shared =
+            unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } != 1;
+        if is_shared {
+            unsafe {
+                if self.inner.as_ref().header.refcount.fetch_sub(1, atomic::Ordering::SeqCst) == 1 {
+                    drop_inner(self.inner)
+                }
+            }
+            self.inner = NonNull::from(&SHARED_NULL).cast();
+        } else {
+            self.shrink(0)
+        }
     }
 }
 
@@ -554,24 +564,27 @@ fn test_capacity_grows_only_when_needed() {
 #[test]
 fn test_vector_clear() {
     let mut vec: SharedVector<String> = Default::default();
+    vec.clear();
     vec.push("Hello".into());
     vec.push("World".into());
     vec.push("of".into());
     vec.push("Vectors".into());
 
-    let copy = vec.clone();
+    let mut copy = vec.clone();
 
     assert_eq!(vec.len(), 4);
     let orig_cap = vec.capacity();
     assert!(orig_cap >= vec.len());
     vec.clear();
     assert_eq!(vec.len(), 0);
-    assert_eq!(vec.capacity(), orig_cap);
+    assert_eq!(vec.capacity(), 0); // vec was shared, so start with new empty vector.
     vec.push("Welcome back".into());
     assert_eq!(vec.len(), 1);
-    assert_eq!(vec.capacity(), orig_cap);
+    assert!(vec.capacity() >= vec.len());
 
     assert_eq!(copy.len(), 4);
+    assert_eq!(copy.capacity(), orig_cap);
+    copy.clear(); // copy is not shared (anymore), retain capacity.
     assert_eq!(copy.capacity(), orig_cap);
 }
 
