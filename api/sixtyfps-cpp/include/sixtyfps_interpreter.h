@@ -567,6 +567,7 @@ class ComponentInstance : vtable::Dyn
     // ComponentHandle<ComponentInstance>  is in fact a VRc<ComponentVTable, ErasedComponentBox>
     const cbindgen_private::ErasedComponentBox *inner() const
     {
+        sixtyfps::private_api::assert_main_thread();
         return reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(this);
     }
 
