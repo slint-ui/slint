@@ -271,12 +271,7 @@ impl<T: Clone> SharedVector<T> {
         let is_shared =
             unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } != 1;
         if is_shared {
-            unsafe {
-                if self.inner.as_ref().header.refcount.fetch_sub(1, atomic::Ordering::SeqCst) == 1 {
-                    drop_inner(self.inner)
-                }
-            }
-            self.inner = NonNull::from(&SHARED_NULL).cast();
+            *self = SharedVector::default();
         } else {
             self.shrink(0)
         }
