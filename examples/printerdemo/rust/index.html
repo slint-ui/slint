@@ -35,6 +35,18 @@
         height: 100vh !important;
       }
     }
+
+    /* beautify ignore:start */
+    .spinner:before {
+      content: ''; box-sizing: border-box; position: absolute;
+      top: 50%; left: 50%; width: 100px; height: 100px;
+      margin-top: -10px; margin-left: -10px;
+      border-radius: 50%;  border: 2px solid transparent;
+      border-top-color: #07d; border-bottom-color: #07d;
+      animation: spinner 1s ease infinite;
+    }
+    @keyframes spinner { to { transform: rotate(360deg); } }
+    /* beautify ignore:end */
   </style>
 </head>
 
@@ -42,6 +54,9 @@
   <p class="hide-in-mobile-landscape">This is the SixtyFPS UI Printer Demo compiled to WebAssembly. It simulates the
     touch user interface of
     the advanced "Print Machine 2000", without actually printing anything.</p>
+  <div id="spinner" style="position: relative;">
+    <div class="spinner">Loading...</div>
+  </div>
   <canvas id="canvas" width="640" height="480" unselectable="on"></canvas>
   <p class="hide-in-mobile-landscape">
     <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/printerdemo/ui/printerdemo.60">
@@ -53,7 +68,9 @@
   </p>
   <script type="module">
     import init from './pkg/printerdemo.js';
-    init();
+    init().finally(() => {
+      document.getElementById("spinner").remove();
+    });
   </script>
 </body>
 
