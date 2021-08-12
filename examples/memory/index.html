@@ -8,10 +8,26 @@
 
 <head>
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+    <style>
+        /* beautify ignore:start */
+        .spinner:before {
+            content: ''; box-sizing: border-box; position: absolute;
+            top: 50%; left: 50%; width: 100px; height: 100px;
+            margin-top: -10px; margin-left: -10px;
+            border-radius: 50%;  border: 2px solid transparent;
+            border-top-color: #07d; border-bottom-color: #07d;
+            animation: spinner 1s ease infinite;
+        }
+        @keyframes spinner { to { transform: rotate(360deg); } }
+        /* beautify ignore:end */
+    </style>
 </head>
 
 <body>
     <p>This is the SixtyFPS Memory Game compiled to WebAssembly.</p>
+    <div id="spinner" style="position: relative;">
+        <div class="spinner">Loading...</div>
+    </div>
     <canvas id="canvas"></canvas>
     <p>
         <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/memory/main.rs">
@@ -19,7 +35,9 @@
     </p>
     <script type="module">
         import init from "./pkg/memory.js";
-        init();
+        init().finally(() => {
+            document.getElementById("spinner").remove();
+        });
     </script>
 </body>
 
