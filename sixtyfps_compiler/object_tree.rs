@@ -19,7 +19,8 @@ use crate::langtype::PropertyLookupResult;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
-use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
+use crate::parser;
+use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
@@ -81,7 +82,7 @@ impl Document {
              local_registry: &mut TypeRegister| {
                 let mut ty = type_struct_from_node(n.ObjectType(), diag, local_registry);
                 if let Type::Struct { name, .. } = &mut ty {
-                    *name = identifier_text(&n.DeclaredIdentifier());
+                    *name = parser::identifier_text(&n.DeclaredIdentifier());
                 } else {
                     assert!(diag.has_error());
                     return;
@@ -230,7 +231,7 @@ impl Component {
     ) -> Rc<Self> {
         let mut child_insertion_point = None;
         let c = Component {
-            id: identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
+            id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
@@ -657,7 +658,7 @@ impl Element {
                 .unwrap_or(Type::InferredProperty);
 
             let unresolved_prop_name =
-                unwrap_or_continue!(identifier_text(&prop_decl.DeclaredIdentifier()); diag);
+                unwrap_or_continue!(parser::identifier_text(&prop_decl.DeclaredIdentifier()); diag);
             let PropertyLookupResult {
                 resolved_name: prop_name,
                 property_type: maybe_existing_prop_type,
@@ -723,7 +724,8 @@ impl Element {
         }
 
         for sig_decl in node.CallbackDeclaration() {
-            let name = unwrap_or_continue!(identifier_text(&sig_decl.DeclaredIdentifier()); diag);
+            let name =
+                unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
 
             if let Some(csn) = sig_decl.TwoWayBinding() {
                 r.bindings.insert(name.clone(), BindingExpression::new_uncompiled(csn.into()));
@@ -753,7 +755,7 @@ impl Element {
         }
 
         for con_node in node.CallbackConnection() {
-            let unresolved_name = unwrap_or_continue!(identifier_text(&con_node); diag);
+            let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
             let PropertyLookupResult { resolved_name, property_type } =
                 r.lookup_property(&unresolved_name);
             if let Type::Callback { args, .. } = &property_type {
@@ -898,7 +900,7 @@ impl Element {
 
         for state in node.States().flat_map(|s| s.State()) {
             let s = State {
-                id: identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
+                id: parser::identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
                 condition: state.Expression().map(|e| Expression::Uncompiled(e.into())),
                 property_changes: state
                     .StatePropertyChange()
@@ -917,8 +919,8 @@ impl Element {
                 diag.push_error("TODO: catch-all not yet implemented".into(), &star);
             };
             let trans = Transition {
-                is_out: identifier_text(&trs).unwrap_or_default() == "out",
-                state_id: identifier_text(&trs.DeclaredIdentifier()).unwrap_or_default(),
+                is_out: parser::identifier_text(&trs).unwrap_or_default() == "out",
+                state_id: parser::identifier_text(&trs.DeclaredIdentifier()).unwrap_or_default(),
                 property_animations: trs
                     .PropertyAnimation()
                     .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
@@ -946,7 +948,7 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
-        let id = identifier_text(&node).unwrap_or_default();
+        let id = parser::identifier_text(&node).unwrap_or_default();
         if matches!(id.as_ref(), "parent" | "self" | "root") {
             diag.push_error(
                 format!("'{}' is a reserved id", id),
@@ -985,9 +987,12 @@ impl Element {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: node
                 .DeclaredIdentifier()
-                .and_then(|n| identifier_text(&n))
+                .and_then(|n| parser::identifier_text(&n))
                 .unwrap_or_default(),
-            index_id: node.RepeatedIndex().and_then(|r| identifier_text(&r)).unwrap_or_default(),
+            index_id: node
+                .RepeatedIndex()
+                .and_then(|r| parser::identifier_text(&r))
+                .unwrap_or_default(),
             is_conditional_element: false,
             is_listview,
         };
@@ -1166,7 +1171,10 @@ pub fn type_struct_from_node(
     let fields = object_node
         .ObjectTypeMember()
         .map(|member| {
-            (identifier_text(&member).unwrap_or_default(), type_from_node(member.Type(), diag, tr))
+            (
+                parser::identifier_text(&member).unwrap_or_default(),
+                type_from_node(member.Type(), diag, tr),
+            )
         })
         .collect();
     Type::Struct { fields, name: None, node: Some(object_node) }
@@ -1581,14 +1589,14 @@ impl Exports {
             .ExportsList()
             .flat_map(|exports| exports.ExportSpecifier())
             .map(|export_specifier| {
-                let internal_name = identifier_text(&export_specifier.ExportIdentifier())
+                let internal_name = parser::identifier_text(&export_specifier.ExportIdentifier())
                     .unwrap_or_else(|| {
                         debug_assert!(diag.has_error());
                         String::new()
                     });
                 let exported_name = export_specifier
                     .ExportName()
-                    .and_then(|ident| identifier_text(&ident))
+                    .and_then(|ident| parser::identifier_text(&ident))
                     .unwrap_or_else(|| internal_name.clone());
                 NamedExport {
                     internal_name_ident: export_specifier.ExportIdentifier().into(),
@@ -1600,10 +1608,11 @@ impl Exports {
 
         exports.extend(doc.ExportsList().filter_map(|exports| exports.Component()).map(
             |component| {
-                let name = identifier_text(&component.DeclaredIdentifier()).unwrap_or_else(|| {
-                    debug_assert!(diag.has_error());
-                    String::new()
-                });
+                let name =
+                    parser::identifier_text(&component.DeclaredIdentifier()).unwrap_or_else(|| {
+                        debug_assert!(diag.has_error());
+                        String::new()
+                    });
                 NamedExport {
                     internal_name_ident: component.DeclaredIdentifier().into(),
                     internal_name: name.clone(),
@@ -1613,7 +1622,7 @@ impl Exports {
         ));
         exports.extend(doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).map(
             |st| {
-                let name = identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
+                let name = parser::identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
                     debug_assert!(diag.has_error());
                     String::new()
                 });
