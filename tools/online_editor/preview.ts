@@ -61,6 +61,8 @@ export Demo := Window {
             let p = document.createElement('pre');
             p.appendChild(text);
             div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
+        } else {
+            document.getElementById("spinner").remove()
         }
 
         if (component !== undefined) {
