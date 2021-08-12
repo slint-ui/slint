@@ -13,6 +13,7 @@ LICENSE END */
 #include <new>
 #include <algorithm>
 #include <optional>
+#include <atomic>
 
 namespace vtable {
 
@@ -67,8 +68,8 @@ struct VRcInner {
 private:
     VRcInner() : layout {} {}
     const VTable *vtable = &X::static_vtable;
-    int strong_ref = 1;
-    int weak_ref = 1;
+    std::atomic<int> strong_ref = 1;
+    std::atomic<int> weak_ref = 1;
     std::uint16_t data_offset = offsetof(VRcInner, data);
     union {
         X data;
