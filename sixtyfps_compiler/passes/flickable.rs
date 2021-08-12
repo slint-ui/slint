@@ -87,6 +87,8 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .children
                 .iter()
                 .filter(|x| is_layout(&x.borrow().base_type))
+                // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (#407)
+                .filter(|x| x.borrow().repeated.is_none())
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, prop)))
                 .fold1(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, op))
         })
@@ -107,6 +109,8 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .children
                 .iter()
                 .filter(|x| is_layout(&x.borrow().base_type))
+                // FIXME: (#407)
+                .filter(|x| x.borrow().repeated.is_none())
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "width")),
@@ -121,6 +125,8 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 .children
                 .iter()
                 .filter(|x| is_layout(&x.borrow().base_type))
+                // FIXME: (#407)
+                .filter(|x| x.borrow().repeated.is_none())
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
                 .fold(
                     Expression::PropertyReference(NamedReference::new(flickable_elem, "height")),
