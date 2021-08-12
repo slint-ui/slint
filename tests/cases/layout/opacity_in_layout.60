@@ -1,0 +1,28 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+export TestCase := Window {
+    layout1 := VerticalLayout {
+        if (true) : test1 := VerticalLayout {
+            Rectangle { height: 55px; }
+            opacity: 1;
+        }
+    }
+    layout2 := HorizontalLayout {
+        if (true) : test2 := Rectangle {
+            inner := VerticalLayout { Rectangle { width: 88px; } }
+            opacity: 1;
+        }
+    }
+    property <length> layout1_height : layout1.min-height;
+    property <length> layout2_width : layout2.max-width;
+    property<bool> test: layout1_height == 55px && layout2_width == 88px;
+}
+

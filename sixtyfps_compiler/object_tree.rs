@@ -1706,6 +1706,11 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
 
     new_root.borrow_mut().child_of_layout =
         std::mem::replace(&mut old_root.borrow_mut().child_of_layout, false);
+    new_root.borrow_mut().layout_info_prop = old_root.borrow().layout_info_prop.clone();
+    new_root
+        .borrow_mut()
+        .bindings
+        .extend(["x", "y"].iter().filter_map(|x| old_root.borrow_mut().bindings.remove_entry(*x)));
 
     // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
     // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.
@@ -1716,7 +1721,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     let mut component = Rc::try_unwrap(component).expect("internal compiler error: more than one strong reference left to repeated component when lowering shadow properties");
 
     let old_root = std::mem::replace(&mut component.root_element, new_root.clone());
-    new_root.borrow_mut().children.push(old_root);
+    new_root.borrow_mut().children.push(old_root.clone());
 
     let component = Rc::new(component);
     repeated_element.borrow_mut().base_type = Type::Component(component.clone());

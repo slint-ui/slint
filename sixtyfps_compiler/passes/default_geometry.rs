@@ -128,7 +128,10 @@ fn gen_layout_info_prop(elem: &ElementRc) {
         .filter(|c| {
             !c.borrow().bindings.contains_key("x") && !c.borrow().bindings.contains_key("y")
         })
-        .filter_map(|c| c.borrow().layout_info_prop.clone())
+        .filter_map(|c| {
+            gen_layout_info_prop(c);
+            c.borrow().layout_info_prop.clone()
+        })
         .collect::<Vec<_>>();
 
     if child_infos.is_empty() {
