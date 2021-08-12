@@ -20,6 +20,7 @@ LICENSE END */
 #include <iostream> // FIXME: remove: iostream always bring it lots of code so we should not have it in this header
 #include <chrono>
 #include <optional>
+#include <thread>
 
 namespace sixtyfps::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
@@ -79,6 +80,22 @@ using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
 using cbindgen_private::KeyboardModifiers;
 using cbindgen_private::KeyEvent;
 
+/// Internal function that checks that the API that must be called from the main
+/// thread is indeed called from the main thread, or abort the program otherwise
+///
+/// Most API should be called from the main thread. When using thread one must
+/// use sixtyfps::invoke_from_event_loop
+inline void assert_main_thread() {
+#ifndef NDEBUG
+    static auto main_thread_id = std::this_thread::get_id();
+    if (main_thread_id != std::this_thread::get_id()) {
+        std::cerr << "A function that should be only called from the main thread was called from a thread." << std::endl;
+        std::cerr << "Most API should be called from the main thread. When using thread one must use sixtyfps::invoke_from_event_loop." << std::endl;
+        std::abort();
+    }
+#endif
+}
+
 class WindowRc
 {
 public:
@@ -87,12 +104,14 @@ public:
     ~WindowRc() { cbindgen_private::sixtyfps_windowrc_drop(&inner); }
     WindowRc(const WindowRc &other)
     {
+        assert_main_thread();
         cbindgen_private::sixtyfps_windowrc_clone(&other.inner, &inner);
     }
     WindowRc(WindowRc &&) = delete;
     WindowRc &operator=(WindowRc &&) = delete;
     WindowRc &operator=(const WindowRc &other)
     {
+        assert_main_thread();
         if (this != &other) {
             cbindgen_private::sixtyfps_windowrc_drop(&inner);
             cbindgen_private::sixtyfps_windowrc_clone(&other.inner, &inner);
@@ -234,13 +253,13 @@ public:
     ComponentHandle(const vtable::VRc<private_api::ComponentVTable, T> &inner) : inner(inner) { }
 
     /// Arrow operator that implements pointer semantics.
-    const T *operator->() const { return inner.operator->(); }
+    const T *operator->() const { private_api::assert_main_thread(); return inner.operator->(); }
     /// Dereference operator that implements pointer semantics.
-    const T &operator*() const { return inner.operator*(); }
+    const T &operator*() const { private_api::assert_main_thread(); return inner.operator*(); }
     /// Arrow operator that implements pointer semantics.
-    T *operator->() { return inner.operator->(); }
+    T *operator->() { private_api::assert_main_thread(); return inner.operator->(); }
     /// Dereference operator that implements pointer semantics.
-    T &operator*() { return inner.operator*(); }
+    T &operator*() { private_api::assert_main_thread(); return inner.operator*(); }
 
     /// internal function that returns the internal handle
     vtable::VRc<private_api::ComponentVTable> into_dyn() const { return inner.into_dyn(); }
@@ -262,6 +281,7 @@ public:
     /// otherwise.
     std::optional<ComponentHandle<T>> lock() const
     {
+        private_api::assert_main_thread();
         if (auto l = inner.lock()) {
             return { ComponentHandle(*l) };
         } else {
@@ -441,6 +461,7 @@ private:
     template<typename F>
     void for_each_peers(const F &f)
     {
+        private_api::assert_main_thread();
         peers.erase(std::remove_if(peers.begin(), peers.end(),
                                    [&](const auto &p) {
                                        if (auto pp = p.lock()) {
@@ -714,6 +735,7 @@ struct VersionCheckHelper
 /// and react to user input.
 inline void run_event_loop()
 {
+    private_api::assert_main_thread();
     cbindgen_private::sixtyfps_run_event_loop();
 }
 
