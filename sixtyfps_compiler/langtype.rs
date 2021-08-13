@@ -597,7 +597,7 @@ impl NativeClass {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum DefaultSizeBinding {
     /// There should not be a default binding for the size
     None,
