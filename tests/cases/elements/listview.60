@@ -28,7 +28,6 @@ TestCase := Window {
             { text: "Cyan", color: #00ffff, bg: #222222 },
         ] : delegate := Rectangle {
             background: @linear-gradient(90deg, data.bg,data.bg.brighter(0.5));
-            width: 100%; // FIXME  shouldn't be needed
             HorizontalLayout {
                 text_Name := Text {
                     height: 100px;

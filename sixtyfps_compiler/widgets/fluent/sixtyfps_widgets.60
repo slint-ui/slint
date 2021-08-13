@@ -554,7 +554,6 @@ export StandardListView := ListView {
                 color: Palette.neutralPrimary;
             }
         }
-        width: parent.visible-width;
         background: idx == root.current-item ? Palette.neutralLighter
                     : touch.has-hover ? Palette.neutralLighterAlt : transparent;
         touch := TouchArea {

@@ -98,11 +98,8 @@ export StandardListView := ListView {
     for item[i] in model : NativeStandardListViewItem {
         item: item;
         index: i;
-        width: parent.visible-width;
         is-selected: current-item == i;
         TouchArea {
-            width: parent.width;
-            height: parent.height;
             clicked => { current-item = i; }
         }
     }

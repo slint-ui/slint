@@ -563,7 +563,9 @@ pub struct ListViewInfo {
     pub viewport_y: NamedReference,
     pub viewport_height: NamedReference,
     pub viewport_width: NamedReference,
+    /// The ListView's inner visible height (not counting eventual scrollbar)
     pub listview_height: NamedReference,
+    /// The ListView's inner visible width (not counting eventual scrollbar)
     pub listview_width: NamedReference,
 }
 

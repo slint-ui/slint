@@ -518,7 +518,6 @@ export StandardListView := ListView {
                 color: Palette.text-color;
             }
         }
-        width: parent.visible-width;
         background: current-item == idx ? Palette.highlight-background : transparent;
         TouchArea {
             width: parent.width;

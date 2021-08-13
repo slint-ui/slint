@@ -25,7 +25,7 @@ pub fn process_repeater_components(component: &Rc<Component>) {
 fn create_repeater_components(component: &Rc<Component>) {
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         let is_listview = match &elem.borrow().repeated {
-            Some(r) => r.is_listview.is_some(),
+            Some(r) => r.is_listview.clone(),
             None => return,
         };
         let parent_element = Rc::downgrade(elem);
@@ -45,7 +45,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 enclosing_component: Default::default(),
                 states: std::mem::take(&mut elem.states),
                 transitions: std::mem::take(&mut elem.transitions),
-                child_of_layout: elem.child_of_layout || is_listview,
+                child_of_layout: elem.child_of_layout || is_listview.is_some(),
                 layout_info_prop: elem.layout_info_prop.take(),
                 is_flickable_viewport: elem.is_flickable_viewport,
                 item_index: Default::default(), // Not determined yet
@@ -54,12 +54,20 @@ fn create_repeater_components(component: &Rc<Component>) {
             ..Component::default()
         });
 
-        if is_listview && !comp.root_element.borrow().bindings.contains_key("height") {
-            let preferred = Expression::PropertyReference(NamedReference::new(
-                &comp.root_element,
-                "preferred-height",
-            ));
-            comp.root_element.borrow_mut().bindings.insert("height".into(), preferred.into());
+        if let Some(listview) = is_listview {
+            if !comp.root_element.borrow().bindings.contains_key("height") {
+                let preferred = Expression::PropertyReference(NamedReference::new(
+                    &comp.root_element,
+                    "preferred-height",
+                ));
+                comp.root_element.borrow_mut().bindings.insert("height".into(), preferred.into());
+            }
+            if !comp.root_element.borrow().bindings.contains_key("width") {
+                comp.root_element.borrow_mut().bindings.insert(
+                    "width".into(),
+                    Expression::PropertyReference(listview.listview_width).into(),
+                );
+            }
         }
 
         let weak = Rc::downgrade(&comp);
