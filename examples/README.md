@@ -26,8 +26,8 @@ A simple application showing the different widgets
 
 A simple todo mvc application
 
-| `.60` Design | Rust Source | C++ Source | Online wasm Preview | Open in code editor |
-| --- | --- | --- | --- | --- |
+| `.60` Design | Rust Source | C++ Source | NodeJS | Online wasm Preview | Open in code editor |
+| --- | --- | --- | --- | --- | --- |
 | [`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/todo/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/todo.60) |
 
 ![Screenshot of the Todo Demo](https://sixtyfps.io/resources/todo_screenshot.png "Todo Demo")
