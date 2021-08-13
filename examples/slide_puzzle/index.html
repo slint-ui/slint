@@ -6,11 +6,6 @@
   <title>SixtyFPS Slide Puzzle Demo (Web Assembly version)</title>
 </head>
 <style>
-  canvas {
-    width: 100% !important;
-    height: 100% !important;
-  }
-
   canvas:focus {
     outline: none;
   }
@@ -48,12 +43,13 @@
 </style>
 
 <body>
+  <div id="spinner" style="position: absolute; top: 50%; width: 100%">
+    <div class="spinner">Loading...</div>
+  </div>
   <div id="container">
     <p>This is the <a href="https://sixtyfps.io">SixtyFPS</a> Slide Puzzle compiled to WebAssembly. Note that the wasm
-      build is done for demonstration purposes. Native applications are the real target of the toolkit.</p>
-    <div id="spinner" style="position: relative;">
-      <div class="spinner">Loading...</div>
-    </div>
+      build is done for demonstration purposes. Native applications are the real target of the toolkit.
+    </p>
     <canvas id="canvas"></canvas>
     <p>
       <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/slide_puzzle/">
