@@ -196,6 +196,8 @@ impl Item for NativeButton {
             option.rect = option.fontMetrics.boundingRect(text);
             option.text = std::move(text);
             option.icon = icon;
+            auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
+            option.iconSize = QSize(iconSize, iconSize);
             return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
@@ -276,6 +278,8 @@ impl Item for NativeButton {
             QStyleOptionButton option;
             option.text = std::move(text);
             option.icon = icon;
+            auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
+            option.iconSize = QSize(iconSize, iconSize);
             option.rect = QRect(QPoint(), size / dpr);
             if (down)
                 option.state |= QStyle::State_Sunken;
@@ -1914,7 +1918,7 @@ impl Item for NativeTabWidget {
                 option.tabBarRect = QRect(QPoint(), option.tabBarSize);
                 option.rightCornerWidgetSize = QSize(0, 0);
                 option.leftCornerWidgetSize = QSize(0, 0);
-            	  QRect contentsRect = style->subElementRect(QStyle::SE_TabWidgetTabContents, &option, nullptr);
+                QRect contentsRect = style->subElementRect(QStyle::SE_TabWidgetTabContents, &option, nullptr);
                 QRect tabbarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, nullptr);
                 return {contentsRect, tabbarRect};
             })
