@@ -756,7 +756,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             let data = data.as_ptr();
             let painter: &mut QPainter = &mut *self.painter;
             cpp! { unsafe [painter as "QPainter*",  width as "int", height as "int", data as "const unsigned char *"] {
-                QImage img(data, width, height, width * 4, QImage::Format_ARGB32_Premultiplied);
+                QImage img(data, width, height, width * 4, QImage::Format_RGBA8888_Premultiplied);
                 painter->drawImage(QPoint(), img);
             }}
         })

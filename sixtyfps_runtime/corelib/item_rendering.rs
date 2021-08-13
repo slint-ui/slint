@@ -161,7 +161,7 @@ pub trait ItemRenderer {
     /// Draw a pixmap in position indicated by the `pos`.
     /// The pixmap will be taken from cache if the cache is valid, otherwise, update_fn will be called
     /// with a callback that need to be called once with `fn (width, height, data)` where data are the
-    /// argb premultiplied pixel values
+    /// RGBA premultiplied pixel values
     fn draw_cached_pixmap(
         &mut self,
         item_cache: &CachedRenderingData,

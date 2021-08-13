@@ -108,7 +108,8 @@ impl QImageWrapArray {
         array.resize((size.width * size.height * 4) as usize, 0);
         let array_ptr = array.make_mut_slice().as_mut_ptr();
         let img = cpp!(unsafe [size as "QSize", array_ptr as "uchar*", dpr as "float"] -> qttypes::QImage as "QImage" {
-            QImage img(array_ptr, size.width(), size.height(), size.width() * 4, QImage::Format_ARGB32_Premultiplied);
+            ensure_initialized();
+            QImage img(array_ptr, size.width(), size.height(), size.width() * 4, QImage::Format_RGBA8888_Premultiplied);
             img.setDevicePixelRatio(dpr);
             return img;
         });
