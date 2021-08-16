@@ -100,8 +100,8 @@ mod tests {
         // Get a pointer to `b` within `Foo`
         let foo_b = Foo::FIELD_OFFSETS.b;
         let foo_b_pin = unsafe { foo_b.as_pinned_projection() };
-        let foo = Box::pin(Foo { a: 21, b: 22.0, c: true });
-        let pb: Pin<&f64> = foo_b_pin.apply_pin(foo.as_ref());
+        let foo_object = Box::pin(Foo { a: 21, b: 22.0, c: true });
+        let pb: Pin<&f64> = foo_b_pin.apply_pin(foo_object.as_ref());
         assert_eq!(*pb, 22.0);
 
         let mut x = Box::pin(Bar { x: 0, y: Foo { a: 1, b: 52.0, c: false } });

@@ -8,8 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use const_field_offset::*;
-use lazy_static::lazy_static;
 use memoffset::offset_of;
+use std::sync::atomic::Ordering::SeqCst;
 
 #[derive(FieldOffsets)]
 #[repr(C)]
@@ -111,9 +111,7 @@ fn test_pin() {
     assert_eq!(D_STATIC_PIN, offset_of!(MyStructPin, d));
 }
 
-lazy_static! {
-    static ref DROP_CALLED: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
-}
+static DROP_CALLED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 #[derive(FieldOffsets)]
 #[repr(C)]
@@ -125,15 +123,15 @@ struct MyPinnedStructWithDrop {
 
 impl PinnedDrop for MyPinnedStructWithDrop {
     fn drop(self: core::pin::Pin<&mut MyPinnedStructWithDrop>) {
-        *DROP_CALLED.lock().unwrap() = true;
+        DROP_CALLED.store(true, SeqCst);
     }
 }
 
 #[test]
 fn test_pin_drop() {
-    *DROP_CALLED.lock().unwrap() = false;
+    DROP_CALLED.store(false, SeqCst);
     {
         let _instance = Box::pin(MyPinnedStructWithDrop { x: 42 });
     }
-    assert!(*DROP_CALLED.lock().unwrap());
+    assert!(DROP_CALLED.load(SeqCst));
 }

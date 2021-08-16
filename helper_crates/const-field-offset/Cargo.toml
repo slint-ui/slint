@@ -17,4 +17,3 @@ field-offset = "0.3.2"
 
 [dev-dependencies]
 memoffset = "0.6"
-lazy_static = "1.4.0"
