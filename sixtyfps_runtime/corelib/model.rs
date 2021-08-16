@@ -269,7 +269,10 @@ impl<T> core::cmp::PartialEq for ModelHandle<T> {
             (None, None) => true,
             (None, Some(_)) => false,
             (Some(_), None) => false,
-            (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+            (Some(a), Some(b)) => std::ptr::eq(
+                (&**a) as *const dyn Model<Data = T> as *const u8,
+                (&**b) as *const dyn Model<Data = T> as *const u8,
+            ),
         }
     }
 }
