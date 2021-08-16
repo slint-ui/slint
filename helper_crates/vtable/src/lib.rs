@@ -443,7 +443,7 @@ macro_rules! new_vref {
         // ensure that the type of the expression is correct
         let vtable = {
             use $crate::VTableMeta;
-            fn get_vt<X: $trait_>(_: &X) -> <$vtable as VTableMeta>::VTable {
+            fn get_vt<X: $trait_>(_: &mut X) -> <$vtable as VTableMeta>::VTable {
                 <$vtable as VTableMeta>::VTable::new::<X>()
             }
             get_vt($e)
