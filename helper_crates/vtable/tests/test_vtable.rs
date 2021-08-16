@@ -163,7 +163,7 @@ fn test3() {
     struct Plop(i32);
     impl Xxx for Plop {
         fn ret_int(&self) -> i32 {
-            return self.0;
+            self.0
         }
     }
 

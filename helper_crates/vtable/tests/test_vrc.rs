@@ -94,7 +94,7 @@ fn rc_dyn_test() {
     {
         let rc_origin = origin_weak.upgrade().unwrap();
         assert_eq!(rc_origin.e, 42);
-        assert!(VRc::ptr_eq(&VRc::into_dyn(rc_origin.clone()), &rc));
+        assert!(VRc::ptr_eq(&VRc::into_dyn(rc_origin), &rc));
     }
     drop(rc);
     assert_eq!(Rc::strong_count(&string), 1);
@@ -132,8 +132,9 @@ fn rc_test_threading() {
     for _ in 0..10 {
         let rc = rc.clone();
         handles.push(std::thread::spawn(move || {
-            let _w = VRc::downgrade(&rc.clone());
+            let _w = VRc::downgrade(&rc);
             for _ in 0..10 {
+                let _clone = rc.clone();
                 let weak = VRc::downgrade(&rc);
                 let rc2 = weak.upgrade().unwrap();
                 let mut lock = rc2.e.lock().unwrap();
