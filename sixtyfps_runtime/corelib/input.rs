@@ -70,7 +70,7 @@ impl MouseEvent {
 /// This value is returned by the `input_event` function of an Item
 /// to notify the run-time about how the event was handled and
 /// what the next steps are.
-/// See [`ItemVTable::input_event`].
+/// See [`crate::items::ItemVTable::input_event`].
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum InputEventResult {
@@ -91,21 +91,21 @@ impl Default for InputEventResult {
 
 /// This value is returned by the `input_event_filter_before_children` function, which
 /// can specify how to further process the event.
-/// See [`ItemVTable::input_event_filter_before_children`].
+/// See [`crate::items::ItemVTable::input_event_filter_before_children`].
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum InputEventFilterResult {
-    /// The event is going to be forwarded to children, then the [`ItemVTable::input_event`]
+    /// The event is going to be forwarded to children, then the [`crate::items::ItemVTable::input_event`]
     /// function is called
     ForwardEvent,
-    /// The event will be forwarded to the children, but the [`ItemVTable::input_event`] is not
+    /// The event will be forwarded to the children, but the [`crate::items::ItemVTable::input_event`] is not
     /// going to be called for this item
     ForwardAndIgnore,
     /// Just like `ForwardEvent`, but even in the case the children grabs the mouse, this function
     /// Will still be called for further event.
     ForwardAndInterceptGrab,
     /// The Event will not be forwarded to children, if a children already had the grab, the
-    /// grab will be cancelled with a [`MouseEventType::MouseExit`] event
+    /// grab will be cancelled with a [`MouseEvent::MouseExit`] event
     Intercept,
 }
 
