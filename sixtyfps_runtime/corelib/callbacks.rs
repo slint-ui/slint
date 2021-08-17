@@ -66,7 +66,7 @@ fn callback_simple_test() {
     let weak = Rc::downgrade(&c);
     c.clicked.set_handler(move |()| weak.upgrade().unwrap().pressed.set(true));
     c.clicked.call(&());
-    assert_eq!(c.pressed.get(), true);
+    assert!(c.pressed.get());
 }
 
 #[cfg(feature = "ffi")]
