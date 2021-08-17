@@ -636,7 +636,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_include_pat
             .as_component_compiler()
             .include_paths()
             .iter()
-            .map(|path| path.to_str().map_or_else(|| Default::default(), |str| str.into())),
+            .map(|path| path.to_str().map_or_else(Default::default, |str| str.into())),
     );
 }
 
@@ -652,7 +652,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_diagnostics
             source_file: diagnostic
                 .source_file()
                 .and_then(|path| path.to_str())
-                .map_or_else(|| Default::default(), |str| str.into()),
+                .map_or_else(Default::default, |str| str.into()),
             line,
             column,
             level: match diagnostic.level() {
