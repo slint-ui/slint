@@ -513,7 +513,7 @@ fn test_load_from_callback_ok() {
         let ok_ = ok_.clone();
         Box::pin(async move {
             assert_eq!(path, "../FooBar.60");
-            assert_eq!(ok_.get(), false);
+            assert!(!ok_.get());
             ok_.set(true);
             Some(Ok("export XX := Rectangle {} ".to_owned()))
         })
@@ -541,7 +541,7 @@ X := XX {}
         &mut build_diagnostics,
         &registry,
     ));
-    assert_eq!(ok.get(), true);
+    assert!(ok.get());
     assert!(!test_diags.has_error());
     assert!(!build_diagnostics.has_error());
 }
