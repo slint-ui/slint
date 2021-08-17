@@ -99,14 +99,13 @@ pub fn main() {
         image::open(&cat_path).expect("Error loading cat image").into_rgba8()
     };
 
-    main_window.set_original_image(
-        sixtyfps::Image::from_rgba8(sixtyfps::SharedPixelBuffer::clone_from_slice(
+    main_window.set_original_image(sixtyfps::Image::from_rgba8(
+        sixtyfps::SharedPixelBuffer::clone_from_slice(
             source_image.as_raw(),
             source_image.width() as _,
             source_image.height() as _,
-        ))
-        .into(),
-    );
+        ),
+    ));
 
     let filters = Filters(vec![
         Filter {
