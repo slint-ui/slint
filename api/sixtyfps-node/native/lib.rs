@@ -116,8 +116,10 @@ fn create<'cx>(
     let persistent_context = persistent_context::PersistentContext::new(cx);
 
     if let Some(args) = cx.argument_opt(0).and_then(|arg| arg.downcast::<JsObject>().ok()) {
-        let properties =
-            component_type.properties_and_callbacks().collect::<std::collections::HashMap<_, _>>();
+        let properties = component_type
+            .properties_and_callbacks()
+            .map(|(k, v)| (k.replace('_', "-"), v))
+            .collect::<std::collections::HashMap<_, _>>();
         for x in args.get_own_property_names(cx)?.to_vec(cx)? {
             let prop_name = x.to_string(cx)?.value().replace('_', "-");
             let value = args.get(cx, x)?;

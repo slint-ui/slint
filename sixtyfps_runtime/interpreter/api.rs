@@ -943,6 +943,7 @@ fn component_definition_properties() {
             r#"
     export Dummy := Rectangle {
         property <string> test;
+        property <int> underscores-and-dashes_preserved;
         callback hello;
     }"#
             .into(),
@@ -953,9 +954,11 @@ fn component_definition_properties() {
 
     let props = comp_def.properties().collect::<Vec<(_, _)>>();
 
-    assert_eq!(props.len(), 1);
+    assert_eq!(props.len(), 2);
     assert_eq!(props[0].0, "test");
     assert_eq!(props[0].1, ValueType::String);
+    assert_eq!(props[1].0, "underscores-and-dashes_preserved");
+    assert_eq!(props[1].1, ValueType::Number);
 }
 
 #[test]

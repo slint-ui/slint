@@ -309,13 +309,24 @@ impl<'id> ComponentDescription<'id> {
     }
 
     /// List of publicly declared properties or callbacks
+    ///
+    /// We try to preserve the dashes and underscore as written in the property declaration
     pub fn properties(
         &self,
     ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
-        self.public_properties
-            .iter()
-            .filter(|(_, v)| v.expose_in_public_api)
-            .map(|(s, v)| (s.clone(), v.property_type.clone()))
+        self.public_properties.iter().filter(|(_, v)| v.expose_in_public_api).map(|(s, v)| {
+            let name = v
+                .node
+                .as_ref()
+                .and_then(|n| {
+                    n.as_ref()
+                        .either(|n| n.DeclaredIdentifier(), |n| n.DeclaredIdentifier())
+                        .child_token(parser::SyntaxKind::Identifier)
+                })
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| s.clone());
+            (name, v.property_type.clone())
+        })
     }
 
     /// Instantiate a runtime component from this ComponentDescription
