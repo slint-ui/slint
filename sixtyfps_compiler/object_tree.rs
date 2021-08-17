@@ -1723,7 +1723,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     let mut component = Rc::try_unwrap(component).expect("internal compiler error: more than one strong reference left to repeated component when lowering shadow properties");
 
     let old_root = std::mem::replace(&mut component.root_element, new_root.clone());
-    new_root.borrow_mut().children.push(old_root.clone());
+    new_root.borrow_mut().children.push(old_root);
 
     let component = Rc::new(component);
     repeated_element.borrow_mut().base_type = Type::Component(component.clone());

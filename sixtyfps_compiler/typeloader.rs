@@ -475,11 +475,11 @@ fn test_dependency_loading() {
     compiler_config.include_paths = vec![incdir];
     compiler_config.style = Some("fluent".into());
 
-    let mut main_test_path = test_source_path.clone();
+    let mut main_test_path = test_source_path;
     main_test_path.push("dependency_test_main.60");
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
-    let doc_node = crate::parser::parse_file(main_test_path.clone(), &mut test_diags).unwrap();
+    let doc_node = crate::parser::parse_file(main_test_path, &mut test_diags).unwrap();
 
     let doc_node: syntax_nodes::Document = doc_node.into();
 
