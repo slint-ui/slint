@@ -26,7 +26,7 @@ pub fn use_modules() -> usize {
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_windowrc_init(out: *mut WindowRcOpaque) {
     assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
-    core::ptr::write(out as *mut WindowRc, crate::backend().create_window().into());
+    core::ptr::write(out as *mut WindowRc, crate::backend().create_window());
 }
 
 #[no_mangle]
