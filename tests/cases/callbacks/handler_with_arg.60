@@ -85,7 +85,7 @@ try {
     instance.test_callback();
     assert(false);
 } catch(e) {
-    assert.equal(e.toString(), "Error: test-callback expect 1 arguments, but 0 where provided");
+    assert.equal(e.toString(), "Error: test_callback expect 1 arguments, but 0 where provided");
 }
 assert.equal(instance.callback_emission_count, 0);
 
