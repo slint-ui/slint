@@ -30,6 +30,7 @@ export const serverStatus = new NotificationType<ServerStatusParams>("experiment
 
 
 let client: LanguageClient;
+let statusBar: vscode.StatusBarItem;
 
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
@@ -83,10 +84,7 @@ function lspPlatform(): Platform | null {
     return null;
 }
 
-export function activate(context: vscode.ExtensionContext) {
-
-    /*let test_output = vscode.window.createOutputChannel("Test Output");
-    test_output.appendLine("Hello from extension");*/
+function startClient(context: vscode.ExtensionContext) {
 
     let lsp_platform = lspPlatform();
     if (lsp_platform === null) {
@@ -118,9 +116,11 @@ export function activate(context: vscode.ExtensionContext) {
 
     console.log(`Starting LSP server from ${serverModule}`);
 
+    let args = vscode.workspace.getConfiguration('sixtyfps').get<[string]>('lsp-args');
+
     let serverOptions: ServerOptions = {
-        run: { command: serverModule, options: options },
-        debug: { command: serverModule, options: options }
+        run: { command: serverModule, options: options, args: args },
+        debug: { command: serverModule, options: options, args: args }
     };
 
     let clientOptions: LanguageClientOptions = {
@@ -134,16 +134,21 @@ export function activate(context: vscode.ExtensionContext) {
         clientOptions
     );
 
-
-    const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
-    context.subscriptions.push(statusBar);
-    statusBar.text = "SixtyFPS";
-
     client.start();
     let initClient = () => {
         client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
     };
     client.onReady().then(initClient);
+
+}
+
+export function activate(context: vscode.ExtensionContext) {
+
+    statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    context.subscriptions.push(statusBar);
+    statusBar.text = "SixtyFPS";
+
+    startClient(context);
 
     context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.showPreview', function () {
         let ae = vscode.window.activeTextEditor;
@@ -156,9 +161,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.commands.registerCommand('sixtyfps.reload', async function () {
         statusBar.hide();
         await client.stop();
-        client.start();
-        await client.onReady();
-        initClient();
+        startClient(context);
     }));
 }
 
@@ -168,7 +171,6 @@ export function deactivate(): Thenable<void> | undefined {
     }
     return client.stop();
 }
-
 
 function setServerStatus(status: ServerStatusParams, statusBar: vscode.StatusBarItem) {
     let icon = "";

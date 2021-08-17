@@ -63,6 +63,19 @@
 					"command": "sixtyfps.reload"
 				}
 			]
+		},
+		"configuration": {
+			"type": "object",
+			"title": "SixtyFPS",
+			"properties": {
+				"sixtyfps.lsp-args": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "The command line arguments passed to the SixtyFPS LSP server"
+				}
+			}
 		}
 	},
 	"dependencies": {
