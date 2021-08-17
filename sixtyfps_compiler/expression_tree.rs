@@ -1120,36 +1120,41 @@ impl BindingExpression {
     /// Merge the other into this one. Normally, &self is kept intact (has priority), unless two ways binding are
     /// involved then they need to be merged.
     /// Also the animation is taken if the other don't have one
-    pub fn merge_with(&mut self, other: &Self) {
+    ///
+    /// Returns true if the other expression was taken
+    pub fn merge_with(&mut self, other: &Self) -> bool {
         fn maybe_merge_two_ways(
             binding: &mut Expression,
             priority: &mut i32,
             original: &BindingExpression,
-        ) {
+        ) -> bool {
             match (binding, &original.expression) {
                 (Expression::TwoWayBinding(_, Some(ref mut x)), _) => {
-                    maybe_merge_two_ways(&mut *x, priority, original);
+                    maybe_merge_two_ways(&mut *x, priority, original)
                 }
                 (Expression::TwoWayBinding(_, x), o) => {
-                    *priority = original.priority + 1;
+                    *priority = original.priority;
                     *x = Some(Box::new(o.clone()));
+                    true
                 }
                 (ref mut x, Expression::TwoWayBinding(nr, _)) => {
                     let n =
                         Expression::TwoWayBinding(nr.clone(), Some(Box::new(std::mem::take(*x))));
-                    **x = n
+                    **x = n;
+                    false
                 }
-                _ => *priority += 1,
+                _ => false,
             }
-        }
-        if matches!(self.expression, Expression::Invalid) {
-            self.priority = other.priority + 1;
-            self.expression = other.expression.clone();
-        } else {
-            maybe_merge_two_ways(&mut self.expression, &mut self.priority, other);
         }
         if self.animation.is_none() {
             self.animation = other.animation.clone();
+        }
+        if matches!(self.expression, Expression::Invalid) {
+            self.priority = other.priority;
+            self.expression = other.expression.clone();
+            true
+        } else {
+            maybe_merge_two_ways(&mut self.expression, &mut self.priority, other)
         }
     }
 }

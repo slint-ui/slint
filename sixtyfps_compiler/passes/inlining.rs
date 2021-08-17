@@ -114,7 +114,9 @@ fn inline_element(
                 entry.insert(val.clone()).priority += 1;
             }
             std::collections::btree_map::Entry::Occupied(mut entry) => {
-                entry.get_mut().merge_with(val);
+                if entry.get_mut().merge_with(val) {
+                    entry.get_mut().priority += 1;
+                }
             }
         }
     }
