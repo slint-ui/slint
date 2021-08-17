@@ -272,7 +272,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         {
             let inner: &ImageInner = _image.into();
             match inner {
-                sixtyfps_corelib::ImageInner::None => return Default::default(),
+                sixtyfps_corelib::ImageInner::None => Default::default(),
                 sixtyfps_corelib::ImageInner::EmbeddedImage(buffer) => {
                     [buffer.width() as _, buffer.height() as _].into()
                 }
@@ -285,6 +285,6 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             }
         }
         #[cfg(no_qt)]
-        return Default::default();
+        Default::default()
     }
 }
