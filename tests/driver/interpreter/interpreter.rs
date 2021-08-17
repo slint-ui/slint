@@ -46,12 +46,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
                 _ => {}
             }
 
-            return Err(compiler
-                .diagnostics()
-                .into_iter()
-                .map(|d| d.to_string())
-                .join("\n")
-                .into());
+            return Err(compiler.diagnostics().iter().map(|d| d.to_string()).join("\n").into());
         }
         Some(c) => c,
     };
