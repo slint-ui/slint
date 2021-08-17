@@ -9,6 +9,17 @@ For the Rust portion of the code base, we enforce the coding style via rustfmt. 
 
 For the C++ portion of the code base, we enforce the coding style via `clang-format`, via the [`.clang-format`](/.clang-format) file in the root directory.
 
+## Tooling
+
+`pre-commit` is set up and ready to be used in this repository. Simply install the pre-commit python script using:
+
+```bash
+> pip install pre-commit
+> pre-commit install
+```
+
+and the pre-commit git hooks will be active and do basic sanity checks on your code whenever you commit something.
+
 ## Testing
 
 All changes submitted to the repository are automatically built and tested via Github Actions and the corresponding workflow defined in the [`rust.yaml`](/.github/workflows/rust.yaml) file.
