@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
  - Added `TabWidget` widget
  - Rust: `sixtyfps::Image` can now be constructed from image data provided by `sixtyfps::SharedPixelBuffer`.
    This enables integrating with other low-level software rendering or the the popular Rust image crate.
+ - VSCode extension: added an option to specify command line arguments for the LSP
 
 ### Fixed
 
