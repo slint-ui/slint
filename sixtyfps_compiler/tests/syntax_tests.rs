@@ -83,13 +83,13 @@ fn process_diagnostics(
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
     let re = regex::Regex::new(r"\n *//[^\n\^]*(\^+)(error|warning)\{([^\n]*)\}").unwrap();
-    for m in re.captures_iter(&source) {
+    for m in re.captures_iter(source) {
         let line_begin_offset = m.get(0).unwrap().start();
         let column = m.get(1).unwrap().start() - line_begin_offset;
         let lines_to_source = m.get(1).unwrap().as_str().len();
         let warning_or_error = m.get(2).unwrap().as_str();
         let rx = m.get(3).unwrap().as_str();
-        let r = match regex::Regex::new(&rx) {
+        let r = match regex::Regex::new(rx) {
             Err(e) => {
                 eprintln!("{:?}: Invalid regexp {:?} : {:?}", path, rx, e);
                 return Ok(false);
@@ -176,7 +176,7 @@ fn process_file_source(
     };
 
     let mut success = true;
-    success &= process_diagnostics(&compile_diagnostics, &path, &source, silent)?;
+    success &= process_diagnostics(&compile_diagnostics, path, &source, silent)?;
 
     for p in &compile_diagnostics.all_loaded_files {
         let source = if p.is_absolute() {
@@ -185,7 +185,7 @@ fn process_file_source(
             // probably sixtyfps_widgets.60
             String::new()
         };
-        success &= process_diagnostics(&compile_diagnostics, &p, &source, silent)?;
+        success &= process_diagnostics(&compile_diagnostics, p, &source, silent)?;
     }
 
     if has_parse_error {
@@ -204,7 +204,7 @@ fn process_file_source(
 /// Test that this actually fail when it should
 fn self_test() -> std::io::Result<()> {
     let fake_path = std::path::Path::new("fake.60");
-    let process = |str: &str| process_file_source(&fake_path, str.into(), true);
+    let process = |str: &str| process_file_source(fake_path, str.into(), true);
 
     // this should succeed
     assert!(process(

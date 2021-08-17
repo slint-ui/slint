@@ -694,7 +694,7 @@ fn generate_component(
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
-        let cpp_name = ident(&prop_name);
+        let cpp_name = ident(prop_name);
         let access = if let Some(alias) = &property_decl.is_alias {
             access_named_reference(alias, component, "this")
         } else {

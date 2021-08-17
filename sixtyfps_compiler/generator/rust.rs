@@ -1451,7 +1451,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 });
                 if let Some(name) = name {
                     let name : TokenStream = struct_name_to_tokens(name.as_str());
-                    let keys = fields.keys().map(|k| ident(&k));
+                    let keys = fields.keys().map(|k| ident(k));
                     quote!(#name { #(#keys: #elem,)* })
                 } else {
                     // This will produce a tuple

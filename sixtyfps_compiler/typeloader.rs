@@ -527,7 +527,7 @@ import { XX } from "../FooBar.60";
 X := XX {}
 "#
         .into(),
-        Some(&std::path::Path::new("HELLO")),
+        Some(std::path::Path::new("HELLO")),
         &mut test_diags,
     );
 

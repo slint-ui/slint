@@ -276,7 +276,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
                 sixtyfps_corelib::ImageInner::EmbeddedImage(buffer) => {
                     [buffer.width() as _, buffer.height() as _].into()
                 }
-                _ => qt_window::load_image_from_resource(&inner, None, ImageFit::fill)
+                _ => qt_window::load_image_from_resource(inner, None, ImageFit::fill)
                     .map(|img| {
                         let qsize = img.size();
                         euclid::size2(qsize.width as f32, qsize.height as f32)
