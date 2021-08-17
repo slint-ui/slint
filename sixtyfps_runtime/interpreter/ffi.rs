@@ -294,9 +294,9 @@ pub unsafe extern "C" fn sixtyfps_interpreter_struct_iterator_next<'a>(
 }
 
 #[no_mangle]
-pub extern "C" fn sixtyfps_interpreter_struct_make_iter<'a>(
-    stru: &'a StructOpaque,
-) -> StructIteratorOpaque<'a> {
+pub extern "C" fn sixtyfps_interpreter_struct_make_iter(
+    stru: &StructOpaque,
+) -> StructIteratorOpaque {
     let ret_it: StructIterator = stru.as_struct().0.iter();
     unsafe {
         let mut r = std::mem::MaybeUninit::<StructIteratorOpaque>::uninit();
