@@ -1573,7 +1573,7 @@ fn test_utf8_byte_offset_to_utf16_units() {
         let test_str = "a🚀🍌";
         assert_eq!(test_str.encode_utf16().count(), 5);
 
-        let banana_offset = test_str.char_indices().skip(2).next().unwrap().0;
+        let banana_offset = test_str.char_indices().nth(2).unwrap().0;
 
         assert_eq!(
             utf8_byte_offset_to_utf16_units(test_str, banana_offset),
