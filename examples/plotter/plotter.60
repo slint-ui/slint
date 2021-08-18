@@ -25,14 +25,17 @@ export MainWindow := Window {
         Image {
             source: root.render_plot(pitch-slider.value);
         }
-        GroupBox {
-            title: "Pitch";
+        HorizontalLayout {
+            Text {
+                text: "Pitch:";
+                font-weight: 600;
+                vertical-alignment: center;
+            }
             pitch-slider := Slider {
                 minimum: 0;
                 maximum: 180;
                 value: 42;
             }
         }
-
     }
 }
