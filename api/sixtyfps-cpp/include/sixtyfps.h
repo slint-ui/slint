@@ -85,12 +85,17 @@ using cbindgen_private::KeyEvent;
 ///
 /// Most API should be called from the main thread. When using thread one must
 /// use sixtyfps::invoke_from_event_loop
-inline void assert_main_thread() {
+inline void assert_main_thread()
+{
 #ifndef NDEBUG
     static auto main_thread_id = std::this_thread::get_id();
     if (main_thread_id != std::this_thread::get_id()) {
-        std::cerr << "A function that should be only called from the main thread was called from a thread." << std::endl;
-        std::cerr << "Most API should be called from the main thread. When using thread one must use sixtyfps::invoke_from_event_loop." << std::endl;
+        std::cerr << "A function that should be only called from the main thread was called from a "
+                     "thread."
+                  << std::endl;
+        std::cerr << "Most API should be called from the main thread. When using thread one must "
+                     "use sixtyfps::invoke_from_event_loop."
+                  << std::endl;
         std::abort();
     }
 #endif
@@ -253,13 +258,29 @@ public:
     ComponentHandle(const vtable::VRc<private_api::ComponentVTable, T> &inner) : inner(inner) { }
 
     /// Arrow operator that implements pointer semantics.
-    const T *operator->() const { private_api::assert_main_thread(); return inner.operator->(); }
+    const T *operator->() const
+    {
+        private_api::assert_main_thread();
+        return inner.operator->();
+    }
     /// Dereference operator that implements pointer semantics.
-    const T &operator*() const { private_api::assert_main_thread(); return inner.operator*(); }
+    const T &operator*() const
+    {
+        private_api::assert_main_thread();
+        return inner.operator*();
+    }
     /// Arrow operator that implements pointer semantics.
-    T *operator->() { private_api::assert_main_thread(); return inner.operator->(); }
+    T *operator->()
+    {
+        private_api::assert_main_thread();
+        return inner.operator->();
+    }
     /// Dereference operator that implements pointer semantics.
-    T &operator*() { private_api::assert_main_thread(); return inner.operator*(); }
+    T &operator*()
+    {
+        private_api::assert_main_thread();
+        return inner.operator*();
+    }
 
     /// internal function that returns the internal handle
     vtable::VRc<private_api::ComponentVTable> into_dyn() const { return inner.into_dyn(); }
@@ -756,6 +777,33 @@ inline void quit_event_loop()
 ///
 /// You can use this to set properties or use any other SixtyFPS APIs from other threads,
 /// by collecting the code in a functor and queuing it up for invocation within the event loop.
+///
+/// The following example assumes that a status message received from a network thread is
+/// shown in the UI:
+///
+/// ```
+/// #include "my_application_ui.h"
+/// #include <thread>
+///
+/// int main(int argc, char **argv)
+/// {
+///     auto ui = NetworkStatusUI::create();
+///     ui->set_status_label("Pending");
+///
+///     sixtyfps::ComponentWeakHandle<NetworkStatusUI> weak_ui_handle(ui);
+///     std::thread network_thread([=]{
+///         std::string message = read_message_blocking_from_network();
+///         sixtyfps::invoke_from_event_loop([&]() {
+///             if (auto ui = weak_ui_handle.lock()) {
+///                 ui->set_status_label(message);
+///             }
+///         });
+///     });
+///     ...
+///     ui->run();
+///     ...
+/// }
+/// ```
 template<typename Functor>
 void invoke_from_event_loop(Functor f)
 {
