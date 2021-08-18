@@ -9,9 +9,6 @@ The complete C++ documentation can be viewed online at https://sixtyfps.io/docs/
 
 If you are new to SixtyFPS, you might also consider going through our [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/cpp).
 
-**Warning: Pre-Alpha**
-SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.
-
 ## Installing or Building SixtyFPS
 
 SixtyFPS comes with a CMake integration that automates the compilation step of the `.60` markup language files and
@@ -236,4 +233,5 @@ int main() {
 
 That's it.
 
-Check the rest of the documentation for the reference.
+For more details, check the [Online documentation](https://sixtyfps.io/docs/cpp) and the full
+  [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/cpp).
