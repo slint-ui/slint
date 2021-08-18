@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Slider, GroupBox } from "sixtyfps_widgets.60";
+import { Slider, GroupBox, VerticalBox } from "sixtyfps_widgets.60";
 
 export MainWindow := Window {
     title: "SixtyFPS Plotter Integration Example";
@@ -16,7 +16,7 @@ export MainWindow := Window {
 
     callback render_plot(float) -> image;
 
-    VerticalLayout {
+    VerticalBox {
         Text {
             font-size: 20px;
             text: "2D Gaussian PDF";
