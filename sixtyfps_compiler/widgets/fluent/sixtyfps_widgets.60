@@ -639,16 +639,16 @@ export ComboBox := FocusScope {
                     padding: 10px;
                     Text {
                         text: value;
-                        item-area := TouchArea {
-                            width: 100%;
-                            height: 100%;
-                            clicked => {
-                                if (root.enabled) {
-                                    root.current-index = idx;
-                                    root.current-value = value;
-                                    root.selected(root.current-value);
-                                }
-                            }
+                    }
+                }
+                item-area := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    clicked => {
+                        if (root.enabled) {
+                            root.current-index = idx;
+                            root.current-value = value;
+                            root.selected(root.current-value);
                         }
                     }
                 }
