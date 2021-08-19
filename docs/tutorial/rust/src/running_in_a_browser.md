@@ -54,6 +54,7 @@ file. The SixtyFPS runtime expects the `<canvas>` element to have the id `id = "
 (Replace `memory.js` by the correct file name).
 
 ```html
+<html>
   <body>
     <!-- canvas required by the SixtyFPS runtime -->
     <canvas id="canvas">>/canvas>
