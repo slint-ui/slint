@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Changed
+
+### Added
+
+### Fixed
+
+## [0.1.1] - 2021-08-19
+
+### Changed
  - Fixed lookup scope when resolving model expression in `for` or `if` construct:
    the `self` element now refer to the correct element instead of the root.
  - Rust: defaults to the native style if Qt is available
@@ -213,3 +221,4 @@ All notable changes to this project will be documented in this file.
 [0.0.5]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.5
 [0.0.6]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.6
 [0.1.0]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.0
+[0.1.1]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.1
