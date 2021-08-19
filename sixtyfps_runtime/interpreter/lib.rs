@@ -69,7 +69,7 @@ instance.run();
 
 ## Features
 
-**display-diagnostics**: enable the `[print_diagnostics]` function to show diagnostic in the console output
+**display-diagnostics**: enable the [`print_diagnostics`] function to show diagnostic in the console output
 */
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]

@@ -245,7 +245,7 @@ pub struct LoadImageError(());
 ///
 /// The following example uses the popular [image crate](https://docs.rs/image/) to
 /// load a `.png` file from disk, apply brightening filter on it and then import
-/// it into an `[Image]`:
+/// it into an [`Image`]:
 /// ```no_run
 /// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
 /// let mut cat_image = image::open("cat.png").expect("Error loading cat image").into_rgba8();
