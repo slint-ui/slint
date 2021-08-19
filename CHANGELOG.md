@@ -18,8 +18,8 @@ All notable changes to this project will be documented in this file.
  - Rust: deprecated `SharedVector::as_slice_mut()`. Use `SharedVector::make_mut_slice()` instead.
  - The default non-native widget style is now the new "fluent" style.
  - The internal normalization of identifiers is using `-` instead of `_`, this is an internal
-   change, but it can be seen in error messages. When listing properties and field names, the
-   identifiers are preserved.
+   change, but it can be seen in error messages. When listing properties the identifiers are
+   preserved. For fields in structures they are normalized.
 - Show a compilation error when there are duplicated element ids.
  - The `clip` property can now be any expression.
  
