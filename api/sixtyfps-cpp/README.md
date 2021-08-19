@@ -36,7 +36,7 @@ include(FetchContent)
 FetchContent_Declare(
     SixtyFPS
     GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
-    GIT_TAG v0.1.0
+    GIT_TAG v0.1.1
     SOURCE_SUBDIR api/sixtyfps-cpp
 )
 FetchContent_MakeAvailable(SixtyFPS)
@@ -107,7 +107,7 @@ include(FetchContent)
 FetchContent_Declare(
     SixtyFPS
     GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
-    GIT_TAG v0.1.0
+    GIT_TAG v0.1.1
     SOURCE_SUBDIR api/sixtyfps-cpp
 )
 FetchContent_MakeAvailable(SixtyFPS)
