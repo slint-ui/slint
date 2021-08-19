@@ -674,6 +674,7 @@ pub(crate) fn generate_component<'id>(
     component: &Rc<object_tree::Component>,
     guard: generativity::Guard<'id>,
 ) -> Rc<ComponentDescription<'id>> {
+    //dbg!(&*component.root_element.borrow());
     let mut rtti = HashMap::new();
     {
         use sixtyfps_corelib::items::*;
