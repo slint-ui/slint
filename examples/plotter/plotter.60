@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Slider, GroupBox, VerticalBox } from "sixtyfps_widgets.60";
+import { Slider, GroupBox, HorizontalBox, VerticalBox } from "sixtyfps_widgets.60";
 
 export MainWindow := Window {
     title: "SixtyFPS Plotter Integration Example";
@@ -25,7 +25,7 @@ export MainWindow := Window {
         Image {
             source: root.render_plot(pitch-slider.value);
         }
-        HorizontalLayout {
+        HorizontalBox {
             Text {
                 text: "Pitch:";
                 font-weight: 600;
