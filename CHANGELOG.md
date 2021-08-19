@@ -12,12 +12,12 @@ All notable changes to this project will be documented in this file.
 ## [0.1.1] - 2021-08-19
 
 ### Changed
- - Fixed lookup scope when resolving model expression in `for` or `if` construct:
-   the `self` element now refer to the correct element instead of the root.
- - Rust: defaults to the native style if Qt is available
+ - Fixed lookup scope when resolving model expression in `for` or `if` constructs:
+   the `self` element now refers to the correct element instead of the root.
+ - Rust: default to the native style if Qt is available
  - Rust: deprecated `SharedVector::as_slice_mut()`. Use `SharedVector::make_mut_slice()` instead.
  - The default non-native widget style is now the new "fluent" style.
- - The internal normalization of identifier is using `-` instead of `_`, this is an internal
+ - The internal normalization of identifiers is using `-` instead of `_`, this is an internal
    change, but it can be seen in error messages, or when listing properties or fields with the
    interpreter API.
 
