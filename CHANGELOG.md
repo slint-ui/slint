@@ -18,35 +18,36 @@ All notable changes to this project will be documented in this file.
  - Rust: deprecated `SharedVector::as_slice_mut()`. Use `SharedVector::make_mut_slice()` instead.
  - The default non-native widget style is now the new "fluent" style.
  - The internal normalization of identifiers is using `-` instead of `_`, this is an internal
-   change, but it can be seen in error messages, or when listing properties or fields with the
-   interpreter API.
-
+   change, but it can be seen in error messages. When listing properties and field names, the
+   identifiers are preserved.
+- Show a compilation error when there are duplicated element ids.
+ - The `clip` property can now be any expression.
+ 
 ### Added
 
- - Compilation error when there are duplicated element id
- - `ComboBox` now has a `selected` callback
- - Added a `icon` property to the `Window` element
- - Added `sixtyfps::Weak::upgrade_in_event_loop` in the Rust API
- - Added `sixtyfps::Model::as_any()` in the Rust API
- - Added conversion between `sixtyfps::Image` and `sixtyfps::interpreter::Value` in the C++ API
- - `angle` and `duration` are allowed in the public API
- - The `clip` property can now be any expression
- - Every element now have a `visible` property
- - Added `changed` callback to the `Slider` widget
- - Added `TabWidget` widget
+ - `ComboBox` now has a `selected` callback.
+ - `Window` now has an `icon` property.
+ - Added `sixtyfps::Weak::upgrade_in_event_loop` in the Rust API.
+ - Added `sixtyfps::Model::as_any()` in the Rust API.
+ - Added conversion between `sixtyfps::Image` and `sixtyfps::interpreter::Value` in the C++ API.
+ - Properties of type `angle` and `duration` are allowed in the public API.
+ - Every element now has a `visible` property.
+ - `Slider` now has a `changed` callback.
+ - Added `TabWidget` widget.
  - Rust: `sixtyfps::Image` can now be constructed from image data provided by `sixtyfps::SharedPixelBuffer`.
    This enables integrating with other low-level software rendering or the the popular Rust image crate.
- - VSCode extension: added an option to specify command line arguments for the LSP
+ - VSCode extension: added an option to specify command line arguments for the LSP.
 
 ### Fixed
 
- - GridLayout cells with colspan and rowspan respect properly their constraints
- - Panic when replacing programmatically text in a `TextInput` and then editing it.
- - Default height of element in a ListView no longer defaults to 100%
- - Support of `*=` and `/=` on types with unit such as length.
- - Proper compilation error when using a self assignment operator on an invalid type instead of a panic
- - Angle conversion for values specified in radians, gradians and turns
- - SharedVector was sometimes not allocating big enough storage.
+ - GridLayout cells with colspan and rowspan respect properly their constraints.
+ - Don't panic when replacing programmatically text in a `TextInput` and then editing it.
+ - The default height of elements in a ListView no longer defaults to 100%.
+ - Fixed support for `*=` and `/=` on types with unit such as length.
+ - Don't panic when using a self assignment operator on an invalid type - this produces a compiler error
+   instead.
+ - Fixed angle conversion for values specified in radians, gradians and turns.
+ - Fixed SharedVector sometimes not allocating big enough storage.
 
 ## [0.1.0] - 2021-06-30
 
