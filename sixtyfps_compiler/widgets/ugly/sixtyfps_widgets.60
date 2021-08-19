@@ -282,13 +282,12 @@ export Slider := Rectangle {
 }
 
 export GroupBox := GridLayout {
-    property <string> title;
+    property <string> title <=> label.text;
     property<bool> enabled: true;
 
     spacing: 5px;
     Row {
-        Text {
-            text: root.title;
+        label := Text {
             vertical-stretch: 0;
             color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
         }

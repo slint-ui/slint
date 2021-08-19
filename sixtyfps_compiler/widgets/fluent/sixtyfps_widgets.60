@@ -331,13 +331,12 @@ export Slider := Rectangle {
 
 
 export GroupBox := VerticalLayout {
-    property <string> title;
+    property <string> title <=> label.text;
     property<bool> enabled: true;
     spacing: 8px;
     padding-top: 16px;
     padding-bottom: 8px;
-    Text {
-        text: root.title;
+    label := Text {
         vertical-stretch: 0;
         color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
         font-weight: 600;
