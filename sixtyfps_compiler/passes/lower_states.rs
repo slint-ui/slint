@@ -65,14 +65,16 @@ fn lower_state_in_element(
         for (ne, expr, node) in state.property_changes {
             affected_properties.insert(ne.clone());
             let e = ne.element();
-            let property_expr = expression_for_property(&e, ne.name());
-            if matches!(property_expr, Expression::TwoWayBinding(..)) {
-                diag.push_error(
+            let property_expr = match expression_for_property(&e, ne.name()) {
+                ExpressionForProperty::TwoWayBinding => {
+                    diag.push_error(
                     format!("Cannot change the property '{}' in a state because it is initialized with a two-way binding", ne.name()),
                     &node
                 );
-                continue;
-            }
+                    continue;
+                }
+                ExpressionForProperty::Expression(e) => e,
+            };
             let new_expr = Expression::Condition {
                 condition: Box::new(Expression::BinaryExpression {
                     lhs: Box::new(state_property_ref.clone()),
@@ -177,13 +179,21 @@ fn compute_state_property_name(root_element: &ElementRc) -> String {
     property_name
 }
 
+enum ExpressionForProperty {
+    TwoWayBinding,
+    Expression(Expression),
+}
+
 /// Return the expression binding currently associated to the given property
-fn expression_for_property(element: &ElementRc, name: &str) -> Expression {
+fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProperty {
     let mut element_it = Some(element.clone());
     while let Some(element) = element_it {
         if let Some(e) = element.borrow().bindings.get(name) {
+            if !e.two_way_bindings.is_empty() {
+                return ExpressionForProperty::TwoWayBinding;
+            }
             if !matches!(e.expression, Expression::Invalid) {
-                return e.expression.clone();
+                return ExpressionForProperty::Expression(e.expression.clone());
             }
         }
         element_it = if let Type::Component(base) = &element.borrow().base_type {
@@ -192,5 +202,7 @@ fn expression_for_property(element: &ElementRc, name: &str) -> Expression {
             None
         };
     }
-    Expression::default_value_for_type(&element.borrow().lookup_property(name).property_type)
+    ExpressionForProperty::Expression(Expression::default_value_for_type(
+        &element.borrow().lookup_property(name).property_type,
+    ))
 }

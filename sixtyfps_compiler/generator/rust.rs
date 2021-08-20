@@ -18,11 +18,12 @@ Some convention used in the generated code:
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
-    BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass, Path,
+    BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference, OperatorClass,
+    Path,
 };
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
-use crate::object_tree::{Component, Document, ElementRc, PropertyAnimation};
+use crate::object_tree::{Component, Document, ElementRc};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use std::{collections::BTreeMap, rc::Rc};
@@ -171,9 +172,7 @@ fn handle_property_binding(
     component: &Rc<Component>,
     item_rc: &ElementRc,
     prop_name: &str,
-    binding_expression: &Expression,
-    is_constant: bool,
-    animation: Option<&PropertyAnimation>,
+    binding_expression: &BindingExpression,
     init: &mut Vec<TokenStream>,
 ) {
     let rust_property = access_member(item_rc, prop_name, component, quote!(_self), false);
@@ -199,24 +198,20 @@ fn handle_property_binding(
                 }
             });
         }));
-    } else if let Expression::TwoWayBinding(nr, next) = &binding_expression {
-        let p2 = access_member(&nr.element(), nr.name(), component, quote!(_self), false);
-        init.push(quote!(
-            Property::link_two_way(#rust_property, #p2);
-        ));
-        if let Some(next) = next {
-            handle_property_binding(
-                component,
-                item_rc,
-                prop_name,
-                next,
-                is_constant || next.is_constant(),
-                animation,
-                init,
-            )
-        }
     } else {
+        for nr in &binding_expression.two_way_bindings {
+            let p2 = access_member(&nr.element(), nr.name(), component, quote!(_self), false);
+            init.push(quote!(
+                Property::link_two_way(#rust_property, #p2);
+            ));
+        }
+        if matches!(binding_expression.expression, Expression::Invalid) {
+            return;
+        }
+
         let tokens_for_expression = compile_expression(binding_expression, component);
+        let is_constant =
+            binding_expression.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
         init.push(if is_constant {
             let t = rust_type(&prop_type).unwrap_or(quote!(_));
 
@@ -249,7 +244,7 @@ fn handle_property_binding(
                     sixtyfps::internal::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
             } else {
-                match animation {
+                match &binding_expression.animation {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
                         let anim = property_animation_tokens(component, anim);
                         quote! { {
@@ -630,15 +625,7 @@ fn generate_component(
     });
 
     super::handle_property_bindings_init(component, |elem, prop, binding| {
-        handle_property_binding(
-            component,
-            elem,
-            prop,
-            binding,
-            binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const),
-            binding.animation.as_ref(),
-            &mut init,
-        )
+        handle_property_binding(component, elem, prop, binding, &mut init)
     });
 
     let resource_symbols: Vec<proc_macro2::TokenStream> = component
@@ -1457,7 +1444,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 }
             )
         }
-        Expression::Invalid | Expression::Uncompiled(_) | Expression::TwoWayBinding(..) => {
+        Expression::Invalid | Expression::Uncompiled(_)  => {
             let error = format!("unsupported expression {:?}", expr);
             quote!(compile_error! {#error})
         }

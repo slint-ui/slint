@@ -72,7 +72,7 @@ fn resolve_alias(
         None => panic!("called with not an alias?"),
     };
 
-    let e = match &elem.borrow().bindings[prop].expression {
+    let nr = match &elem.borrow().bindings[prop].expression {
         Expression::Uncompiled(node) => {
             let node = syntax_nodes::TwoWayBinding::new(node.clone())
                 .expect("The parser only avoid missing types for two way bindings");
@@ -82,19 +82,21 @@ fn resolve_alias(
             let mut scope = scope.0.clone();
             scope.push(elem.clone());
             lookup_ctx.component_scope = &scope;
-            Expression::from_two_way_binding(node, &mut lookup_ctx)
+            crate::passes::resolving::resolve_two_way_binding(node, &mut lookup_ctx)
         }
         _ => panic!("There should be a Uncompiled expression at this point."),
     };
 
-    let mut ty = e.ty();
-    if matches!(ty, Type::InferredCallback | Type::InferredProperty) {
-        if let Expression::TwoWayBinding(nr, _) = &e {
+    let mut ty = Type::Invalid;
+    if let Some(nr) = &nr {
+        ty = nr.ty();
+        if matches!(ty, Type::InferredCallback | Type::InferredProperty) {
             // Note that scope is might be too deep there, but it actually should work in most cases
             resolve_alias(&nr.element(), nr.name(), scope, type_register, diag);
-            ty = e.ty();
+            ty = nr.ty();
         }
     }
+
     if ty == Type::Invalid && old_type == Type::InferredProperty {
         diag.push_error(
             format!("Could not infer type of property '{}'", prop),

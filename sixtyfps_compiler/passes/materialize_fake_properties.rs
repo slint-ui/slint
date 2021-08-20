@@ -50,15 +50,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
                     e.insert(BindingExpression::new_with_span(init_expr, span));
                 }
                 std::collections::btree_map::Entry::Occupied(mut e) => {
-                    let mut expr = &mut e.get_mut().expression;
-                    while let Expression::TwoWayBinding(_, next) = expr {
-                        if let Some(next) = next {
-                            expr = next;
-                        } else {
-                            *next = Some(Box::new(init_expr));
-                            break;
-                        }
-                    }
+                    e.get_mut().expression = init_expr;
                 }
             }
         }
@@ -70,18 +62,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 fn must_initialize(elem: &Element, prop: &str) -> bool {
     match elem.bindings.get(prop) {
         None => true,
-        Some(b) => {
-            // Check if this is a TwoWay binding that need to be initialized anyway
-            let mut expr = &b.expression;
-            while let Expression::TwoWayBinding(_, next) = expr {
-                if let Some(next) = next {
-                    expr = next
-                } else {
-                    return true;
-                }
-            }
-            false
-        }
+        Some(b) => matches!(b.expression, Expression::Invalid),
     }
 }
 

@@ -225,7 +225,7 @@ use crate::expression_tree::{
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::object_tree::{
-    Component, Document, ElementRc, PropertyAnimation, PropertyDeclaration, RepeatedElementInfo,
+    Component, Document, ElementRc, PropertyDeclaration, RepeatedElementInfo,
 };
 use cpp_ast::*;
 use itertools::Itertools;
@@ -355,9 +355,7 @@ fn property_set_value_code(
 fn handle_property_binding(
     elem: &ElementRc,
     prop_name: &str,
-    binding_expression: &Expression,
-    is_constant: bool,
-    animation: Option<&PropertyAnimation>,
+    binding_expression: &BindingExpression,
     init: &mut Vec<String>,
 ) {
     let item = elem.borrow();
@@ -389,29 +387,26 @@ fn handle_property_binding(
             params = params.join(", "),
             code = compile_expression_wrap_return(binding_expression, &component)
         ));
-    } else if let Expression::TwoWayBinding(nr, next) = &binding_expression {
-        init.push(format!(
-            "sixtyfps::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
-            ty = prop_type.cpp_type().unwrap_or_default(),
-            p1 = access_member(elem, prop_name, &component, "this"),
-            p2 = access_named_reference(nr, &component, "this")
-        ));
-        if let Some(next) = next {
-            handle_property_binding(
-                elem,
-                prop_name,
-                next,
-                is_constant || next.is_constant(),
-                animation,
-                init,
-            )
-        }
     } else {
+        for nr in &binding_expression.two_way_bindings {
+            init.push(format!(
+                "sixtyfps::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
+                ty = prop_type.cpp_type().unwrap_or_default(),
+                p1 = access_member(elem, prop_name, &component, "this"),
+                p2 = access_named_reference(nr, &component, "this")
+            ));
+        }
+        if matches!(binding_expression.expression, Expression::Invalid) {
+            return;
+        }
+
         let component = &item.enclosing_component.upgrade().unwrap();
 
         let init_expr = compile_expression_wrap_return(binding_expression, component);
         let cpp_prop = format!("{}{}", accessor_prefix, ident(prop_name));
 
+        let is_constant =
+            binding_expression.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
         init.push(if is_constant {
             format!("{}.set({});", cpp_prop, init_expr)
         } else {
@@ -427,7 +422,7 @@ fn handle_property_binding(
             if is_state_info {
                 format!("sixtyfps::private_api::set_state_binding({}, {});", cpp_prop, binding_code)
             } else {
-                match animation {
+                match &binding_expression.animation {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
                         let anim = property_animation_code(component, anim);
                         format!("{}.set_animated_binding({}, {});", cpp_prop, binding_code, anim)
@@ -1095,14 +1090,7 @@ fn generate_component(
     });
 
     super::handle_property_bindings_init(component, |elem, prop, binding| {
-        handle_property_binding(
-            elem,
-            prop,
-            binding,
-            binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const),
-            binding.animation.as_ref(),
-            &mut init,
-        )
+        handle_property_binding(elem, prop, binding, &mut init)
     });
 
     if !component.is_global() {
@@ -1882,7 +1870,7 @@ fn compile_expression(
             )
 
         }
-        Expression::Uncompiled(_) | Expression::TwoWayBinding(..) => panic!(),
+        Expression::Uncompiled(_) => panic!(),
         Expression::Invalid => "\n#error invalid expression\n".to_string(),
     }
 }

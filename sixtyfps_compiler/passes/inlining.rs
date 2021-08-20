@@ -188,6 +188,7 @@ fn duplicate_binding(
             .as_ref()
             .map(|pa| duplicate_property_animation(pa, mapping, root_component)),
         analysis: b.analysis.clone(),
+        two_way_bindings: b.two_way_bindings.clone(),
     };
     (k.clone(), b)
 }

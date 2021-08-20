@@ -36,6 +36,7 @@ fn resolve_expression(
     scope: &ComponentScope,
     type_register: &TypeRegister,
     type_loader: &crate::typeloader::TypeLoader,
+    two_ways: &mut Vec<(String, NamedReference)>,
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::Uncompiled(node) = expr {
@@ -69,7 +70,10 @@ fn resolve_expression(
                     assert!(diag.has_error());
                     return;
                 }
-                Expression::from_two_way_binding(node.clone().into(), &mut lookup_ctx)
+                if let Some(nr) = resolve_two_way_binding(node.clone().into(), &mut lookup_ctx) {
+                    two_ways.push((property_name.unwrap().into(), nr));
+                }
+                Expression::Invalid
             }
             _ => {
                 debug_assert!(diag.has_error());
@@ -95,6 +99,7 @@ pub fn resolve_expressions(
                 new_scope.0.push(elem.clone())
             }
             new_scope.0.push(elem.clone());
+            let mut two_ways = vec![];
             visit_element_expressions(elem, |expr, property_name, property_type| {
                 if is_repeated {
                     // The first expression is always the model and it needs to be resolved with the parent scope
@@ -110,6 +115,7 @@ pub fn resolve_expressions(
                         &parent_scope,
                         &doc.local_registry,
                         type_loader,
+                        &mut two_ways,
                         diag,
                     );
                     is_repeated = false;
@@ -121,10 +127,14 @@ pub fn resolve_expressions(
                         &new_scope,
                         &doc.local_registry,
                         type_loader,
+                        &mut two_ways,
                         diag,
                     )
                 }
             });
+            for (prop, nr) in two_ways {
+                elem.borrow_mut().bindings.get_mut(&prop).unwrap().two_way_bindings.push(nr);
+            }
             new_scope.0.pop();
             new_scope
         })
@@ -226,40 +236,6 @@ impl Expression {
             &node,
             &mut ctx.diag,
         )
-    }
-
-    pub fn from_two_way_binding(
-        node: syntax_nodes::TwoWayBinding,
-        ctx: &mut LookupCtx,
-    ) -> Expression {
-        let e = Self::from_expression_node(node.Expression(), ctx);
-        let ty = e.ty();
-        match e {
-            Expression::PropertyReference(n) => {
-                if ty != ctx.property_type && ctx.property_type != Type::InferredProperty {
-                    ctx.diag.push_error(
-                        "The property does not have the same type as the bound property".into(),
-                        &node,
-                    );
-                }
-                Expression::TwoWayBinding(n, None)
-            }
-            Expression::CallbackReference(n) => {
-                if ctx.property_type != Type::InferredCallback && ty != ctx.property_type {
-                    ctx.diag.push_error("Cannot bind to a callback".into(), &node);
-                    Expression::Invalid
-                } else {
-                    Expression::TwoWayBinding(n, None)
-                }
-            }
-            _ => {
-                ctx.diag.push_error(
-                    "The expression in a two way binding must be a property reference".into(),
-                    &node,
-                );
-                Expression::Invalid
-            }
-        }
     }
 
     fn from_expression_node(node: syntax_nodes::Expression, ctx: &mut LookupCtx) -> Self {
@@ -1043,4 +1019,38 @@ fn maybe_lookup_object(
         }
     }
     base
+}
+
+pub fn resolve_two_way_binding(
+    node: syntax_nodes::TwoWayBinding,
+    ctx: &mut LookupCtx,
+) -> Option<NamedReference> {
+    let e = Expression::from_expression_node(node.Expression(), ctx);
+    let ty = e.ty();
+    match e {
+        Expression::PropertyReference(n) => {
+            if ty != ctx.property_type && ctx.property_type != Type::InferredProperty {
+                ctx.diag.push_error(
+                    "The property does not have the same type as the bound property".into(),
+                    &node,
+                );
+            }
+            Some(n)
+        }
+        Expression::CallbackReference(n) => {
+            if ctx.property_type != Type::InferredCallback && ty != ctx.property_type {
+                ctx.diag.push_error("Cannot bind to a callback".into(), &node);
+                None
+            } else {
+                Some(n)
+            }
+        }
+        _ => {
+            ctx.diag.push_error(
+                "The expression in a two way binding must be a property reference".into(),
+                &node,
+            );
+            None
+        }
+    }
 }

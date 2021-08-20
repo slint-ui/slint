@@ -134,7 +134,6 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
     match expression {
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
-        Expression::TwoWayBinding(..) => panic!("invalid expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.into()),
         Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
         Expression::BoolLiteral(b) => Value::Bool(*b),

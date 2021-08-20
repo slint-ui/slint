@@ -13,7 +13,7 @@ LICENSE END */
 //! be further inlined as it may expends to native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, NamedReference, Unit};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference, Unit};
 use crate::langtype::Type;
 use crate::object_tree::*;
 use itertools::Itertools;
@@ -108,11 +108,11 @@ fn process_tabwidget(
         };
         tab.bindings.insert(
             "title".to_owned(),
-            Expression::TwoWayBinding(NamedReference::new(child, "title"), None).into(),
+            BindingExpression::new_two_way(NamedReference::new(child, "title")),
         );
         tab.bindings.insert(
             "current".to_owned(),
-            Expression::TwoWayBinding(NamedReference::new(elem, "current-index"), None).into(),
+            BindingExpression::new_two_way(NamedReference::new(elem, "current-index")),
         );
         tab.bindings.insert(
             "tab-index".to_owned(),
@@ -139,11 +139,11 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "height");
     elem.borrow_mut().bindings.insert(
         "tabbar-preferred-width".to_owned(),
-        Expression::TwoWayBinding(NamedReference::new(&tabbar, "preferred-width"), None).into(),
+        BindingExpression::new_two_way(NamedReference::new(&tabbar, "preferred-width")),
     );
     elem.borrow_mut().bindings.insert(
         "tabbar-preferred-height".to_owned(),
-        Expression::TwoWayBinding(NamedReference::new(&tabbar, "preferred-height"), None).into(),
+        BindingExpression::new_two_way(NamedReference::new(&tabbar, "preferred-height")),
     );
 
     if let Some(expr) = children

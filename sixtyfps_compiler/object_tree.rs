@@ -371,9 +371,7 @@ impl BindingsMap {
             Entry::Vacant(vacant_entry) => {
                 vacant_entry.insert(expression_fn());
             }
-            Entry::Occupied(mut existing_entry)
-                if matches!(existing_entry.get().expression, Expression::Invalid) =>
-            {
+            Entry::Occupied(mut existing_entry) if !existing_entry.get().has_binding() => {
                 existing_entry.get_mut().merge_with(&expression_fn());
             }
             _ => {}
@@ -518,6 +516,10 @@ pub fn pretty_print(
         if let Some(anim) = &expr.animation {
             indent!();
             writeln!(f, "animate {} {:?}", name, anim)?;
+        }
+        for nr in &expr.two_way_bindings {
+            indent!();
+            writeln!(f, "{} <=> {:?};", name, nr)?;
         }
     }
     if !e.states.is_empty() {
@@ -1463,7 +1465,6 @@ pub fn visit_all_named_references_in_element(
         expr.visit_mut(|sub| recurse_expression(sub, vis));
         match expr {
             Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
-            Expression::TwoWayBinding(r, _) => vis(r),
             Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
             Expression::SolveLayout(l, _) => l.visit_named_references(vis),
             Expression::ComputeLayoutInfo(l, _) => l.visit_named_references(vis),
@@ -1509,6 +1510,15 @@ pub fn visit_all_named_references_in_element(
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
     layout_info_prop.as_mut().map(|(h, b)| (vis(h), vis(b)));
     elem.borrow_mut().layout_info_prop = layout_info_prop;
+
+    // visit two way bindings
+    let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
+    for (_, expr) in &mut bindings {
+        for nr in &mut expr.two_way_bindings {
+            vis(nr);
+        }
+    }
+    elem.borrow_mut().bindings = bindings;
 
     let mut property_declarations = std::mem::take(&mut elem.borrow_mut().property_declarations);
     for pd in property_declarations.values_mut() {

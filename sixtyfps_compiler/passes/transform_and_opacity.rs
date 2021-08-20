@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, NamedReference};
+use crate::expression_tree::{BindingExpression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
@@ -80,7 +80,7 @@ fn create_opacity_element(child: &ElementRc, type_register: &TypeRegister) -> El
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: std::iter::once((
             "opacity".to_owned(),
-            Expression::TwoWayBinding(NamedReference::new(child, "opacity"), None).into(),
+            BindingExpression::new_two_way(NamedReference::new(child, "opacity")),
         ))
         .collect(),
         ..Default::default()
