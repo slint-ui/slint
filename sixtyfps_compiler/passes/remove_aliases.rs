@@ -10,7 +10,7 @@ LICENSE END */
 //! This pass removes the property used in a two ways bindings
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, NamedReference};
+use crate::expression_tree::{BindingExpression, NamedReference};
 use crate::object_tree::*;
 use std::cell::RefCell;
 use std::collections::{btree_map::Entry, HashMap, HashSet};
@@ -70,19 +70,13 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     let mut property_sets = PropertySets::default();
     recurse_elem_including_sub_components(component, &(), &mut |e, _| {
         'bindings: for (name, binding) in &e.borrow().bindings {
-            let mut exp = &binding.expression;
-            while let Expression::TwoWayBinding(nr, next) = exp {
+            for nr in &binding.two_way_bindings {
                 let other_e = nr.element();
                 if name == nr.name() && Rc::ptr_eq(e, &other_e) {
                     diag.push_error("Property cannot alias to itself".into(), binding);
                     continue 'bindings;
                 }
                 property_sets.add_link(NamedReference::new(e, name), nr.clone());
-
-                exp = match next {
-                    Some(x) => &*x,
-                    None => break,
-                };
             }
         }
     });
@@ -121,15 +115,13 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         // adjust the bindings
         let old_binding = elem.borrow_mut().bindings.remove(remove.name());
         let must_simplify = if let Some(mut binding) = old_binding {
-            simplify_expression(&mut binding.expression, &to);
-            if !matches!(binding.expression, Expression::Invalid) {
+            remove_from_binding_expression(&mut binding, &to);
+            if binding.has_binding() {
                 let to_elem = to.element();
                 match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
                     Entry::Occupied(mut e) => {
-                        simplify_expression(e.get_mut(), &to);
-                        if e.get().priority < binding.priority
-                            || matches!(e.get().expression, Expression::Invalid)
-                        {
+                        remove_from_binding_expression(e.get_mut(), &to);
+                        if e.get().priority < binding.priority || !e.get().has_binding() {
                             e.get_mut().merge_with(&binding);
                         } else {
                             binding.merge_with(e.get());
@@ -152,8 +144,8 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             let to_elem = to.element();
             let mut to_elem = to_elem.borrow_mut();
             if let Some(b) = to_elem.bindings.get_mut(to.name()) {
-                simplify_expression(&mut b.expression, &to);
-                if matches!(b.expression, Expression::Invalid) {
+                remove_from_binding_expression(b, &to);
+                if !b.has_binding() {
                     to_elem.bindings.remove(to.name());
                 }
             }
@@ -179,8 +171,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 }
             } else {
                 // This is not a declaration, we must re-create the binding
-                elem.bindings
-                    .insert(remove.name().to_owned(), Expression::TwoWayBinding(to, None).into());
+                elem.bindings.insert(remove.name().to_owned(), BindingExpression::new_two_way(to));
             }
         }
     }
@@ -215,18 +206,7 @@ fn best_property(
     }
 }
 
-/// Remove the `TwoWayBinding(to, _)` from the chain of TwoWayBinding
-fn simplify_expression(expression: &mut Expression, to: &NamedReference) {
-    if let Expression::TwoWayBinding(nr, rest) = expression {
-        if let Some(ref mut r) = rest {
-            simplify_expression(&mut *r, to);
-        }
-        if nr == to {
-            if let Some(r) = std::mem::take(rest) {
-                *expression = *r;
-            } else {
-                *expression = Expression::Invalid;
-            }
-        }
-    }
+/// Remove the `to` from the two_way_bindings
+fn remove_from_binding_expression(expression: &mut BindingExpression, to: &NamedReference) {
+    expression.two_way_bindings.retain(|x| x != to);
 }

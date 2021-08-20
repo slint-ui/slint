@@ -9,7 +9,7 @@
 LICENSE END */
 //! Make sure that the top level element of the component is always a Window
 
-use crate::expression_tree::Expression;
+use crate::expression_tree::BindingExpression;
 use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
@@ -56,7 +56,7 @@ pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
     let make_two_way = |name: &str| {
         new_root.borrow_mut().bindings.insert(
             name.into(),
-            Expression::TwoWayBinding(NamedReference::new(&win_elem, name), None).into(),
+            BindingExpression::new_two_way(NamedReference::new(&win_elem, name)),
         );
     };
     make_two_way("width");

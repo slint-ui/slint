@@ -22,7 +22,7 @@ use std::rc::Rc;
 
 use itertools::Itertools;
 
-use crate::expression_tree::{Expression, NamedReference};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{NativeClass, Type};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
@@ -64,14 +64,10 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
             flickable.property_declarations.insert(prop.to_owned(), info.ty.clone().into());
             match flickable.bindings.entry(prop.to_owned()) {
                 std::collections::btree_map::Entry::Occupied(entry) => {
-                    let entry = entry.into_mut();
-                    entry.expression = Expression::TwoWayBinding(
-                        nr,
-                        Some(Box::new(std::mem::take(&mut entry.expression))),
-                    )
+                    entry.into_mut().two_way_bindings.push(nr);
                 }
                 std::collections::btree_map::Entry::Vacant(entry) => {
-                    entry.insert(Expression::TwoWayBinding(nr, None).into());
+                    entry.insert(BindingExpression::new_two_way(nr));
                 }
             }
         }

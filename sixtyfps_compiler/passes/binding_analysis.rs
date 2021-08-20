@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
+use crate::expression_tree::BindingExpression;
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::Expression;
 use crate::langtype::Type;
@@ -56,7 +57,7 @@ fn analyse_binding(
 ) {
     let nr = NamedReference::new(element, name);
     if currently_analysing.back().map_or(false, |r| *r == nr)
-        && matches!(element.borrow().bindings[name].expression, Expression::TwoWayBinding(..))
+        && !element.borrow().bindings[name].two_way_bindings.is_empty()
     {
         // This is already reported as an error by the remove_alias pass.
         // FIXME: maybe we should report it there instead
@@ -95,7 +96,7 @@ fn analyse_binding(
     }
     currently_analysing.insert(nr.clone());
 
-    recurse_expression(&element.borrow().bindings[name], &mut |prop: &NamedReference| {
+    let mut process_prop = |prop: &NamedReference| {
         prop.element()
             .borrow()
             .property_analysis
@@ -109,12 +110,18 @@ fn analyse_binding(
             }
             analyse_binding(&prop.element(), prop.name(), currently_analysing, diag);
         }
-    });
+    };
+    let binding = &element.borrow().bindings[name];
+    for nr in &binding.two_way_bindings {
+        process_prop(nr);
+    }
+    recurse_expression(&binding.expression, &mut process_prop);
 
     {
         let elem = element.borrow();
         let b = &elem.bindings[name];
-        let is_const = b.expression.is_constant();
+        let is_const =
+            b.expression.is_constant() && b.two_way_bindings.iter().all(|n| n.is_constant());
 
         let mut analysis = b.analysis.borrow_mut();
         let mut analysis = analysis.get_or_insert(Default::default());
@@ -130,7 +137,6 @@ fn recurse_expression(expr: &Expression, vis: &mut impl FnMut(&NamedReference)) 
     expr.visit(|sub| recurse_expression(sub, vis));
     match expr {
         Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
-        Expression::TwoWayBinding(r, _) => vis(r),
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::SolveLayout(l, o) | Expression::ComputeLayoutInfo(l, o) => {
             // we should only visit the layout geometry for the orientation
@@ -241,16 +247,17 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
         &(),
         &mut |e, _| {
             for (name, binding) in &e.borrow().bindings {
-                if matches!(binding.expression, Expression::TwoWayBinding(..)) {
-                    check_alias(e, name, &binding.expression);
+                if !binding.two_way_bindings.is_empty() {
+                    check_alias(e, name, binding);
                 }
             }
         },
     );
 
-    fn check_alias(e: &ElementRc, name: &str, binding: &Expression) {
+    fn check_alias(e: &ElementRc, name: &str, binding: &BindingExpression) {
         // Note: since the analysis hasn't been run, any property access will result in a non constant binding. this is slightly non-optimal
-        let is_binding_constant = binding.is_constant();
+        let is_binding_constant =
+            binding.is_constant() && binding.two_way_bindings.iter().all(|n| n.is_constant());
         if is_binding_constant && !NamedReference::new(e, name).is_externally_modified() {
             return;
         }
@@ -258,9 +265,8 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
         propagate_alias(binding);
     }
 
-    fn propagate_alias(binding: &Expression) {
-        let mut expr = Some(binding);
-        while let Some(Expression::TwoWayBinding(alias, next)) = expr {
+    fn propagate_alias(binding: &BindingExpression) {
+        for alias in &binding.two_way_bindings {
             if !alias.is_externally_modified() {
                 let al_el = alias.element();
                 let al_el = al_el.borrow();
@@ -274,7 +280,6 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
                     propagate_alias(bind)
                 }
             }
-            expr = next.as_ref().map(|e| &**e);
         }
     }
 }

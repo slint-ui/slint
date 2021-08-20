@@ -1018,7 +1018,7 @@ pub fn instantiate(
             continue;
         }
         if let Some(b) = component_type.original.root_element.borrow().bindings.get(prop_name) {
-            if !matches!(b.expression, Expression::TwoWayBinding(..)) {
+            if b.two_way_bindings.is_empty() {
                 continue;
             }
         }
@@ -1112,21 +1112,19 @@ pub fn instantiate(
                 let maybe_animation = animation_for_property(instance_ref, &binding.animation);
                 let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
 
-                let mut e = Some(&binding.expression);
-                while let Some(Expression::TwoWayBinding(nr, next)) = &e {
+                for nr in &binding.two_way_bindings {
                     // Safety: The compiler must have ensured that the properties exist and are of the same type
                     prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
-                    e = next.as_deref();
                 }
-                if let Some(e) = e {
-                    if is_const || e.is_constant() {
+                if !matches!(binding.expression, Expression::Invalid) {
+                    if is_const {
                         let v = eval::eval_expression(
-                            e,
+                            &binding.expression,
                             &mut eval::EvalLocalContext::from_component_instance(instance_ref),
                         );
                         prop_info.set(item, v, None).unwrap();
                     } else {
-                        let e = e.clone();
+                        let e = binding.expression.clone();
                         prop_info
                             .set_binding(
                                 item,
@@ -1149,18 +1147,16 @@ pub fn instantiate(
                 let item = item_within_component.item_from_component(instance_ref.as_ptr());
                 if let Some(prop_rtti) = item_within_component.rtti.properties.get(prop_name) {
                     let maybe_animation = animation_for_property(instance_ref, &binding.animation);
-                    let mut e = Some(&binding.expression);
-                    while let Some(Expression::TwoWayBinding(nr, next)) = &e {
+                    for nr in &binding.two_way_bindings {
                         // Safety: The compiler must have ensured that the properties exist and are of the same type
                         prop_rtti.link_two_ways(item, get_property_ptr(nr, instance_ref));
-                        e = next.as_deref();
                     }
-                    if let Some(e) = e {
-                        if is_const || e.is_constant() {
+                    if !matches!(binding.expression, Expression::Invalid) {
+                        if is_const {
                             prop_rtti.set(
                                 item,
                                 eval::eval_expression(
-                                    e,
+                                    &binding.expression,
                                     &mut eval::EvalLocalContext::from_component_instance(
                                         instance_ref,
                                     ),
@@ -1168,7 +1164,7 @@ pub fn instantiate(
                                 maybe_animation.as_animation(),
                             );
                         } else {
-                            let e = e.clone();
+                            let e = binding.expression.clone();
                             let component_type = component_type.clone();
                             let instance = component_box.instance.as_ptr();
                             let c = Pin::new_unchecked(vtable::VRef::from_raw(

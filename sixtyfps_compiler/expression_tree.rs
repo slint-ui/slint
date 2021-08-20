@@ -290,12 +290,6 @@ pub enum Expression {
     /// We haven't done the lookup yet
     Uncompiled(SyntaxNode),
 
-    /// Special expression that can be the value of a two way binding
-    ///
-    /// The named reference is what it is aliased to, and the optional Expression is
-    /// the initialization expression, if any.  That expression can be a TwoWayBinding as well
-    TwoWayBinding(NamedReference, Option<Box<Expression>>),
-
     /// A string literal. The .0 is the content of the string, without the quotes
     StringLiteral(String),
     /// Number
@@ -470,7 +464,6 @@ impl Expression {
             Expression::StringLiteral(_) => Type::String,
             Expression::NumberLiteral(_, unit) => unit.ty(),
             Expression::BoolLiteral(_) => Type::Bool,
-            Expression::TwoWayBinding(nr, _) => nr.ty(),
             Expression::CallbackReference(nr) => nr.ty(),
             Expression::PropertyReference(nr) => nr.ty(),
             Expression::BuiltinFunctionReference(funcref, _) => funcref.ty(),
@@ -600,11 +593,6 @@ impl Expression {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
-            Expression::TwoWayBinding(_, sub) => {
-                if let Some(e) = sub.as_deref() {
-                    visitor(e)
-                }
-            }
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
@@ -687,11 +675,6 @@ impl Expression {
         match self {
             Expression::Invalid => {}
             Expression::Uncompiled(_) => {}
-            Expression::TwoWayBinding(_, sub) => {
-                if let Some(e) = sub.as_deref_mut() {
-                    visitor(e)
-                }
-            }
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_, _) => {}
             Expression::BoolLiteral(_) => {}
@@ -786,9 +769,6 @@ impl Expression {
         match self {
             Expression::Invalid => true,
             Expression::Uncompiled(_) => false,
-            Expression::TwoWayBinding(nr, expr) => {
-                nr.is_constant() && expr.as_ref().map_or(true, |e| e.is_constant())
-            }
             Expression::StringLiteral(_) => true,
             Expression::NumberLiteral(_, _) => true,
             Expression::BoolLiteral(_) => true,
@@ -1089,6 +1069,9 @@ pub struct BindingExpression {
 
     /// The analysis information. None before it is computed
     pub analysis: RefCell<Option<BindingAnalysis>>,
+
+    /// The properties this expression is aliased with using two way bindings
+    pub two_way_bindings: Vec<NamedReference>,
 }
 
 impl std::convert::From<Expression> for BindingExpression {
@@ -1099,6 +1082,7 @@ impl std::convert::From<Expression> for BindingExpression {
             priority: 0,
             animation: Default::default(),
             analysis: Default::default(),
+            two_way_bindings: Default::default(),
         }
     }
 }
@@ -1111,6 +1095,7 @@ impl BindingExpression {
             priority: 1,
             animation: Default::default(),
             analysis: Default::default(),
+            two_way_bindings: Default::default(),
         }
     }
     pub fn new_with_span(expression: Expression, span: SourceLocation) -> Self {
@@ -1120,48 +1105,46 @@ impl BindingExpression {
             priority: 0,
             animation: Default::default(),
             analysis: Default::default(),
+            two_way_bindings: Default::default(),
         }
     }
 
-    /// Merge the other into this one. Normally, &self is kept intact (has priority), unless two ways binding are
-    /// involved then they need to be merged.
-    /// Also the animation is taken if the other don't have one
+    /// Create an expression binding that simply is a two way binding to the other
+    pub fn new_two_way(other: NamedReference) -> Self {
+        Self {
+            expression: Expression::Invalid,
+            span: None,
+            priority: 0,
+            animation: Default::default(),
+            analysis: Default::default(),
+            two_way_bindings: vec![other],
+        }
+    }
+
+    /// Merge the other into this one. Normally, &self is kept intact (has priority)
+    /// unless the expression is invalid, in which case the other one is taken.
+    ///
+    /// Also the animation is taken if the other don't have one, and the two ways binding
+    /// are taken into account.
     ///
     /// Returns true if the other expression was taken
     pub fn merge_with(&mut self, other: &Self) -> bool {
-        fn maybe_merge_two_ways(
-            binding: &mut Expression,
-            priority: &mut i32,
-            original: &BindingExpression,
-        ) -> bool {
-            match (binding, &original.expression) {
-                (Expression::TwoWayBinding(_, Some(ref mut x)), _) => {
-                    maybe_merge_two_ways(&mut *x, priority, original)
-                }
-                (Expression::TwoWayBinding(_, x), o) => {
-                    *priority = original.priority;
-                    *x = Some(Box::new(o.clone()));
-                    true
-                }
-                (ref mut x, Expression::TwoWayBinding(nr, _)) => {
-                    let n =
-                        Expression::TwoWayBinding(nr.clone(), Some(Box::new(std::mem::take(*x))));
-                    **x = n;
-                    false
-                }
-                _ => false,
-            }
-        }
         if self.animation.is_none() {
             self.animation = other.animation.clone();
         }
+        self.two_way_bindings.extend_from_slice(&other.two_way_bindings);
         if matches!(self.expression, Expression::Invalid) {
             self.priority = other.priority;
             self.expression = other.expression.clone();
             true
         } else {
-            maybe_merge_two_ways(&mut self.expression, &mut self.priority, other)
+            false
         }
+    }
+
+    /// returns false if there is no expression or two way binding
+    pub fn has_binding(&self) -> bool {
+        !matches!(self.expression, Expression::Invalid) || !self.two_way_bindings.is_empty()
     }
 }
 
@@ -1226,14 +1209,6 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
     match expression {
         Expression::Invalid => write!(f, "<invalid>"),
         Expression::Uncompiled(u) => write!(f, "{:?}", u),
-        Expression::TwoWayBinding(a, b) => {
-            write!(f, "<=>{:?}", a)?;
-            if let Some(b) = b {
-                write!(f, ":")?;
-                pretty_print(f, b)?;
-            }
-            Ok(())
-        }
         Expression::StringLiteral(s) => write!(f, "{:?}", s),
         Expression::NumberLiteral(vl, unit) => write!(f, "{}{}", vl, unit),
         Expression::BoolLiteral(b) => write!(f, "{:?}", b),
