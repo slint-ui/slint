@@ -45,7 +45,7 @@ private:
     sixtyfps::Timer clock_update_timer;
 };
 
-ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [=]() { update_clock(); })
+ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [this] { update_clock(); })
 {
 }
 
@@ -72,7 +72,7 @@ private:
 };
 
 HumidityWidget::HumidityWidget()
-    : fake_humidity_update_timer(std::chrono::seconds(5), [=]() { update_fake_humidity(); }),
+    : fake_humidity_update_timer(std::chrono::seconds(5), [this] { update_fake_humidity(); }),
       rng(std::chrono::system_clock::now().time_since_epoch().count())
 {
 }
