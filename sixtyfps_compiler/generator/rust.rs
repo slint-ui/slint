@@ -1082,6 +1082,33 @@ fn access_named_reference(
     access_member(&nr.element(), nr.name(), component, component_rust, false)
 }
 
+/// Returns the code that can access the component of the given element
+fn access_element_component(
+    element: &ElementRc,
+    component: &Rc<Component>,
+    component_rust: TokenStream,
+) -> TokenStream {
+    let e = element.borrow();
+
+    let enclosing_component = e.enclosing_component.upgrade().unwrap();
+    if Rc::ptr_eq(component, &enclosing_component) {
+        return component_rust;
+    } else {
+        access_element_component(
+            element,
+            &component
+                .parent_element
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .enclosing_component
+                .upgrade()
+                .unwrap(),
+            quote!(#component_rust.parent.upgrade().unwrap().as_pin_ref()),
+        )
+    }
+}
+
 fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStream {
     match expr {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
@@ -1246,10 +1273,11 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     }
                     if let Expression::ElementReference(focus_item) = &arguments[0] {
                         let focus_item = focus_item.upgrade().unwrap();
+                        let component_ref = access_element_component(&focus_item, component, quote!(_self));
                         let focus_item = focus_item.borrow();
                         let item_index = focus_item.item_index.get().unwrap();
                         quote!(
-                            _self.window.window_handle().clone().set_focus_item(&ItemRc::new(VRc::into_dyn(_self.self_weak.get().unwrap().upgrade().unwrap()), #item_index));
+                            _self.window.window_handle().clone().set_focus_item(&ItemRc::new(VRc::into_dyn(#component_ref.self_weak.get().unwrap().upgrade().unwrap()), #item_index));
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")

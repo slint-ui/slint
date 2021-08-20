@@ -1413,6 +1413,34 @@ fn access_named_reference(
     access_member(&nr.element(), nr.name(), component, component_cpp)
 }
 
+/// Returns the code that can access the component of the given element
+fn access_element_component<'a>(
+    element: &ElementRc,
+    current_component: &Rc<Component>,
+    component_cpp: &'a str,
+) -> Cow<'a, str> {
+    let e = element.borrow();
+    let enclosing_component = e.enclosing_component.upgrade().unwrap();
+    if Rc::ptr_eq(current_component, &enclosing_component) {
+        component_cpp.into()
+    } else {
+        access_element_component(
+            element,
+            &current_component
+                .parent_element
+                .upgrade()
+                .unwrap()
+                .borrow()
+                .enclosing_component
+                .upgrade()
+                .unwrap(),
+            &format!("{}->parent", component_cpp),
+        )
+        .to_string()
+        .into()
+    }
+}
+
 fn compile_expression(
     expr: &crate::expression_tree::Expression,
     component: &Rc<Component>,
@@ -1591,8 +1619,9 @@ fn compile_expression(
                 }
                 if let Expression::ElementReference(focus_item) = &arguments[0] {
                     let focus_item = focus_item.upgrade().unwrap();
+                    let component_ref = access_element_component(&focus_item, component, "self");
                     let focus_item = focus_item.borrow();
-                    format!("self->m_window.window_handle().set_focus_item(self->self_weak.lock()->into_dyn(), {});", focus_item.item_index.get().unwrap())
+                    format!("self->m_window.window_handle().set_focus_item({}->self_weak.lock()->into_dyn(), {});", component_ref, focus_item.item_index.get().unwrap())
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
