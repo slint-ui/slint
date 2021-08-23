@@ -66,6 +66,7 @@ export global StyleMetrics := {
     property<length> layout-padding: 8px;
     property<length> text-cursor-width: 2px;
     property<color> window-background: white; //FIXME: Palette.white  does not compile (cannot access globals from other globals #175)
+    property<color> default-text-color: black;
 }
 
 export Button := Rectangle {

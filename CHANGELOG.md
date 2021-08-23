@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+ - Apply the default text color from the style for the `color` of `Text` and `TextInput` elements, to contrast
+   correctly with the application of `Window`'s `background` property.
+
 ### Added
 
 ### Fixed
