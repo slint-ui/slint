@@ -2269,6 +2269,7 @@ pub struct NativeStyleMetrics {
     pub layout_padding: Property<f32>,
     pub text_cursor_width: Property<f32>,
     pub window_background: Property<Color>,
+    pub default_text_color: Property<Color>,
 }
 
 impl Default for NativeStyleMetrics {
@@ -2278,6 +2279,7 @@ impl Default for NativeStyleMetrics {
             layout_padding: Default::default(),
             text_cursor_width: Default::default(),
             window_background: Default::default(),
+            default_text_color: Default::default(),
         };
         sixtyfps_init_native_style_metrics(&s);
         s
@@ -2305,5 +2307,9 @@ pub extern "C" fn sixtyfps_init_native_style_metrics(self_: &NativeStyleMetrics)
     let window_background = cpp!(unsafe[] -> u32 as "QRgb" {
         return qApp->palette().color(QPalette::Window).rgba();
     });
-    self_.window_background.set(Color::from_argb_encoded(window_background))
+    self_.window_background.set(Color::from_argb_encoded(window_background));
+    let default_text_color = cpp!(unsafe[] -> u32 as "QRgb" {
+        return qApp->palette().color(QPalette::Text).rgba();
+    });
+    self_.default_text_color.set(Color::from_argb_encoded(default_text_color));
 }

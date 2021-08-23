@@ -81,7 +81,7 @@ export Text := _ {
     property <string> font-family;
     property <length> font-size;
     property <int> font-weight;
-    property <brush> color: #000;
+    property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     property <TextHorizontalAlignment> horizontal-alignment;
     property <TextVerticalAlignment> vertical-alignment;
     property <TextOverflow> overflow;
@@ -184,7 +184,7 @@ export TextInput := _ {
     property <string> font-family;
     property <length> font-size;
     property <int> font-weight;
-    property <brush> color: #000;
+    property <brush> color; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
     property <color> selection-foreground-color: #000;
     property <color> selection-background-color: #808080;
     property <TextHorizontalAlignment> horizontal-alignment;
@@ -571,6 +571,7 @@ export global NativeStyleMetrics := {
     property <length> layout-spacing;
     property <length> layout-padding;
     property <length> text-cursor-width;
+    property <color> default-text-color;
     //-is_non_item_type
     //-is_internal
 }

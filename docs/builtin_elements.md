@@ -189,7 +189,7 @@ and the text itself.
 * **`font-family`** (*string*): The font name
 * **`font-size`** (*length*): The font size of the text
 * **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
-* **`color`** (*brush*): The color of the text (default: black)
+* **`color`** (*brush*): The color of the text (default value: depends on the style)
 * **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
 * **`vertical-alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
 * **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text wraps (default: no-wrap).
@@ -582,7 +582,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`font-family`** (*string*): The font name
 * **`font-size`** (*length*): The font size of the text
 * **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
-* **`color`** (*brush*): The color of the text (default: transparent)
+* **`color`** (*brush*): The color of the text (default value: depends on the style)
 * **`horizontal-alignment`** (enum *[`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
 * **`vertical-alignment`** (enum *[`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
 * **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
