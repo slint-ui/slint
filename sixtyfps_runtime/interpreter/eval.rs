@@ -721,15 +721,36 @@ pub(crate) fn invoke_callback(
     match enclosing_component_instance_for_element(element, component_instance, guard) {
         ComponentInstance::InstanceRef(enclosing_component) => {
             let component_type = enclosing_component.component_type;
-            let item_info = &component_type.items[element.borrow().id.as_str()];
+            let element = element.borrow();
+            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+            {
+                if let Some(callback_offset) = component_type.custom_callbacks.get(callback_name) {
+                    let callback = callback_offset.apply(&*enclosing_component.instance);
+                    let res = callback.call(args);
+                    return Some(if res != Value::Void {
+                        res
+                    } else if let Some(Type::Callback { return_type: Some(rt), .. }) =
+                        component_type
+                            .original
+                            .root_element
+                            .borrow()
+                            .property_declarations
+                            .get(callback_name)
+                            .map(|d| &d.property_type)
+                    {
+                        // If the callback was not se, the return value will be Value::Void, but we need
+                        // to make sure that the value is actually of the right type as returned by the
+                        // callback, otherwise we will get panics later
+                        default_value_for_type(&*rt)
+                    } else {
+                        res
+                    });
+                }
+            };
+            let item_info = &component_type.items[element.id.as_str()];
             let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-
             if let Some(callback) = item_info.rtti.callbacks.get(callback_name) {
                 Some(callback.call(item, args))
-            } else if let Some(callback_offset) = component_type.custom_callbacks.get(callback_name)
-            {
-                let callback = callback_offset.apply(&*enclosing_component.instance);
-                Some(callback.call(args))
             } else {
                 None
             }
