@@ -34,6 +34,7 @@ TestCase := Rectangle {
         property <int> score: person.score;
         clicked => {
             person.score += 1;
+            person.score = person.score + 1;
             person.score += 1;
             clicked_score = score;
 
@@ -47,7 +48,7 @@ use sixtyfps::Model;
 let instance = TestCase::new();
 
 sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
-assert_eq!(instance.get_clicked_score(), 791);
+assert_eq!(instance.get_clicked_score(), 792);
 
 type ModelData = (sixtyfps::SharedString, sixtyfps::SharedString, f32);
 let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
@@ -60,11 +61,11 @@ let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
 instance.set_model(sixtyfps::ModelHandle::new(another_model.clone()));
 
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
-assert_eq!(instance.get_clicked_score(), 335);
-assert_eq!(another_model.row_data(2).2, 335.);
+assert_eq!(instance.get_clicked_score(), 336);
+assert_eq!(another_model.row_data(2).2, 336.);
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
-assert_eq!(instance.get_clicked_score(), 337);
-assert_eq!(another_model.row_data(2).2, 337.);
+assert_eq!(instance.get_clicked_score(), 339);
+assert_eq!(another_model.row_data(2).2, 339.);
 assert_eq!(another_model.row_data(2).1, sixtyfps::SharedString::from("world"));
 ```
 
@@ -72,7 +73,7 @@ assert_eq!(another_model.row_data(2).1, sixtyfps::SharedString::from("world"));
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
-assert_eq(instance.get_clicked_score(), 791);
+assert_eq(instance.get_clicked_score(), 792);
 
 using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
 std::vector<ModelData> array;
@@ -83,11 +84,11 @@ auto another_model = std::make_shared<sixtyfps::VectorModel<ModelData>>(std::mov
 instance.set_model(another_model);
 
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
-assert_eq(instance.get_clicked_score(), 335);
-assert_eq(std::get<2>(another_model->row_data(2)), 335.);
+assert_eq(instance.get_clicked_score(), 336);
+assert_eq(std::get<2>(another_model->row_data(2)), 336.);
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
-assert_eq(instance.get_clicked_score(), 337);
-assert_eq(std::get<2>(another_model->row_data(2)), 337.);
+assert_eq(instance.get_clicked_score(), 339);
+assert_eq(std::get<2>(another_model->row_data(2)), 339.);
 assert_eq(std::get<1>(another_model->row_data(2)), "world");
 ```
 
@@ -95,7 +96,7 @@ assert_eq(std::get<1>(another_model->row_data(2)), "world");
 ```js
 var instance = new sixtyfps.TestCase({});
 instance.send_mouse_click(15., 5.);
-assert.equal(instance.clicked_score, 791);
+assert.equal(instance.clicked_score, 792);
 
 let another_model = new sixtyfpslib.ArrayModel([
     {account: "a1", name: "hello", score: 111.},
@@ -105,11 +106,11 @@ let another_model = new sixtyfpslib.ArrayModel([
 instance.model = another_model;
 
 instance.send_mouse_click(25., 5.);
-assert.equal(instance.clicked_score, 335);
-assert.equal(another_model.rowData(2).score, 335.);
+assert.equal(instance.clicked_score, 336);
+assert.equal(another_model.rowData(2).score, 336.);
 instance.send_mouse_click(25., 5.);
-assert.equal(instance.clicked_score, 337);
-assert.equal(another_model.rowData(2).score, 337.);
+assert.equal(instance.clicked_score, 339);
+assert.equal(another_model.rowData(2).score, 339.);
 assert.equal(another_model.rowData(2).name, "world");
 ```
 
