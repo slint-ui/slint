@@ -372,6 +372,9 @@ fn handle_property_binding(
     };
     let prop_type = item.lookup_property(prop_name).property_type;
     if let Type::Callback { args, .. } = &prop_type {
+        if matches!(binding_expression.expression, Expression::Invalid) {
+            return;
+        }
         let mut params = args.iter().enumerate().map(|(i, ty)| {
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
         });

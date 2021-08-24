@@ -189,6 +189,9 @@ fn handle_property_binding(
     };
 
     if matches!(prop_type, Type::Callback { .. }) {
+        if matches!(binding_expression.expression, Expression::Invalid) {
+            return;
+        }
         let tokens_for_expression = compile_expression(binding_expression, component);
         init.push(quote!({
             sixtyfps::internal::set_callback_handler(#rust_property, &self_rc, {

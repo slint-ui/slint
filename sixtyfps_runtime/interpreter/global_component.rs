@@ -24,9 +24,7 @@ pub enum CompiledGlobal {
 }
 
 pub trait GlobalComponent {
-    fn invoke_callback(self: Pin<&Self>, _callback_name: &str, _args: &[Value]) -> Value {
-        todo!("call callback")
-    }
+    fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Value;
 
     fn set_property(self: Pin<&Self>, prop_name: &str, value: Value);
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Value;
@@ -101,6 +99,12 @@ impl GlobalComponent for GlobalComponentInstance {
             comp.borrow_instance(),
         )
     }
+
+    fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Value {
+        generativity::make_guard!(guard);
+        let comp = self.0.unerase(guard);
+        comp.description().invoke_callback(comp.borrow(), callback_name, args).unwrap()
+    }
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
@@ -118,6 +122,11 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
         let prop: &dyn rtti::PropertyInfo<Self, Value> =
             Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
         unsafe { (self.get_ref() as *const Self as *const u8).add(prop.offset()) as *const () }
+    }
+
+    fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Value {
+        let cb = Self::callbacks().into_iter().find(|(k, _)| *k == callback_name).unwrap().1;
+        cb.call(self, args).unwrap()
     }
 }
 

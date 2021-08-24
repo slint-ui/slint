@@ -29,13 +29,14 @@ impl PropertySets {
         if !std::rc::Weak::ptr_eq(
             &p1.element().borrow().enclosing_component,
             &p2.element().borrow().enclosing_component,
-        ) {
-            // We can  only merge aliases if they are in the same Component.
+        ) && (p1.element().borrow().enclosing_component.upgrade().unwrap().is_global()
+            == p2.element().borrow().enclosing_component.upgrade().unwrap().is_global())
+        {
+            // We can  only merge aliases if they are in the same Component. (unless one of them is global)
             // TODO: actually we could still merge two alias in a component pointing to the same
             // property in a parent component
             return;
         }
-
         if let Some(s1) = self.map.get(&p1).cloned() {
             if let Some(s2) = self.map.get(&p2).cloned() {
                 if Rc::ptr_eq(&s1, &s2) {

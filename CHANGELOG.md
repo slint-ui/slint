@@ -10,6 +10,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+ - One can now set an alias from the root to a global callback
+
 ### Fixed
 
 ## [0.1.1] - 2021-08-19
@@ -25,7 +27,7 @@ All notable changes to this project will be documented in this file.
    preserved. For fields in structures they are normalized.
 - Show a compilation error when there are duplicated element ids.
  - The `clip` property can now be any expression.
- 
+
 ### Added
 
  - `ComboBox` now has a `selected` callback.

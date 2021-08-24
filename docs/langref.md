@@ -726,6 +726,31 @@ Example := Rectangle {
 }
 ```
 
+It is possible to re-expose a callback or properties from a global using the two way binding syntax.
+
+```60
+global Logic := {
+    property <int> the-value;
+    callback magic-operation(int) -> int;
+}
+
+SomeComponent := Text {
+    // use the global in any component
+    text: "The magic value is:" + Logic.magic-operation(42);
+}
+
+MainWindow := Window {
+    // re-expose the global properties such that the native code
+    // can access or modify them
+    property the-value <=> Logic.the-value;
+    callback magic-operation <=> Logic.magic-operation;
+
+    SomeComponent {}
+}
+```
+
+A global can be declared in another module file, and imported from many files.
+
 ## Modules
 
 Components declared in a .60 file can be shared with components in other .60 files, by means of exporting and importing them.

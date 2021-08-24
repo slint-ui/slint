@@ -1,0 +1,63 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+global Glo := {
+    property <int> hello: 42;
+    callback sum(int, int) -> int;
+    callback mul(int, int) -> int;
+}
+
+ExtraComp := Rectangle {
+    property<int> five: Glo.sum(3, 2);
+    property<int> six: Glo.mul(3, 2);
+}
+
+
+TestCase := Window {
+    callback sum <=> Glo.sum;
+    callback mul <=> Glo.mul;
+
+    x := ExtraComp {}
+    property<int> five: x.five;
+    property<int> six: x.six;
+
+    //mul(α, β) => { return α * β; }
+    property<bool> test: five == 0; // because the callback is not set
+
+}
+
+/*
+```rust
+let instance = TestCase::new();
+instance.on_sum(|a, b| a + b);
+instance.on_mul(|a, b| a * b);
+assert_eq!(instance.get_five(), 5);
+assert_eq!(instance.get_six(), 6);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.on_sum([](int a, int b) { return a + b; });
+instance.on_mul([](int a, int b) { return a * b; });
+assert_eq(instance.get_five(), 5);
+assert_eq(instance.get_six(), 6);
+```
+
+```js
+let instance = new sixtyfps.TestCase({
+    sum: function(a, b) { return a + b; },
+    mul: function(a, b) { return a * b; }
+});
+assert.equal(instance.five, 5);
+assert.equal(instance.six, 6);
+```
+
+*/
