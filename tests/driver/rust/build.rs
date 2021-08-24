@@ -85,5 +85,8 @@ fn main() -> std::io::Result<()> {
     // provides test coverage for the non-embedding case, compiling tests without embedding the images.
     println!("cargo:rustc-env=SIXTYFPS_EMBED_RESOURCES=false");
 
+    //Make sure to use a consistant style
+    println!("cargo:rustc-env=SIXTYFPS_STYLE=fluent");
+
     Ok(())
 }
