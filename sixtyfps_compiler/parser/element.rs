@@ -94,10 +94,8 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 let checkpoint = p.checkpoint();
                 p.consume();
                 if p.peek().as_str() == "children" {
-                    {
-                        let _ =
-                            p.start_node_at(checkpoint.clone(), SyntaxKind::ChildrenPlaceholder);
-                    }
+                    let mut p =
+                        p.start_node_at(checkpoint.clone(), SyntaxKind::ChildrenPlaceholder);
                     p.consume()
                 } else {
                     p.test(SyntaxKind::Identifier);
