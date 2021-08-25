@@ -12,6 +12,7 @@ mod completion;
 mod goto;
 mod lsp_ext;
 mod preview;
+mod semantic_tokens;
 mod util;
 
 use std::collections::HashMap;
@@ -27,10 +28,9 @@ use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
     ColorInformation, ColorPresentation, Command, CompletionOptions, DidChangeTextDocumentParams,
     DidOpenTextDocumentParams, DocumentSymbolResponse, ExecuteCommandOptions, Hover,
-    InitializeParams, Location, OneOf, Position, PublishDiagnosticsParams, Range, SemanticToken,
-    SemanticTokens, SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
-    SemanticTokensResult, ServerCapabilities, SymbolInformation, TextDocumentSyncCapability, Url,
-    WorkDoneProgressOptions,
+    InitializeParams, Location, OneOf, Position, PublishDiagnosticsParams, Range,
+    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
+    SymbolInformation, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::langtype::Type;
@@ -141,28 +141,6 @@ fn main() {
 
     preview::start_ui_event_loop();
     lsp_thread.join().unwrap();
-}
-
-mod semantic_tokens {
-    use lsp_types::{SemanticTokenModifier, SemanticTokenType};
-
-    /// Give all the used types/modifier a number in an indexed array
-    macro_rules! declare_legend {
-        ($what:ident: $ty:ty = [$($tk:ident)*]) => {
-            pub const $what : &[$ty] = &[
-                $(<$ty>::$tk),*
-            ];
-            declare_legend!{@  [ $($tk)* ], 0}
-        };
-        (@ [$head:ident $($tail:ident)*], $n:expr) => {
-            pub const $head: u32 = $n;
-            declare_legend!{@  [ $($tail)* ], $n + 1}
-        };
-        (@ [], $n:expr) => {};
-    }
-    // the id of the element
-    declare_legend!(LEGEND_TYPES : SemanticTokenType = [TYPE PARAMETER VARIABLE PROPERTY FUNCTION MACRO KEYWORD COMMENT STRING NUMBER OPERATOR]);
-    declare_legend!(LEGEND_MODS: SemanticTokenModifier = [DEFINITION DECLARATION]);
 }
 
 fn run_lsp_server() -> Result<(), Error> {
@@ -328,7 +306,7 @@ fn handle_request(
         let result = get_code_lenses(document_cache, &params.text_document);
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     } else if let Some((id, params)) = cast::<SemanticTokensFullRequest>(&mut req) {
-        let result = get_semantic_tokens(document_cache, &params.text_document);
+        let result = semantic_tokens::get_semantic_tokens(document_cache, &params.text_document);
         connection.sender.send(Message::Response(Response::new_ok(id, result)))?;
     };
     Ok(())
@@ -677,172 +655,4 @@ fn get_code_lenses(
         })
         .collect::<Vec<_>>();
     Some(r)
-}
-
-fn get_semantic_tokens(
-    document_cache: &mut DocumentCache,
-    text_document: &lsp_types::TextDocumentIdentifier,
-) -> Option<SemanticTokensResult> {
-    let uri = &text_document.uri;
-    let filepath = uri.to_file_path().ok()?;
-    let doc = document_cache.documents.get_document(&filepath)?;
-    let doc_node = doc.node.as_ref()?;
-    let mut token = doc_node.first_token()?;
-    let mut data = vec![];
-    let mut delta_start = 0;
-    let mut delta_line = 0;
-    loop {
-        let t_m = match token.kind() {
-            SyntaxKind::Comment => Some((semantic_tokens::COMMENT, 0)),
-            SyntaxKind::StringLiteral => Some((semantic_tokens::STRING, 0)),
-            SyntaxKind::NumberLiteral => Some((semantic_tokens::NUMBER, 0)),
-            SyntaxKind::ColorLiteral => Some((semantic_tokens::NUMBER, 0)),
-            SyntaxKind::Identifier => match token.parent().kind() {
-                SyntaxKind::Component => Some((semantic_tokens::KEYWORD, 0)),
-                // the id of the element
-                SyntaxKind::SubElement => {
-                    Some((semantic_tokens::VARIABLE, 1 << semantic_tokens::DEFINITION))
-                }
-                SyntaxKind::RepeatedElement => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::RepeatedIndex => {
-                    Some((semantic_tokens::VARIABLE, 1 << semantic_tokens::DEFINITION))
-                }
-                SyntaxKind::ConditionalElement => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::CallbackDeclaration => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::CallbackConnection => Some((semantic_tokens::FUNCTION, 0)),
-                SyntaxKind::PropertyDeclaration => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::PropertyAnimation => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::QualifiedName => match token.parent().parent().map(|p| p.kind()) {
-                    Some(SyntaxKind::Type) => Some((semantic_tokens::TYPE, 0)),
-                    // the base type
-                    Some(SyntaxKind::Element) => Some((semantic_tokens::TYPE, 0)),
-                    // FIXME: we should do actual lookup
-                    Some(SyntaxKind::Expression) => None,
-                    Some(SyntaxKind::StatePropertyChange) => Some((semantic_tokens::PROPERTY, 0)),
-                    Some(SyntaxKind::PropertyAnimation) => Some((semantic_tokens::PROPERTY, 0)),
-                    _ => None,
-                },
-                SyntaxKind::DeclaredIdentifier => match token.parent().parent().map(|p| p.kind()) {
-                    Some(SyntaxKind::Component) => {
-                        Some((semantic_tokens::TYPE, 1 << semantic_tokens::DEFINITION))
-                    }
-                    Some(SyntaxKind::RepeatedElement) => {
-                        Some((semantic_tokens::PROPERTY, 1 << semantic_tokens::DEFINITION))
-                    }
-                    Some(SyntaxKind::CallbackDeclaration) => {
-                        Some((semantic_tokens::FUNCTION, 1 << semantic_tokens::DEFINITION))
-                    }
-                    Some(SyntaxKind::CallbackConnection) => {
-                        Some((semantic_tokens::PARAMETER, 1 << semantic_tokens::DEFINITION))
-                    }
-                    Some(SyntaxKind::PropertyDeclaration) => {
-                        Some((semantic_tokens::PROPERTY, 1 << semantic_tokens::DEFINITION))
-                    }
-                    Some(SyntaxKind::State | SyntaxKind::Transition) => {
-                        // This is the state name, but what semantic type is that?
-                        None
-                    }
-                    Some(SyntaxKind::StructDeclaration) => {
-                        Some((semantic_tokens::TYPE, 1 << semantic_tokens::DEFINITION))
-                    }
-                    _ => None,
-                },
-                SyntaxKind::ChildrenPlaceholder => Some((semantic_tokens::MACRO, 0)),
-                SyntaxKind::Binding | SyntaxKind::TwoWayBinding => {
-                    Some((semantic_tokens::PROPERTY, 0))
-                }
-                SyntaxKind::ReturnStatement => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::AtImageUrl => Some((semantic_tokens::MACRO, 0)),
-                SyntaxKind::AtLinearGradient => Some((semantic_tokens::MACRO, 0)),
-                SyntaxKind::ConditionalExpression => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::ObjectMember => {
-                    Some((semantic_tokens::PROPERTY, 1 << semantic_tokens::DECLARATION))
-                }
-                SyntaxKind::States => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::State => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::Transitions => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::Transition => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::ExportsList => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::ExportSpecifier => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::ExportIdentifier => Some((
-                    semantic_tokens::TYPE,
-                    if token.parent().parent().map_or(false, |p| {
-                        p.children().find(|n| n.kind() == SyntaxKind::ExportName).is_some()
-                    }) {
-                        0
-                    } else {
-                        1 << semantic_tokens::DECLARATION
-                    },
-                )),
-                SyntaxKind::ExportName => {
-                    Some((semantic_tokens::TYPE, 1 << semantic_tokens::DECLARATION))
-                }
-                SyntaxKind::ImportSpecifier => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::ImportIdentifier => Some((semantic_tokens::KEYWORD, 0)),
-                SyntaxKind::ExternalName => Some((
-                    semantic_tokens::TYPE,
-                    if token.parent().parent().map_or(false, |p| {
-                        p.children().find(|n| n.kind() == SyntaxKind::InternalName).is_some()
-                    }) {
-                        0
-                    } else {
-                        1 << semantic_tokens::DECLARATION
-                    },
-                )),
-                SyntaxKind::InternalName => {
-                    Some((semantic_tokens::TYPE, 1 << semantic_tokens::DECLARATION))
-                }
-                SyntaxKind::ObjectTypeMember => {
-                    Some((semantic_tokens::PROPERTY, 1 << semantic_tokens::DEFINITION))
-                }
-                SyntaxKind::StructDeclaration => Some((semantic_tokens::KEYWORD, 0)),
-                _ => None,
-            },
-            SyntaxKind::PlusEqual
-            | SyntaxKind::MinusEqual
-            | SyntaxKind::StarEqual
-            | SyntaxKind::DivEqual
-            | SyntaxKind::LessEqual
-            | SyntaxKind::GreaterEqual
-            | SyntaxKind::EqualEqual
-            | SyntaxKind::NotEqual
-            | SyntaxKind::OrOr
-            | SyntaxKind::AndAnd => Some((semantic_tokens::OPERATOR, 0)),
-            SyntaxKind::LAngle | SyntaxKind::RAngle => (token.parent().kind()
-                == SyntaxKind::PropertyDeclaration)
-                .then(|| (semantic_tokens::OPERATOR, 0)),
-            SyntaxKind::Plus
-            | SyntaxKind::Minus
-            | SyntaxKind::Star
-            | SyntaxKind::Div
-            | SyntaxKind::Equal => Some((semantic_tokens::OPERATOR, 0)),
-            SyntaxKind::Question => Some((semantic_tokens::OPERATOR, 0)),
-            SyntaxKind::At => Some((semantic_tokens::MACRO, 0)),
-            _ => None,
-        };
-        if let Some((token_type, token_modifiers_bitset)) = t_m {
-            data.push(SemanticToken {
-                delta_line,
-                delta_start,
-                length: token.text().encode_utf16().count() as u32,
-                token_type,
-                token_modifiers_bitset,
-            });
-            delta_line = 0;
-            delta_start = 0;
-        }
-        let text = token.text();
-        let l = text.bytes().filter(|x| *x == b'\n').count();
-        if l == 0 {
-            delta_start += text.encode_utf16().count() as u32;
-        } else {
-            delta_line += l as u32;
-            delta_start = text[(text.rfind('\n').unwrap() + 1)..].encode_utf16().count() as u32;
-        }
-        token = match token.next_token() {
-            None => break,
-            Some(token) => token,
-        }
-    }
-    Some(SemanticTokensResult::Tokens(SemanticTokens { result_id: None, data }))
 }
