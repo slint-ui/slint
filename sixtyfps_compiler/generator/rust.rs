@@ -136,6 +136,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
                 .then(|| public_component_id(glob))
         })
         .collect::<Vec<_>>();
+
     Some(quote! {
         #[allow(non_snake_case)]
         #[allow(clippy::style)]
@@ -148,7 +149,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
         pub use #compo_module::{#compo_id #(,#structs_ids)* #(,#globals_ids)* };
-        pub use sixtyfps::ComponentHandle;
+        pub use sixtyfps::{ComponentHandle, Global};
     })
 }
 
@@ -861,11 +862,32 @@ fn generate_component(
                     fn window(&self) -> &sixtyfps::Window {
                         &vtable::VRc::as_pin_ref(&self.0).get_ref().window
                     }
+
+                    fn global<'a, T: sixtyfps::Global<'a, Self>>(&'a self) -> T {
+                        T::get(&self)
+                    }
                 }
             ))
         } else {
             None
         };
+
+        let global_accessor_impl = global_name
+            .iter()
+            .zip(component.used_types.borrow().globals.iter())
+            .filter_map(|(global_name, global)| {
+                global.visible_in_public_api().then(|| {
+                    let global_type = self::public_component_id(global);
+                    quote!(
+                        impl<'a> sixtyfps::Global<'a, #public_component_id> for #global_type<'a> {
+                            fn get(component: &'a #public_component_id) -> Self {
+                                Self(&component.0.#global_name)
+                            }
+                        }
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
 
         Some(quote!(
             #visibility struct #public_component_id(vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>);
@@ -879,6 +901,8 @@ fn generate_component(
 
             #component_handle_impl
 
+            #(#global_accessor_impl)*
+
             impl From<#public_component_id> for vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id> {
                 fn from(value: #public_component_id) -> Self {
                     value.0
@@ -887,9 +911,9 @@ fn generate_component(
         ))
     } else if component.is_global() && component.visible_in_public_api() {
         Some(quote!(
-            #visibility struct #public_component_id(::core::pin::Pin<::std::rc::Rc<#inner_component_id>>);
+            #visibility struct #public_component_id<'a>(&'a ::core::pin::Pin<::std::rc::Rc<#inner_component_id>>);
 
-            impl #public_component_id {
+            impl<'a> #public_component_id<'a> {
                 #(#property_and_callback_accessors)*
             }
         ))

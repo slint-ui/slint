@@ -421,6 +421,13 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
     sixtyfps_rendering_backend_default::backend().post_event(Box::new(func))
 }
 
+/// Internal trait implemented for the globals in `.60` that are marked as
+/// for export. Use [`ComponentHandle::global`] to obtain access.
+#[doc(hidden)]
+pub trait Global<'a, Component> {
+    fn get(component: &'a Component) -> Self;
+}
+
 /// This trait describes the common public API of a strongly referenced SixtyFPS component.
 /// It allows creating strongly-referenced clones, a conversion into/ a weak pointer as well
 /// as other convenience functions.
@@ -460,6 +467,11 @@ pub trait ComponentHandle {
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
     /// and [`Self::hide`].
     fn run(&self);
+
+    /// This function provides access to instances of global structures exported in `.60`.
+    fn global<'a, T: Global<'a, Self>>(&'a self) -> T
+    where
+        Self: Sized;
 }
 
 mod weak_handle {

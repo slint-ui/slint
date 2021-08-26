@@ -24,6 +24,9 @@ TestCase := Rectangle {
 ```rust
 let instance = TestCase::new();
 assert!(!instance.get_test_global_prop_value());
+assert_eq!(PublicGlobal::get(&instance).get_hello(), 42);
+instance.global::<PublicGlobal>().set_hello(100);
+assert!(instance.get_test_global_prop_value());
 ```
 
 ```cpp
