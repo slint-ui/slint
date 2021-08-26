@@ -106,16 +106,6 @@ impl ItemGraphicsCache {
     ) -> Option<ItemGraphicsCacheEntry> {
         item_data.ensure_up_to_date(&mut self.0, update_fn)
     }
-
-    // Load the item cache entry from the specified load factory fn, unless it was cached in the
-    // item's rendering cache.
-    fn load_item_graphics_cache_with_function(
-        &mut self,
-        item_cache: &CachedRenderingData,
-        load_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
-    ) -> Option<ItemGraphicsCacheEntry> {
-        item_cache.ensure_up_to_date(&mut self.0, || load_fn())
-    }
 }
 
 // glutin::WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
@@ -590,7 +580,7 @@ impl ItemRenderer for GLItemRenderer {
             .graphics_window
             .graphics_cache
             .borrow_mut()
-            .load_item_graphics_cache_with_function(&text.cached_rendering_data, || {
+            .ensure_up_to_date(&text.cached_rendering_data, || {
                 Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         text.unresolved_font_request()
@@ -702,7 +692,7 @@ impl ItemRenderer for GLItemRenderer {
             .graphics_window
             .graphics_cache
             .borrow_mut()
-            .load_item_graphics_cache_with_function(&text_input.cached_rendering_data, || {
+            .ensure_up_to_date(&text_input.cached_rendering_data, || {
                 Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         text_input
@@ -955,11 +945,9 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let cache_entry = self
-            .graphics_window
-            .graphics_cache
-            .borrow_mut()
-            .load_item_graphics_cache_with_function(&box_shadow.cached_rendering_data, || {
+        let cache_entry = self.graphics_window.graphics_cache.borrow_mut().ensure_up_to_date(
+            &box_shadow.cached_rendering_data,
+            || {
                 ItemGraphicsCacheEntry::Image({
                     let blur = box_shadow.blur() * self.scale_factor;
                     let offset_x = box_shadow.offset_x() * self.scale_factor;
@@ -1054,7 +1042,8 @@ impl ItemRenderer for GLItemRenderer {
                     Rc::new(shadow_image)
                 })
                 .into()
-            });
+            },
+        );
 
         let shadow_image = match &cache_entry {
             Some(cached_shadow_image) => cached_shadow_image.as_image(),
@@ -1362,7 +1351,7 @@ impl GLItemRenderer {
                 .graphics_window
                 .graphics_cache
                 .borrow_mut()
-                .load_item_graphics_cache_with_function(item_cache, || {
+                .ensure_up_to_date(item_cache, || {
                     let image = source_property.get();
                     let image_inner = (&image).into();
 

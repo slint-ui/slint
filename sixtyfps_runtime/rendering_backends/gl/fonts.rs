@@ -320,7 +320,7 @@ impl FontMetrics {
         reference_text: core::pin::Pin<&sixtyfps_corelib::Property<SharedString>>,
     ) -> Self {
         let font = graphics_cache
-            .load_item_graphics_cache_with_function(item_graphics_cache_data, || {
+            .ensure_up_to_date(item_graphics_cache_data, || {
                 Some(super::ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         font_request_fn(),
