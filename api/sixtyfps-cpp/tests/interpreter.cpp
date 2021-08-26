@@ -491,3 +491,49 @@ SCENARIO("Send key events")
     sixtyfps::testing::send_keyboard_string_sequence(&*instance, "Hello keys!", {});
     REQUIRE(*instance->get_property("result")->to_string() == "Hello keys!");
 }
+
+
+SCENARIO("Global properties")
+{
+    using namespace sixtyfps::interpreter;
+    using namespace sixtyfps;
+
+    ComponentCompiler compiler;
+
+    auto result = compiler.build_from_source(
+            R"(
+        export global The-Global := {
+            property <string> the-property: "€€€";
+        }
+        export Dummy := Rectangle { }
+    )", "");
+    REQUIRE(result.has_value());
+    auto instance = result->create();
+
+    SECTION("Invalid read")
+    {
+        REQUIRE(!instance->get_global_property("the - global", "the-property").has_value());
+        REQUIRE(!instance->get_global_property("The-Global", "the property").has_value());
+    }
+    SECTION("Invalid set")
+    {
+        REQUIRE(!instance->set_global_property("the - global", "the-property", 5.));
+        REQUIRE(!instance->set_global_property("The-Global", "the property", 5.));
+        REQUIRE(!instance->set_global_property("The-Global", "the-property", 5.));
+    }
+    SECTION("get property")
+    {
+        auto value = instance->get_global_property("The_Global", "the-property");
+        REQUIRE(value.has_value());
+        REQUIRE(value->to_string().has_value());
+        REQUIRE(value->to_string().value() == "€€€");
+    }
+    SECTION("set property")
+    {
+        REQUIRE(instance->set_global_property("The-Global", "the-property", SharedString("§§§")));
+        auto value = instance->get_global_property("The-Global", "the_property");
+        REQUIRE(value.has_value());
+        REQUIRE(value->to_string().has_value());
+        REQUIRE(value->to_string().value() == "§§§");
+    }
+}

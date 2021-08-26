@@ -413,6 +413,55 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_callback(
         .is_ok()
 }
 
+/// Get a global property.
+/// The `out` parameter must be uninitialized. If this function returns true, the out will be initialized
+/// to the resulting value. If this function returns false, out is unchanged
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_get_global_property(
+    inst: &ErasedComponentBox,
+    global: Slice<u8>,
+    property_name: Slice<u8>,
+    out: *mut ValueOpaque,
+) -> bool {
+    generativity::make_guard!(guard);
+    let comp = inst.unerase(guard);
+    match comp
+        .description()
+        .get_global(comp.borrow(), &normalize_identifier(std::str::from_utf8(&global).unwrap()))
+        .and_then(|g| {
+            g.as_ref()
+                .get_property(&normalize_identifier(std::str::from_utf8(&property_name).unwrap()))
+        }) {
+        Ok(val) => {
+            std::ptr::write(out as *mut Value, val);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn sixtyfps_interpreter_component_instance_set_global_property(
+    inst: &ErasedComponentBox,
+    global: Slice<u8>,
+    property_name: Slice<u8>,
+    val: &ValueOpaque,
+) -> bool {
+    generativity::make_guard!(guard);
+    let comp = inst.unerase(guard);
+    comp.description()
+        .get_global(comp.borrow(), &normalize_identifier(std::str::from_utf8(&global).unwrap()))
+        .and_then(|g| {
+            g.as_ref()
+                .set_property(
+                    &normalize_identifier(std::str::from_utf8(&property_name).unwrap()),
+                    val.as_value().clone(),
+                )
+                .map_err(|_| ())
+        })
+        .is_ok()
+}
+
 /// Show or hide
 #[no_mangle]
 pub extern "C" fn sixtyfps_interpreter_component_instance_show(
