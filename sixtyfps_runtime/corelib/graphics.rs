@@ -54,7 +54,7 @@ pub struct CachedGraphicsData<T> {
     pub data: T,
     /// The property tracker that should be used to evaluate whether the primitive needs to be re-created
     /// or not.
-    pub dependency_tracker: core::pin::Pin<Box<crate::properties::PropertyTracker>>,
+    pub dependency_tracker: Option<core::pin::Pin<Box<crate::properties::PropertyTracker>>>,
 }
 
 impl<T> CachedGraphicsData<T> {
@@ -63,7 +63,7 @@ impl<T> CachedGraphicsData<T> {
     pub fn new(update_fn: impl FnOnce() -> T) -> Self {
         let dependency_tracker = Box::pin(crate::properties::PropertyTracker::default());
         let data = dependency_tracker.as_ref().evaluate(update_fn);
-        Self { data, dependency_tracker }
+        Self { data, dependency_tracker: Some(dependency_tracker) }
     }
 }
 
@@ -91,6 +91,11 @@ impl<T> RenderingCache<T> {
     /// Retrieves a mutable reference to the cached graphics data at index.
     pub fn get_mut(&mut self, index: usize) -> Option<&mut CachedGraphicsData<T>> {
         self.slab.get_mut(index)
+    }
+
+    /// Returns true if a cache entry exists for the given index.
+    pub fn contains(&self, index: usize) -> bool {
+        self.slab.contains(index)
     }
 
     /// Inserts data into the cache and returns the index for retrieval later.
