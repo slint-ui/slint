@@ -35,14 +35,14 @@ impl CachedRenderingData {
     /// This function allows retrieving the backend specific per-item data cache, updating
     /// it if depending properties have changed. The supplied update_fn will be called when
     /// properties have changed or the cache is initialized the first time.
-    pub fn ensure_up_to_date<T: Clone>(
+    pub fn get_or_update<T: Clone>(
         &self,
-        cache: &mut RenderingCache<T>,
+        cache: &RefCell<RenderingCache<T>>,
         update_fn: impl FnOnce() -> T,
     ) -> T {
-        if self.cache_generation.get() == cache.generation() {
+        if self.cache_generation.get() == cache.borrow().generation() {
             let index = self.cache_index.get();
-            if let Some(existing_entry) = cache.get_mut(index) {
+            if let Some(existing_entry) = cache.borrow_mut().get_mut(index) {
                 if let Some(data) =
                     existing_entry.dependency_tracker.as_ref().evaluate_if_dirty(update_fn)
                 {
@@ -51,9 +51,10 @@ impl CachedRenderingData {
                 return existing_entry.data.clone();
             }
         }
-        self.cache_index.set(cache.insert(crate::graphics::CachedGraphicsData::new(update_fn)));
-        self.cache_generation.set(cache.generation());
-        cache.get(self.cache_index.get()).unwrap().data.clone()
+        self.cache_index
+            .set(cache.borrow_mut().insert(crate::graphics::CachedGraphicsData::new(update_fn)));
+        self.cache_generation.set(cache.borrow().generation());
+        cache.borrow().get(self.cache_index.get()).unwrap().data.clone()
     }
 
     /// This function can be used to remove an entry from the rendering cache for a given item, if it

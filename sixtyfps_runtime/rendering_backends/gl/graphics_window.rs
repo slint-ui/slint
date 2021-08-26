@@ -425,7 +425,7 @@ impl PlatformWindow for GraphicsWindow {
                     .iter()
                     .flat_map(|item| {
                         let cached_rendering_data = item.cached_rendering_data_offset();
-                        self.graphics_cache.borrow_mut().release(cached_rendering_data)
+                        cached_rendering_data.release(&mut *self.graphics_cache.borrow_mut())
                     })
                     .peekable();
                 if cache_entries_to_clear.peek().is_some() {
@@ -546,7 +546,7 @@ impl PlatformWindow for GraphicsWindow {
             WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref());
 
         Box::new(super::fonts::FontMetrics::new(
-            &mut *self.graphics_cache.borrow_mut(),
+            &self.graphics_cache,
             item_graphics_cache_data,
             font_request_fn,
             scale_factor,

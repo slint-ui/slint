@@ -81,32 +81,7 @@ impl ItemGraphicsCacheEntry {
     }
 }
 
-#[derive(Default)]
-struct ItemGraphicsCache(RenderingCache<Option<ItemGraphicsCacheEntry>>);
-
-impl ItemGraphicsCache {
-    /// Convenience method for releasing an item's cached graphics data.
-    fn release(&mut self, item_data: &CachedRenderingData) -> Option<ItemGraphicsCacheEntry> {
-        item_data.release(&mut self.0).flatten()
-    }
-
-    /// Clears the entire graphics cache. This is needed when for example loosing
-    /// the GL context (when unmapping a window) and destroying the canvas.
-    fn clear(&mut self) {
-        self.0.clear();
-    }
-
-    /// Convenience method that will return what's in the item's graphics cache
-    /// and call update_fn if the cache is outdated and needs refreshing. If
-    /// update_fn is called, the data is persisted in the cache.
-    fn ensure_up_to_date(
-        &mut self,
-        item_data: &CachedRenderingData,
-        update_fn: impl FnOnce() -> Option<ItemGraphicsCacheEntry>,
-    ) -> Option<ItemGraphicsCacheEntry> {
-        item_data.ensure_up_to_date(&mut self.0, update_fn)
-    }
-}
+type ItemGraphicsCache = RenderingCache<Option<ItemGraphicsCacheEntry>>;
 
 // glutin::WindowedContext tries to enforce being current or not. Since we need the WindowedContext's window() function
 // in the GL renderer regardless whether we're current or not, we wrap the two states back into one type.
@@ -576,11 +551,9 @@ impl ItemRenderer for GLItemRenderer {
         let string = string.as_str();
         let vertical_alignment = text.vertical_alignment();
         let horizontal_alignment = text.horizontal_alignment();
-        let font = self
-            .graphics_window
-            .graphics_cache
-            .borrow_mut()
-            .ensure_up_to_date(&text.cached_rendering_data, || {
+        let font = text
+            .cached_rendering_data
+            .get_or_update(&self.graphics_window.graphics_cache, || {
                 Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         text.unresolved_font_request()
@@ -688,11 +661,9 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let font = self
-            .graphics_window
-            .graphics_cache
-            .borrow_mut()
-            .ensure_up_to_date(&text_input.cached_rendering_data, || {
+        let font = text_input
+            .cached_rendering_data
+            .get_or_update(&self.graphics_window.graphics_cache, || {
                 Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         text_input
@@ -945,8 +916,8 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let cache_entry = self.graphics_window.graphics_cache.borrow_mut().ensure_up_to_date(
-            &box_shadow.cached_rendering_data,
+        let cache_entry = box_shadow.cached_rendering_data.get_or_update(
+            &self.graphics_window.graphics_cache,
             || {
                 ItemGraphicsCacheEntry::Image({
                     let blur = box_shadow.blur() * self.scale_factor;
@@ -1146,9 +1117,8 @@ impl ItemRenderer for GLItemRenderer {
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         let canvas = &self.shared_data.canvas;
-        let mut cache = self.graphics_window.graphics_cache.borrow_mut();
 
-        let cache_entry = cache.ensure_up_to_date(item_cache, || {
+        let cache_entry = item_cache.get_or_update(&self.graphics_window.graphics_cache, || {
             let mut cached_image = None;
             update_fn(&mut |width: u32, height: u32, data: &[u8]| {
                 use rgb::FromSlice;
@@ -1347,11 +1317,8 @@ impl GLItemRenderer {
         }
 
         let cached_image = loop {
-            let image_cache_entry = self
-                .graphics_window
-                .graphics_cache
-                .borrow_mut()
-                .ensure_up_to_date(item_cache, || {
+            let image_cache_entry =
+                item_cache.get_or_update(&self.graphics_window.graphics_cache, || {
                     let image = source_property.get();
                     let image_inner = (&image).into();
 
@@ -1404,7 +1371,7 @@ impl GLItemRenderer {
                 && !cached_image.is_colorized_image()
             {
                 let mut cache = self.graphics_window.graphics_cache.borrow_mut();
-                cache.release(item_cache);
+                item_cache.release(&mut cache);
                 continue;
             }
 

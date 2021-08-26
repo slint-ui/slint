@@ -613,7 +613,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>) {
         let cached_shadow_pixmap = box_shadow
             .cached_rendering_data
-            .ensure_up_to_date(&mut self.cache.borrow_mut(), || {
+            .get_or_update(&self.cache, || {
                 let shadow_rect = get_geometry!(items::BoxShadow, box_shadow);
 
                 let source_size = qttypes::QSize {
@@ -925,7 +925,7 @@ impl QtItemRenderer<'_> {
         debug_assert!(target_width.get() > 0.);
         debug_assert!(target_height.get() > 0.);
 
-        let cached = item_cache.ensure_up_to_date(&mut self.cache.borrow_mut(), || {
+        let cached = item_cache.get_or_update(&self.cache, || {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let target_width = target_width.get() as f64;
             let target_height = target_height.get() as f64;

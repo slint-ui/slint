@@ -313,14 +313,14 @@ pub struct FontMetrics {
 
 impl FontMetrics {
     pub(crate) fn new(
-        graphics_cache: &mut ItemGraphicsCache,
+        graphics_cache: &RefCell<ItemGraphicsCache>,
         item_graphics_cache_data: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         font_request_fn: impl Fn() -> sixtyfps_corelib::graphics::FontRequest,
         scale_factor: core::pin::Pin<&sixtyfps_corelib::Property<f32>>,
         reference_text: core::pin::Pin<&sixtyfps_corelib::Property<SharedString>>,
     ) -> Self {
-        let font = graphics_cache
-            .ensure_up_to_date(item_graphics_cache_data, || {
+        let font = item_graphics_cache_data
+            .get_or_update(graphics_cache, || {
                 Some(super::ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         font_request_fn(),
