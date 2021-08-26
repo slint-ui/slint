@@ -790,6 +790,62 @@ impl ComponentInstance {
             .map_err(|()| todo!())
     }
 
+    /// Return the value for a property within an exported global used by this component.
+    ///
+    /// The `global` parameter is the exported name of the global. The `property` argument
+    /// is the name of the property
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// let code = r#"
+    ///     global Glob := {
+    ///         property <int> my_property: 42;
+    ///     }
+    ///     export { Glob as TheGlobal }
+    ///     MyWin := Window {
+    ///     }
+    /// "#;
+    /// let mut compiler = ComponentCompiler::default();
+    /// let definition = spin_on::spin_on(
+    ///     compiler.build_from_source(code.into(), Default::default()));
+    /// assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
+    /// let instance = definition.unwrap().create();
+    /// assert_eq!(instance.get_global_property("TheGlobal", "my_property").unwrap(), Value::from(42));
+    /// ```
+    pub fn get_global_property(
+        &self,
+        global: &str,
+        property: &str,
+    ) -> Result<Value, GetPropertyError> {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        comp.description()
+            .get_global(comp.borrow(), &normalize_identifier(global))
+            .map_err(|()| GetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
+            .as_ref()
+            .get_property(&normalize_identifier(property))
+            .map_err(|()| GetPropertyError::NoSuchProperty)
+    }
+
+    /// Set the value for a property within an exported global used by this component.
+    pub fn set_global_property(
+        &self,
+        global: &str,
+        property: &str,
+        value: Value,
+    ) -> Result<(), SetPropertyError> {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        comp.description()
+            .get_global(comp.borrow(), &normalize_identifier(global))
+            .map_err(|()| SetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
+            .as_ref()
+            .set_property(&normalize_identifier(property), value)
+            .map_err(|()| todo!())
+    }
+
     /// Marks the window of this component to be shown on the screen. This registers
     /// the window with the windowing system. In order to react to events from the windowing system,
     /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
@@ -987,6 +1043,50 @@ fn component_definition_properties2() {
     let callbacks = comp_def.callbacks().collect::<Vec<_>>();
     assert_eq!(callbacks.len(), 1);
     assert_eq!(callbacks[0], "hello");
+}
+
+#[test]
+fn globals() {
+    let mut compiler = ComponentCompiler::default();
+    let definition = spin_on::spin_on(
+        compiler.build_from_source(
+            r#"
+    export global My-Super_Global := {
+        property <int> the-property : 21;
+    }
+    export Dummy := Rectangle {
+    }"#
+            .into(),
+            "".into(),
+        ),
+    );
+    let instance = definition.unwrap().create();
+    assert_eq!(
+        instance.set_global_property("My_Super-Global", "the_property", Value::Number(44.)),
+        Ok(())
+    );
+    assert_eq!(
+        instance.set_global_property("DontExist", "the-property", Value::Number(88.)),
+        Err(SetPropertyError::NoSuchProperty)
+    );
+    /*
+    assert_eq!(
+         instance.set_global_property("My_Super-Global", "theproperty", Value::Number(88.)),
+         Err(SetPropertyError::NoSuchProperty)
+     );
+    assert_eq!(
+         instance.set_global_property("My_Super-Global", "the_property", Value::String("88".into())),
+         Err(SetPropertyError::WrongType)
+     );*/
+
+    assert_eq!(
+        instance.get_global_property("My-Super_Global", "yoyo"),
+        Err(GetPropertyError::NoSuchProperty)
+    );
+    assert_eq!(
+        instance.get_global_property("My-Super_Global", "the-property"),
+        Ok(Value::Number(44.))
+    );
 }
 
 #[cfg(feature = "ffi")]

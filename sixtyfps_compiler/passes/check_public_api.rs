@@ -13,9 +13,21 @@ LICENSE END */
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
-use crate::object_tree::Component;
+use crate::langtype::Type;
+use crate::object_tree::{Component, Document};
 
-pub fn check_public_api(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+pub fn check_public_api(doc: &Document, diag: &mut BuildDiagnostics) {
+    check_public_api_component(&doc.root_component, diag);
+    for (_, ty) in doc.exports() {
+        if let Type::Component(c) = ty {
+            if c.is_global() {
+                check_public_api_component(c, diag)
+            }
+        }
+    }
+}
+
+fn check_public_api_component(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     root_component.root_element.borrow_mut().property_declarations.values_mut().for_each(|d| {
         if d.property_type.ok_for_public_api() {
             d.expose_in_public_api = true

@@ -63,7 +63,7 @@ pub async fn run_passes(
     resolving::resolve_expressions(doc, type_loader, diag);
     check_expressions::check_expressions(doc, diag);
     unique_id::check_unique_id(doc, diag);
-    check_public_api::check_public_api(root_component, diag);
+    check_public_api::check_public_api(doc, diag);
 
     collect_subcomponents::collect_subcomponents(root_component);
     for component in root_component
@@ -108,8 +108,8 @@ pub async fn run_passes(
     )
     .await;
     ensure_window::ensure_window(root_component, &doc.local_registry);
-    collect_globals::collect_globals(root_component, diag);
-    unique_id::assign_unique_id(root_component);
+    collect_globals::collect_globals(doc, diag);
+    unique_id::assign_unique_id(root_component, &doc.exports());
     binding_analysis::binding_analysis(root_component, diag);
     deduplicate_property_read::deduplicate_property_read(root_component);
     move_declarations::move_declarations(root_component, diag);
