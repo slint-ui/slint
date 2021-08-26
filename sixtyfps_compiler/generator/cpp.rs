@@ -583,10 +583,15 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
             generate_struct(&mut file, name, fields, diag);
         }
     }
-    for glob in doc.root_component.used_types.borrow().globals.iter() {
-        if !matches!(glob.root_element.borrow().base_type, Type::Builtin(_)) {
-            generate_component(&mut file, glob, diag, None);
-        }
+    for glob in doc
+        .root_component
+        .used_types
+        .borrow()
+        .globals
+        .iter()
+        .filter(|glob| glob.requires_code_generation())
+    {
+        generate_component(&mut file, glob, diag, None);
     }
 
     generate_component(&mut file, &doc.root_component, diag, None);
@@ -1274,9 +1279,11 @@ fn generate_component(
         ));
     }
 
-    let mut global_accessor_function_body = Vec::new();
+    let used_types = component.used_types.borrow();
 
-    for glob in component.used_types.borrow().globals.iter() {
+    let global_field_name = |glob| format!("global_{}", self::component_id(glob));
+
+    for glob in used_types.globals.iter() {
         let ty = match &glob.root_element.borrow().base_type {
             Type::Void => self::component_id(glob),
             Type::Builtin(b) => {
@@ -1285,17 +1292,22 @@ fn generate_component(
             _ => unreachable!(),
         };
 
-        let global_field_name = format!("global_{}", self::component_id(glob));
-
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
                 ty: format!("std::shared_ptr<{}>", ty),
-                name: global_field_name.clone(),
+                name: global_field_name(glob),
                 init: Some(format!("std::make_shared<{}>()", ty)),
             }),
         ));
+    }
+    let mut global_accessor_function_body = Vec::new();
 
+    for glob in used_types
+        .globals
+        .iter()
+        .filter(|glob| glob.visible_in_public_api() && glob.requires_code_generation())
+    {
         let mut accessor_statement = String::new();
 
         if !global_accessor_function_body.is_empty() {
@@ -1304,7 +1316,8 @@ fn generate_component(
 
         accessor_statement.push_str(&format!(
             "if constexpr(std::is_same_v<T, {}>) {{ return *{}.get(); }}",
-            ty, global_field_name
+            self::component_id(glob),
+            global_field_name(glob)
         ));
 
         global_accessor_function_body.push(accessor_statement);
