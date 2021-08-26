@@ -14,14 +14,20 @@ use by_address::ByAddress;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::NamedReference;
+use crate::langtype::Type;
 use crate::object_tree::*;
 use std::collections::HashSet;
-use std::rc::Rc;
 
 /// Fill the root_component's used_types.globals
-pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
+pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
     let mut set = HashSet::new();
-
+    for (_, ty) in doc.exports() {
+        if let Type::Component(c) = ty {
+            if c.is_global() {
+                set.insert(ByAddress(c.clone()));
+            }
+        }
+    }
     let mut maybe_collect_global = |nr: &mut NamedReference| {
         let element = nr.element();
         let global_component = element.borrow().enclosing_component.upgrade().unwrap();
@@ -29,7 +35,7 @@ pub fn collect_globals(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
             set.insert(ByAddress(global_component));
         }
     };
-    visit_all_named_references(root_component, &mut maybe_collect_global);
-    root_component.used_types.borrow_mut().globals = set.into_iter().map(|x| x.0).collect();
-    root_component.used_types.borrow_mut().globals.sort_by(|a, b| a.id.cmp(&b.id));
+    visit_all_named_references(&doc.root_component, &mut maybe_collect_global);
+    doc.root_component.used_types.borrow_mut().globals = set.into_iter().map(|x| x.0).collect();
+    doc.root_component.used_types.borrow_mut().globals.sort_by(|a, b| a.id.cmp(&b.id));
 }

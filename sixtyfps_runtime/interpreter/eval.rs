@@ -595,9 +595,12 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
                     p.set(item, eval(p.get(item)), None);
                 }
                 ComponentInstance::GlobalComponent(global) => {
-                    let val =
-                        if op == '=' { rhs } else { eval(global.as_ref().get_property(nr.name())) };
-                    global.as_ref().set_property(nr.name(), val);
+                    let val = if op == '=' {
+                        rhs
+                    } else {
+                        eval(global.as_ref().get_property(nr.name()).unwrap())
+                    };
+                    global.as_ref().set_property(nr.name(), val).unwrap();
                 }
             }
         }
@@ -667,6 +670,8 @@ fn load_property_helper(
                     return unsafe {
                         x.prop.get(Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)))
                     };
+                } else if enclosing_component.component_type.original.is_global() {
+                    return Err(());
                 }
             };
             let item_info = enclosing_component
@@ -678,7 +683,7 @@ fn load_property_helper(
             let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
             Ok(item_info.rtti.properties.get(name).ok_or(())?.get(item))
         }
-        ComponentInstance::GlobalComponent(glob) => Ok(glob.as_ref().get_property(name)),
+        ComponentInstance::GlobalComponent(glob) => Ok(glob.as_ref().get_property(name).unwrap()),
     }
 }
 
@@ -702,6 +707,8 @@ pub fn store_property(
                 let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
                 return x.prop.set(p, value, maybe_animation.as_animation());
             }
+        } else if enclosing_component.component_type.original.is_global() {
+            return Err(());
         }
     };
     let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
@@ -756,7 +763,7 @@ pub(crate) fn invoke_callback(
             }
         }
         ComponentInstance::GlobalComponent(global) => {
-            Some(global.as_ref().invoke_callback(callback_name, args))
+            Some(global.as_ref().invoke_callback(callback_name, args).unwrap())
         }
     }
 }

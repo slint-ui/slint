@@ -530,6 +530,22 @@ impl<'id> ComponentDescription<'id> {
             .ok_or(())
         }
     }
+
+    // Return the global with the given name
+    pub fn get_global(
+        &self,
+        component: ComponentRefPin,
+        global_name: &str,
+    ) -> Result<Pin<Rc<dyn crate::global_component::GlobalComponent>>, ()> {
+        if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
+            return Err(());
+        }
+        generativity::make_guard!(guard);
+        // Safety: we just verified that the component has the right vtable
+        let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
+        let extra_data = c.component_type.extra_data_offset.apply(c.instance.get_ref());
+        extra_data.globals.get(global_name).map(|g| g.clone()).ok_or(())
+    }
 }
 
 extern "C" fn visit_children_item(
