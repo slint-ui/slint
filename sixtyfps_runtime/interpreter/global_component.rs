@@ -13,6 +13,7 @@ use std::rc::Rc;
 
 use crate::api::Value;
 use crate::dynamic_component::{ErasedComponentBox, ErasedComponentDescription};
+use crate::SetPropertyError;
 use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
 use sixtyfps_corelib::component::ComponentVTable;
@@ -26,7 +27,11 @@ pub enum CompiledGlobal {
 pub trait GlobalComponent {
     fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Result<Value, ()>;
 
-    fn set_property(self: Pin<&Self>, prop_name: &str, value: Value) -> Result<(), ()>;
+    fn set_property(
+        self: Pin<&Self>,
+        prop_name: &str,
+        value: Value,
+    ) -> Result<(), SetPropertyError>;
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Result<Value, ()>;
 
     fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const ();
@@ -79,7 +84,11 @@ pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalCo
 pub struct GlobalComponentInstance(vtable::VRc<ComponentVTable, ErasedComponentBox>);
 
 impl GlobalComponent for GlobalComponentInstance {
-    fn set_property(self: Pin<&Self>, prop_name: &str, value: Value) -> Result<(), ()> {
+    fn set_property(
+        self: Pin<&Self>,
+        prop_name: &str,
+        value: Value,
+    ) -> Result<(), SetPropertyError> {
         generativity::make_guard!(guard);
         let comp = self.0.unerase(guard);
         comp.description().set_property(comp.borrow(), prop_name, value)
@@ -108,9 +117,17 @@ impl GlobalComponent for GlobalComponentInstance {
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
-    fn set_property(self: Pin<&Self>, prop_name: &str, value: Value) -> Result<(), ()> {
-        let prop = Self::properties().into_iter().find(|(k, _)| *k == prop_name).ok_or(())?.1;
-        prop.set(self, value, None)
+    fn set_property(
+        self: Pin<&Self>,
+        prop_name: &str,
+        value: Value,
+    ) -> Result<(), SetPropertyError> {
+        let prop = Self::properties()
+            .into_iter()
+            .find(|(k, _)| *k == prop_name)
+            .ok_or(SetPropertyError::NoSuchProperty)?
+            .1;
+        prop.set(self, value, None).map_err(|()| SetPropertyError::WrongType)
     }
 
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Result<Value, ()> {

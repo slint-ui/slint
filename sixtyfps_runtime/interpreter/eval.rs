@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-use crate::api::{Struct, Value};
+use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_component::InstanceRef;
 use core::convert::TryInto;
 use core::pin::Pin;
@@ -28,7 +28,12 @@ use std::rc::Rc;
 
 pub trait ErasedPropertyInfo {
     fn get(&self, item: Pin<ItemRef>) -> Value;
-    fn set(&self, item: Pin<ItemRef>, value: Value, animation: Option<PropertyAnimation>);
+    fn set(
+        &self,
+        item: Pin<ItemRef>,
+        value: Value,
+        animation: Option<PropertyAnimation>,
+    ) -> Result<(), ()>;
     fn set_binding(
         &self,
         item: Pin<ItemRef>,
@@ -48,8 +53,13 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     fn get(&self, item: Pin<ItemRef>) -> Value {
         (*self).get(ItemRef::downcast_pin(item).unwrap()).unwrap()
     }
-    fn set(&self, item: Pin<ItemRef>, value: Value, animation: Option<PropertyAnimation>) {
-        (*self).set(ItemRef::downcast_pin(item).unwrap(), value, animation).unwrap()
+    fn set(
+        &self,
+        item: Pin<ItemRef>,
+        value: Value,
+        animation: Option<PropertyAnimation>,
+    ) -> Result<(), ()> {
+        (*self).set(ItemRef::downcast_pin(item).unwrap(), value, animation)
     }
     fn set_binding(
         &self,
@@ -592,7 +602,7 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
                     let item =
                         unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
                     let p = &item_info.rtti.properties[nr.name()];
-                    p.set(item, eval(p.get(item)), None);
+                    p.set(item, eval(p.get(item)), None).unwrap();
                 }
                 ComponentInstance::GlobalComponent(global) => {
                     let val = if op == '=' {
@@ -692,7 +702,7 @@ pub fn store_property(
     element: &ElementRc,
     name: &str,
     value: Value,
-) -> Result<(), ()> {
+) -> Result<(), SetPropertyError> {
     generativity::make_guard!(guard);
     let enclosing_component = enclosing_component_for_element(element, component_instance, guard);
     let maybe_animation = crate::dynamic_component::animation_for_property(
@@ -705,16 +715,19 @@ pub fn store_property(
         if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
             unsafe {
                 let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                return x.prop.set(p, value, maybe_animation.as_animation());
+                return x
+                    .prop
+                    .set(p, value, maybe_animation.as_animation())
+                    .map_err(|()| SetPropertyError::WrongType);
             }
         } else if enclosing_component.component_type.original.is_global() {
-            return Err(());
+            return Err(SetPropertyError::NoSuchProperty);
         }
     };
     let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
     let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-    let p = &item_info.rtti.properties.get(name).ok_or(())?;
-    p.set(item, value, maybe_animation.as_animation());
+    let p = &item_info.rtti.properties.get(name).ok_or(SetPropertyError::NoSuchProperty)?;
+    p.set(item, value, maybe_animation.as_animation()).unwrap();
     Ok(())
 }
 
