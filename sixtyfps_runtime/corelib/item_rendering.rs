@@ -40,19 +40,29 @@ impl CachedRenderingData {
         cache: &RefCell<RenderingCache<T>>,
         update_fn: impl FnOnce() -> T,
     ) -> T {
-        if self.cache_generation.get() == cache.borrow().generation() {
+        if let Some(index) = {
+            let cache = cache.borrow();
             let index = self.cache_index.get();
-            if let Some(existing_entry) = cache.borrow_mut().get_mut(index) {
-                if let Some(data) =
-                    existing_entry.dependency_tracker.as_ref().evaluate_if_dirty(update_fn)
-                {
-                    existing_entry.data = data
-                }
-                return existing_entry.data.clone();
+            (self.cache_generation.get() == cache.generation() && cache.contains(index))
+                .then(|| index)
+        } {
+            let tracker = cache.borrow_mut().get_mut(index).unwrap().dependency_tracker.take();
+
+            let maybe_new_data =
+                tracker.as_ref().and_then(|tracker| tracker.as_ref().evaluate_if_dirty(update_fn));
+
+            let mut cache = cache.borrow_mut();
+            let cache_entry = cache.get_mut(index).unwrap();
+            cache_entry.dependency_tracker = tracker;
+
+            if let Some(new_data) = maybe_new_data {
+                cache_entry.data = new_data
             }
+
+            return cache_entry.data.clone();
         }
-        self.cache_index
-            .set(cache.borrow_mut().insert(crate::graphics::CachedGraphicsData::new(update_fn)));
+        let cache_entry = crate::graphics::CachedGraphicsData::new(update_fn);
+        self.cache_index.set(cache.borrow_mut().insert(cache_entry));
         self.cache_generation.set(cache.borrow().generation());
         cache.borrow().get(self.cache_index.get()).unwrap().data.clone()
     }
