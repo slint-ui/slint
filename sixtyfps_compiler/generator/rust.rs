@@ -122,15 +122,18 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         env!("CARGO_PKG_VERSION_MINOR"),
         env!("CARGO_PKG_VERSION_PATCH"),
     );
-    let globals = doc
+    let (globals_ids, globals): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types
         .borrow()
         .globals
         .iter()
         .filter(|glob| !matches!(glob.root_element.borrow().base_type, Type::Builtin(_)))
-        .filter_map(|glob| generate_component(glob, diag))
-        .collect::<Vec<_>>();
+        .filter_map(|glob| {
+            generate_component(glob, diag)
+                .map(|component_tokens| (public_component_id(glob), component_tokens))
+        })
+        .unzip();
     Some(quote! {
         #[allow(non_snake_case)]
         #[allow(clippy::style)]
@@ -142,7 +145,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
             #compo
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
-        pub use #compo_module::{#compo_id #(,#structs_ids)* };
+        pub use #compo_module::{#compo_id #(,#structs_ids)* #(,#globals_ids)* };
         pub use sixtyfps::ComponentHandle;
     })
 }
@@ -305,6 +308,13 @@ fn generate_component(
         .iter()
         .filter_map(|c| generate_component(&c.component, diag))
         .collect::<Vec<_>>();
+
+    let self_init = if !component.is_global() {
+        quote!(let _self = vtable::VRc::as_pin_ref(&self.0);)
+    } else {
+        quote!(let _self = self.0.as_ref();)
+    };
+
     let mut declared_property_vars = vec![];
     let mut declared_property_types = vec![];
     let mut declared_callbacks = vec![];
@@ -337,7 +347,7 @@ fn generate_component(
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
                     pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
-                        let _self = vtable::VRc::as_pin_ref(&self.0);
+                        #self_init
                         #prop.call(&(#(#args_name,)*))
                     }
                 ));
@@ -377,7 +387,7 @@ fn generate_component(
                     pub fn #getter_ident(&self) -> #rust_property_type {
                         #[allow(unused_imports)]
                         use sixtyfps::re_exports::*;
-                        let _self = vtable::VRc::as_pin_ref(&self.0);
+                        #self_init
                         #prop.get()
                     }
                 ));
@@ -402,7 +412,7 @@ fn generate_component(
                     pub fn #setter_ident(&self, value: #rust_property_type) {
                         #[allow(unused_imports)]
                         use sixtyfps::re_exports::*;
-                        let _self = vtable::VRc::as_pin_ref(&self.0);
+                        #self_init
                         #prop.#set_value
                     }
                 ));
@@ -642,11 +652,12 @@ fn generate_component(
         .collect();
 
     let layouts = compute_layout(component);
-    let mut visibility = None;
+    let mut visibility = Some(quote!(pub));
     let mut parent_component_type = None;
     let mut has_window_impl = None;
     let mut window_field = Some(quote!(window: sixtyfps::Window));
     if let Some(parent_element) = component.parent_element.upgrade() {
+        visibility = None;
         if parent_element.borrow().repeated.as_ref().map_or(false, |r| !r.is_conditional_element) {
             declared_property_vars.push(format_ident!("index"));
             declared_property_types.push(quote!(usize));
@@ -668,8 +679,6 @@ fn generate_component(
         // FIXME: This field is public for testing.
         window_field = Some(quote!(pub window: sixtyfps::Window));
         window_field_init = Some(quote!(window: sixtyfps::create_window().into()));
-
-        visibility = Some(quote!(pub));
 
         init.push(quote!(_self.window.window_handle().set_component(&VRc::into_dyn(_self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));));
 
@@ -811,10 +820,9 @@ fn generate_component(
         quote!(::core::pin::Pin<::std::rc::Rc<Self>>)
     };
 
+    let public_component_id = public_component_id(component);
     let public_interface = if !component.is_global() && component.parent_element.upgrade().is_none()
     {
-        let public_component_id = public_component_id(component);
-
         let parent_name =
             if !parent_component_type.is_empty() { Some(quote!(parent)) } else { None };
         let window_parent_name = window_parent_param.as_ref().map(|_| quote!(, parent_window));
@@ -874,6 +882,14 @@ fn generate_component(
                 fn from(value: #public_component_id) -> Self {
                     value.0
                 }
+            }
+        ))
+    } else if component.is_global() && visibility.is_some() {
+        Some(quote!(
+            #visibility struct #public_component_id(::core::pin::Pin<::std::rc::Rc<#inner_component_id>>);
+
+            impl #public_component_id {
+                #(#property_and_callback_accessors)*
             }
         ))
     } else {
