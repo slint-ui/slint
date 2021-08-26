@@ -1296,13 +1296,25 @@ fn generate_component(
             }),
         ));
 
-        global_accessor_function_body.push(format!(
+        let mut accessor_statement = String::new();
+
+        if !global_accessor_function_body.is_empty() {
+            accessor_statement.push_str("else ");
+        }
+
+        accessor_statement.push_str(&format!(
             "if constexpr(std::is_same_v<T, {}>) {{ return *{}.get(); }}",
             ty, global_field_name
         ));
+
+        global_accessor_function_body.push(accessor_statement);
     }
 
     if !global_accessor_function_body.is_empty() {
+        global_accessor_function_body.push(
+            "else { static_assert(!sizeof(T*), \"The type is not global/or exported\"); }".into(),
+        );
+
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
