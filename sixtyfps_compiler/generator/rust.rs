@@ -122,18 +122,20 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         env!("CARGO_PKG_VERSION_MINOR"),
         env!("CARGO_PKG_VERSION_PATCH"),
     );
-    let (globals_ids, globals): (Vec<_>, Vec<_>) = doc
-        .root_component
-        .used_types
-        .borrow()
+    let used_types = doc.root_component.used_types.borrow();
+    let globals = used_types
         .globals
         .iter()
-        .filter(|glob| !matches!(glob.root_element.borrow().base_type, Type::Builtin(_)))
+        .filter_map(|glob| glob.requires_code_generation().then(|| generate_component(glob, diag)))
+        .collect::<Vec<_>>();
+    let globals_ids = used_types
+        .globals
+        .iter()
         .filter_map(|glob| {
-            generate_component(glob, diag)
-                .map(|component_tokens| (public_component_id(glob), component_tokens))
+            (glob.visible_in_public_api() && glob.requires_code_generation())
+                .then(|| public_component_id(glob))
         })
-        .unzip();
+        .collect::<Vec<_>>();
     Some(quote! {
         #[allow(non_snake_case)]
         #[allow(clippy::style)]
@@ -652,7 +654,7 @@ fn generate_component(
         .collect();
 
     let layouts = compute_layout(component);
-    let mut visibility = Some(quote!(pub));
+    let mut visibility = if component.visible_in_public_api() { Some(quote!(pub)) } else { None };
     let mut parent_component_type = None;
     let mut has_window_impl = None;
     let mut window_field = Some(quote!(window: sixtyfps::Window));
@@ -821,8 +823,7 @@ fn generate_component(
     };
 
     let public_component_id = public_component_id(component);
-    let public_interface = if !component.is_global() && component.parent_element.upgrade().is_none()
-    {
+    let public_interface = if !component.is_global() && component.visible_in_public_api() {
         let parent_name =
             if !parent_component_type.is_empty() { Some(quote!(parent)) } else { None };
         let window_parent_name = window_parent_param.as_ref().map(|_| quote!(, parent_window));
@@ -884,7 +885,7 @@ fn generate_component(
                 }
             }
         ))
-    } else if component.is_global() && visibility.is_some() {
+    } else if component.is_global() && component.visible_in_public_api() {
         Some(quote!(
             #visibility struct #public_component_id(::core::pin::Pin<::std::rc::Rc<#inner_component_id>>);
 

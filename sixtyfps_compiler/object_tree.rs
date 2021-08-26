@@ -23,7 +23,7 @@ use crate::parser;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 use std::iter::FromIterator;
@@ -221,6 +221,10 @@ pub struct Component {
     /// (This only make sense on the root component)
     pub used_types: RefCell<UsedSubTypes>,
     pub popup_windows: RefCell<Vec<PopupWindow>>,
+
+    /// Set to true if the component is a global that's exported, thus requires
+    /// visibility in publicly generated API.
+    pub exported_global: Cell<bool>,
 }
 
 impl Component {
@@ -257,6 +261,20 @@ impl Component {
             Type::Void => true,
             Type::Builtin(c) => c.is_global,
             _ => false,
+        }
+    }
+
+    /// Returns true if use/instantiation of this component requires generating
+    /// code in Rust/C++/etc..
+    pub fn requires_code_generation(&self) -> bool {
+        !matches!(self.root_element.borrow().base_type, Type::Builtin(_))
+    }
+
+    pub fn visible_in_public_api(&self) -> bool {
+        if self.is_global() {
+            self.exported_global.get()
+        } else {
+            self.parent_element.upgrade().is_none()
         }
     }
 }

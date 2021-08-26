@@ -25,6 +25,7 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
         if let Type::Component(c) = ty {
             if c.is_global() {
                 set.insert(ByAddress(c.clone()));
+                c.exported_global.set(true);
             }
         }
     }
@@ -36,6 +37,7 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
         }
     };
     visit_all_named_references(&doc.root_component, &mut maybe_collect_global);
-    doc.root_component.used_types.borrow_mut().globals = set.into_iter().map(|x| x.0).collect();
-    doc.root_component.used_types.borrow_mut().globals.sort_by(|a, b| a.id.cmp(&b.id));
+    let mut used_types = doc.root_component.used_types.borrow_mut();
+    used_types.globals = set.into_iter().map(|x| x.0).collect();
+    used_types.globals.sort_by(|a, b| a.id.cmp(&b.id));
 }
