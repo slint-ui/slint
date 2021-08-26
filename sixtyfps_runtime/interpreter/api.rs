@@ -728,9 +728,7 @@ impl ComponentInstance {
     pub fn set_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.description()
-            .set_property(comp.borrow(), &normalize_identifier(name), value)
-            .map_err(|()| todo!("set_property don't return the right error type"))
+        comp.description().set_property(comp.borrow(), &normalize_identifier(name), value)
     }
 
     /// Set a handler for the callback with the given name. A callback with that
@@ -843,7 +841,6 @@ impl ComponentInstance {
             .map_err(|()| SetPropertyError::NoSuchProperty)? // FIXME: should there be a NoSuchGlobal error?
             .as_ref()
             .set_property(&normalize_identifier(property), value)
-            .map_err(|()| todo!())
     }
 
     /// Marks the window of this component to be shown on the screen. This registers
@@ -999,7 +996,7 @@ fn component_definition_properties() {
             r#"
     export Dummy := Rectangle {
         property <string> test;
-        property <int> underscores-and-dashes_preserved;
+        property <int> underscores-and-dashes_preserved: 44;
         callback hello;
     }"#
             .into(),
@@ -1015,6 +1012,26 @@ fn component_definition_properties() {
     assert_eq!(props[0].1, ValueType::String);
     assert_eq!(props[1].0, "underscores-and-dashes_preserved");
     assert_eq!(props[1].1, ValueType::Number);
+
+    let instance = comp_def.create();
+    assert_eq!(instance.get_property("underscores_and-dashes-preserved"), Ok(Value::Number(44.)));
+    assert_eq!(
+        instance.get_property("underscoresanddashespreserved"),
+        Err(GetPropertyError::NoSuchProperty)
+    );
+    assert_eq!(
+        instance.set_property("underscores-and_dashes-preserved", Value::Number(88.)),
+        Ok(())
+    );
+    assert_eq!(
+        instance.set_property("underscoresanddashespreserved", Value::Number(99.)),
+        Err(SetPropertyError::NoSuchProperty)
+    );
+    assert_eq!(
+        instance.set_property("underscores-and_dashes-preserved", Value::String("99".into())),
+        Err(SetPropertyError::WrongType)
+    );
+    assert_eq!(instance.get_property("underscores-and-dashes-preserved"), Ok(Value::Number(88.)));
 }
 
 #[test]
@@ -1069,16 +1086,15 @@ fn globals() {
         instance.set_global_property("DontExist", "the-property", Value::Number(88.)),
         Err(SetPropertyError::NoSuchProperty)
     );
-    /*
-    assert_eq!(
-         instance.set_global_property("My_Super-Global", "theproperty", Value::Number(88.)),
-         Err(SetPropertyError::NoSuchProperty)
-     );
-    assert_eq!(
-         instance.set_global_property("My_Super-Global", "the_property", Value::String("88".into())),
-         Err(SetPropertyError::WrongType)
-     );*/
 
+    assert_eq!(
+        instance.set_global_property("My_Super-Global", "theproperty", Value::Number(88.)),
+        Err(SetPropertyError::NoSuchProperty)
+    );
+    assert_eq!(
+        instance.set_global_property("My_Super-Global", "the_property", Value::String("88".into())),
+        Err(SetPropertyError::WrongType)
+    );
     assert_eq!(
         instance.get_global_property("My-Super_Global", "yoyo"),
         Err(GetPropertyError::NoSuchProperty)
@@ -1087,6 +1103,12 @@ fn globals() {
         instance.get_global_property("My-Super_Global", "the-property"),
         Ok(Value::Number(44.))
     );
+
+    assert_eq!(
+        instance.set_property("the-property", Value::Void),
+        Err(SetPropertyError::NoSuchProperty)
+    );
+    assert_eq!(instance.get_property("the-property"), Err(GetPropertyError::NoSuchProperty));
 }
 
 #[cfg(feature = "ffi")]

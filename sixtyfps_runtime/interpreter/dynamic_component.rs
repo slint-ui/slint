@@ -362,16 +362,17 @@ impl<'id> ComponentDescription<'id> {
 
     /// Set a value to property.
     ///
-    /// Returns an error if the component is not an instance corresponding to this ComponentDescription,
-    /// or if the property with this name does not exist in this component
+    /// Return an error if the property with this name does not exist in this component,
+    /// or if the value is the wrong type.
+    /// Panics if the component is not an instance corresponding to this ComponentDescription,
     pub fn set_property(
         &self,
         component: ComponentRefPin,
         name: &str,
         value: Value,
-    ) -> Result<(), ()> {
+    ) -> Result<(), crate::api::SetPropertyError> {
         if !core::ptr::eq((&self.ct) as *const _, component.get_vtable() as *const _) {
-            return Err(());
+            panic!("mismatch instance and vtable");
         }
         generativity::make_guard!(guard);
         let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
@@ -1169,16 +1170,18 @@ pub fn instantiate(
                     }
                     if !matches!(binding.expression, Expression::Invalid) {
                         if is_const {
-                            prop_rtti.set(
-                                item,
-                                eval::eval_expression(
-                                    &binding.expression,
-                                    &mut eval::EvalLocalContext::from_component_instance(
-                                        instance_ref,
+                            prop_rtti
+                                .set(
+                                    item,
+                                    eval::eval_expression(
+                                        &binding.expression,
+                                        &mut eval::EvalLocalContext::from_component_instance(
+                                            instance_ref,
+                                        ),
                                     ),
-                                ),
-                                maybe_animation.as_animation(),
-                            );
+                                    maybe_animation.as_animation(),
+                                )
+                                .unwrap();
                         } else {
                             let e = binding.expression.clone();
                             let component_type = component_type.clone();
