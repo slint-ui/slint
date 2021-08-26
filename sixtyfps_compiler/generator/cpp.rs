@@ -1274,6 +1274,8 @@ fn generate_component(
         ));
     }
 
+    let mut global_accessor_function_body = Vec::new();
+
     for glob in component.used_types.borrow().globals.iter() {
         let ty = match &glob.root_element.borrow().base_type {
             Type::Void => self::component_id(glob),
@@ -1282,12 +1284,33 @@ fn generate_component(
             }
             _ => unreachable!(),
         };
+
+        let global_field_name = format!("global_{}", self::component_id(glob));
+
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
                 ty: format!("std::shared_ptr<{}>", ty),
-                name: format!("global_{}", self::component_id(glob)),
+                name: global_field_name.clone(),
                 init: Some(format!("std::make_shared<{}>()", ty)),
+            }),
+        ));
+
+        global_accessor_function_body.push(format!(
+            "if constexpr(std::is_same_v<T, {}>) {{ return *{}.get(); }}",
+            ty, global_field_name
+        ));
+    }
+
+    if !global_accessor_function_body.is_empty() {
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "global".into(),
+                signature: "() const -> const T&".into(),
+                statements: Some(global_accessor_function_body),
+                template_parameters: Some("typename T".into()),
+                ..Default::default()
             }),
         ));
     }
