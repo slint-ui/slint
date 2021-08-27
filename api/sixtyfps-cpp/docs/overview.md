@@ -45,3 +45,13 @@ For more complex UIs it is common to supply data in the form of an abstract data
 All models in C++ with the interpreter API are sub-classes of the {cpp:class}`sixtyfps::Model` where the template
 parameter is {cpp:class}`sixtyfps::interpreter::Value`. Therefore to provide your own data model, you can subclass
 `sixtyfps::Model<sixtyfps::interpreter::Value>`.
+
+In `.60` files it is possible to declare [singletons that are globally available](markdown/langref.md#global-singletons).
+You can access them from to your C++ code by exporting them and using the getter and setter functions on
+{cpp:class}`sixtyfps::interpreter::ComponentInstance` to change properties and callbacks:
+
+1. {cpp:func}`sixtyfps::interpreter::ComponentInstance::set_global_property()`
+1. {cpp:func}`sixtyfps::interpreter::ComponentInstance::get_global_property()`
+1. {cpp:func}`sixtyfps::interpreter::ComponentInstance::set_global_callback()`
+1. {cpp:func}`sixtyfps::interpreter::ComponentInstance::invoke_global_callback()`
+
