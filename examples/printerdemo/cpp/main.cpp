@@ -30,13 +30,13 @@ int main()
 
 
     auto printer_queue = std::make_shared<sixtyfps::VectorModel<PrinterQueueItem>>();
-    auto default_queue = printer_demo->global<PrinterQueueData>().get_printer_queue();
+    auto default_queue = printer_demo->global<PrinterQueue>().get_printer_queue();
     for (int i = 0; i < default_queue->row_count(); ++i) {
         printer_queue->push_back(default_queue->row_data(i));
     }
-    printer_demo->global<PrinterQueueData>().set_printer_queue(printer_queue);
+    printer_demo->global<PrinterQueue>().set_printer_queue(printer_queue);
 
-    printer_demo->global<PrinterQueueData>().on_start_job([=](sixtyfps::SharedString name) {
+    printer_demo->global<PrinterQueue>().on_start_job([=](sixtyfps::SharedString name) {
         std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         char time_buf[100] = { 0 };
         std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S %d/%m/%Y", std::localtime(&now));
@@ -51,7 +51,7 @@ int main()
         printer_queue->push_back(item);
     });
 
-    printer_demo->global<PrinterQueueData>().on_cancel_job(
+    printer_demo->global<PrinterQueue>().on_cancel_job(
             [=](int index) { printer_queue->erase(int(index)); });
 
     sixtyfps::Timer printer_queue_progress_timer(std::chrono::seconds(1), [=]() {

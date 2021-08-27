@@ -67,13 +67,13 @@ int main()
     auto printer_queue = std::make_shared<sixtyfps::VectorModel<Value>>();
 
     sixtyfps::SharedVector<Value> default_queue =
-            *instance->get_global_property("PrinterQueueData", "printer_queue")->to_array();
+            *instance->get_global_property("PrinterQueue", "printer_queue")->to_array();
     for (const auto &default_item : default_queue)
         printer_queue->push_back(default_item);
 
-    instance->set_global_property("PrinterQueueData", "printer_queue", Value(printer_queue));
+    instance->set_global_property("PrinterQueue", "printer_queue", Value(printer_queue));
 
-    instance->set_global_callback("PrinterQueueData", "start_job", [=](auto args) {
+    instance->set_global_callback("PrinterQueue", "start_job", [=](auto args) {
         std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         char time_buf[100] = { 0 };
         std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S %d/%m/%Y", std::localtime(&now));
@@ -91,7 +91,7 @@ int main()
         return Value();
     });
 
-    instance->set_global_callback("PrinterQueueData", "cancel_job", [=](auto args) {
+    instance->set_global_callback("PrinterQueue", "cancel_job", [=](auto args) {
         auto index = *args[0].to_number();
         printer_queue->erase(int(index));
         return Value();

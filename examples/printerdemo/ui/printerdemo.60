@@ -12,10 +12,10 @@ import { DemoPalette, Page } from "common.60";
 import { HomePage } from "./home_page.60";
 import { InkLevel, InkPage } from "./ink_page.60";
 import { SettingsPage } from "./settings_page.60";
-import { PrinterQueueData } from "./printer_queue.60";
+import { PrinterQueue } from "./printer_queue.60";
 
 // re-export for the native code
-export { PrinterQueueData }
+export { PrinterQueue }
 
 import "./fonts/NotoSans-Regular.ttf";
 import "./fonts/NotoSans-Bold.ttf";

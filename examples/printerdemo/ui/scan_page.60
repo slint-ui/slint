@@ -9,7 +9,7 @@
 LICENSE END */
 
 import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "./common.60";
-import { PrinterQueueData } from "./printer_queue.60";
+import { PrinterQueue } from "./printer_queue.60";
 
 export ScanPage := Page {
     has-back-button: true;
@@ -88,7 +88,7 @@ export ScanPage := Page {
                     icon: @image-url("images/scan.svg");
                     text: "Start scanning";
                     clicked => {
-                        PrinterQueueData.start-job("Scan");
+                        PrinterQueue.start-job("Scan");
                     }
                 }
                 Rectangle {
