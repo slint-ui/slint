@@ -497,6 +497,37 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_global_call
         .is_ok()
 }
 
+/// Invoke a global callback.
+/// The `out` parameter must be uninitialized. If this function returns true, the out will be initialized
+/// to the resulting value. If this function returns false, out is unchanged
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_invoke_global_callback(
+    inst: &ErasedComponentBox,
+    global: Slice<u8>,
+    callback_name: Slice<u8>,
+    args: Slice<ValueOpaque>,
+    out: *mut ValueOpaque,
+) -> bool {
+    let args = std::mem::transmute::<Slice<ValueOpaque>, Slice<Value>>(args);
+    generativity::make_guard!(guard);
+    let comp = inst.unerase(guard);
+    match comp
+        .description()
+        .get_global(comp.borrow(), &normalize_identifier(std::str::from_utf8(&global).unwrap()))
+        .and_then(|g| {
+            g.as_ref().invoke_callback(
+                &normalize_identifier(std::str::from_utf8(&callback_name).unwrap()),
+                args.as_slice(),
+            )
+        }) {
+        Ok(val) => {
+            std::ptr::write(out as *mut Value, val);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
 /// Show or hide
 #[no_mangle]
 pub extern "C" fn sixtyfps_interpreter_component_instance_show(
