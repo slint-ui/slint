@@ -62,9 +62,10 @@ pub mod generated_code {
     /// ```60
     /// SampleComponent := Window {
     ///     property<int> counter;
-    ///     property<string> user_name;
-    ///     callback hello;
-    ///     /// ... maybe more elements here
+    ///     // note that dashes will be replaced by underscores in the generated code
+    ///     property<string> user-name;
+    ///     callback hello();
+    ///     // ... maybe more elements here
     /// }
     /// ```
     #[derive(Clone)]

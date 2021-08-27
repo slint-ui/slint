@@ -109,6 +109,7 @@ the following convenience functions are available through the [`ComponentHandle`
   - [`fn hide(&self)`](docs::generated_code::SampleComponent::hide): to hide the window of the component.
   - [`fn run(&self)`](docs::generated_code::SampleComponent::run): a convenience function that first calls `show()`,
     followed by spinning the event loop, and `hide()` when returning from the event loop.
+  - [`fn global<T: Global<Self>>(&self) -> T`](docs::generated_code::SampleComponent::global): an accessor to the global singletons,
 
 For each top-level property
   - A setter [`fn set_<property_name>(&self, value: <PropertyType>)`](docs::generated_code::SampleComponent::set_counter)
@@ -117,6 +118,8 @@ For each top-level property
 For each top-level callback
   - [`fn invoke_<callback_name>(&self)`](docs::generated_code::SampleComponent::invoke_hello): to invoke the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
+
+Note that all dashes (`-`) are replaced by underscores (`_`) in names of types or functions.
 
 After instantiating the component you can call just [`ComponentHandle::run()`] on it, in order to show it and spin the event loop to
 render and react to input events. If you want to show multiple components simultaneously, then you can also call just
@@ -176,6 +179,24 @@ struct MyStruct {
     bar: sixtyfps::SharedString,
 }
 ```
+
+## Exported Global singletons
+
+When you export a [global singleton](docs::langref#global-singletons) from the main file,
+it is also generated with the exported name. Like the main component, the generated struct have
+inherent method to access the properties and callback:
+
+For each property
+  - A setter: `fn set_<property_name>(&self, value: <PropertyType>)`
+  - A getter: `fn get_<property_name>(&self) -> <PropertyType>`
+
+For each callback
+  - `fn invoke_<callback_name>(&self, <CallbackArgs>) -> <ReturnValue>` to invoke the callback
+  - `fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)` to set the callback handler.
+
+The global can be accessed with the [`ComponentHandle::global()`] function, or with [`Global::get()`]
+
+See the [documentation of the `Global` trait](Global) for an example.
 
 */
 
