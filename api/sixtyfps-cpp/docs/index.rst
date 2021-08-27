@@ -24,6 +24,15 @@ Welcome to SixtyFPS C++'s documentation!
 .. toctree::
    :maxdepth: 2
    :hidden:
+   :caption: C++ / .60 Integration
+
+   Type Mapping to C++ <types.md>
+
+   Example Generated Code <generated_code.md>
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
    :caption: Reference
 
    api/library_root
@@ -31,15 +40,6 @@ Welcome to SixtyFPS C++'s documentation!
    genindex
 
    language.rst
-
-.. toctree::
-   :maxdepth: 2
-   :hidden:
-   :caption: C++ / .60 Integration
-
-   Type Mapping to C++ <types.md>
-
-   Example Generated Code <generated_code.md>
 
 .. image:: https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg
    :target: https://github.com/sixtyfpsui/sixtyfps/actions
