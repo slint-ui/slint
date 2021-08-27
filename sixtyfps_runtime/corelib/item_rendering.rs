@@ -40,12 +40,10 @@ impl CachedRenderingData {
         cache: &RefCell<RenderingCache<T>>,
         update_fn: impl FnOnce() -> T,
     ) -> T {
-        if let Some(index) = {
-            let cache = cache.borrow();
+        if self.cache_generation.get() == cache.borrow().generation()
+            && cache.borrow().contains(self.cache_index.get())
+        {
             let index = self.cache_index.get();
-            (self.cache_generation.get() == cache.generation() && cache.contains(index))
-                .then(|| index)
-        } {
             let tracker = cache.borrow_mut().get_mut(index).unwrap().dependency_tracker.take();
 
             let maybe_new_data =
