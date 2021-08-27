@@ -712,15 +712,15 @@ public:
 
     /// Set the value for a property within an exported global
     ///
-    /// For example, if the main file has a global `TheGlobal` with a `property <int> hello`,
+    /// For example, if the main file has an exported global `TheGlobal` with a `property <int> hello`,
     /// we can set this property
     /// ```
     /// instance->set_global_property("TheGlobal", "hello", 42);
     /// ```
     ///
     /// Returns true if the property was correctly set. Returns false if the property
-    /// could not be set because it either do not exist (was not declared in .60) or if
-    /// the value is not of the proper type for the property's type.
+    /// could not be set because it either does not exist (was not declared in .60) or if
+    /// the value is not of the correct type for the property's type.
     bool set_global_property(std::string_view global, std::string_view prop_name,
                              const Value &value) const
     {
@@ -729,7 +729,7 @@ public:
                 inner(), sixtyfps::private_api::string_to_slice(global),
                 sixtyfps::private_api::string_to_slice(prop_name), &value.inner);
     }
-    /// Returns the value behind a property in a exported global.
+    /// Returns the value behind a property in an exported global.
     std::optional<Value> get_global_property(std::string_view global,
                                              std::string_view prop_name) const
     {
@@ -752,7 +752,7 @@ public:
     ///         callback to_uppercase(string) -> string;
     ///    }
     /// ```
-    /// Then one can set the callback handler
+    /// Then you can set the callback handler
     /// ```cpp
     ///    instance->set_global_callback("Logic", "to_uppercase", [](auto args) {
     ///        std::string arg1(*args[0].to_string());
