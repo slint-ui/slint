@@ -710,10 +710,10 @@ public:
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 
-    /// Set the value for a property within an exported global
+    /// Set the value for a property within an exported global singleton.
     ///
-    /// For example, if the main file has an exported global `TheGlobal` with a `property <int> hello`,
-    /// we can set this property
+    /// For example, if the main file has an exported global `TheGlobal` with a `property <int>
+    /// hello`, we can set this property
     /// ```
     /// instance->set_global_property("TheGlobal", "hello", 42);
     /// ```
@@ -729,7 +729,7 @@ public:
                 inner(), sixtyfps::private_api::string_to_slice(global),
                 sixtyfps::private_api::string_to_slice(prop_name), &value.inner);
     }
-    /// Returns the value behind a property in an exported global.
+    /// Returns the value behind a property in an exported global singleton.
     std::optional<Value> get_global_property(std::string_view global,
                                              std::string_view prop_name) const
     {
@@ -744,7 +744,7 @@ public:
         }
     }
 
-    /// Like `set_callback()` but on a callback in the specified exported global
+    /// Like `set_callback()` but on a callback in the specified exported global singleton.
     ///
     /// Example: imagine the .60 file contains the given global:
     /// ```60
@@ -776,7 +776,7 @@ public:
     }
 
     // FIXME! Slice in public API?  Should be std::span (c++20) or we need to improve the Slice API
-    /// Invoke the specified callback declared in an exported global
+    /// Invoke the specified callback declared in an exported global singleton
     std::optional<Value> invoke_global_callback(std::string_view global,
                                                 std::string_view callback_name,
                                                 Slice<Value> args) const

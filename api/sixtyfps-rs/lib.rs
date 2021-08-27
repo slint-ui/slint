@@ -421,13 +421,13 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
     sixtyfps_rendering_backend_default::backend().post_event(Box::new(func))
 }
 
-/// This trait is used to obtain references to global structures exported in `.60`
+/// This trait is used to obtain references to global singletons exported in `.60`
 /// markup. Alternatively, you can use [`ComponentHandle::global`] to obtain access.
 ///
-/// This trait is implemented by the compiler for each global that's exported.
+/// This trait is implemented by the compiler for each global singleton that's exported.
 ///
 /// # Example
-/// The following example of `.60` markup defines a global called `Palette`, exports
+/// The following example of `.60` markup defines a global singleton called `Palette`, exports
 /// it and modifies it from Rust code:
 /// ```rust
 /// sixtyfps::sixtyfps!{
@@ -448,11 +448,11 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
 /// let app = App::new();
 /// app.global::<Palette>().set_background_color(sixtyfps::Color::from_rgb_u8(0, 0, 0));
 ///
-/// // alternate way to access the global:
+/// // alternate way to access the global singleton:
 /// Palette::get(&app).set_foreground_color(sixtyfps::Color::from_rgb_u8(255, 255, 255));
 /// ```
 ///
-/// See also the [language reference for globals](docs/langref/index.html#global-singletons) for more information.
+/// See also the [language reference for global singletons](docs/langref/index.html#global-singletons) for more information.
 pub trait Global<'a, Component> {
     /// Returns a reference that's tied to the life time of the provided component.
     fn get(component: &'a Component) -> Self;
@@ -498,7 +498,7 @@ pub trait ComponentHandle {
     /// and [`Self::hide`].
     fn run(&self);
 
-    /// This function provides access to instances of global structures exported in `.60`.
+    /// This function provides access to instances of global singletons exported in `.60`.
     /// See [`Global`] for an example how to export and access globals from `.60` markup.
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T
     where

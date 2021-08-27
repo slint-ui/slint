@@ -158,7 +158,7 @@ pub mod generated_code {
             unimplemented!();
         }
 
-        /// This function provides access to instances of global structures exported in `.60`.
+        /// This function provides access to instances of global singletons exported in `.60`.
         fn global<'a, T: Global<'a, Self>>(&'a self) -> T {
             unimplemented!()
         }

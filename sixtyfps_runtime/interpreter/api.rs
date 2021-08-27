@@ -788,9 +788,9 @@ impl ComponentInstance {
             .map_err(|()| CallCallbackError::NoSuchCallback)
     }
 
-    /// Return the value for a property within an exported global used by this component.
+    /// Return the value for a property within an exported global singleton used by this component.
     ///
-    /// The `global` parameter is the exported name of the global. The `property` argument
+    /// The `global` parameter is the exported name of the global singleton. The `property` argument
     /// is the name of the property
     ///
     /// ## Examples
@@ -827,7 +827,7 @@ impl ComponentInstance {
             .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
-    /// Set the value for a property within an exported global used by this component.
+    /// Set the value for a property within an exported global singleton used by this component.
     pub fn set_global_property(
         &self,
         global: &str,
@@ -843,7 +843,7 @@ impl ComponentInstance {
             .set_property(&normalize_identifier(property), value)
     }
 
-    /// Set a handler for the callback in the exported global. A callback with that
+    /// Set a handler for the callback in the exported global singleton. A callback with that
     /// name must be defined in the specified global and the global must be exported from the
     /// main document otherwise an error will be returned.
     ///
@@ -892,7 +892,7 @@ impl ComponentInstance {
             .map_err(|()| SetCallbackError::NoSuchCallback)
     }
 
-    /// Call the given callback within a global with the arguments
+    /// Call the given callback within a global singleton with the arguments
     ///
     /// ## Examples
     /// See the documentation of [`Self::set_global_callback`] for an example
