@@ -23,6 +23,7 @@ This class will have the following public member functions:
   * `invoke_<callback_name>` function which takes the callback argument as parameter and call the callback.
   * `on_<callback_name>` function which takes a functor as an argument and sets the callback handler
      for this callback. the functor must accept the type parameter of the callback
+* A `global` function, to provide access to any exported global singletons.
 
 ## Example
 
@@ -76,6 +77,10 @@ public:
     inline void invoke_hello () const;
     /// Sets the callback handler for the `hello` callback.
     template<typename Functor> inline void on_hello (Functor && callback_handler) const;
+
+    // Returns a reference to a global singleton that's exported.
+    inline template<typename T>
+    const T &global() const;
 
 private:
     /// private fields omitted
