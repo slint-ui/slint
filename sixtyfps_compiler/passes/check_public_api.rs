@@ -21,6 +21,8 @@ pub fn check_public_api(doc: &Document, diag: &mut BuildDiagnostics) {
     for (_, ty) in doc.exports() {
         if let Type::Component(c) = ty {
             if c.is_global() {
+                // This global will become part of the public API.
+                c.exported_global.set(true);
                 check_public_api_component(c, diag)
             }
         }

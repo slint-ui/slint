@@ -25,7 +25,6 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
         if let Type::Component(c) = ty {
             if c.is_global() {
                 set.insert(ByAddress(c.clone()));
-                c.exported_global.set(true);
             }
         }
     }
