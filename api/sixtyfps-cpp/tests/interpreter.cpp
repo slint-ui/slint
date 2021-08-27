@@ -492,7 +492,6 @@ SCENARIO("Send key events")
     REQUIRE(*instance->get_property("result")->to_string() == "Hello keys!");
 }
 
-
 SCENARIO("Global properties")
 {
     using namespace sixtyfps::interpreter;
@@ -504,9 +503,15 @@ SCENARIO("Global properties")
             R"(
         export global The-Global := {
             property <string> the-property: "€€€";
+            callback to_uppercase(string)->string;
         }
-        export Dummy := Rectangle { }
-    )", "");
+        export Dummy := Rectangle {
+            property <string> result: The-Global.to_uppercase("abc");
+        }
+    )",
+            "");
+    for (auto &&x : compiler.diagnostics())
+        std::cerr << x.message << std::endl;
     REQUIRE(result.has_value());
     auto instance = result->create();
 
@@ -535,5 +540,17 @@ SCENARIO("Global properties")
         REQUIRE(value.has_value());
         REQUIRE(value->to_string().has_value());
         REQUIRE(value->to_string().value() == "§§§");
+    }
+    SECTION("set callback")
+    {
+        REQUIRE(instance->set_global_callback("The-Global", "to_uppercase", [](auto args) {
+            std::string arg1(*args[0].to_string());
+            std::transform(arg1.begin(), arg1.end(), arg1.begin(), toupper);
+            return SharedString(arg1);
+        }));
+        auto result = instance->get_property("result");
+        REQUIRE(result.has_value());
+        REQUIRE(result->to_string().has_value());
+        REQUIRE(result->to_string().value() == "ABC");
     }
 }
