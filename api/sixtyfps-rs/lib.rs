@@ -451,6 +451,8 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
 /// // alternate way to access the global:
 /// Palette::get(&app).set_foreground_color(sixtyfps::Color::from_rgb_u8(255, 255, 255));
 /// ```
+///
+/// See also the [language reference for globals](docs/langref/index.html#global-singletons) for more information.
 pub trait Global<'a, Component> {
     /// Returns a reference that's tied to the life time of the provided component.
     fn get(component: &'a Component) -> Self;
