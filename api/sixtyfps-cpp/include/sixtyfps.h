@@ -35,28 +35,8 @@ struct ItemVTable;
 /// The :code:`sixtyfps` namespace is the primary entry point into the SixtyFPS C++ API.
 /// All available types are in this namespace.
 ///
-/// There are two ways of loading :code:`.60` markup files in your application:
-///
-/// #. You could translate them to C++ with the help of the :code:`sixtyfps_target_60_sources`
-///    cmake command and use the :doc:`generated C++ API<../generated_code>` to instantiate the UI,
-///    set or get property values or callback handlers. That API will use types from the
-///    :code:`sixtyfps` namespace, for example :cpp:class:`sixtyfps::SharedString` or
-///    :cpp:class:`sixtyfps::Color`.
-/// #. Alternatively, you can choose to load the :code:`.60` files dynamically at run-time, using
-///    the SixtyFPS Interpreter from the :code:`sixtyfps::interpreter` namespace, starting at
-///    :cpp:class:`sixtyfps::interpreter::ComponentCompiler`.
-///
-/// Once you have loaded or instantiated a `.60` file, you will receive a reference to the instance
-/// in a :cpp:class:`sixtyfps::ComponentHandle`. This is a smart pointer that owns
-/// the actual instance and keeps it alive as long as at least one
-/// :cpp:class:`sixtyfps::ComponentHandle` is in scope, similar to :code:`std::shared_ptr<T>`.
-///
-/// For more complex UIs it is common to supply data in the form of an abstract data model, that is
-/// used with |Repetition|_ repetitions or |ListView|_ elements in the :code:`.60`
-/// language. All models in C++ are sub-classes of the :cpp:class:`sixtyfps::Model` and you can
-/// sub-class it yourself. For convenience, the :cpp:class:`sixtyfps::VectorModel` provides an
-/// implementation that is backed by a :code:`std::vector<T>`.
-///
+/// See the :doc:`Overview <../overview>` documentation for the C++ integration how
+/// to load :code:`.60` designs.
 /// \endrst
 namespace sixtyfps {
 

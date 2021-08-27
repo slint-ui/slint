@@ -1,14 +1,11 @@
 # Generated code
 
-As of now, only the last component of a .60 source is generated. It is planned to generate all
-exported components.
-
-The SixtyFPS compiler called by the build system will generate a header file for the root .60
+The SixtyFPS compiler called by the build system will generate a header file for the root `.60`
 file. This header file will contain a `class` with the same name as the component.
 
 This class will have the following public member functions:
 
-* A default constructor and a destructor.
+* A `create` constructor function and a destructor.
 * A `show` function, which will show the component on the screen. Note that in order to render
   and react to user input, it's still necessary to spin the event loop, by calling {cpp:func}`sixtyfps::run_event_loop()`
   or using the convenience `fun` function in this class.
@@ -24,6 +21,15 @@ This class will have the following public member functions:
   * `on_<callback_name>` function which takes a functor as an argument and sets the callback handler
      for this callback. the functor must accept the type parameter of the callback
 * A `global` function, to provide access to any exported global singletons.
+
+The class is instantiated with the `create` function, which returns the type wrapped in {cpp:class}`sixtyfps::ComponentHandle`.
+This is a smart pointer that owns the actual instance and keeps it alive as long as at least one {cpp:class}`sixtyfps::ComponentHandle`
+is in scope, similar to `std::shared_ptr<T>`.
+
+For more complex UIs it is common to supply data in the form of an abstract data model, that is used with
+[`for` - `in`](markdown/langref.md#repetition) repetitions or [`ListView`](markdown/widgets.md#listview) elements in the `.60` language.
+All models in C++ are sub-classes of the {cpp:class}`sixtyfps::Model` and you can sub-class it yourself. For convenience,
+the {cpp:class}`sixtyfps::VectorModel` provides an implementation that is backed by a `std::vector<T>`.
 
 ## Example
 
@@ -48,7 +54,7 @@ This will generate a header with the following contents (edited for documentatio
 
 class SampleComponent {
 public:
-    /// Constructor
+    /// Constructor function
     inline auto create () -> sixtyfps::ComponentHandle<MainWindow>;
     /// Destructor
     inline ~SampleComponent ();

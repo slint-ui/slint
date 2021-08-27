@@ -26,6 +26,8 @@ Welcome to SixtyFPS C++'s documentation!
    :hidden:
    :caption: C++ / .60 Integration
 
+   Overview <overview.md>
+
    Type Mapping to C++ <types.md>
 
    Example Generated Code <generated_code.md>
