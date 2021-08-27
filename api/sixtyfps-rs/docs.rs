@@ -52,6 +52,7 @@ pub mod generated_code {
 
     use crate::re_exports;
     use crate::ComponentHandle;
+    use crate::Global;
     use crate::Weak;
     use crate::Window;
 
@@ -155,6 +156,11 @@ pub mod generated_code {
         /// and [`Self::hide`].
         fn run(&self) {
             unimplemented!();
+        }
+
+        /// This function provides access to instances of global structures exported in `.60`.
+        fn global<'a, T: Global<'a, Self>>(&'a self) -> T {
+            unimplemented!()
         }
     }
 }
