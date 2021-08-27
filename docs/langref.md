@@ -764,11 +764,11 @@ export global Logic := {
 // ...
 ```
 
-Alternatively, you can also specify a new name under which it will be visible from the
-programming language side:
+It's also possible to export globals from other files:
 
 ```60,ignore
-export { Logic as GlobalLogic } // Access from Rust/C++/etc. as "GlobalLogic"
+import { Logic as MathLogic } from "math.60";
+export { MathLogic } // known as "MathLogic" when using native APIs to access globals
 ```
 
 ## Modules
