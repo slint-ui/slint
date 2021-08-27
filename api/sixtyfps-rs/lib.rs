@@ -421,10 +421,38 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
     sixtyfps_rendering_backend_default::backend().post_event(Box::new(func))
 }
 
-/// Internal trait implemented for the globals in `.60` that are marked as
-/// for export. Use [`ComponentHandle::global`] to obtain access.
-#[doc(hidden)]
+/// This trait is used to obtain references to global structures exported in `.60`
+/// markup. Alternatively, you can use [`ComponentHandle::global`] to obtain access.
+///
+/// This trait is implemented by the compiler for each global that's exported.
+///
+/// # Example
+/// The following example of `.60` markup defines a global called `Palette`, exports
+/// it and modifies it from Rust code:
+/// ```rust
+/// sixtyfps::sixtyfps!{
+/// export global Palette := {
+///     property<color> foreground-color;
+///     property<color> background-color;
+/// }
+///
+/// export App := Window {
+///    background: Palette.background-color;
+///    Text {
+///       text: "Hello";
+///       color: Palette.foreground-color;
+///    }
+///    // ...
+/// }
+/// }
+/// let app = App::new();
+/// app.global::<Palette>().set_background_color(sixtyfps::Color::from_rgb_u8(0, 0, 0));
+///
+/// // alternate way to access the global:
+/// Palette::get(&app).set_foreground_color(sixtyfps::Color::from_rgb_u8(255, 255, 255));
+/// ```
 pub trait Global<'a, Component> {
+    /// Returns a reference that's tied to the life time of the provided component.
     fn get(component: &'a Component) -> Self;
 }
 
@@ -469,6 +497,7 @@ pub trait ComponentHandle {
     fn run(&self);
 
     /// This function provides access to instances of global structures exported in `.60`.
+    /// See [`Global`] for an example how to export and access globals from `.60` markup.
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T
     where
         Self: Sized;
