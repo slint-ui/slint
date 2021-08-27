@@ -10,7 +10,7 @@ LICENSE END */
 
 import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.60";
 import { StandardListView } from "sixtyfps_widgets.60";
-import { PrinterQueueData } from "./printer_queue.60";
+import { PrinterQueue } from "./printer_queue.60";
 
 
 export UsbPage := Page {
@@ -81,13 +81,13 @@ export UsbPage := Page {
                 clicked => {
                     //FIXME!
                     if (list-view.current-item == 2) {
-                        PrinterQueueData.start-job("dog.png");
+                        PrinterQueue.start-job("dog.png");
                     } else if (list-view.current-item == 3) {
-                        PrinterQueueData.start-job("elephant.png");
+                        PrinterQueue.start-job("elephant.png");
                     } else if (list-view.current-item == 4) {
-                        PrinterQueueData.start-job("snake.png");
+                        PrinterQueue.start-job("snake.png");
                     } else {
-                        PrinterQueueData.start-job("cat.png");
+                        PrinterQueue.start-job("cat.png");
                     }
                 }
             }

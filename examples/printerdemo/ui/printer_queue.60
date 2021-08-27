@@ -20,7 +20,7 @@ export struct PrinterQueueItem := {
     submission-date: string
 }
 
-export global PrinterQueueData := {
+export global PrinterQueue := {
     callback start-job(string);
     callback cancel-job(int);
     callback pause-job(int);
@@ -223,7 +223,7 @@ NarrowPrinterQueueList := Flickable {
         padding: 0px;
         spacing: 13.5px;
 
-        for queue-item[idx] in PrinterQueueData.printer-queue: NarrowPrintQueueElement {
+        for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
             width: root.width;
             queue-item: queue-item;
             show-job-details => {
@@ -348,15 +348,15 @@ export WidePrinterQueueList := Flickable {
         padding: 0px;
         spacing: 13.5px;
 
-        for queue-item[idx] in PrinterQueueData.printer-queue: WidePrintQueueElement {
+        for queue-item[idx] in PrinterQueue.printer-queue: WidePrintQueueElement {
             queue-item: queue-item;
-            cancel-job => { PrinterQueueData.cancel-job(idx) }
-            pause-job => { PrinterQueueData.pause-job(idx) }
+            cancel-job => { PrinterQueue.cancel-job(idx) }
+            pause-job => { PrinterQueue.pause-job(idx) }
         }
     }
 }
 
-export PrinterQueue := Rectangle {
+export PrinterQueueView := Rectangle {
     callback show-job-details(int);
 
     border-radius: 27px;

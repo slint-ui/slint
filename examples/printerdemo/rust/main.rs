@@ -23,12 +23,12 @@ fn current_time() -> sixtyfps::SharedString {
     return "".into();
 }
 
-struct PrinterQueue {
+struct PrinterQueueData {
     data: Rc<sixtyfps::VecModel<PrinterQueueItem>>,
     print_progress_timer: sixtyfps::Timer,
 }
 
-impl PrinterQueue {
+impl PrinterQueueData {
     fn push_job(&self, title: sixtyfps::SharedString) {
         self.data.push(PrinterQueueItem {
             status: "WAITING...".into(),
@@ -58,13 +58,13 @@ pub fn main() {
     ]));
 
     let default_queue: Vec<PrinterQueueItem> =
-        main_window.global::<PrinterQueueData>().get_printer_queue().iter().collect();
-    let printer_queue = Rc::new(PrinterQueue {
+        main_window.global::<PrinterQueue>().get_printer_queue().iter().collect();
+    let printer_queue = Rc::new(PrinterQueueData {
         data: Rc::new(sixtyfps::VecModel::from(default_queue)),
         print_progress_timer: Default::default(),
     });
     main_window
-        .global::<PrinterQueueData>()
+        .global::<PrinterQueue>()
         .set_printer_queue(sixtyfps::ModelHandle::new(printer_queue.data.clone()));
 
     main_window.on_quit(move || {
@@ -73,12 +73,12 @@ pub fn main() {
     });
 
     let printer_queue_copy = printer_queue.clone();
-    main_window.global::<PrinterQueueData>().on_start_job(move |title| {
+    main_window.global::<PrinterQueue>().on_start_job(move |title| {
         printer_queue_copy.push_job(title);
     });
 
     let printer_queue_copy = printer_queue.clone();
-    main_window.global::<PrinterQueueData>().on_cancel_job(move |idx| {
+    main_window.global::<PrinterQueue>().on_cancel_job(move |idx| {
         printer_queue_copy.data.remove(idx as usize);
     });
 

@@ -9,7 +9,7 @@
 LICENSE END */
 
 import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.60";
-import { PrinterQueueData } from "./printer_queue.60";
+import { PrinterQueue } from "./printer_queue.60";
 
 
 export CopyPage := Page {
@@ -101,7 +101,7 @@ export CopyPage := Page {
                     icon: @image-url("images/copy.svg");
                     text: "Start copying";
                     clicked => {
-                        PrinterQueueData.start-job("Copy");
+                        PrinterQueue.start-job("Copy");
                     }
                 }
                 Rectangle {

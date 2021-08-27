@@ -12,7 +12,7 @@ import { DemoPalette, Page, PushButton } from "./common.60";
 import { CopyPage } from "./copy_page.60";
 import { ScanPage } from "./scan_page.60";
 import { PrintPage } from "./print_page.60";
-import { PrinterQueue } from "./printer_queue.60";
+import { PrinterQueueView } from "./printer_queue.60";
 import { UsbPage } from "./usb_page.60";
 
 ActionButton := Rectangle {
@@ -77,7 +77,7 @@ export HomePage := Page {
         clicked => { current-subpage = idx + 1; }
     }
 
-    queue-view := PrinterQueue {
+    queue-view := PrinterQueueView {
         x: parent.width - width;
         width: 313px;
         show-job-details(idx) => {
