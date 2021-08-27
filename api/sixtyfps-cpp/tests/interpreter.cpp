@@ -541,7 +541,7 @@ SCENARIO("Global properties")
         REQUIRE(value->to_string().has_value());
         REQUIRE(value->to_string().value() == "§§§");
     }
-    SECTION("set callback")
+    SECTION("set/invoke callback")
     {
         REQUIRE(instance->set_global_callback("The-Global", "to_uppercase", [](auto args) {
             std::string arg1(*args[0].to_string());
@@ -552,5 +552,20 @@ SCENARIO("Global properties")
         REQUIRE(result.has_value());
         REQUIRE(result->to_string().has_value());
         REQUIRE(result->to_string().value() == "ABC");
+
+        Value args[] = { SharedString("Hello") };
+        auto res = instance->invoke_global_callback("The_Global", "to-uppercase",
+                                                    Slice<Value> { args, 1 });
+        REQUIRE(res.has_value());
+        REQUIRE(*res->to_string() == SharedString("HELLO"));
+    }
+    SECTION("callback errors")
+    {
+        REQUIRE(!instance->set_global_callback("TheGlobal", "to_uppercase",
+                                               [](auto) { return Value {}; }));
+        REQUIRE(!instance->set_global_callback("The-Global", "touppercase",
+                                               [](auto) { return Value {}; }));
+        REQUIRE(!instance->invoke_global_callback("TheGlobal", "touppercase", {}));
+        REQUIRE(!instance->invoke_global_callback("The-Global", "touppercase", {}));
     }
 }

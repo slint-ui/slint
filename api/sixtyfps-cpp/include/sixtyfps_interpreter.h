@@ -774,6 +774,24 @@ public:
                 sixtyfps::private_api::string_to_slice(name), actual_cb, new F(std::move(callback)),
                 [](void *data) { delete reinterpret_cast<F *>(data); });
     }
+
+    // FIXME! Slice in public API?  Should be std::span (c++20) or we need to improve the Slice API
+    /// Invoke the specified callback declared in an exported global
+    std::optional<Value> invoke_global_callback(std::string_view global,
+                                                std::string_view callback_name,
+                                                Slice<Value> args) const
+    {
+        using namespace cbindgen_private;
+        Slice<ValueOpaque> args_view { reinterpret_cast<ValueOpaque *>(args.ptr), args.len };
+        ValueOpaque out;
+        if (sixtyfps_interpreter_component_instance_invoke_global_callback(
+                    inner(), sixtyfps::private_api::string_to_slice(global),
+                    sixtyfps::private_api::string_to_slice(callback_name), args_view, &out)) {
+            return Value(out);
+        } else {
+            return {};
+        }
+    }
 };
 
 #if !defined(DOXYGEN)
