@@ -8,17 +8,13 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, SpinBox, Label, PushButton, PrinterQueueItem } from "./common.60";
+import { DemoPalette, Page, SpinBox, Label, PushButton } from "./common.60";
 import { WidePrinterQueueList } from "./printer_queue.60";
 
 
 export PrintPage := Page {
     has-back-button: true;
     header: "Print";
-    callback cancel-job(int);
-    callback pause-job(int);
-
-    property <[PrinterQueueItem]> printer-queue <=> queue.printer-queue;
 
     GridLayout {
         padding-top: 46px /* header line height in design */
@@ -35,8 +31,6 @@ export PrintPage := Page {
 
         Row {
             queue := WidePrinterQueueList {
-                cancel-job(id) => { root.cancel-job(id); }
-                pause-job(id) => { root.pause-job(id); }
                 viewport-width: width;
             }
         }

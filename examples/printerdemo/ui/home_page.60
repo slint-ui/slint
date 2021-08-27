@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, Page, PrinterQueueItem, PushButton } from "./common.60";
+import { DemoPalette, Page, PushButton } from "./common.60";
 import { CopyPage } from "./copy_page.60";
 import { ScanPage } from "./scan_page.60";
 import { PrintPage } from "./print_page.60";
@@ -49,11 +49,7 @@ ActionButton := Rectangle {
 }
 
 export HomePage := Page {
-    callback start-job(string);
-    callback cancel-job(int);
-    callback pause-job(int);
     property <length> header-row-height: 40px;
-    property <[PrinterQueueItem]> printer-queue;
 
     property <length> button-spacing: 35px;
     property <length> button-width: 127px;
@@ -84,7 +80,6 @@ export HomePage := Page {
     queue-view := PrinterQueue {
         x: parent.width - width;
         width: 313px;
-        printer-queue: root.printer-queue;
         show-job-details(idx) => {
             current-subpage = 1; // Not nice to hard-code the index here...
         }
@@ -94,26 +89,20 @@ export HomePage := Page {
         x: current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current-subpage = 0 }
-        printer-queue: root.printer-queue;
-        cancel-job(id) => { root.cancel-job(id); }
-        pause-job(id) => { root.pause-job(id); }
     }
     ScanPage {
         x: current-subpage == 2 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current-subpage = 0 }
-        start-job(title) => { root.start-job(title); }
     }
     CopyPage {
         x: current-subpage == 3 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current-subpage = 0 }
-        start-job(title) => { root.start-job(title); }
     }
     UsbPage {
         x: current-subpage == 4 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current-subpage = 0 }
-        start-job(title) => { root.start-job(title); }
     }
 }

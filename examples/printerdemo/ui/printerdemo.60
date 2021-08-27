@@ -8,10 +8,14 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, PrinterQueueItem, Page } from "common.60";
+import { DemoPalette, Page } from "common.60";
 import { HomePage } from "./home_page.60";
 import { InkLevel, InkPage } from "./ink_page.60";
 import { SettingsPage } from "./settings_page.60";
+import { PrinterQueueData } from "./printer_queue.60";
+
+// re-export for the native code
+export { PrinterQueueData }
 
 import "./fonts/NotoSans-Regular.ttf";
 import "./fonts/NotoSans-Bold.ttf";
@@ -32,15 +36,6 @@ SideBarIcon := Rectangle {
 
 MainWindow := Window {
     callback quit();
-    callback start-job(string);
-    callback cancel-job(int);
-    callback pause-job(int);
-
-    property <[PrinterQueueItem]> printer-queue: [
-        { status: "PRINTING", progress: 63, title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "WAITING...", title: "Adressliste.docx", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-    ];
 
     width: 772px;
     height: 504px;
@@ -79,10 +74,6 @@ MainWindow := Window {
                 home-page := HomePage {
                     y: active-page == 0 ? 0 : active-page < 0 ? - height - 1px : parent.height + 1px;
                     animate y { duration: 125ms; easing: ease; }
-                    printer-queue: root.printer-queue;
-                    start-job(title) => { root.start-job(title); }
-                    cancel-job(title) => { root.cancel-job(title); }
-                    pause-job(title) => { root.pause-job(title); }
                 }
                 SettingsPage {
                     y: active-page == 1 ? 0 : active-page < 1 ? - height - 1px : parent.height + 1px;

@@ -10,10 +10,10 @@ LICENSE END */
 
 import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.60";
 import { StandardListView } from "sixtyfps_widgets.60";
+import { PrinterQueueData } from "./printer_queue.60";
 
 
 export UsbPage := Page {
-    callback start-job(string);
     has-back-button: true;
     header: "USB";
 
@@ -81,13 +81,13 @@ export UsbPage := Page {
                 clicked => {
                     //FIXME!
                     if (list-view.current-item == 2) {
-                        root.start-job("dog.png");
+                        PrinterQueueData.start-job("dog.png");
                     } else if (list-view.current-item == 3) {
-                        root.start-job("elephant.png");
+                        PrinterQueueData.start-job("elephant.png");
                     } else if (list-view.current-item == 4) {
-                        root.start-job("snake.png");
+                        PrinterQueueData.start-job("snake.png");
                     } else {
-                        root.start-job("cat.png");
+                        PrinterQueueData.start-job("cat.png");
                     }
                 }
             }

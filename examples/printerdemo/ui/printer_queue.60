@@ -8,7 +8,30 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { DemoPalette, PrinterQueueItem, PushButton } from "./common.60";
+import { DemoPalette, PushButton } from "./common.60";
+
+export struct PrinterQueueItem := {
+    status: string, // WAITING..., PRINTING
+    progress: int,
+    title: string,
+    owner: string,
+    pages: int,
+    size: string, // number instead and format in .60?
+    submission-date: string
+}
+
+export global PrinterQueueData := {
+    callback start-job(string);
+    callback cancel-job(int);
+    callback pause-job(int);
+
+    property <[PrinterQueueItem]> printer-queue: [
+        { status: "PRINTING", progress: 63, title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: "WAITING...", title: "Adressliste.docx", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@sixtyfps.io", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+    ];
+}
+
 
 PrintQueueDetailsLabel := Text {
     font-weight: 500;
@@ -195,13 +218,12 @@ NarrowPrintQueueElement := Rectangle {
 
 NarrowPrinterQueueList := Flickable {
     callback show-job-details(int);
-    property <[PrinterQueueItem]> printer-queue;
     VerticalLayout {
         alignment: start;
         padding: 0px;
         spacing: 13.5px;
 
-        for queue-item[idx] in root.printer-queue: NarrowPrintQueueElement {
+        for queue-item[idx] in PrinterQueueData.printer-queue: NarrowPrintQueueElement {
             width: root.width;
             queue-item: queue-item;
             show-job-details => {
@@ -320,25 +342,21 @@ WidePrintQueueElement := Rectangle {
 
 
 export WidePrinterQueueList := Flickable {
-    callback cancel-job(int);
-    callback pause-job(int);
-    property <[PrinterQueueItem]> printer-queue;
 
     VerticalLayout {
         alignment: start;
         padding: 0px;
         spacing: 13.5px;
 
-        for queue-item[idx] in root.printer-queue: WidePrintQueueElement {
+        for queue-item[idx] in PrinterQueueData.printer-queue: WidePrintQueueElement {
             queue-item: queue-item;
-            cancel-job => { root.cancel-job(idx) }
-            pause-job => { root.pause-job(idx) }
+            cancel-job => { PrinterQueueData.cancel-job(idx) }
+            pause-job => { PrinterQueueData.pause-job(idx) }
         }
     }
 }
 
 export PrinterQueue := Rectangle {
-    property <[PrinterQueueItem]> printer-queue <=> queue-list.printer-queue;
     callback show-job-details(int);
 
     border-radius: 27px;
