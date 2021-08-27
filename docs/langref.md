@@ -739,7 +739,7 @@ SomeComponent := Text {
     text: "The magic value is:" + Logic.magic-operation(42);
 }
 
-MainWindow := Window {
+export MainWindow := Window {
     // re-expose the global properties such that the native code
     // can access or modify them
     property the-value <=> Logic.the-value;
@@ -750,6 +750,26 @@ MainWindow := Window {
 ```
 
 A global can be declared in another module file, and imported from many files.
+
+It is also possible to access the properties and callbacks from globals in native code,
+such as Rust or C++. In order to access them, it is necessary to mark them as exported
+in the file that exports your main application component. In the above example it is
+sufficient to directly export the `Logic` global:
+
+```60,ignore
+export global Logic := {
+    property <int> the-value;
+    callback magic-operation(int) -> int;
+}
+// ...
+```
+
+Alternatively, you can also specify a new name under which it will be visible from the
+programming language side:
+
+```60,ignore
+export { Logic as GlobalLogic } // Access from Rust/C++/etc. as "GlobalLogic"
+```
 
 ## Modules
 
