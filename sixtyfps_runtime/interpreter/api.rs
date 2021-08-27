@@ -843,6 +843,50 @@ impl ComponentInstance {
             .set_property(&normalize_identifier(property), value)
     }
 
+    /// Set a handler for the callback in the exported global. A callback with that
+    /// name must be defined in the specified global and the global must be exported from the
+    /// main document otherwise an error will be returned.
+    ///
+    /// ## Examples
+    ///
+    /// ```
+    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// use core::convert::TryInto;
+    /// let code = r#"
+    ///     export global Logic := {
+    ///         callback to_uppercase(string) -> string;
+    ///     }
+    ///     MyWin := Window {
+    ///         property <string> hello: Logic.to_uppercase("world");
+    ///     }
+    /// "#;
+    /// let definition = spin_on::spin_on(
+    ///     ComponentCompiler::default().build_from_source(code.into(), Default::default()));
+    /// let instance = definition.unwrap().create();
+    /// instance.set_global_callback("Logic", "to_uppercase", |args: &[Value]| -> Value {
+    ///     let arg: SharedString = args[0].clone().try_into().unwrap();
+    ///     Value::from(SharedString::from(arg.to_uppercase()))
+    /// }).unwrap();
+    ///
+    /// let res = instance.get_property("hello").unwrap();
+    /// assert_eq!(res, Value::from(SharedString::from("WORLD")));
+    /// ```
+    pub fn set_global_callback(
+        &self,
+        global: &str,
+        name: &str,
+        callback: impl Fn(&[Value]) -> Value + 'static,
+    ) -> Result<(), SetCallbackError> {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        comp.description()
+            .get_global(comp.borrow(), &normalize_identifier(global))
+            .map_err(|()| SetCallbackError::NoSuchCallback)? // FIXME: should there be a NoSuchGlobal error?
+            .as_ref()
+            .set_callback_handler(&normalize_identifier(name), Box::new(callback))
+            .map_err(|()| SetCallbackError::NoSuchCallback)
+    }
+
     /// Marks the window of this component to be shown on the screen. This registers
     /// the window with the windowing system. In order to react to events from the windowing system,
     /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
@@ -1109,6 +1153,19 @@ fn globals() {
         Err(SetPropertyError::NoSuchProperty)
     );
     assert_eq!(instance.get_property("the-property"), Err(GetPropertyError::NoSuchProperty));
+
+    assert_eq!(
+        instance.set_global_callback("DontExist", "the-property", |_| panic!()),
+        Err(SetCallbackError::NoSuchCallback)
+    );
+    assert_eq!(
+        instance.set_global_callback("My_Super_Global", "the-property", |_| panic!()),
+        Err(SetCallbackError::NoSuchCallback)
+    );
+    assert_eq!(
+        instance.set_global_callback("My_Super_Global", "yoyo", |_| panic!()),
+        Err(SetCallbackError::NoSuchCallback)
+    );
 }
 
 #[cfg(feature = "ffi")]

@@ -27,6 +27,12 @@ pub enum CompiledGlobal {
 pub trait GlobalComponent {
     fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Result<Value, ()>;
 
+    fn set_callback_handler(
+        self: Pin<&Self>,
+        callback_name: &str,
+        handler: Box<dyn Fn(&[Value]) -> Value>,
+    ) -> Result<(), ()>;
+
     fn set_property(
         self: Pin<&Self>,
         prop_name: &str,
@@ -114,6 +120,16 @@ impl GlobalComponent for GlobalComponentInstance {
         let comp = self.0.unerase(guard);
         comp.description().invoke_callback(comp.borrow(), callback_name, args)
     }
+
+    fn set_callback_handler(
+        self: Pin<&Self>,
+        callback_name: &str,
+        handler: Box<dyn Fn(&[Value]) -> Value>,
+    ) -> Result<(), ()> {
+        generativity::make_guard!(guard);
+        let comp = self.0.unerase(guard);
+        comp.description().set_callback_handler(comp.borrow(), callback_name, handler)
+    }
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
@@ -144,6 +160,15 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
     fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Result<Value, ()> {
         let cb = Self::callbacks().into_iter().find(|(k, _)| *k == callback_name).ok_or(())?.1;
         cb.call(self, args)
+    }
+
+    fn set_callback_handler(
+        self: Pin<&Self>,
+        callback_name: &str,
+        handler: Box<dyn Fn(&[Value]) -> Value>,
+    ) -> Result<(), ()> {
+        let cb = Self::callbacks().into_iter().find(|(k, _)| *k == callback_name).ok_or(())?.1;
+        cb.set_handler(self, handler)
     }
 }
 
