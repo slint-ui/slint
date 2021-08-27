@@ -765,6 +765,8 @@ pub(crate) fn invoke_callback(
                     } else {
                         res
                     });
+                } else if enclosing_component.component_type.original.is_global() {
+                    return None;
                 }
             };
             let item_info = &component_type.items[element.id.as_str()];
