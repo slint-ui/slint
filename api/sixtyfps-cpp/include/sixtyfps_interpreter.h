@@ -687,7 +687,7 @@ public:
     /// ```
     ///     callback foo(string, int) -> string;
     /// ```
-    /// Then one can call it with this function
+    /// Then one can set the callback handler with this function
     /// ```
     ///   instance->set_callback("foo", [](auto args) {
     ///      std::cout << "foo(" << *args[0].to_string() << ", " << *args[1].to_number() << ")\n";
@@ -721,7 +721,8 @@ public:
     /// Returns true if the property was correctly set. Returns false if the property
     /// could not be set because it either do not exist (was not declared in .60) or if
     /// the value is not of the proper type for the property's type.
-    bool set_global_property(std::string_view global, std::string_view prop_name, const Value &value) const
+    bool set_global_property(std::string_view global, std::string_view prop_name,
+                             const Value &value) const
     {
         using namespace cbindgen_private;
         return sixtyfps_interpreter_component_instance_set_global_property(
@@ -729,7 +730,8 @@ public:
                 sixtyfps::private_api::string_to_slice(prop_name), &value.inner);
     }
     /// Returns the value behind a property in a exported global.
-    std::optional<Value> get_global_property(std::string_view global, std::string_view prop_name) const
+    std::optional<Value> get_global_property(std::string_view global,
+                                             std::string_view prop_name) const
     {
         using namespace cbindgen_private;
         ValueOpaque out;
@@ -740,6 +742,37 @@ public:
         } else {
             return {};
         }
+    }
+
+    /// Like `set_callback()` but on a callback in the specified exported global
+    ///
+    /// Example: imagine the .60 file contains the given global:
+    /// ```60
+    ///    export global Logic := {
+    ///         callback to_uppercase(string) -> string;
+    ///    }
+    /// ```
+    /// Then one can set the callback handler
+    /// ```cpp
+    ///    instance->set_global_callback("Logic", "to_uppercase", [](auto args) {
+    ///        std::string arg1(*args[0].to_string());
+    ///        std::transform(arg1.begin(), arg1.end(), arg1.begin(), toupper);
+    ///        return SharedString(arg1);
+    ///    })
+    /// ```
+    template<typename F>
+    bool set_global_callback(std::string_view global, std::string_view name, F callback) const
+    {
+        using cbindgen_private::ValueOpaque;
+        auto actual_cb = [](void *data, Slice<ValueOpaque> arg, ValueOpaque *ret) {
+            Slice<Value> args_view { reinterpret_cast<Value *>(arg.ptr), arg.len };
+            Value r = (*reinterpret_cast<F *>(data))(args_view);
+            new (ret) Value(std::move(r));
+        };
+        return cbindgen_private::sixtyfps_interpreter_component_instance_set_global_callback(
+                inner(), sixtyfps::private_api::string_to_slice(global),
+                sixtyfps::private_api::string_to_slice(name), actual_cb, new F(std::move(callback)),
+                [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 };
 

@@ -371,6 +371,22 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_invoke_callback
     }
 }
 
+/// Wrap the user_data provided by the native code and call the drop function on Drop.
+///
+/// Safety: user_data must be a pointer that can be destroyed by the drop_user_data function.
+struct CallbackUserData {
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+}
+
+impl Drop for CallbackUserData {
+    fn drop(&mut self) {
+        if let Some(x) = self.drop_user_data {
+            x(self.user_data)
+        }
+    }
+}
+
 /// Set a handler for the callback.
 /// The `callback` function must initialize the `ret` (the `ret` passed to the callback is initialized and is assumed initialized after the function)
 #[no_mangle]
@@ -381,20 +397,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_callback(
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) -> bool {
-    struct UserData {
-        user_data: *mut c_void,
-        drop_user_data: Option<extern "C" fn(*mut c_void)>,
-    }
-
-    impl Drop for UserData {
-        fn drop(&mut self) {
-            if let Some(x) = self.drop_user_data {
-                x(self.user_data)
-            }
-        }
-    }
-    let ud = UserData { user_data, drop_user_data };
-
+    let ud = CallbackUserData { user_data, drop_user_data };
     let callback = move |args: &[Value]| -> Value {
         let args = std::mem::transmute::<&[Value], &[ValueOpaque]>(args);
         let mut ret = std::mem::MaybeUninit::<Value>::uninit();
@@ -458,6 +461,38 @@ pub extern "C" fn sixtyfps_interpreter_component_instance_set_global_property(
                     val.as_value().clone(),
                 )
                 .map_err(|_| ())
+        })
+        .is_ok()
+}
+
+/// The `callback` function must initialize the `ret` (the `ret` passed to the callback is initialized and is assumed initialized after the function)
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_global_callback(
+    inst: &ErasedComponentBox,
+    global: Slice<u8>,
+    name: Slice<u8>,
+    callback: extern "C" fn(user_data: *mut c_void, arg: Slice<ValueOpaque>, ret: *mut ValueOpaque),
+    user_data: *mut c_void,
+    drop_user_data: Option<extern "C" fn(*mut c_void)>,
+) -> bool {
+    let ud = CallbackUserData { user_data, drop_user_data };
+
+    let callback = move |args: &[Value]| -> Value {
+        let args = std::mem::transmute::<&[Value], &[ValueOpaque]>(args);
+        let mut ret = std::mem::MaybeUninit::<Value>::uninit();
+        callback(ud.user_data, Slice::from_slice(args), ret.as_mut_ptr() as *mut ValueOpaque);
+        ret.assume_init()
+    };
+
+    generativity::make_guard!(guard);
+    let comp = inst.unerase(guard);
+    comp.description()
+        .get_global(comp.borrow(), &normalize_identifier(std::str::from_utf8(&global).unwrap()))
+        .and_then(|g| {
+            g.as_ref().set_callback_handler(
+                &normalize_identifier(std::str::from_utf8(&name).unwrap()),
+                Box::new(callback),
+            )
         })
         .is_ok()
 }
