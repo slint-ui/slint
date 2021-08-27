@@ -91,8 +91,33 @@ public:
 private:
     /// private fields omitted
 };
+```
 
+## Global Singletons
 
+In `.60` files it is possible to declare [singletons that are globally available](markdown/langref.md#global-singletons).
+It's possible to make these global singletons accessible to your C++ code, by exporting them and using the
+`global()` getter function in the C++ class generated for your entry component. Each global singleton
+creates a class that has getter/setter functions for properties and callbacks, similar to API that's
+created for your `.60` component, as demonstrated in the previous section.
 
+For example the following `.60` markup defines a global `Logic` singleton that's also exported:
 
+```60,ignore
+export global Logic := {
+    callback to_uppercase(string) -> string;
+}
+```
+
+If this were used together with the `SampleComponent` from the previous section, then you can access it
+like this:
+
+```cpp
+    auto app = SampleComponent::create();
+    // ...
+    app.global<Logic>().on_to_uppercase([](SharedString str) -> SharedString {
+        std::string arg(str);
+        std::transform(arg.begin(), arg.end(), arg.begin(), toupper);
+        return SharedString(arg);
+    });
 ```
