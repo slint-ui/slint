@@ -785,7 +785,7 @@ impl ComponentInstance {
         let comp = self.inner.unerase(guard);
         comp.description()
             .invoke_callback(comp.borrow(), &normalize_identifier(name), args)
-            .map_err(|()| todo!())
+            .map_err(|()| CallCallbackError::NoSuchCallback)
     }
 
     /// Return the value for a property within an exported global used by this component.
@@ -870,6 +870,11 @@ impl ComponentInstance {
     ///
     /// let res = instance.get_property("hello").unwrap();
     /// assert_eq!(res, Value::from(SharedString::from("WORLD")));
+    ///
+    /// let abc = instance.invoke_global_callback("Logic", "to_uppercase", &[
+    ///     SharedString::from("abc").into()
+    /// ]).unwrap();
+    /// assert_eq!(abc, Value::from(SharedString::from("ABC")));
     /// ```
     pub fn set_global_callback(
         &self,
@@ -885,6 +890,26 @@ impl ComponentInstance {
             .as_ref()
             .set_callback_handler(&normalize_identifier(name), Box::new(callback))
             .map_err(|()| SetCallbackError::NoSuchCallback)
+    }
+
+    /// Call the given callback within a global with the arguments
+    ///
+    /// ## Examples
+    /// See the documentation of [`Self::set_global_callback`] for an example
+    pub fn invoke_global_callback(
+        &self,
+        global: &str,
+        callback_name: &str,
+        args: &[Value],
+    ) -> Result<Value, CallCallbackError> {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        comp.description()
+            .get_global(comp.borrow(), &normalize_identifier(global))
+            .map_err(|()| CallCallbackError::NoSuchCallback)? // FIXME: should there be a NoSuchGlobal error?
+            .as_ref()
+            .invoke_callback(&normalize_identifier(callback_name), args)
+            .map_err(|()| CallCallbackError::NoSuchCallback)
     }
 
     /// Marks the window of this component to be shown on the screen. This registers
@@ -1165,6 +1190,19 @@ fn globals() {
     assert_eq!(
         instance.set_global_callback("My_Super_Global", "yoyo", |_| panic!()),
         Err(SetCallbackError::NoSuchCallback)
+    );
+
+    assert_eq!(
+        instance.invoke_global_callback("DontExist", "the-property", &[]),
+        Err(CallCallbackError::NoSuchCallback)
+    );
+    assert_eq!(
+        instance.invoke_global_callback("My_Super_Global", "the-property", &[]),
+        Err(CallCallbackError::NoSuchCallback)
+    );
+    assert_eq!(
+        instance.invoke_global_callback("My_Super_Global", "yoyo", &[]),
+        Err(CallCallbackError::NoSuchCallback)
     );
 }
 
