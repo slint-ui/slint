@@ -57,12 +57,15 @@ pub fn main() {
         InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
     ]));
 
-    let default_queue: Vec<PrinterQueueItem> = main_window.get_printer_queue().iter().collect();
+    let default_queue: Vec<PrinterQueueItem> =
+        main_window.global::<PrinterQueueData>().get_printer_queue().iter().collect();
     let printer_queue = Rc::new(PrinterQueue {
         data: Rc::new(sixtyfps::VecModel::from(default_queue)),
         print_progress_timer: Default::default(),
     });
-    main_window.set_printer_queue(sixtyfps::ModelHandle::new(printer_queue.data.clone()));
+    main_window
+        .global::<PrinterQueueData>()
+        .set_printer_queue(sixtyfps::ModelHandle::new(printer_queue.data.clone()));
 
     main_window.on_quit(move || {
         #[cfg(not(target_arch = "wasm32"))]
@@ -70,12 +73,12 @@ pub fn main() {
     });
 
     let printer_queue_copy = printer_queue.clone();
-    main_window.on_start_job(move |title| {
+    main_window.global::<PrinterQueueData>().on_start_job(move |title| {
         printer_queue_copy.push_job(title);
     });
 
     let printer_queue_copy = printer_queue.clone();
-    main_window.on_cancel_job(move |idx| {
+    main_window.global::<PrinterQueueData>().on_cancel_job(move |idx| {
         printer_queue_copy.data.remove(idx as usize);
     });
 

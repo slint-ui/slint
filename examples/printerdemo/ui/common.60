@@ -95,17 +95,6 @@ export Page := Rectangle {
         }
     }
 }
-
-export struct PrinterQueueItem := {
-    status: string, // WAITING..., PRINTING
-    progress: int,
-    title: string,
-    owner: string,
-    pages: int,
-    size: string, // number instead and format in .60?
-    submission-date: string
-}
-
 export Label := Text {
     color: DemoPalette.text-foreground-color;
     vertical-alignment: center;
