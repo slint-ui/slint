@@ -362,7 +362,7 @@ fn generate_component(
                     quote!(
                         #[allow(dead_code)]
                         pub fn #on_ident(&self, f: impl Fn(#(#callback_args),*) -> #return_type + 'static) {
-                            let _self = vtable::VRc::as_pin_ref(&self.0);
+                            #self_init
                             #[allow(unused)]
                             #prop.set_handler(
                                 // FIXME: why do i need to clone here?

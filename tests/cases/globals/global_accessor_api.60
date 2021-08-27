@@ -14,6 +14,7 @@ import { ExportedGlobal as ReexportedGlobal } from "export_globals.60";
 
 global InternalGlobal := {
     property <int> hello: 42;
+    callback sum(int, int)->int;
 }
 
 export { InternalGlobal as PublicGlobal }
@@ -21,6 +22,7 @@ export { ReexportedGlobal }
 
 TestCase := Rectangle {
     property <bool> test_global_prop_value: InternalGlobal.hello == 100;
+    property <int> test_call_callback: InternalGlobal.sum(6, 4);
 }
 
 /*
@@ -32,6 +34,10 @@ instance.global::<PublicGlobal>().set_hello(100);
 assert!(instance.get_test_global_prop_value());
 
 assert_eq!(ReexportedGlobal::get(&instance).get_foo(), 44);
+
+instance.global::<PublicGlobal>().on_sum(|a, b| a + b);
+assert_eq!(instance.get_test_call_callback(), 10);
+assert_eq!(instance.global::<PublicGlobal>().invoke_sum(4, 5), 9);
 ```
 
 ```cpp
@@ -43,11 +49,16 @@ instance.global<PublicGlobal>().set_hello(100);
 assert(instance.get_test_global_prop_value());
 
 assert_eq(instance.global<ReexportedGlobal>().get_foo(), 44);
+
+instance.global<PublicGlobal>().on_sum([](int a, int b) { return a + b; });
+assert_eq(instance.get_test_call_callback(), 10);
+assert_eq(instance.global<PublicGlobal>().invoke_sum(4, 5), 9);
 ```
 
 ```js
 let instance = new sixtyfps.TestCase({});
 assert(!instance.test_global_prop_value);
+// TODO
 ```
 
 */
