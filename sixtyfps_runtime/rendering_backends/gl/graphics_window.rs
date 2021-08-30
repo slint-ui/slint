@@ -375,17 +375,6 @@ impl GraphicsWindow {
         self.keyboard_modifiers.set(state)
     }
 
-    /// reload the scale_factor from the window manager and sets the internal scale_factor property accordingly
-    pub fn refresh_window_scale_factor(&self) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => {
-                let sf = window.backend.borrow().window().scale_factor();
-                self.set_scale_factor(sf as f32)
-            }
-        }
-    }
-
     /// Sets the size of the window. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
     /// Size is in logical pixels.

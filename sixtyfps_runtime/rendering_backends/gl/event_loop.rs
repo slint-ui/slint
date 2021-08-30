@@ -241,7 +241,6 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         if let Some(Some(window)) =
                             windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
                         {
-                            window.refresh_window_scale_factor();
                             let size = size.to_logical(window.scale_factor() as f64);
                             window.set_geometry(size.width, size.height);
                         }
