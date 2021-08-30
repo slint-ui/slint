@@ -18,6 +18,7 @@ use sixtyfps_corelib as corelib;
 use corelib::graphics::Point;
 use corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use corelib::window::*;
+use corelib::SharedString;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
@@ -387,6 +388,12 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         if let Some(Some(window)) =
                             windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
                         {
+                            window.currently_pressed_key_code.set(match input.state {
+                                winit::event::ElementState::Pressed => {
+                                    input.virtual_keycode.clone()
+                                }
+                                _ => None,
+                            });
                             if let Some(key_code) =
                                 input.virtual_keycode.and_then(|virtual_keycode| {
                                     match virtual_keycode {
@@ -440,27 +447,38 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     ref window_id,
                     event: winit::event::WindowEvent::ReceivedCharacter(ch),
                 } => {
-                    if !ch.is_control() {
-                        corelib::animations::update_animations();
-                        ALL_WINDOWS.with(|windows| {
-                            if let Some(Some(window)) =
-                                windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
-                            {
-                                let modifiers = window.current_keyboard_modifiers();
+                    corelib::animations::update_animations();
+                    ALL_WINDOWS.with(|windows| {
+                        if let Some(Some(window)) =
+                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
+                        {
+                            // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
+                            // with a control character. We choose not to forward those but try to use the current key code instead.
+                            let text: Option<SharedString> = if ch.is_control() {
+                                window
+                                    .currently_pressed_key_code
+                                    .take()
+                                    .and_then(winit_key_code_to_string)
+                            } else {
+                                Some(ch.to_string().into())
+                            };
 
-                                let mut event = KeyEvent {
-                                    event_type: KeyEventType::KeyPressed,
-                                    text: ch.to_string().into(),
-                                    modifiers,
-                                };
+                            let text = match text {
+                                Some(text) => text,
+                                None => return,
+                            };
 
-                                window.self_weak.upgrade().unwrap().process_key_input(&event);
+                            let modifiers = window.current_keyboard_modifiers();
 
-                                event.event_type = KeyEventType::KeyReleased;
-                                window.self_weak.upgrade().unwrap().process_key_input(&event);
-                            }
-                        });
-                    }
+                            let mut event =
+                                KeyEvent { event_type: KeyEventType::KeyPressed, text, modifiers };
+
+                            window.self_weak.upgrade().unwrap().process_key_input(&event);
+
+                            event.event_type = KeyEventType::KeyReleased;
+                            window.self_weak.upgrade().unwrap().process_key_input(&event);
+                        }
+                    });
                 }
                 winit::event::Event::WindowEvent {
                     ref window_id,
@@ -569,4 +587,69 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
     {
         winit_loop.run(run_fn)
     }
+}
+
+// This function is called when we receive a control character via WindowEvent::ReceivedCharacter and
+// instead want to use the last virtual key code. That happens when for example pressing Ctrl+some_key
+// on Windows/X11/Wayland. This function may be missing mappings, it's trying to cover what we may be
+// getting when we're getting control character sequences.
+fn winit_key_code_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<SharedString> {
+    use winit::event::VirtualKeyCode;
+    Some(
+        match virtual_keycode {
+            VirtualKeyCode::Key1 => "1",
+            VirtualKeyCode::Key2 => "2",
+            VirtualKeyCode::Key3 => "3",
+            VirtualKeyCode::Key4 => "4",
+            VirtualKeyCode::Key5 => "5",
+            VirtualKeyCode::Key6 => "6",
+            VirtualKeyCode::Key7 => "7",
+            VirtualKeyCode::Key8 => "8",
+            VirtualKeyCode::Key9 => "9",
+            VirtualKeyCode::Key0 => "0",
+            VirtualKeyCode::A => "a",
+            VirtualKeyCode::B => "b",
+            VirtualKeyCode::C => "c",
+            VirtualKeyCode::D => "d",
+            VirtualKeyCode::E => "e",
+            VirtualKeyCode::F => "f",
+            VirtualKeyCode::G => "g",
+            VirtualKeyCode::H => "h",
+            VirtualKeyCode::I => "i",
+            VirtualKeyCode::J => "j",
+            VirtualKeyCode::K => "k",
+            VirtualKeyCode::L => "l",
+            VirtualKeyCode::M => "m",
+            VirtualKeyCode::N => "n",
+            VirtualKeyCode::O => "o",
+            VirtualKeyCode::P => "p",
+            VirtualKeyCode::Q => "q",
+            VirtualKeyCode::R => "r",
+            VirtualKeyCode::S => "s",
+            VirtualKeyCode::T => "t",
+            VirtualKeyCode::U => "u",
+            VirtualKeyCode::V => "v",
+            VirtualKeyCode::W => "w",
+            VirtualKeyCode::X => "x",
+            VirtualKeyCode::Y => "y",
+            VirtualKeyCode::Z => "z",
+            VirtualKeyCode::Space => " ",
+            VirtualKeyCode::Caret => "^",
+            VirtualKeyCode::Apostrophe => "'",
+            VirtualKeyCode::Asterisk => "*",
+            VirtualKeyCode::Backslash => "\\",
+            VirtualKeyCode::Colon => ":",
+            VirtualKeyCode::Comma => ",",
+            VirtualKeyCode::Equals => "=",
+            VirtualKeyCode::Grave => "`",
+            VirtualKeyCode::Minus => "-",
+            VirtualKeyCode::Period => ".",
+            VirtualKeyCode::Plus => "+",
+            VirtualKeyCode::Semicolon => ";",
+            VirtualKeyCode::Slash => "/",
+            VirtualKeyCode::Tab => "\t",
+            _ => return None,
+        }
+        .into(),
+    )
 }
