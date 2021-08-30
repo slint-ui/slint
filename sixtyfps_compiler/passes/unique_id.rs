@@ -70,20 +70,26 @@ pub fn check_unique_id(doc: &Document, diag: &mut BuildDiagnostics) {
 }
 
 fn check_unique_id_in_component(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    let mut seen_ids = HashMap::new();
+    struct SeenId {
+        element: ElementRc,
+        warned: bool,
+    }
+    let mut seen_ids: HashMap<String, SeenId> = HashMap::new();
 
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         let elem_bor = elem.borrow();
         let id = &elem_bor.id;
         if !id.is_empty() {
-            if let Some(other_loc) = seen_ids.get(id) {
-                debug_assert!(!Rc::ptr_eq(other_loc, elem));
+            if let Some(other_loc) = seen_ids.get_mut(id) {
+                debug_assert!(!Rc::ptr_eq(&other_loc.element, elem));
                 let message = format!("duplicated element id '{}'. This used to be accepted in earlier version but will be an error in future versions", id);
-                diag.push_warning(message.clone(), &*other_loc.borrow());
+                if !other_loc.warned {
+                    diag.push_warning(message.clone(), &*other_loc.element.borrow());
+                    other_loc.warned = true;
+                }
                 diag.push_warning(message, &*elem_bor);
-                seen_ids.remove(id);
             } else {
-                seen_ids.insert(id.clone(), elem.clone());
+                seen_ids.insert(id.clone(), SeenId { element: elem.clone(), warned: false });
             }
         }
     })
