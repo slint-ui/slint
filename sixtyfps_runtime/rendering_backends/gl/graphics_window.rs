@@ -15,6 +15,7 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
+use super::{GLRenderer, ImageCache, ItemGraphicsCache};
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::*;
@@ -29,18 +30,10 @@ use winit::dpi::LogicalSize;
 
 use crate::ItemGraphicsCacheEntry;
 
-/// FIXME! this is some remains from a time where the GLRenderer was called the backend
-type Backend = super::GLRenderer;
-type BackendItemGraphicsCache = super::ItemGraphicsCache;
-type BackendImageCache = super::ImageCache;
-
-type WindowFactoryFn = dyn Fn(winit::window::WindowBuilder) -> Backend;
-
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct GraphicsWindow {
     pub(crate) self_weak: Weak<corelib::window::Window>,
-    window_factory: Box<WindowFactoryFn>,
     map_state: RefCell<GraphicsWindowBackendState>,
     properties: Pin<Box<WindowProperties>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
@@ -53,9 +46,12 @@ pub struct GraphicsWindow {
 
     default_font_properties: Pin<Rc<Property<FontRequest>>>,
 
-    pub(crate) graphics_cache: RefCell<BackendItemGraphicsCache>,
+    pub(crate) graphics_cache: RefCell<ItemGraphicsCache>,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
-    pub(crate) texture_cache: RefCell<BackendImageCache>,
+    pub(crate) texture_cache: RefCell<ImageCache>,
+
+    #[cfg(target_arch = "wasm32")]
+    canvas_id: String,
 }
 
 impl GraphicsWindow {
@@ -67,7 +63,7 @@ impl GraphicsWindow {
     ///   backing window.
     pub(crate) fn new(
         window_weak: &Weak<corelib::window::Window>,
-        graphics_backend_factory: impl Fn(winit::window::WindowBuilder) -> Backend + 'static,
+        #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> Rc<Self> {
         let default_font_properties_prop = Rc::pin(Property::default());
         default_font_properties_prop.set_binding({
@@ -92,7 +88,6 @@ impl GraphicsWindow {
 
         Rc::new(Self {
             self_weak: window_weak.clone(),
-            window_factory: Box::new(graphics_backend_factory),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             properties: Box::pin(WindowProperties::default()),
             keyboard_modifiers: Default::default(),
@@ -102,6 +97,8 @@ impl GraphicsWindow {
             default_font_properties: default_font_properties_prop,
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
+            #[cfg(target_arch = "wasm32")]
+            canvas_id,
         })
     }
 
@@ -218,7 +215,11 @@ impl GraphicsWindow {
             }
         };
 
-        let backend = self.window_factory.as_ref()(window_builder);
+        let backend = crate::GLRenderer::new(
+            window_builder,
+            #[cfg(target_arch = "wasm32")]
+            &self.canvas_id,
+        );
 
         let platform_window = backend.window();
         self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
@@ -637,7 +638,7 @@ impl PlatformWindow for GraphicsWindow {
 }
 
 struct MappedWindow {
-    backend: RefCell<Backend>,
+    backend: RefCell<GLRenderer>,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
 }
 

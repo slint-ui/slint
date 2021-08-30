@@ -1458,11 +1458,7 @@ fn to_femtovg_color(col: &Color) -> femtovg::Color {
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<Window> {
-    sixtyfps_corelib::window::Window::new(|window| {
-        GraphicsWindow::new(window, move |window_builder| {
-            GLRenderer::new(window_builder, &canvas_id)
-        })
-    })
+    sixtyfps_corelib::window::Window::new(|window| GraphicsWindow::new(window, canvas_id))
 }
 
 #[doc(hidden)]
@@ -1484,13 +1480,11 @@ pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> Rc<Window> {
         sixtyfps_corelib::window::Window::new(|window| {
-            GraphicsWindow::new(window, |window_builder| {
-                GLRenderer::new(
-                    window_builder,
-                    #[cfg(target_arch = "wasm32")]
-                    "canvas",
-                )
-            })
+            GraphicsWindow::new(
+                window,
+                #[cfg(target_arch = "wasm32")]
+                "canvas".into(),
+            )
         })
     }
 
