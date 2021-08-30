@@ -14,7 +14,7 @@ use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::{Point, Size};
 use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
-use crate::properties::PropertyTracker;
+use crate::properties::{Property, PropertyTracker};
 use crate::slice::Slice;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -32,10 +32,6 @@ pub trait PlatformWindow {
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
     fn request_redraw(&self);
-    /// Returns the scale factor set on the window, as provided by the windowing system.
-    fn scale_factor(&self) -> f32;
-    /// Sets an overriding scale factor for the window. This is typically only used for testing.
-    fn set_scale_factor(&self, factor: f32);
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
@@ -118,6 +114,8 @@ pub struct Window {
 
     focus_item: RefCell<ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
+
+    scale_factor: Pin<Box<Property<f32>>>,
 }
 
 impl Drop for Window {
@@ -142,6 +140,7 @@ impl Window {
             meta_properties_tracker: Rc::pin(Default::default()),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
+            scale_factor: Box::pin(Property::new(1.)),
         });
         let window_weak = Rc::downgrade(&window);
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
@@ -307,6 +306,21 @@ impl Window {
     /// De-registers the window with the windowing system.
     pub fn hide(&self) {
         self.platform_window.get().unwrap().clone().hide();
+    }
+
+    /// Returns the scale factor set on the window, as provided by the windowing system.
+    pub fn scale_factor(&self) -> f32 {
+        self.scale_factor_property().get()
+    }
+
+    /// Returns the scale factor set on the window, as provided by the windowing system.
+    pub fn scale_factor_property(&self) -> Pin<&Property<f32>> {
+        self.scale_factor.as_ref()
+    }
+
+    /// Sets the scale factor for the window. This is set by the backend or for testing.
+    pub fn set_scale_factor(&self, factor: f32) {
+        self.scale_factor.as_ref().set(factor)
     }
 }
 

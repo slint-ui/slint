@@ -21,7 +21,7 @@ use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{Image, Point, Size};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{PlatformWindow, Window};
-use sixtyfps_corelib::{ImageInner, Property};
+use sixtyfps_corelib::ImageInner;
 use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -96,13 +96,11 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
     }
 }
 
-pub struct TestingWindow {
-    scale_factor: Pin<Box<Property<f32>>>,
-}
+pub struct TestingWindow {}
 
 impl Default for TestingWindow {
     fn default() -> Self {
-        Self { scale_factor: Box::pin(Property::new(1.)) }
+        Self {}
     }
 }
 impl PlatformWindow for TestingWindow {
@@ -113,14 +111,6 @@ impl PlatformWindow for TestingWindow {
     fn hide(self: Rc<Self>) {}
 
     fn request_redraw(&self) {}
-
-    fn scale_factor(&self) -> f32 {
-        self.scale_factor.as_ref().get()
-    }
-
-    fn set_scale_factor(&self, factor: f32) {
-        self.scale_factor.as_ref().set(factor);
-    }
 
     fn free_graphics_resources<'a>(
         &self,

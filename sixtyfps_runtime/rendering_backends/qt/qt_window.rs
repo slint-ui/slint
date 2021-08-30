@@ -1046,8 +1046,6 @@ pub struct QtWindow {
     popup_window: RefCell<Option<(Rc<sixtyfps_corelib::window::Window>, ComponentRc)>>,
 
     cache: QtRenderingCache,
-
-    scale_factor: Pin<Box<Property<f32>>>,
 }
 
 impl QtWindow {
@@ -1061,7 +1059,6 @@ impl QtWindow {
             self_weak: window_weak.clone(),
             popup_window: Default::default(),
             cache: Default::default(),
-            scale_factor: Box::pin(Property::new(1.)),
         });
         let self_weak = Rc::downgrade(&rc);
         let widget_ptr = rc.widget_ptr();
@@ -1280,19 +1277,6 @@ impl PlatformWindow for QtWindow {
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
             widget_ptr->setPalette(pal);
         }};
-    }
-
-    fn scale_factor(&self) -> f32 {
-        self.scale_factor.as_ref().get()
-        /* let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*"] -> f32 as "float" {
-            return widget_ptr->windowHandle()->devicePixelRatio();
-        }} */
-    }
-
-    /// Only used for testing
-    fn set_scale_factor(&self, factor: f32) {
-        self.scale_factor.as_ref().set(factor)
     }
 
     fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<items::ItemRef<'a>>>) {

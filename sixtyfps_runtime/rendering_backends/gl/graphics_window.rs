@@ -35,7 +35,6 @@ use crate::ItemGraphicsCacheEntry;
 pub struct GraphicsWindow {
     pub(crate) self_weak: Weak<corelib::window::Window>,
     map_state: RefCell<GraphicsWindowBackendState>,
-    properties: Pin<Box<WindowProperties>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     pub(crate) currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
 
@@ -89,7 +88,6 @@ impl GraphicsWindow {
         Rc::new(Self {
             self_weak: window_weak.clone(),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
-            properties: Box::pin(WindowProperties::default()),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             mouse_input_state: Default::default(),
@@ -222,7 +220,8 @@ impl GraphicsWindow {
         );
 
         let platform_window = backend.window();
-        self.properties.as_ref().scale_factor.set(platform_window.scale_factor() as _);
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        runtime_window.set_scale_factor(platform_window.scale_factor() as _);
         let id = platform_window.id();
         drop(platform_window);
 
@@ -375,6 +374,10 @@ impl GraphicsWindow {
         self.keyboard_modifiers.set(state)
     }
 
+    pub fn scale_factor(&self) -> f32 {
+        self.self_weak.upgrade().unwrap().scale_factor()
+    }
+
     /// Sets the size of the window. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
     /// Size is in logical pixels.
@@ -400,14 +403,6 @@ impl PlatformWindow for GraphicsWindow {
                 window.backend.borrow().window().request_redraw()
             }
         }
-    }
-
-    fn scale_factor(&self) -> f32 {
-        WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref()).get()
-    }
-
-    fn set_scale_factor(&self, factor: f32) {
-        self.properties.as_ref().scale_factor.set(factor);
     }
 
     fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>) {
@@ -536,14 +531,11 @@ impl PlatformWindow for GraphicsWindow {
             unresolved_font_request_getter().merge(&self.default_font_properties().as_ref().get())
         };
 
-        let scale_factor =
-            WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref());
-
         crate::fonts::text_size(
             &self.graphics_cache,
             item_graphics_cache,
             font_request_fn,
-            scale_factor,
+            self.self_weak.upgrade().unwrap().scale_factor_property(),
             text,
             max_width,
         )

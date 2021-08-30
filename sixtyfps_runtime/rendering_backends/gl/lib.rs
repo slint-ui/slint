@@ -481,8 +481,7 @@ impl ItemRenderer for GLItemRenderer {
         // is adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-        let mut path =
-            rect_with_radius_to_path(geometry, rect.border_radius() * self.scale_factor());
+        let mut path = rect_with_radius_to_path(geometry, rect.border_radius() * self.scale_factor);
 
         let fill_paint = self.brush_to_paint(rect.background(), &mut path);
 

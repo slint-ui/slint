@@ -260,7 +260,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         {
                             let size = size.to_logical(scale_factor);
                             window.set_geometry(size.width, size.height);
-                            window.set_scale_factor(scale_factor as f32);
+                            let runtime_window = window.self_weak.upgrade().unwrap();
+                            runtime_window.set_scale_factor(scale_factor as f32);
                         }
                     });
                 }
