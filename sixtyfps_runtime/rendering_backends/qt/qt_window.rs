@@ -21,7 +21,7 @@ use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
 use sixtyfps_corelib::layout::Orientation;
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::PlatformWindow;
+use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
 use sixtyfps_corelib::{ImageInner, PathData, Property};
 
@@ -1043,8 +1043,6 @@ pub struct QtWindow {
     widget_ptr: QWidgetPtr,
     pub(crate) self_weak: Weak<sixtyfps_corelib::window::Window>,
 
-    popup_window: RefCell<Option<(Rc<sixtyfps_corelib::window::Window>, ComponentRc)>>,
-
     cache: QtRenderingCache,
 }
 
@@ -1057,7 +1055,6 @@ impl QtWindow {
         let rc = Rc::new(QtWindow {
             widget_ptr,
             self_weak: window_weak.clone(),
-            popup_window: Default::default(),
             cache: Default::default(),
         });
         let self_weak = Rc::downgrade(&rc);
@@ -1075,35 +1072,24 @@ impl QtWindow {
         unsafe { std::mem::transmute_copy::<QWidgetPtr, NonNull<_>>(&self.widget_ptr) }
     }
 
-    /// ### Candidate to be moved in corelib as this kind of duplicate GraphicsWindow::draw
     fn paint_event(&self, painter: &mut QPainter) {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.clone().draw_tracked(|| {
+        runtime_window.draw_contents(|components| {
             sixtyfps_corelib::animations::update_animations();
-
-            let component_rc = self.self_weak.upgrade().unwrap().component();
-            let component = ComponentRc::borrow_pin(&component_rc);
-
-            if runtime_window.meta_properties_tracker.as_ref().is_dirty() {
-                runtime_window.meta_properties_tracker.as_ref().evaluate(|| {
-                    self.apply_geometry_constraint(
-                        component.as_ref().layout_info(Orientation::Horizontal),
-                        component.as_ref().layout_info(Orientation::Vertical),
-                    );
-                });
-            }
-
             let cache = self.cache.clone();
             let mut renderer = QtItemRenderer {
                 painter,
                 cache,
                 default_font_properties: self.default_font_properties(),
             };
-            sixtyfps_corelib::item_rendering::render_component_items(
-                &component_rc,
-                &mut renderer,
-                Point::default(),
-            );
+
+            for (component, origin) in components {
+                sixtyfps_corelib::item_rendering::render_component_items(
+                    &component,
+                    &mut renderer,
+                    origin.clone(),
+                );
+            }
 
             sixtyfps_corelib::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
                 if !driver.has_active_animations() {
@@ -1159,29 +1145,12 @@ impl QtWindow {
         timer_event();
     }
 
-    /// Set the min/max sizes on the QWidget
-    fn apply_geometry_constraint(
-        &self,
-        constraints_h: sixtyfps_corelib::layout::LayoutInfo,
-        constraints_v: sixtyfps_corelib::layout::LayoutInfo,
-    ) {
-        let widget_ptr = self.widget_ptr();
-        let min_width: f32 = constraints_h.min.min(constraints_h.max);
-        let min_height: f32 = constraints_v.min.min(constraints_v.max);
-        let mut max_width: f32 = constraints_h.max.max(constraints_h.min);
-        let mut max_height: f32 = constraints_v.max.max(constraints_v.min);
-        cpp! {unsafe [widget_ptr as "QWidget*",  min_width as "float", min_height as "float", mut max_width as "float", mut max_height as "float"] {
-            widget_ptr->setMinimumSize(QSize(min_width, min_height));
-            if (max_width > QWIDGETSIZE_MAX)
-                max_width = QWIDGETSIZE_MAX;
-            if (max_height > QWIDGETSIZE_MAX)
-                max_height = QWIDGETSIZE_MAX;
-            widget_ptr->setMaximumSize(QSize(max_width, max_height).expandedTo({1,1}));
-        }};
-    }
-
     fn default_font_properties(&self) -> FontRequest {
         self.self_weak.upgrade().unwrap().default_font_properties()
+    }
+
+    fn close_popup(&self) {
+        self.self_weak.upgrade().unwrap().close_popup();
     }
 }
 
@@ -1268,6 +1237,27 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
+    /// Set the min/max sizes on the QWidget
+    fn apply_geometry_constraint(
+        &self,
+        constraints_h: sixtyfps_corelib::layout::LayoutInfo,
+        constraints_v: sixtyfps_corelib::layout::LayoutInfo,
+    ) {
+        let widget_ptr = self.widget_ptr();
+        let min_width: f32 = constraints_h.min.min(constraints_h.max);
+        let min_height: f32 = constraints_v.min.min(constraints_v.max);
+        let mut max_width: f32 = constraints_h.max.max(constraints_h.min);
+        let mut max_height: f32 = constraints_v.max.max(constraints_v.min);
+        cpp! {unsafe [widget_ptr as "QWidget*",  min_width as "float", min_height as "float", mut max_width as "float", mut max_height as "float"] {
+            widget_ptr->setMinimumSize(QSize(min_width, min_height));
+            if (max_width > QWIDGETSIZE_MAX)
+                max_width = QWIDGETSIZE_MAX;
+            if (max_height > QWIDGETSIZE_MAX)
+                max_height = QWIDGETSIZE_MAX;
+            widget_ptr->setMaximumSize(QSize(max_width, max_height).expandedTo({1,1}));
+        }};
+    }
+
     fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<items::ItemRef<'a>>>) {
         for item in items.iter() {
             let cached_rendering_data = item.cached_rendering_data_offset();
@@ -1276,31 +1266,19 @@ impl PlatformWindow for QtWindow {
     }
 
     fn show_popup(&self, popup: &sixtyfps_corelib::component::ComponentRc, position: Point) {
-        let component = ComponentRc::borrow_pin(popup);
-        let root_item = component.as_ref().get_item_ref(0);
-        let (mut w, mut h) =
-            if let Some(window_item) = ItemRef::downcast_pin::<items::WindowItem>(root_item) {
-                (window_item.width(), window_item.height())
-            } else {
-                (0., 0.)
-            };
-
-        let info_h = component.as_ref().layout_info(Orientation::Horizontal);
-        let info_v = component.as_ref().layout_info(Orientation::Vertical);
-        if w <= 0. {
-            w = info_h.preferred;
-        }
-        if h <= 0. {
-            h = info_v.preferred;
-        }
-        w = w.clamp(info_h.min, info_h.max);
-        h = h.clamp(info_v.min, info_v.max);
-        let size = qttypes::QSize { width: w as _, height: h as _ };
-
         let window = sixtyfps_corelib::window::Window::new(|window| QtWindow::new(window));
         let popup_window: &QtWindow =
             <dyn std::any::Any>::downcast_ref(window.as_ref().as_any()).unwrap();
         window.set_component(popup);
+
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        let size = runtime_window.set_active_popup(PopupWindow {
+            location: PopupWindowLocation::TopLevel(window.clone()),
+            component: popup.clone(),
+        });
+
+        let size = qttypes::QSize { width: size.width as _, height: size.height as _ };
+
         let popup_ptr = popup_window.widget_ptr();
         let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
         let widget_ptr = self.widget_ptr();
@@ -1309,11 +1287,6 @@ impl PlatformWindow for QtWindow {
             popup_ptr->setGeometry(QRect(pos + widget_ptr->geometry().topLeft(), size));
             popup_ptr->show();
         }};
-        self.popup_window.replace(Some((window, popup.clone())));
-    }
-
-    fn close_popup(&self) {
-        self.popup_window.replace(None);
     }
 
     fn text_size(

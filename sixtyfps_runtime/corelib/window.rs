@@ -39,13 +39,19 @@ pub trait PlatformWindow {
 
     /// Show a popup at the given position
     fn show_popup(&self, popup: &ComponentRc, position: Point);
-    /// Close the active popup if any
-    fn close_popup(&self);
 
     /// Request for the event loop to wake up and call [`Window::update_window_properties()`].
     fn request_window_properties_update(&self);
     /// Request for the given title string to be set to the windowing system for use as window title.
     fn apply_window_properties(&self, window_item: Pin<&crate::items::WindowItem>);
+
+    /// Apply the given horizontal and vertical constraints to the window. This typically involves communication
+    /// minimum/maximum sizes to the windowing system, for example.
+    fn apply_geometry_constraint(
+        &self,
+        constraints_horizontal: crate::layout::LayoutInfo,
+        constraints_vertical: crate::layout::LayoutInfo,
+    );
 
     /// Returns the size of the given text in logical pixels.
     /// When set, `max_width` means that one need to wrap the text so it does not go further than that
@@ -99,6 +105,23 @@ impl crate::properties::PropertyChangeHandler for WindowRedrawTracker {
     }
 }
 
+/// This enum describes the different ways a popup can be rendered by the back-end.
+pub enum PopupWindowLocation {
+    /// The popup is rendered in its own top-level window that is know to the windowing system.
+    TopLevel(Rc<Window>),
+    /// The popup is rendered as an embedded child window at the given position.
+    ChildWindow(Point),
+}
+
+/// This structure defines a graphical element that is designed to pop up from the surrounding
+/// UI content, for example to show a context menu.
+pub struct PopupWindow {
+    /// The location defines where the pop up is rendered.
+    pub location: PopupWindowLocation,
+    /// The component that is responsible for providing the popup content.
+    pub component: ComponentRc,
+}
+
 /// Structure that represent a Window in the runtime
 pub struct Window {
     /// FIXME! use Box instead;
@@ -109,13 +132,13 @@ pub struct Window {
     window_properties_tracker:
         once_cell::unsync::OnceCell<Pin<Box<PropertyTracker<WindowPropertiesTracker>>>>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
-    /// FIXME: should only be exposed to the backend
-    pub meta_properties_tracker: Pin<Rc<PropertyTracker>>,
+    meta_properties_tracker: Pin<Rc<PropertyTracker>>,
 
     focus_item: RefCell<ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     scale_factor: Pin<Box<Property<f32>>>,
+    active_popup: RefCell<Option<PopupWindow>>,
 }
 
 impl Drop for Window {
@@ -141,6 +164,7 @@ impl Window {
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
             scale_factor: Box::pin(Property::new(1.)),
+            active_popup: Default::default(),
         });
         let window_weak = Rc::downgrade(&window);
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
@@ -166,9 +190,7 @@ impl Window {
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
     /// done with that component.
     pub fn set_component(&self, component: &ComponentRc) {
-        if let Some(w) = self.platform_window.get() {
-            w.close_popup(); // ensure the popup is closed
-        }
+        self.close_popup();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
@@ -195,15 +217,58 @@ impl Window {
     /// * `pos`: The position of the mouse event in window physical coordinates.
     /// * `what`: The type of mouse event.
     /// * `component`: The SixtyFPS compiled component that provides the tree of items.
-    pub fn process_mouse_input(self: Rc<Self>, event: MouseEvent) {
+    pub fn process_mouse_input(self: Rc<Self>, mut event: MouseEvent) {
         crate::animations::update_animations();
-        let component = self.component.borrow().upgrade().unwrap();
+
+        let embedded_popup_component =
+            self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
+                PopupWindowLocation::TopLevel(_) => None,
+                PopupWindowLocation::ChildWindow(coordinates) => {
+                    Some((popup.component.clone(), coordinates))
+                }
+            });
+
+        let component = embedded_popup_component
+            .as_ref()
+            .and_then(|(popup_component, coordinates)| {
+                event.translate(-coordinates.to_vector());
+
+                if let MouseEvent::MousePressed { pos } = &event {
+                    // close the popup if one press outside the popup
+                    let geom = ComponentRc::borrow_pin(&popup_component)
+                        .as_ref()
+                        .get_item_ref(0)
+                        .as_ref()
+                        .geometry();
+                    if !geom.contains(*pos) {
+                        self.close_popup();
+                        return None;
+                    }
+                }
+                Some(popup_component.clone())
+            })
+            .or_else(|| self.component.borrow().upgrade());
+
+        let component = if let Some(component) = component {
+            component
+        } else {
+            return;
+        };
+
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
             event,
             &self.clone(),
             self.mouse_input_state.take(),
         ));
+
+        if embedded_popup_component.is_some() {
+            //FIXME: currently the ComboBox is the only thing that uses the popup, and it should close automatically
+            // on release.  But ideally, there would be API to close the popup rather than always closing it on release
+            if matches!(event, MouseEvent::MouseReleased { .. }) {
+                self.close_popup();
+            }
+        }
     }
     /// Receive a key event and pass it to the items of the component to
     /// change their state.
@@ -286,9 +351,41 @@ impl Window {
         }
     }
 
-    /// Calls draw_fn using a [`crate::properties::PropertyTracker`], which is set up to issue a call to [`PlatformWindow::request_redraw`]
-    /// when any properties accessed during drawing change.
-    pub fn draw_tracked<R>(self: Rc<Self>, draw_fn: impl FnOnce() -> R) -> R {
+    /// Calls the render_components to render the main component and any sub-window components, tracked by a
+    /// property dependency tracker.
+    pub fn draw_contents(
+        self: Rc<Self>,
+        mut render_components: impl FnMut(&[(&ComponentRc, Point)]),
+    ) {
+        let mut draw_fn = || {
+            let component_rc = self.component();
+            let component = ComponentRc::borrow_pin(&component_rc);
+
+            self.meta_properties_tracker.as_ref().evaluate_if_dirty(|| {
+                self.apply_geometry_constraint(
+                    component.as_ref().layout_info(crate::layout::Orientation::Horizontal),
+                    component.as_ref().layout_info(crate::layout::Orientation::Vertical),
+                );
+            });
+
+            let popup_component =
+                self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
+                    PopupWindowLocation::TopLevel(_) => None,
+                    PopupWindowLocation::ChildWindow(coordinates) => {
+                        Some((popup.component.clone(), coordinates))
+                    }
+                });
+
+            if let Some((popup_component, popup_coordinates)) = popup_component {
+                render_components(&[
+                    (&component_rc, Point::default()),
+                    (&popup_component, popup_coordinates),
+                ])
+            } else {
+                render_components(&[(&component_rc, Point::default())]);
+            }
+        };
+
         if let Some(redraw_tracker) = self.redraw_tracker.get() {
             redraw_tracker.as_ref().evaluate_as_dependency_root(|| draw_fn())
         } else {
@@ -306,6 +403,66 @@ impl Window {
     /// De-registers the window with the windowing system.
     pub fn hide(&self) {
         self.platform_window.get().unwrap().clone().hide();
+    }
+
+    /// Registers the specified window and component to be considered the active popup.
+    /// Returns the size of the popup.
+    pub fn set_active_popup(&self, popup: PopupWindow) -> Size {
+        if matches!(popup.location, PopupWindowLocation::ChildWindow(..)) {
+            self.meta_properties_tracker.set_dirty();
+        }
+
+        let popup_component = ComponentRc::borrow_pin(&popup.component);
+        let popup_root = popup_component.as_ref().get_item_ref(0);
+
+        let (mut w, mut h) = if let Some(window_item) =
+            ItemRef::downcast_pin::<crate::items::WindowItem>(popup_root)
+        {
+            (window_item.width(), window_item.height())
+        } else {
+            (0., 0.)
+        };
+
+        let layout_info_h =
+            popup_component.as_ref().layout_info(crate::layout::Orientation::Horizontal);
+        let layout_info_v =
+            popup_component.as_ref().layout_info(crate::layout::Orientation::Vertical);
+
+        if w <= 0. {
+            w = layout_info_h.preferred;
+        }
+        if h <= 0. {
+            h = layout_info_v.preferred;
+        }
+        w = w.clamp(layout_info_h.min, layout_info_h.max);
+        h = h.clamp(layout_info_v.min, layout_info_v.max);
+
+        let size = Size::new(w, h);
+
+        if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
+            let width_property =
+                crate::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
+            let height_property =
+                crate::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
+            width_property.set(size.width);
+            height_property.set(size.height);
+        };
+
+        self.active_popup.replace(Some(popup));
+
+        size
+    }
+
+    /// Removes any active popup.
+    pub fn close_popup(&self) {
+        if let Some(current_popup) = self.active_popup.replace(None) {
+            if matches!(current_popup.location, PopupWindowLocation::ChildWindow(..)) {
+                // Refresh the area that was previously covered by the popup. I wonder if this
+                // is still needed, shouldn't the redraw tracker be dirty due to the removal of
+                // dependent properties?
+                self.request_redraw();
+            }
+        }
     }
 
     /// Returns the scale factor set on the window, as provided by the windowing system.

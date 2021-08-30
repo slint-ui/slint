@@ -23,7 +23,7 @@ use corelib::input::{KeyboardModifiers, MouseEvent};
 use corelib::items::ItemRef;
 use corelib::layout::Orientation;
 use corelib::slice::Slice;
-use corelib::window::PlatformWindow;
+use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
 use sixtyfps_corelib as corelib;
 use winit::dpi::LogicalSize;
@@ -37,11 +37,6 @@ pub struct GraphicsWindow {
     map_state: RefCell<GraphicsWindowBackendState>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     pub(crate) currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
-
-    mouse_input_state: std::cell::Cell<corelib::input::MouseInputState>,
-    /// Current popup's component and position
-    /// FIXME: the popup should actually be another window, not just some overlay
-    active_popup: std::cell::RefCell<Option<(ComponentRc, Point)>>,
 
     pub(crate) graphics_cache: RefCell<ItemGraphicsCache>,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
@@ -67,71 +62,11 @@ impl GraphicsWindow {
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
-            mouse_input_state: Default::default(),
-            active_popup: Default::default(),
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
         })
-    }
-
-    fn apply_geometry_constraint(
-        &self,
-        constraints_horizontal: corelib::layout::LayoutInfo,
-        constraints_vertical: corelib::layout::LayoutInfo,
-    ) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => {
-                if (constraints_horizontal, constraints_vertical) != window.constraints.get() {
-                    let min_width = constraints_horizontal.min.min(constraints_horizontal.max);
-                    let min_height = constraints_vertical.min.min(constraints_vertical.max);
-                    let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
-                    let max_height = constraints_vertical.max.max(constraints_vertical.min);
-
-                    window.backend.borrow().window().set_min_inner_size(
-                        if min_width > 0. || min_height > 0. {
-                            Some(winit::dpi::LogicalSize::new(min_width, min_height))
-                        } else {
-                            None
-                        },
-                    );
-                    window.backend.borrow().window().set_max_inner_size(
-                        if max_width < f32::MAX || max_height < f32::MAX {
-                            Some(winit::dpi::LogicalSize::new(
-                                max_width.min(65535.),
-                                max_height.min(65535.),
-                            ))
-                        } else {
-                            None
-                        },
-                    );
-                    window.constraints.set((constraints_horizontal, constraints_vertical));
-
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
-                        let existing_size = window.backend.borrow().window().inner_size();
-                        if !(min_width..=max_width).contains(&(existing_size.width as f32))
-                            || !(min_height..=max_height).contains(&(existing_size.height as f32))
-                        {
-                            let new_size = winit::dpi::LogicalSize::new(
-                                existing_size
-                                    .width
-                                    .min(max_width.ceil() as u32)
-                                    .max(min_width.ceil() as u32),
-                                existing_size
-                                    .height
-                                    .min(max_height.ceil() as u32)
-                                    .max(min_height.ceil() as u32),
-                            );
-                            window.backend.borrow().window().set_inner_size(new_size);
-                        }
-                    }
-                }
-            }
-        }
     }
 
     fn with_current_context<T>(&self, cb: impl FnOnce() -> T) -> T {
@@ -238,43 +173,7 @@ impl GraphicsWindow {
     /// Draw the items of the specified `component` in the given window.
     pub fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.clone().draw_tracked(|| {
-            let component_rc = self.component();
-            let component = ComponentRc::borrow_pin(&component_rc);
-
-            runtime_window.meta_properties_tracker.as_ref().evaluate_if_dirty(|| {
-                self.apply_geometry_constraint(
-                    component.as_ref().layout_info(Orientation::Horizontal),
-                    component.as_ref().layout_info(Orientation::Vertical),
-                );
-
-                if let Some((popup, _)) = &*self.active_popup.borrow() {
-                    let popup = ComponentRc::borrow_pin(popup);
-                    let popup_root = popup.as_ref().get_item_ref(0);
-                    if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
-                        let layout_info_h = popup.as_ref().layout_info(Orientation::Horizontal);
-                        let layout_info_v = popup.as_ref().layout_info(Orientation::Vertical);
-
-                        let width =
-                            corelib::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
-                        let mut w = width.get();
-                        let height =
-                            corelib::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
-                        let mut h = height.get();
-                        if w <= 0. {
-                            w = layout_info_h.preferred;
-                        }
-                        if h <= 0. {
-                            h = layout_info_v.preferred;
-                        }
-                        w = w.clamp(layout_info_h.min, layout_info_h.max);
-                        h = h.clamp(layout_info_v.min, layout_info_v.max);
-                        width.set(w);
-                        height.set(h);
-                    };
-                }
-            });
-
+        runtime_window.draw_contents(|components| {
             let map_state = self.map_state.borrow();
             let window = map_state.as_mapped();
 
@@ -283,53 +182,20 @@ impl GraphicsWindow {
                 &window.clear_color,
                 self.scale_factor(),
             );
-            corelib::item_rendering::render_component_items(
-                &component_rc,
-                &mut renderer,
-                Point::default(),
-            );
-            if let Some(popup) = &*self.active_popup.borrow() {
-                corelib::item_rendering::render_component_items(&popup.0, &mut renderer, popup.1);
+
+            for (component, origin) in components {
+                corelib::item_rendering::render_component_items(
+                    &component,
+                    &mut renderer,
+                    origin.clone(),
+                );
             }
             window.backend.borrow_mut().flush_renderer(renderer);
-        })
+        });
     }
 
-    /// FIXME: this is the same as Window::process_mouse_input, but this handle the popup.
-    /// Ideally the popup should be handled as a different window or by the event loop, and
-    /// this function can go away
-    pub fn process_mouse_input(self: Rc<Self>, mut event: MouseEvent) {
-        let active_popup = (*self.active_popup.borrow()).clone();
-        let component = if let Some(popup) = &active_popup {
-            event.translate(-popup.1.to_vector());
-            if let MouseEvent::MousePressed { pos } = &event {
-                // close the popup if one press outside the popup
-                let geom =
-                    ComponentRc::borrow_pin(&popup.0).as_ref().get_item_ref(0).as_ref().geometry();
-                if !geom.contains(*pos) {
-                    self.close_popup();
-                    return;
-                }
-            }
-            popup.0.clone()
-        } else {
-            self.component()
-        };
-
-        self.mouse_input_state.set(corelib::input::process_mouse_input(
-            component,
-            event,
-            &self.self_weak.upgrade().unwrap(),
-            self.mouse_input_state.take(),
-        ));
-
-        if active_popup.is_some() {
-            //FIXME: currently the ComboBox is the only thing that uses the popup, and it should close automatically
-            // on release.  But ideally, there would be API to close the popup rather than always closing it on release
-            if matches!(event, MouseEvent::MouseReleased { .. }) {
-                self.close_popup();
-            }
-        }
+    pub fn process_mouse_input(self: Rc<Self>, event: MouseEvent) {
+        self.self_weak.upgrade().unwrap().process_mouse_input(event);
     }
 
     /// Returns the currently active keyboard notifiers.
@@ -394,15 +260,22 @@ impl PlatformWindow for GraphicsWindow {
     }
 
     fn show_popup(&self, popup: &ComponentRc, position: Point) {
-        *self.active_popup.borrow_mut() = Some((popup.clone(), position));
-        if let Some(window) = self.self_weak.upgrade() {
-            window.meta_properties_tracker.set_dirty();
-        }
-    }
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        let size = runtime_window.set_active_popup(PopupWindow {
+            location: PopupWindowLocation::ChildWindow(position),
+            component: popup.clone(),
+        });
 
-    fn close_popup(&self) {
-        *self.active_popup.borrow_mut() = None;
-        self.request_redraw();
+        let popup = ComponentRc::borrow_pin(popup);
+        let popup_root = popup.as_ref().get_item_ref(0);
+        if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
+            let width_property =
+                corelib::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
+            let height_property =
+                corelib::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
+            width_property.set(size.width);
+            height_property.set(size.height);
+        }
     }
 
     fn request_window_properties_update(&self) {
@@ -480,6 +353,64 @@ impl PlatformWindow for GraphicsWindow {
                 window.backend.borrow().window().set_inner_size(size);
                 if must_resize {
                     self.set_geometry(size.width as _, size.height as _)
+                }
+            }
+        }
+    }
+
+    fn apply_geometry_constraint(
+        &self,
+        constraints_horizontal: corelib::layout::LayoutInfo,
+        constraints_vertical: corelib::layout::LayoutInfo,
+    ) {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Mapped(window) => {
+                if (constraints_horizontal, constraints_vertical) != window.constraints.get() {
+                    let min_width = constraints_horizontal.min.min(constraints_horizontal.max);
+                    let min_height = constraints_vertical.min.min(constraints_vertical.max);
+                    let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
+                    let max_height = constraints_vertical.max.max(constraints_vertical.min);
+
+                    window.backend.borrow().window().set_min_inner_size(
+                        if min_width > 0. || min_height > 0. {
+                            Some(winit::dpi::LogicalSize::new(min_width, min_height))
+                        } else {
+                            None
+                        },
+                    );
+                    window.backend.borrow().window().set_max_inner_size(
+                        if max_width < f32::MAX || max_height < f32::MAX {
+                            Some(winit::dpi::LogicalSize::new(
+                                max_width.min(65535.),
+                                max_height.min(65535.),
+                            ))
+                        } else {
+                            None
+                        },
+                    );
+                    window.constraints.set((constraints_horizontal, constraints_vertical));
+
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
+                        let existing_size = window.backend.borrow().window().inner_size();
+                        if !(min_width..=max_width).contains(&(existing_size.width as f32))
+                            || !(min_height..=max_height).contains(&(existing_size.height as f32))
+                        {
+                            let new_size = winit::dpi::LogicalSize::new(
+                                existing_size
+                                    .width
+                                    .min(max_width.ceil() as u32)
+                                    .max(min_width.ceil() as u32),
+                                existing_size
+                                    .height
+                                    .min(max_height.ceil() as u32)
+                                    .max(min_height.ceil() as u32),
+                            );
+                            window.backend.borrow().window().set_inner_size(new_size);
+                        }
+                    }
                 }
             }
         }
