@@ -43,8 +43,6 @@ pub struct GraphicsWindow {
     /// FIXME: the popup should actually be another window, not just some overlay
     active_popup: std::cell::RefCell<Option<(ComponentRc, Point)>>,
 
-    default_font_properties: Pin<Rc<Property<FontRequest>>>,
-
     pub(crate) graphics_cache: RefCell<ItemGraphicsCache>,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
     pub(crate) texture_cache: RefCell<ImageCache>,
@@ -64,27 +62,6 @@ impl GraphicsWindow {
         window_weak: &Weak<corelib::window::Window>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> Rc<Self> {
-        let default_font_properties_prop = Rc::pin(Property::default());
-        default_font_properties_prop.set_binding({
-            let self_weak = window_weak.clone();
-            move || {
-                self_weak
-                    .upgrade()
-                    .unwrap()
-                    .try_component()
-                    .and_then(|component_rc| {
-                        let component = ComponentRc::borrow_pin(&component_rc);
-                        let root_item = component.as_ref().get_item_ref(0);
-                        ItemRef::downcast_pin(root_item).map(
-                            |window_item: Pin<&corelib::items::WindowItem>| {
-                                window_item.default_font_properties()
-                            },
-                        )
-                    })
-                    .unwrap_or_default()
-            }
-        });
-
         Rc::new(Self {
             self_weak: window_weak.clone(),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
@@ -92,7 +69,6 @@ impl GraphicsWindow {
             currently_pressed_key_code: Default::default(),
             mouse_input_state: Default::default(),
             active_popup: Default::default(),
-            default_font_properties: default_font_properties_prop,
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
             #[cfg(target_arch = "wasm32")]
@@ -252,8 +228,8 @@ impl GraphicsWindow {
         self.self_weak.upgrade().unwrap().component()
     }
 
-    fn default_font_properties(&self) -> &Pin<Rc<Property<FontRequest>>> {
-        &self.default_font_properties
+    pub fn default_font_properties(&self) -> FontRequest {
+        self.self_weak.upgrade().unwrap().default_font_properties()
     }
 }
 
@@ -313,7 +289,6 @@ impl GraphicsWindow {
                 self.clone(),
                 &background_color,
                 self.scale_factor(),
-                self.default_font_properties(),
             );
             corelib::item_rendering::render_component_items(
                 &component_rc,
@@ -527,9 +502,8 @@ impl PlatformWindow for GraphicsWindow {
         text: &str,
         max_width: Option<f32>,
     ) -> Size {
-        let font_request_fn = || {
-            unresolved_font_request_getter().merge(&self.default_font_properties().as_ref().get())
-        };
+        let font_request_fn =
+            || unresolved_font_request_getter().merge(&self.default_font_properties());
 
         crate::fonts::text_size(
             &self.graphics_cache,
@@ -570,9 +544,7 @@ impl PlatformWindow for GraphicsWindow {
             .get_or_update(&self.graphics_cache, || {
                 Some(ItemGraphicsCacheEntry::Font(crate::fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
-                        text_input
-                            .unresolved_font_request()
-                            .merge(&self.default_font_properties.as_ref().get()),
+                        text_input.unresolved_font_request().merge(&self.default_font_properties()),
                         scale_factor,
                         &text_input.text(),
                     )

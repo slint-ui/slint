@@ -1181,18 +1181,7 @@ impl QtWindow {
     }
 
     fn default_font_properties(&self) -> FontRequest {
-        self.self_weak
-            .upgrade()
-            .unwrap()
-            .try_component()
-            .and_then(|component_rc| {
-                let component = ComponentRc::borrow_pin(&component_rc);
-                let root_item = component.as_ref().get_item_ref(0);
-                ItemRef::downcast_pin(root_item).map(|window_item: Pin<&items::WindowItem>| {
-                    window_item.default_font_properties()
-                })
-            })
-            .unwrap_or_default()
+        self.self_weak.upgrade().unwrap().default_font_properties()
     }
 }
 

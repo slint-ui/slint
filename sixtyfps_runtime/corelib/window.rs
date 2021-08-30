@@ -322,6 +322,21 @@ impl Window {
     pub fn set_scale_factor(&self, factor: f32) {
         self.scale_factor.as_ref().set(factor)
     }
+
+    /// Returns the font properties that are set on the root item if it's a Window item.
+    pub fn default_font_properties(&self) -> crate::graphics::FontRequest {
+        self.try_component()
+            .and_then(|component_rc| {
+                let component = ComponentRc::borrow_pin(&component_rc);
+                let root_item = component.as_ref().get_item_ref(0);
+                ItemRef::downcast_pin(root_item).map(
+                    |window_item: Pin<&crate::items::WindowItem>| {
+                        window_item.default_font_properties()
+                    },
+                )
+            })
+            .unwrap_or_default()
+    }
 }
 
 impl core::ops::Deref for Window {
