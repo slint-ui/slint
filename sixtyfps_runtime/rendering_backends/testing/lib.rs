@@ -122,12 +122,17 @@ impl PlatformWindow for TestingWindow {
         todo!()
     }
 
-    fn close_popup(&self) {}
-
     fn request_window_properties_update(&self) {}
 
     fn apply_window_properties(&self, _window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
         todo!()
+    }
+
+    fn apply_geometry_constraint(
+        &self,
+        _constraints_horizontal: sixtyfps_corelib::layout::LayoutInfo,
+        _constraints_vertical: sixtyfps_corelib::layout::LayoutInfo,
+    ) {
     }
 
     fn text_size(
