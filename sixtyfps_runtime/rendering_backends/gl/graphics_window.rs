@@ -43,6 +43,7 @@ pub struct GraphicsWindow {
     map_state: RefCell<GraphicsWindowBackendState>,
     properties: Pin<Box<WindowProperties>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
+    pub(crate) currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
 
     mouse_input_state: std::cell::Cell<corelib::input::MouseInputState>,
     /// Current popup's component and position
@@ -94,6 +95,7 @@ impl GraphicsWindow {
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
             properties: Box::pin(WindowProperties::default()),
             keyboard_modifiers: Default::default(),
+            currently_pressed_key_code: Default::default(),
             mouse_input_state: Default::default(),
             active_popup: Default::default(),
             default_font_properties: default_font_properties_prop,

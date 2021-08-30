@@ -1457,7 +1457,10 @@ fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedStr
         return special_key_code.encode_to_string();
     };
 
-    if !event_text.is_empty() {
+    // On Windows, X11 and Wayland, Ctrl+C for example sends a terminal control character,
+    // which we choose not to supply to the application. Instead we fall through to translating
+    // the supplied key code.
+    if !event_text.is_empty() && !event_text.chars().any(|ch| ch.is_control()) {
         return event_text.into();
     }
 
