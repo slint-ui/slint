@@ -803,6 +803,13 @@ impl Item for NativeSlider {
                     InputEventResult::EventIgnored
                 }
             }
+            MouseEvent::MouseWheel { delta, .. } if enabled => {
+                let new_val = value + delta.x + delta.y;
+                let new_val = new_val.max(min).min(max);
+                self.value.set(new_val);
+                Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
+                InputEventResult::EventAccepted
+            }
             _ => {
                 assert!(!enabled);
                 data.pressed = 0;
