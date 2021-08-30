@@ -24,9 +24,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
-use sixtyfps_corelib::graphics::{
-    Brush, Color, FontRequest, Image, IntRect, Point, Rect, RenderingCache, Size,
-};
+use sixtyfps_corelib::graphics::{Brush, Color, Image, IntRect, Point, Rect, RenderingCache, Size};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{FillRule, ImageFit};
 use sixtyfps_corelib::properties::Property;
@@ -337,7 +335,6 @@ impl GLRenderer {
         graphics_window: Rc<GraphicsWindow>,
         clear_color: &Color,
         scale_factor: f32,
-        default_font_properties: &Pin<Rc<Property<FontRequest>>>,
     ) -> GLItemRenderer {
         let size = self.window().inner_size();
 
@@ -357,7 +354,6 @@ impl GLRenderer {
             shared_data: self.shared_data.clone(),
             graphics_window,
             scale_factor,
-            default_font_properties: default_font_properties.clone(),
             state: vec![State {
                 scissor: Rect::new(Point::default(), Size::new(size.width as _, size.height as _)),
                 global_alpha: 1.,
@@ -409,7 +405,6 @@ pub struct GLItemRenderer {
     shared_data: Rc<GLRendererData>,
     graphics_window: Rc<GraphicsWindow>,
     scale_factor: f32,
-    default_font_properties: Pin<Rc<Property<FontRequest>>>,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
 }
@@ -551,7 +546,7 @@ impl ItemRenderer for GLItemRenderer {
                 Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         text.unresolved_font_request()
-                            .merge(&self.default_font_properties.as_ref().get()),
+                            .merge(&self.graphics_window.default_font_properties()),
                         self.scale_factor,
                         &text.text(),
                     )
@@ -599,7 +594,7 @@ impl ItemRenderer for GLItemRenderer {
                     cache.borrow_mut().font(
                         text_input
                             .unresolved_font_request()
-                            .merge(&self.default_font_properties.as_ref().get()),
+                            .merge(&self.graphics_window.default_font_properties()),
                         self.scale_factor,
                         &text_input.text(),
                     )
