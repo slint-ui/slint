@@ -28,6 +28,9 @@ SubElement := Rectangle {
         world := Rectangle { }
 //              ^warning{duplicated element id 'world'}
     }
+
+    hello := Rectangle {}
+//          ^warning{duplicated element id 'hello'}
 }
 
 TestCase := Rectangle {
