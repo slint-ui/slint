@@ -1316,6 +1316,28 @@ impl PlatformWindow for QtWindow {
         Box::new(get_font(unresolved_font_request_getter().merge(&self.default_font_properties())))
     }
 
+    fn text_input_byte_offset_for_position(
+        &self,
+        text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+        pos: Point,
+    ) -> usize {
+        let font: QFont =
+            get_font(text_input.unresolved_font_request().merge(&self.default_font_properties()));
+        let string = qttypes::QString::from(text_input.text().as_str());
+        let x: f32 = pos.x;
+        cpp! { unsafe [font as "QFont", string as "QString", x as "float"] -> usize as "long long" {
+            QTextLayout layout(string, font);
+            layout.beginLayout();
+            layout.createLine();
+            layout.endLayout();
+            if (layout.lineCount() == 0)
+                return 0;
+            auto cur = layout.lineAt(0).xToCursor(x);
+            // convert to an utf8 pos;
+            return QStringView(string).left(cur).toUtf8().size();
+        }}
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -1368,28 +1390,6 @@ impl sixtyfps_corelib::graphics::FontMetrics for QFont {
             return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : Qt::TextWordWrap , string).size();
         }};
         sixtyfps_corelib::graphics::Size::new(size.width as _, size.height as _)
-    }
-
-    fn line_height(&self) -> f32 {
-        cpp! { unsafe [self as "const QFont*"]
-                -> f32 as "float"{
-            return QFontMetricsF(*self).height();
-        }}
-    }
-
-    fn text_offset_for_x_position(&self, text: &str, x: f32) -> usize {
-        let string = qttypes::QString::from(text);
-        cpp! { unsafe [self as "const QFont*", string as "QString", x as "float"] -> usize as "long long" {
-            QTextLayout layout(string, *self);
-            layout.beginLayout();
-            layout.createLine();
-            layout.endLayout();
-            if (layout.lineCount() == 0)
-                return 0;
-            auto cur = layout.lineAt(0).xToCursor(x);
-            // convert to an utf8 pos;
-            return QStringView(string).left(cur).toUtf8().size();
-        }}
     }
 }
 

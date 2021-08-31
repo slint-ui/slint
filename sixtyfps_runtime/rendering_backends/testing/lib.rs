@@ -18,7 +18,7 @@ You should use the `sixtyfps` crate instead.
 
 use image::GenericImageView;
 use sixtyfps_corelib::component::ComponentRc;
-use sixtyfps_corelib::graphics::{FontMetrics, Image, Size};
+use sixtyfps_corelib::graphics::{FontMetrics, Image, Point, Size};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{PlatformWindow, Window};
 use sixtyfps_corelib::{ImageInner, Property};
@@ -149,6 +149,14 @@ impl PlatformWindow for TestingWindow {
         Box::new(TestingFontMetrics::default())
     }
 
+    fn text_input_byte_offset_for_position(
+        &self,
+        _text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+        _pos: Point,
+    ) -> usize {
+        0
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -160,14 +168,6 @@ struct TestingFontMetrics {}
 impl FontMetrics for TestingFontMetrics {
     fn text_size(&self, text: &str, _max_width: Option<f32>) -> Size {
         Size::new(text.len() as f32 * 10., 10.)
-    }
-
-    fn line_height(&self) -> f32 {
-        10.
-    }
-
-    fn text_offset_for_x_position(&self, _text: &str, _x: f32) -> usize {
-        0
     }
 }
 

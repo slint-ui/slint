@@ -348,23 +348,6 @@ impl FontMetricsTrait for FontMetrics {
             max_width.map(|x| x * self.scale_factor),
         ) / self.scale_factor
     }
-
-    fn line_height(&self) -> f32 {
-        self.font.height()
-    }
-
-    fn text_offset_for_x_position(&self, text: &str, x: f32) -> usize {
-        let x = x * self.scale_factor;
-        let metrics = self.font.measure(self.letter_spacing.unwrap_or_default(), text);
-        let mut current_x = 0.;
-        for glyph in metrics.glyphs {
-            if current_x + glyph.advance_x / 2. >= x {
-                return glyph.byte_index;
-            }
-            current_x += glyph.advance_x;
-        }
-        text.len()
-    }
 }
 
 pub struct FontCache {
