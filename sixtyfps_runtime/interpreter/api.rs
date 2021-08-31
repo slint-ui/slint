@@ -1140,6 +1140,7 @@ fn globals() {
     export global My-Super_Global := {
         property <int> the-property : 21;
     }
+    export { My-Super_Global as AliasedGlobal }
     export Dummy := Rectangle {
     }"#
             .into(),
@@ -1152,12 +1153,20 @@ fn globals() {
         Ok(())
     );
     assert_eq!(
+        instance.set_global_property("AliasedGlobal", "the_property", Value::Number(44.)),
+        Ok(())
+    );
+    assert_eq!(
         instance.set_global_property("DontExist", "the-property", Value::Number(88.)),
         Err(SetPropertyError::NoSuchProperty)
     );
 
     assert_eq!(
         instance.set_global_property("My_Super-Global", "theproperty", Value::Number(88.)),
+        Err(SetPropertyError::NoSuchProperty)
+    );
+    assert_eq!(
+        instance.set_global_property("AliasedGlobal", "theproperty", Value::Number(88.)),
         Err(SetPropertyError::NoSuchProperty)
     );
     assert_eq!(

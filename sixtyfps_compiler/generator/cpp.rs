@@ -57,6 +57,7 @@ mod cpp_ast {
         Struct(Struct),
         Function(Function),
         Var(Var),
+        TypeAlias(TypeAlias),
     }
 
     #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -191,6 +192,19 @@ mod cpp_ast {
                 write!(f, " = {}", i)?;
             }
             writeln!(f, ";")
+        }
+    }
+
+    #[derive(Default, Debug)]
+    pub struct TypeAlias {
+        pub new_name: String,
+        pub old_name: String,
+    }
+
+    impl Display for TypeAlias {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            indent(f)?;
+            writeln!(f, "using {} = {};", self.new_name, self.old_name)
         }
     }
 
@@ -592,6 +606,15 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         .filter(|glob| glob.requires_code_generation())
     {
         generate_component(&mut file, glob, diag, None);
+
+        if glob.visible_in_public_api() {
+            file.definitions.extend(glob.exported_global_names.borrow().iter().map(|name| {
+                Declaration::TypeAlias(TypeAlias {
+                    old_name: ident(&glob.root_element.borrow().id).into_owned(),
+                    new_name: name.clone(),
+                })
+            }))
+        }
     }
 
     generate_component(&mut file, &doc.root_component, diag, None);

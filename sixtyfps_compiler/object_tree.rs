@@ -23,7 +23,7 @@ use crate::parser;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap};
 use std::iter::FromIterator;
@@ -224,7 +224,7 @@ pub struct Component {
 
     /// Set to true if the component is a global that's exported, thus requires
     /// visibility in publicly generated API.
-    pub exported_global: Cell<bool>,
+    pub exported_global_names: RefCell<Vec<String>>,
 }
 
 impl Component {
@@ -272,7 +272,7 @@ impl Component {
 
     pub fn visible_in_public_api(&self) -> bool {
         if self.is_global() {
-            self.exported_global.get()
+            !self.exported_global_names.borrow().is_empty()
         } else {
             self.parent_element.upgrade().is_none()
         }

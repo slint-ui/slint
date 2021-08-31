@@ -8,8 +8,6 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-use by_address::ByAddress;
-
 use crate::diagnostics::BuildDiagnostics;
 use crate::langtype::Type;
 use crate::object_tree::*;
@@ -19,7 +17,7 @@ use std::rc::Rc;
 /// This pass make sure that the id of the elements are unique
 ///
 /// It currently does so by adding a number to the existing id
-pub fn assign_unique_id(component: &Rc<Component>, exports: &[(String, Type)]) {
+pub fn assign_unique_id(component: &Rc<Component>) {
     let mut count = 0;
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         count += 1;
@@ -32,30 +30,17 @@ pub fn assign_unique_id(component: &Rc<Component>, exports: &[(String, Type)]) {
         elem_mut.id = format!("{}-{}", old_id, count);
     });
 
-    rename_globals(component, count, exports);
+    rename_globals(component, count);
 }
 
 /// Give globals unique name
-fn rename_globals(component: &Rc<Component>, mut count: u32, exports: &[(String, Type)]) {
-    let exports = exports
-        .iter()
-        .filter_map(|(s, t)| {
-            if let Type::Component(c) = t {
-                if c.is_global() {
-                    return Some((ByAddress(c.clone()), s.as_str()));
-                }
-            }
-            None
-        })
-        .collect::<HashMap<_, _>>();
+fn rename_globals(component: &Rc<Component>, mut count: u32) {
     for g in &component.used_types.borrow().globals {
         count += 1;
         let mut root = g.root_element.borrow_mut();
         if matches!(&root.base_type, Type::Builtin(_)) {
             // builtin global keeps its name
             root.id = g.id.clone();
-        } else if let Some(s) = exports.get(&ByAddress(g.clone())) {
-            root.id = s.to_string();
         } else {
             root.id = format!("{}-{}", g.id, count);
         }

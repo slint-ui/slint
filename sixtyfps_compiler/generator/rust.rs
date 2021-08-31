@@ -132,13 +132,20 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
         .globals
         .iter()
         .filter_map(|glob| {
-            (glob.visible_in_public_api() && glob.requires_code_generation())
-                .then(|| public_component_id(glob))
+            (glob.visible_in_public_api() && glob.requires_code_generation()).then(|| {
+                glob.exported_global_names
+                    .borrow()
+                    .iter()
+                    .map(|name| ident(&name))
+                    .collect::<Vec<_>>() // Would prefer not to collect here, but borrow() requires
+            })
         })
+        .flatten()
         .collect::<Vec<_>>();
 
     Some(quote! {
         #[allow(non_snake_case)]
+        #[allow(non_camel_case_types)]
         #[allow(clippy::style)]
         #[allow(clippy::complexity)]
         mod #compo_module {
@@ -910,12 +917,21 @@ fn generate_component(
             }
         ))
     } else if component.is_global() && component.visible_in_public_api() {
+        let aliases = component
+            .exported_global_names
+            .borrow()
+            .iter()
+            .flat_map(|name| (name != &component.root_element.borrow().id).then(|| ident(&name)))
+            .collect::<Vec<_>>();
+
         Some(quote!(
             #visibility struct #public_component_id<'a>(&'a ::core::pin::Pin<::std::rc::Rc<#inner_component_id>>);
 
             impl<'a> #public_component_id<'a> {
                 #(#property_and_callback_accessors)*
             }
+
+            #(#visibility type #aliases<'a> = #public_component_id<'a>;)*
         ))
     } else {
         None

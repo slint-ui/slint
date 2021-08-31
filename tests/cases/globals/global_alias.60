@@ -1,0 +1,54 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+//include_path: ../../helper_components
+
+global MyGlobal := {
+    property <int> hello: 42;
+}
+
+export { MyGlobal }
+export { MyGlobal as GlobalAlias }
+
+TestCase := Rectangle {
+    property <bool> test_global_prop_value: MyGlobal.hello == 100;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+assert!(!instance.get_test_global_prop_value());
+assert_eq!(MyGlobal::get(&instance).get_hello(), 42);
+assert_eq!(GlobalAlias::get(&instance).get_hello(), 42);
+instance.global::<MyGlobal>().set_hello(100);
+assert!(instance.get_test_global_prop_value());
+assert_eq!(MyGlobal::get(&instance).get_hello(), 100);
+assert_eq!(GlobalAlias::get(&instance).get_hello(), 100);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_test_global_prop_value());
+assert_eq(instance.global<MyGlobal>().get_hello(), 42);
+assert_eq(instance.global<GlobalAlias>().get_hello(), 42);
+instance.global<MyGlobal>().set_hello(100);
+assert(instance.get_test_global_prop_value());
+assert_eq(instance.global<MyGlobal>().get_hello(), 100);
+assert_eq(instance.global<GlobalAlias>().get_hello(), 100);
+
+```
+
+```js
+let instance = new sixtyfps.TestCase({});
+assert(!instance.test_global_prop_value);
+// TODO
+```
+
+*/

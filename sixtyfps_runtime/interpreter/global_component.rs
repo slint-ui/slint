@@ -24,6 +24,22 @@ pub enum CompiledGlobal {
     Component(ErasedComponentDescription),
 }
 
+impl CompiledGlobal {
+    pub fn names(&self) -> Vec<String> {
+        match self {
+            CompiledGlobal::Builtin(name, _) => vec![name.clone()],
+            CompiledGlobal::Component(component) => {
+                generativity::make_guard!(guard);
+                let component = component.unerase(guard);
+                let mut names = component.original.exported_global_names.borrow().clone();
+                // eval.rs (generated code) accesses globals by their internal name
+                names.push(component.original.root_element.borrow().id.clone());
+                names
+            }
+        }
+    }
+}
+
 pub trait GlobalComponent {
     fn invoke_callback(self: Pin<&Self>, callback_name: &str, args: &[Value]) -> Result<Value, ()>;
 
