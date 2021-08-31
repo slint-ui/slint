@@ -67,7 +67,7 @@ impl Model for ValueModel {
                 self.notify.row_changed(row)
             }
             Value::Model(model_ptr) => model_ptr.set_row_data(row, data),
-            _ => println!("Value of model cannot be change"),
+            _ => eprintln!("Trying to change the value of a read-only integer model."),
         }
     }
 

@@ -64,6 +64,68 @@ impl ModelNotify {
 }
 
 /// A Model is providing Data for the Repeater or ListView elements of the `.60` language
+///
+/// If the model can be changed, the type implementing the Model trait should holds
+/// a [`ModelNotify`], and is responsible to call functions on it to let the UI know that
+/// something has changed.
+///
+/// ## Example
+///
+/// As an example, let's see the implementation of [`VecModel`].
+///
+/// ```
+/// # use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer};
+/// pub struct VecModel<T> {
+///     // the backing data, stored in a `RefCell` as this model can be modified
+///     array: std::cell::RefCell<Vec<T>>,
+///     // the ModelNotify will allow to notify the UI that the model changes
+///     notify: ModelNotify,
+/// }
+///
+/// impl<T: Clone + 'static> Model for VecModel<T> {
+///     type Data = T;
+///
+///     fn row_count(&self) -> usize {
+///         self.array.borrow().len()
+///     }
+///
+///     fn row_data(&self, row: usize) -> Self::Data {
+///         self.array.borrow()[row].clone()
+///     }
+///
+///     fn set_row_data(&self, row: usize, data: Self::Data) {
+///         self.array.borrow_mut()[row] = data;
+///         // don't forget to call row_changed
+///         self.notify.row_changed(row);
+///     }
+///
+///     fn attach_peer(&self, peer: ModelPeer) {
+///         // simply forward to ModelNotify::attach
+///         self.notify.attach(peer);
+///     }
+///
+///     fn as_any(&self) -> &dyn core::any::Any {
+///         // a typical implementation just return `self`
+///         self
+///     }
+/// }
+///
+/// // when modifying the model, we call the corresponding function in
+/// // the ModelNotify
+/// impl<T> VecModel<T> {
+///     /// Add a row at the end of the model
+///     pub fn push(&self, value: T) {
+///         self.array.borrow_mut().push(value);
+///         self.notify.row_added(self.array.borrow().len() - 1, 1)
+///     }
+///
+///     /// Remove the row at the given index from the model
+///     pub fn remove(&self, index: usize) {
+///         self.array.borrow_mut().remove(index);
+///         self.notify.row_removed(index, 1)
+///     }
+/// }
+/// ```
 pub trait Model {
     /// The model data: A model is a set of row and each row has this data
     type Data;
@@ -71,11 +133,23 @@ pub trait Model {
     fn row_count(&self) -> usize;
     /// Returns the data for a particular row. This function should be called with `row < row_count()`.
     fn row_data(&self, row: usize) -> Self::Data;
-    /// Sets the data for a particular row. This function should be called with `row < row_count()`.
-    /// If the model cannot support data changes, then it is ok to do nothing (default implementation).
-    /// If the model can update the data, it should also call row_changed on its internal `ModelNotify`.
-    fn set_row_data(&self, _row: usize, _data: Self::Data) {}
-    /// Should forward to the internal [`ModelNotify::attach`]
+    /// Sets the data for a particular row.
+    ///
+    /// This function should be called with `row < row_count()`, otherwise the implementation can panic.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call [`ModelNofity::row_changed`] on its
+    /// internal [`ModelNotify`].
+    fn set_row_data(&self, _row: usize, _data: Self::Data) {
+        eprintln!(
+            "Model::set_row_data called on a model of type {} which does not re-implement this method. \
+            This happens when trying to modify a read-only model",
+            core::any::type_name::<Self>(),
+        );
+    }
+    /// The implementation should forward to [`ModelNotify::attach`]
     fn attach_peer(&self, peer: ModelPeer);
 
     /// Returns an iterator visiting all elements of the model.
@@ -139,7 +213,7 @@ impl<'a, T> Iterator for ModelIterator<'a, T> {
 
 impl<'a, T> ExactSizeIterator for ModelIterator<'a, T> {}
 
-/// A model backed by a SharedVector
+/// A model backed by a `Vec<T>`
 #[derive(Default)]
 pub struct VecModel<T> {
     array: RefCell<Vec<T>>,
