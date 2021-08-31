@@ -66,6 +66,16 @@ pub trait PlatformWindow {
         reference_text: Pin<&crate::properties::Property<SharedString>>,
     ) -> Box<dyn crate::graphics::FontMetrics>;
 
+    /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
+    /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
+    /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
+    /// position.
+    fn text_input_byte_offset_for_position(
+        &self,
+        text_input: Pin<&crate::items::TextInput>,
+        pos: Point,
+    ) -> usize;
+
     /// Return self as any so the backend can upcast
     fn as_any(&self) -> &dyn core::any::Any;
 }

@@ -302,16 +302,9 @@ impl Item for TextInput {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-
-        let text = self.text();
-        let font_metrics = window.font_metrics(
-            &self.cached_rendering_data,
-            &|| self.unresolved_font_request(),
-            Self::FIELD_OFFSETS.text.apply_pin(self),
-        );
         match event {
             MouseEvent::MousePressed { pos } => {
-                let clicked_offset = font_metrics.text_offset_for_x_position(&text, pos.x) as i32;
+                let clicked_offset = window.text_input_byte_offset_for_position(self, pos) as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position.set(clicked_offset);
                 self.as_ref().cursor_position.set(clicked_offset);
@@ -325,7 +318,7 @@ impl Item for TextInput {
             MouseEvent::MouseMoved { pos } => {
                 if self.as_ref().pressed.get() {
                     let clicked_offset =
-                        font_metrics.text_offset_for_x_position(&text, pos.x) as i32;
+                        window.text_input_byte_offset_for_position(self, pos) as i32;
                     self.as_ref().cursor_position.set(clicked_offset);
                 }
             }

@@ -556,6 +556,40 @@ impl PlatformWindow for GraphicsWindow {
         ))
     }
 
+    fn text_input_byte_offset_for_position(
+        &self,
+        text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+        pos: Point,
+    ) -> usize {
+        let scale_factor = self.scale_factor();
+        let cache_data = text_input
+            .cached_rendering_data
+            .get_or_update(&self.graphics_cache, || {
+                Some(crate::ItemGraphicsCacheEntry::Font(crate::fonts::FONT_CACHE.with(|cache| {
+                    cache.borrow_mut().font(
+                        text_input
+                            .unresolved_font_request()
+                            .merge(&self.default_font_properties.as_ref().get()),
+                        scale_factor,
+                        &text_input.text(),
+                    )
+                })))
+            })
+            .unwrap();
+        let font = cache_data.as_font();
+        let x = pos.x * scale_factor;
+        let text = text_input.text();
+        let metrics = font.measure(text_input.letter_spacing(), &text);
+        let mut current_x = 0.;
+        for glyph in metrics.glyphs {
+            if current_x + glyph.advance_x / 2. >= x {
+                return glyph.byte_index;
+            }
+            current_x += glyph.advance_x;
+        }
+        text.len()
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
