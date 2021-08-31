@@ -1612,63 +1612,109 @@ impl Exports {
         struct NamedExport {
             internal_name_ident: SyntaxNode,
             internal_name: String,
+            external_name_ident: SyntaxNode,
             exported_name: String,
         }
 
-        let mut exports = doc
-            .ExportsList()
-            .flat_map(|exports| exports.ExportSpecifier())
-            .map(|export_specifier| {
+        let exports_it = doc.ExportsList().flat_map(|exports| exports.ExportSpecifier()).map(
+            |export_specifier| {
                 let internal_name = parser::identifier_text(&export_specifier.ExportIdentifier())
                     .unwrap_or_else(|| {
                         debug_assert!(diag.has_error());
                         String::new()
                     });
-                let exported_name = export_specifier
+
+                let (exported_name, name_location): (String, SyntaxNode) = export_specifier
                     .ExportName()
-                    .and_then(|ident| parser::identifier_text(&ident))
-                    .unwrap_or_else(|| internal_name.clone());
+                    .and_then(|ident| {
+                        parser::identifier_text(&ident).map(|text| (text, ident.clone().into()))
+                    })
+                    .unwrap_or_else(|| {
+                        (internal_name.clone(), export_specifier.ExportIdentifier().clone().into())
+                    });
+
                 NamedExport {
                     internal_name_ident: export_specifier.ExportIdentifier().into(),
                     internal_name,
+                    external_name_ident: name_location,
                     exported_name,
                 }
-            })
-            .collect::<Vec<_>>();
+            },
+        );
 
-        exports.extend(doc.ExportsList().filter_map(|exports| exports.Component()).map(
-            |component| {
+        let exports_it = exports_it.chain(
+            doc.ExportsList().filter_map(|exports| exports.Component()).map(|component| {
+                let name_location: SyntaxNode = component.DeclaredIdentifier().into();
                 let name =
                     parser::identifier_text(&component.DeclaredIdentifier()).unwrap_or_else(|| {
                         debug_assert!(diag.has_error());
                         String::new()
                     });
                 NamedExport {
-                    internal_name_ident: component.DeclaredIdentifier().into(),
+                    internal_name_ident: name_location.clone(),
                     internal_name: name.clone(),
+                    external_name_ident: name_location,
                     exported_name: name,
                 }
-            },
-        ));
-        exports.extend(doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).map(
-            |st| {
+            }),
+        );
+        let exports_it = exports_it.chain(
+            doc.ExportsList().flat_map(|exports| exports.StructDeclaration()).map(|st| {
+                let name_location: SyntaxNode = st.DeclaredIdentifier().into();
                 let name = parser::identifier_text(&st.DeclaredIdentifier()).unwrap_or_else(|| {
                     debug_assert!(diag.has_error());
                     String::new()
                 });
                 NamedExport {
-                    internal_name_ident: st.DeclaredIdentifier().into(),
+                    internal_name_ident: name_location.clone(),
                     internal_name: name.clone(),
+                    external_name_ident: name_location,
                     exported_name: name,
                 }
-            },
-        ));
+            }),
+        );
+
+        struct SeenExport {
+            name_location: SyntaxNode,
+            warned: bool,
+        }
+        let mut seen_exports: HashMap<String, SeenExport> = HashMap::new();
+        let mut export_diagnostics = Vec::new();
+
+        let mut exports: Vec<_> = exports_it
+            .filter(|export| {
+                if let Some(other_loc) = seen_exports.get_mut(&export.exported_name) {
+                    let message = format!("Duplicated export '{}'", export.exported_name);
+                    if !other_loc.warned {
+                        export_diagnostics.push((message.clone(), other_loc.name_location.clone()));
+                        other_loc.warned = true;
+                    }
+                    export_diagnostics.push((message, export.external_name_ident.clone()));
+                    false
+                } else {
+                    seen_exports.insert(
+                        export.exported_name.clone(),
+                        SeenExport {
+                            name_location: export.external_name_ident.clone(),
+                            warned: false,
+                        },
+                    );
+
+                    true
+                }
+            })
+            .collect();
+
+        for (message, location) in export_diagnostics {
+            diag.push_error(message, &location);
+        }
 
         if exports.is_empty() {
             if let Some(internal_name) = inner_components.last().as_ref().map(|x| x.id.clone()) {
                 exports.push(NamedExport {
                     internal_name_ident: doc.clone().into(),
                     internal_name: internal_name.clone(),
+                    external_name_ident: doc.clone().into(),
                     exported_name: internal_name,
                 })
             }
