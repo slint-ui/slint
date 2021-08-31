@@ -1012,7 +1012,11 @@ pub fn instantiate(
         extra_data.globals = component_type
             .compiled_globals
             .iter()
-            .map(|g| crate::global_component::instantiate(g))
+            .map(|g| {
+                let (_, instance) = crate::global_component::instantiate(g);
+                g.names().iter().map(|name| (name.clone(), instance.clone())).collect::<Vec<_>>()
+            })
+            .flatten()
             .collect();
     }
     *component_type.window_offset.apply_mut(instance.as_mut()) =
