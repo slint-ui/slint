@@ -31,8 +31,7 @@ impl CompiledGlobal {
             CompiledGlobal::Component(component) => {
                 generativity::make_guard!(guard);
                 let component = component.unerase(guard);
-                let mut names = component.original.exported_global_names.borrow().clone();
-                // eval.rs (generated code) accesses globals by their internal name
+                let mut names = component.original.global_aliases();
                 names.push(component.original.root_element.borrow().id.clone());
                 names
             }

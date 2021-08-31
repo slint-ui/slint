@@ -41,6 +41,8 @@ fn rename_globals(component: &Rc<Component>, mut count: u32) {
         if matches!(&root.base_type, Type::Builtin(_)) {
             // builtin global keeps its name
             root.id = g.id.clone();
+        } else if let Some(s) = g.exported_global_names.borrow().first() {
+            root.id = s.to_string();
         } else {
             root.id = format!("{}-{}", g.id, count);
         }

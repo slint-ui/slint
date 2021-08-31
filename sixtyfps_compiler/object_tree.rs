@@ -277,6 +277,15 @@ impl Component {
             self.parent_element.upgrade().is_none()
         }
     }
+
+    pub fn global_aliases(&self) -> Vec<String> {
+        self.exported_global_names
+            .borrow()
+            .iter()
+            .filter(|name| *name != &self.root_element.borrow().id)
+            .map(|name| name.to_string())
+            .collect()
+    }
 }
 
 #[derive(Clone, Debug, Default)]
