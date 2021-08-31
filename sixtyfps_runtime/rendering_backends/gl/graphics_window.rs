@@ -27,6 +27,8 @@ use corelib::Property;
 use sixtyfps_corelib as corelib;
 use winit::dpi::LogicalSize;
 
+use crate::ItemGraphicsCacheEntry;
+
 /// FIXME! this is some remains from a time where the GLRenderer was called the backend
 type Backend = super::GLRenderer;
 type BackendItemGraphicsCache = super::ItemGraphicsCache;
@@ -563,10 +565,28 @@ impl PlatformWindow for GraphicsWindow {
         pos: Point,
     ) -> usize {
         let scale_factor = self.scale_factor();
-        let cache_data = text_input
+        let pos = pos * scale_factor;
+        let text = text_input.text();
+
+        let mut result = text.len();
+
+        let width = text_input.width() * scale_factor;
+        let height = text_input.height() * scale_factor;
+        if width <= 0. || height <= 0. {
+            return 0;
+        }
+
+        let canvas = match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => return 0,
+            GraphicsWindowBackendState::Mapped(window) => {
+                window.backend.borrow().shared_data.canvas.clone()
+            }
+        };
+
+        let font = text_input
             .cached_rendering_data
             .get_or_update(&self.graphics_cache, || {
-                Some(crate::ItemGraphicsCacheEntry::Font(crate::fonts::FONT_CACHE.with(|cache| {
+                Some(ItemGraphicsCacheEntry::Font(crate::fonts::FONT_CACHE.with(|cache| {
                     cache.borrow_mut().font(
                         text_input
                             .unresolved_font_request()
@@ -576,19 +596,37 @@ impl PlatformWindow for GraphicsWindow {
                     )
                 })))
             })
-            .unwrap();
-        let font = cache_data.as_font();
-        let x = pos.x * scale_factor;
-        let text = text_input.text();
-        let metrics = font.measure(text_input.letter_spacing(), &text);
-        let mut current_x = 0.;
-        for glyph in metrics.glyphs {
-            if current_x + glyph.advance_x / 2. >= x {
-                return glyph.byte_index;
-            }
-            current_x += glyph.advance_x;
-        }
-        text.len()
+            .unwrap()
+            .as_font()
+            .clone();
+
+        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
+        let mut canvas = canvas.borrow_mut();
+        let font_height = canvas.measure_font(paint).unwrap().height();
+        crate::fonts::layout_text_lines(
+            text.as_str(),
+            &font,
+            Size::new(width, height),
+            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
+            text_input.wrap(),
+            sixtyfps_corelib::items::TextOverflow::clip,
+            &mut canvas,
+            paint,
+            |_, _, line_pos, start, metrics| {
+                if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
+                    let mut current_x = 0.;
+                    for glyph in &metrics.glyphs {
+                        if line_pos.x + current_x + glyph.advance_x / 2. >= pos.x {
+                            result = start + glyph.byte_index;
+                            return;
+                        }
+                        current_x += glyph.advance_x;
+                    }
+                }
+            },
+        );
+
+        result
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

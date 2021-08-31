@@ -588,6 +588,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
 * **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
+* **`single-line`** (bool): When set to `true`, no newlines are allowed (default value: `true`)
+* **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text input wraps.  Only makes sense when `single-line` is false. (default: no-wrap)
 
 ### Methods
 

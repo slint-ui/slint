@@ -450,6 +450,7 @@ export LineEdit := Rectangle {
             accepted => { root.accepted(self.text); }
             edited => { root.edited(self.text); }
             color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
+            single-line: true;
             Text {
                 height: 100%; width: 100%;
                 vertical-alignment: center;

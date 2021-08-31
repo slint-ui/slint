@@ -247,6 +247,7 @@ pub struct TextInput {
     pub selection_background_color: Property<Color>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
+    pub wrap: Property<TextWrap>,
     pub letter_spacing: Property<f32>,
     pub x: Property<f32>,
     pub y: Property<f32>,
@@ -261,6 +262,7 @@ pub struct TextInput {
     pub accepted: Callback<VoidArg>,
     pub edited: Callback<VoidArg>,
     pub pressed: std::cell::Cell<bool>,
+    pub single_line: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

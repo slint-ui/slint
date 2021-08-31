@@ -182,6 +182,36 @@ cpp! {{
             }
         }
     };
+
+    // Helper function used for the TextInput layouting
+    //
+    // if line_for_y_pos > 0, then the function will return the line at this y position
+    static int do_text_layout(QTextLayout &layout, int flags, const QRectF &rect, int line_for_y_pos = -1) {
+        QTextOption options;
+        options.setWrapMode((flags & Qt::TextWordWrap) ? QTextOption::WordWrap : QTextOption::NoWrap);
+        layout.setTextOption(options);
+        layout.setCacheEnabled(true);
+        QFontMetrics fm(layout.font());
+        int leading = fm.leading();
+        qreal height = 0;
+        layout.beginLayout();
+        int count = 0;
+        while(1) {
+            auto line = layout.createLine();
+            if (!line.isValid())
+                break;
+            line.setLineWidth(rect.width());
+            height += leading;
+            line.setPosition(QPointF(0, height));
+            height += line.height();
+            if (line_for_y_pos >= 0 && height > line_for_y_pos) {
+                return count;
+            }
+            count++;
+        }
+        layout.endLayout();
+        return -1;
+    }
 }}
 
 cpp_class! {pub unsafe struct QPainter as "QPainter"}
@@ -477,7 +507,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             text_input.selection_background_color().as_argb_encoded();
 
         let text = text_input.text();
-        let string: qttypes::QString = text.as_str().into();
+        let mut string: qttypes::QString = text.as_str().into();
         let font: QFont =
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties));
         let flags = match text_input.horizontal_alignment() {
@@ -488,6 +518,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+        } | match text_input.wrap() {
+            TextWrap::no_wrap => 0,
+            TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
 
         // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
@@ -510,6 +543,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let text_cursor_width: f32 =
             if text_input.cursor_visible() { text_input.text_cursor_width() } else { 0. };
 
+        let single_line: bool = text_input.single_line();
+
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [
                 painter as "QPainter*",
@@ -517,17 +552,18 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 fill_brush as "QBrush",
                 selection_foreground_color as "QRgb",
                 selection_background_color as "QRgb",
-                string as "QString",
+                mut string as "QString",
                 flags as "int",
+                single_line as "bool",
                 font as "QFont",
                 cursor_position as "int",
                 anchor_position as "int",
                 text_cursor_width as "float"] {
-            Q_UNUSED(flags); // FIXME
+            if (!single_line) {
+                string.replace(QChar('\n'), QChar::LineSeparator);
+            }
             QTextLayout layout(string, font);
-            layout.beginLayout();
-            layout.createLine();
-            layout.endLayout();
+            do_text_layout(layout, flags, rect);
             painter->setPen(QPen(fill_brush, 0));
             QVector<QTextLayout::FormatRange> selections;
             if (anchor_position != cursor_position) {
@@ -1323,18 +1359,33 @@ impl PlatformWindow for QtWindow {
         text_input: Pin<&sixtyfps_corelib::items::TextInput>,
         pos: Point,
     ) -> usize {
+        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
+        let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
         let font: QFont =
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties()));
-        let string = qttypes::QString::from(text_input.text().as_str());
-        let x: f32 = pos.x;
-        cpp! { unsafe [font as "QFont", string as "QString", x as "float"] -> usize as "long long" {
+        let mut string = qttypes::QString::from(text_input.text().as_str());
+        let flags = match text_input.horizontal_alignment() {
+            TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+        } | match text_input.vertical_alignment() {
+            TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+        } | match text_input.wrap() {
+            TextWrap::no_wrap => 0,
+            TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+        };
+        let single_line: bool = text_input.single_line();
+        cpp! { unsafe [font as "QFont", mut string as "QString", pos as "QPointF", flags as "int", rect as "QRectF", single_line as "bool"] -> usize as "size_t" {
+            if (!single_line) {
+                string.replace(QChar('\n'), QChar::LineSeparator);
+            }
             QTextLayout layout(string, font);
-            layout.beginLayout();
-            layout.createLine();
-            layout.endLayout();
-            if (layout.lineCount() == 0)
+            auto line = do_text_layout(layout, flags, rect, pos.y());
+            if (line < 0 || layout.lineCount() <= line)
                 return 0;
-            auto cur = layout.lineAt(0).xToCursor(x);
+            auto cur = layout.lineAt(line).xToCursor(pos.x());
             // convert to an utf8 pos;
             return QStringView(string).left(cur).toUtf8().size();
         }}

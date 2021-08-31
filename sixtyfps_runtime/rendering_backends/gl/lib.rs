@@ -28,13 +28,9 @@ use sixtyfps_corelib::graphics::{
     Brush, Color, FontRequest, Image, IntRect, Point, Rect, RenderingCache, Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{
-    FillRule, ImageFit, TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
-};
+use sixtyfps_corelib::items::{FillRule, ImageFit};
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::Window;
-
-use sixtyfps_corelib::SharedString;
 
 mod graphics_window;
 use graphics_window::*;
@@ -45,7 +41,8 @@ use images::*;
 
 mod fonts;
 
-type CanvasRc = Rc<RefCell<femtovg::Canvas<femtovg::renderer::OpenGl>>>;
+type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
+type CanvasRc = Rc<RefCell<Canvas>>;
 
 const KAPPA90: f32 = 0.55228;
 
@@ -301,7 +298,7 @@ struct GLRendererData {
 }
 
 pub struct GLRenderer {
-    shared_data: Rc<GLRendererData>,
+    pub(crate) shared_data: Rc<GLRendererData>,
 }
 
 impl GLRenderer {
@@ -549,8 +546,6 @@ impl ItemRenderer for GLItemRenderer {
 
         let string = text.text();
         let string = string.as_str();
-        let vertical_alignment = text.vertical_alignment();
-        let horizontal_alignment = text.horizontal_alignment();
         let font = text
             .cached_rendering_data
             .get_or_update(&self.graphics_window.graphics_cache, || {
@@ -567,91 +562,27 @@ impl ItemRenderer for GLItemRenderer {
             .as_font()
             .clone();
 
-        let wrap = text.wrap() == TextWrap::word_wrap;
-        let elide = text.overflow() == TextOverflow::elide;
-        let letter_spacing = text.letter_spacing() * self.scale_factor;
-        let text_size =
-            font.text_size(letter_spacing, string, if wrap { Some(max_width) } else { None });
-
         let paint = match self
             .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
         {
-            Some(paint) => font.init_paint(letter_spacing, paint),
+            Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
             None => return,
         };
 
         let mut canvas = self.shared_data.canvas.borrow_mut();
-
-        let font_metrics = canvas.measure_font(paint).unwrap();
-
-        let mut y = match vertical_alignment {
-            TextVerticalAlignment::top => 0.,
-            TextVerticalAlignment::center => max_height / 2. - text_size.height / 2.,
-            TextVerticalAlignment::bottom => max_height - text_size.height,
-        };
-
-        let draw_line = |canvas: &mut femtovg::Canvas<_>, to_draw: &str, y: &mut f32| {
-            if *y >= 0. {
-                let text_metrics = canvas.measure_text(0., 0., to_draw, paint).unwrap();
-                let translate_x = match horizontal_alignment {
-                    TextHorizontalAlignment::left => 0.,
-                    TextHorizontalAlignment::center => max_width / 2. - text_metrics.width() / 2.,
-                    TextHorizontalAlignment::right => max_width - text_metrics.width(),
-                };
-                canvas.fill_text(translate_x, *y, to_draw, paint).unwrap();
-            }
-            *y += font_metrics.height();
-        };
-
-        let mut start = 0;
-        'lines: while start < string.len() && y + font_metrics.height() <= max_height {
-            if wrap && (!elide || y + 2. * font_metrics.height() <= max_height) {
-                let index = canvas.break_text(max_width, &string[start..], paint).unwrap();
-                if index == 0 {
-                    // FIXME the word is too big to be shown, but we should still break, ideally
-                    break;
-                }
-                let index = start + index;
-                // trim is there to remove the \n
-                draw_line(&mut canvas, string[start..index].trim(), &mut y);
-                start = index;
-            } else {
-                let index = string[start..].find('\n').map_or(string.len(), |i| start + i + 1);
-                let line = &string[start..index].trim();
-                start = index;
-                let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
-                let elide_last_line =
-                    elide && index < string.len() && y + 2. * font_metrics.height() > max_height;
-                if text_metrics.width() > max_width || elide_last_line {
-                    let w = max_width
-                        - if elide {
-                            canvas.measure_text(0., 0., "…", paint).unwrap().width()
-                        } else {
-                            0.
-                        };
-                    let mut current_x = 0.;
-                    for glyph in text_metrics.glyphs {
-                        current_x += glyph.advance_x;
-                        if current_x >= w {
-                            let txt = &line[..glyph.byte_index];
-                            if elide {
-                                let elided = format!("{}…", txt);
-                                draw_line(&mut canvas, &elided, &mut y);
-                            } else {
-                                draw_line(&mut canvas, txt, &mut y);
-                            }
-                            continue 'lines;
-                        }
-                    }
-                    if elide_last_line {
-                        let elided = format!("{}…", line);
-                        draw_line(&mut canvas, &elided, &mut y);
-                        continue 'lines;
-                    }
-                }
-                draw_line(&mut canvas, line, &mut y);
-            }
-        }
+        fonts::layout_text_lines(
+            string,
+            &font,
+            Size::new(max_width, max_height),
+            (text.horizontal_alignment(), text.vertical_alignment()),
+            text.wrap(),
+            text.overflow(),
+            &mut canvas,
+            paint,
+            |canvas, to_draw, pos, _, _| {
+                canvas.fill_text(pos.x, pos.y, to_draw, paint).unwrap();
+            },
+        );
     }
 
     fn draw_text_input(&mut self, text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>) {
@@ -677,120 +608,124 @@ impl ItemRenderer for GLItemRenderer {
             .unwrap()
             .as_font()
             .clone();
-        let font_height = font.height();
 
         let paint = match self.brush_to_paint(
             text_input.color(),
             &mut rect_to_path(item_rect(text_input, self.scale_factor)),
         ) {
-            Some(paint) => paint,
+            Some(paint) => font.init_paint(text_input.letter_spacing() * self.scale_factor, paint),
             None => return,
         };
 
-        let letter_spacing = text_input.letter_spacing() * self.scale_factor;
-        let horizontal_alignment = text_input.horizontal_alignment();
-        let vertical_alignment = text_input.vertical_alignment();
-        let metrics = self.draw_text_impl(
-            width,
-            height,
-            sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
+        let (min_select, max_select) = text_input.selection_anchor_and_cursor();
+        let cursor_pos = text_input.cursor_position();
+        let cursor_visible = cursor_pos >= 0 && text_input.cursor_visible();
+        let mut canvas = self.shared_data.canvas.borrow_mut();
+        let font_height = canvas.measure_font(paint).unwrap().height();
+        fonts::layout_text_lines(
+            text_input.text().as_str(),
             &font,
+            Size::new(width, height),
+            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
+            text_input.wrap(),
+            sixtyfps_corelib::items::TextOverflow::clip,
+            &mut canvas,
             paint,
-            horizontal_alignment,
-            vertical_alignment,
-            letter_spacing,
-        );
-        let cursor_y = match vertical_alignment {
-            TextVerticalAlignment::top => 0.,
-            TextVerticalAlignment::center => (height - font_height) / 2.,
-            TextVerticalAlignment::bottom => (height - font_height),
-        };
-
-        // This way of drawing selected text isn't quite 100% correct. Due to femtovg only being able to
-        // have a simple rectangular selection - due to the use of the scissor clip - the selected text is
-        // drawn *over* the unselected text. If the selection background color is transparent, then that means
-        // that glyphs are blended twice, which may lead to artifacts.
-        // It would be better to draw the selected text and non-selected text without overlap.
-        if text_input.has_selection() {
-            let (anchor_pos, cursor_pos) = text_input.selection_anchor_and_cursor();
-            let mut selection_start_x = 0.;
-            let mut selection_end_x = 0.;
-            // Determine the first and last (inclusive) glyph of the selection. The anchor
-            // will always be at the start of a grapheme boundary, so there's at ShapedGlyph
-            // that has a matching byte index. For the selection end we have to look for the
-            // visual end of glyph before the cursor, because due to for example ligatures
-            // (or generally glyph substitution) there may not be a dedicated glyph.
-            for glyph in &metrics.glyphs {
-                if glyph.byte_index == anchor_pos {
-                    selection_start_x = glyph.x;
-                }
-                if glyph.byte_index == cursor_pos {
-                    break;
-                }
-                selection_end_x = glyph.x + glyph.advance_x;
-            }
-
-            let selection_rect = Rect::new(
-                [selection_start_x, cursor_y].into(),
-                [selection_end_x - selection_start_x, font_height].into(),
-            );
-
-            {
-                let mut canvas = self.shared_data.canvas.borrow_mut();
-                canvas.fill_path(
-                    &mut rect_to_path(selection_rect),
-                    femtovg::Paint::color(to_femtovg_color(
-                        &text_input.selection_background_color(),
-                    )),
-                );
-
-                canvas.save();
-                canvas.intersect_scissor(
-                    selection_rect.min_x(),
-                    selection_rect.min_y(),
-                    selection_rect.width(),
-                    selection_rect.height(),
-                )
-            }
-
-            self.draw_text_impl(
-                width,
-                height,
-                sixtyfps_corelib::items::TextInput::FIELD_OFFSETS.text.apply_pin(text_input),
-                &font,
-                femtovg::Paint::color(to_femtovg_color(&text_input.selection_foreground_color())),
-                horizontal_alignment,
-                vertical_alignment,
-                letter_spacing,
-            );
-
-            self.shared_data.canvas.borrow_mut().restore();
-        };
-
-        let cursor_index = text_input.cursor_position();
-        if cursor_index >= 0 && text_input.cursor_visible() {
-            let cursor_x = metrics
-                .glyphs
-                .iter()
-                .find_map(|glyph| {
-                    if glyph.byte_index == cursor_index as usize {
-                        Some(glyph.x)
-                    } else {
-                        None
+            |canvas, to_draw, pos, start, metrics| {
+                let range = start..(start + to_draw.len());
+                if min_select != max_select
+                    && (range.contains(&min_select)
+                        || range.contains(&max_select)
+                        || (min_select..max_select).contains(&start))
+                {
+                    let mut selection_start_x = 0.;
+                    let mut selection_end_x = 0.;
+                    let mut after_selection_x = 0.;
+                    // Determine the first and last (inclusive) glyph of the selection. The anchor
+                    // will always be at the start of a grapheme boundary, so there's at ShapedGlyph
+                    // that has a matching byte index. For the selection end we have to look for the
+                    // visual end of glyph before the cursor, because due to for example ligatures
+                    // (or generally glyph substitution) there may not be a dedicated glyph.
+                    for glyph in &metrics.glyphs {
+                        if glyph.byte_index == min_select.saturating_sub(start) {
+                            selection_start_x = glyph.x - glyph.bearing_x;
+                        }
+                        if glyph.byte_index == max_select - start
+                            || glyph.byte_index >= to_draw.len()
+                        {
+                            after_selection_x = glyph.x - glyph.bearing_x;
+                            break;
+                        }
+                        selection_end_x = glyph.x + glyph.advance_x;
                     }
-                })
-                .unwrap_or_else(|| metrics.width());
-            let mut cursor_rect = femtovg::Path::new();
-            cursor_rect.rect(
-                cursor_x,
-                cursor_y,
-                text_input.text_cursor_width() * self.scale_factor,
-                font_height,
-            );
-            if let Some(text_paint) = self.brush_to_paint(text_input.color(), &mut cursor_rect) {
-                self.shared_data.canvas.borrow_mut().fill_path(&mut cursor_rect, text_paint)
-            }
-        }
+
+                    let selection_rect = Rect::new(
+                        pos + euclid::vec2(selection_start_x, 0.),
+                        Size::new(selection_end_x - selection_start_x, font_height),
+                    );
+                    canvas.fill_path(
+                        &mut rect_to_path(selection_rect),
+                        femtovg::Paint::color(to_femtovg_color(
+                            &text_input.selection_background_color(),
+                        )),
+                    );
+                    let mut selected_paint = paint;
+                    selected_paint
+                        .set_color(to_femtovg_color(&text_input.selection_foreground_color()));
+                    canvas
+                        .fill_text(
+                            pos.x,
+                            pos.y,
+                            &to_draw[..min_select.saturating_sub(start)],
+                            paint,
+                        )
+                        .unwrap();
+                    canvas
+                        .fill_text(
+                            pos.x + selection_start_x,
+                            pos.y,
+                            &to_draw[min_select.saturating_sub(start)
+                                ..(max_select - start).min(to_draw.len())],
+                            selected_paint,
+                        )
+                        .unwrap();
+                    canvas
+                        .fill_text(
+                            pos.x + after_selection_x,
+                            pos.y,
+                            &to_draw[(max_select - start).min(to_draw.len())..],
+                            paint,
+                        )
+                        .unwrap();
+                } else {
+                    // no selection on this line
+                    canvas.fill_text(pos.x, pos.y, to_draw, paint).unwrap();
+                };
+                if cursor_visible
+                    && (start..=(start + to_draw.len())).contains(&(cursor_pos as usize))
+                {
+                    let cursor_x = metrics
+                        .glyphs
+                        .iter()
+                        .find_map(|glyph| {
+                            if glyph.byte_index == (cursor_pos as usize - start) {
+                                Some(glyph.x)
+                            } else {
+                                None
+                            }
+                        })
+                        .unwrap_or_else(|| metrics.width());
+                    let mut cursor_rect = femtovg::Path::new();
+                    cursor_rect.rect(
+                        pos.x + cursor_x,
+                        pos.y,
+                        text_input.text_cursor_width() * self.scale_factor,
+                        font_height,
+                    );
+                    canvas.fill_path(&mut cursor_rect, paint);
+                }
+            },
+        );
     }
 
     fn draw_path(&mut self, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
@@ -1196,41 +1131,6 @@ impl ItemRenderer for GLItemRenderer {
 }
 
 impl GLItemRenderer {
-    fn draw_text_impl(
-        &mut self,
-        max_width: f32,
-        max_height: f32,
-        text: Pin<&Property<SharedString>>,
-        font: &fonts::Font,
-        paint: femtovg::Paint,
-        horizontal_alignment: TextHorizontalAlignment,
-        vertical_alignment: TextVerticalAlignment,
-        letter_spacing: f32,
-    ) -> femtovg::TextMetrics {
-        let paint = font.init_paint(letter_spacing, paint);
-
-        let mut canvas = self.shared_data.canvas.borrow_mut();
-        let (text_width, text_height) = {
-            let text_metrics = canvas.measure_text(0., 0., &text.as_ref().get(), paint).unwrap();
-            let font_metrics = canvas.measure_font(paint).unwrap();
-            (text_metrics.width(), font_metrics.height())
-        };
-
-        let translate_x = match horizontal_alignment {
-            TextHorizontalAlignment::left => 0.,
-            TextHorizontalAlignment::center => max_width / 2. - text_width / 2.,
-            TextHorizontalAlignment::right => max_width - text_width,
-        };
-
-        let translate_y = match vertical_alignment {
-            TextVerticalAlignment::top => 0.,
-            TextVerticalAlignment::center => max_height / 2. - text_height / 2.,
-            TextVerticalAlignment::bottom => max_height - text_height,
-        };
-
-        canvas.fill_text(translate_x, translate_y, text.get(), paint).unwrap()
-    }
-
     fn colorize_image(
         &self,
         original_cache_entry: ItemGraphicsCacheEntry,
