@@ -49,6 +49,7 @@ export LineEdit := NativeLineEdit {
             edited => {
                 root.edited(self.text);
             }
+            single-line: true;
         }
         Text {
             color: #ecedeb; // FIXME: use the palette

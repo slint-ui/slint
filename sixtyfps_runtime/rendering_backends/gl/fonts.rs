@@ -12,13 +12,17 @@ LICENSE END */
 use femtovg::TextContext;
 #[cfg(target_os = "windows")]
 use font_kit::loader::Loader;
-use sixtyfps_corelib::graphics::{FontRequest, Size};
+use sixtyfps_corelib::graphics::{FontRequest, Point, Size};
+use sixtyfps_corelib::items::{
+    TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
+};
 use sixtyfps_corelib::{SharedString, SharedVector};
 #[cfg(target_arch = "wasm32")]
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use super::Canvas;
 use crate::ItemGraphicsCache;
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
@@ -251,22 +255,6 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn measure(&self, letter_spacing: f32, text: &str) -> femtovg::TextMetrics {
-        self.text_context
-            .measure_text(0., 0., text, self.init_paint(letter_spacing, femtovg::Paint::default()))
-            .unwrap()
-    }
-
-    pub fn height(&self) -> f32 {
-        self.text_context
-            .measure_font(self.init_paint(
-                /*letter spacing does not influence height*/ 0.,
-                femtovg::Paint::default(),
-            ))
-            .unwrap()
-            .height()
-    }
-
     pub fn init_paint(&self, letter_spacing: f32, mut paint: femtovg::Paint) -> femtovg::Paint {
         paint.set_font(&self.fonts);
         paint.set_font_size(self.pixel_size);
@@ -381,6 +369,108 @@ impl FontCache {
             fonts,
             text_context: self.text_context.clone(),
             pixel_size: request.pixel_size.unwrap(),
+        }
+    }
+}
+
+/// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
+/// The signature of the `layout_line` function is: `(canvas, text, pos, start_index, line_metrics)`.
+/// start index is the starting byte of the text in the string.
+pub(crate) fn layout_text_lines(
+    string: &str,
+    font: &Font,
+    Size { width: max_width, height: max_height, .. }: Size,
+    (horizontal_alignment, vertical_alignment): (TextHorizontalAlignment, TextVerticalAlignment),
+    wrap: TextWrap,
+    overflow: TextOverflow,
+    canvas: &mut Canvas,
+    paint: femtovg::Paint,
+    mut layout_line: impl FnMut(&mut Canvas, &str, Point, usize, &femtovg::TextMetrics),
+) {
+    let wrap = wrap == TextWrap::word_wrap;
+    let elide = overflow == TextOverflow::elide;
+
+    let font_metrics = canvas.measure_font(paint).unwrap();
+    let font_height = font_metrics.height();
+
+    let text_size = || {
+        // Note: this is kind of doing twice the layout because text_size also does it
+        font.text_size(paint.letter_spacing(), string, if wrap { Some(max_width) } else { None })
+    };
+
+    let mut process_line = |canvas: &mut Canvas,
+                            text: &str,
+                            y: f32,
+                            start: usize,
+                            line_metrics: &femtovg::TextMetrics| {
+        let x = match horizontal_alignment {
+            TextHorizontalAlignment::left => 0.,
+            TextHorizontalAlignment::center => max_width / 2. - line_metrics.width() / 2.,
+            TextHorizontalAlignment::right => max_width - line_metrics.width(),
+        };
+        layout_line(canvas, text, Point::new(x, y), start, line_metrics);
+    };
+
+    let mut y = match vertical_alignment {
+        TextVerticalAlignment::top => 0.,
+        TextVerticalAlignment::center => max_height / 2. - text_size().height / 2.,
+        TextVerticalAlignment::bottom => max_height - text_size().height,
+    };
+    let mut start = 0;
+    'lines: while start < string.len() && y + font_height <= max_height {
+        if wrap && (!elide || y + 2. * font_height <= max_height) {
+            let index = canvas.break_text(max_width, &string[start..], paint).unwrap();
+            if index == 0 {
+                // FIXME the word is too big to be shown, but we should still break, ideally
+                break;
+            }
+            let index = start + index;
+            // trim is there to remove the \n
+            let line = &string[start..index].trim_end();
+            let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
+            process_line(canvas, line, y, start, &text_metrics);
+            y += font_height;
+            start = index;
+        } else {
+            let index = string[start..].find('\n').map_or(string.len(), |i| start + i + 1);
+            let line = &string[start..index].trim_end();
+            let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
+            let elide_last_line =
+                elide && index < string.len() && y + 2. * font_height > max_height;
+            if text_metrics.width() > max_width || elide_last_line {
+                let w = max_width
+                    - if elide {
+                        canvas.measure_text(0., 0., "…", paint).unwrap().width()
+                    } else {
+                        0.
+                    };
+                let mut current_x = 0.;
+                for glyph in &text_metrics.glyphs {
+                    current_x += glyph.advance_x;
+                    if current_x >= w {
+                        let txt = &line[..glyph.byte_index];
+                        if elide {
+                            let elided = format!("{}…", txt);
+                            process_line(canvas, &elided, y, start, &text_metrics);
+                        } else {
+                            process_line(canvas, txt, y, start, &text_metrics);
+                        }
+                        y += font_height;
+                        start = index;
+                        continue 'lines;
+                    }
+                }
+                if elide_last_line {
+                    let elided = format!("{}…", line);
+                    process_line(canvas, &elided, y, start, &text_metrics);
+                    y += font_height;
+                    start = index;
+                    continue 'lines;
+                }
+            }
+            process_line(canvas, line, y, start, &text_metrics);
+            y += font_height;
+            start = index;
         }
     }
 }

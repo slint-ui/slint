@@ -407,6 +407,7 @@ export LineEdit := Rectangle {
                         root.edited(self.text);
                     }
                     color: enabled ? Palette.text-color : Palette.text-color-disabled;
+                    single-line: true;
                 }
                 Text {
                     color: Palette.placeholder-text;
@@ -597,7 +598,7 @@ export ComboBox := Rectangle {
                         }
                         //is-open = false;
                     }
-                }                
+                }
             }
         }
     }
