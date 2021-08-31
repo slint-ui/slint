@@ -1307,13 +1307,15 @@ impl PlatformWindow for QtWindow {
         self.popup_window.replace(None);
     }
 
-    fn font_metrics(
+    fn text_size(
         &self,
-        _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> sixtyfps_corelib::graphics::FontRequest,
-        _reference_text: Pin<&Property<SharedString>>,
-    ) -> Box<dyn sixtyfps_corelib::graphics::FontMetrics> {
-        Box::new(get_font(unresolved_font_request_getter().merge(&self.default_font_properties())))
+        text: &str,
+        max_width: Option<f32>,
+    ) -> Size {
+        get_font(unresolved_font_request_getter().merge(&self.default_font_properties()))
+            .text_size(text, max_width)
     }
 
     fn text_input_byte_offset_for_position(
@@ -1377,7 +1379,7 @@ fn get_font(request: FontRequest) -> QFont {
 
 cpp_class! {pub unsafe struct QFont as "QFont"}
 
-impl sixtyfps_corelib::graphics::FontMetrics for QFont {
+impl QFont {
     fn text_size(&self, text: &str, max_width: Option<f32>) -> sixtyfps_corelib::graphics::Size {
         let string = qttypes::QString::from(text);
         let mut r = qttypes::QRectF::default();

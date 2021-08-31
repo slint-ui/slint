@@ -10,15 +10,12 @@ LICENSE END */
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::graphics::Point;
+use crate::component::{ComponentRc, ComponentWeak};
+use crate::graphics::{Point, Size};
 use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::PropertyTracker;
 use crate::slice::Slice;
-use crate::{
-    component::{ComponentRc, ComponentWeak},
-    SharedString,
-};
 use core::cell::Cell;
 use core::pin::Pin;
 use std::cell::RefCell;
@@ -54,17 +51,15 @@ pub trait PlatformWindow {
     /// Request for the given title string to be set to the windowing system for use as window title.
     fn apply_window_properties(&self, window_item: Pin<&crate::items::WindowItem>);
 
-    /// Return a font metrics trait object for the given font request. This is typically provided by the backend and
-    /// requested by text related items in order to measure text metrics with the item's chosen font.
-    /// Note that if the FontRequest's pixel_size is 0, it is interpreted as the undefined size and that the
-    /// system default font size should be used for the returned font.
-    /// With some back ends this may return none unless the window is mapped.
-    fn font_metrics(
+    /// Returns the size of the given text in logical pixels.
+    /// When set, `max_width` means that one need to wrap the text so it does not go further than that
+    fn text_size(
         &self,
         item_graphics_cache: &crate::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> crate::graphics::FontRequest,
-        reference_text: Pin<&crate::properties::Property<SharedString>>,
-    ) -> Box<dyn crate::graphics::FontMetrics>;
+        text: &str,
+        max_width: Option<f32>,
+    ) -> Size;
 
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
