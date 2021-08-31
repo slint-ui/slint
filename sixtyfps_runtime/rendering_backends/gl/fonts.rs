@@ -12,7 +12,7 @@ LICENSE END */
 use femtovg::TextContext;
 #[cfg(target_os = "windows")]
 use font_kit::loader::Loader;
-use sixtyfps_corelib::graphics::{FontMetrics as FontMetricsTrait, FontRequest, Size};
+use sixtyfps_corelib::graphics::{FontRequest, Size};
 use sixtyfps_corelib::{SharedString, SharedVector};
 #[cfg(target_arch = "wasm32")]
 use std::cell::Cell;
@@ -305,49 +305,30 @@ impl Font {
     }
 }
 
-pub struct FontMetrics {
-    font: Font,
-    letter_spacing: Option<f32>,
-    scale_factor: f32,
-}
-
-impl FontMetrics {
-    pub(crate) fn new(
-        graphics_cache: &RefCell<ItemGraphicsCache>,
-        item_graphics_cache_data: &sixtyfps_corelib::item_rendering::CachedRenderingData,
-        font_request_fn: impl Fn() -> sixtyfps_corelib::graphics::FontRequest,
-        scale_factor: core::pin::Pin<&sixtyfps_corelib::Property<f32>>,
-        reference_text: core::pin::Pin<&sixtyfps_corelib::Property<SharedString>>,
-    ) -> Self {
-        let font = item_graphics_cache_data
-            .get_or_update(graphics_cache, || {
-                Some(super::ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
-                    cache.borrow_mut().font(
-                        font_request_fn(),
-                        scale_factor.get(),
-                        &reference_text.get(),
-                    )
-                })))
-            })
-            .unwrap()
-            .as_font()
-            .clone();
-        Self {
-            font,
-            letter_spacing: font_request_fn().letter_spacing,
-            scale_factor: scale_factor.get(),
-        }
-    }
-}
-
-impl FontMetricsTrait for FontMetrics {
-    fn text_size(&self, text: &str, max_width: Option<f32>) -> Size {
-        self.font.text_size(
-            self.letter_spacing.unwrap_or_default(),
-            text,
-            max_width.map(|x| x * self.scale_factor),
-        ) / self.scale_factor
-    }
+pub(crate) fn text_size(
+    graphics_cache: &RefCell<ItemGraphicsCache>,
+    item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+    font_request_fn: impl Fn() -> sixtyfps_corelib::graphics::FontRequest,
+    scale_factor: std::pin::Pin<&sixtyfps_corelib::Property<f32>>,
+    text: &str,
+    max_width: Option<f32>,
+) -> Size {
+    let cached_font = item_graphics_cache
+        .get_or_update(graphics_cache, || {
+            Some(super::ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
+                cache.borrow_mut().font(
+                    font_request_fn(),
+                    scale_factor.get(),
+                    // FIXME: there is no dependency to the text property
+                    text,
+                )
+            })))
+        })
+        .unwrap();
+    let font = cached_font.as_font();
+    let letter_spacing = font_request_fn().letter_spacing.unwrap_or_default();
+    let scale_factor = scale_factor.get();
+    font.text_size(letter_spacing, text, max_width.map(|x| x * scale_factor)) / scale_factor
 }
 
 pub struct FontCache {

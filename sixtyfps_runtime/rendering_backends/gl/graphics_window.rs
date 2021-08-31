@@ -24,7 +24,6 @@ use corelib::layout::Orientation;
 use corelib::slice::Slice;
 use corelib::window::PlatformWindow;
 use corelib::Property;
-use corelib::SharedString;
 use sixtyfps_corelib as corelib;
 use winit::dpi::LogicalSize;
 
@@ -534,12 +533,13 @@ impl PlatformWindow for GraphicsWindow {
         self.unmap_window();
     }
 
-    fn font_metrics(
+    fn text_size(
         &self,
-        item_graphics_cache_data: &corelib::item_rendering::CachedRenderingData,
+        item_graphics_cache: &corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> corelib::graphics::FontRequest,
-        reference_text: Pin<&Property<SharedString>>,
-    ) -> Box<dyn corelib::graphics::FontMetrics> {
+        text: &str,
+        max_width: Option<f32>,
+    ) -> Size {
         let font_request_fn = || {
             unresolved_font_request_getter().merge(&self.default_font_properties().as_ref().get())
         };
@@ -547,13 +547,14 @@ impl PlatformWindow for GraphicsWindow {
         let scale_factor =
             WindowProperties::FIELD_OFFSETS.scale_factor.apply_pin(self.properties.as_ref());
 
-        Box::new(super::fonts::FontMetrics::new(
+        crate::fonts::text_size(
             &self.graphics_cache,
-            item_graphics_cache_data,
+            item_graphics_cache,
             font_request_fn,
             scale_factor,
-            reference_text,
-        ))
+            text,
+            max_width,
+        )
     }
 
     fn text_input_byte_offset_for_position(

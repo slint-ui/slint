@@ -150,14 +150,6 @@ impl FontRequest {
     }
 }
 
-/// The FontMetrics trait is constructed from a FontRequest by the graphics backend and supplied to text related
-/// items in order to measure text.
-pub trait FontMetrics {
-    /// Returns the size of the given string in logical pixels.
-    /// When set, `max_width` means that one need to wrap the text so it does not go further than that
-    fn text_size(&self, text: &str, max_width: Option<f32>) -> Size;
-}
-
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]

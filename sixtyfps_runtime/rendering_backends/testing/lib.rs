@@ -18,7 +18,7 @@ You should use the `sixtyfps` crate instead.
 
 use image::GenericImageView;
 use sixtyfps_corelib::component::ComponentRc;
-use sixtyfps_corelib::graphics::{FontMetrics, Image, Point, Size};
+use sixtyfps_corelib::graphics::{Image, Point, Size};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{PlatformWindow, Window};
 use sixtyfps_corelib::{ImageInner, Property};
@@ -140,13 +140,14 @@ impl PlatformWindow for TestingWindow {
         todo!()
     }
 
-    fn font_metrics(
+    fn text_size(
         &self,
         _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         _unresolved_font_request_getter: &dyn Fn() -> sixtyfps_corelib::graphics::FontRequest,
-        _reference_text: std::pin::Pin<&sixtyfps_corelib::Property<sixtyfps_corelib::SharedString>>,
-    ) -> Box<dyn sixtyfps_corelib::graphics::FontMetrics> {
-        Box::new(TestingFontMetrics::default())
+        text: &str,
+        _max_width: Option<f32>,
+    ) -> Size {
+        Size::new(text.len() as f32 * 10., 10.)
     }
 
     fn text_input_byte_offset_for_position(
@@ -159,15 +160,6 @@ impl PlatformWindow for TestingWindow {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-}
-
-#[derive(Default)]
-struct TestingFontMetrics {}
-
-impl FontMetrics for TestingFontMetrics {
-    fn text_size(&self, text: &str, _max_width: Option<f32>) -> Size {
-        Size::new(text.len() as f32 * 10., 10.)
     }
 }
 

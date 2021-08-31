@@ -119,23 +119,32 @@ impl Item for Text {
     }
 
     fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
-        let font_metrics = window.font_metrics(
-            &self.cached_rendering_data,
-            &|| self.unresolved_font_request(),
-            Self::FIELD_OFFSETS.text.apply_pin(self),
-        );
-        let text = self.text();
-        let implicit_size = font_metrics.text_size(&text, None);
+        let implicit_size = |max_width| {
+            window.text_size(
+                &self.cached_rendering_data,
+                &|| self.unresolved_font_request(),
+                self.text().as_str(),
+                max_width,
+            )
+        };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
         // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
         // letters will be cut off, apply the ceiling here.
         match orientation {
             Orientation::Horizontal => {
+                let implicit_size = implicit_size(None);
                 let min = match self.overflow() {
-                    TextOverflow::elide => {
-                        implicit_size.width.min(font_metrics.text_size("…", None).width)
-                    }
+                    TextOverflow::elide => implicit_size.width.min(
+                        window
+                            .text_size(
+                                &self.cached_rendering_data,
+                                &|| self.unresolved_font_request(),
+                                "…",
+                                None,
+                            )
+                            .width,
+                    ),
                     TextOverflow::clip => match self.wrap() {
                         TextWrap::no_wrap => implicit_size.width,
                         TextWrap::word_wrap => 0.,
@@ -149,8 +158,8 @@ impl Item for Text {
             }
             Orientation::Vertical => {
                 let h = match self.wrap() {
-                    TextWrap::no_wrap => implicit_size.height,
-                    TextWrap::word_wrap => font_metrics.text_size(&text, Some(self.width())).height,
+                    TextWrap::no_wrap => implicit_size(None).height,
+                    TextWrap::word_wrap => implicit_size(Some(self.width())).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -264,13 +273,14 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
-        let font_metrics = window.font_metrics(
-            &self.cached_rendering_data,
-            &|| self.unresolved_font_request(),
-            Self::FIELD_OFFSETS.text.apply_pin(self),
-        );
-        let size = font_metrics.text_size("********************", None).ceil();
-
+        let size = window
+            .text_size(
+                &self.cached_rendering_data,
+                &|| self.unresolved_font_request(),
+                "********************",
+                None,
+            )
+            .ceil();
         match orientation {
             Orientation::Horizontal => LayoutInfo {
                 min: size.width,
