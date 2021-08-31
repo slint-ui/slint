@@ -145,7 +145,6 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
 
     Some(quote! {
         #[allow(non_snake_case)]
-        #[allow(non_camel_case_types)]
         #[allow(clippy::style)]
         #[allow(clippy::complexity)]
         mod #compo_module {
@@ -917,12 +916,8 @@ fn generate_component(
             }
         ))
     } else if component.is_global() && component.visible_in_public_api() {
-        let aliases = component
-            .exported_global_names
-            .borrow()
-            .iter()
-            .flat_map(|name| (name != &component.root_element.borrow().id).then(|| ident(&name)))
-            .collect::<Vec<_>>();
+        let aliases =
+            component.global_aliases().into_iter().map(|name| ident(&name)).collect::<Vec<_>>();
 
         Some(quote!(
             #visibility struct #public_component_id<'a>(&'a ::core::pin::Pin<::std::rc::Rc<#inner_component_id>>);

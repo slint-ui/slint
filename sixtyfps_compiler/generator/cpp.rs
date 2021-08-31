@@ -608,10 +608,10 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         generate_component(&mut file, glob, diag, None);
 
         if glob.visible_in_public_api() {
-            file.definitions.extend(glob.exported_global_names.borrow().iter().map(|name| {
+            file.definitions.extend(glob.global_aliases().into_iter().map(|name| {
                 Declaration::TypeAlias(TypeAlias {
                     old_name: ident(&glob.root_element.borrow().id).into_owned(),
-                    new_name: name.clone(),
+                    new_name: name,
                 })
             }))
         }
