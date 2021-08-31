@@ -222,8 +222,8 @@ pub struct Component {
     pub used_types: RefCell<UsedSubTypes>,
     pub popup_windows: RefCell<Vec<PopupWindow>>,
 
-    /// Set to true if the component is a global that's exported, thus requires
-    /// visibility in publicly generated API.
+    /// The names under which this component should be accessible
+    /// if it is a global singleton and exported.
     pub exported_global_names: RefCell<Vec<String>>,
 }
 
