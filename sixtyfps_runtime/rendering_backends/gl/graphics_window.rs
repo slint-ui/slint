@@ -203,6 +203,7 @@ impl GraphicsWindow {
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
             backend: RefCell::new(backend),
+            clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
         }));
 
@@ -276,18 +277,10 @@ impl GraphicsWindow {
 
             let map_state = self.map_state.borrow();
             let window = map_state.as_mapped();
-            let root_item = component.as_ref().get_item_ref(0);
-            let background_color = if let Some(window_item) =
-                ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
-            {
-                window_item.background()
-            } else {
-                RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into()
-            };
 
             let mut renderer = window.backend.borrow_mut().new_renderer(
                 self.clone(),
-                &background_color,
+                &window.clear_color,
                 self.scale_factor(),
             );
             corelib::item_rendering::render_component_items(
@@ -432,11 +425,16 @@ impl PlatformWindow for GraphicsWindow {
     }
 
     fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
-        match &*self.map_state.borrow() {
+        let background = window_item.background();
+        let title = window_item.title();
+        let icon = window_item.icon();
+        let width = window_item.width();
+        let height = window_item.height();
+
+        match &mut *self.map_state.borrow_mut() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                let title = window_item.title();
-                let icon = window_item.icon();
+                window.clear_color = background;
                 let mut size: LogicalSize<f64> = {
                     let backend = window.backend.borrow();
                     let winit_window = backend.window();
@@ -453,8 +451,8 @@ impl PlatformWindow for GraphicsWindow {
                     winit_window.inner_size().to_logical(self.scale_factor() as f64)
                 };
                 let mut must_resize = false;
-                let mut w = window_item.width();
-                let mut h = window_item.height();
+                let mut w = width;
+                let mut h = height;
                 if (size.width as f32 - w).abs() < 1. || (size.height as f32 - h).abs() < 1. {
                     return;
                 }
@@ -592,6 +590,7 @@ impl PlatformWindow for GraphicsWindow {
 
 struct MappedWindow {
     backend: RefCell<GLRenderer>,
+    clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
 }
 
