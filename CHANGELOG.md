@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 
  - One can now set an alias from the root to a global callback
  - It is now possible to access properties and callback of exported global objects from the native code (#96)
+ - C++ API: `blocking_invoke_from_event_loop`: a blocking version of `invoke_from_event_loop`
 
 ### Fixed
  - The interpreter API correctly return an error instead of panicking when setting properties or calling callbacks

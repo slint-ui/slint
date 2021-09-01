@@ -21,6 +21,8 @@ LICENSE END */
 #include <chrono>
 #include <optional>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 namespace sixtyfps::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
@@ -790,12 +792,65 @@ inline void quit_event_loop()
 ///     ...
 /// }
 /// ```
+///
+/// See also blocking_invoke_from_event_loop() for a blocking version of this function
 template<typename Functor>
 void invoke_from_event_loop(Functor f)
 {
     cbindgen_private::sixtyfps_post_event(
             [](void *data) { (*reinterpret_cast<Functor *>(data))(); }, new Functor(std::move(f)),
             [](void *data) { delete reinterpret_cast<Functor *>(data); });
+}
+
+/// Blocking version of invoke_from_event_loop()
+///
+/// Just like invoke_from_event_loop(), this will run the specified functor from the thread running
+/// the sixtyfps event loop. But it will block until the execution of the functor is finished,
+/// and return that value.
+///
+/// This function must be called from a different thread than the thread that runs the event loop
+/// otherwise it will result in a deadlock. Calling this function if the event loop is not running
+/// will also block foerver or until the event loop is started in another thread.
+///
+/// The following example is reading the message property from a thread
+///
+/// ```
+/// #include "my_application_ui.h"
+/// #include <thread>
+///
+/// int main(int argc, char **argv)
+/// {
+///     auto ui = MyApplicationUI::create();
+///     ui->set_status_label("Pending");
+///
+///     std::thread worker_thread([ui]{
+///         while (...) {
+///             auto message = sixtyfps::blocking_invoke_from_event_loop([ui]() {
+///                return ui->get_message();
+///             }
+///             do_something(message);
+///             ...
+///         });
+///     });
+///     ...
+///     ui->run();
+///     ...
+/// }
+/// ```
+template<typename Functor>
+auto blocking_invoke_from_event_loop(Functor f) -> std::invoke_result_t<Functor> {
+    std::optional<std::invoke_result_t<Functor>> result;
+    std::mutex mtx;
+    std::condition_variable cv;
+    invoke_from_event_loop([&] {
+        auto r = f();
+        std::unique_lock lock(mtx);
+        result = std::move(r);
+        cv.notify_one();
+    });
+    std::unique_lock lock(mtx);
+    cv.wait(lock, [&] { return result.has_value(); });
+    return std::move(*result);
 }
 
 namespace private_api {
