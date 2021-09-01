@@ -1363,7 +1363,7 @@ impl PlatformWindow for QtWindow {
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
         let font: QFont =
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties()));
-        let mut string = qttypes::QString::from(text_input.text().as_str());
+        let string = qttypes::QString::from(text_input.text().as_str());
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -1377,15 +1377,25 @@ impl PlatformWindow for QtWindow {
             TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
         let single_line: bool = text_input.single_line();
-        cpp! { unsafe [font as "QFont", mut string as "QString", pos as "QPointF", flags as "int", rect as "QRectF", single_line as "bool"] -> usize as "size_t" {
+        cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int", rect as "QRectF", single_line as "bool"] -> usize as "size_t" {
+            // we need to do the \n replacement in a copy because the original need to be kept to know the utf8 offset
+            auto copy = string;
             if (!single_line) {
-                string.replace(QChar('\n'), QChar::LineSeparator);
+                copy.replace(QChar('\n'), QChar::LineSeparator);
             }
-            QTextLayout layout(string, font);
+            QTextLayout layout(copy, font);
             auto line = do_text_layout(layout, flags, rect, pos.y());
             if (line < 0 || layout.lineCount() <= line)
                 return 0;
-            auto cur = layout.lineAt(line).xToCursor(pos.x());
+            QTextLine textLine = layout.lineAt(line);
+            int cur;
+            if (pos.x() > textLine.naturalTextWidth()) {
+                cur = textLine.textStart() + textLine.textLength();
+                if (cur > 0 && string[cur - 1] == '\n')
+                    cur--;
+            } else {
+                cur = textLine.xToCursor(pos.x());
+            }
             // convert to an utf8 pos;
             return QStringView(string).left(cur).toUtf8().size();
         }}

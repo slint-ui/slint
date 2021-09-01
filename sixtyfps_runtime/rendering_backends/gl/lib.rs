@@ -577,10 +577,11 @@ impl ItemRenderer for GLItemRenderer {
             (text.horizontal_alignment(), text.vertical_alignment()),
             text.wrap(),
             text.overflow(),
+            false,
             &mut canvas,
             paint,
             |canvas, to_draw, pos, _, _| {
-                canvas.fill_text(pos.x, pos.y, to_draw, paint).unwrap();
+                canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), paint).unwrap();
             },
         );
     }
@@ -622,13 +623,15 @@ impl ItemRenderer for GLItemRenderer {
         let cursor_visible = cursor_pos >= 0 && text_input.cursor_visible();
         let mut canvas = self.shared_data.canvas.borrow_mut();
         let font_height = canvas.measure_font(paint).unwrap().height();
+        let text = text_input.text();
         fonts::layout_text_lines(
-            text_input.text().as_str(),
+            text.as_str(),
             &font,
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
             sixtyfps_corelib::items::TextOverflow::clip,
+            text_input.single_line(),
             &mut canvas,
             paint,
             |canvas, to_draw, pos, start, metrics| {
@@ -646,6 +649,9 @@ impl ItemRenderer for GLItemRenderer {
                     // that has a matching byte index. For the selection end we have to look for the
                     // visual end of glyph before the cursor, because due to for example ligatures
                     // (or generally glyph substitution) there may not be a dedicated glyph.
+                    // FIXME: in the case of ligature, there is currently no way to know the exact
+                    // position of the split. When we know it, we might need to draw in two
+                    // steps with clip to draw each part of the ligature in a different color
                     for glyph in &metrics.glyphs {
                         if glyph.byte_index == min_select.saturating_sub(start) {
                             selection_start_x = glyph.x - glyph.bearing_x;
@@ -676,7 +682,7 @@ impl ItemRenderer for GLItemRenderer {
                         .fill_text(
                             pos.x,
                             pos.y,
-                            &to_draw[..min_select.saturating_sub(start)],
+                            &to_draw[..min_select.saturating_sub(start)].trim_end(),
                             paint,
                         )
                         .unwrap();
@@ -685,7 +691,8 @@ impl ItemRenderer for GLItemRenderer {
                             pos.x + selection_start_x,
                             pos.y,
                             &to_draw[min_select.saturating_sub(start)
-                                ..(max_select - start).min(to_draw.len())],
+                                ..(max_select - start).min(to_draw.len())]
+                                .trim_end(),
                             selected_paint,
                         )
                         .unwrap();
@@ -693,16 +700,18 @@ impl ItemRenderer for GLItemRenderer {
                         .fill_text(
                             pos.x + after_selection_x,
                             pos.y,
-                            &to_draw[(max_select - start).min(to_draw.len())..],
+                            &to_draw[(max_select - start).min(to_draw.len())..].trim_end(),
                             paint,
                         )
                         .unwrap();
                 } else {
                     // no selection on this line
-                    canvas.fill_text(pos.x, pos.y, to_draw, paint).unwrap();
+                    canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), paint).unwrap();
                 };
+                let cursor_pos = cursor_pos as usize;
                 if cursor_visible
-                    && (start..=(start + to_draw.len())).contains(&(cursor_pos as usize))
+                    && (range.contains(&cursor_pos)
+                        || (cursor_pos == range.end && cursor_pos == text.len()))
                 {
                     let cursor_x = metrics
                         .glyphs

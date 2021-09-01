@@ -383,6 +383,7 @@ pub(crate) fn layout_text_lines(
     (horizontal_alignment, vertical_alignment): (TextHorizontalAlignment, TextVerticalAlignment),
     wrap: TextWrap,
     overflow: TextOverflow,
+    single_line: bool,
     canvas: &mut Canvas,
     paint: femtovg::Paint,
     mut layout_line: impl FnMut(&mut Canvas, &str, Point, usize, &femtovg::TextMetrics),
@@ -393,9 +394,18 @@ pub(crate) fn layout_text_lines(
     let font_metrics = canvas.measure_font(paint).unwrap();
     let font_height = font_metrics.height();
 
-    let text_size = || {
-        // Note: this is kind of doing twice the layout because text_size also does it
-        font.text_size(paint.letter_spacing(), string, if wrap { Some(max_width) } else { None })
+    let text_height = || {
+        if single_line {
+            font_height
+        } else {
+            // Note: this is kind of doing twice the layout because text_size also does it
+            font.text_size(
+                paint.letter_spacing(),
+                string,
+                if wrap { Some(max_width) } else { None },
+            )
+            .height
+        }
     };
 
     let mut process_line = |canvas: &mut Canvas,
@@ -413,8 +423,8 @@ pub(crate) fn layout_text_lines(
 
     let mut y = match vertical_alignment {
         TextVerticalAlignment::top => 0.,
-        TextVerticalAlignment::center => max_height / 2. - text_size().height / 2.,
-        TextVerticalAlignment::bottom => max_height - text_size().height,
+        TextVerticalAlignment::center => max_height / 2. - text_height() / 2.,
+        TextVerticalAlignment::bottom => max_height - text_height(),
     };
     let mut start = 0;
     'lines: while start < string.len() && y + font_height <= max_height {
@@ -425,15 +435,18 @@ pub(crate) fn layout_text_lines(
                 break;
             }
             let index = start + index;
-            // trim is there to remove the \n
-            let line = &string[start..index].trim_end();
+            let line = &string[start..index];
             let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
             process_line(canvas, line, y, start, &text_metrics);
             y += font_height;
             start = index;
         } else {
-            let index = string[start..].find('\n').map_or(string.len(), |i| start + i + 1);
-            let line = &string[start..index].trim_end();
+            let index = if single_line {
+                string.len()
+            } else {
+                string[start..].find('\n').map_or(string.len(), |i| start + i + 1)
+            };
+            let line = &string[start..index];
             let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
             let elide_last_line =
                 elide && index < string.len() && y + 2. * font_height > max_height;
