@@ -226,8 +226,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 winit::event::Event::RedrawRequested(id) => {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(&id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(&id).and_then(|weakref| weakref.upgrade())
                         {
                             window.draw();
                         }
@@ -238,8 +238,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     window_id,
                 } => {
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
                         {
                             let size = size.to_logical(window.scale_factor() as f64);
                             window.set_geometry(size.width, size.height);
@@ -255,8 +255,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     window_id,
                 } => {
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
                         {
                             let size = size.to_logical(scale_factor);
                             window.set_geometry(size.width, size.height);
@@ -273,8 +273,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 } => {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
                             let ev = match state {
                                 winit::event::ElementState::Pressed => {
@@ -297,8 +297,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 } => {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
                             let location = touch.location.to_logical(window.scale_factor() as f64);
                             let pos = euclid::point2(location.x, location.y);
@@ -325,8 +325,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 } => {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
                         {
                             let position = position.to_logical(window.scale_factor() as f64);
                             cursor_pos = euclid::point2(position.x, position.y);
@@ -344,8 +344,10 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     if pressed {
                         corelib::animations::update_animations();
                         ALL_WINDOWS.with(|windows| {
-                            if let Some(Some(window)) =
-                                windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                            if let Some(window) = windows
+                                .borrow()
+                                .get(&window_id)
+                                .and_then(|weakref| weakref.upgrade())
                             {
                                 pressed = false;
                                 window.process_mouse_input(MouseEvent::MouseExit);
@@ -360,8 +362,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 } => {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
                             let delta = match delta {
                                 winit::event::MouseScrollDelta::LineDelta(lx, ly) => {
@@ -385,8 +387,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 } => {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
                             window.currently_pressed_key_code.set(match input.state {
                                 winit::event::ElementState::Pressed => {
@@ -449,8 +451,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 } => {
                     corelib::animations::update_animations();
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
                             // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
                             // with a control character. We choose not to forward those but try to use the current key code instead.
@@ -485,8 +487,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     event: winit::event::WindowEvent::ModifiersChanged(state),
                 } => {
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
                             // To provide an easier cross-platform behavior, we map the command key to control
                             // on macOS, and control to meta.
@@ -510,8 +512,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                     event: winit::event::WindowEvent::Focused(have_focus),
                 } => {
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
                             window.self_weak.upgrade().unwrap().set_focus(have_focus);
                         }
@@ -520,8 +522,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
 
                 winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
                     ALL_WINDOWS.with(|windows| {
-                        if let Some(Some(window)) =
-                            windows.borrow().get(&window_id).map(|weakref| weakref.upgrade())
+                        if let Some(window) =
+                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
                         {
                             window.self_weak.upgrade().unwrap().update_window_properties();
                         }
