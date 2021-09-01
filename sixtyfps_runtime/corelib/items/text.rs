@@ -364,14 +364,16 @@ impl Item for TextInput {
                     } else if keycode == InternalKeyCode::Delete {
                         TextInput::delete_char(self, window);
                         return KeyEventResult::EventAccepted;
-                    } else if keycode == InternalKeyCode::Return {
+                    } else if keycode == InternalKeyCode::Return && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
                         return KeyEventResult::EventAccepted;
                     }
                 }
 
                 // Only insert/interpreter non-control character strings
-                if event.text.is_empty() || event.text.as_str().chars().any(|ch| ch.is_control()) {
+                if event.text.is_empty()
+                    || event.text.as_str().chars().any(|ch| ch.is_control() && ch != '\n')
+                {
                     return KeyEventResult::EventIgnored;
                 }
                 if event.modifiers.control {
@@ -597,7 +599,11 @@ impl TextInput {
         self.delete_selection();
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
-        text.insert_str(cursor_pos, text_to_insert);
+        if text_to_insert.contains('\n') && self.single_line() {
+            text.insert_str(cursor_pos, &text_to_insert.replace('\n', " "));
+        } else {
+            text.insert_str(cursor_pos, text_to_insert);
+        }
         let cursor_pos = cursor_pos + text_to_insert.len();
         self.cursor_position.set(cursor_pos as i32);
         self.anchor_position.set(cursor_pos as i32);

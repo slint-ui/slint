@@ -610,9 +610,10 @@ impl PlatformWindow for GraphicsWindow {
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
             sixtyfps_corelib::items::TextOverflow::clip,
+            text_input.single_line(),
             &mut canvas,
             paint,
-            |_, _, line_pos, start, metrics| {
+            |_, line_text, line_pos, start, metrics| {
                 if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
                     let mut current_x = 0.;
                     for glyph in &metrics.glyphs {
@@ -622,6 +623,7 @@ impl PlatformWindow for GraphicsWindow {
                         }
                         current_x += glyph.advance_x;
                     }
+                    result = start + line_text.trim_end().len();
                 }
             },
         );
