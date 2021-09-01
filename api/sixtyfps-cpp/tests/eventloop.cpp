@@ -56,3 +56,23 @@ TEST_CASE("Event from thread")
     REQUIRE(called == 110);
     t.join();
 }
+
+
+TEST_CASE("Blocking Event from thread")
+{
+    std::atomic<int> called = 0;
+    auto t = std::thread([&] {
+        // test returning a, unique_ptr because it is movable-only
+        std::unique_ptr foo = sixtyfps::blocking_invoke_from_event_loop([&] {
+            return std::make_unique<int>(42);
+        });
+        called = *foo;
+        sixtyfps::invoke_from_event_loop([&] {
+            sixtyfps::quit_event_loop();
+        });
+    });
+
+    sixtyfps::run_event_loop();
+    REQUIRE(called == 42);
+    t.join();
+}
