@@ -22,7 +22,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use super::Canvas;
 use crate::ItemGraphicsCache;
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
@@ -384,14 +383,14 @@ pub(crate) fn layout_text_lines(
     wrap: TextWrap,
     overflow: TextOverflow,
     single_line: bool,
-    canvas: &mut Canvas,
     paint: femtovg::Paint,
-    mut layout_line: impl FnMut(&mut Canvas, &str, Point, usize, &femtovg::TextMetrics),
+    mut layout_line: impl FnMut(&str, Point, usize, &femtovg::TextMetrics),
 ) {
     let wrap = wrap == TextWrap::word_wrap;
     let elide = overflow == TextOverflow::elide;
 
-    let font_metrics = canvas.measure_font(paint).unwrap();
+    let text_context = FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
+    let font_metrics = text_context.measure_font(paint).unwrap();
     let font_height = font_metrics.height();
 
     let text_height = || {
@@ -408,18 +407,15 @@ pub(crate) fn layout_text_lines(
         }
     };
 
-    let mut process_line = |canvas: &mut Canvas,
-                            text: &str,
-                            y: f32,
-                            start: usize,
-                            line_metrics: &femtovg::TextMetrics| {
-        let x = match horizontal_alignment {
-            TextHorizontalAlignment::left => 0.,
-            TextHorizontalAlignment::center => max_width / 2. - line_metrics.width() / 2.,
-            TextHorizontalAlignment::right => max_width - line_metrics.width(),
+    let mut process_line =
+        |text: &str, y: f32, start: usize, line_metrics: &femtovg::TextMetrics| {
+            let x = match horizontal_alignment {
+                TextHorizontalAlignment::left => 0.,
+                TextHorizontalAlignment::center => max_width / 2. - line_metrics.width() / 2.,
+                TextHorizontalAlignment::right => max_width - line_metrics.width(),
+            };
+            layout_line(text, Point::new(x, y), start, line_metrics);
         };
-        layout_line(canvas, text, Point::new(x, y), start, line_metrics);
-    };
 
     let mut y = match vertical_alignment {
         TextVerticalAlignment::top => 0.,
@@ -429,15 +425,15 @@ pub(crate) fn layout_text_lines(
     let mut start = 0;
     'lines: while start < string.len() && y + font_height <= max_height {
         if wrap && (!elide || y + 2. * font_height <= max_height) {
-            let index = canvas.break_text(max_width, &string[start..], paint).unwrap();
+            let index = text_context.break_text(max_width, &string[start..], paint).unwrap();
             if index == 0 {
                 // FIXME the word is too big to be shown, but we should still break, ideally
                 break;
             }
             let index = start + index;
             let line = &string[start..index];
-            let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
-            process_line(canvas, line, y, start, &text_metrics);
+            let text_metrics = text_context.measure_text(0., 0., line, paint).unwrap();
+            process_line(line, y, start, &text_metrics);
             y += font_height;
             start = index;
         } else {
@@ -447,13 +443,13 @@ pub(crate) fn layout_text_lines(
                 string[start..].find('\n').map_or(string.len(), |i| start + i + 1)
             };
             let line = &string[start..index];
-            let text_metrics = canvas.measure_text(0., 0., line, paint).unwrap();
+            let text_metrics = text_context.measure_text(0., 0., line, paint).unwrap();
             let elide_last_line =
                 elide && index < string.len() && y + 2. * font_height > max_height;
             if text_metrics.width() > max_width || elide_last_line {
                 let w = max_width
                     - if elide {
-                        canvas.measure_text(0., 0., "…", paint).unwrap().width()
+                        text_context.measure_text(0., 0., "…", paint).unwrap().width()
                     } else {
                         0.
                     };
@@ -464,9 +460,9 @@ pub(crate) fn layout_text_lines(
                         let txt = &line[..glyph.byte_index];
                         if elide {
                             let elided = format!("{}…", txt);
-                            process_line(canvas, &elided, y, start, &text_metrics);
+                            process_line(&elided, y, start, &text_metrics);
                         } else {
-                            process_line(canvas, txt, y, start, &text_metrics);
+                            process_line(txt, y, start, &text_metrics);
                         }
                         y += font_height;
                         start = index;
@@ -475,13 +471,13 @@ pub(crate) fn layout_text_lines(
                 }
                 if elide_last_line {
                     let elided = format!("{}…", line);
-                    process_line(canvas, &elided, y, start, &text_metrics);
+                    process_line(&elided, y, start, &text_metrics);
                     y += font_height;
                     start = index;
                     continue 'lines;
                 }
             }
-            process_line(canvas, line, y, start, &text_metrics);
+            process_line(line, y, start, &text_metrics);
             y += font_height;
             start = index;
         }

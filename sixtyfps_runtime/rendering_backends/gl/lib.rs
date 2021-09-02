@@ -473,9 +473,8 @@ impl ItemRenderer for GLItemRenderer {
             text.wrap(),
             text.overflow(),
             false,
-            &mut canvas,
             paint,
-            |canvas, to_draw, pos, _, _| {
+            |to_draw, pos, _, _| {
                 canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), paint).unwrap();
             },
         );
@@ -527,9 +526,8 @@ impl ItemRenderer for GLItemRenderer {
             text_input.wrap(),
             sixtyfps_corelib::items::TextOverflow::clip,
             text_input.single_line(),
-            &mut canvas,
             paint,
-            |canvas, to_draw, pos, start, metrics| {
+            |to_draw, pos, start, metrics| {
                 let range = start..(start + to_draw.len());
                 if min_select != max_select
                     && (range.contains(&min_select)

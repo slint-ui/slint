@@ -511,11 +511,6 @@ impl PlatformWindow for GraphicsWindow {
             return 0;
         }
 
-        let canvas = match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => return 0,
-            GraphicsWindowBackendState::Mapped(window) => window.canvas.clone(),
-        };
-
         let font = text_input
             .cached_rendering_data
             .get_or_update(&self.graphics_cache, || {
@@ -532,8 +527,9 @@ impl PlatformWindow for GraphicsWindow {
             .clone();
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let mut canvas = canvas.borrow_mut();
-        let font_height = canvas.measure_font(paint).unwrap().height();
+        let text_context =
+            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
+        let font_height = text_context.measure_font(paint).unwrap().height();
         crate::fonts::layout_text_lines(
             text.as_str(),
             &font,
@@ -542,9 +538,8 @@ impl PlatformWindow for GraphicsWindow {
             text_input.wrap(),
             sixtyfps_corelib::items::TextOverflow::clip,
             text_input.single_line(),
-            &mut canvas,
             paint,
-            |_, line_text, line_pos, start, metrics| {
+            |line_text, line_pos, start, metrics| {
                 if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
                     let mut current_x = 0.;
                     for glyph in &metrics.glyphs {
