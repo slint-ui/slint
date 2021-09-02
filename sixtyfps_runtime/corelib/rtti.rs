@@ -46,6 +46,7 @@ declare_ValueType![
     crate::items::EventResult,
     crate::Brush,
     crate::items::FillRule,
+    crate::graphics::Point,
 ];
 
 /// What kind of animation is on a binding

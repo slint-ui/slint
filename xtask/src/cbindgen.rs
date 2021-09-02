@@ -29,6 +29,7 @@ fn default_config() -> cbindgen::Config {
                 ("Callback".into(), "private_api::CallbackHelper".into()),
                 ("VoidArg".into(), "void".into()),
                 ("KeyEventArg".into(), "KeyEvent".into()),
+                ("PointArg".into(), "Point".into()),
             ]
             .iter()
             .cloned()
@@ -130,6 +131,8 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "WindowRc",
         "VoidArg",
         "KeyEventArg",
+        "PointArg",
+        "Point",
         "sixtyfps_color_brighter",
         "sixtyfps_color_darker",
         "sixtyfps_image_size",
@@ -317,7 +320,14 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
             r"
 namespace sixtyfps {{
     namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; class WindowRc; }}
-    namespace cbindgen_private {{ using sixtyfps::private_api::WindowRc; using namespace vtable; struct KeyEvent; using private_api::Property; using private_api::PathData; }}
+    namespace cbindgen_private {{
+        using sixtyfps::private_api::WindowRc;
+        using namespace vtable;
+        struct KeyEvent;
+        using private_api::Property;
+        using private_api::PathData;
+        using private_api::Point;
+    }}
 }}",
             env!("CARGO_PKG_VERSION_MAJOR"), env!("CARGO_PKG_VERSION_MINOR"), env!("CARGO_PKG_VERSION_PATCH"),
         ))

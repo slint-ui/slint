@@ -26,7 +26,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 
 use crate::component::ComponentVTable;
 use crate::graphics::PathDataIterator;
-use crate::graphics::{Brush, Color, PathData, Rect};
+use crate::graphics::{Brush, Color, PathData, Point, Rect};
 use crate::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, KeyEventType,
     MouseEvent,
@@ -54,6 +54,7 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 /// Workarounds for cbindgen
 pub type VoidArg = ();
 type KeyEventArg = (KeyEvent,);
+type PointArg = (Point,);
 
 #[macro_export]
 macro_rules! declare_item_vtable {

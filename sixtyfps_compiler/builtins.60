@@ -179,6 +179,12 @@ export BoxShadow := _ {
     //-is_internal
 }
 
+export struct Point := {
+    //-name:sixtyfps::private_api::Point
+    x: length,
+    y: length,
+}
+
 export TextInput := _ {
     property <string> text: native_output;
     property <string> font-family;
@@ -201,6 +207,7 @@ export TextInput := _ {
     property <bool> has-focus: native_output;
     callback accepted;
     callback edited;
+    callback cursor_position_changed(Point);
     property <bool> enabled: true;
     property <bool> single-line: true;
     //-default_size_binding:expands_to_parent_geometry
