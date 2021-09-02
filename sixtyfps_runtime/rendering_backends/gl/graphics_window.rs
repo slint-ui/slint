@@ -15,7 +15,7 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use super::{GLRenderer, ImageCache, ItemGraphicsCache};
+use super::{ImageCache, ItemGraphicsCache};
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::*;
@@ -28,6 +28,7 @@ use corelib::Property;
 use sixtyfps_corelib as corelib;
 use winit::dpi::LogicalSize;
 
+use crate::CanvasRc;
 use crate::ItemGraphicsCacheEntry;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
@@ -73,7 +74,7 @@ impl GraphicsWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => cb(),
             GraphicsWindowBackendState::Mapped(window) => {
-                window.backend.borrow().with_current_context(cb)
+                window.opengl_context.with_current_context(cb)
             }
         }
     }
@@ -124,20 +125,32 @@ impl GraphicsWindow {
             }
         };
 
-        let backend = crate::GLRenderer::new(
-            window_builder,
-            #[cfg(target_arch = "wasm32")]
-            &self.canvas_id,
-        );
+        #[cfg(target_arch = "wasm32")]
+        let (opengl_context, renderer) =
+            crate::OpenGLContext::new_context_and_renderer(window_builder, &self.canvas_id);
+        #[cfg(not(target_arch = "wasm32"))]
+        let (opengl_context, renderer) =
+            crate::OpenGLContext::new_context_and_renderer(window_builder);
 
-        let platform_window = backend.window();
+        let canvas = femtovg::Canvas::new_with_text_context(
+            renderer,
+            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .unwrap();
+
+        opengl_context.make_not_current();
+
+        let canvas = Rc::new(RefCell::new(canvas));
+
+        let platform_window = opengl_context.window();
         let runtime_window = self.self_weak.upgrade().unwrap();
         runtime_window.set_scale_factor(platform_window.scale_factor() as _);
         let id = platform_window.id();
         drop(platform_window);
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-            backend: RefCell::new(backend),
+            canvas,
+            opengl_context,
             clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
         }));
@@ -177,11 +190,40 @@ impl GraphicsWindow {
             let map_state = self.map_state.borrow();
             let window = map_state.as_mapped();
 
-            let mut renderer = window.backend.borrow_mut().new_renderer(
-                self.clone(),
-                &window.clear_color,
-                self.scale_factor(),
-            );
+            let size = window.opengl_context.window().inner_size();
+
+            window.opengl_context.make_current();
+            window.opengl_context.ensure_resized();
+
+            {
+                let mut canvas = window.canvas.borrow_mut();
+                // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
+                // text metrics. Since we do the entire translation from logical pixels to physical
+                // pixels on our end, we don't need femtovg to scale a second time.
+                canvas.set_size(size.width, size.height, 1.0);
+                canvas.clear_rect(
+                    0,
+                    0,
+                    size.width,
+                    size.height,
+                    crate::to_femtovg_color(&window.clear_color),
+                );
+            }
+
+            let mut renderer = crate::GLItemRenderer {
+                canvas: window.canvas.clone(),
+                layer_images_to_delete_after_flush: Default::default(),
+                graphics_window: self.clone(),
+                scale_factor: self.scale_factor(),
+                state: vec![crate::State {
+                    scissor: Rect::new(
+                        Point::default(),
+                        Size::new(size.width as _, size.height as _),
+                    ),
+                    global_alpha: 1.,
+                    layer: None,
+                }],
+            };
 
             for (component, origin) in components {
                 corelib::item_rendering::render_component_items(
@@ -190,7 +232,17 @@ impl GraphicsWindow {
                     origin.clone(),
                 );
             }
-            window.backend.borrow_mut().flush_renderer(renderer);
+
+            renderer.canvas.borrow_mut().flush();
+
+            // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
+            // avoid GPU memory leaks.
+            renderer.graphics_window.texture_cache.borrow_mut().drain();
+
+            drop(renderer);
+
+            window.opengl_context.swap_buffers();
+            window.opengl_context.make_not_current();
         });
     }
 
@@ -234,7 +286,7 @@ impl PlatformWindow for GraphicsWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(window) => {
-                window.backend.borrow().window().request_redraw()
+                window.opengl_context.window().request_redraw()
             }
         }
     }
@@ -285,8 +337,7 @@ impl PlatformWindow for GraphicsWindow {
                 // corelib::window::Window::show() calls update_window_properties()
             }
             GraphicsWindowBackendState::Mapped(window) => {
-                let backend = window.backend.borrow();
-                let window_id = backend.window().id();
+                let window_id = window.opengl_context.window().id();
                 crate::event_loop::with_window_target(|event_loop| {
                     event_loop.event_loop_proxy().send_event(
                         crate::event_loop::CustomEvent::UpdateWindowProperties(window_id),
@@ -309,8 +360,7 @@ impl PlatformWindow for GraphicsWindow {
             GraphicsWindowBackendState::Mapped(window) => {
                 window.clear_color = background;
                 let mut size: LogicalSize<f64> = {
-                    let backend = window.backend.borrow();
-                    let winit_window = backend.window();
+                    let winit_window = window.opengl_context.window();
                     winit_window.set_title(&title);
                     if let Some(rgba) = crate::IMAGE_CACHE
                         .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
@@ -350,7 +400,7 @@ impl PlatformWindow for GraphicsWindow {
                 if h > 0. {
                     size.height = h as _;
                 }
-                window.backend.borrow().window().set_inner_size(size);
+                window.opengl_context.window().set_inner_size(size);
                 if must_resize {
                     self.set_geometry(size.width as _, size.height as _)
                 }
@@ -372,14 +422,14 @@ impl PlatformWindow for GraphicsWindow {
                     let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
                     let max_height = constraints_vertical.max.max(constraints_vertical.min);
 
-                    window.backend.borrow().window().set_min_inner_size(
+                    window.opengl_context.window().set_min_inner_size(
                         if min_width > 0. || min_height > 0. {
                             Some(winit::dpi::LogicalSize::new(min_width, min_height))
                         } else {
                             None
                         },
                     );
-                    window.backend.borrow().window().set_max_inner_size(
+                    window.opengl_context.window().set_max_inner_size(
                         if max_width < f32::MAX || max_height < f32::MAX {
                             Some(winit::dpi::LogicalSize::new(
                                 max_width.min(65535.),
@@ -394,7 +444,7 @@ impl PlatformWindow for GraphicsWindow {
                     #[cfg(target_arch = "wasm32")]
                     {
                         // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
-                        let existing_size = window.backend.borrow().window().inner_size();
+                        let existing_size = window.opengl_context.window().inner_size();
                         if !(min_width..=max_width).contains(&(existing_size.width as f32))
                             || !(min_height..=max_height).contains(&(existing_size.height as f32))
                         {
@@ -408,7 +458,7 @@ impl PlatformWindow for GraphicsWindow {
                                     .min(max_height.ceil() as u32)
                                     .max(min_height.ceil() as u32),
                             );
-                            window.backend.borrow().window().set_inner_size(new_size);
+                            window.opengl_context.window().set_inner_size(new_size);
                         }
                     }
                 }
@@ -463,9 +513,7 @@ impl PlatformWindow for GraphicsWindow {
 
         let canvas = match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => return 0,
-            GraphicsWindowBackendState::Mapped(window) => {
-                window.backend.borrow().shared_data.canvas.clone()
-            }
+            GraphicsWindowBackendState::Mapped(window) => window.canvas.clone(),
         };
 
         let font = text_input
@@ -520,14 +568,15 @@ impl PlatformWindow for GraphicsWindow {
 }
 
 struct MappedWindow {
-    backend: RefCell<GLRenderer>,
+    canvas: CanvasRc,
+    opengl_context: crate::OpenGLContext,
     clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
 }
 
 impl Drop for MappedWindow {
     fn drop(&mut self) {
-        crate::event_loop::unregister_window(self.backend.borrow().window().id());
+        crate::event_loop::unregister_window(self.opengl_context.window().id());
     }
 }
 
