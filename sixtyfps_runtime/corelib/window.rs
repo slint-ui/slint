@@ -353,11 +353,8 @@ impl Window {
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
     /// property dependency tracker.
-    pub fn draw_contents(
-        self: Rc<Self>,
-        mut render_components: impl FnMut(&[(&ComponentRc, Point)]),
-    ) {
-        let mut draw_fn = || {
+    pub fn draw_contents(self: Rc<Self>, render_components: impl FnOnce(&[(&ComponentRc, Point)])) {
+        let draw_fn = || {
             let component_rc = self.component();
             let component = ComponentRc::borrow_pin(&component_rc);
 
