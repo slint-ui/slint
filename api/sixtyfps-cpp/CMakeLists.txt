@@ -14,7 +14,7 @@ include(FetchContent)
 FetchContent_Declare(
     Corrosion
     GIT_REPOSITORY https://github.com/AndrewGaspar/corrosion.git
-    GIT_TAG b7a78deb2632b502717c7b636a925677a99e06a1
+    GIT_TAG 9ea8f6ba30750926b622bab6d4c89b8ab78abe04
 )
 FetchContent_MakeAvailable(Corrosion)
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
@@ -58,6 +58,39 @@ add_library(SixtyFPS INTERFACE)
 add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
 target_link_libraries(SixtyFPS INTERFACE sixtyfps-cpp)
 target_compile_features(SixtyFPS INTERFACE cxx_std_17)
+
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
+    function(define_cargo_feature cargo-feature description default)
+        # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
+        string(TOUPPER "${cargo-feature}" cmake_option)
+        string(REPLACE "-"  "_" cmake_option "${cmake_option}")
+        set(cmake_option "SIXTYFPS_FEATURE_${cmake_option}")
+        option("${cmake_option}" "${description}" ${default})
+        if(${cmake_option})
+            list(APPEND features ${cargo-feature})
+        endif()
+        set(features "${features}" PARENT_SCOPE)
+    endfunction()
+
+    # Features that are mapped to features in the Rust crate. These and their
+    # defaults need to be kept in sync with the Rust bit.
+    define_cargo_feature(interpreter "Enable support for the SixtyFPS interpeter to load .60 files at run-time" ON)
+    define_cargo_feature(x11 "Enable X11 support when using GL backend" ON)
+    define_cargo_feature(wayland "Enable Wayland support when using the GL backend" OFF)
+    define_cargo_feature(backend-gl "Enable OpenGL ES 2.0 based rendering backend" ON)
+    define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
+
+    set_property(
+        TARGET sixtyfps-cpp
+        PROPERTY CORROSION_FEATURES
+        ${features}    
+    )
+    set_property(
+        TARGET sixtyfps-cpp
+        PROPERTY CORROSION_NO_DEFAULT_FEATURES
+        ${features}    
+    )    
+endif()
 
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
