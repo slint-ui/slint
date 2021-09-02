@@ -13,10 +13,14 @@ publish = false
 path = "lib.rs"
 crate-type = ["lib", "cdylib"]
 
+# Note, these features need to be kept in sync (along with their defaults) in
+# the C++ crate's CMakeLists.txt
 [features]
-# In the future, this shouldn't be a default feature, but should be enabled by cmake
-default = ["sixtyfps-interpreter"]
-
+interpreter = ["sixtyfps-interpreter"]
+x11 = ["sixtyfps-rendering-backend-default/x11"]
+wayland = ["sixtyfps-rendering-backend-default/wayland"]
+backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl"]
+backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt"]
 # Enable some function used by the integration tests
 testing = ["sixtyfps-rendering-backend-testing"]
 

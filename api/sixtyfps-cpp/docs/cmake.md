@@ -34,6 +34,24 @@ FetchContent_MakeAvailable(SixtyFPS)
 If you prefer to treat SixtyFPS as an external CMake package, then you can also build SixtyFPS from source like a regular
 CMake project, install it into a prefix directory of your choice and use `find_package(SixtyFPS)` in your `CMakeLists.txt`.
 
+### Features
+
+The SixtyFPS run-time library supports different features that can be toggled. You might want to enable a feature that is
+not enabled by default but that is revelant for you, or you may want to disable a feature that you know you do not need and
+therefore reduce the size of the resulting library.
+
+The CMake configure step offers CMake options for various feature that are all prefixed with `SIXTYFPS_FEATURE_`. For example
+you can enable support for the Wayland windowing system on Linux by enabling the `SIXTYFPS_FEATURE_WAYLAND` feature. There are
+different ways of toggling CMake options. For example on the command line using the `-D` parameter:
+
+   `cmake -DSIXTYFPS_FEATURE_WAYLAND=ON ...`
+
+Alternatively, after the configure step you can use `cmake-gui` or `ccmake` on the build directory for a list of all features
+and their description.
+
+This works when compiling SixtyFPS as a package, using `cmake --build` and `cmake --install`, or when including SixtyFPS
+using `FetchContent`.
+
 ### Cross-compiling
 
 It is possible to cross-compile SixtyFPS to a different target architecture when building with CMake. In order to complete
