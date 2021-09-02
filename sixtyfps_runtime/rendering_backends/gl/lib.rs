@@ -284,109 +284,6 @@ impl OpenGLContext {
     }
 }
 
-struct GLRendererData {
-    canvas: CanvasRc,
-
-    opengl_context: OpenGLContext,
-
-    // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
-    // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
-    // `set_render_target` commands with image ids that have been deleted.
-    layer_images_to_delete_after_flush: RefCell<Vec<CachedImage>>,
-}
-
-pub struct GLRenderer {
-    pub(crate) shared_data: Rc<GLRendererData>,
-}
-
-impl GLRenderer {
-    pub(crate) fn new(
-        window_builder: winit::window::WindowBuilder,
-        #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> GLRenderer {
-        #[cfg(target_arch = "wasm32")]
-        let (opengl_context, renderer) =
-            OpenGLContext::new_context_and_renderer(window_builder, canvas_id);
-        #[cfg(not(target_arch = "wasm32"))]
-        let (opengl_context, renderer) = OpenGLContext::new_context_and_renderer(window_builder);
-
-        let canvas = femtovg::Canvas::new_with_text_context(
-            renderer,
-            fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
-        )
-        .unwrap();
-
-        opengl_context.make_not_current();
-
-        let shared_data = GLRendererData {
-            canvas: Rc::new(RefCell::new(canvas)),
-            opengl_context,
-
-            layer_images_to_delete_after_flush: Default::default(),
-        };
-
-        GLRenderer { shared_data: Rc::new(shared_data) }
-    }
-
-    /// Returns a new item renderer instance. At this point rendering begins and the backend ensures that the
-    /// window background was cleared with the specified clear_color.
-    fn new_renderer(
-        &mut self,
-        graphics_window: Rc<GraphicsWindow>,
-        clear_color: &Color,
-        scale_factor: f32,
-    ) -> GLItemRenderer {
-        let size = self.window().inner_size();
-
-        self.shared_data.opengl_context.make_current();
-        self.shared_data.opengl_context.ensure_resized();
-
-        {
-            let mut canvas = self.shared_data.canvas.borrow_mut();
-            // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
-            // text metrics. Since we do the entire translation from logical pixels to physical
-            // pixels on our end, we don't need femtovg to scale a second time.
-            canvas.set_size(size.width, size.height, 1.0);
-            canvas.clear_rect(0, 0, size.width, size.height, to_femtovg_color(clear_color));
-        }
-
-        GLItemRenderer {
-            shared_data: self.shared_data.clone(),
-            graphics_window,
-            scale_factor,
-            state: vec![State {
-                scissor: Rect::new(Point::default(), Size::new(size.width as _, size.height as _)),
-                global_alpha: 1.,
-                layer: None,
-            }],
-        }
-    }
-
-    /// Complete the item rendering by calling this function. This will typically flush any remaining/pending
-    /// commands to the underlying graphics subsystem.
-    fn flush_renderer(&mut self, renderer: GLItemRenderer) {
-        self.shared_data.canvas.borrow_mut().flush();
-
-        // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
-        // avoid GPU memory leaks.
-        renderer.graphics_window.texture_cache.borrow_mut().drain();
-
-        std::mem::take(&mut *self.shared_data.layer_images_to_delete_after_flush.borrow_mut());
-
-        let ctx = &self.shared_data.opengl_context;
-        ctx.swap_buffers();
-        ctx.make_not_current();
-    }
-
-    fn with_current_context<T>(&self, cb: impl FnOnce() -> T) -> T {
-        self.shared_data.opengl_context.with_current_context(cb)
-    }
-
-    fn window(&self) -> std::cell::Ref<winit::window::Window> {
-        self.shared_data.opengl_context.window()
-    }
-}
-
 // Layers are stored in the renderers State and flushed to the screen (or current rendering target)
 // in restore_state() by filling the target_path.
 struct Layer {
@@ -402,7 +299,11 @@ struct State {
 }
 
 pub struct GLItemRenderer {
-    shared_data: Rc<GLRendererData>,
+    canvas: CanvasRc,
+    // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
+    // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
+    // `set_render_target` commands with image ids that have been deleted.
+    layer_images_to_delete_after_flush: Vec<CachedImage>,
     graphics_window: Rc<GraphicsWindow>,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
@@ -457,7 +358,7 @@ impl ItemRenderer for GLItemRenderer {
             Some(paint) => paint,
             None => return,
         };
-        self.shared_data.canvas.borrow_mut().fill_path(&mut path, paint)
+        self.canvas.borrow_mut().fill_path(&mut path, paint)
     }
 
     fn draw_border_rectangle(
@@ -485,7 +386,7 @@ impl ItemRenderer for GLItemRenderer {
             paint
         });
 
-        let mut canvas = self.shared_data.canvas.borrow_mut();
+        let mut canvas = self.canvas.borrow_mut();
         if let Some(paint) = fill_paint {
             canvas.fill_path(&mut path, paint);
         }
@@ -563,7 +464,7 @@ impl ItemRenderer for GLItemRenderer {
             None => return,
         };
 
-        let mut canvas = self.shared_data.canvas.borrow_mut();
+        let mut canvas = self.canvas.borrow_mut();
         fonts::layout_text_lines(
             string,
             &font,
@@ -615,7 +516,7 @@ impl ItemRenderer for GLItemRenderer {
         let (min_select, max_select) = text_input.selection_anchor_and_cursor();
         let cursor_pos = text_input.cursor_position();
         let cursor_visible = cursor_pos >= 0 && text_input.cursor_visible();
-        let mut canvas = self.shared_data.canvas.borrow_mut();
+        let mut canvas = self.canvas.borrow_mut();
         let font_height = canvas.measure_font(paint).unwrap().height();
         let text = text_input.text();
         fonts::layout_text_lines(
@@ -826,7 +727,7 @@ impl ItemRenderer for GLItemRenderer {
                 paint
             });
 
-        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
+        self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(offset.x, offset.y);
             if let Some(fill_paint) = fill_paint {
                 canvas.fill_path(&mut femtovg_path, fill_paint);
@@ -855,7 +756,7 @@ impl ItemRenderer for GLItemRenderer {
         }
 
         let cache_entry = box_shadow.cached_rendering_data.get_or_update(
-            &self.graphics_window.graphics_cache,
+            &self.graphics_window.clone().graphics_cache,
             || {
                 ItemGraphicsCacheEntry::Image({
                     let blur = box_shadow.blur() * self.scale_factor;
@@ -876,13 +777,13 @@ impl ItemRenderer for GLItemRenderer {
                     let shadow_image_height = shadow_rect.max_y().ceil() as usize;
 
                     let shadow_image = CachedImage::new_empty_on_gpu(
-                        &self.shared_data.canvas,
+                        &self.canvas,
                         shadow_image_width,
                         shadow_image_height,
                     )?;
 
                     {
-                        let mut canvas = self.shared_data.canvas.borrow_mut();
+                        let mut canvas = self.canvas.borrow_mut();
                         canvas.save();
 
                         canvas.set_render_target(shadow_image.as_render_target());
@@ -907,19 +808,15 @@ impl ItemRenderer for GLItemRenderer {
 
                     let shadow_image = if blur > 0. {
                         let blurred_image = shadow_image.filter(
-                            &self.shared_data.canvas,
+                            &self.canvas,
                             femtovg::ImageFilter::GaussianBlur { sigma: blur / 2. },
                         );
 
-                        self.shared_data
-                            .canvas
+                        self.canvas
                             .borrow_mut()
                             .set_render_target(blurred_image.as_render_target());
 
-                        self.shared_data
-                            .layer_images_to_delete_after_flush
-                            .borrow_mut()
-                            .push(shadow_image);
+                        self.layer_images_to_delete_after_flush.push(shadow_image);
 
                         blurred_image
                     } else {
@@ -927,7 +824,7 @@ impl ItemRenderer for GLItemRenderer {
                     };
 
                     {
-                        let mut canvas = self.shared_data.canvas.borrow_mut();
+                        let mut canvas = self.canvas.borrow_mut();
 
                         canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
 
@@ -969,7 +866,7 @@ impl ItemRenderer for GLItemRenderer {
         let mut shadow_image_rect = femtovg::Path::new();
         shadow_image_rect.rect(0., 0., shadow_image_size.width, shadow_image_size.height);
 
-        self.shared_data.canvas.borrow_mut().fill_path(&mut shadow_image_rect, shadow_image_paint);
+        self.canvas.borrow_mut().fill_path(&mut shadow_image_rect, shadow_image_paint);
     }
 
     fn combine_clip(&mut self, mut clip_rect: Rect, mut radius: f32, mut border_width: f32) {
@@ -996,7 +893,7 @@ impl ItemRenderer for GLItemRenderer {
         clip_rect *= self.scale_factor;
 
         adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
-        self.shared_data.canvas.borrow_mut().intersect_scissor(
+        self.canvas.borrow_mut().intersect_scissor(
             clip_rect.min_x(),
             clip_rect.min_y(),
             clip_rect.width(),
@@ -1016,7 +913,7 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn save_state(&mut self) {
-        self.shared_data.canvas.borrow_mut().save();
+        self.canvas.borrow_mut().save();
         self.state.push(self.state.last().unwrap().clone());
     }
 
@@ -1029,12 +926,9 @@ impl ItemRenderer for GLItemRenderer {
         {
             let paint = layer_to_restore.image.as_paint();
 
-            self.shared_data
-                .layer_images_to_delete_after_flush
-                .borrow_mut()
-                .push(layer_to_restore.image);
+            self.layer_images_to_delete_after_flush.push(layer_to_restore.image);
 
-            let mut canvas = self.shared_data.canvas.borrow_mut();
+            let mut canvas = self.canvas.borrow_mut();
 
             canvas.set_render_target(self.current_render_target());
 
@@ -1042,7 +936,7 @@ impl ItemRenderer for GLItemRenderer {
             canvas.restore();
             canvas.fill_path(&mut layer_to_restore.target_path, paint);
         }
-        self.shared_data.canvas.borrow_mut().restore();
+        self.canvas.borrow_mut().restore();
     }
 
     fn scale_factor(&self) -> f32 {
@@ -1054,7 +948,7 @@ impl ItemRenderer for GLItemRenderer {
         item_cache: &CachedRenderingData,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
-        let canvas = &self.shared_data.canvas;
+        let canvas = &self.canvas;
 
         let cache_entry = item_cache.get_or_update(&self.graphics_window.graphics_cache, || {
             let mut cached_image = None;
@@ -1077,7 +971,7 @@ impl ItemRenderer for GLItemRenderer {
             Some(ItemGraphicsCacheEntry::Font(_)) => unreachable!(),
             None => return,
         };
-        let mut canvas = self.shared_data.canvas.borrow_mut();
+        let mut canvas = self.canvas.borrow_mut();
 
         let image_info = canvas.image_info(image_id).unwrap();
         let (width, height) = (image_info.width() as f32, image_info.height() as f32);
@@ -1092,17 +986,14 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn translate(&mut self, x: f32, y: f32) {
-        self.shared_data
-            .canvas
-            .borrow_mut()
-            .translate(x * self.scale_factor, y * self.scale_factor);
+        self.canvas.borrow_mut().translate(x * self.scale_factor, y * self.scale_factor);
         let clip = &mut self.state.last_mut().unwrap().scissor;
         *clip = clip.translate((-x, -y).into())
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
         let angle_in_radians = angle_in_degrees.to_radians();
-        self.shared_data.canvas.borrow_mut().rotate(angle_in_radians);
+        self.canvas.borrow_mut().rotate(angle_in_radians);
         let clip = &mut self.state.last_mut().unwrap().scissor;
         // Compute the bounding box of the rotated rectangle
         let (sin, cos) = angle_in_radians.sin_cos();
@@ -1129,7 +1020,7 @@ impl ItemRenderer for GLItemRenderer {
     fn apply_opacity(&mut self, opacity: f32) {
         let state = &mut self.state.last_mut().unwrap().global_alpha;
         *state *= opacity;
-        self.shared_data.canvas.borrow_mut().set_global_alpha(*state);
+        self.canvas.borrow_mut().set_global_alpha(*state);
     }
 }
 
@@ -1152,7 +1043,6 @@ impl GLItemRenderer {
 
         let image_id = original_image.ensure_uploaded_to_gpu(self);
         let colorized_image = self
-            .shared_data
             .canvas
             .borrow_mut()
             .create_image_empty(
@@ -1167,7 +1057,7 @@ impl GLItemRenderer {
         image_rect.rect(0., 0., image_size.width, image_size.height);
         let brush_paint = self.brush_to_paint(colorize_brush, &mut image_rect).unwrap();
 
-        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
+        self.canvas.borrow_mut().save_with(|canvas| {
             canvas.reset();
             canvas.scale(1., -1.); // Image are rendered upside down
             canvas.translate(0., -image_size.height);
@@ -1195,10 +1085,7 @@ impl GLItemRenderer {
 
         ItemGraphicsCacheEntry::ColorizedImage {
             original_image: original_image.clone(),
-            colorized_image: Rc::new(CachedImage::new_on_gpu(
-                &self.shared_data.canvas,
-                colorized_image,
-            )),
+            colorized_image: Rc::new(CachedImage::new_on_gpu(&self.canvas, colorized_image)),
         }
     }
 
@@ -1338,7 +1225,7 @@ impl GLItemRenderer {
         let mut path = femtovg::Path::new();
         path.rect(0., 0., source_width, source_height);
 
-        self.shared_data.canvas.borrow_mut().save_with(|canvas| {
+        self.canvas.borrow_mut().save_with(|canvas| {
             canvas.translate(image_fit_offset.x, image_fit_offset.y);
 
             canvas.scale(source_to_target_scale_x, source_to_target_scale_y);
@@ -1358,7 +1245,7 @@ impl GLItemRenderer {
                 // we operate in item local coordinates with the `path` parameter as well as the resulting
                 // paint.
                 let path_bounds = {
-                    let mut canvas = self.shared_data.canvas.borrow_mut();
+                    let mut canvas = self.canvas.borrow_mut();
                     canvas.save();
                     canvas.reset_transform();
                     let bounding_box = canvas.path_bbox(path);
@@ -1392,7 +1279,7 @@ impl GLItemRenderer {
     // call. Therefore this can only be called once per save_state()!
     fn set_clip_path(&mut self, mut path: femtovg::Path) {
         let path_bounds = {
-            let mut canvas = self.shared_data.canvas.borrow_mut();
+            let mut canvas = self.canvas.borrow_mut();
             canvas.save();
             canvas.reset_transform();
             let bbox = canvas.path_bbox(&mut path);
@@ -1404,7 +1291,7 @@ impl GLItemRenderer {
         let layer_height = path_bounds.maxy - path_bounds.miny;
 
         let clip_buffer_img = match CachedImage::new_empty_on_gpu(
-            &self.shared_data.canvas,
+            &self.canvas,
             layer_width as _,
             layer_height as _,
         ) {
@@ -1413,7 +1300,7 @@ impl GLItemRenderer {
         };
 
         {
-            let mut canvas = self.shared_data.canvas.borrow_mut();
+            let mut canvas = self.canvas.borrow_mut();
 
             // Balanced with the *first* restore() call in restore_state(), followed by
             // the original restore() later in restore_state().

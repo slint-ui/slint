@@ -239,7 +239,7 @@ impl CachedImage {
     pub fn ensure_uploaded_to_gpu(&self, current_renderer: &GLItemRenderer) -> femtovg::ImageId {
         use std::convert::TryFrom;
 
-        let canvas = &current_renderer.shared_data.canvas;
+        let canvas = &current_renderer.canvas;
 
         let img = &mut *self.0.borrow_mut();
         if let ImageData::DecodedImage(decoded_image) = img {
@@ -287,7 +287,7 @@ impl CachedImage {
     ) -> Option<Self> {
         use std::convert::TryFrom;
 
-        let canvas = &current_renderer.shared_data.canvas;
+        let canvas = &current_renderer.canvas;
 
         match &*self.0.borrow() {
             ImageData::Texture(_) => None, // internal error: Cannot call upload_to_gpu on previously uploaded image,
