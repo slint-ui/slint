@@ -230,9 +230,9 @@ declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 
 /// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
 macro_rules! declare_value_struct_conversion {
-    (struct $name:path { $($field:ident),* $(,)? }) => {
+    (struct $name:path { $($field:ident),* $(, ..$extra:expr)? }) => {
         impl From<$name> for Value {
-            fn from($name { $($field),* }: $name) -> Self {
+            fn from($name { $($field),* , .. }: $name) -> Self {
                 let mut struct_ = Struct::default();
                 $(struct_.set_field(stringify!($field).into(), $field.into());)*
                 Value::Struct(struct_)
@@ -246,6 +246,7 @@ macro_rules! declare_value_struct_conversion {
                         type Ty = $name;
                         Ok(Ty {
                             $($field: x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?),*
+                            $(, ..$extra)?
                         })
                     }
                     _ => Err(()),
@@ -260,6 +261,7 @@ declare_value_struct_conversion!(struct sixtyfps_corelib::properties::StateInfo 
 declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyboardModifiers { control, alt, shift, meta });
 declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyEvent { event_type, text, modifiers });
 declare_value_struct_conversion!(struct sixtyfps_corelib::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
+declare_value_struct_conversion!(struct sixtyfps_corelib::graphics::Point { x, y, ..Default::default()});
 
 /// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///

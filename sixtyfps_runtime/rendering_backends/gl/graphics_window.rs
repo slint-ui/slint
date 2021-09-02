@@ -557,6 +557,65 @@ impl PlatformWindow for GraphicsWindow {
         result
     }
 
+    fn text_input_position_for_byte_offset(
+        &self,
+        text_input: Pin<&corelib::items::TextInput>,
+        byte_offset: usize,
+    ) -> Point {
+        let scale_factor = self.scale_factor();
+        let text = text_input.text();
+
+        let mut result = Point::default();
+
+        let width = text_input.width() * scale_factor;
+        let height = text_input.height() * scale_factor;
+        if width <= 0. || height <= 0. {
+            return result;
+        }
+
+        let font = text_input
+            .cached_rendering_data
+            .get_or_update(&self.graphics_cache, || {
+                Some(ItemGraphicsCacheEntry::Font(crate::fonts::FONT_CACHE.with(|cache| {
+                    cache.borrow_mut().font(
+                        text_input.unresolved_font_request().merge(&self.default_font_properties()),
+                        scale_factor,
+                        &text_input.text(),
+                    )
+                })))
+            })
+            .unwrap()
+            .as_font()
+            .clone();
+
+        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
+        crate::fonts::layout_text_lines(
+            text.as_str(),
+            &font,
+            Size::new(width, height),
+            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
+            text_input.wrap(),
+            sixtyfps_corelib::items::TextOverflow::clip,
+            text_input.single_line(),
+            paint,
+            |line_text, line_pos, start, metrics| {
+                if (start..=(start + line_text.len())).contains(&byte_offset) {
+                    for glyph in &metrics.glyphs {
+                        if glyph.byte_index == (byte_offset - start) {
+                            result = line_pos + euclid::vec2(glyph.x, glyph.y);
+                            return;
+                        }
+                    }
+                    if let Some(last) = metrics.glyphs.last() {
+                        result = line_pos + euclid::vec2(last.x + last.advance_x, last.y);
+                    }
+                }
+            },
+        );
+
+        result / scale_factor
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

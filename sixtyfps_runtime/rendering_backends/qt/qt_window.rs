@@ -1347,6 +1347,46 @@ impl PlatformWindow for QtWindow {
         }}
     }
 
+    fn text_input_position_for_byte_offset(
+        &self,
+        text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+        byte_offset: usize,
+    ) -> Point {
+        let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
+        let font: QFont =
+            get_font(text_input.unresolved_font_request().merge(&self.default_font_properties()));
+        let text = text_input.text();
+        let mut string = qttypes::QString::from(text.as_str());
+        let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;
+        let flags = match text_input.horizontal_alignment() {
+            TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+        } | match text_input.vertical_alignment() {
+            TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+        } | match text_input.wrap() {
+            TextWrap::no_wrap => 0,
+            TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+        };
+        let single_line: bool = text_input.single_line();
+        let r = cpp! { unsafe [font as "QFont", mut string as "QString", offset as "int", flags as "int", rect as "QRectF", single_line as "bool"]
+                -> qttypes::QPointF as "QPointF" {
+            if (!single_line) {
+                string.replace(QChar('\n'), QChar::LineSeparator);
+            }
+            QTextLayout layout(string, font);
+            do_text_layout(layout, flags, rect);
+
+            QTextLine textLine = layout.lineForTextPosition(offset);
+            if (!textLine.isValid())
+                return QPointF();
+            return QPointF(textLine.x() + textLine.cursorToX(offset), textLine.y());
+        }};
+        return Point::new(r.x as _, r.y as _);
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

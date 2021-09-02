@@ -7,12 +7,14 @@ All notable changes to this project will be documented in this file.
 
  - Apply the default text color from the style for the `color` of `Text` and `TextInput` elements, to contrast
    correctly with the application of `Window`'s `background` property.
+ - LineEdit scrolls to keep the cursor visible
 
 ### Added
 
  - One can now set an alias from the root to a global callback
  - It is now possible to access properties and callback of exported global objects from the native code (#96)
  - C++ API: `blocking_invoke_from_event_loop`: a blocking version of `invoke_from_event_loop`
+ - TextInput can support multiple line by setting single-line to false
 
 ### Fixed
  - The interpreter API correctly return an error instead of panicking when setting properties or calling callbacks

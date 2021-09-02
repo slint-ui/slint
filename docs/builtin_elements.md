@@ -599,6 +599,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 * **`accepted()`**: Emitted when enter key is pressed
 * **`edited()`**: Emitted when the text has changed because the user modified it
+* **`cursor-position-changed(Point)`**: The cursor was moved to the new (x, y) position
 
 ### Example
 
@@ -643,6 +644,15 @@ Example := Window {
 ```
 
 # Builtin Structures
+
+## `Point`
+
+This structure represents a point with x and y coordinate
+
+### Fields
+
+* **`x`** (*length*)
+* **`y`** (*length*)
 
 ## `KeyEvent`
 

@@ -373,12 +373,12 @@ export TabBarImpl := HorizontalLayout {
 }
 
 export LineEdit := Rectangle {
-    property <string> text;
+    property <string> text <=> input.text;
     property <string> placeholder-text;
     property <bool> has-focus: input.has-focus;
     property <bool> enabled <=> input.enabled;
-    callback accepted(string);
-    callback edited(string);
+    callback accepted;
+    callback edited;
     forward-focus: input;
 
     border-color: root.has-focus ? Palette.highlight-background : #ffffff;
@@ -386,6 +386,8 @@ export LineEdit := Rectangle {
     border-width: 2px;
     horizontal-stretch: 1;
     vertical-stretch: 0;
+    min-height: input.preferred-height;
+    min-width: 50px;
 
     GridLayout {
         padding: 3px;
@@ -398,16 +400,26 @@ export LineEdit := Rectangle {
 
             GridLayout {
                 padding: 3px;
-                input := TextInput {
-                    text <=> root.text;
-                    accepted => {
-                        root.accepted(self.text);
+                Rectangle {
+                    clip: true;
+                    input := TextInput {
+                        property <length> computed_x;
+                        x: min(0px, max(parent.width - width, computed_x));
+                        width: max(parent.width, preferred-width);
+                        height: 100%;
+                        cursor-position-changed(cpos) => {
+                            if (cpos.x + computed_x < 8px) {
+                                computed_x = - cpos.x + 8px;
+                            } else if (cpos.x + computed_x > parent.width - 8px) {
+                                computed_x = parent.width - cpos.x - 8px;
+                            }
+                        }
+                        accepted => { root.accepted(self.text); }
+                        edited => { root.edited(self.text); }
+
+                        vertical-alignment: center;
+                        single-line: true;
                     }
-                    edited => {
-                        root.edited(self.text);
-                    }
-                    color: enabled ? Palette.text-color : Palette.text-color-disabled;
-                    single-line: true;
                 }
                 Text {
                     color: Palette.placeholder-text;

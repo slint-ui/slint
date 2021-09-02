@@ -14,7 +14,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 
-use super::{Item, ItemConsts, ItemRc, VoidArg};
+use super::{Item, ItemConsts, ItemRc, PointArg, VoidArg};
 use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
@@ -260,6 +260,7 @@ pub struct TextInput {
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
     pub accepted: Callback<VoidArg>,
+    pub cursor_position_changed: Callback<PointArg>,
     pub edited: Callback<VoidArg>,
     pub pressed: std::cell::Cell<bool>,
     pub single_line: Property<bool>,
@@ -275,23 +276,39 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
-        let size = window
-            .text_size(
+        let implicit_size = |max_width| {
+            let text = self.text();
+            window.text_size(
                 &self.cached_rendering_data,
                 &|| self.unresolved_font_request(),
-                "********************",
-                None,
+                if text.is_empty() { "*" } else { text.as_str() },
+                max_width,
             )
-            .ceil();
+        };
+
+        // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
+        // to pixel boundaries. To avoid rounding down causing the minimum width to become so little that
+        // letters will be cut off, apply the ceiling here.
         match orientation {
-            Orientation::Horizontal => LayoutInfo {
-                min: size.width,
-                preferred: size.width,
-                stretch: 1.,
-                ..LayoutInfo::default()
-            },
+            Orientation::Horizontal => {
+                let implicit_size = implicit_size(None);
+                let min = match self.wrap() {
+                    TextWrap::no_wrap => implicit_size.width,
+                    TextWrap::word_wrap => 0.,
+                };
+                LayoutInfo {
+                    min: min.ceil(),
+                    preferred: implicit_size.width.ceil(),
+                    ..LayoutInfo::default()
+                }
+            }
             Orientation::Vertical => {
-                LayoutInfo { min: size.height, preferred: size.height, ..LayoutInfo::default() }
+                let h = match self.wrap() {
+                    TextWrap::no_wrap => implicit_size(None).height,
+                    TextWrap::word_wrap => implicit_size(Some(self.width())).height,
+                }
+                .ceil();
+                LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
             }
         }
     }
@@ -319,7 +336,7 @@ impl Item for TextInput {
                 let clicked_offset = window.text_input_byte_offset_for_position(self, pos) as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position.set(clicked_offset);
-                self.as_ref().cursor_position.set(clicked_offset);
+                self.set_cursor_position(clicked_offset, window);
                 if !self.has_focus() {
                     window.clone().set_focus_item(self_rc);
                 }
@@ -331,7 +348,7 @@ impl Item for TextInput {
                 if self.as_ref().pressed.get() {
                     let clicked_offset =
                         window.text_input_byte_offset_for_position(self, pos) as i32;
-                    self.as_ref().cursor_position.set(clicked_offset);
+                    self.set_cursor_position(clicked_offset, window);
                 }
             }
             MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
@@ -381,12 +398,12 @@ impl Item for TextInput {
                         self.copy();
                         return KeyEventResult::EventAccepted;
                     } else if event.text == "v" {
-                        self.paste();
+                        self.paste(window);
                         return KeyEventResult::EventAccepted;
                     }
                     return KeyEventResult::EventIgnored;
                 }
-                self.delete_selection();
+                self.delete_selection(window);
 
                 let mut text: String = self.text().into();
 
@@ -396,8 +413,8 @@ impl Item for TextInput {
 
                 self.as_ref().text.set(text.into());
                 let new_cursor_pos = (insert_pos + event.text.len()) as i32;
-                self.as_ref().cursor_position.set(new_cursor_pos);
                 self.as_ref().anchor_position.set(new_cursor_pos);
+                self.set_cursor_position(new_cursor_pos, window);
 
                 // Keep the cursor visible when inserting text. Blinking should only occur when
                 // nothing is entered or the cursor isn't moved.
@@ -518,14 +535,13 @@ impl TextInput {
             TextCursorDirection::EndOfLine => text.len(),
         };
 
-        self.as_ref().cursor_position.set(new_cursor_pos as i32);
-
         match anchor_mode {
             AnchorMode::KeepAnchor => {}
             AnchorMode::MoveAnchor => {
                 self.as_ref().anchor_position.set(new_cursor_pos as i32);
             }
         }
+        self.set_cursor_position(new_cursor_pos as i32, window);
 
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
@@ -534,16 +550,24 @@ impl TextInput {
         new_cursor_pos != last_cursor_pos
     }
 
+    fn set_cursor_position(self: Pin<&Self>, new_position: i32, window: &WindowRc) {
+        self.cursor_position.set(new_position);
+        if new_position >= 0 {
+            let pos = window.text_input_position_for_byte_offset(self, new_position as usize);
+            Self::FIELD_OFFSETS.cursor_position_changed.apply_pin(self).call(&(pos,));
+        }
+    }
+
     fn delete_char(self: Pin<&Self>, window: &WindowRc) {
         if !self.has_selection() {
             self.move_cursor(TextCursorDirection::Forward, AnchorMode::KeepAnchor, window);
         }
-        self.delete_selection();
+        self.delete_selection(window);
     }
 
     fn delete_previous(self: Pin<&Self>, window: &WindowRc) {
         if self.has_selection() {
-            self.delete_selection();
+            self.delete_selection(window);
             return;
         }
         if self.move_cursor(TextCursorDirection::PreviousCharacter, AnchorMode::MoveAnchor, window)
@@ -552,7 +576,7 @@ impl TextInput {
         }
     }
 
-    fn delete_selection(self: Pin<&Self>) {
+    fn delete_selection(self: Pin<&Self>, window: &WindowRc) {
         let text: String = self.text().into();
         if text.is_empty() {
             return;
@@ -564,9 +588,9 @@ impl TextInput {
         }
 
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
-        self.cursor_position.set(anchor as i32);
-        self.anchor_position.set(anchor as i32);
         self.text.set(text.into());
+        self.anchor_position.set(anchor as i32);
+        self.set_cursor_position(anchor as i32, window);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
@@ -595,8 +619,8 @@ impl TextInput {
         text.split_at(anchor).1.split_at(cursor - anchor).0.to_string()
     }
 
-    fn insert(self: Pin<&Self>, text_to_insert: &str) {
-        self.delete_selection();
+    fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowRc) {
+        self.delete_selection(window);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
         if text_to_insert.contains('\n') && self.single_line() {
@@ -605,9 +629,9 @@ impl TextInput {
             text.insert_str(cursor_pos, text_to_insert);
         }
         let cursor_pos = cursor_pos + text_to_insert.len();
-        self.cursor_position.set(cursor_pos as i32);
-        self.anchor_position.set(cursor_pos as i32);
         self.text.set(text.into());
+        self.anchor_position.set(cursor_pos as i32);
+        self.set_cursor_position(cursor_pos as i32, window);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
@@ -617,10 +641,10 @@ impl TextInput {
         }
     }
 
-    fn paste(self: Pin<&Self>) {
+    fn paste(self: Pin<&Self>, window: &WindowRc) {
         if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
         {
-            self.insert(&text);
+            self.insert(&text, window);
         }
     }
 

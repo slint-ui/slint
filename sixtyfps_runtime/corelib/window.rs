@@ -73,6 +73,14 @@ pub trait PlatformWindow {
         pos: Point,
     ) -> usize;
 
+    /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
+    /// It takes a (UTF-8) byte offset in the text property, and returns its position
+    fn text_input_position_for_byte_offset(
+        &self,
+        text_input: Pin<&crate::items::TextInput>,
+        byte_offset: usize,
+    ) -> Point;
+
     /// Return self as any so the backend can upcast
     fn as_any(&self) -> &dyn core::any::Any;
 }

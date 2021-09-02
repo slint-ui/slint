@@ -153,6 +153,14 @@ impl PlatformWindow for TestingWindow {
         0
     }
 
+    fn text_input_position_for_byte_offset(
+        &self,
+        _text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+        _byte_offset: usize,
+    ) -> Point {
+        Default::default()
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

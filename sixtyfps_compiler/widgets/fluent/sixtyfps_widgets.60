@@ -445,12 +445,26 @@ export LineEdit := Rectangle {
     HorizontalLayout {
         padding-left: 8px;
         padding-right: 8px;
-        input := TextInput {
-            vertical-alignment: center;
-            accepted => { root.accepted(self.text); }
-            edited => { root.edited(self.text); }
-            color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
-            single-line: true;
+        Rectangle {
+            clip: true;
+            input := TextInput {
+                property <length> computed_x;
+                x: min(0px, max(parent.width - width, computed_x));
+                width: max(parent.width, preferred-width);
+                height: 100%;
+                cursor-position-changed(cpos) => {
+                    if (cpos.x + computed_x < 8px) {
+                        computed_x = - cpos.x + 8px;
+                    } else if (cpos.x + computed_x > parent.width - 8px) {
+                        computed_x = parent.width - cpos.x - 8px;
+                    }
+                }
+                vertical-alignment: center;
+                accepted => { root.accepted(self.text); }
+                edited => { root.edited(self.text); }
+                color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
+                single-line: true;
+            }
             Text {
                 height: 100%; width: 100%;
                 vertical-alignment: center;
