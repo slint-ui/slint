@@ -15,6 +15,8 @@ All notable changes to this project will be documented in this file.
  - It is now possible to access properties and callback of exported global objects from the native code (#96)
  - C++ API: `blocking_invoke_from_event_loop`: a blocking version of `invoke_from_event_loop`
  - TextInput can support multiple line by setting single-line to false
+ - The CMake integration now allows enabling/disabling SixtyFPS library features, such as Wayland support
+   or the dynamic run-time interpreter.
 
 ### Fixed
  - The interpreter API correctly return an error instead of panicking when setting properties or calling callbacks
