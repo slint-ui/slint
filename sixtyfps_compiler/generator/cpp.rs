@@ -1654,10 +1654,10 @@ fn compile_expression(
                 (Type::Brush, Type::Color) => {
                     format!("{}.color()", f)
                 }
-                (Type::Struct { .. }, Type::Struct{ fields, name: Some(n), ..}) => {
+                (Type::Struct { .. }, Type::Struct{ fields, name: Some(_), ..}) => {
                     format!(
                         "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
-                        struct_name = n,
+                        struct_name = to.cpp_type().unwrap(),
                         field_members = (0..fields.len()).map(|idx| format!("f_{}", idx)).join(", "),
                         obj = f,
                         fields = (0..fields.len())
@@ -1812,18 +1812,14 @@ fn compile_expression(
             )
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct{fields, name, ..} = ty {
+            if let Type::Struct{fields, ..} = ty {
                 let mut elem = fields.keys().map(|k| {
                     values
                         .get(k)
                         .map(|e| compile_expression(e, component))
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
-                if let Some(name) = name {
-                    format!("{}{{{}}}", ident(name), elem.join(", "))
-                } else {
-                    format!("std::make_tuple({})", elem.join(", "))
-                }
+                format!("{}{{{}}}", ty.cpp_type().unwrap(), elem.join(", "))
             } else {
                 panic!("Expression::Object is not a Type::Object")
             }
