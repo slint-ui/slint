@@ -74,7 +74,7 @@ impl ImportedName {
 pub struct TypeLoader<'a> {
     pub global_type_registry: Rc<RefCell<TypeRegister>>,
     pub compiler_config: &'a CompilerConfiguration,
-    pub builtin_library: Option<&'a VirtualDirectory<'a>>,
+    style: Cow<'a, str>,
     all_documents: LoadedDocuments,
 }
 
@@ -101,15 +101,7 @@ impl<'a> TypeLoader<'a> {
             Cow::from("fluent")
         });
 
-        let builtin_library =
-            crate::library::widget_library().iter().find(|x| x.0 == style).map(|x| x.1);
-
-        Self {
-            global_type_registry,
-            compiler_config,
-            builtin_library,
-            all_documents: Default::default(),
-        }
+        Self { global_type_registry, compiler_config, style, all_documents: Default::default() }
     }
 
     /// Imports of files that don't have the .60 extension are returned.
@@ -180,20 +172,6 @@ impl<'a> TypeLoader<'a> {
             import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
 
         self.find_file_in_include_path(referencing_file_or_url, maybe_relative_path_or_url)
-            .map(|path| (path, None))
-            .or_else(|| {
-                self.builtin_library.and_then(|library| {
-                    library
-                        .iter()
-                        .find(|virtual_file| virtual_file.path == maybe_relative_path_or_url)
-                        .map(|virtual_file| {
-                            (
-                                format!("builtin:/{}", maybe_relative_path_or_url).into(),
-                                Some(virtual_file.contents),
-                            )
-                        })
-                })
-            })
             .unwrap_or_else(|| {
                 (
                     referencing_file_or_url
@@ -384,11 +362,11 @@ impl<'a> TypeLoader<'a> {
 
     /// Lookup a filename and try to find the absolute filename based on the include path or
     /// the current file directory
-    pub(crate) fn find_file_in_include_path(
+    pub fn find_file_in_include_path(
         &self,
         referencing_file: Option<&std::path::Path>,
         file_to_import: &str,
-    ) -> Option<PathBuf> {
+    ) -> Option<(PathBuf, Option<&str>)> {
         // The directory of the current file is the first in the list of include directories.
         let maybe_current_directory =
             referencing_file.and_then(|path| path.parent()).map(|p| p.to_path_buf());
@@ -404,9 +382,32 @@ impl<'a> TypeLoader<'a> {
                     }
                 }
             }))
+            .chain(std::iter::once_with(|| format!("builtin:/{}", self.style).into()))
             .find_map(|include_dir| {
                 let candidate = include_dir.join(file_to_import);
-                candidate.exists().then(|| candidate)
+                match candidate.strip_prefix("builtin:/") {
+                    Err(_) => candidate.exists().then(|| (candidate, None)),
+                    Ok(builtin) => {
+                        let mut components = vec![];
+                        for part in builtin.iter() {
+                            if part == ".." {
+                                components.pop();
+                            } else if part != "." {
+                                components.push(part);
+                            }
+                        }
+                        if let &[folder, file] = components.as_slice() {
+                            let library =
+                                crate::library::widget_library().iter().find(|x| x.0 == folder)?.1;
+                            library
+                                .iter()
+                                .find(|vf| vf.path == file)
+                                .map(|vf| (candidate, Some(vf.contents)))
+                        } else {
+                            None
+                        }
+                    }
+                }
             })
     }
 

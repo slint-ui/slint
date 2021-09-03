@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+import { LineEditInner } from "../common/common.60";
+
 export { NativeStyleMetrics as StyleMetrics }
 
 // FIXME: the font-size should be removed but is required right now to compile the printer-demo
@@ -28,13 +30,13 @@ export GroupBox := NativeGroupBox {
     }
  }
 export LineEdit := NativeLineEdit {
-    property <string> text <=> input.text;
-    property <string> placeholder-text;
+    property <string> text <=> inner.text;
+    property <string> placeholder-text <=> inner.placeholder-text;
     enabled: true;
-    focused: input.has-focus;
-    forward-focus: input;
-    callback accepted(string);
-    callback edited(string);
+    focused <=> inner.has-focus;
+    forward-focus: inner;
+    callback accepted <=> inner.accepted;
+    callback edited <=> inner.edited;
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
@@ -43,33 +45,9 @@ export LineEdit := NativeLineEdit {
         padding-right: root.native-padding-right;
         padding-top: root.native-padding-top;
         padding-bottom: root.native-padding-bottom;
-        Rectangle {
-            min-height: input.preferred-height;
-            min-width: 50px;
-            clip: true;
-            input := TextInput {
-                property <length> computed_x;
-                x: min(0px, max(parent.width - width, computed_x));
-                width: max(parent.width, preferred-width);
-                height: 100%;
-                cursor-position-changed(cpos) => {
-                    if (cpos.x + computed_x < 8px) {
-                        computed_x = - cpos.x + 8px;
-                    } else if (cpos.x + computed_x > parent.width - 8px) {
-                        computed_x = parent.width - cpos.x - 8px;
-                    }
-                }
-                accepted => { root.accepted(self.text); }
-                edited => { root.edited(self.text); }
-                vertical-alignment: center;
-                single-line: true;
-            }
-            Text {
-                height: 100%; width: 100%;
-                vertical-alignment: center;
-                color: #ecedeb; // FIXME: use the palette
-                text: root.text == "" ? root.placeholder-text : "";
-            }
+        inner := LineEditInner {
+            placeholder-color: #ecedeb; // FIXME: use the palette
+            enabled <=> root.enabled;
         }
     }
 }
