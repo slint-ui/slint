@@ -25,22 +25,20 @@ type Coord = f32;
 
 /// The constraint that applies to an item
 // NOTE: when adding new fields, the C++ operator== also need updates
+// Also, the field needs to be in alphabetical order because how the generated code sort fields for struct
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LayoutInfo {
-    /// The minimum size for this item.
-    pub min: f32,
     /// The maximum size for the item.
     pub max: f32,
-
-    /// The minimum size in percentage of the parent (value between 0 and 100).
-    pub min_percent: f32,
     /// The maximum size in percentage of the parent (value between 0 and 100).
     pub max_percent: f32,
-
+    /// The minimum size for this item.
+    pub min: f32,
+    /// The minimum size in percentage of the parent (value between 0 and 100).
+    pub min_percent: f32,
     /// the preferred size
     pub preferred: f32,
-
     /// the  stretch factor
     pub stretch: f32,
 }

@@ -379,10 +379,10 @@ using cbindgen_private::sixtyfps_solve_path_layout;
 inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 {
     // Note: This "logic" is duplicated from LayoutInfo::merge in layout.rs.
-    return LayoutInfo { std::max(min, other.min),
-                        std::min(max, other.max),
-                        std::max(min_percent, other.min_percent),
+    return LayoutInfo { std::min(max, other.max),
                         std::min(max_percent, other.max_percent),
+                        std::max(min, other.min),
+                        std::max(min_percent, other.min_percent),
                         std::max(preferred, other.preferred),
                         std::min(stretch, other.stretch) };
 }

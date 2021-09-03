@@ -198,10 +198,10 @@ pub struct KeyboardModifiers {
     pub alt: bool,
     /// Indicates the control key on a keyboard.
     pub control: bool,
-    /// Indicates the shift key on a keyboard.
-    pub shift: bool,
     /// Indicates the logo key on macOS and the windows key on Windows.
     pub meta: bool,
+    /// Indicates the shift key on a keyboard.
+    pub shift: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, strum_macros::EnumString, strum_macros::Display)]
@@ -224,10 +224,10 @@ impl Default for KeyEventType {
 #[derive(Debug, Clone, PartialEq, Default)]
 #[repr(C)]
 pub struct KeyEvent {
-    /// The unicode representation of the key pressed.
-    pub text: SharedString,
     /// The keyboard modifiers active at the time of the key press event.
     pub modifiers: KeyboardModifiers,
+    /// The unicode representation of the key pressed.
+    pub text: SharedString,
     /// Indicates whether the key was pressed or released
     pub event_type: KeyEventType,
 }
