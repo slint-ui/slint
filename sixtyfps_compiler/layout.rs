@@ -464,9 +464,9 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
         // don't want to depend on the element.
         Expression::Struct {
             ty: layout_info_type(),
-            values: [("min", 0.), ("max", f64::MAX), ("preferred", 0.)]
+            values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
                 .iter()
-                .map(|(s, v)| (s.to_string(), Expression::NumberLiteral(*v, Unit::Px)))
+                .map(|(s, v)| (s.to_string(), Expression::NumberLiteral(*v as _, Unit::Px)))
                 .chain(
                     [("min_percent", 0.), ("max_percent", 100.), ("stretch", 1.)]
                         .iter()
