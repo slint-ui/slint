@@ -10,7 +10,7 @@ LICENSE END */
 //! Datastructures used to represent layouts in the compiler
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Expression, NamedReference, Path};
+use crate::expression_tree::*;
 use crate::langtype::{PropertyLookupResult, Type};
 use crate::object_tree::ElementRc;
 
@@ -452,5 +452,36 @@ pub fn layout_info_type() -> Type {
             .collect(),
         name: Some("LayoutInfo".into()),
         node: None,
+    }
+}
+
+/// Get the implicit layout info of a particular element
+pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
+    if matches!(&elem.borrow().base_type ,
+                    Type::Builtin(base_type) if base_type.name == "Rectangle")
+    {
+        // hard-code the value for rectangle because many rectangle end up optimized away and we
+        // don't want to depend on the element.
+        Expression::Struct {
+            ty: layout_info_type(),
+            values: [("min", 0.), ("max", f64::MAX), ("preferred", 0.)]
+                .iter()
+                .map(|(s, v)| (s.to_string(), Expression::NumberLiteral(*v, Unit::Px)))
+                .chain(
+                    [("min_percent", 0.), ("max_percent", 100.), ("stretch", 1.)]
+                        .iter()
+                        .map(|(s, v)| (s.to_string(), Expression::NumberLiteral(*v, Unit::None))),
+                )
+                .collect(),
+        }
+    } else {
+        Expression::FunctionCall {
+            function: Box::new(Expression::BuiltinFunctionReference(
+                BuiltinFunction::ImplicitLayoutInfo(orientation),
+                None,
+            )),
+            arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
+            source_location: None,
+        }
     }
 }
