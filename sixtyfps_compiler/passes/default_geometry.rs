@@ -20,15 +20,10 @@ use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
-use crate::expression_tree::BindingExpression;
-use crate::langtype::DefaultSizeBinding;
-use crate::langtype::Type;
+use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, NamedReference};
+use crate::langtype::{DefaultSizeBinding, PropertyLookupResult, Type};
 use crate::layout::Orientation;
 use crate::object_tree::{Component, ElementRc};
-use crate::{
-    expression_tree::{BuiltinFunction, Expression, NamedReference},
-    langtype::PropertyLookupResult,
-};
 
 pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components(
@@ -149,8 +144,8 @@ fn gen_layout_info_prop(elem: &ElementRc) {
         crate::layout::layout_info_type(),
     );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
-    let mut expr_h = implicit_layout_info_call(elem, Orientation::Horizontal);
-    let mut expr_v = implicit_layout_info_call(elem, Orientation::Vertical);
+    let mut expr_h = crate::layout::implicit_layout_info_call(elem, Orientation::Horizontal);
+    let mut expr_v = crate::layout::implicit_layout_info_call(elem, Orientation::Vertical);
 
     for child_info in child_infos {
         expr_h = Expression::BinaryExpression {
@@ -218,12 +213,9 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
 }
 
 fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientation) {
+    let base = crate::layout::implicit_layout_info_call(elem, orientation).into();
     elem.borrow_mut().bindings.set_binding_if_not_set(property.into(), || {
-        Expression::StructFieldAccess {
-            base: implicit_layout_info_call(elem, orientation).into(),
-            name: "preferred".into(),
-        }
-        .into()
+        Expression::StructFieldAccess { base, name: "preferred".into() }.into()
     });
 }
 
@@ -284,15 +276,4 @@ fn make_default_aspect_ratio_preserving_binding(
     ]);
 
     elem.borrow_mut().bindings.insert(missing_size_property.to_string(), binding.into());
-}
-
-fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
-    Expression::FunctionCall {
-        function: Box::new(Expression::BuiltinFunctionReference(
-            BuiltinFunction::ImplicitLayoutInfo(orientation),
-            None,
-        )),
-        arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
-        source_location: None,
-    }
 }

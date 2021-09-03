@@ -12,7 +12,7 @@ LICENSE END */
 //! Must be run after lower_layout and default_geometry passes
 
 use crate::diagnostics::Spanned;
-use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
+use crate::expression_tree::{BindingExpression, Expression, Unit};
 use crate::langtype::Type;
 use crate::layout::Orientation;
 use crate::object_tree::*;
@@ -131,14 +131,7 @@ fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
 fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) -> Expression {
     let expr = match elem.borrow().layout_info_prop(orient) {
         Some(e) => Expression::PropertyReference(e.clone()),
-        None => Expression::FunctionCall {
-            function: Box::new(Expression::BuiltinFunctionReference(
-                BuiltinFunction::ImplicitLayoutInfo(orient),
-                None,
-            )),
-            arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
-            source_location: None,
-        },
+        None => crate::layout::implicit_layout_info_call(elem, orient),
     };
     Expression::StructFieldAccess { base: expr.into(), name: field.into() }
 }

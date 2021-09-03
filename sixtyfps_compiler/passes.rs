@@ -34,6 +34,7 @@ mod lower_states;
 mod lower_tabwidget;
 mod materialize_fake_properties;
 mod move_declarations;
+mod optimize_useless_rectangles;
 mod remove_aliases;
 mod remove_unused_properties;
 mod repeater_component;
@@ -112,6 +113,7 @@ pub async fn run_passes(
     unique_id::assign_unique_id(root_component);
     binding_analysis::binding_analysis(root_component, diag);
     deduplicate_property_read::deduplicate_property_read(root_component);
+    optimize_useless_rectangles::optimize_useless_rectangles(root_component);
     move_declarations::move_declarations(root_component, diag);
     remove_aliases::remove_aliases(root_component, diag);
     resolve_native_classes::resolve_native_classes(root_component);

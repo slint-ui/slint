@@ -78,9 +78,8 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
         *elem.borrow().property_analysis.borrow_mut() = new_property_analysis;
     };
 
-    recurse_elem(&component.root_element, &(), &mut |e, _| move_bindings_and_animations(e));
-
     component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
+    recurse_elem(&component.root_element, &(), &mut |e, _| move_bindings_and_animations(e));
 
     component.root_constraints.borrow_mut().visit_named_references(&mut |e| fixup_reference(e));
     component.popup_windows.borrow_mut().iter_mut().for_each(|p| {
