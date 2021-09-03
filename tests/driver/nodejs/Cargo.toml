@@ -1,6 +1,6 @@
 [package]
 name = "test-driver-nodejs"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 publish = false
