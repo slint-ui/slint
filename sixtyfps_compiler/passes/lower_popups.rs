@@ -92,6 +92,8 @@ fn lower_popup_window(
                 "Cannot access the inside of a PopupWindow from enclosing component".into(),
                 &*popup_window_element.borrow(),
             );
+            // just set it to whatever is a valid NamedReference, otherwise we'll panic later
+            *nr = coord_x.clone();
         }
     });
 
