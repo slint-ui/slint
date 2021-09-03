@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-lsp"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -17,10 +17,10 @@ name = "sixtyfps-lsp"
 path = "main.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.1.1", path = "../../sixtyfps_compiler"}
-sixtyfps-interpreter = { version = "=0.1.1", path = "../../sixtyfps_runtime/interpreter"}
-sixtyfps-corelib = { version = "=0.1.1", path = "../../sixtyfps_runtime/corelib"}
-sixtyfps-rendering-backend-default = { version = "=0.1.1", path="../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-compilerlib = { version = "=0.1.2", path = "../../sixtyfps_compiler"}
+sixtyfps-interpreter = { version = "=0.1.2", path = "../../sixtyfps_runtime/interpreter"}
+sixtyfps-corelib = { version = "=0.1.2", path = "../../sixtyfps_runtime/corelib"}
+sixtyfps-rendering-backend-default = { version = "=0.1.2", path="../../sixtyfps_runtime/rendering_backends/default" }
 lsp-types = "0.89"
 lsp-server = "0.5"
 crossbeam-channel = "0.5"  # must match the version used by lsp-server

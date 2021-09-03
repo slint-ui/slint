@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-node"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 build = "build.rs"
@@ -22,10 +22,10 @@ testing = ["sixtyfps-rendering-backend-testing"]
 
 [dependencies]
 once_cell = "1.5"
-sixtyfps-compilerlib = { version = "=0.1.1", path="../../../sixtyfps_compiler" }
-sixtyfps-interpreter = { version = "=0.1.1", path="../../../sixtyfps_runtime/interpreter",  features = ["display-diagnostics"] }
-sixtyfps-corelib = { version = "=0.1.1", path="../../../sixtyfps_runtime/corelib" }
-sixtyfps-rendering-backend-testing = { version = "=0.1.1", path="../../../sixtyfps_runtime/rendering_backends/testing", optional = true }
+sixtyfps-compilerlib = { version = "=0.1.2", path="../../../sixtyfps_compiler" }
+sixtyfps-interpreter = { version = "=0.1.2", path="../../../sixtyfps_runtime/interpreter",  features = ["display-diagnostics"] }
+sixtyfps-corelib = { version = "=0.1.2", path="../../../sixtyfps_runtime/corelib" }
+sixtyfps-rendering-backend-testing = { version = "=0.1.2", path="../../../sixtyfps_runtime/rendering_backends/testing", optional = true }
 scoped-tls-hkt = "0.1"
 neon = "0.8.0"
 css-color-parser2 = "1.0.1"

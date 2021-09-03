@@ -2,7 +2,7 @@
 	"name": "sixtyfps-vscode",
 	"displayName": "SixtyFPS-vscode",
 	"description": "SixtyFPS Language extension",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"publisher": "SixtyFPS",
 	"icon": "extension-logo.png",
 	"license": "GPL-3.0",
