@@ -1511,7 +1511,15 @@ fn compile_expression(
         Expression::StringLiteral(s) => {
             format!(r#"sixtyfps::SharedString(u8"{}")"#, escape_string(s.as_str()))
         }
-        Expression::NumberLiteral(n, unit) => unit.normalize(*n).to_string(),
+        Expression::NumberLiteral(n, unit) => {
+            let num = unit.normalize(*n);
+            if num > 1_000_000_000. {
+                // If the numbers are too big, decimal notation will give too many digit
+                format!("{:+e}", num)
+            } else {
+                num.to_string()
+            }
+        }
         Expression::BoolLiteral(b) => b.to_string(),
         Expression::PropertyReference(nr) => {
             let access =
