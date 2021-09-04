@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
  - Apply the default text color from the style for the `color` of `Text` and `TextInput` elements, to contrast
    correctly with the application of `Window`'s `background` property.
  - LineEdit scrolls to keep the cursor visible
+ - The `clicked` callbacks are now only emitted if the release event is within the TouchArea's geometry
 
 ### Added
 
