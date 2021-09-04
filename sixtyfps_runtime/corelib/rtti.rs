@@ -42,6 +42,7 @@ declare_ValueType![
     crate::items::TextWrap,
     crate::model::StandardListViewItem,
     crate::items::ImageFit,
+    crate::items::ImageScaling,
     crate::input::KeyEvent,
     crate::items::EventResult,
     crate::Brush,

@@ -26,7 +26,7 @@ use std::rc::Rc;
 use euclid::approxeq::ApproxEq;
 use sixtyfps_corelib::graphics::{Brush, Color, Image, IntRect, Point, Rect, RenderingCache, Size};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{FillRule, ImageFit};
+use sixtyfps_corelib::items::{FillRule, ImageFit, ImageScaling};
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::Window;
 
@@ -404,6 +404,7 @@ impl ItemRenderer for GLItemRenderer {
             sixtyfps_corelib::items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             None,
+            image.image_scaling(),
         );
     }
 
@@ -428,6 +429,7 @@ impl ItemRenderer for GLItemRenderer {
                     .colorize
                     .apply_pin(clipped_image),
             ),
+            clipped_image.image_scaling(),
         );
     }
 
@@ -964,7 +966,7 @@ impl ItemRenderer for GLItemRenderer {
             cached_image
         });
         let image_id = match cache_entry {
-            Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(self),
+            Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(self, None),
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
             Some(ItemGraphicsCacheEntry::Font(_)) => unreachable!(),
             None => return,
@@ -1027,6 +1029,7 @@ impl GLItemRenderer {
         &self,
         original_cache_entry: ItemGraphicsCacheEntry,
         colorize_property: Option<Pin<&Property<Brush>>>,
+        scaling: ImageScaling,
     ) -> ItemGraphicsCacheEntry {
         let colorize_brush = colorize_property.map_or(Brush::default(), |prop| prop.get());
         if colorize_brush.is_transparent() {
@@ -1039,7 +1042,12 @@ impl GLItemRenderer {
             None => return original_cache_entry,
         };
 
-        let image_id = original_image.ensure_uploaded_to_gpu(self);
+        let scaling_flags = match scaling {
+            ImageScaling::smooth => femtovg::ImageFlags::empty(),
+            ImageScaling::pixelated => femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST,
+        };
+
+        let image_id = original_image.ensure_uploaded_to_gpu(self, Some(scaling));
         let colorized_image = self
             .canvas
             .borrow_mut()
@@ -1047,7 +1055,7 @@ impl GLItemRenderer {
                 image_size.width as _,
                 image_size.height as _,
                 femtovg::PixelFormat::Rgba8,
-                femtovg::ImageFlags::PREMULTIPLIED,
+                femtovg::ImageFlags::PREMULTIPLIED | scaling_flags,
             )
             .expect("internal error allocating temporary texture for image colorization");
 
@@ -1096,6 +1104,7 @@ impl GLItemRenderer {
         target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
         colorize_property: Option<Pin<&Property<Brush>>>,
+        scaling: ImageScaling,
     ) {
         let target_w = target_width.get() * self.scale_factor;
         let target_h = target_height.get() * self.scale_factor;
@@ -1133,6 +1142,7 @@ impl GLItemRenderer {
                                                             as u32,
                                                     ]
                                                     .into(),
+                                                    scaling,
                                                 )
                                                 .map(Rc::new)
                                         })
@@ -1140,7 +1150,7 @@ impl GLItemRenderer {
                         })
                         .or_else(|| CachedImage::new_from_resource(image_inner).map(Rc::new))
                         .map(ItemGraphicsCacheEntry::Image)
-                        .map(|cache_entry| self.colorize_image(cache_entry, colorize_property))
+                        .map(|cache_entry| self.colorize_image(cache_entry, colorize_property, scaling))
                 });
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
@@ -1166,7 +1176,7 @@ impl GLItemRenderer {
             break cached_image.as_image().clone();
         };
 
-        let image_id = cached_image.ensure_uploaded_to_gpu(self);
+        let image_id = cached_image.ensure_uploaded_to_gpu(self, Some(scaling));
         let image_size = cached_image.size().unwrap_or_default();
 
         let (source_width, source_height) = if source_clip_rect.is_empty() {
