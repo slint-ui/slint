@@ -101,8 +101,10 @@ impl Item for NativeButton {
             }
             MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
         });
-        if matches!(event, MouseEvent::MouseReleased { .. }) {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+        if let MouseEvent::MouseReleased { pos, .. } = event {
+            if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
+                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+            }
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse

@@ -398,8 +398,10 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result = if matches!(event, MouseEvent::MouseReleased { .. }) {
-            Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+        let result = if let MouseEvent::MouseReleased { pos, .. } = event {
+            if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
+                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+            }
             InputEventResult::EventAccepted
         } else {
             InputEventResult::GrabMouse

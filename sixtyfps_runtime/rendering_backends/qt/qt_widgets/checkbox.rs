@@ -81,9 +81,11 @@ impl Item for NativeCheckBox {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        if matches!(event, MouseEvent::MouseReleased { .. }) {
-            Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
-            Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
+        if let MouseEvent::MouseReleased { pos, .. } = event {
+            if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
+                Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
+                Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&())
+            }
         }
         InputEventResult::EventAccepted
     }
