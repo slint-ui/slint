@@ -677,7 +677,7 @@ pub struct SyntaxToken {
 
 impl SyntaxToken {
     pub fn parent(&self) -> SyntaxNode {
-        SyntaxNode { node: self.token.parent(), source_file: self.source_file.clone() }
+        SyntaxNode { node: self.token.parent().unwrap(), source_file: self.source_file.clone() }
     }
 }
 

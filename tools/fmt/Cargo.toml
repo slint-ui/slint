@@ -15,7 +15,7 @@ sixtyfps-compilerlib = { path = "../../sixtyfps_compiler", features = ["display-
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"
 codemap = "0.1"
-rowan = "0.12.2"
+rowan = "0.13.2"
 
 [[bin]]
 name = "sixtyfps-fmt"

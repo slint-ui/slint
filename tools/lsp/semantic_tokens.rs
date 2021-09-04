@@ -51,7 +51,7 @@ pub fn get_semantic_tokens(
             SyntaxKind::StringLiteral => Some((self::STRING, 0)),
             SyntaxKind::NumberLiteral => Some((self::NUMBER, 0)),
             SyntaxKind::ColorLiteral => Some((self::NUMBER, 0)),
-            SyntaxKind::Identifier => match token.parent().kind() {
+            SyntaxKind::Identifier => match token.parent()?.kind() {
                 SyntaxKind::Component => Some((self::KEYWORD, 0)),
                 // the id of the element
                 SyntaxKind::SubElement => Some((self::VARIABLE, 1 << self::DEFINITION)),
@@ -62,39 +62,39 @@ pub fn get_semantic_tokens(
                 SyntaxKind::CallbackConnection => Some((self::FUNCTION, 0)),
                 SyntaxKind::PropertyDeclaration => Some((self::KEYWORD, 0)),
                 SyntaxKind::PropertyAnimation => Some((self::KEYWORD, 0)),
-                SyntaxKind::QualifiedName => match token.parent().parent().map(|p| p.kind()) {
-                    Some(SyntaxKind::Type) => Some((self::TYPE, 0)),
+                SyntaxKind::QualifiedName => match token.parent()?.parent()?.kind() {
+                    SyntaxKind::Type => Some((self::TYPE, 0)),
                     // the base type
-                    Some(SyntaxKind::Element) => Some((self::TYPE, 0)),
+                    SyntaxKind::Element => Some((self::TYPE, 0)),
                     // FIXME: we should do actual lookup
-                    Some(SyntaxKind::Expression) => None,
-                    Some(SyntaxKind::StatePropertyChange) => Some((self::PROPERTY, 0)),
-                    Some(SyntaxKind::PropertyAnimation) => Some((self::PROPERTY, 0)),
+                    SyntaxKind::Expression => None,
+                    SyntaxKind::StatePropertyChange => Some((self::PROPERTY, 0)),
+                    SyntaxKind::PropertyAnimation => Some((self::PROPERTY, 0)),
                     _ => None,
                 },
-                SyntaxKind::DeclaredIdentifier => match token.parent().parent().map(|p| p.kind()) {
-                    Some(SyntaxKind::Component) => Some((self::TYPE, 1 << self::DEFINITION)),
-                    Some(SyntaxKind::RepeatedElement) => {
-                        Some((self::PROPERTY, 1 << self::DEFINITION))
+                SyntaxKind::DeclaredIdentifier => {
+                    match token.parent()?.parent()?.kind() {
+                        SyntaxKind::Component => Some((self::TYPE, 1 << self::DEFINITION)),
+                        SyntaxKind::RepeatedElement => {
+                            Some((self::PROPERTY, 1 << self::DEFINITION))
+                        }
+                        SyntaxKind::CallbackDeclaration => {
+                            Some((self::FUNCTION, 1 << self::DEFINITION))
+                        }
+                        SyntaxKind::CallbackConnection => {
+                            Some((self::PARAMETER, 1 << self::DEFINITION))
+                        }
+                        SyntaxKind::PropertyDeclaration => {
+                            Some((self::PROPERTY, 1 << self::DEFINITION))
+                        }
+                        SyntaxKind::State | SyntaxKind::Transition => {
+                            // This is the state name, but what semantic type is that?
+                            None
+                        }
+                        SyntaxKind::StructDeclaration => Some((self::TYPE, 1 << self::DEFINITION)),
+                        _ => None,
                     }
-                    Some(SyntaxKind::CallbackDeclaration) => {
-                        Some((self::FUNCTION, 1 << self::DEFINITION))
-                    }
-                    Some(SyntaxKind::CallbackConnection) => {
-                        Some((self::PARAMETER, 1 << self::DEFINITION))
-                    }
-                    Some(SyntaxKind::PropertyDeclaration) => {
-                        Some((self::PROPERTY, 1 << self::DEFINITION))
-                    }
-                    Some(SyntaxKind::State | SyntaxKind::Transition) => {
-                        // This is the state name, but what semantic type is that?
-                        None
-                    }
-                    Some(SyntaxKind::StructDeclaration) => {
-                        Some((self::TYPE, 1 << self::DEFINITION))
-                    }
-                    _ => None,
-                },
+                }
                 SyntaxKind::ChildrenPlaceholder => Some((self::MACRO, 0)),
                 SyntaxKind::Binding | SyntaxKind::TwoWayBinding => Some((self::PROPERTY, 0)),
                 SyntaxKind::ReturnStatement => Some((self::KEYWORD, 0)),
@@ -110,7 +110,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ExportSpecifier => Some((self::KEYWORD, 0)),
                 SyntaxKind::ExportIdentifier => Some((
                     self::TYPE,
-                    if token.parent().parent().map_or(false, |p| {
+                    if token.parent()?.parent().map_or(false, |p| {
                         p.children().find(|n| n.kind() == SyntaxKind::ExportName).is_some()
                     }) {
                         0
@@ -123,7 +123,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ImportIdentifier => Some((self::KEYWORD, 0)),
                 SyntaxKind::ExternalName => Some((
                     self::TYPE,
-                    if token.parent().parent().map_or(false, |p| {
+                    if token.parent()?.parent().map_or(false, |p| {
                         p.children().find(|n| n.kind() == SyntaxKind::InternalName).is_some()
                     }) {
                         0
@@ -146,7 +146,7 @@ pub fn get_semantic_tokens(
             | SyntaxKind::NotEqual
             | SyntaxKind::OrOr
             | SyntaxKind::AndAnd => Some((self::OPERATOR, 0)),
-            SyntaxKind::LAngle | SyntaxKind::RAngle => (token.parent().kind()
+            SyntaxKind::LAngle | SyntaxKind::RAngle => (token.parent()?.kind()
                 == SyntaxKind::PropertyDeclaration)
                 .then(|| (self::OPERATOR, 0)),
             SyntaxKind::Plus
