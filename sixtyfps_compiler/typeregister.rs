@@ -171,6 +171,7 @@ impl TypeRegister {
             &["stretch", "center", "start", "end", "space-between", "space-around"],
         );
         declare_enum("ImageFit", &["fill", "contain", "cover"]);
+        declare_enum("ImageScaling", &["smooth", "pixelated"]);
         declare_enum("EventResult", &["reject", "accept"]);
         declare_enum("FillRule", &["nonzero", "evenodd"]);
 
