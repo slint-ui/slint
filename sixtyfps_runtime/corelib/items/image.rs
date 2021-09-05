@@ -47,14 +47,14 @@ impl Default for ImageFit {
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
-pub enum ImageScaling {
+pub enum ImageRendering {
     smooth,
     pixelated,
 }
 
-impl Default for ImageScaling {
+impl Default for ImageRendering {
     fn default() -> Self {
-        ImageScaling::smooth
+        ImageRendering::smooth
     }
 }
 
@@ -69,7 +69,7 @@ pub struct ImageItem {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub image_fit: Property<ImageFit>,
-    pub image_scaling: Property<ImageScaling>,
+    pub image_rendering: Property<ImageRendering>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -143,7 +143,7 @@ pub struct ClippedImage {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub image_fit: Property<ImageFit>,
-    pub image_scaling: Property<ImageScaling>,
+    pub image_rendering: Property<ImageRendering>,
     pub colorize: Property<Brush>,
     pub source_clip_x: Property<i32>,
     pub source_clip_y: Property<i32>,

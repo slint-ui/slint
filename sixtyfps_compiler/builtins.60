@@ -53,7 +53,7 @@ ImageItem := _ {
     property <length> width;
     property <length> height;
     property <ImageFit> image-fit;
-    property <ImageScaling> image-scaling;
+    property <ImageRendering> image-rendering;
 }
 
 export ClippedImage := ImageItem {
@@ -62,7 +62,7 @@ export ClippedImage := ImageItem {
     property <int> source-clip-width;
     property <int> source-clip-height;
     property <brush> colorize;
-    property <ImageScaling> image-scaling;
+    property <ImageRendering> image-rendering;
     //-default_size_binding:implicit_size
 }
 
