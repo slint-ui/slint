@@ -15,7 +15,7 @@ use std::rc::Rc;
 use sixtyfps_corelib::graphics::{SharedImageBuffer, Size};
 #[cfg(target_arch = "wasm32")]
 use sixtyfps_corelib::Property;
-use sixtyfps_corelib::{slice::Slice, ImageInner, items::ImageRendering, SharedString};
+use sixtyfps_corelib::{items::ImageRendering, slice::Slice, ImageInner, SharedString};
 
 use super::{CanvasRc, GLItemRenderer};
 
@@ -236,7 +236,11 @@ impl CachedImage {
     // Upload the image to the GPU? if that hasn't happened yet. This function could take just a canvas
     // as parameter, but since an upload requires a current context, this is "enforced" by taking
     // a renderer instead (which implies a current context).
-    pub fn ensure_uploaded_to_gpu(&self, current_renderer: &GLItemRenderer, scaling: Option<ImageRendering>) -> femtovg::ImageId {
+    pub fn ensure_uploaded_to_gpu(
+        &self,
+        current_renderer: &GLItemRenderer,
+        scaling: Option<ImageRendering>,
+    ) -> femtovg::ImageId {
         use std::convert::TryFrom;
 
         let canvas = &current_renderer.canvas;
@@ -249,9 +253,7 @@ impl CachedImage {
         let img = &mut *self.0.borrow_mut();
         if let ImageData::DecodedImage(decoded_image) = img {
             let image_id = match femtovg::ImageSource::try_from(&*decoded_image) {
-                Ok(image_source) => {
-                    canvas.borrow_mut().create_image(image_source, image_flags)
-                }
+                Ok(image_source) => canvas.borrow_mut().create_image(image_source, image_flags),
                 Err(_) => {
                     let converted = image::DynamicImage::ImageRgba8(decoded_image.to_rgba8());
                     let image_source = femtovg::ImageSource::try_from(&converted).unwrap();
@@ -263,16 +265,15 @@ impl CachedImage {
             *img = Texture { id: image_id, canvas: canvas.clone() }.into()
         } else if let ImageData::EmbeddedImage(buffer) = img {
             let (image_source, flags) = image_buffer_to_image_source(buffer);
-            let image_id = canvas.borrow_mut().create_image(image_source, flags | image_flags).unwrap();
+            let image_id =
+                canvas.borrow_mut().create_image(image_source, flags | image_flags).unwrap();
             *img = Texture { id: image_id, canvas: canvas.clone() }.into()
         }
 
         #[cfg(target_arch = "wasm32")]
         if let ImageData::HTMLImage(html_image) = img {
-            let image_id = canvas
-                .borrow_mut()
-                .create_image(&html_image.dom_element, image_flags)
-                .unwrap();
+            let image_id =
+                canvas.borrow_mut().create_image(&html_image.dom_element, image_flags).unwrap();
             *img = Texture { id: image_id, canvas: canvas.clone() }.into()
         }
 
@@ -304,9 +305,7 @@ impl CachedImage {
             ImageData::Texture(_) => None, // internal error: Cannot call upload_to_gpu on previously uploaded image,
             ImageData::DecodedImage(decoded_image) => {
                 let image_id = match femtovg::ImageSource::try_from(&*decoded_image) {
-                    Ok(image_source) => {
-                        canvas.borrow_mut().create_image(image_source, image_flags)
-                    }
+                    Ok(image_source) => canvas.borrow_mut().create_image(image_source, image_flags),
                     Err(_) => {
                         let converted = image::DynamicImage::ImageRgba8(decoded_image.to_rgba8());
                         let image_source = femtovg::ImageSource::try_from(&converted).unwrap();
@@ -333,10 +332,8 @@ impl CachedImage {
             },
             #[cfg(target_arch = "wasm32")]
             ImageData::HTMLImage(html_image) => html_image.size().map(|_| {
-                let image_id = canvas
-                    .borrow_mut()
-                    .create_image(&html_image.dom_element, image_flags)
-                    .unwrap();
+                let image_id =
+                    canvas.borrow_mut().create_image(&html_image.dom_element, image_flags).unwrap();
                 Self::new_on_gpu(canvas, image_id)
             }),
         }

@@ -1044,7 +1044,9 @@ impl GLItemRenderer {
 
         let scaling_flags = match scaling {
             ImageRendering::smooth => femtovg::ImageFlags::empty(),
-            ImageRendering::pixelated => femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST,
+            ImageRendering::pixelated => {
+                femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST
+            }
         };
 
         let image_id = original_image.ensure_uploaded_to_gpu(self, Some(scaling));
@@ -1150,7 +1152,9 @@ impl GLItemRenderer {
                         })
                         .or_else(|| CachedImage::new_from_resource(image_inner).map(Rc::new))
                         .map(ItemGraphicsCacheEntry::Image)
-                        .map(|cache_entry| self.colorize_image(cache_entry, colorize_property, scaling))
+                        .map(|cache_entry| {
+                            self.colorize_image(cache_entry, colorize_property, scaling)
+                        })
                 });
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
