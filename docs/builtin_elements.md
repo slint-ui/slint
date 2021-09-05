@@ -138,6 +138,12 @@ An Image can be used to represent an image loaded from an image file.
 
   When the `Image` element is part of a layout, the default value for **`image-fit`** is `contain`. Otherwise it is `fill`.
 
+* **`image-rendering`** (*enum*): Specifies how the source image will be scaled. Possible values are:
+  * `smooth`: The image is scaled with a linear interpolation algorithm.
+  * `pixelated`: The image is scaled with the nearest neighbor algorithm.
+  
+  The default value is `smooth`.
+
 * **`colorize`** (*brush*): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
 * **`width`**, **`height`** (*length*): The width and height of the image as it appears on the screen.The default values are
   the sizes provided by the **`source`** image. If the `Image` is **not** in a layout and only **one** of the two sizes are
