@@ -29,7 +29,6 @@ members = [
     'examples/memory',
     'examples/plotter',
     'examples/imagefilter',
-    'examples/imagescaling',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
