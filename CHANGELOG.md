@@ -18,6 +18,7 @@ All notable changes to this project will be documented in this file.
  - TextInput can support multiple line by setting single-line to false
  - The CMake integration now allows enabling/disabling SixtyFPS library features, such as Wayland support
    or the dynamic run-time interpreter.
+ - Added `image-rendering` property to Image to control how the image is scaled
 
 ### Fixed
  - The interpreter API correctly return an error instead of panicking when setting properties or calling callbacks
