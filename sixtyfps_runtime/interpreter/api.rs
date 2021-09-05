@@ -307,7 +307,7 @@ declare_value_enum_conversion!(sixtyfps_corelib::items::TextOverflow, TextOverfl
 declare_value_enum_conversion!(sixtyfps_corelib::items::TextWrap, TextWrap);
 declare_value_enum_conversion!(sixtyfps_corelib::layout::LayoutAlignment, LayoutAlignment);
 declare_value_enum_conversion!(sixtyfps_corelib::items::ImageFit, ImageFit);
-declare_value_enum_conversion!(sixtyfps_corelib::items::ImageScaling, ImageScaling);
+declare_value_enum_conversion!(sixtyfps_corelib::items::ImageRendering, ImageRendering);
 declare_value_enum_conversion!(sixtyfps_corelib::input::KeyEventType, KeyEventType);
 declare_value_enum_conversion!(sixtyfps_corelib::items::EventResult, EventResult);
 declare_value_enum_conversion!(sixtyfps_corelib::items::FillRule, FillRule);

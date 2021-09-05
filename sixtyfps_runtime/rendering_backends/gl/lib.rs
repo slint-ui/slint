@@ -26,7 +26,7 @@ use std::rc::Rc;
 use euclid::approxeq::ApproxEq;
 use sixtyfps_corelib::graphics::{Brush, Color, Image, IntRect, Point, Rect, RenderingCache, Size};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{FillRule, ImageFit, ImageScaling};
+use sixtyfps_corelib::items::{FillRule, ImageFit, ImageRendering};
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::Window;
 
@@ -404,7 +404,7 @@ impl ItemRenderer for GLItemRenderer {
             sixtyfps_corelib::items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             None,
-            image.image_scaling(),
+            image.image_rendering(),
         );
     }
 
@@ -429,7 +429,7 @@ impl ItemRenderer for GLItemRenderer {
                     .colorize
                     .apply_pin(clipped_image),
             ),
-            clipped_image.image_scaling(),
+            clipped_image.image_rendering(),
         );
     }
 
@@ -1029,7 +1029,7 @@ impl GLItemRenderer {
         &self,
         original_cache_entry: ItemGraphicsCacheEntry,
         colorize_property: Option<Pin<&Property<Brush>>>,
-        scaling: ImageScaling,
+        scaling: ImageRendering,
     ) -> ItemGraphicsCacheEntry {
         let colorize_brush = colorize_property.map_or(Brush::default(), |prop| prop.get());
         if colorize_brush.is_transparent() {
@@ -1043,8 +1043,8 @@ impl GLItemRenderer {
         };
 
         let scaling_flags = match scaling {
-            ImageScaling::smooth => femtovg::ImageFlags::empty(),
-            ImageScaling::pixelated => femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST,
+            ImageRendering::smooth => femtovg::ImageFlags::empty(),
+            ImageRendering::pixelated => femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST,
         };
 
         let image_id = original_image.ensure_uploaded_to_gpu(self, Some(scaling));
@@ -1104,7 +1104,7 @@ impl GLItemRenderer {
         target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
         colorize_property: Option<Pin<&Property<Brush>>>,
-        scaling: ImageScaling,
+        scaling: ImageRendering,
     ) {
         let target_w = target_width.get() * self.scale_factor;
         let target_h = target_height.get() * self.scale_factor;

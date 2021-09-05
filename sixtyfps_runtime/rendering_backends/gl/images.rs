@@ -15,7 +15,7 @@ use std::rc::Rc;
 use sixtyfps_corelib::graphics::{SharedImageBuffer, Size};
 #[cfg(target_arch = "wasm32")]
 use sixtyfps_corelib::Property;
-use sixtyfps_corelib::{slice::Slice, ImageInner, items::ImageScaling, SharedString};
+use sixtyfps_corelib::{slice::Slice, ImageInner, items::ImageRendering, SharedString};
 
 use super::{CanvasRc, GLItemRenderer};
 
@@ -236,14 +236,14 @@ impl CachedImage {
     // Upload the image to the GPU? if that hasn't happened yet. This function could take just a canvas
     // as parameter, but since an upload requires a current context, this is "enforced" by taking
     // a renderer instead (which implies a current context).
-    pub fn ensure_uploaded_to_gpu(&self, current_renderer: &GLItemRenderer, scaling: Option<ImageScaling>) -> femtovg::ImageId {
+    pub fn ensure_uploaded_to_gpu(&self, current_renderer: &GLItemRenderer, scaling: Option<ImageRendering>) -> femtovg::ImageId {
         use std::convert::TryFrom;
 
         let canvas = &current_renderer.canvas;
 
         let image_flags = match scaling.unwrap_or_default() {
-            ImageScaling::smooth => femtovg::ImageFlags::empty(),
-            ImageScaling::pixelated => femtovg::ImageFlags::NEAREST,
+            ImageRendering::smooth => femtovg::ImageFlags::empty(),
+            ImageRendering::pixelated => femtovg::ImageFlags::NEAREST,
         };
 
         let img = &mut *self.0.borrow_mut();
@@ -289,15 +289,15 @@ impl CachedImage {
         &self,
         current_renderer: &GLItemRenderer,
         target_size: euclid::default::Size2D<u32>,
-        scaling: ImageScaling,
+        scaling: ImageRendering,
     ) -> Option<Self> {
         use std::convert::TryFrom;
 
         let canvas = &current_renderer.canvas;
 
         let image_flags = match scaling {
-            ImageScaling::smooth => femtovg::ImageFlags::empty(),
-            ImageScaling::pixelated => femtovg::ImageFlags::NEAREST,
+            ImageRendering::smooth => femtovg::ImageFlags::empty(),
+            ImageRendering::pixelated => femtovg::ImageFlags::NEAREST,
         };
 
         match &*self.0.borrow() {
