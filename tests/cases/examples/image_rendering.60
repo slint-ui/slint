@@ -7,7 +7,6 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { HorizontalLayout } from "sixtyfps_widgets.60";
 
 export MainWindow := Window {
     title: "SixtyFPS Image Scaling Example";
