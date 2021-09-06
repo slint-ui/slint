@@ -11,6 +11,7 @@ LICENSE END */
 TestCase := Window {
     if (true false) : Rectangle { }
 //           ^error{Syntax error: expected RParent}
-//                ^^error{Parse error}
+//           ^^error{expected Colon}
+//                ^^^error{Parse error}
     Foo { }
   }

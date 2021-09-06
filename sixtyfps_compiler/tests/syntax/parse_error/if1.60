@@ -12,5 +12,6 @@ TestCase := Window {
     if (
 
   }
-//^error{Syntax error: expected RParent}
-//^^error{invalid expression}
+//^error{invalid expression}
+//^^error{expected RParent}
+//^^^error{expected Colon}

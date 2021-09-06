@@ -36,7 +36,7 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// property1: value; property2: value;
 /// sub := Sub { }
 /// for xx in model: Sub {}
-/// if (condition) : Sub {}
+/// if condition : Sub {}
 /// clicked => {}
 /// callback foobar;
 /// property<int> width;
@@ -73,7 +73,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier if p.peek().as_str() == "property" => {
                     parse_property_declaration(&mut *p);
                 }
-                SyntaxKind::LParent if p.peek().as_str() == "if" => {
+                _ if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
                 }
                 SyntaxKind::LBracket if p.peek().as_str() == "states" => {
@@ -168,19 +168,15 @@ fn parse_repeated_element(p: &mut impl Parser) {
 /// if (condition) : Elem { }
 /// if (foo ? bar : xx) : Elem { foo:bar; Elem {}}
 /// if (true) : foo := Elem {}
+/// if true && true : Elem {}
 /// ```
 /// Must consume at least one token
 fn parse_if_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "if");
     let mut p = p.start_node(SyntaxKind::ConditionalElement);
     p.consume(); // "if"
-    if !p.expect(SyntaxKind::LParent) {
-        drop(p.start_node(SyntaxKind::Expression));
-        drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
-        return;
-    }
     parse_expression(&mut *p);
-    if !p.expect(SyntaxKind::RParent) || !p.expect(SyntaxKind::Colon) {
+    if !p.expect(SyntaxKind::Colon) {
         drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
         return;
     }
