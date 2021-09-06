@@ -18,7 +18,7 @@ use sixtyfps_corelib::graphics::{
 };
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{self, FillRule, ItemRef, TextOverflow, TextWrap};
+use sixtyfps_corelib::items::{self, FillRule, ImageRendering, ItemRef, TextOverflow, TextWrap};
 use sixtyfps_corelib::layout::Orientation;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
@@ -395,6 +395,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
             items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
+            image.image_rendering(),
             None,
         );
     }
@@ -415,6 +416,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             items::ClippedImage::FIELD_OFFSETS.width.apply_pin(image),
             items::ClippedImage::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
+            image.image_rendering(),
             Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image)),
         );
     }
@@ -955,6 +957,7 @@ impl QtItemRenderer<'_> {
         target_width: std::pin::Pin<&Property<f32>>,
         target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
+        rendering: ImageRendering,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
         // Caller ensured that zero/negative width/height resulted in an early return via get_geometry!.
@@ -1009,8 +1012,17 @@ impl QtItemRenderer<'_> {
         let mut dest_rect = dest_rect;
         adjust_to_image_fit(image_fit, &mut source_rect, &mut dest_rect);
         let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", pixmap as "QPixmap*", source_rect as "QRectF", dest_rect as "QRectF"] {
+        let smooth: bool = rendering == ImageRendering::smooth;
+        cpp! { unsafe [
+                painter as "QPainter*",
+                pixmap as "QPixmap*",
+                source_rect as "QRectF",
+                dest_rect as "QRectF",
+                smooth as "bool"] {
+            painter->save();
+            painter->setRenderHint(QPainter::SmoothPixmapTransform, smooth);
             painter->drawPixmap(dest_rect, *pixmap, source_rect);
+            painter->restore();
         }};
     }
 
