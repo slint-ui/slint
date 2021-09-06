@@ -228,6 +228,8 @@ pub struct KeyEvent {
     pub modifiers: KeyboardModifiers,
     /// The unicode representation of the key pressed.
     pub text: SharedString,
+
+    // note: this field is not exported in the .60 in the KeyEvent builtin struct
     /// Indicates whether the key was pressed or released
     pub event_type: KeyEventType,
 }
