@@ -7,14 +7,22 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+import { StyleMetrics } from "sixtyfps_widgets.60";
+
 TestCase := Rectangle {
+    // This binding allow the test to set the style's default color so that we can compare it
+    property<color> binding_to_default_text_color <=> StyleMetrics.default-text-color;
+
     default_text := Text {
     }
     text_with_color := Text {
-        color: #ffffffff;
+        color: #ffff00ff;
     }
     property <color> default_text_color: default_text.color;
     property <color> color_of_initialized_text: text_with_color.color;
+
+    property <bool> test: default_text_color == StyleMetrics.default-text-color && color-of-initialized-text == #ffff00ff;
 }
 
 
@@ -23,14 +31,16 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert_eq(instance.get_default_text_color(), sixtyfps::Color::from_rgb_uint8(0, 0, 0));
-assert_eq(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_uint8(255, 255, 255));
+instance.set_binding_to_default_text_color(sixtyfps::Color::from_rgb_uint8(0, 0, 255));
+assert_eq(instance.get_default_text_color(), sixtyfps::Color::from_rgb_uint8(0, 0, 255));
+assert_eq(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_uint8(255, 255, 0));
 ```
 
 ```rust
 let instance = TestCase::new();
-assert_eq!(instance.get_default_text_color(), sixtyfps::Color::from_rgb_u8(0, 0, 0));
-assert_eq!(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_u8(255, 255, 255));
+instance.set_binding_to_default_text_color(sixtyfps::Color::from_rgb_u8(0, 0, 133));
+assert_eq!(instance.get_default_text_color(), sixtyfps::Color::from_rgb_u8(0, 0, 133));
+assert_eq!(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_u8(255, 255, 0));
 ```
 
 */
