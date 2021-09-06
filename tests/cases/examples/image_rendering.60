@@ -15,14 +15,12 @@ export MainWindow := Window {
 
     HorizontalLayout {
         Image {
-            source: @image-url("/tmp/o.png");
+            source: @image-url("../../../examples/printerdemo/ui/images/cat_preview_round.png");
             image-rendering: smooth;
-            colorize: red;
         }
         Image {
-            source: @image-url("/tmp/o.png");
+            source: @image-url("../../../examples/printerdemo/ui/images/cat_preview_round.png");
             image-rendering: pixelated;
-            colorize: red;
         }
     }
 }
