@@ -423,25 +423,35 @@ impl CachedImage {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
-pub enum ImageCacheKey {
+#[derive(PartialEq, Eq, Hash, Debug, derive_more::From)]
+enum CachedImageSourceKey {
     Path(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }
 
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub struct ImageCacheKey {
+    source_key: CachedImageSourceKey,
+    gpu_image_flags: ImageRendering,
+}
+
 impl ImageCacheKey {
-    pub fn new(resource: &ImageInner) -> Option<Self> {
+    pub fn new(resource: &ImageInner, gpu_image_flags: Option<ImageRendering>) -> Option<Self> {
         Some(match resource {
             ImageInner::None => return None,
             ImageInner::AbsoluteFilePath(path) => {
                 if path.is_empty() {
                     return None;
                 }
-                Self::Path(path.to_string())
+                Self {
+                    source_key: path.to_string().into(),
+                    gpu_image_flags: gpu_image_flags.unwrap_or_default(),
+                }
             }
-            ImageInner::EmbeddedData { data, format: _ } => {
-                Self::EmbeddedData(by_address::ByAddress(data.as_slice()))
-            }
+            ImageInner::EmbeddedData { data, format: _ } => Self {
+                source_key: by_address::ByAddress(data.as_slice()).into(),
+                gpu_image_flags: gpu_image_flags.unwrap_or_default(),
+            },
             ImageInner::EmbeddedImage { .. } => return None,
         })
     }
@@ -474,7 +484,7 @@ impl ImageCache {
 
     // Try to load the image the given resource points to
     pub(crate) fn load_image_resource(&mut self, resource: &ImageInner) -> Option<Rc<CachedImage>> {
-        ImageCacheKey::new(resource)
+        ImageCacheKey::new(resource, None)
             .and_then(|cache_key| {
                 self.lookup_image_in_cache_or_create(cache_key, || {
                     CachedImage::new_from_resource(resource).map(Rc::new)

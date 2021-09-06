@@ -44,7 +44,9 @@ impl Default for ImageFit {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, Hash, strum_macros::EnumString, strum_macros::Display,
+)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum ImageRendering {

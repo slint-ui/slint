@@ -1106,7 +1106,7 @@ impl GLItemRenderer {
         target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
         colorize_property: Option<Pin<&Property<Brush>>>,
-        scaling: ImageRendering,
+        image_rendering: ImageRendering,
     ) {
         let target_w = target_width.get() * self.scale_factor;
         let target_h = target_height.get() * self.scale_factor;
@@ -1121,7 +1121,7 @@ impl GLItemRenderer {
                     let image = source_property.get();
                     let image_inner = (&image).into();
 
-                    ImageCacheKey::new(image_inner)
+                    ImageCacheKey::new(image_inner, Some(image_rendering))
                         .and_then(|cache_key| {
                             self.graphics_window
                                 .texture_cache
@@ -1144,7 +1144,7 @@ impl GLItemRenderer {
                                                             as u32,
                                                     ]
                                                     .into(),
-                                                    scaling,
+                                                    image_rendering,
                                                 )
                                                 .map(Rc::new)
                                         })
@@ -1153,7 +1153,7 @@ impl GLItemRenderer {
                         .or_else(|| CachedImage::new_from_resource(image_inner).map(Rc::new))
                         .map(ItemGraphicsCacheEntry::Image)
                         .map(|cache_entry| {
-                            self.colorize_image(cache_entry, colorize_property, scaling)
+                            self.colorize_image(cache_entry, colorize_property, image_rendering)
                         })
                 });
 
@@ -1180,7 +1180,7 @@ impl GLItemRenderer {
             break cached_image.as_image().clone();
         };
 
-        let image_id = cached_image.ensure_uploaded_to_gpu(self, Some(scaling));
+        let image_id = cached_image.ensure_uploaded_to_gpu(self, Some(image_rendering));
         let image_size = cached_image.size().unwrap_or_default();
 
         let (source_width, source_height) = if source_clip_rect.is_empty() {
