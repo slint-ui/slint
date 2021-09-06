@@ -10,6 +10,7 @@ LICENSE END */
 
 #[test]
 fn reuse_window() {
+    sixtyfps_rendering_backend_testing::init();
     use crate::{ComponentCompiler, SharedString, Value};
     let code = r#"
         MainWindow := Window {
