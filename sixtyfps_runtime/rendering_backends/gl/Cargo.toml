@@ -35,7 +35,7 @@ smallvec = "1.4.1"
 once_cell = "1.5"
 lyon_path = "0.17.3"
 copypasta = { version = "0.7.0", default-features = false }
-fontdb = { version = "0.5.1", default-features = false }
+fontdb = { version = "0.6.2", default-features = false }
 resvg = { version= "0.16", optional = true, default-features = false }
 usvg = { version= "0.16", optional = true, default-features = false }
 tiny-skia = { version= "0.6", optional = true, default-features = false }
@@ -53,7 +53,7 @@ winit = { version = "0.25", default-features = false }
 glutin = { version = "0.27", default-features = false }
 glow = { version = "0.10.0", default-features = false }
 font-kit = { version = "0.10", features = [] }
-fontdb = { version = "0.5.1", features = ["fs"] }
+fontdb = { version = "0.6.2", features = ["memmap"] }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 # Require font-config from the system on Linux. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
