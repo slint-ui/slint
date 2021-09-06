@@ -12,6 +12,8 @@ global Glo := {
     property <int> hello: 42;
     callback sum(int, int) -> int;
     callback mul(int, int) -> int;
+    callback calculate_profit() -> int;
+    calculate_profit() => { return 1000; }
 }
 
 ExtraComp := Rectangle {
@@ -28,8 +30,10 @@ TestCase := Window {
     property<int> five: x.five;
     property<int> six: x.six;
 
+    property<int> profit: Glo.calculate-profit();
+
     //mul(α, β) => { return α * β; }
-    property<bool> test: five == 0; // because the callback is not set
+    property<bool> test: five == 0 && profit == 1000; // because the callback is not set
 
 }
 
@@ -40,6 +44,7 @@ instance.on_sum(|a, b| a + b);
 instance.on_mul(|a, b| a * b);
 assert_eq!(instance.get_five(), 5);
 assert_eq!(instance.get_six(), 6);
+assert_eq!(instance.get_profit(), 1000);
 ```
 
 ```cpp
@@ -49,6 +54,7 @@ instance.on_sum([](int a, int b) { return a + b; });
 instance.on_mul([](int a, int b) { return a * b; });
 assert_eq(instance.get_five(), 5);
 assert_eq(instance.get_six(), 6);
+assert_eq(instance.get_profit(), 1000);
 ```
 
 ```js
@@ -58,6 +64,7 @@ let instance = new sixtyfps.TestCase({
 });
 assert.equal(instance.five, 5);
 assert.equal(instance.six, 6);
+assert.equal(instance.profit, 1000);
 ```
 
 */
