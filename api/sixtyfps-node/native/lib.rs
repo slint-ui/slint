@@ -547,8 +547,6 @@ register_module!(mut m, {
     m.export_function("load", load)?;
     m.export_function("mock_elapsed_time", mock_elapsed_time)?;
     m.export_function("singleshot_timer", singleshot_timer)?;
-    #[cfg(feature = "testing")]
-    m.export_function("init_testing_backend", init_testing_backend)?;
     Ok(())
 });
 
@@ -556,11 +554,5 @@ register_module!(mut m, {
 fn mock_elapsed_time(mut cx: FunctionContext) -> JsResult<JsValue> {
     let ms = cx.argument::<JsNumber>(0)?.value();
     sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time(ms as _);
-    Ok(JsUndefined::new().as_value(&mut cx))
-}
-
-#[cfg(feature = "testing")]
-fn init_testing_backend(mut cx: FunctionContext) -> JsResult<JsValue> {
-    sixtyfps_rendering_backend_testing::init();
     Ok(JsUndefined::new().as_value(&mut cx))
 }
