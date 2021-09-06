@@ -14,6 +14,7 @@ LICENSE END */
 use crate::graphics::Point;
 use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
+use crate::window::WindowRc;
 use crate::Property;
 use crate::{component::ComponentRc, SharedString};
 use const_field_offset::FieldOffsets;
@@ -270,18 +271,14 @@ pub struct MouseInputState {
     grabbed: bool,
 }
 
-enum MouseGrab {
-    Grabbed(MouseInputState),
-    NotGrabbed(MouseInputState),
-}
-
+/// Try to handle the mouse grabber. Return true if the event has handled, or false otherwise
 fn handle_mouse_grab(
     mouse_event: &MouseEvent,
-    window: &crate::window::WindowRc,
-    mut mouse_input_state: MouseInputState,
-) -> MouseGrab {
+    window: &WindowRc,
+    mouse_input_state: &mut MouseInputState,
+) -> bool {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
-        return MouseGrab::NotGrabbed(mouse_input_state);
+        return false;
     };
 
     let mut event = *mouse_event;
@@ -314,34 +311,24 @@ fn handle_mouse_grab(
         true
     });
     if invalid {
-        return MouseGrab::NotGrabbed(mouse_input_state);
+        return false;
     }
 
     let grabber = mouse_input_state.item_stack.last().unwrap().0.upgrade().unwrap();
-    return MouseGrab::Grabbed(
-        match grabber.borrow().as_ref().input_event(event, window, &grabber) {
-            InputEventResult::GrabMouse => mouse_input_state,
-            _ => Default::default(),
-        },
-    );
+    let input_result = grabber.borrow().as_ref().input_event(event, window, &grabber);
+    if input_result != InputEventResult::GrabMouse {
+        mouse_input_state.grabbed = false;
+        send_exit_events(&mouse_input_state, mouse_event.pos(), window);
+    }
+
+    true
 }
 
-/// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the previous stack
-/// of mouse grabber.
-/// Returns a new mouse grabber stack.
-pub fn process_mouse_input(
-    component: ComponentRc,
-    mouse_event: MouseEvent,
-    window: &crate::window::WindowRc,
-    mut mouse_input_state: MouseInputState,
-) -> MouseInputState {
-    match handle_mouse_grab(&mouse_event, window, mouse_input_state) {
-        MouseGrab::Grabbed(state) => return state,
-        MouseGrab::NotGrabbed(state) => mouse_input_state = state,
-    };
-
-    let mut pos = mouse_event.pos();
-    // Send the Exit event.
+fn send_exit_events(
+    mouse_input_state: &MouseInputState,
+    mut pos: Option<Point>,
+    window: &WindowRc,
+) {
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.0.upgrade() { item } else { break };
         let g = item.borrow().as_ref().geometry();
@@ -353,6 +340,22 @@ pub fn process_mouse_input(
             item.borrow().as_ref().input_event(MouseEvent::MouseExit, window, &item);
         }
     }
+}
+
+/// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the previous stack
+/// of mouse grabber.
+/// Returns a new mouse grabber stack.
+pub fn process_mouse_input(
+    component: ComponentRc,
+    mouse_event: MouseEvent,
+    window: &WindowRc,
+    mut mouse_input_state: MouseInputState,
+) -> MouseInputState {
+    if handle_mouse_grab(&mouse_event, window, &mut mouse_input_state) {
+        return mouse_input_state;
+    }
+
+    send_exit_events(&mouse_input_state, mouse_event.pos(), window);
 
     let mut result = MouseInputState::default();
     type State = (Vector2D<f32>, Vec<(ItemWeak, InputEventFilterResult)>);
