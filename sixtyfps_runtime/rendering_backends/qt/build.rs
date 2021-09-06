@@ -48,6 +48,15 @@ fn main() {
 
     println!("cargo:rerun-if-changed=qt_window.rs");
     println!("cargo:rerun-if-changed=qt_widgets.rs");
+    println!("cargo:rerun-if-changed=button.rs");
+    println!("cargo:rerun-if-changed=checkbox.rs");
+    println!("cargo:rerun-if-changed=combobox.rs");
+    println!("cargo:rerun-if-changed=lineedit.rs");
+    println!("cargo:rerun-if-changed=listviewitem.rs");
+    println!("cargo:rerun-if-changed=scrollview.rs");
+    println!("cargo:rerun-if-changed=slider.rs");
+    println!("cargo:rerun-if-changed=spinbox.rs");
+    println!("cargo:rerun-if-changed=tabwidget.rs");
     println!("cargo:rerun-if-changed=lib.rs");
     println!("cargo:SUPPORTS_NATIVE_STYLE=1");
 }
