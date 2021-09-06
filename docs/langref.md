@@ -607,14 +607,14 @@ Example := Window {
 ## Conditional element
 
 Similar to `for`, the `if` construct can instantiate element only if a given condition is true.
-The syntax is `if (condition) : id := Element { ... }`
+The syntax is `if condition : id := Element { ... }`
 
 ```60
 Example := Window {
     height: 50px;
     width: 50px;
-    if (true) : foo := Rectangle { background: blue; }
-    if (false) : Rectangle { background: red; }
+    if true : foo := Rectangle { background: blue; }
+    if false : Rectangle { background: red; }
 }
 ```
 

@@ -10,6 +10,9 @@ LICENSE END */
 
 TestCase := Window {
     if  //
-//    ^error{Parse error}
     Foo { }
+    //  ^error{expected Colon}
+    //  ^^error{Parse error}
   }
+//^error{expected Identifier}
+
