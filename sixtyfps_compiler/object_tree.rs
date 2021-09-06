@@ -663,7 +663,6 @@ impl Element {
             if let Some(n) = node.ChildrenPlaceholder() {
                 error_on(&n, "sub elements");
             }
-            node.CallbackConnection().for_each(|n| error_on(&n, "callback connections"));
             node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));

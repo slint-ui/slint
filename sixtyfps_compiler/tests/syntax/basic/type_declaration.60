@@ -28,9 +28,6 @@ global MyType := {
 //  ^error{A global component cannot have sub elements}
     for x in mod : Text { }
 //  ^error{A global component cannot have sub elements}
-    callback foo;
-    foo => {}
-//  ^error{A global component cannot have callback connections}
     aaa <=> bbb;
 
     property <int> eee <=> aaa;
