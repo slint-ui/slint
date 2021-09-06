@@ -271,7 +271,7 @@ macro_rules! declare_value_enum_conversion {
     ($ty:ty, $n:ident) => {
         impl From<$ty> for Value {
             fn from(v: $ty) -> Self {
-                Value::EnumerationValue(stringify!($n).to_owned(), v.to_string())
+                Value::EnumerationValue(stringify!($n).to_owned(), v.to_string().replace('_', "-"))
             }
         }
         impl TryInto<$ty> for Value {
