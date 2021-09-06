@@ -48,15 +48,15 @@ fn main() {
 
     println!("cargo:rerun-if-changed=qt_window.rs");
     println!("cargo:rerun-if-changed=qt_widgets.rs");
-    println!("cargo:rerun-if-changed=button.rs");
-    println!("cargo:rerun-if-changed=checkbox.rs");
-    println!("cargo:rerun-if-changed=combobox.rs");
-    println!("cargo:rerun-if-changed=lineedit.rs");
-    println!("cargo:rerun-if-changed=listviewitem.rs");
-    println!("cargo:rerun-if-changed=scrollview.rs");
-    println!("cargo:rerun-if-changed=slider.rs");
-    println!("cargo:rerun-if-changed=spinbox.rs");
-    println!("cargo:rerun-if-changed=tabwidget.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/button.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/checkbox.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/combobox.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/lineedit.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/listviewitem.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/scrollview.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/slider.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/spinbox.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/tabwidget.rs");
     println!("cargo:rerun-if-changed=lib.rs");
     println!("cargo:SUPPORTS_NATIVE_STYLE=1");
 }
