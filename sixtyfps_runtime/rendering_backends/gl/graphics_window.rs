@@ -87,7 +87,7 @@ impl GraphicsWindow {
     ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
     ///   with the size as it may be changed by the user or the windowing system in general.
     fn map_window(self: Rc<Self>) {
-        if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped(..)) {
+        if self.is_mapped() {
             return;
         }
 
@@ -173,6 +173,36 @@ impl GraphicsWindow {
         }*/
     }
 
+    fn is_mapped(&self) -> bool {
+        matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped { .. })
+    }
+
+    fn borrow_mapped_window(&self) -> Option<std::cell::Ref<MappedWindow>> {
+        if self.is_mapped() {
+            std::cell::Ref::map(self.map_state.borrow(), |state| match state {
+                GraphicsWindowBackendState::Unmapped => {
+                    panic!("borrow_mapped_window must be called after checking if the window is mapped")
+                }
+                GraphicsWindowBackendState::Mapped(window) => window,
+            }).into()
+        } else {
+            None
+        }
+    }
+
+    fn borrow_mapped_window_mut(&self) -> Option<std::cell::RefMut<MappedWindow>> {
+        if self.is_mapped() {
+            std::cell::RefMut::map(self.map_state.borrow_mut(), |state| match state {
+            GraphicsWindowBackendState::Unmapped => {
+                panic!("borrow_mapped_window_mut must be called after checking if the window is mapped")
+            }
+            GraphicsWindowBackendState::Mapped(window) => window,
+        }).into()
+        } else {
+            None
+        }
+    }
+
     fn component(&self) -> ComponentRc {
         self.self_weak.upgrade().unwrap().component()
     }
@@ -185,8 +215,10 @@ impl GraphicsWindow {
     pub fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
         runtime_window.draw_contents(|components| {
-            let map_state = self.map_state.borrow();
-            let window = map_state.as_mapped();
+            let window = match self.borrow_mapped_window() {
+                Some(window) => window,
+                None => return, // caller bug, doesn't make sense to call draw() when not mapped
+            };
 
             let size = window.opengl_context.window().inner_size();
 
@@ -353,21 +385,15 @@ impl PlatformWindow for GraphicsWindow {
         let width = window_item.width();
         let height = window_item.height();
 
-        if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Unmapped) {
+        // Make the unwrap() calls on self.borrow_mapped_window*() safe
+        if !self.is_mapped() {
             return;
         }
 
-        let borrow_window = || {
-            std::cell::RefMut::map(self.map_state.borrow_mut(), |state| match state {
-                GraphicsWindowBackendState::Unmapped => unreachable!(), // early return at the beginning of the parent function
-                GraphicsWindowBackendState::Mapped(window) => window,
-            })
-        };
-
-        borrow_window().clear_color = background;
+        self.borrow_mapped_window_mut().unwrap().clear_color = background;
 
         let mut size: LogicalSize<f64> = {
-            let window = borrow_window();
+            let window = self.borrow_mapped_window().unwrap();
             let winit_window = window.opengl_context.window();
             winit_window.set_title(&title);
             if let Some(rgba) = crate::IMAGE_CACHE
@@ -408,7 +434,7 @@ impl PlatformWindow for GraphicsWindow {
         if h > 0. {
             size.height = h as _;
         }
-        borrow_window().opengl_context.window().set_inner_size(size);
+        self.borrow_mapped_window().unwrap().opengl_context.window().set_inner_size(size);
         if must_resize {
             self.set_geometry(size.width as _, size.height as _)
         }
@@ -419,53 +445,50 @@ impl PlatformWindow for GraphicsWindow {
         constraints_horizontal: corelib::layout::LayoutInfo,
         constraints_vertical: corelib::layout::LayoutInfo,
     ) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => {
-                if (constraints_horizontal, constraints_vertical) != window.constraints.get() {
-                    let min_width = constraints_horizontal.min.min(constraints_horizontal.max);
-                    let min_height = constraints_vertical.min.min(constraints_vertical.max);
-                    let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
-                    let max_height = constraints_vertical.max.max(constraints_vertical.min);
+        if let Some(window) = self.borrow_mapped_window() {
+            if (constraints_horizontal, constraints_vertical) != window.constraints.get() {
+                let min_width = constraints_horizontal.min.min(constraints_horizontal.max);
+                let min_height = constraints_vertical.min.min(constraints_vertical.max);
+                let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
+                let max_height = constraints_vertical.max.max(constraints_vertical.min);
 
-                    window.opengl_context.window().set_min_inner_size(
-                        if min_width > 0. || min_height > 0. {
-                            Some(winit::dpi::LogicalSize::new(min_width, min_height))
-                        } else {
-                            None
-                        },
-                    );
-                    window.opengl_context.window().set_max_inner_size(
-                        if max_width < f32::MAX || max_height < f32::MAX {
-                            Some(winit::dpi::LogicalSize::new(
-                                max_width.min(65535.),
-                                max_height.min(65535.),
-                            ))
-                        } else {
-                            None
-                        },
-                    );
-                    window.constraints.set((constraints_horizontal, constraints_vertical));
+                window.opengl_context.window().set_min_inner_size(
+                    if min_width > 0. || min_height > 0. {
+                        Some(winit::dpi::LogicalSize::new(min_width, min_height))
+                    } else {
+                        None
+                    },
+                );
+                window.opengl_context.window().set_max_inner_size(
+                    if max_width < f32::MAX || max_height < f32::MAX {
+                        Some(winit::dpi::LogicalSize::new(
+                            max_width.min(65535.),
+                            max_height.min(65535.),
+                        ))
+                    } else {
+                        None
+                    },
+                );
+                window.constraints.set((constraints_horizontal, constraints_vertical));
 
-                    #[cfg(target_arch = "wasm32")]
+                #[cfg(target_arch = "wasm32")]
+                {
+                    // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
+                    let existing_size = window.opengl_context.window().inner_size();
+                    if !(min_width..=max_width).contains(&(existing_size.width as f32))
+                        || !(min_height..=max_height).contains(&(existing_size.height as f32))
                     {
-                        // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
-                        let existing_size = window.opengl_context.window().inner_size();
-                        if !(min_width..=max_width).contains(&(existing_size.width as f32))
-                            || !(min_height..=max_height).contains(&(existing_size.height as f32))
-                        {
-                            let new_size = winit::dpi::LogicalSize::new(
-                                existing_size
-                                    .width
-                                    .min(max_width.ceil() as u32)
-                                    .max(min_width.ceil() as u32),
-                                existing_size
-                                    .height
-                                    .min(max_height.ceil() as u32)
-                                    .max(min_height.ceil() as u32),
-                            );
-                            window.opengl_context.window().set_inner_size(new_size);
-                        }
+                        let new_size = winit::dpi::LogicalSize::new(
+                            existing_size
+                                .width
+                                .min(max_width.ceil() as u32)
+                                .max(min_width.ceil() as u32),
+                            existing_size
+                                .height
+                                .min(max_height.ceil() as u32)
+                                .max(min_height.ceil() as u32),
+                        );
+                        window.opengl_context.window().set_inner_size(new_size);
                     }
                 }
             }
@@ -643,17 +666,6 @@ impl Drop for MappedWindow {
 enum GraphicsWindowBackendState {
     Unmapped,
     Mapped(MappedWindow),
-}
-
-impl GraphicsWindowBackendState {
-    fn as_mapped(&self) -> &MappedWindow {
-        match self {
-            GraphicsWindowBackendState::Unmapped => panic!(
-                "internal error: tried to access window functions that require a mapped window"
-            ),
-            GraphicsWindowBackendState::Mapped(mw) => mw,
-        }
-    }
 }
 
 #[derive(FieldOffsets)]
