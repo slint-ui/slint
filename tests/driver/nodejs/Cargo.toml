@@ -12,7 +12,7 @@ name = "test-driver-nodejs"
 
 [dev-dependencies]
 test_driver_lib = { path = "../driverlib" }
-sixtyfps-node = { path = "../../../api/sixtyfps-node/native", features = ["testing"] }
+sixtyfps-node = { path = "../../../api/sixtyfps-node/native" }
 lazy_static = "1.4.0"
 which = "4.0.2"
 tempfile = "3.2"

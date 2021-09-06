@@ -54,7 +54,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         r#"
                 const assert = require('assert').strict;
                 let sixtyfpslib = require(String.raw`{sixtyfpspath}`);
-                sixtyfpslib.private_api.init_testing_backend();
                 let sixtyfps = require(String.raw`{path}`);
         "#,
         sixtyfpspath = sixtyfpspath.to_string_lossy(),
