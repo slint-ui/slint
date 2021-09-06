@@ -8,31 +8,10 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { LineEditInner } from "../common/common.60";
 
-global Palette := {
-    property<color> window-background: #ecedeb;
-    property<color> text-color: #090909;
-    property<color> text-color-disabled: lightgray;
-    property<color> text-color-secondary: #111;
-    property<color> button-background: #aaa;
-    property<color> button-background-disabled: #aaa;
-    property<color> button-hover: #8c8c8c;
-    property<color> button-pressed: #575757;
-    property<color> highlight-background: #2b60ae;
-    property<color> placeholder-text: #ccc;
-    property<color> border-color: #d0d3cf;
-    property<color> base-background-color: white;
-    property<color> checkbox-unchecked-indicator: #aaa;
-}
-
-export global StyleMetrics := {
-    property<length> layout-spacing: 5px;
-    property<length> layout-padding: 5px;
-    property<length> text-cursor-width: 2px;
-    property<color> window-background: #ecedeb; //FIXME: Palette.window-background  does not compile (cannot access globals from other globals #175)
-    property<color> default-text-color: #090909;
-}
+import { LineEditInner, TextEdit } from "../common/common.60";
+import { StyleMetrics, ScrollView, Palette  } from "sixtyfps_widgets_impl.60";
+export { StyleMetrics, ScrollView, TextEdit }
 
 export Button := Rectangle {
     callback clicked;
@@ -404,93 +383,10 @@ export LineEdit := Rectangle {
                 padding: 3px;
                 inner := LineEditInner {
                    placeholder-color: Palette.placeholder-text;
-                   text-color: enabled ? Palette.text-color : Palette.text-color-disabled;
                 }
             }
         }
 
-    }
-}
-
-ScrollBar := Rectangle {
-    background: white;
-    border-color: Palette.button-background;
-    border-width: 1px;
-    property <bool> horizontal;
-    property<length> max;
-    property<length> page-size;
-    // this is always negative and migger than  -max
-    property<length> value;
-
-    handle := Rectangle {
-        width: !horizontal ? parent.width : max <= 0phx ? 0phx : parent.width * (page-size / (max + page-size));
-        height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page-size / (max + page-size));
-
-        border-radius: (horizontal ? self.height : self.width) / 2;
-        background: touch-area.pressed ? Palette.button-pressed : (touch-area.has-hover ? Palette.button-hover : Palette.button-background);
-        animate background { duration: 100ms; }
-        x: !horizontal ? 0phx : (root.width - handle.width) * (new-value / max);
-        y: horizontal ? 0phx : (root.height - handle.height) * (new-value / max);
-        property<length> new-value-tmp : -root.value + (
-            !touch-area.pressed ? 0phx
-            : horizontal ?  (touch-area.mouse-x - touch-area.pressed-x) * (max / (root.width - handle.width))
-            : (touch-area.mouse-y - touch-area.pressed-y) * (max / (root.height - handle.height)));
-        property<length> new-value : new-value-tmp < 0phx ? 0phx
-            : root.max < 0phx ? 0phx
-            : new-value-tmp > root.max ? root.max : new-value-tmp;
-    }
-    touch-area := TouchArea {
-        width: parent.width;
-        height: parent.height;
-        clicked => {
-            root.value = -handle.new-value;
-        }
-    }
-
-}
-
-export ScrollView := Rectangle {
-    property <length> viewport-width <=> fli.viewport-width;
-    property <length> viewport-height <=> fli.viewport-height;
-    property <length> viewport-x <=> fli.viewport-x;
-    property <length> viewport-y <=> fli.viewport-y;
-    property <length> visible-width <=> fli.width;
-    property <length> visible-height <=> fli.height;
-    min-height: 50px;
-    min-width: 50px;
-    border-width: 1px;
-    border-color: Palette.border-color;
-    background: Palette.base-background-color;
-    horizontal-stretch: 1;
-    vertical-stretch: 1;
-
-    fli := Flickable {
-        @children
-        x: 1px;
-        y: 1px;
-        interactive: false;
-        viewport-y <=> vbar.value;
-        viewport-x <=> hbar.value;
-        viewport-height: 1000px;
-        viewport-width: 1000px;
-        width: parent.width - vbar.width - 1px;
-        height: parent.height - hbar.height -1px;
-    }
-    vbar := ScrollBar {
-        width: 16px;
-        x: fli.width + fli.x;
-        height: fli.height + fli.y;
-        horizontal: false;
-        max: fli.viewport-height - fli.height;
-        page-size: fli.height;
-    }
-    hbar := ScrollBar {
-        height: 16px;
-        y: fli.height + fli.y;
-        width: fli.width + fli.x;
-        horizontal: true;
-        max: fli.viewport-width - fli.width;
-        page-size: fli.width;
     }
 }
 

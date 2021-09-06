@@ -1,0 +1,40 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+export { NativeStyleMetrics as StyleMetrics }
+
+export ScrollView := NativeScrollView {
+    property <length> viewport-width <=> fli.viewport-width;
+    property <length> viewport-height <=> fli.viewport-height;
+    property <length> viewport-x <=> fli.viewport-x;
+    property <length> viewport-y <=> fli.viewport-y;
+    property <length> visible-width <=> fli.width;
+    property <length> visible-height <=> fli.height;
+
+    vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;
+    vertical-page-size: fli.height;
+
+    horizontal-max: fli.viewport-width > fli.width ? fli.viewport-width - fli.width : 0phx;
+    horizontal-page-size: fli.width;
+
+    fli := Flickable {
+        x: root.native-padding-left;
+        width: root.width - root.native-padding-left - root.native-padding-right;
+        y: root.native-padding-top;
+        height: root.height - root.native-padding-top - root.native-padding-bottom;
+
+        @children
+        interactive: false;
+        viewport-y <=> root.vertical-value;
+        viewport-x <=> root.horizontal-value;
+        viewport-height: 1000px;
+        viewport-width: 1000px;
+    }
+}

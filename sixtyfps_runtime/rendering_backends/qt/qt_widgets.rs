@@ -189,6 +189,10 @@ pub struct NativeStyleMetrics {
     pub text_cursor_width: Property<f32>,
     pub window_background: Property<Color>,
     pub default_text_color: Property<Color>,
+    pub textedit_background: Property<Color>,
+    pub textedit_text_color: Property<Color>,
+    pub textedit_background_disabled: Property<Color>,
+    pub textedit_text_color_disabled: Property<Color>,
 }
 
 impl Default for NativeStyleMetrics {
@@ -199,6 +203,10 @@ impl Default for NativeStyleMetrics {
             text_cursor_width: Default::default(),
             window_background: Default::default(),
             default_text_color: Default::default(),
+            textedit_background: Default::default(),
+            textedit_text_color: Default::default(),
+            textedit_background_disabled: Default::default(),
+            textedit_text_color_disabled: Default::default(),
         };
         sixtyfps_init_native_style_metrics(&s);
         s
@@ -228,7 +236,23 @@ pub extern "C" fn sixtyfps_init_native_style_metrics(self_: &NativeStyleMetrics)
     });
     self_.window_background.set(Color::from_argb_encoded(window_background));
     let default_text_color = cpp!(unsafe[] -> u32 as "QRgb" {
-        return qApp->palette().color(QPalette::Text).rgba();
+        return qApp->palette().color(QPalette::WindowText).rgba();
     });
     self_.default_text_color.set(Color::from_argb_encoded(default_text_color));
+    let textedit_text_color = cpp!(unsafe[] -> u32 as "QRgb" {
+        return qApp->palette().color(QPalette::Text).rgba();
+    });
+    self_.textedit_text_color.set(Color::from_argb_encoded(textedit_text_color));
+    let textedit_text_color_disabled = cpp!(unsafe[] -> u32 as "QRgb" {
+        return qApp->palette().color(QPalette::Disabled, QPalette::Text).rgba();
+    });
+    self_.textedit_text_color_disabled.set(Color::from_argb_encoded(textedit_text_color_disabled));
+    let textedit_background = cpp!(unsafe[] -> u32 as "QRgb" {
+        return qApp->palette().color(QPalette::Base).rgba();
+    });
+    self_.textedit_background.set(Color::from_argb_encoded(textedit_background));
+    let textedit_background_disabled = cpp!(unsafe[] -> u32 as "QRgb" {
+        return qApp->palette().color(QPalette::Disabled, QPalette::Base).rgba();
+    });
+    self_.textedit_background_disabled.set(Color::from_argb_encoded(textedit_background_disabled));
 }
