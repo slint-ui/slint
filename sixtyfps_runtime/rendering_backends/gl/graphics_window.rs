@@ -353,56 +353,64 @@ impl PlatformWindow for GraphicsWindow {
         let width = window_item.width();
         let height = window_item.height();
 
-        match &mut *self.map_state.borrow_mut() {
-            GraphicsWindowBackendState::Unmapped => {}
-            GraphicsWindowBackendState::Mapped(window) => {
-                window.clear_color = background;
-                let mut size: LogicalSize<f64> = {
-                    let winit_window = window.opengl_context.window();
-                    winit_window.set_title(&title);
-                    if let Some(rgba) = crate::IMAGE_CACHE
-                        .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
-                        .and_then(|i| i.to_rgba())
-                    {
-                        let (width, height) = rgba.dimensions();
-                        winit_window.set_window_icon(
-                            winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
-                        );
-                    };
-                    winit_window.inner_size().to_logical(self.scale_factor() as f64)
-                };
-                let mut must_resize = false;
-                let mut w = width;
-                let mut h = height;
-                if (size.width as f32 - w).abs() < 1. || (size.height as f32 - h).abs() < 1. {
-                    return;
+        if matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Unmapped) {
+            return;
+        }
+
+        let borrow_window = || {
+            std::cell::RefMut::map(self.map_state.borrow_mut(), |state| match state {
+                GraphicsWindowBackendState::Unmapped => unreachable!(), // early return at the beginning of the parent function
+                GraphicsWindowBackendState::Mapped(window) => window,
+            })
+        };
+
+        borrow_window().clear_color = background;
+
+        let mut size: LogicalSize<f64> = {
+            let window = borrow_window();
+            let winit_window = window.opengl_context.window();
+            winit_window.set_title(&title);
+            if let Some(rgba) = crate::IMAGE_CACHE
+                .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
+                .and_then(|i| i.to_rgba())
+            {
+                let (width, height) = rgba.dimensions();
+                winit_window.set_window_icon(
+                    winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
+                );
+            };
+            winit_window.inner_size().to_logical(self.scale_factor() as f64)
+        };
+        let mut must_resize = false;
+        let mut w = width;
+        let mut h = height;
+        if (size.width as f32 - w).abs() < 1. || (size.height as f32 - h).abs() < 1. {
+            return;
+        }
+        if w <= 0. || h <= 0. {
+            if let Some(component_rc) = self.self_weak.upgrade().unwrap().try_component() {
+                let component = ComponentRc::borrow_pin(&component_rc);
+                if w <= 0. {
+                    let info = component.as_ref().layout_info(Orientation::Horizontal);
+                    w = info.preferred_bounded();
+                    must_resize = true;
                 }
-                if w <= 0. || h <= 0. {
-                    if let Some(component_rc) = self.self_weak.upgrade().unwrap().try_component() {
-                        let component = ComponentRc::borrow_pin(&component_rc);
-                        if w <= 0. {
-                            let info = component.as_ref().layout_info(Orientation::Horizontal);
-                            w = info.preferred_bounded();
-                            must_resize = true;
-                        }
-                        if h <= 0. {
-                            let info = component.as_ref().layout_info(Orientation::Vertical);
-                            h = info.preferred_bounded();
-                            must_resize = true;
-                        }
-                    }
-                };
-                if w > 0. {
-                    size.width = w as _;
-                }
-                if h > 0. {
-                    size.height = h as _;
-                }
-                window.opengl_context.window().set_inner_size(size);
-                if must_resize {
-                    self.set_geometry(size.width as _, size.height as _)
+                if h <= 0. {
+                    let info = component.as_ref().layout_info(Orientation::Vertical);
+                    h = info.preferred_bounded();
+                    must_resize = true;
                 }
             }
+        };
+        if w > 0. {
+            size.width = w as _;
+        }
+        if h > 0. {
+            size.height = h as _;
+        }
+        borrow_window().opengl_context.window().set_inner_size(size);
+        if must_resize {
+            self.set_geometry(size.width as _, size.height as _)
         }
     }
 
