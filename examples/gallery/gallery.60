@@ -7,7 +7,8 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-import { Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView, ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget } from "sixtyfps_widgets.60";
+import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView,
+    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit } from "sixtyfps_widgets.60";
 
 App := Window {
     preferred-width: 500px;
@@ -124,6 +125,27 @@ App := Window {
                             {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
                             {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
                         ];
+                    }
+                }
+            }
+            Tab {
+                title: "TextEdit";
+                VerticalLayout {
+                    GroupBox {
+                        title: "Word-Wrap";
+                        te1 := TextEdit {
+                            text: "Lorem ipsum dolor sit amet, consectetur adipisici elit, sed eiusmod tempor incidunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquid ex ea commodi consequat. Quis aute iure reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint obcaecat cupiditat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum";
+                            wrap: word-wrap;
+                            enabled: !disable-toggle.checked;
+                        }
+                    }
+                     GroupBox {
+                        title: "No-Wrap";
+                        TextEdit {
+                            text <=> te1.text;
+                            wrap: no-wrap;
+                            enabled: !disable-toggle.checked;
+                        }
                     }
                 }
             }

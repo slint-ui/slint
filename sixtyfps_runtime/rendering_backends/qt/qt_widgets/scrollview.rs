@@ -29,6 +29,8 @@ pub struct NativeScrollView {
     pub native_padding_right: Property<f32>,
     pub native_padding_top: Property<f32>,
     pub native_padding_bottom: Property<f32>,
+    pub enabled: Property<bool>,
+    pub has_focus: Property<bool>,
     data: Property<NativeSliderData>,
 }
 
@@ -65,7 +67,7 @@ impl Item for NativeScrollView {
                 cr.top(),
                 (vertical_size.width() + frameOption.rect.right() - cr.right()),
                 (horizontal_size.height() + frameOption.rect.bottom() - cr.bottom())
-                };
+            };
         })
     });
 
@@ -281,15 +283,27 @@ impl Item for NativeScrollView {
             width: (right - left) as _,
             height: (bottom - top) as _,
         };
-        cpp!(unsafe [painter as "QPainter*", corner_rect as "QRectF"] {
+        let enabled: bool = this.enabled();
+        let has_focus: bool = this.has_focus();
+        cpp!(unsafe [painter as "QPainter*", corner_rect as "QRectF", enabled as "bool", has_focus as "bool"] {
             ensure_initialized();
             QStyleOptionFrame frameOption;
             frameOption.frameShape = QFrame::StyledPanel;
+
             frameOption.lineWidth = 1;
             frameOption.midLineWidth = 0;
             frameOption.rect = corner_rect.toAlignedRect();
+            frameOption.state |= QStyle::State_Active | QStyle::State_Sunken;
+            if (enabled) {
+                frameOption.state |= QStyle::State_Enabled;
+            } else {
+                frameOption.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
+            if (has_focus)
+                frameOption.state |= QStyle::State_HasFocus;
             qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, nullptr);
-            frameOption.rect = QRect(QPoint(), corner_rect.toAlignedRect().topLeft());
+            bool foac = qApp->style()->styleHint(QStyle::SH_ScrollView_FrameOnlyAroundContents, &frameOption, nullptr);
+            frameOption.rect = QRect(QPoint(), foac ? corner_rect.toAlignedRect().topLeft() : corner_rect.toAlignedRect().bottomRight());
             qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, nullptr);
         });
 
@@ -309,7 +323,8 @@ impl Item for NativeScrollView {
                 active_controls as "int",
                 pressed as "bool",
                 dpr as "float",
-                horizontal as "bool"
+                horizontal as "bool",
+                has_focus as "bool"
             ] {
                 auto r = rect.toAlignedRect();
                 // The mac style ignores painter translations (due to CGContextRef redirection) as well as
@@ -328,6 +343,9 @@ impl Item for NativeScrollView {
                 initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr);
                 option.subControls = QStyle::SC_All;
                 option.pageStep = page_size / dpr;
+                if (has_focus)
+                    option.state |= QStyle::State_HasFocus;
+                option.state |= QStyle::State_Active;
 
                 if (!horizontal) {
                     option.state ^= QStyle::State_Horizontal;

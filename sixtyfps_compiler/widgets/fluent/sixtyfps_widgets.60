@@ -8,68 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { LineEditInner } from "../common/common.60";
-
-global Palette := {
-    property<color> themeDarker: #004578;
-    property<color> themeDark: #005a9e;
-    property<color> themeDarkAlt: #106ebe;
-    property<color> themePrimary: #0078d4;
-    property<color> themeSecondary: #2b88d8;
-    property<color> themeTertiary: #71afe5;
-    property<color> themeLight: #c7e0f4;
-    property<color> themeLighter: #deecf9;
-    property<color> themeLighterAlt: #eff6fc;
-    property<color> black: #000000;
-    property<color> blackTranslucent40: rgba(0,0,0,0.4);
-    property<color> neutralDark: #201f1e;
-    property<color> neutralPrimary: #323130;
-    property<color> neutralPrimaryAlt: #3b3a39;
-    property<color> neutralSecondary: #605e5c;
-    property<color> neutralSecondaryAlt: #8a8886;
-    property<color> neutralTertiary: #a19f9d;
-    property<color> neutralTertiaryAlt: #c8c6c4;
-    property<color> neutralQuaternary: #d2d0ce;
-    property<color> neutralQuaternaryAlt: #e1dfdd;
-    property<color> neutralLight: #edebe9;
-    property<color> neutralLighter: #f3f2f1;
-    property<color> neutralLighterAlt: #faf9f8;
-    property<color> accent: #0078d4;
-    property<color> white: #ffffff;
-    property<color> whiteTranslucent40: rgba(255,255,255,0.4);
-    property<color> yellowDark: #d29200;
-    property<color> yellow: #ffb900;
-    property<color> yellowLight: #fff100;
-    property<color> orange: #d83b01;
-    property<color> orangeLight: #ea4300;
-    property<color> orangeLighter: #ff8c00;
-    property<color> redDark: #a4262c;
-    property<color> red: #e81123;
-    property<color> magentaDark: #5c005c;
-    property<color> magenta: #b4009e;
-    property<color> magentaLight: #e3008c;
-    property<color> purpleDark: #32145a;
-    property<color> purple: #5c2d91;
-    property<color> purpleLight: #b4a0ff;
-    property<color> blueDark: #002050;
-    property<color> blueMid: #00188f;
-    property<color> blue: #0078d4;
-    property<color> blueLight: #00bcf2;
-    property<color> tealDark: #004b50;
-    property<color> teal: #008272;
-    property<color> tealLight: #00b294;
-    property<color> greenDark: #004b1c;
-    property<color> green: #107c10;
-    property<color> greenLight: #bad80a;
-}
-
-export global StyleMetrics := {
-    property<length> layout-spacing: 8px;
-    property<length> layout-padding: 8px;
-    property<length> text-cursor-width: 2px;
-    property<color> window-background: white; //FIXME: Palette.white  does not compile (cannot access globals from other globals #175)
-    property<color> default-text-color: black;
-}
+import { LineEditInner, TextEdit } from "../common/common.60";
+import { StyleMetrics, ScrollView, Palette  } from "sixtyfps_widgets_impl.60";
+export { StyleMetrics, ScrollView, TextEdit }
 
 export Button := Rectangle {
     callback clicked <=> touch.clicked;
@@ -439,7 +380,7 @@ export LineEdit := Rectangle {
 
     background: !enabled ? Palette.neutralLighter : Palette.white;
     border-radius: 2px;
-    border-width: !enabled ? 0px : has-focus ? 3px : 1px;
+    border-width: !enabled ? 0px : has-focus ? 2px : 1px;
     border-color: !enabled ? Palette.neutralLighter
         : has-focus ? Palette.themeSecondary
         : Palette.neutralPrimary;
@@ -449,86 +390,7 @@ export LineEdit := Rectangle {
         padding-right: 8px;
         inner := LineEditInner {
             placeholder-color: !enabled ? Palette.neutralTertiary : Palette.neutralSecondary;
-            text-color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
         }
-    }
-}
-
-ScrollBar := Rectangle {
-    background: white;
-   // border-color: Palette.button-background;
-    border-width: 1px;
-    property <bool> horizontal;
-    property<length> max;
-    property<length> page-size;
-    // this is always negative and migger than  -max
-    property<length> value;
-
-    handle := Rectangle {
-        width: !horizontal ? parent.width : max <= 0phx ? 0phx : parent.width * (page-size / (max + page-size));
-        height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page-size / (max + page-size));
-
-        border-radius: (horizontal ? self.height : self.width) / 2;
-        background: touch-area.pressed ? Palette.themePrimary :
-            touch-area.has-hover ? Palette.themeSecondary : Palette.neutralTertiary;
-        x: !horizontal ? 0phx : (root.width - handle.width) * (new-value / max);
-        y: horizontal ? 0phx : (root.height - handle.height) * (new-value / max);
-        property<length> new-value-tmp : -root.value + (
-            !touch-area.pressed ? 0phx
-            : horizontal ?  (touch-area.mouse-x - touch-area.pressed-x) * (max / (root.width - handle.width))
-            : (touch-area.mouse-y - touch-area.pressed-y) * (max / (root.height - handle.height)));
-        property<length> new-value : new-value-tmp < 0phx ? 0phx
-            : root.max < 0phx ? 0phx
-            : new-value-tmp > root.max ? root.max : new-value-tmp;
-    }
-    touch-area := TouchArea {
-        width: parent.width;
-        height: parent.height;
-        clicked => {
-            root.value = -handle.new-value;
-        }
-    }
-}
-
-export ScrollView := Rectangle {
-    property <length> viewport-width <=> fli.viewport-width;
-    property <length> viewport-height <=> fli.viewport-height;
-    property <length> viewport-x <=> fli.viewport-x;
-    property <length> viewport-y <=> fli.viewport-y;
-    property <length> visible-width <=> fli.width;
-    property <length> visible-height <=> fli.height;
-    min-height: 50px;
-    min-width: 50px;
-    horizontal-stretch: 1;
-    vertical-stretch: 1;
-
-    fli := Flickable {
-        @children
-        x: 1px;
-        y: 1px;
-        interactive: false;
-        viewport-y <=> vbar.value;
-        viewport-x <=> hbar.value;
-        viewport-height: 1000px;
-        viewport-width: 1000px;
-        width: parent.width - vbar.width - 1px;
-        height: parent.height - hbar.height -1px;
-    }
-    vbar := ScrollBar {
-        width: 16px;
-        x: fli.width + fli.x;
-        height: fli.height + fli.y;
-        horizontal: false;
-        max: fli.viewport-height - fli.height;
-        page-size: fli.height;
-    }
-    hbar := ScrollBar {
-        height: 16px;
-        y: fli.height + fli.y;
-        width: fli.width + fli.x;
-        horizontal: true;
-        max: fli.viewport-width - fli.width;
-        page-size: fli.width;
     }
 }
 

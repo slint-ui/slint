@@ -8,9 +8,9 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { LineEditInner } from "../common/common.60";
-
-export { NativeStyleMetrics as StyleMetrics }
+import { LineEditInner, TextEdit } from "../common/common.60";
+import { StyleMetrics, ScrollView  } from "sixtyfps_widgets_impl.60";
+export { StyleMetrics, ScrollView, TextEdit }
 
 // FIXME: the font-size should be removed but is required right now to compile the printer-demo
 export Button := NativeButton {
@@ -49,35 +49,6 @@ export LineEdit := NativeLineEdit {
             placeholder-color: #ecedeb; // FIXME: use the palette
             enabled <=> root.enabled;
         }
-    }
-}
-
-export ScrollView := NativeScrollView {
-    property <length> viewport-width <=> fli.viewport-width;
-    property <length> viewport-height <=> fli.viewport-height;
-    property <length> viewport-x <=> fli.viewport-x;
-    property <length> viewport-y <=> fli.viewport-y;
-    property <length> visible-width <=> fli.width;
-    property <length> visible-height <=> fli.height;
-
-    vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;
-    vertical-page-size: fli.height;
-
-    horizontal-max: fli.viewport-width > fli.width ? fli.viewport-width - fli.width : 0phx;
-    horizontal-page-size: fli.width;
-
-    fli := Flickable {
-        x: root.native-padding-left;
-        width: root.width - root.native-padding-left - root.native-padding-right;
-        y: root.native-padding-top;
-        height: root.height - root.native-padding-top - root.native-padding-bottom;
-
-        @children
-        interactive: false;
-        viewport-y <=> root.vertical-value;
-        viewport-x <=> root.horizontal-value;
-        viewport-height: 1000px;
-        viewport-width: 1000px;
     }
 }
 

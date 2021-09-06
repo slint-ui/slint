@@ -132,9 +132,11 @@ Example := Window {
 
 ## `LineEdit`
 
+A widget used to enter a single line of text
+
 ### Properties
 
-* **`text`** (*string*): The test being edited
+* **`text`** (*string*): The text being edited
 * **`has-focus`**: (*bool*): Set to true when the line edit currently has the focus
 * **`placeholder-text`**: (*string*): A placeholder text being shown when there is no text in the edit field
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
@@ -159,6 +161,40 @@ Example := Window {
 }
 ```
 
+## `TextEdit`
+
+Similar to LineEdit, but can be used to enter several lines of text
+
+*Note:* The current implementation only implement very few basic shortcut. More
+shortcut will be implemented in a future version: <https://github.com/sixtyfpsui/sixtyfps/issues/474>
+
+### Properties
+
+* **`text`** (*string*): The text being edited
+* **`has-focus`**: (*bool*): Set to true when the widget currently has the focus
+* **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
+* **`wrap`** (*enum [`TextWrap`](builtin_elements.md#textwrap)*): The way the text wraps (default: word-wrap).
+
+### Callbacks
+
+* **`edited`**: Emitted when the text has changed because the user modified it
+
+### Example
+
+```60
+import { TextEdit } from "sixtyfps_widgets.60";
+Example := Window {
+    width: 200px;
+    height: 200px;
+    TextEdit {
+        width: parent.width;
+        height: parent.height;
+        text: "Lorem ipsum dolor sit amet\n, consectetur adipisici elit";
+    }
+}
+```
+
+
 ## `ScrollView`
 
 A Scrollview contains a viewport that is bigger than the view and can be scrolled.
@@ -169,6 +205,8 @@ It has scrollbar to interact with.
 * **`viewport-width`** and **`viewport-height`** (*length*): The `width` and `length` properties of the viewport
 * **`viewport-x`** and **`viewport-y`** (*length*): The `x` and `y` properties of the viewport. Usually these are negative
 * **`visible-width`** and **`visible-height`** (*length*): The size of the visible area of the ScrollView (not including the scrollbar)
+* **`enabled`** and **`has-focus`** (bool): property that are only used to render the frame as disabled or focused, but do not
+  change the behavior of the widget.
 
 ### Example
 

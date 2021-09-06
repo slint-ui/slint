@@ -513,6 +513,8 @@ export NativeScrollView := _ {
     property <length> native-padding-right: native_output;
     property <length> native-padding-top: native_output;
     property <length> native-padding-bottom: native_output;
+    property <bool> has_focus: native_output;
+    property <bool> enabled: true;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -583,6 +585,10 @@ export global NativeStyleMetrics := {
     property <length> layout-padding;
     property <length> text-cursor-width;
     property <color> default-text-color;
+    property <color> textedit-background;
+    property <color> textedit-text-color;
+    property <color> textedit-background-disabled;
+    property <color> textedit-text-color-disabled;
     //-is_non_item_type
     //-is_internal
 }
