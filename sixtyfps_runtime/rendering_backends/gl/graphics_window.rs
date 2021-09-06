@@ -180,9 +180,7 @@ impl GraphicsWindow {
     pub fn default_font_properties(&self) -> FontRequest {
         self.self_weak.upgrade().unwrap().default_font_properties()
     }
-}
 
-impl GraphicsWindow {
     /// Draw the items of the specified `component` in the given window.
     pub fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
