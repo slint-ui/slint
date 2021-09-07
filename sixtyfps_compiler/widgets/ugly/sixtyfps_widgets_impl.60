@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-global Palette := {
+export global Palette := {
     property<color> window-background: #ecedeb;
     property<color> text-color: #090909;
     property<color> text-color-disabled: lightgray;
