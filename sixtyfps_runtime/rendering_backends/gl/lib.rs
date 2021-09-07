@@ -520,7 +520,10 @@ impl ItemRenderer for GLItemRenderer {
         let mut canvas = self.canvas.borrow_mut();
         let font_height = canvas.measure_font(paint).unwrap().height();
         let text = text_input.text();
-        fonts::layout_text_lines(
+
+        let mut cursor_point: Option<Point> = None;
+
+        let baseline_y = fonts::layout_text_lines(
             text.as_str(),
             &font,
             Size::new(width, height),
@@ -619,17 +622,23 @@ impl ItemRenderer for GLItemRenderer {
                             }
                         })
                         .unwrap_or_else(|| metrics.width());
-                    let mut cursor_rect = femtovg::Path::new();
-                    cursor_rect.rect(
-                        pos.x + cursor_x,
-                        pos.y,
-                        text_input.text_cursor_width() * self.scale_factor,
-                        font_height,
-                    );
-                    canvas.fill_path(&mut cursor_rect, paint);
+                    cursor_point = Some([pos.x + cursor_x, pos.y].into());
                 }
             },
         );
+
+        if let Some(cursor_point) =
+            cursor_point.or_else(|| cursor_visible.then(|| [0., baseline_y].into()))
+        {
+            let mut cursor_rect = femtovg::Path::new();
+            cursor_rect.rect(
+                cursor_point.x,
+                cursor_point.y,
+                text_input.text_cursor_width() * self.scale_factor,
+                font_height,
+            );
+            canvas.fill_path(&mut cursor_rect, paint);
+        }
     }
 
     fn draw_path(&mut self, path: std::pin::Pin<&sixtyfps_corelib::items::Path>) {
