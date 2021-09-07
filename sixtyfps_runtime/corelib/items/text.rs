@@ -394,7 +394,10 @@ impl Item for TextInput {
                     return KeyEventResult::EventIgnored;
                 }
                 if event.modifiers.control {
-                    if event.text == "c" {
+                    if event.text == "a" {
+                        self.select_all(window);
+                        return KeyEventResult::EventAccepted;
+                    } else if event.text == "c" {
                         self.copy();
                         return KeyEventResult::EventAccepted;
                     } else if event.text == "v" {
@@ -459,6 +462,8 @@ enum TextCursorDirection {
     PreviousCharacter, // breaks grapheme boundaries, so only used by delete-previous-char
     StartOfLine,
     EndOfLine,
+    StartOfText,
+    EndOfText,
 }
 
 impl std::convert::TryFrom<InternalKeyCode> for TextCursorDirection {
@@ -531,8 +536,11 @@ impl TextInput {
                     }
                 }
             }
+            // FIXME: StartOfLine and EndOfLine should respect line boundaries
             TextCursorDirection::StartOfLine => 0,
             TextCursorDirection::EndOfLine => text.len(),
+            TextCursorDirection::StartOfText => 0,
+            TextCursorDirection::EndOfText => text.len(),
         };
 
         match anchor_mode {
@@ -633,6 +641,11 @@ impl TextInput {
         self.anchor_position.set(cursor_pos as i32);
         self.set_cursor_position(cursor_pos as i32, window);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+    }
+
+    fn select_all(self: Pin<&Self>, window: &WindowRc) {
+        self.move_cursor(TextCursorDirection::StartOfText, AnchorMode::MoveAnchor, window);
+        self.move_cursor(TextCursorDirection::EndOfText, AnchorMode::KeepAnchor, window);
     }
 
     fn copy(self: Pin<&Self>) {
