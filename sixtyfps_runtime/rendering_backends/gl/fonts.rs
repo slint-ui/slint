@@ -375,6 +375,7 @@ impl FontCache {
 /// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
 /// The signature of the `layout_line` function is: `(canvas, text, pos, start_index, line_metrics)`.
 /// start index is the starting byte of the text in the string.
+/// Returns the baseline y coordinate.
 pub(crate) fn layout_text_lines(
     string: &str,
     font: &Font,
@@ -385,7 +386,7 @@ pub(crate) fn layout_text_lines(
     single_line: bool,
     paint: femtovg::Paint,
     mut layout_line: impl FnMut(&str, Point, usize, &femtovg::TextMetrics),
-) {
+) -> f32 {
     let wrap = wrap == TextWrap::word_wrap;
     let elide = overflow == TextOverflow::elide;
 
@@ -417,11 +418,12 @@ pub(crate) fn layout_text_lines(
             layout_line(text, Point::new(x, y), start, line_metrics);
         };
 
-    let mut y = match vertical_alignment {
+    let baseline_y = match vertical_alignment {
         TextVerticalAlignment::top => 0.,
         TextVerticalAlignment::center => max_height / 2. - text_height() / 2.,
         TextVerticalAlignment::bottom => max_height - text_height(),
     };
+    let mut y = baseline_y;
     let mut start = 0;
     'lines: while start < string.len() && y + font_height <= max_height {
         if wrap && (!elide || y + 2. * font_height <= max_height) {
@@ -482,4 +484,5 @@ pub(crate) fn layout_text_lines(
             start = index;
         }
     }
+    baseline_y
 }
