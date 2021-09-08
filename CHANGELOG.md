@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
    correctly with the application of `Window`'s `background` property.
  - LineEdit scrolls to keep the cursor visible
  - The `clicked` callbacks are now only emitted if the release event is within the TouchArea's geometry
+ - parentheses around the condition are no longer needed in `if` elements: `if condition : Foo { ... }`
 
 ### Added
 
@@ -20,10 +21,12 @@ All notable changes to this project will be documented in this file.
    or the dynamic run-time interpreter.
  - Added `image-rendering` property to Image to control how the image is scaled
  - `TextEdit` widget
+ - Support for semantic tokens in LSP
 
 ### Fixed
  - The interpreter API correctly return an error instead of panicking when setting properties or calling callbacks
    that don't exist
+ - The `has-hover` property is correctly reset the false when releasing the mouse outside the touch area
 
 ## [0.1.1] - 2021-08-19
 
