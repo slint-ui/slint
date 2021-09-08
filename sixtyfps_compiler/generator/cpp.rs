@@ -1854,7 +1854,7 @@ fn compile_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             let cache = access_named_reference(layout_cache_prop, component, "self");
             if let Some(ri) = repeater_index {
-                format!("[&](auto cache) {{ return cache[int(cache[{}]) + {} * 2]; }} ({}.get())", index, compile_expression(ri, component), cache)
+                format!("sixtyfps::private_api::layout_cache_access({}.get(), {}, {})", cache, index, compile_expression(ri, component))
             } else {
                 format!("{}.get()[{}]", cache, index)
             }
