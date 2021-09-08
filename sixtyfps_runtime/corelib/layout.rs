@@ -450,6 +450,13 @@ pub struct BoxLayoutCellData {
 
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> SharedVector<Coord> {
+    let mut result = SharedVector::<f32>::default();
+    result.resize(data.cells.len() * 2 + repeater_indexes.len(), 0.);
+
+    if data.cells.is_empty() {
+        return result;
+    }
+
     let mut layout_data: Vec<_> = data
         .cells
         .iter()
@@ -514,8 +521,6 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
         }
     }
 
-    let mut result = SharedVector::<f32>::default();
-    result.resize(data.cells.len() * 2 + repeater_indexes.len(), 0.);
     let res = result.make_mut_slice();
 
     // The index/2 in result in which we should add the next repeated item

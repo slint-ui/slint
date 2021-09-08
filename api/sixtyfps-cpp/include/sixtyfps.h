@@ -403,6 +403,12 @@ inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 }
 
 namespace private_api {
+/// Access the layout cache of an item within a repeater
+inline float layout_cache_access(const SharedVector<float> &cache, int offset, int repeater_index) {
+    size_t idx = size_t(cache[offset]) + repeater_index * 2;
+    return idx < cache.size() ? cache[idx] : 0;
+}
+
 // models
 struct AbstractRepeaterView
 {
