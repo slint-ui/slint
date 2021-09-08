@@ -14,7 +14,6 @@ path = "lib.rs"
 [features]
 x11 = ["sixtyfps-rendering-backend-gl/x11"]
 wayland = ["sixtyfps-rendering-backend-gl/wayland"]
-default = ["sixtyfps-rendering-backend-gl"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.2", path = "../../corelib" }

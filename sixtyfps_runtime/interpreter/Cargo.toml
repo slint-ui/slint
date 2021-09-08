@@ -14,10 +14,15 @@ path = "lib.rs"
 [features]
 display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
 ffi = ["spin_on", "sixtyfps-corelib/ffi"]
+x11 = ["sixtyfps-rendering-backend-default/x11"]
+wayland = ["sixtyfps-rendering-backend-default/wayland"]
+backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl"]
+backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt"]
+default = ["backend-gl", "backend-qt"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.2", path = "../corelib", features = ["rtti"] }
-sixtyfps-rendering-backend-default = { version = "=0.1.2", path = "../../sixtyfps_runtime/rendering_backends/default", features = ["sixtyfps-rendering-backend-gl"] }
+sixtyfps-rendering-backend-default = { version = "=0.1.2", path = "../../sixtyfps_runtime/rendering_backends/default" }
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 sixtyfps-compilerlib = { version = "=0.1.2", path = "../../sixtyfps_compiler" }
 lyon_path = { version = "0.17.3" }
