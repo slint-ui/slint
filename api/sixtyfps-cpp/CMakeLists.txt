@@ -10,6 +10,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(SixtyFPS LANGUAGES CXX)
 
+include(CMakeDependentOption)
+
 include(FetchContent)
 FetchContent_Declare(
     Corrosion
@@ -72,12 +74,26 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
         set(features "${features}" PARENT_SCOPE)
     endfunction()
 
+    function(define_cargo_dependent_feature cargo-feature description default depends_condition)
+        # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
+        string(TOUPPER "${cargo-feature}" cmake_option)
+        string(REPLACE "-"  "_" cmake_option "${cmake_option}")
+        set(cmake_option "SIXTYFPS_FEATURE_${cmake_option}")
+        cmake_dependent_option("${cmake_option}" "${description}" ${default} ${depends_condition} OFF)
+        if(${cmake_option})
+            list(APPEND features ${cargo-feature})
+        endif()
+        set(features "${features}" PARENT_SCOPE)
+    endfunction()
+
     # Features that are mapped to features in the Rust crate. These and their
     # defaults need to be kept in sync with the Rust bit.
     define_cargo_feature(interpreter "Enable support for the SixtyFPS interpeter to load .60 files at run-time" ON)
-    define_cargo_feature(x11 "Enable X11 support when using GL backend" ON)
-    define_cargo_feature(wayland "Enable Wayland support when using the GL backend" OFF)
+
     define_cargo_feature(backend-gl "Enable OpenGL ES 2.0 based rendering backend" ON)
+    define_cargo_dependent_feature(x11 "Enable X11 support when using GL backend" ON SIXTYFPS_FEATURE_BACKEND_GL OFF)
+    define_cargo_dependent_feature(wayland "Enable Wayland support when using the GL backend" OFF SIXTYFPS_FEATURE_BACKEND_GL OFF)
+
     define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
     set_property(
