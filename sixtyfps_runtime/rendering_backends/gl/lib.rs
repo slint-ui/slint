@@ -169,14 +169,24 @@ impl OpenGLContext {
     ) -> (Self, femtovg::renderer::OpenGl) {
         #[cfg(not(target_arch = "wasm32"))]
         {
+            use glutin::ContextBuilder;
             let windowed_context = crate::event_loop::with_window_target(|event_loop| {
-                let builder = glutin::ContextBuilder::new().with_vsync(true);
-
+                let builder = ContextBuilder::new().with_vsync(true);
                 // With latest Windows 10 and VmWare glutin's default for srgb produces surfaces that are always rendered black :(
                 #[cfg(target_os = "windows")]
                 let builder = builder.with_srgb(false);
 
-                builder.build_windowed(window_builder, event_loop.event_loop_target()).unwrap()
+                if let Ok(builder) =
+                    builder.build_windowed(window_builder.clone(), event_loop.event_loop_target())
+                {
+                    builder
+                } else {
+                    // Try again with glutin defaults
+                    ContextBuilder::new()
+                        .with_vsync(true)
+                        .build_windowed(window_builder, event_loop.event_loop_target())
+                        .expect("Failed to create OpenGL Context:")
+                }
             });
             let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
