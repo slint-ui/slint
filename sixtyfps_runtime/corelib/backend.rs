@@ -32,10 +32,14 @@ pub trait Backend: Send + Sync {
     fn create_window(&'static self) -> Rc<Window>;
 
     /// Spins an event loop and renders the visible windows.
-    fn run_event_loop(&'static self, behavior: EventLoopQuitBehavior);
+    ///
+    /// Returns the code passed to quit_event_loop or 0 if this was the last window
+    fn run_event_loop(&'static self, behavior: EventLoopQuitBehavior) -> i32;
 
     /// Exits the event loop.
-    fn quit_event_loop(&'static self);
+    ///
+    /// the result_code will be the returned value of run_event_loop
+    fn quit_event_loop(&'static self, result_code: i32);
 
     /// This function can be used to register a custom TrueType font with SixtyFPS,
     /// for use with the `font-family` property. The provided slice must be a valid TrueType

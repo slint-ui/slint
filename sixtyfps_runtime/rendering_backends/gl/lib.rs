@@ -1388,6 +1388,8 @@ thread_local!(pub(crate) static CLIPBOARD : RefCell<copypasta::ClipboardContext>
 
 thread_local!(pub(crate) static IMAGE_CACHE: RefCell<images::ImageCache> = Default::default());
 
+static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
 pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> Rc<Window> {
@@ -1400,11 +1402,16 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         })
     }
 
-    fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(
+        &'static self,
+        behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
+    ) -> i32 {
         crate::event_loop::run(behavior);
+        EXIT_CODE.load(std::sync::atomic::Ordering::SeqCst)
     }
 
-    fn quit_event_loop(&'static self) {
+    fn quit_event_loop(&'static self, exit_code: i32) {
+        EXIT_CODE.store(exit_code, std::sync::atomic::Ordering::SeqCst);
         crate::event_loop::with_window_target(|event_loop| {
             event_loop.event_loop_proxy().send_event(crate::event_loop::CustomEvent::Exit).ok();
         })

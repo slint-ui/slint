@@ -67,8 +67,8 @@ fn main() -> Result<()> {
         CURRENT_INSTANCE.with(|current| current.replace(Some(component.clone_strong())));
     }
 
-    component.run();
-    Ok(())
+    let result = component.run();
+    std::process::exit(result);
 }
 
 fn init_compiler(

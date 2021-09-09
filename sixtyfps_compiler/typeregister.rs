@@ -204,6 +204,19 @@ impl TypeRegister {
             }
             _ => unreachable!(),
         };
+        match &mut register.types.get_mut("Window").unwrap() {
+            Type::Builtin(ref mut b) => {
+                Rc::get_mut(b).unwrap().properties.insert(
+                    "close".into(),
+                    BuiltinPropertyInfo::new(BuiltinFunction::CloseWindow.ty()),
+                );
+                Rc::get_mut(b).unwrap().member_functions.insert(
+                    "close".into(),
+                    Expression::BuiltinFunctionReference(BuiltinFunction::CloseWindow, None),
+                );
+            }
+            _ => unreachable!(),
+        };
 
         Rc::new(RefCell::new(register))
     }

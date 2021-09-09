@@ -311,6 +311,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::CloseWindow, _) => {
+                if arguments.len() != 2 {
+                    panic!("internal error: incorrect argument count to ShowPopupWindow")
+                }
+                sixtyfps_rendering_backend_default::backend().quit_event_loop(eval_expression(&arguments[1], local_context).try_into().unwrap());
+                Value::Void
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::StringIsFloat, _) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to StringIsFloat")

@@ -1219,7 +1219,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::ASin => quote!((|a| (a as f64).asin().to_degrees())),
             BuiltinFunction::ACos => quote!((|a| (a as f64).acos().to_degrees())),
             BuiltinFunction::ATan => quote!((|a| (a as f64).atan().to_degrees())),
-            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::ImplicitLayoutInfo(_) => {
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::CloseWindow | BuiltinFunction::ImplicitLayoutInfo(_) => {
                 panic!("internal error: should be handled directly in CallFunction")
             }
             BuiltinFunction::StringToFloat => {
@@ -1347,6 +1347,13 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")
                     }
+                }
+                Expression::BuiltinFunctionReference(BuiltinFunction::CloseWindow, _) => {
+                    if arguments.len() != 2 {
+                        panic!("internal error: incorrect argument count to ShowPopupWindow call");
+                    }
+                    let exit_code = compile_expression(&arguments[1], component);
+                    quote!(sixtyfps::internal::quit_event_loop_with_error_code(#exit_code as _);)
                 }
                 Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo(orient), _) => {
                     if arguments.len() != 1 {

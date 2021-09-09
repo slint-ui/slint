@@ -127,7 +127,12 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         }
     }
 
-    fn run_event_loop(&'static self, _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(
+        &'static self,
+        _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
+    ) -> i32 {
+        #[cfg(no_qt)]
+        panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
             let quit_on_last_window_closed = match _behavior {
@@ -137,20 +142,20 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
             use cpp::cpp;
-            cpp! {unsafe [quit_on_last_window_closed as "bool"] {
+            cpp! {unsafe [quit_on_last_window_closed as "bool"] -> i32 as "int" {
                 ensure_initialized();
                 qApp->setQuitOnLastWindowClosed(quit_on_last_window_closed);
-                qApp->exec();
+                return qApp->exec();
             } }
-        };
+        }
     }
 
-    fn quit_event_loop(&'static self) {
+    fn quit_event_loop(&'static self, _exit_code: i32) {
         #[cfg(not(no_qt))]
         {
             use cpp::cpp;
-            cpp! {unsafe [] {
-                qApp->quit();
+            cpp! {unsafe [_exit_code as "int"] {
+                qApp->exit(_exit_code);
             } }
         };
     }

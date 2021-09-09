@@ -937,12 +937,13 @@ impl ComponentInstance {
 
     /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
     /// and [`Self::hide`].
-    pub fn run(&self) {
+    pub fn run(&self) -> i32 {
         self.show();
-        sixtyfps_rendering_backend_default::backend().run_event_loop(
+        let result = sixtyfps_rendering_backend_default::backend().run_event_loop(
             sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
         );
         self.hide();
+        result
     }
 
     /// Clone this `ComponentInstance`.
