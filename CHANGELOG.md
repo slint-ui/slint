@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+ - sixtyfps-compiler and sixtyfps-viewer can read the .60 file content from stdin by passing `-`
+
 ### Fixed
 
 ## [0.1.2] - 2021-09-09

@@ -516,6 +516,8 @@ impl ComponentCompiler {
     ///
     /// Diagnostics from previous calls are cleared when calling this function.
     ///
+    /// If the path is `"-"`, the file will be read from stdin.
+    ///
     /// This function is `async` but in practice, this is only asynchronous if
     /// [`Self::set_file_loader`] was called and its future is actually asynchronous.
     /// If that is not used, then it is fine to use a very simple executor, such as the one

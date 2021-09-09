@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -115,7 +116,17 @@ impl SourceFileInner {
 pub type SourceFile = Rc<SourceFileInner>;
 
 pub fn load_from_path(path: &Path) -> Result<String, Diagnostic> {
-    std::fs::read_to_string(path).map_err(|err| Diagnostic {
+    (if path == Path::new("-") {
+        let mut buffer = Vec::new();
+        let r = std::io::stdin().read_to_end(&mut buffer);
+        r.and_then(|_| {
+            String::from_utf8(buffer)
+                .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))
+        })
+    } else {
+        std::fs::read_to_string(path)
+    })
+    .map_err(|err| Diagnostic {
         message: format!("Could not load {}: {}", path.display(), err),
         span: SourceLocation {
             source_file: Some(SourceFileInner::from_path_only(path.to_owned())),
