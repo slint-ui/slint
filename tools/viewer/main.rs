@@ -24,6 +24,7 @@ struct Cli {
     #[structopt(short = "I", name = "include path for other .60 files", number_of_values = 1)]
     include_paths: Vec<std::path::PathBuf>,
 
+    /// The .60 file to load ('-' for stdin)
     #[structopt(name = "path to .60 file", parse(from_os_str))]
     path: std::path::PathBuf,
 

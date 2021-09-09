@@ -22,7 +22,7 @@ struct Cli {
     #[structopt(short = "I", name = "include path", number_of_values = 1)]
     include_paths: Vec<std::path::PathBuf>,
 
-    /// Path to .60 file
+    /// Path to .60 file ('-' for stdin)
     #[structopt(name = "file", parse(from_os_str))]
     path: std::path::PathBuf,
 
