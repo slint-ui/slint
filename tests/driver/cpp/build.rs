@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("cargo:rerun-if-changed={}", entry.path().display());
         }
     }
+    println!("cargo:rerun-if-changed={}/api/sixtyfps-cpp/lib.rs", root_dir.display());
 
     println!(
         "cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/sixtyfps-cpp/include",
