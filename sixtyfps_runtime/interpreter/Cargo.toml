@@ -40,7 +40,7 @@ sixtyfps-rendering-backend-gl = { version = "=0.1.2", path = "../../sixtyfps_run
 
 [dev-dependencies]
 spin_on = "0.1"
-sixtyfps-rendering-backend-testing = { version = "=0.1.2", path = "../../sixtyfps_runtime/rendering_backends/testing" }
+sixtyfps-rendering-backend-testing = { path = "../../sixtyfps_runtime/rendering_backends/testing" }
 
 [package.metadata.docs.rs]
 features = ["display-diagnostics"]
