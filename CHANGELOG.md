@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+### Added
+
+### Fixed
+
+## [0.1.2] - 2021-09-09
+
+### Changed
+
  - Apply the default text color from the style for the `color` of `Text` and `TextInput` elements, to contrast
    correctly with the application of `Window`'s `background` property.
  - LineEdit scrolls to keep the cursor visible
@@ -242,3 +250,4 @@ All notable changes to this project will be documented in this file.
 [0.0.6]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.6
 [0.1.0]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.0
 [0.1.1]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.1
+[0.1.2]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.2
