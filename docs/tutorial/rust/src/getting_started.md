@@ -19,7 +19,7 @@ edition = "2018"
 resolver = "2"
 
 [dependencies]
-sixtyfps = "0.1.1"
+sixtyfps = "0.1.2"
 ```
 
 The `resolver = "2"` line is there to avoid some errors because of conflicting dependencies on some platforms.
