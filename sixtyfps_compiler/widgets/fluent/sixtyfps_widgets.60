@@ -285,7 +285,12 @@ export GroupBox := VerticalLayout {
         color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
         font-weight: 600;
     }
-    @children
+    Rectangle {
+        vertical-stretch: 1;
+        GridLayout {
+            @children
+        }
+    }
 }
 
 

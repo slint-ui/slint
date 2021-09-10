@@ -276,6 +276,7 @@ export GroupBox := GridLayout {
     }
     Row {
         Rectangle {
+            vertical-stretch: 1;
             border-width: 1px;
             border-color: Palette.border-color;
             border-radius: 2px;
