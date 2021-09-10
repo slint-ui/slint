@@ -20,6 +20,7 @@ jobs:
         target:
           - armv7-unknown-linux-gnueabihf
           - aarch64-unknown-linux-gnu
+          - riscv64gc-unknown-linux-gnu
     env:
       SIXTYFPS_NO_QT: 1
       SIXTYFPS_STYLE: fluent
