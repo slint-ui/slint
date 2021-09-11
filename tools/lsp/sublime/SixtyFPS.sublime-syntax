@@ -1,3 +1,5 @@
+%YAML 1.2
+---
 # LICENSE BEGIN
 # This file is part of the SixtyFPS Project -- https://sixtyfps.io
 # Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
@@ -7,8 +9,6 @@
 # This file is also available under commercial licensing terms.
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
-%YAML 1.2
----
 # See http://www.sublimetext.com/docs/3/syntax.html
 name: SixtyFPS
 file_extensions:
