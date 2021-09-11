@@ -417,7 +417,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 * **`pressed`** (*bool*): Set to `true` by the TouchArea when the mouse is pressed over it.
 * **`has-hover`** (*bool*): Set to `true` by the TouchArea when the mouse is over it.
 * **`mouse-x`**, **`mouse-y`** (*length*): Set by the TouchArea to the position of the mouse within it.
-* **`pressed-x`**, **`mouse-y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
+* **`pressed-x`**, **`pressed-y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
 
 ### Callbacks
 
