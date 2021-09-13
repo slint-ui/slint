@@ -153,7 +153,7 @@ impl<'a> TypeLoader<'a> {
         let doc = self.all_documents.docs.get(&doc_path).unwrap();
 
         doc.exports().iter().find_map(|(export_name, ty)| {
-            if type_name == *export_name {
+            if type_name == &**export_name {
                 Some(ty.clone())
             } else {
                 None
@@ -332,7 +332,7 @@ impl<'a> TypeLoader<'a> {
 
             for import_name in imported_types {
                 let imported_type = exports.iter().find_map(|(export_name, ty)| {
-                    if import_name.external_name == *export_name {
+                    if import_name.external_name == **export_name {
                         Some(ty.clone())
                     } else {
                         None

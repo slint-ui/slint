@@ -32,8 +32,19 @@ impl CompiledGlobal {
                 generativity::make_guard!(guard);
                 let component = component.unerase(guard);
                 let mut names = component.original.global_aliases();
-                names.push(component.original.root_element.borrow().id.clone());
+                names.push(component.original.root_element.borrow().original_name());
                 names
+            }
+        }
+    }
+
+    pub fn visible_in_public_api(&self) -> bool {
+        match self {
+            CompiledGlobal::Builtin(..) => false,
+            CompiledGlobal::Component(component) => {
+                generativity::make_guard!(guard);
+                let component = component.unerase(guard);
+                component.original.visible_in_public_api()
             }
         }
     }

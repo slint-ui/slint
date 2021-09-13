@@ -658,6 +658,49 @@ impl ComponentDefinition {
         })
     }
 
+    /// Returns the names of all exported global singletons
+    pub fn globals(&self) -> impl Iterator<Item = String> + '_ {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).global_names()
+    }
+
+    /// List of publicly declared properties in the exported global singleton specified by its name.
+    pub fn global_properties(
+        &self,
+        global_name: &str,
+    ) -> Option<impl Iterator<Item = (String, ValueType)> + '_> {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
+            iter.filter_map(|(prop_name, prop_type)| {
+                if prop_type.is_property_type() {
+                    Some((prop_name, prop_type.into()))
+                } else {
+                    None
+                }
+            })
+        })
+    }
+
+    /// List of publicly declared callbacks in the exported global singleton specified by its name.
+    pub fn global_callbacks(&self, global_name: &str) -> Option<impl Iterator<Item = String> + '_> {
+        // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
+        // which is not required, but this is safe because there is only one instance of the unerased type
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).global_properties(global_name).map(|iter| {
+            iter.filter_map(|(prop_name, prop_type)| {
+                if matches!(prop_type, LangType::Callback { .. }) {
+                    Some(prop_name)
+                } else {
+                    None
+                }
+            })
+        })
+    }
+
     /// The name of this Component as written in the .60 file
     pub fn name(&self) -> &str {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
@@ -1144,6 +1187,7 @@ fn globals() {
             r#"
     export global My-Super_Global := {
         property <int> the-property : 21;
+        callback my-callback();
     }
     export { My-Super_Global as AliasedGlobal }
     export Dummy := Rectangle {
@@ -1151,8 +1195,39 @@ fn globals() {
             .into(),
             "".into(),
         ),
-    );
-    let instance = definition.unwrap().create();
+    )
+    .unwrap();
+
+    assert_eq!(definition.globals().collect::<Vec<_>>(), vec!["My-Super_Global", "AliasedGlobal"]);
+
+    assert!(definition.global_properties("not-there").is_none());
+    {
+        let expected_properties = vec![("the-property".to_string(), ValueType::Number)];
+        let expected_callbacks = vec!["my-callback".to_string()];
+
+        let assert_properties_and_callbacks = |global_name| {
+            assert_eq!(
+                definition
+                    .global_properties(global_name)
+                    .map(|props| props.collect::<Vec<_>>())
+                    .as_ref(),
+                Some(&expected_properties)
+            );
+            assert_eq!(
+                definition
+                    .global_callbacks(global_name)
+                    .map(|props| props.collect::<Vec<_>>())
+                    .as_ref(),
+                Some(&expected_callbacks)
+            );
+        };
+
+        assert_properties_and_callbacks("My-Super-Global");
+        assert_properties_and_callbacks("My_Super-Global");
+        assert_properties_and_callbacks("AliasedGlobal");
+    }
+
+    let instance = definition.create();
     assert_eq!(
         instance.set_global_property("My_Super-Global", "the_property", Value::Number(44.)),
         Ok(())

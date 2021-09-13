@@ -161,7 +161,7 @@ impl Document {
         }
     }
 
-    pub fn exports(&self) -> &Vec<(String, Type)> {
+    pub fn exports(&self) -> &Vec<(ExportedName, Type)> {
         &self.exports.0
     }
 }
@@ -224,7 +224,7 @@ pub struct Component {
 
     /// The names under which this component should be accessible
     /// if it is a global singleton and exported.
-    pub exported_global_names: RefCell<Vec<String>>,
+    pub exported_global_names: RefCell<Vec<ExportedName>>,
 }
 
 impl Component {
@@ -278,12 +278,14 @@ impl Component {
         }
     }
 
+    /// Returns the names of aliases to global singletons, exactly as
+    /// specified in the .60 markup (not normalized).
     pub fn global_aliases(&self) -> Vec<String> {
         self.exported_global_names
             .borrow()
             .iter()
-            .filter(|name| *name != &self.root_element.borrow().id)
-            .map(|name| name.to_string())
+            .filter(|name| &***name != &self.root_element.borrow().id)
+            .map(|name| name.original_name())
             .collect()
     }
 }
@@ -1162,6 +1164,15 @@ impl Element {
             Orientation::Vertical => &prop.1,
         })
     }
+
+    /// Returns the element's name as specified in the markup, not normalized.
+    pub fn original_name(&self) -> String {
+        self.node
+            .as_ref()
+            .and_then(|n| n.child_token(parser::SyntaxKind::Identifier))
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| self.id.clone())
+    }
 }
 
 /// Create a Type for this node
@@ -1606,8 +1617,24 @@ pub struct Transition {
     pub node: SyntaxNode,
 }
 
+#[derive(Clone, Debug, derive_more::Deref)]
+pub struct ExportedName {
+    #[deref]
+    pub name: String, // normalized
+    pub name_ident: SyntaxNode,
+}
+
+impl ExportedName {
+    pub fn original_name(&self) -> String {
+        self.name_ident
+            .child_token(parser::SyntaxKind::Identifier)
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| self.name.clone())
+    }
+}
+
 #[derive(Default, Debug, derive_more::Deref)]
-pub struct Exports(Vec<(String, Type)>);
+pub struct Exports(Vec<(ExportedName, Type)>);
 
 impl Exports {
     pub fn from_node(
@@ -1755,7 +1782,10 @@ impl Exports {
                 .iter()
                 .filter_map(|export| {
                     Some((
-                        export.exported_name.clone(),
+                        ExportedName {
+                            name: export.exported_name.clone(),
+                            name_ident: export.external_name_ident.clone(),
+                        },
                         resolve_export_to_inner_component_or_import(export)?,
                     ))
                 })
