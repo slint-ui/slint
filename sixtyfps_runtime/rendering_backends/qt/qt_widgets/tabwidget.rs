@@ -39,11 +39,13 @@ impl Item for NativeTabWidget {
     fn init(self: Pin<&Self>, _window: &WindowRc) {
         #[derive(Default, Clone)]
         #[repr(C)]
-        struct TabWidgetRects {
-            content: qttypes::QRectF,
-            tabbar: qttypes::QRectF,
+        struct TabWidgetMetrics {
+            content_start: qttypes::qreal,
+            content_size: qttypes::qreal,
+            tabbar_start: qttypes::qreal,
+            tabbar_size: qttypes::qreal,
         }
-        cpp! {{ struct TabWidgetRects { QRectF content, tabbar; }; }}
+        cpp! {{ struct TabWidgetMetrics { qreal content_start, content_size, tabbar_start, tabbar_size; }; }}
 
         #[repr(C)]
         #[derive(FieldOffsets, Default)]
@@ -53,7 +55,8 @@ impl Item for NativeTabWidget {
             height: Property<f32>,
             tabbar_preferred_height: Property<f32>,
             tabbar_preferred_width: Property<f32>,
-            rects: Property<TabWidgetRects>,
+            horizontal_metrics: Property<TabWidgetMetrics>,
+            vertical_metrics: Property<TabWidgetMetrics>,
         }
         let shared_data = Rc::pin(TabBarSharedData::default());
         macro_rules! link {
@@ -70,51 +73,96 @@ impl Item for NativeTabWidget {
         link!(tabbar_preferred_height);
 
         let shared_data_weak = pin_weak::rc::PinWeak::downgrade(shared_data.clone());
-        shared_data.rects.set_binding(move || {
-        let shared_data = shared_data_weak.upgrade().unwrap();
-        let size = qttypes::QSizeF {
-            width: TabBarSharedData::FIELD_OFFSETS.width.apply_pin(shared_data.as_ref()).get() as _,
-            height: TabBarSharedData::FIELD_OFFSETS.height.apply_pin(shared_data.as_ref()).get() as _,
+
+        let query_tabbar_metrics = move |orientation: Orientation| {
+            let shared_data = shared_data_weak.upgrade().unwrap();
+
+            let (size, tabbar_size) = match orientation {
+                Orientation::Horizontal => (
+                    qttypes::QSizeF {
+                        width: TabBarSharedData::FIELD_OFFSETS
+                            .width
+                            .apply_pin(shared_data.as_ref())
+                            .get() as _,
+                        height: (std::i32::MAX / 2) as _,
+                    },
+                    qttypes::QSizeF {
+                        width: TabBarSharedData::FIELD_OFFSETS
+                            .tabbar_preferred_width
+                            .apply_pin(shared_data.as_ref())
+                            .get() as _,
+                        height: (std::i32::MAX / 2) as _,
+                    },
+                ),
+                Orientation::Vertical => (
+                    qttypes::QSizeF {
+                        width: (std::i32::MAX / 2) as _,
+                        height: TabBarSharedData::FIELD_OFFSETS
+                            .height
+                            .apply_pin(shared_data.as_ref())
+                            .get() as _,
+                    },
+                    qttypes::QSizeF {
+                        width: (std::i32::MAX / 2) as _,
+                        height: TabBarSharedData::FIELD_OFFSETS
+                            .tabbar_preferred_height
+                            .apply_pin(shared_data.as_ref())
+                            .get() as _,
+                    },
+                ),
+            };
+
+            let horizontal: bool = matches!(orientation, Orientation::Horizontal);
+
+            cpp!(unsafe [horizontal as "bool", size as "QSizeF", tabbar_size as "QSizeF"] -> TabWidgetMetrics as "TabWidgetMetrics" {
+                ensure_initialized();
+                QStyleOptionTabWidgetFrame option;
+                auto style = qApp->style();
+                option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
+                option.shape = QTabBar::RoundedNorth;
+                option.rect = QRect(QPoint(), size.toSize());
+                option.tabBarSize = tabbar_size.toSize();
+                option.tabBarRect = QRect(QPoint(), option.tabBarSize);
+                option.rightCornerWidgetSize = QSize(0, 0);
+                option.leftCornerWidgetSize = QSize(0, 0);
+                QRectF contentsRect = style->subElementRect(QStyle::SE_TabWidgetTabContents, &option, nullptr);
+                QRectF tabbarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, nullptr);
+                if (horizontal) {
+                    return {contentsRect.x(), contentsRect.width(), tabbarRect.x(), tabbarRect.width()};
+                } else {
+                    return {contentsRect.y(), contentsRect.height(), tabbarRect.y(), tabbarRect.height()};
+                }
+            })
         };
-        let tabbar_size = qttypes::QSizeF {
-            width: TabBarSharedData::FIELD_OFFSETS.tabbar_preferred_width.apply_pin(shared_data.as_ref()).get() as _,
-            height: TabBarSharedData::FIELD_OFFSETS.tabbar_preferred_height.apply_pin(shared_data.as_ref()).get() as _,
-        };
-        cpp!(unsafe [size as "QSizeF", tabbar_size as "QSizeF"] -> TabWidgetRects as "TabWidgetRects" {
-            ensure_initialized();
-            QStyleOptionTabWidgetFrame option;
-            auto style = qApp->style();
-            option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
-            option.shape = QTabBar::RoundedNorth;
-            option.rect = QRect(QPoint(), size.toSize());
-            option.tabBarSize = tabbar_size.toSize();
-            option.tabBarRect = QRect(QPoint(), option.tabBarSize);
-            option.rightCornerWidgetSize = QSize(0, 0);
-            option.leftCornerWidgetSize = QSize(0, 0);
-            QRect contentsRect = style->subElementRect(QStyle::SE_TabWidgetTabContents, &option, nullptr);
-            QRect tabbarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, nullptr);
-            return {contentsRect, tabbarRect};
-        })
-    });
+
+        shared_data.horizontal_metrics.set_binding({
+            let query_tabbar_metrics = query_tabbar_metrics.clone();
+            move || query_tabbar_metrics(Orientation::Horizontal)
+        });
+        shared_data
+            .vertical_metrics
+            .set_binding(move || query_tabbar_metrics(Orientation::Vertical));
 
         macro_rules! bind {
             ($prop:ident = $field1:ident.$field2:ident) => {
                 let shared_data = shared_data.clone();
                 self.$prop.set_binding(move || {
-                    let rects =
-                        TabBarSharedData::FIELD_OFFSETS.rects.apply_pin(shared_data.as_ref()).get();
-                    rects.$field1.$field2 as f32
+                    let metrics = TabBarSharedData::FIELD_OFFSETS
+                        .$field1
+                        .apply_pin(shared_data.as_ref())
+                        .get();
+                    metrics.$field2 as f32
                 });
             };
         }
-        bind!(content_x = content.x);
-        bind!(content_y = content.y);
-        bind!(content_width = content.width);
-        bind!(content_height = content.height);
-        bind!(tabbar_x = tabbar.x);
-        bind!(tabbar_y = tabbar.y);
-        bind!(tabbar_width = tabbar.width);
-        bind!(tabbar_height = tabbar.height);
+        bind!(content_x = horizontal_metrics.content_start);
+        bind!(content_y = vertical_metrics.content_start);
+        bind!(content_width = horizontal_metrics.content_size);
+        bind!(content_height = vertical_metrics.content_size);
+        bind!(tabbar_x = horizontal_metrics.tabbar_start);
+        bind!(tabbar_y = vertical_metrics.tabbar_start);
+        bind!(tabbar_width = horizontal_metrics.tabbar_size);
+        bind!(tabbar_height = vertical_metrics.tabbar_size);
     }
 
     fn geometry(self: Pin<&Self>) -> Rect {
@@ -126,14 +174,29 @@ impl Item for NativeTabWidget {
         orientation: Orientation,
         _window: &WindowRc,
     ) -> LayoutInfo {
-        let content_size = qttypes::QSizeF {
-            width: self.content_min_width() as _,
-            height: self.content_min_height() as _,
+        let (content_size, tabbar_size) = match orientation {
+            Orientation::Horizontal => (
+                qttypes::QSizeF {
+                    width: self.content_min_width() as _,
+                    height: (std::i32::MAX / 2) as _,
+                },
+                qttypes::QSizeF {
+                    width: self.tabbar_preferred_width() as _,
+                    height: (std::i32::MAX / 2) as _,
+                },
+            ),
+            Orientation::Vertical => (
+                qttypes::QSizeF {
+                    width: (std::i32::MAX / 2) as _,
+                    height: self.content_min_height() as _,
+                },
+                qttypes::QSizeF {
+                    width: (std::i32::MAX / 2) as _,
+                    height: self.tabbar_preferred_height() as _,
+                },
+            ),
         };
-        let tabbar_size = qttypes::QSizeF {
-            width: self.tabbar_preferred_width() as _,
-            height: self.tabbar_preferred_height() as _,
-        };
+
         let size = cpp!(unsafe [content_size as "QSizeF", tabbar_size as "QSizeF"] -> qttypes::QSize as "QSize" {
             ensure_initialized();
 
