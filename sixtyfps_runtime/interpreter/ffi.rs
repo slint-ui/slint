@@ -890,3 +890,53 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_name(
 ) {
     *name = (&*def).as_component_definition().name().into()
 }
+
+/// Returns a vector of strings with the names of all exported global singletons.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_globals(
+    def: &ComponentDefinitionOpaque,
+    names: &mut SharedVector<SharedString>,
+) {
+    names.extend((&*def).as_component_definition().globals().map(|name| name.into()))
+}
+
+/// Returns a vector of the property descriptors of the properties of the specified publicly exported global
+/// singleton. Returns true if a global exists under the specified name; false otherwise.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_global_properties(
+    def: &ComponentDefinitionOpaque,
+    global_name: Slice<u8>,
+    properties: &mut SharedVector<PropertyDescriptor>,
+) -> bool {
+    if let Some(property_it) = (&*def)
+        .as_component_definition()
+        .global_properties(std::str::from_utf8(&global_name).unwrap())
+    {
+        properties.extend(property_it.map(|(property_name, property_type)| PropertyDescriptor {
+            property_name: property_name.into(),
+            property_type,
+        }));
+        true
+    } else {
+        false
+    }
+}
+
+/// Returns a vector of the names of the callbacks of the specified publicly exported global
+/// singleton. Returns true if a global exists under the specified name; false otherwise.
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_interpreter_component_definition_global_callbacks(
+    def: &ComponentDefinitionOpaque,
+    global_name: Slice<u8>,
+    names: &mut SharedVector<SharedString>,
+) -> bool {
+    if let Some(name_it) = (&*def)
+        .as_component_definition()
+        .global_callbacks(std::str::from_utf8(&global_name).unwrap())
+    {
+        names.extend(name_it.map(|name| name.into()));
+        true
+    } else {
+        false
+    }
+}
