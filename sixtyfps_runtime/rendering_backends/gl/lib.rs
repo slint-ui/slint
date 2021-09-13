@@ -50,7 +50,7 @@ enum ItemGraphicsCacheEntry {
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
         // changes to the colorization brush will not require re-uploading the image.
-        original_image: Rc<CachedImage>,
+        _original_image: Rc<CachedImage>,
         colorized_image: Rc<CachedImage>,
     },
     // The font selection is expensive because it is also based on the concrete rendered text, so this is cached here to speed up re-paints
@@ -1111,7 +1111,7 @@ impl GLItemRenderer {
         });
 
         ItemGraphicsCacheEntry::ColorizedImage {
-            original_image: original_image.clone(),
+            _original_image: original_image.clone(),
             colorized_image: Rc::new(CachedImage::new_on_gpu(&self.canvas, colorized_image)),
         }
     }
