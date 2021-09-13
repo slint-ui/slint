@@ -888,6 +888,42 @@ public:
         cbindgen_private::sixtyfps_interpreter_component_definition_name(&inner, &name);
         return name;
     }
+
+    /// Returns a vector of strings with the names of all exported global singletons.
+    sixtyfps::SharedVector<sixtyfps::SharedString> globals() const
+    {
+        sixtyfps::SharedVector<sixtyfps::SharedString> names;
+        cbindgen_private::sixtyfps_interpreter_component_definition_globals(&inner, &names);
+        return names;
+    }
+
+    /// Returns a vector of the property descriptors of the properties of the specified
+    /// publicly exported global singleton. An empty optional is returned if there exists no
+    /// exported global singleton under the specified name.
+    std::optional<sixtyfps::SharedVector<PropertyDescriptor>>
+    global_properties(std::string_view global_name) const
+    {
+        sixtyfps::SharedVector<PropertyDescriptor> properties;
+        if (cbindgen_private::sixtyfps_interpreter_component_definition_global_properties(
+                    &inner, sixtyfps::private_api::string_to_slice(global_name), &properties)) {
+            return properties;
+        }
+        return {};
+    }
+
+    /// Returns a vector of the names of the callbacks of the specified publicly exported global
+    /// singleton. An empty optional is returned if there exists no exported global singleton
+    /// under the specified name.
+    std::optional<sixtyfps::SharedVector<sixtyfps::SharedString>>
+    global_callbacks(std::string_view global_name) const
+    {
+        sixtyfps::SharedVector<sixtyfps::SharedString> names;
+        if (cbindgen_private::sixtyfps_interpreter_component_definition_global_callbacks(
+                    &inner, sixtyfps::private_api::string_to_slice(global_name), &names)) {
+            return names;
+        }
+        return {};
+    }
 };
 
 #if !defined(DOXYGEN)

@@ -101,7 +101,8 @@ SCENARIO("Value API")
         sixtyfps::private_api::WindowRc wnd;
 
         REQUIRE(!value.to_image().has_value());
-        sixtyfps::Image image = sixtyfps::Image::load_from_path(SOURCE_DIR "/../../vscode_extension/extension-logo.png");
+        sixtyfps::Image image = sixtyfps::Image::load_from_path(
+                SOURCE_DIR "/../../vscode_extension/extension-logo.png");
         REQUIRE(image.size().width == 128);
         value = Value(image);
         REQUIRE(value.type() == Value::Type::Image);
@@ -433,8 +434,10 @@ SCENARIO("Angle between .60 and C++")
 
     ComponentCompiler compiler;
 
-    auto result = compiler.build_from_source(
-            "export Dummy := Rectangle { property <angle> the_angle: 0.25turn;  property <bool> test: the_angle == 0.5turn; }", "");
+    auto result =
+            compiler.build_from_source("export Dummy := Rectangle { property <angle> the_angle: "
+                                       "0.25turn;  property <bool> test: the_angle == 0.5turn; }",
+                                       "");
     REQUIRE(result.has_value());
     auto instance = result->create();
 
@@ -513,7 +516,30 @@ SCENARIO("Global properties")
     for (auto &&x : compiler.diagnostics())
         std::cerr << x.message << std::endl;
     REQUIRE(result.has_value());
-    auto instance = result->create();
+    auto component_definition = *result;
+
+    SECTION("Globals introspection")
+    {
+        auto globals = component_definition.globals();
+        REQUIRE(globals.size() == 1);
+        REQUIRE(globals[0] == "The-Global");
+
+        REQUIRE(!component_definition.global_properties("not there").has_value());
+
+        REQUIRE(component_definition.global_properties("The_Global").has_value());
+        REQUIRE(component_definition.global_properties("The-Global").has_value());
+
+        auto properties = *component_definition.global_properties("The-Global");
+        REQUIRE(properties.size() == 1);
+        REQUIRE(properties[0].property_name == "the-property");
+        REQUIRE(properties[0].property_type == Value::Type::String);
+
+        auto callbacks = *component_definition.global_callbacks("The-Global");
+        REQUIRE(callbacks.size() == 1);
+        REQUIRE(callbacks[0] == "to_uppercase");
+    }
+
+    auto instance = component_definition.create();
 
     SECTION("Invalid read")
     {
