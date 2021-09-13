@@ -300,6 +300,26 @@ pub struct ComponentDescription<'id> {
 
     /// compiled globals
     compiled_globals: Vec<crate::global_component::CompiledGlobal>,
+    /// Map of all exported global singletons and their public properties/callbacks
+    exported_globals: BTreeMap<String, Rc<BTreeMap<String, PropertyDeclaration>>>,
+}
+
+fn internal_properties_to_public(
+    prop_iter: std::collections::btree_map::Iter<'_, String, PropertyDeclaration>,
+) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
+    prop_iter.filter(|(_, v)| v.expose_in_public_api).map(|(s, v)| {
+        let name = v
+            .node
+            .as_ref()
+            .and_then(|n| {
+                n.as_ref()
+                    .either(|n| n.DeclaredIdentifier(), |n| n.DeclaredIdentifier())
+                    .child_token(parser::SyntaxKind::Identifier)
+            })
+            .map(|n| n.to_string())
+            .unwrap_or_else(|| s.clone());
+        (name, v.property_type.clone())
+    })
 }
 
 impl<'id> ComponentDescription<'id> {
@@ -314,19 +334,24 @@ impl<'id> ComponentDescription<'id> {
     pub fn properties(
         &self,
     ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
-        self.public_properties.iter().filter(|(_, v)| v.expose_in_public_api).map(|(s, v)| {
-            let name = v
-                .node
-                .as_ref()
-                .and_then(|n| {
-                    n.as_ref()
-                        .either(|n| n.DeclaredIdentifier(), |n| n.DeclaredIdentifier())
-                        .child_token(parser::SyntaxKind::Identifier)
-                })
-                .map(|n| n.to_string())
-                .unwrap_or_else(|| s.clone());
-            (name, v.property_type.clone())
-        })
+        internal_properties_to_public(self.public_properties.iter())
+    }
+
+    /// List names of exported global singletons
+    pub fn global_names(&self) -> impl Iterator<Item = String> + '_ {
+        self.compiled_globals
+            .iter()
+            .filter(|g| g.visible_in_public_api())
+            .flat_map(|g| g.names().into_iter())
+    }
+
+    pub fn global_properties(
+        &self,
+        name: &str,
+    ) -> Option<impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_> {
+        self.exported_globals
+            .get(crate::normalize_identifier(name).as_ref())
+            .map(|properties| internal_properties_to_public(properties.iter()))
     }
 
     /// Instantiate a runtime component from this ComponentDescription
@@ -912,6 +937,22 @@ pub(crate) fn generate_component<'id>(
         .map(crate::global_component::generate)
         .collect();
 
+    let exported_globals = component
+        .used_types
+        .borrow()
+        .globals
+        .iter()
+        .filter(|g| g.visible_in_public_api())
+        .flat_map(|g| {
+            let properties = Rc::new(g.root_element.borrow().property_declarations.clone());
+            g.exported_global_names
+                .borrow()
+                .iter()
+                .map(|exported_name| (exported_name.name.clone(), properties.clone()))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+
     let t = ComponentVTable {
         visit_children_item,
         layout_info,
@@ -935,6 +976,7 @@ pub(crate) fn generate_component<'id>(
         extra_data_offset,
         public_properties,
         compiled_globals,
+        exported_globals,
     };
 
     Rc::new(t)
@@ -1014,7 +1056,10 @@ pub fn instantiate(
             .iter()
             .map(|g| {
                 let (_, instance) = crate::global_component::instantiate(g);
-                g.names().iter().map(|name| (name.clone(), instance.clone())).collect::<Vec<_>>()
+                g.names()
+                    .iter()
+                    .map(|name| (crate::normalize_identifier(name).to_string(), instance.clone()))
+                    .collect::<Vec<_>>()
             })
             .flatten()
             .collect();
