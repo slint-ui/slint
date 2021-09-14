@@ -93,13 +93,10 @@ pub fn render_component_items(
     renderer: &mut dyn ItemRenderer,
     origin: crate::graphics::Point,
 ) {
-    let renderer = RefCell::new(renderer);
+    renderer.save_state();
+    renderer.translate(origin.x, origin.y);
 
-    {
-        let mut renderer = renderer.borrow_mut();
-        renderer.save_state();
-        renderer.translate(origin.x, origin.y);
-    }
+    let renderer = RefCell::new(renderer);
 
     crate::item_tree::visit_items_with_post_visit(
         component,
@@ -132,7 +129,8 @@ pub fn render_component_items(
         (),
     );
 
-    renderer.borrow_mut().restore_state();
+    let renderer = renderer.into_inner();
+    renderer.restore_state();
 }
 
 /// Trait used to render each items.
