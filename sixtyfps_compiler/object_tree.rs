@@ -284,7 +284,7 @@ impl Component {
         self.exported_global_names
             .borrow()
             .iter()
-            .filter(|name| &***name != &self.root_element.borrow().id)
+            .filter(|name| name.as_str() != &self.root_element.borrow().id)
             .map(|name| name.original_name())
             .collect()
     }
