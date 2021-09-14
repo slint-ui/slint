@@ -300,13 +300,14 @@ pub struct ComponentDescription<'id> {
 
     /// compiled globals
     compiled_globals: Vec<crate::global_component::CompiledGlobal>,
-    /// Map of all exported global singletons and their public properties/callbacks
-    exported_globals: BTreeMap<String, Rc<BTreeMap<String, PropertyDeclaration>>>,
+    /// Map of all exported global singletons and their index in the compiled_globals vector. The key
+    /// is the normalized name of the global.
+    exported_globals_by_name: BTreeMap<String, usize>,
 }
 
-fn internal_properties_to_public(
-    prop_iter: std::collections::btree_map::Iter<'_, String, PropertyDeclaration>,
-) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
+fn internal_properties_to_public<'a>(
+    prop_iter: impl Iterator<Item = (&'a String, &'a PropertyDeclaration)> + 'a,
+) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + 'a {
     prop_iter.filter(|(_, v)| v.expose_in_public_api).map(|(s, v)| {
         let name = v
             .node
@@ -349,9 +350,10 @@ impl<'id> ComponentDescription<'id> {
         &self,
         name: &str,
     ) -> Option<impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_> {
-        self.exported_globals
+        self.exported_globals_by_name
             .get(crate::normalize_identifier(name).as_ref())
-            .map(|properties| internal_properties_to_public(properties.iter()))
+            .and_then(|global_idx| self.compiled_globals.get(*global_idx))
+            .map(|global| internal_properties_to_public(global.public_properties()))
     }
 
     /// Instantiate a runtime component from this ComponentDescription
@@ -929,27 +931,32 @@ pub(crate) fn generate_component<'id>(
 
     let public_properties = component.root_element.borrow().property_declarations.clone();
 
+    let mut exported_globals_by_name: BTreeMap<String, usize> = Default::default();
+
     let compiled_globals = component
         .used_types
         .borrow()
         .globals
         .iter()
-        .map(crate::global_component::generate)
-        .collect();
+        .enumerate()
+        .map(|(index, component)| {
+            let mut global = crate::global_component::generate(component);
 
-    let exported_globals = component
-        .used_types
-        .borrow()
-        .globals
-        .iter()
-        .filter(|g| g.visible_in_public_api())
-        .flat_map(|g| {
-            let properties = Rc::new(g.root_element.borrow().property_declarations.clone());
-            g.exported_global_names
-                .borrow()
-                .iter()
-                .map(|exported_name| (exported_name.name.clone(), properties.clone()))
-                .collect::<Vec<_>>()
+            if component.visible_in_public_api() {
+                global.extend_public_properties(
+                    component.root_element.borrow().property_declarations.clone().into_iter(),
+                );
+
+                exported_globals_by_name.extend(
+                    component
+                        .exported_global_names
+                        .borrow()
+                        .iter()
+                        .map(|exported_name| (exported_name.name.clone(), index)),
+                )
+            }
+
+            global
         })
         .collect();
 
@@ -976,7 +983,7 @@ pub(crate) fn generate_component<'id>(
         extra_data_offset,
         public_properties,
         compiled_globals,
-        exported_globals,
+        exported_globals_by_name,
     };
 
     Rc::new(t)

@@ -9,26 +9,36 @@
 LICENSE END */
 
 use core::pin::Pin;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use crate::api::Value;
 use crate::dynamic_component::{ErasedComponentBox, ErasedComponentDescription};
 use crate::SetPropertyError;
 use sixtyfps_compilerlib::namedreference::NamedReference;
+use sixtyfps_compilerlib::object_tree::PropertyDeclaration;
 use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
 use sixtyfps_corelib::component::ComponentVTable;
 use sixtyfps_corelib::rtti;
 
 pub enum CompiledGlobal {
-    Builtin(String, Rc<sixtyfps_compilerlib::langtype::BuiltinElement>),
-    Component(ErasedComponentDescription),
+    Builtin {
+        name: String,
+        element: Rc<sixtyfps_compilerlib::langtype::BuiltinElement>,
+        // dummy needed for iterator accessor
+        public_properties: BTreeMap<String, PropertyDeclaration>,
+    },
+    Component {
+        component: ErasedComponentDescription,
+        public_properties: BTreeMap<String, PropertyDeclaration>,
+    },
 }
 
 impl CompiledGlobal {
     pub fn names(&self) -> Vec<String> {
         match self {
-            CompiledGlobal::Builtin(name, _) => vec![name.clone()],
-            CompiledGlobal::Component(component) => {
+            CompiledGlobal::Builtin { name, .. } => vec![name.clone()],
+            CompiledGlobal::Component { component, .. } => {
                 generativity::make_guard!(guard);
                 let component = component.unerase(guard);
                 let mut names = component.original.global_aliases();
@@ -40,12 +50,29 @@ impl CompiledGlobal {
 
     pub fn visible_in_public_api(&self) -> bool {
         match self {
-            CompiledGlobal::Builtin(..) => false,
-            CompiledGlobal::Component(component) => {
+            CompiledGlobal::Builtin { .. } => false,
+            CompiledGlobal::Component { component, .. } => {
                 generativity::make_guard!(guard);
                 let component = component.unerase(guard);
                 component.original.visible_in_public_api()
             }
+        }
+    }
+
+    pub fn public_properties(&self) -> impl Iterator<Item = (&String, &PropertyDeclaration)> + '_ {
+        match self {
+            CompiledGlobal::Builtin { public_properties, .. } => public_properties.iter(),
+            CompiledGlobal::Component { public_properties, .. } => public_properties.iter(),
+        }
+    }
+
+    pub fn extend_public_properties(
+        &mut self,
+        iter: impl IntoIterator<Item = (String, PropertyDeclaration)>,
+    ) {
+        match self {
+            CompiledGlobal::Builtin { public_properties, .. } => public_properties.extend(iter),
+            CompiledGlobal::Component { public_properties, .. } => public_properties.extend(iter),
         }
     }
 }
@@ -71,7 +98,7 @@ pub trait GlobalComponent {
 
 pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalComponent>>) {
     match description {
-        CompiledGlobal::Builtin(name, b) => {
+        CompiledGlobal::Builtin { name, element, .. } => {
             trait Helper {
                 fn instantiate(name: &str) -> Pin<Rc<dyn GlobalComponent>> {
                     panic!("Cannot find native global {}", name)
@@ -88,13 +115,13 @@ pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalCo
                 }
             }
             let g = sixtyfps_rendering_backend_default::NativeGlobals::instantiate(
-                b.native_class.class_name.as_ref(),
+                element.native_class.class_name.as_ref(),
             );
             (name.clone(), g)
         }
-        CompiledGlobal::Component(description) => {
+        CompiledGlobal::Component { component, .. } => {
             generativity::make_guard!(guard);
-            let description = description.unerase(guard);
+            let description = component.unerase(guard);
             let component = &description.original;
             let g = Rc::pin(GlobalComponentInstance(crate::dynamic_component::instantiate(
                 description.clone(),
@@ -203,11 +230,16 @@ pub(crate) fn generate(component: &Rc<Component>) -> CompiledGlobal {
     match &component.root_element.borrow().base_type {
         Type::Void => {
             generativity::make_guard!(guard);
-            CompiledGlobal::Component(
-                crate::dynamic_component::generate_component(component, guard).into(),
-            )
+            CompiledGlobal::Component {
+                component: crate::dynamic_component::generate_component(component, guard).into(),
+                public_properties: Default::default(),
+            }
         }
-        Type::Builtin(b) => CompiledGlobal::Builtin(component.id.clone(), b.clone()),
+        Type::Builtin(b) => CompiledGlobal::Builtin {
+            name: component.id.clone(),
+            element: b.clone(),
+            public_properties: Default::default(),
+        },
         _ => unreachable!(),
     }
 }
