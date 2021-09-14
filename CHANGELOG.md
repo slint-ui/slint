@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+ - Fixed panic when using `TabWidget` with `Text` elements and the native style.
+
 ## [0.1.2] - 2021-09-09
 
 ### Changed
