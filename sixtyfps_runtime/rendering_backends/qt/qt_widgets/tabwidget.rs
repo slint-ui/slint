@@ -472,6 +472,7 @@ impl Item for NativeTab {
             /* -- does not render correctly with the fusion style because we don't draw the selected on top
                 option.selectedPosition = current == tab_index - 1 ? QStyleOptionTab::NextIsSelected
                     : current == tab_index + 1 ? QStyleOptionTab::PreviousIsSelected : QStyleOptionTab::NotAdjacent;*/
+            option.state |= QStyle::State_Active;
             if (down)
                 option.state |= QStyle::State_Sunken;
             else
