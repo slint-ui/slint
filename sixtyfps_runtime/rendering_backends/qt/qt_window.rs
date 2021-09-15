@@ -21,7 +21,7 @@ use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ImageRendering, ItemRef, TextOverflow, TextWrap};
 use sixtyfps_corelib::layout::Orientation;
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
+use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
 use sixtyfps_corelib::{ImageInner, PathData, Property};
 
@@ -162,6 +162,16 @@ cpp! {{
             } else {
                 QWidget::customEvent(event);
             }
+        }
+
+        void changeEvent(QEvent *event) override {
+            if (event->type() == QEvent::ActivationChange) {
+                bool active = isActiveWindow();
+                rust!(SFPS_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"]{
+                    if let Some(window) = rust_window.self_weak.upgrade() { window.set_active(active) }
+                 });
+            }
+            QWidget::changeEvent(event);
         }
 
         QSize sizeHint() const override {
@@ -362,6 +372,7 @@ struct QtItemRenderer<'a> {
     painter: &'a mut QPainter,
     cache: QtRenderingCache,
     default_font_properties: FontRequest,
+    window: WindowRc,
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
@@ -800,6 +811,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
         })
     }
 
+    fn window(&self) -> WindowRc {
+        self.window.clone()
+    }
+
     fn as_any(&mut self) -> &mut dyn std::any::Any {
         self.painter
     }
@@ -1086,13 +1101,14 @@ impl QtWindow {
 
     fn paint_event(&self, painter: &mut QPainter) {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.draw_contents(|components| {
+        runtime_window.clone().draw_contents(|components| {
             sixtyfps_corelib::animations::update_animations();
             let cache = self.cache.clone();
             let mut renderer = QtItemRenderer {
                 painter,
                 cache,
                 default_font_properties: self.default_font_properties(),
+                window: runtime_window,
             };
 
             for (component, origin) in components {

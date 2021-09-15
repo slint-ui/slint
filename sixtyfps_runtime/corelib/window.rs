@@ -146,6 +146,7 @@ pub struct Window {
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     scale_factor: Pin<Box<Property<f32>>>,
+    active: Pin<Box<Property<bool>>>,
     active_popup: RefCell<Option<PopupWindow>>,
 }
 
@@ -172,6 +173,7 @@ impl Window {
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
             scale_factor: Box::pin(Property::new(1.)),
+            active: Box::pin(Property::new(false)),
             active_popup: Default::default(),
         });
         let window_weak = Rc::downgrade(&window);
@@ -337,6 +339,19 @@ impl Window {
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             focus_item.borrow().as_ref().focus_event(&event, &self);
         }
+    }
+
+    /// Marks the window to be the active window. This typically coincides with the keyboard
+    /// focus. One exception though is when a popup is shown, in which case the window may
+    /// remain active but temporarily loose focus to the popup.
+    pub fn set_active(&self, active: bool) {
+        self.active.as_ref().set(active);
+    }
+
+    /// Returns true of the window is the active window. That typically implies having the
+    /// keyboard focus, except when a popup is shown and temporarily takes the focus.
+    pub fn active(&self) -> bool {
+        self.active.as_ref().get()
     }
 
     /// If the component's root item is a Window element, then this function synchronizes its properties, such as the title

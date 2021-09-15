@@ -28,7 +28,7 @@ use sixtyfps_corelib::graphics::{Brush, Color, Image, IntRect, Point, Rect, Rend
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{FillRule, ImageFit, ImageRendering};
 use sixtyfps_corelib::properties::Property;
-use sixtyfps_corelib::window::Window;
+use sixtyfps_corelib::window::{Window, WindowRc};
 
 mod graphics_window;
 use graphics_window::*;
@@ -998,6 +998,10 @@ impl ItemRenderer for GLItemRenderer {
         let mut path = femtovg::Path::new();
         path.rect(0., 0., width, height);
         canvas.fill_path(&mut path, fill_paint);
+    }
+
+    fn window(&self) -> WindowRc {
+        self.graphics_window.self_weak.upgrade().unwrap()
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {

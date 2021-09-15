@@ -89,7 +89,7 @@ impl Item for NativeStandardListViewItem {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let index: i32 = this.index();
         let is_selected: bool = this.is_selected();
         let item = this.item();
@@ -100,9 +100,11 @@ impl Item for NativeStandardListViewItem {
             dpr as "float",
             index as "int",
             is_selected as "bool",
-            text as "QString"
+            text as "QString",
+            initial_state as "int"
         ] {
             QStyleOptionViewItem option;
+            option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             option.state = QStyle::State_Enabled | QStyle::State_Active;
             if (is_selected) {

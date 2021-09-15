@@ -163,7 +163,7 @@ impl Item for NativeGroupBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let text: qttypes::QString =
             this.title().as_str().into();
         let enabled = this.enabled();
@@ -173,9 +173,11 @@ impl Item for NativeGroupBox {
             text as "QString",
             enabled as "bool",
             size as "QSize",
-            dpr as "float"
+            dpr as "float",
+            initial_state as "int"
         ] {
             QStyleOptionGroupBox option;
+            option.state |= QStyle::State(initial_state);
             if (enabled) {
                 option.state |= QStyle::State_Enabled;
             } else {

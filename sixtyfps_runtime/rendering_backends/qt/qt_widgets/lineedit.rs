@@ -115,7 +115,7 @@ impl Item for NativeLineEdit {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let focused: bool = this.focused();
         let enabled: bool = this.enabled();
 
@@ -124,9 +124,11 @@ impl Item for NativeLineEdit {
             size as "QSize",
             dpr as "float",
             enabled as "bool",
-            focused as "bool"
+            focused as "bool",
+            initial_state as "int"
         ] {
             QStyleOptionFrame option;
+            option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             option.lineWidth = 1;
             option.midLineWidth = 0;

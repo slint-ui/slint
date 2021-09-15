@@ -515,7 +515,11 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         if let Some(window) =
                             windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
-                            window.self_weak.upgrade().unwrap().set_focus(have_focus);
+                            let window = window.self_weak.upgrade().unwrap();
+                            // We don't render popups as separate windows yet, so treat
+                            // focus to be the same as being active.
+                            window.set_active(have_focus);
+                            window.set_focus(have_focus);
                         }
                     });
                 }

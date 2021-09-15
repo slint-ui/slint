@@ -96,7 +96,7 @@ impl Item for NativeCheckBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let checked: bool = this.checked();
         let enabled = this.enabled();
         let text: qttypes::QString = this.text().as_str().into();
@@ -107,9 +107,11 @@ impl Item for NativeCheckBox {
             text as "QString",
             size as "QSize",
             checked as "bool",
-            dpr as "float"
+            dpr as "float",
+            initial_state as "int"
         ] {
             QStyleOptionButton option;
+            option.state |= QStyle::State(initial_state);
             option.text = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
             option.state |= checked ? QStyle::State_On : QStyle::State_Off;

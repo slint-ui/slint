@@ -270,7 +270,7 @@ impl Item for NativeScrollView {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
 
         let data = this.data();
         let left = this.native_padding_left();
@@ -285,15 +285,22 @@ impl Item for NativeScrollView {
         };
         let enabled: bool = this.enabled();
         let has_focus: bool = this.has_focus();
-        cpp!(unsafe [painter as "QPainter*", corner_rect as "QRectF", enabled as "bool", has_focus as "bool"] {
+        cpp!(unsafe [
+            painter as "QPainter*",
+            corner_rect as "QRectF",
+            enabled as "bool",
+            has_focus as "bool",
+            initial_state as "int"
+        ] {
             ensure_initialized();
             QStyleOptionFrame frameOption;
+            frameOption.state |= QStyle::State(initial_state);
             frameOption.frameShape = QFrame::StyledPanel;
 
             frameOption.lineWidth = 1;
             frameOption.midLineWidth = 0;
             frameOption.rect = corner_rect.toAlignedRect();
-            frameOption.state |= QStyle::State_Active | QStyle::State_Sunken;
+            frameOption.state |= QStyle::State_Sunken;
             if (enabled) {
                 frameOption.state |= QStyle::State_Enabled;
             } else {
@@ -313,7 +320,8 @@ impl Item for NativeScrollView {
                               page_size: i32,
                               max: i32,
                               active_controls: u32,
-                              pressed: bool| {
+                              pressed: bool,
+                              initial_state: i32| {
             cpp!(unsafe [
                 painter as "QPainter*",
                 value as "int",
@@ -324,7 +332,8 @@ impl Item for NativeScrollView {
                 pressed as "bool",
                 dpr as "float",
                 horizontal as "bool",
-                has_focus as "bool"
+                has_focus as "bool",
+                initial_state as "int"
             ] {
                 auto r = rect.toAlignedRect();
                 // The mac style ignores painter translations (due to CGContextRef redirection) as well as
@@ -339,13 +348,13 @@ impl Item for NativeScrollView {
                 painter->translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
             #endif
                 QStyleOptionSlider option;
+                option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), r.size());
                 initQSliderOptions(option, pressed, true, active_controls, 0, max / dpr, -value / dpr);
                 option.subControls = QStyle::SC_All;
                 option.pageStep = page_size / dpr;
                 if (has_focus)
                     option.state |= QStyle::State_HasFocus;
-                option.state |= QStyle::State_Active;
 
                 if (!horizontal) {
                     option.state ^= QStyle::State_Horizontal;
@@ -374,6 +383,7 @@ impl Item for NativeScrollView {
             this.vertical_max() as i32,
             data.active_controls,
             data.pressed == 2,
+            initial_state
         );
         draw_scrollbar(
             true,
@@ -388,6 +398,7 @@ impl Item for NativeScrollView {
             this.horizontal_max() as i32,
             data.active_controls,
             data.pressed == 1,
+            initial_state
         );
     }
 }

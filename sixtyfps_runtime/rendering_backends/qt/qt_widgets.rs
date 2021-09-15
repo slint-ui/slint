@@ -60,9 +60,21 @@ macro_rules! get_size {
 }
 
 macro_rules! fn_render {
-    ($this:ident $dpr:ident $size:ident $painter:ident => $($tt:tt)*) => {
+    ($this:ident $dpr:ident $size:ident $painter:ident $initial_state:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
             let $dpr: f32 = backend.scale_factor();
+
+            let window = backend.window();
+            let active: bool = window.active();
+            // This should include self.enabled() as well, but not every native widget
+            // has that property right now.
+            let $initial_state = cpp!(unsafe [ active as "bool" ] -> i32 as "int" {
+                QStyle::State state(QStyle::State_None);
+                if (active)
+                    state |= QStyle::State_Active;
+                return (int)state;
+            });
+
             if let Some(painter) = <dyn std::any::Any>::downcast_mut::<QPainter>(backend.as_any()) {
                 let $size: qttypes::QSize = get_size!(self);
                 let $this = self;

@@ -175,6 +175,8 @@ pub trait ItemRenderer {
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     );
 
+    fn window(&self) -> crate::window::WindowRc;
+
     /// Return the internal renderer
     fn as_any(&mut self) -> &mut dyn core::any::Any;
 }

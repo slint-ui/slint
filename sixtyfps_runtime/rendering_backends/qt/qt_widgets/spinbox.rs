@@ -46,7 +46,6 @@ if (enabled) {
 } else {
     option.palette.setCurrentColorGroup(QPalette::Disabled);
 }
-option.state |= QStyle::State_Active;
 if (pressed) {
     option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
 }
@@ -191,7 +190,7 @@ impl Item for NativeSpinBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let value: i32 = this.value();
         let enabled = this.enabled();
         let data = this.data();
@@ -205,10 +204,12 @@ impl Item for NativeSpinBox {
             size as "QSize",
             active_controls as "int",
             pressed as "bool",
-            dpr as "float"
+            dpr as "float",
+            initial_state as "int"
         ] {
             auto style = qApp->style();
             QStyleOptionSpinBox option;
+            option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             initQSpinBoxOptions(option, pressed, enabled, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, painter, nullptr);

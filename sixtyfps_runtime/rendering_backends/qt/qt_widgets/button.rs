@@ -117,7 +117,7 @@ impl Item for NativeButton {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let down: bool = this.pressed();
         let text: qttypes::QString = this.text().as_str().into();
         let icon : qttypes::QPixmap = crate::qt_window::load_image_from_resource(
@@ -135,9 +135,11 @@ impl Item for NativeButton {
             enabled as "bool",
             size as "QSize",
             down as "bool",
-            dpr as "float"
+            dpr as "float",
+            initial_state as "int"
         ] {
             QStyleOptionButton option;
+            option.state |= QStyle::State(initial_state);
             option.text = std::move(text);
             option.icon = icon;
             auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);

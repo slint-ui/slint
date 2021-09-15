@@ -249,7 +249,7 @@ impl Item for NativeTabWidget {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let tabbar_size = qttypes::QSizeF {
             width: this.tabbar_preferred_width() as _,
             height: this.tabbar_preferred_height() as _,
@@ -258,9 +258,11 @@ impl Item for NativeTabWidget {
             painter as "QPainter*",
             size as "QSize",
             dpr as "float",
-            tabbar_size as "QSizeF"
+            tabbar_size as "QSizeF",
+            initial_state as "int"
         ] {
             QStyleOptionTabWidgetFrame option;
+            option.state |= QStyle::State(initial_state);
             auto style = qApp->style();
             option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
             option.shape = QTabBar::RoundedNorth;
@@ -433,7 +435,7 @@ impl Item for NativeTab {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let down: bool = this.pressed();
         let text: qttypes::QString = this.title().as_str().into();
         let icon: qttypes::QPixmap = crate::qt_window::load_image_from_resource(
@@ -457,10 +459,12 @@ impl Item for NativeTab {
             dpr as "float",
             tab_index as "int",
             current as "int",
-            num_tabs as "int"
+            num_tabs as "int",
+            initial_state as "int"
         ] {
             ensure_initialized();
             QStyleOptionTab option;
+            option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);;
             option.text = text;
             option.icon = icon;
@@ -472,7 +476,6 @@ impl Item for NativeTab {
             /* -- does not render correctly with the fusion style because we don't draw the selected on top
                 option.selectedPosition = current == tab_index - 1 ? QStyleOptionTab::NextIsSelected
                     : current == tab_index + 1 ? QStyleOptionTab::PreviousIsSelected : QStyleOptionTab::NotAdjacent;*/
-            option.state |= QStyle::State_Active;
             if (down)
                 option.state |= QStyle::State_Sunken;
             else

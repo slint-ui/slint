@@ -54,7 +54,7 @@ if (enabled) {
 } else {
     option.palette.setCurrentColorGroup(QPalette::Disabled);
 }
-option.state |= QStyle::State_Active | QStyle::State_Horizontal;
+option.state |= QStyle::State_Horizontal;
 if (pressed) {
     option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
 }
@@ -200,7 +200,7 @@ impl Item for NativeSlider {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let enabled = this.enabled();
         let value = this.value() as i32;
         let min = this.minimum() as i32;
@@ -218,9 +218,11 @@ impl Item for NativeSlider {
             size as "QSize",
             active_controls as "int",
             pressed as "bool",
-            dpr as "float"
+            dpr as "float",
+            initial_state as "int"
         ] {
             QStyleOptionSlider option;
+            option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();

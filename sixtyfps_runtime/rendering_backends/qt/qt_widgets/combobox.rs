@@ -103,7 +103,7 @@ impl Item for NativeComboBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter =>
+    fn_render! { this dpr size painter initial_state =>
         let down: bool = this.pressed();
         let is_open: bool = this.is_open();
         let text: qttypes::QString =
@@ -116,9 +116,11 @@ impl Item for NativeComboBox {
             size as "QSize",
             down as "bool",
             is_open as "bool",
-            dpr as "float"
+            dpr as "float",
+            initial_state as "int"
         ] {
             QStyleOptionComboBox option;
+            option.state |= QStyle::State(initial_state);
             option.currentText = std::move(text);
             option.rect = QRect(QPoint(), size / dpr);
             if (down)
