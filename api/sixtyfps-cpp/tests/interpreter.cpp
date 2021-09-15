@@ -257,7 +257,7 @@ SCENARIO("Struct field iteration")
     for (; it != end; ++it) {
         const auto [key, value] = *it;
         REQUIRE(check_valid_entry(key, value));
-        auto [insert_it, value_inserted] = seen_fields.insert(std::string(key));
+        auto value_inserted = seen_fields.insert(std::string(key)).second;
         REQUIRE(value_inserted);
     }
 }
