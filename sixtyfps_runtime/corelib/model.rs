@@ -619,7 +619,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let geometry_changed = listview_geometry_tracker
             .evaluate_if_dirty(|| {
                 // Fetch the model again to make sure that it is a dependency of this geometry tracker.
-                let model = self.model().0.expect("invariant: model existence was checked earlier");
+                // invariant: model existence was checked earlier, so unwrap() should be safe.
+                let model = self.model().0.unwrap();
 
                 let listview_height = listview_height.get();
                 // Compute the element height
