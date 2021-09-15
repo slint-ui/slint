@@ -106,7 +106,7 @@ impl Item for NativeStandardListViewItem {
             QStyleOptionViewItem option;
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
-            option.state = QStyle::State_Enabled | QStyle::State_Active;
+            option.state = QStyle::State_Enabled;
             if (is_selected) {
                 option.state |= QStyle::State_Selected;
             }
