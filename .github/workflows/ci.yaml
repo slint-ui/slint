@@ -286,6 +286,7 @@ jobs:
     - name: C++ Build
       uses: lukka/run-cmake@v2.4
       with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
         cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSIXTYFPS_BUILD_EXAMPLES=ON'
         buildDirectory: ${{ runner.workspace }}/cppbuild
