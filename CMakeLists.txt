@@ -11,12 +11,16 @@ cmake_minimum_required(VERSION 3.16)
 
 project(SixtyFPS LANGUAGES CXX)
 
+include(FeatureSummary)
+
 option(BUILD_TESTING "Build tests" OFF)
+add_feature_info(BUILD_TESTING BUILD_TESTING "configure whether to build the test suite")
 include(CTest)
 
 add_subdirectory(api/sixtyfps-cpp/)
 
 option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" OFF)
+add_feature_info(SIXTYFPS_BUILD_EXAMPLES SIXTYFPS_BUILD_EXAMPLES "configure whether to build the examples")
 
 if(SIXTYFPS_BUILD_EXAMPLES)
     # Place all compiled examples into the same bin directory
@@ -44,3 +48,6 @@ if(SIXTYFPS_BUILD_EXAMPLES)
         add_subdirectory(docs/tutorial/cpp/src/)
     endif()
 endif()
+
+feature_summary(WHAT ENABLED_FEATURES DESCRIPTION "Enabled features:")
+feature_summary(WHAT DISABLED_FEATURES DESCRIPTION "Disabled features:")

@@ -10,6 +10,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(SixtyFPS LANGUAGES CXX)
 
+include(FeatureSummary)
 include(CMakeDependentOption)
 
 include(FetchContent)
@@ -72,6 +73,7 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
             list(APPEND features ${cargo-feature})
         endif()
         set(features "${features}" PARENT_SCOPE)
+        add_feature_info(${cmake_option} ${cmake_option} ${description})
     endfunction()
 
     function(define_cargo_dependent_feature cargo-feature description default depends_condition)
@@ -84,6 +86,7 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
             list(APPEND features ${cargo-feature})
         endif()
         set(features "${features}" PARENT_SCOPE)
+        add_feature_info(${cmake_option} ${cmake_option} ${description})
     endfunction()
 
     # Features that are mapped to features in the Rust crate. These and their
