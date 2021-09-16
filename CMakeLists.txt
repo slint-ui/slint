@@ -7,7 +7,7 @@
 # This file is also available under commercial licensing terms.
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.19)
 
 project(SixtyFPS LANGUAGES CXX)
 
@@ -39,9 +39,7 @@ if(SIXTYFPS_BUILD_EXAMPLES)
     if (SIXTYFPS_FEATURE_INTERPRETER)
         add_subdirectory(examples/qt_viewer/)
     endif()
-    # iot-dashboard uses fmtlib via FetchContent and 3.16 has a bug
-    # configuring it (issue #232)
-    if (SIXTYFPS_FEATURE_INTERPRETER AND CMAKE_VERSION VERSION_GREATER_EQUAL 3.17.0)
+    if (SIXTYFPS_FEATURE_INTERPRETER)
         add_subdirectory(examples/iot-dashboard/)
     endif()
     if(BUILD_TESTING)
