@@ -287,6 +287,7 @@ jobs:
       uses: lukka/run-cmake@v2.4
       with:
         cmakeListsTxtPath: CMakeLists.txt
+        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSIXTYFPS_BUILD_EXAMPLES=ON'
         buildDirectory: ${{ runner.workspace }}/cppbuild
     - name: ctest
       working-directory: ${{ runner.workspace }}/cppbuild

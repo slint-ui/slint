@@ -10,11 +10,13 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(SixtyFPS LANGUAGES CXX)
+
+option(BUILD_TESTING "Build tests" OFF)
 include(CTest)
 
 add_subdirectory(api/sixtyfps-cpp/)
 
-option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" ON)
+option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" OFF)
 
 if(SIXTYFPS_BUILD_EXAMPLES)
     # Place all compiled examples into the same bin directory
