@@ -10,9 +10,6 @@ LICENSE END */
 use std::io::Write;
 use std::path::PathBuf;
 
-#[path = "../../../xtask/src/cbindgen.rs"]
-mod cbindgen;
-
 /// The root dir of the git repository
 fn root_dir() -> PathBuf {
     let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -37,23 +34,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("cargo:rustc-env=CPP_LIB_PATH={}", target_dir.display());
 
-    let mut include_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    include_dir.push("include");
-    println!("cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}", include_dir.display());
-    cbindgen::gen_all(&root_dir(), &include_dir)?;
-    // re-run cbindgen if files changes
     let root_dir = root_dir();
-    println!("cargo:rerun-if-changed={}/sixtyfps_runtime/corelib/", root_dir.display());
-    for entry in std::fs::read_dir(root_dir.join("sixtyfps_runtime/corelib/"))? {
-        let entry = entry?;
-        if entry.path().extension().map_or(false, |e| e == "rs") {
-            println!("cargo:rerun-if-changed={}", entry.path().display());
-        }
-    }
-    println!("cargo:rerun-if-changed={}/api/sixtyfps-cpp/lib.rs", root_dir.display());
-
     println!(
         "cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/sixtyfps-cpp/include",
+        root_dir.display()
+    );
+    println!(
+        "cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}/api/sixtyfps-cpp/generated_include",
         root_dir.display()
     );
 
