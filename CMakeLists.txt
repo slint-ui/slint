@@ -19,7 +19,7 @@ include(CTest)
 
 add_subdirectory(api/sixtyfps-cpp/)
 
-option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" ON)
+option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" OFF)
 add_feature_info(SIXTYFPS_BUILD_EXAMPLES SIXTYFPS_BUILD_EXAMPLES "configure whether to build the examples")
 
 if(SIXTYFPS_BUILD_EXAMPLES)
