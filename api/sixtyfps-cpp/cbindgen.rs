@@ -13,6 +13,17 @@ use std::path::Path;
 
 // cspell::ignore compat constexpr corelib sharedvector pathdata
 
+fn ensure_cargo_rerun_for_crate(crate_dir: &Path) -> anyhow::Result<()> {
+    println!("cargo:rerun-if-changed={}", crate_dir.display());
+    for entry in std::fs::read_dir(crate_dir)? {
+        let entry = entry?;
+        if entry.path().extension().map_or(false, |e| e == "rs") {
+            println!("cargo:rerun-if-changed={}", entry.path().display());
+        }
+    }
+    Ok(())
+}
+
 fn default_config() -> cbindgen::Config {
     cbindgen::Config {
         pragma_once: true,
@@ -143,6 +154,8 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 
     let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["sixtyfps_runtime", "corelib"].iter());
+
+    ensure_cargo_rerun_for_crate(&crate_dir)?;
 
     let mut string_config = config.clone();
     string_config.export.exclude = vec!["SharedString".into()];
@@ -365,6 +378,9 @@ fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 
     let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "qt"].iter());
+
+    ensure_cargo_rerun_for_crate(&crate_dir)?;
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
@@ -381,6 +397,9 @@ fn gen_backend(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     let config = default_config();
     let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["api", "sixtyfps-cpp"].iter());
+
+    ensure_cargo_rerun_for_crate(&crate_dir)?;
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
@@ -397,7 +416,10 @@ fn gen_interpreter(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
     // Avoid Value, just export ValueOpaque.
     config.export.exclude.push("Value".into());
     let mut crate_dir = root_dir.to_owned();
+
     crate_dir.extend(["sixtyfps_runtime", "interpreter"].iter());
+    ensure_cargo_rerun_for_crate(&crate_dir)?;
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)

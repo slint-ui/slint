@@ -21,7 +21,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Corrosion)
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
-    CRATES sixtyfps-compiler sixtyfps-cpp xtask)
+    CRATES sixtyfps-compiler sixtyfps-cpp)
 
 # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
 # means usually CMAKE_PREFIX_PATH is set.
@@ -43,9 +43,12 @@ else()
 endif()
 
 set_property(
-    TARGET xtask
-    PROPERTY CORROSION_USE_HOST_BUILD 1
+    TARGET sixtyfps-cpp
+    APPEND
+    PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+    SIXTYFPS_GENERATED_INCLUDE_DIR="${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
 )
+
 set_property(
     TARGET sixtyfps-compiler
     PROPERTY CORROSION_USE_HOST_BUILD 1
@@ -124,18 +127,6 @@ set(generated_headers
     ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_interpreter_internal.h
 )
 
-file(GLOB generated_headers_dependencies
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../sixtyfps_runtime/corelib/*.rs")
-
-add_custom_target(
-    generated_headers_target
-    COMMAND
-    xtask cbindgen --output-dir "${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
-    BYPRODUCTS ${generated_headers}
-    DEPENDS ${generated_headers_dependencies}
-)
-
-add_dependencies(SixtyFPS generated_headers_target)
 foreach(header IN LISTS generated_headers)
     set_property(TARGET SixtyFPS APPEND PROPERTY PUBLIC_HEADER ${header})
 endforeach()

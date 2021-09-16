@@ -3,6 +3,7 @@ name = "sixtyfps-cpp"
 version = "0.1.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
+build = "build.rs"
 license = "GPL-3.0-only"
 description = "SixtyFPS C++ integration"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
@@ -29,3 +30,8 @@ sixtyfps-corelib = { version = "=0.1.2", path="../../sixtyfps_runtime/corelib", 
 sixtyfps-rendering-backend-default = { version = "=0.1.2", path="../../sixtyfps_runtime/rendering_backends/default" }
 sixtyfps-rendering-backend-testing = { version = "=0.1.2", path="../../sixtyfps_runtime/rendering_backends/testing", optional = true }
 sixtyfps-interpreter = { version = "=0.1.2", path="../../sixtyfps_runtime/interpreter", default-features = false, features = ["ffi"], optional = true }
+
+[build-dependencies]
+cbindgen = "0.20"
+anyhow = "1.0"
+proc-macro2 = "1.0.11"

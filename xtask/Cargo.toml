@@ -8,7 +8,6 @@ publish = false
 
 [dependencies]
 structopt = "0.3.14"
-cbindgen = "0.20"
 cargo_metadata = "0.14"
 anyhow = "1.0"
 lazy_static = "1.4.0"
@@ -16,4 +15,3 @@ regex = "1.4"
 toml_edit = "0.2.0"
 xshell = "0.1.6"
 serde_json = "1.0"
-proc-macro2 = "1.0.11"
