@@ -284,7 +284,7 @@ jobs:
         echo "CXX=cl.exe" >> $GITHUB_ENV
       if: matrix.os == 'windows-latest'
     - name: C++ Build
-      uses: lukka/run-cmake@v2.4
+      uses: lukka/run-cmake@v3.4
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
