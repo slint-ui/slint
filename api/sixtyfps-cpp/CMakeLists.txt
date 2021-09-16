@@ -7,7 +7,7 @@
 # This file is also available under commercial licensing terms.
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.19)
 project(SixtyFPS LANGUAGES CXX)
 
 include(FeatureSummary)
@@ -23,93 +23,85 @@ FetchContent_MakeAvailable(Corrosion)
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
     CRATES sixtyfps-compiler sixtyfps-cpp xtask)
 
-if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
-    # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
-    # means usually CMAKE_PREFIX_PATH is set.
-    find_package(Qt5 5.15 QUIET COMPONENTS Core Widgets)
-    if (TARGET Qt5::qmake)
-        set_property(
-            TARGET sixtyfps-cpp
-            APPEND
-            PROPERTY CORROSION_ENVIRONMENT_VARIABLES
-            QMAKE=$<TARGET_PROPERTY:Qt5::qmake,LOCATION>
-        )
-    else()
-        set_property(
-            TARGET sixtyfps-cpp
-            APPEND
-            PROPERTY CORROSION_ENVIRONMENT_VARIABLES
-            SIXTYFPS_NO_QT=1
-        )
-    endif()
+# For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
+# means usually CMAKE_PREFIX_PATH is set.
+find_package(Qt5 5.15 QUIET COMPONENTS Core Widgets)
+if (TARGET Qt5::qmake)
+    set_property(
+        TARGET sixtyfps-cpp
+        APPEND
+        PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+        QMAKE=$<TARGET_PROPERTY:Qt5::qmake,LOCATION>
+    )
+else()
+    set_property(
+        TARGET sixtyfps-cpp
+        APPEND
+        PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+        SIXTYFPS_NO_QT=1
+    )
 endif()
 
-if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
-    set_property(
-        TARGET xtask
-        PROPERTY CORROSION_USE_HOST_BUILD 1
-    )
-    set_property(
-        TARGET sixtyfps-compiler
-        PROPERTY CORROSION_USE_HOST_BUILD 1
-    )
-elseif(CMAKE_CROSSCOMPILING)
-    message(FATAL_ERROR "Cross-compiling SixtyFPS requires CMake 3.19 or newer")
-endif()
+set_property(
+    TARGET xtask
+    PROPERTY CORROSION_USE_HOST_BUILD 1
+)
+set_property(
+    TARGET sixtyfps-compiler
+    PROPERTY CORROSION_USE_HOST_BUILD 1
+)
 
 add_library(SixtyFPS INTERFACE)
 add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
 target_link_libraries(SixtyFPS INTERFACE sixtyfps-cpp)
 target_compile_features(SixtyFPS INTERFACE cxx_std_17)
 
-if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.19.0)
-    function(define_cargo_feature cargo-feature description default)
-        # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
-        string(TOUPPER "${cargo-feature}" cmake_option)
-        string(REPLACE "-"  "_" cmake_option "${cmake_option}")
-        set(cmake_option "SIXTYFPS_FEATURE_${cmake_option}")
-        option("${cmake_option}" "${description}" ${default})
-        if(${cmake_option})
-            list(APPEND features ${cargo-feature})
-        endif()
-        set(features "${features}" PARENT_SCOPE)
-        add_feature_info(${cmake_option} ${cmake_option} ${description})
-    endfunction()
+function(define_cargo_feature cargo-feature description default)
+    # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
+    string(TOUPPER "${cargo-feature}" cmake_option)
+    string(REPLACE "-"  "_" cmake_option "${cmake_option}")
+    set(cmake_option "SIXTYFPS_FEATURE_${cmake_option}")
+    option("${cmake_option}" "${description}" ${default})
+    if(${cmake_option})
+        list(APPEND features ${cargo-feature})
+    endif()
+    set(features "${features}" PARENT_SCOPE)
+    add_feature_info(${cmake_option} ${cmake_option} ${description})
+endfunction()
 
-    function(define_cargo_dependent_feature cargo-feature description default depends_condition)
-        # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
-        string(TOUPPER "${cargo-feature}" cmake_option)
-        string(REPLACE "-"  "_" cmake_option "${cmake_option}")
-        set(cmake_option "SIXTYFPS_FEATURE_${cmake_option}")
-        cmake_dependent_option("${cmake_option}" "${description}" ${default} ${depends_condition} OFF)
-        if(${cmake_option})
-            list(APPEND features ${cargo-feature})
-        endif()
-        set(features "${features}" PARENT_SCOPE)
-        add_feature_info(${cmake_option} ${cmake_option} ${description})
-    endfunction()
+function(define_cargo_dependent_feature cargo-feature description default depends_condition)
+    # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
+    string(TOUPPER "${cargo-feature}" cmake_option)
+    string(REPLACE "-"  "_" cmake_option "${cmake_option}")
+    set(cmake_option "SIXTYFPS_FEATURE_${cmake_option}")
+    cmake_dependent_option("${cmake_option}" "${description}" ${default} ${depends_condition} OFF)
+    if(${cmake_option})
+        list(APPEND features ${cargo-feature})
+    endif()
+    set(features "${features}" PARENT_SCOPE)
+    add_feature_info(${cmake_option} ${cmake_option} ${description})
+endfunction()
 
-    # Features that are mapped to features in the Rust crate. These and their
-    # defaults need to be kept in sync with the Rust bit.
-    define_cargo_feature(interpreter "Enable support for the SixtyFPS interpeter to load .60 files at run-time" ON)
+# Features that are mapped to features in the Rust crate. These and their
+# defaults need to be kept in sync with the Rust bit.
+define_cargo_feature(interpreter "Enable support for the SixtyFPS interpeter to load .60 files at run-time" ON)
 
-    define_cargo_feature(backend-gl "Enable OpenGL ES 2.0 based rendering backend" ON)
-    define_cargo_dependent_feature(x11 "Enable X11 support when using GL backend" ON SIXTYFPS_FEATURE_BACKEND_GL OFF)
-    define_cargo_dependent_feature(wayland "Enable Wayland support when using the GL backend" OFF SIXTYFPS_FEATURE_BACKEND_GL OFF)
+define_cargo_feature(backend-gl "Enable OpenGL ES 2.0 based rendering backend" ON)
+define_cargo_dependent_feature(x11 "Enable X11 support when using GL backend" ON SIXTYFPS_FEATURE_BACKEND_GL OFF)
+define_cargo_dependent_feature(wayland "Enable Wayland support when using the GL backend" OFF SIXTYFPS_FEATURE_BACKEND_GL OFF)
 
-    define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
+define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
-    set_property(
-        TARGET sixtyfps-cpp
-        PROPERTY CORROSION_FEATURES
-        ${features}    
-    )
-    set_property(
-        TARGET sixtyfps-cpp
-        PROPERTY CORROSION_NO_DEFAULT_FEATURES
-        ${features}    
-    )    
-endif()
+set_property(
+    TARGET sixtyfps-cpp
+    PROPERTY CORROSION_FEATURES
+    ${features}
+)
+set_property(
+    TARGET sixtyfps-cpp
+    PROPERTY CORROSION_NO_DEFAULT_FEATURES
+    ${features}
+)
 
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")

@@ -7,7 +7,7 @@
 # This file is also available under commercial licensing terms.
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.19)
 project(memory LANGUAGES CXX)
 
 if (NOT TARGET SixtyFPS::SixtyFPS)

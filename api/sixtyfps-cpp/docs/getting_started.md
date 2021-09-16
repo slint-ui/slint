@@ -11,7 +11,7 @@ Once SixtyFPS is built, you can use it in your CMake application or library targ
 A typical example looks like this:
 
 ```cmake
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.19)
 project(my_application LANGUAGES CXX)
 
 # Note: Use find_package(SixtyFPS) instead of the following three commands,

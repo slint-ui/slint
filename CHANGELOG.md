@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+ - Due to changes in the build system, the C++ build now requires CMake >= 3.19.
+
 ### Added
 
  - sixtyfps-compiler and sixtyfps-viewer can read the .60 file content from stdin by passing `-`
