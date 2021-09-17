@@ -52,15 +52,16 @@ ttf-parser = "0.12.0"
 winit = { version = "0.25", default-features = false }
 glutin = { version = "0.27", default-features = false }
 glow = { version = "0.11.0", default-features = false }
-font-kit = { version = "0.10", features = [] }
 fontdb = { version = "0.6.2", features = ["memmap"] }
+
+[target.'cfg(target_family = "windows")'.dependencies]
+font-kit = { version = "0.10", features = [] }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 # Require font-config from the system on Linux. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
 # with distros at times.
 servo-fontconfig = { version = "0.5", features = [ "force_system_lib" ] }
-# On Windows and macOS we don't need freetype (font-kit has coretext/directwrite backends)
-font-kit = { version = "0.10", features = ["loader-freetype"] }
+libc = { version = "0.2" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = { version = "0.24.0" }
