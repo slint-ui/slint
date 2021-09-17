@@ -147,8 +147,19 @@ pub(crate) fn text_size(
     font.text_size(letter_spacing, text, max_width.map(|x| x * scale_factor)) / scale_factor
 }
 
+#[derive(Copy, Clone)]
+struct LoadedFont {
+    femtovg_font_id: femtovg::FontId,
+    fontdb_face_id: fontdb::ID,
+}
+
+type ScriptCoverage = HashMap<unicode_script::Script, bool>;
+
 pub struct FontCache {
-    loaded_fonts: HashMap<FontCacheKey, femtovg::FontId>,
+    loaded_fonts: HashMap<FontCacheKey, LoadedFont>,
+    // for a given fontdb face id, this tells us what we've learned about the script
+    // coverage of the font.
+    loaded_font_coverage: HashMap<fontdb::ID, ScriptCoverage>,
     pub(crate) text_context: TextContext,
     available_fonts: fontdb::Database,
     _available_families: HashSet<SharedString>,
@@ -188,6 +199,7 @@ impl Default for FontCache {
 
         Self {
             loaded_fonts: HashMap::new(),
+            loaded_font_coverage: HashMap::new(),
             text_context: Default::default(),
             available_fonts: font_db,
             _available_families,
@@ -200,7 +212,7 @@ thread_local! {
 }
 
 impl FontCache {
-    fn load_single_font(&mut self, request: &FontRequest) -> femtovg::FontId {
+    fn load_single_font(&mut self, request: &FontRequest) -> LoadedFont {
         let text_context = self.text_context.clone();
         let cache_key = FontCacheKey {
             family: request.family.clone().unwrap_or_default(),
@@ -223,17 +235,19 @@ impl FontCache {
             ..Default::default()
         };
 
-        let face_id = self.available_fonts.query(&query).expect("font database cannot be empty");
-        let new_font_id = self
+        let fontdb_face_id =
+            self.available_fonts.query(&query).expect("font database cannot be empty");
+        let femtovg_font_id = self
             .available_fonts
-            .with_face_data(face_id, |data, _index| {
+            .with_face_data(fontdb_face_id, |data, _index| {
                 // pass index to femtovg once femtovg/femtovg/pull/21 is merged
                 text_context.add_font_mem(data).unwrap()
             })
             .expect("unable to map font from disk");
         //println!("Loaded {:#?} in {}ms.", request, now.elapsed().as_millis());
-        self.loaded_fonts.insert(cache_key, new_font_id);
-        new_font_id
+        let new_font = LoadedFont { femtovg_font_id, fontdb_face_id };
+        self.loaded_fonts.insert(cache_key, new_font);
+        new_font
     }
 
     pub fn font(
@@ -246,10 +260,40 @@ impl FontCache {
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
 
         let primary_font = self.load_single_font(&request);
+
         let fallbacks = self.font_fallbacks_for_request(&request, reference_text);
 
-        let fonts = core::iter::once(primary_font)
-            .chain(fallbacks.iter().map(|fallback_request| self.load_single_font(fallback_request)))
+        use unicode_script::UnicodeScript;
+        // map from required script to sample character
+        let mut scripts_required: HashMap<unicode_script::Script, char> =
+            reference_text.chars().map(|c| (c.script(), c)).collect();
+
+        self.check_and_update_script_coverage(&mut scripts_required, primary_font.fontdb_face_id);
+        //eprintln!(
+        //    "coverage for {} after checking primary font: {:#?}",
+        //    reference_text, scripts_required
+        //);
+
+        let fonts = core::iter::once(primary_font.femtovg_font_id)
+            .chain(fallbacks.iter().filter_map(|fallback_request| {
+                if scripts_required.is_empty() {
+                    return None;
+                }
+                let fallback_font = self.load_single_font(fallback_request);
+
+                let previous_coverage = scripts_required.len();
+
+                self.check_and_update_script_coverage(
+                    &mut scripts_required,
+                    fallback_font.fontdb_face_id,
+                );
+
+                if scripts_required.len() < previous_coverage {
+                    Some(fallback_font.femtovg_font_id)
+                } else {
+                    None
+                }
+            }))
             .collect::<SharedVector<_>>();
 
         Font {
@@ -273,8 +317,6 @@ impl FontCache {
             Err(_) => return vec![],
         };
 
-        let mut fallback_maximum = 0;
-
         core_text::font::cascade_list_for_languages(
             &requested_font,
             &core_foundation::array::CFArray::from_CFTypes(&[]),
@@ -287,20 +329,6 @@ impl FontCache {
             letter_spacing: _request.letter_spacing,
         })
         .filter(|request| self.is_known_family(request))
-        .filter(|fallback| {
-            // FIXME: remove this limitation and instead determine coverage based on loaded fonts
-            let family = fallback.family.as_ref().unwrap();
-            if family.starts_with(".") {
-                // font-kit asserts when loading `.Apple Fallback`
-                false
-            } else if family == "Apple Color Emoji" {
-                true
-            } else {
-                // Take only the top from the fallback list until we map the large font files
-                fallback_maximum += 1;
-                fallback_maximum <= 1
-            }
-        })
         .collect::<Vec<_>>()
     }
 
@@ -375,6 +403,30 @@ impl FontCache {
             .as_ref()
             .map(|family_name| self._available_families.contains(&family_name))
             .unwrap_or(false)
+    }
+
+    // From the set of required scripts, remove all entries that are known to be covered by
+    // the given face_id. Any yet unknown script coverage for the face_id is updated (hence
+    // mutable self).
+    fn check_and_update_script_coverage(
+        &mut self,
+        required_scripts: &mut HashMap<unicode_script::Script, char>,
+        face_id: fontdb::ID,
+    ) {
+        //eprintln!("required scripts {:#?}", required_scripts);
+        let coverage = self.loaded_font_coverage.entry(face_id).or_default();
+        self.available_fonts.with_face_data(face_id, |face_data, face_index| {
+            let face = ttf_parser::Face::from_slice(face_data, face_index).unwrap();
+
+            required_scripts.retain(|script, sample| match coverage.entry(*script) {
+                std::collections::hash_map::Entry::Occupied(entry) => !*entry.get(),
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    let glyph_coverage = face.glyph_index(*sample).is_some();
+                    entry.insert(glyph_coverage);
+                    !glyph_coverage
+                }
+            })
+        });
     }
 }
 

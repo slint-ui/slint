@@ -40,13 +40,15 @@ resvg = { version= "0.17", optional = true, default-features = false }
 usvg = { version= "0.17", optional = true, default-features = false }
 tiny-skia = { version= "0.6", optional = true, default-features = false }
 derive_more = "0.99.5"
+# Use the same version was femtovg's rustybuzz, to avoid duplicate crates
+ttf-parser = "0.12.0"
+# Use the same version was femtovg's rustybuzz, to avoid duplicate crates
+unicode-script = "0.5.3"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }
 wasm-bindgen = { version = "0.2" }
 winit = { version = "0.25", default-features = false, features = ["web-sys"] }
-# Use the same version was femtovg's rustybuzz, to avoid duplicate crates
-ttf-parser = "0.12.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 winit = { version = "0.25", default-features = false }
@@ -67,3 +69,4 @@ libc = { version = "0.2" }
 cocoa = { version = "0.24.0" }
 core-text = { version = "19.1.0" }
 core-foundation = { version = "0.9.1" }
+
