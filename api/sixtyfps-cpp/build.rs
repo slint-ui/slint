@@ -20,8 +20,12 @@ fn main() -> Result<(), anyhow::Error> {
         manifest_dir.to_string_lossy()
     ));
 
-    let output_dir = std::env::var_os("SIXTYFPS_GENERATED_INCLUDE_DIR")
-        .unwrap_or_else(|| Path::new(&manifest_dir).join("generated_include").into());
+    let output_dir = std::env::var_os("SIXTYFPS_GENERATED_INCLUDE_DIR").unwrap_or_else(|| {
+        Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("generated_include").into()
+    });
+    let output_dir = Path::new(&output_dir);
 
-    cbindgen::gen_all(&root_dir, &Path::new(&output_dir))
+    println!("cargo:GENERATED_INCLUDE_DIR={}", output_dir.display());
+
+    cbindgen::gen_all(&root_dir, &output_dir)
 }

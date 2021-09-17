@@ -10,9 +10,11 @@ license = "GPL-3.0-only"
 path = "main.rs"
 name = "test-driver-cpp"
 
+[dependencies]
+sixtyfps-cpp = { path = "../../../api/sixtyfps-cpp", features = ["testing"] }
+
 [dev-dependencies]
 sixtyfps-compilerlib = { path = "../../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
-sixtyfps-cpp = { path = "../../../api/sixtyfps-cpp", features = ["testing"] }
 cc = "1.0.54"
 tempfile = "3"
 scopeguard = "1.1.0"
