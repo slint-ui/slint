@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// The root dir of the git repository
 fn root_dir() -> PathBuf {
@@ -34,13 +34,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("cargo:rustc-env=CPP_LIB_PATH={}", target_dir.display());
 
+    let generated_include_dir = std::env::var_os("DEP_SIXTYFPS_CPP_GENERATED_INCLUDE_DIR")
+        .expect("the sixtyfps-cpp crate needs to provide the meta-data that points to the directory with the generated includes");
+    println!(
+        "cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}",
+        Path::new(&generated_include_dir).display()
+    );
     let root_dir = root_dir();
     println!(
         "cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/sixtyfps-cpp/include",
-        root_dir.display()
-    );
-    println!(
-        "cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}/api/sixtyfps-cpp/generated_include",
         root_dir.display()
     );
 

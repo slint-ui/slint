@@ -9,6 +9,8 @@ description = "SixtyFPS C++ integration"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 publish = false
+# prefix used to convey path to generated includes to the C++ test driver
+links = "sixtyfps_cpp"
 
 [lib]
 path = "lib.rs"
