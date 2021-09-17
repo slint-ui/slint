@@ -10,7 +10,7 @@ LICENSE END */
 
 use fontconfig::fontconfig;
 
-pub fn find_family(requested_family: &str) -> String {
+pub fn find_families(requested_family: &str) -> Vec<String> {
     unsafe {
         let config = fontconfig::FcInitLoadConfigAndFonts();
         let family_cstr = std::ffi::CString::new(requested_family).unwrap();
@@ -21,28 +21,35 @@ pub fn find_family(requested_family: &str) -> String {
         let result_set =
             fontconfig::FcFontSort(config, pattern, 1, std::ptr::null_mut(), &mut sort_result);
 
-        let mut raw_family_name = std::ptr::null_mut();
-        if fontconfig::FcPatternGetString(
-            *(*result_set).fonts,
-            b"family\0".as_ptr() as *const libc::c_char,
-            0,
-            &mut raw_family_name,
-        ) != fontconfig::FcResultMatch
-        {
-            panic!("FcPatternGetString for family failed. is font-config not configured?")
+        let mut families = Vec::new();
+        for idx in 0..(*result_set).nfont {
+            let mut raw_family_name = std::ptr::null_mut();
+            if fontconfig::FcPatternGetString(
+                *(*result_set).fonts.offset(idx as isize),
+                b"family\0".as_ptr() as *const libc::c_char,
+                0,
+                &mut raw_family_name,
+            ) != fontconfig::FcResultMatch
+            {
+                continue;
+            }
+
+            if raw_family_name.is_null() {
+                continue;
+            }
+            if let Some(family_name) =
+                std::ffi::CStr::from_ptr(raw_family_name as *const libc::c_char)
+                    .to_str()
+                    .ok()
+                    .map(|raw_family_name| raw_family_name.to_owned())
+            {
+                families.push(family_name)
+            }
         }
 
-        let family_name = if !raw_family_name.is_null() {
-            std::ffi::CStr::from_ptr(raw_family_name as *const libc::c_char)
-                .to_str()
-                .ok()
-                .map(|raw_family_name| raw_family_name.to_owned())
-        } else {
-            None
-        };
         fontconfig::FcFontSetDestroy(result_set);
         fontconfig::FcPatternDestroy(pattern);
         fontconfig::FcConfigDestroy(config);
-        family_name.expect("FcPatternGetString return an invalid string")
+        families
     }
 }

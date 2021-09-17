@@ -164,11 +164,26 @@ pub struct FontCache {
     pub(crate) text_context: TextContext,
     available_fonts: fontdb::Database,
     _available_families: HashSet<SharedString>,
+    #[cfg(not(any(
+        target_family = "windows",
+        target_os = "macos",
+        target_os = "ios",
+        target_arch = "wasm32"
+    )))]
+    fontconfig_fallback_families: Vec<String>,
 }
 
 impl Default for FontCache {
     fn default() -> Self {
         let mut font_db = fontdb::Database::new();
+
+        #[cfg(not(any(
+            target_family = "windows",
+            target_os = "macos",
+            target_os = "ios",
+            target_arch = "wasm32"
+        )))]
+        let mut fontconfig_fallback_families;
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -192,7 +207,10 @@ impl Default for FontCache {
                 target_os = "ios",
                 target_arch = "wasm32"
             )))]
-            let default_sans_serif_family = fontconfig::find_family("sans-serif");
+            let default_sans_serif_family = {
+                fontconfig_fallback_families = fontconfig::find_families("sans-serif");
+                fontconfig_fallback_families.remove(0)
+            };
             font_db.set_sans_serif_family(default_sans_serif_family);
         }
         let _available_families =
@@ -204,6 +222,13 @@ impl Default for FontCache {
             text_context: Default::default(),
             available_fonts: font_db,
             _available_families,
+            #[cfg(not(any(
+                target_family = "windows",
+                target_os = "macos",
+                target_os = "ios",
+                target_arch = "wasm32"
+            )))]
+            fontconfig_fallback_families,
         }
     }
 }
@@ -370,28 +395,36 @@ impl FontCache {
             .collect()
     }
 
-    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "windows"), not(target_arch = "wasm32")))]
     fn font_fallbacks_for_request(
         &self,
         _request: &FontRequest,
         _reference_text: &str,
     ) -> Vec<FontRequest> {
-        [
-            #[cfg(target_arch = "wasm32")]
-            FontRequest {
-                family: Some("DejaVu Sans".into()),
+        self.fontconfig_fallback_families
+            .iter()
+            .map(|family_name| FontRequest {
+                family: Some(family_name.into()),
                 weight: _request.weight,
                 pixel_size: _request.pixel_size,
                 letter_spacing: _request.letter_spacing,
-            },
-            #[cfg(not(target_arch = "wasm32"))]
-            FontRequest {
-                family: Some("Noto Color Emoji".into()),
-                weight: _request.weight,
-                pixel_size: _request.pixel_size,
-                letter_spacing: _request.letter_spacing,
-            },
-        ]
+            })
+            .filter(|request| self.is_known_family(request))
+            .collect()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn font_fallbacks_for_request(
+        &self,
+        _request: &FontRequest,
+        _reference_text: &str,
+    ) -> Vec<FontRequest> {
+        [FontRequest {
+            family: Some("DejaVu Sans".into()),
+            weight: _request.weight,
+            pixel_size: _request.pixel_size,
+            letter_spacing: _request.letter_spacing,
+        }]
         .iter()
         .filter(|request| self.is_known_family(request))
         .cloned()
