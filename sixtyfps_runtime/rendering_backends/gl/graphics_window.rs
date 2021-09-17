@@ -25,6 +25,7 @@ use corelib::layout::Orientation;
 use corelib::slice::Slice;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
+use corelib::SharedString;
 use sixtyfps_corelib as corelib;
 use winit::dpi::LogicalSize;
 
@@ -507,7 +508,7 @@ impl PlatformWindow for GraphicsWindow {
         &self,
         item_graphics_cache: &corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> corelib::graphics::FontRequest,
-        text: &str,
+        text_getter: &dyn Fn() -> SharedString,
         max_width: Option<f32>,
     ) -> Size {
         let font_request_fn =
@@ -518,7 +519,7 @@ impl PlatformWindow for GraphicsWindow {
             item_graphics_cache,
             font_request_fn,
             self.self_weak.upgrade().unwrap().scale_factor_property(),
-            text,
+            text_getter,
             max_width,
         )
     }

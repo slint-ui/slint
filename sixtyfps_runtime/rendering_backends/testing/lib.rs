@@ -21,7 +21,7 @@ use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{Image, Point, Size};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{PlatformWindow, Window};
-use sixtyfps_corelib::ImageInner;
+use sixtyfps_corelib::{ImageInner, SharedString};
 use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -139,10 +139,10 @@ impl PlatformWindow for TestingWindow {
         &self,
         _item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         _unresolved_font_request_getter: &dyn Fn() -> sixtyfps_corelib::graphics::FontRequest,
-        text: &str,
+        text_getter: &dyn Fn() -> SharedString,
         _max_width: Option<f32>,
     ) -> Size {
-        Size::new(text.len() as f32 * 10., 10.)
+        Size::new(text_getter().len() as f32 * 10., 10.)
     }
 
     fn text_input_byte_offset_for_position(

@@ -123,7 +123,7 @@ impl Item for Text {
             window.text_size(
                 &self.cached_rendering_data,
                 &|| self.unresolved_font_request(),
-                self.text().as_str(),
+                &|| Self::FIELD_OFFSETS.text.apply_pin(self).get(),
                 max_width,
             )
         };
@@ -140,7 +140,7 @@ impl Item for Text {
                             .text_size(
                                 &self.cached_rendering_data,
                                 &|| self.unresolved_font_request(),
-                                "…",
+                                &|| "…".into(),
                                 None,
                             )
                             .width,
@@ -277,11 +277,17 @@ impl Item for TextInput {
 
     fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let implicit_size = |max_width| {
-            let text = self.text();
             window.text_size(
                 &self.cached_rendering_data,
                 &|| self.unresolved_font_request(),
-                if text.is_empty() { "*" } else { text.as_str() },
+                &|| {
+                    let text = self.text();
+                    if text.is_empty() {
+                        "*".into()
+                    } else {
+                        text
+                    }
+                },
                 max_width,
             )
         };

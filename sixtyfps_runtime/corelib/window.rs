@@ -59,7 +59,7 @@ pub trait PlatformWindow {
         &self,
         item_graphics_cache: &crate::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> crate::graphics::FontRequest,
-        text: &str,
+        text_getter: &dyn Fn() -> crate::SharedString,
         max_width: Option<f32>,
     ) -> Size;
 

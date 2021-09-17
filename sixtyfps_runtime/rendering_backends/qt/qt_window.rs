@@ -1321,11 +1321,11 @@ impl PlatformWindow for QtWindow {
         &self,
         item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
         unresolved_font_request_getter: &dyn Fn() -> sixtyfps_corelib::graphics::FontRequest,
-        text: &str,
+        text_getter: &dyn Fn() -> SharedString,
         max_width: Option<f32>,
     ) -> Size {
         get_font(unresolved_font_request_getter().merge(&self.default_font_properties()))
-            .text_size(text, max_width)
+            .text_size(&text_getter(), max_width)
     }
 
     fn text_input_byte_offset_for_position(

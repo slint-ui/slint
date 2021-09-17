@@ -126,7 +126,7 @@ pub(crate) fn text_size(
     item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
     font_request_fn: impl Fn() -> sixtyfps_corelib::graphics::FontRequest,
     scale_factor: std::pin::Pin<&sixtyfps_corelib::Property<f32>>,
-    text: &str,
+    text_getter: &dyn Fn() -> SharedString,
     max_width: Option<f32>,
 ) -> Size {
     let cached_font = item_graphics_cache
@@ -136,7 +136,7 @@ pub(crate) fn text_size(
                     font_request_fn(),
                     scale_factor.get(),
                     // FIXME: there is no dependency to the text property
-                    text,
+                    &text_getter(),
                 )
             })))
         })
@@ -144,7 +144,8 @@ pub(crate) fn text_size(
     let font = cached_font.as_font();
     let letter_spacing = font_request_fn().letter_spacing.unwrap_or_default();
     let scale_factor = scale_factor.get();
-    font.text_size(letter_spacing, text, max_width.map(|x| x * scale_factor)) / scale_factor
+    font.text_size(letter_spacing, &text_getter(), max_width.map(|x| x * scale_factor))
+        / scale_factor
 }
 
 #[derive(Copy, Clone)]
