@@ -57,9 +57,8 @@ pub trait PlatformWindow {
     /// When set, `max_width` means that one need to wrap the text so it does not go further than that
     fn text_size(
         &self,
-        item_graphics_cache: &crate::item_rendering::CachedRenderingData,
-        unresolved_font_request_getter: &dyn Fn() -> crate::graphics::FontRequest,
-        text_getter: &dyn Fn() -> crate::SharedString,
+        font_request: crate::graphics::FontRequest,
+        text: &str,
         max_width: Option<f32>,
     ) -> Size;
 

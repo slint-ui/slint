@@ -53,8 +53,6 @@ enum ItemGraphicsCacheEntry {
         _original_image: Rc<CachedImage>,
         colorized_image: Rc<CachedImage>,
     },
-    // The font selection is expensive because it is also based on the concrete rendered text, so this is cached here to speed up re-paints
-    Font(fonts::Font),
 }
 
 impl ItemGraphicsCacheEntry {
@@ -62,17 +60,10 @@ impl ItemGraphicsCacheEntry {
         match self {
             ItemGraphicsCacheEntry::Image(image) => image,
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
-            _ => panic!("internal error. image requested for non-image gpu data"),
         }
     }
     fn is_colorized_image(&self) -> bool {
         matches!(self, ItemGraphicsCacheEntry::ColorizedImage { .. })
-    }
-    fn as_font(&self) -> &fonts::Font {
-        match self {
-            ItemGraphicsCacheEntry::Font(font) => font,
-            _ => panic!("internal error. font requested for non-font gpu data"),
-        }
     }
 }
 
@@ -453,21 +444,14 @@ impl ItemRenderer for GLItemRenderer {
 
         let string = text.text();
         let string = string.as_str();
-        let font = text
-            .cached_rendering_data
-            .get_or_update(&self.graphics_window.graphics_cache, || {
-                Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
-                    cache.borrow_mut().font(
-                        text.unresolved_font_request()
-                            .merge(&self.graphics_window.default_font_properties()),
-                        self.scale_factor,
-                        &text.text(),
-                    )
-                })))
-            })
-            .unwrap()
-            .as_font()
-            .clone();
+        let font = fonts::FONT_CACHE.with(|cache| {
+            cache.borrow_mut().font(
+                text.unresolved_font_request()
+                    .merge(&self.graphics_window.default_font_properties()),
+                self.scale_factor,
+                &text.text(),
+            )
+        });
 
         let paint = match self
             .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
@@ -499,22 +483,15 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let font = text_input
-            .cached_rendering_data
-            .get_or_update(&self.graphics_window.graphics_cache, || {
-                Some(ItemGraphicsCacheEntry::Font(fonts::FONT_CACHE.with(|cache| {
-                    cache.borrow_mut().font(
-                        text_input
-                            .unresolved_font_request()
-                            .merge(&self.graphics_window.default_font_properties()),
-                        self.scale_factor,
-                        &text_input.text(),
-                    )
-                })))
-            })
-            .unwrap()
-            .as_font()
-            .clone();
+        let font = fonts::FONT_CACHE.with(|cache| {
+            cache.borrow_mut().font(
+                text_input
+                    .unresolved_font_request()
+                    .merge(&self.graphics_window.default_font_properties()),
+                self.scale_factor,
+                &text_input.text(),
+            )
+        });
 
         let paint = match self.brush_to_paint(
             text_input.color(),
@@ -987,7 +964,6 @@ impl ItemRenderer for GLItemRenderer {
         let image_id = match cache_entry {
             Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(self, None),
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
-            Some(ItemGraphicsCacheEntry::Font(_)) => unreachable!(),
             None => return,
         };
         let mut canvas = self.canvas.borrow_mut();

@@ -25,12 +25,10 @@ use corelib::layout::Orientation;
 use corelib::slice::Slice;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
-use corelib::SharedString;
 use sixtyfps_corelib as corelib;
 use winit::dpi::LogicalSize;
 
 use crate::CanvasRc;
-use crate::ItemGraphicsCacheEntry;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
@@ -506,20 +504,16 @@ impl PlatformWindow for GraphicsWindow {
 
     fn text_size(
         &self,
-        item_graphics_cache: &corelib::item_rendering::CachedRenderingData,
-        unresolved_font_request_getter: &dyn Fn() -> corelib::graphics::FontRequest,
-        text_getter: &dyn Fn() -> SharedString,
+        font_request: corelib::graphics::FontRequest,
+        text: &str,
         max_width: Option<f32>,
     ) -> Size {
-        let font_request_fn =
-            || unresolved_font_request_getter().merge(&self.default_font_properties());
+        let font_request = font_request.merge(&self.default_font_properties());
 
         crate::fonts::text_size(
-            &self.graphics_cache,
-            item_graphics_cache,
-            font_request_fn,
-            self.self_weak.upgrade().unwrap().scale_factor_property(),
-            text_getter,
+            &font_request,
+            self.self_weak.upgrade().unwrap().scale_factor(),
+            text,
             max_width,
         )
     }
@@ -541,20 +535,13 @@ impl PlatformWindow for GraphicsWindow {
             return 0;
         }
 
-        let font = text_input
-            .cached_rendering_data
-            .get_or_update(&self.graphics_cache, || {
-                Some(ItemGraphicsCacheEntry::Font(crate::fonts::FONT_CACHE.with(|cache| {
-                    cache.borrow_mut().font(
-                        text_input.unresolved_font_request().merge(&self.default_font_properties()),
-                        scale_factor,
-                        &text_input.text(),
-                    )
-                })))
-            })
-            .unwrap()
-            .as_font()
-            .clone();
+        let font = crate::fonts::FONT_CACHE.with(|cache| {
+            cache.borrow_mut().font(
+                text_input.unresolved_font_request().merge(&self.default_font_properties()),
+                scale_factor,
+                &text_input.text(),
+            )
+        });
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         let text_context =
@@ -603,20 +590,13 @@ impl PlatformWindow for GraphicsWindow {
             return result;
         }
 
-        let font = text_input
-            .cached_rendering_data
-            .get_or_update(&self.graphics_cache, || {
-                Some(ItemGraphicsCacheEntry::Font(crate::fonts::FONT_CACHE.with(|cache| {
-                    cache.borrow_mut().font(
-                        text_input.unresolved_font_request().merge(&self.default_font_properties()),
-                        scale_factor,
-                        &text_input.text(),
-                    )
-                })))
-            })
-            .unwrap()
-            .as_font()
-            .clone();
+        let font = crate::fonts::FONT_CACHE.with(|cache| {
+            cache.borrow_mut().font(
+                text_input.unresolved_font_request().merge(&self.default_font_properties()),
+                scale_factor,
+                &text_input.text(),
+            )
+        });
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         crate::fonts::layout_text_lines(

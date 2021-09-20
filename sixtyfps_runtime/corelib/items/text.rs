@@ -120,12 +120,7 @@ impl Item for Text {
 
     fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let implicit_size = |max_width| {
-            window.text_size(
-                &self.cached_rendering_data,
-                &|| self.unresolved_font_request(),
-                &|| Self::FIELD_OFFSETS.text.apply_pin(self).get(),
-                max_width,
-            )
+            window.text_size(self.unresolved_font_request(), self.text().as_str(), max_width)
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -135,16 +130,9 @@ impl Item for Text {
             Orientation::Horizontal => {
                 let implicit_size = implicit_size(None);
                 let min = match self.overflow() {
-                    TextOverflow::elide => implicit_size.width.min(
-                        window
-                            .text_size(
-                                &self.cached_rendering_data,
-                                &|| self.unresolved_font_request(),
-                                &|| "…".into(),
-                                None,
-                            )
-                            .width,
-                    ),
+                    TextOverflow::elide => implicit_size
+                        .width
+                        .min(window.text_size(self.unresolved_font_request(), "…", None).width),
                     TextOverflow::clip => match self.wrap() {
                         TextWrap::no_wrap => implicit_size.width,
                         TextWrap::word_wrap => 0.,
@@ -276,16 +264,15 @@ impl Item for TextInput {
     }
 
     fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
+        let text = self.text();
         let implicit_size = |max_width| {
             window.text_size(
-                &self.cached_rendering_data,
-                &|| self.unresolved_font_request(),
-                &|| {
-                    let text = self.text();
+                self.unresolved_font_request(),
+                {
                     if text.is_empty() {
-                        "*".into()
+                        "*"
                     } else {
-                        text
+                        text.as_str()
                     }
                 },
                 max_width,

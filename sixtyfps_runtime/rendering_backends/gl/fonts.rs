@@ -20,8 +20,6 @@ use sixtyfps_corelib::{SharedString, SharedVector};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
-use crate::ItemGraphicsCache;
-
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
 pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 
@@ -122,30 +120,15 @@ impl Font {
 }
 
 pub(crate) fn text_size(
-    graphics_cache: &RefCell<ItemGraphicsCache>,
-    item_graphics_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
-    font_request_fn: impl Fn() -> sixtyfps_corelib::graphics::FontRequest,
-    scale_factor: std::pin::Pin<&sixtyfps_corelib::Property<f32>>,
-    text_getter: &dyn Fn() -> SharedString,
+    font_request: &sixtyfps_corelib::graphics::FontRequest,
+    scale_factor: f32,
+    text: &str,
     max_width: Option<f32>,
 ) -> Size {
-    let cached_font = item_graphics_cache
-        .get_or_update(graphics_cache, || {
-            Some(super::ItemGraphicsCacheEntry::Font(FONT_CACHE.with(|cache| {
-                cache.borrow_mut().font(
-                    font_request_fn(),
-                    scale_factor.get(),
-                    // FIXME: there is no dependency to the text property
-                    &text_getter(),
-                )
-            })))
-        })
-        .unwrap();
-    let font = cached_font.as_font();
-    let letter_spacing = font_request_fn().letter_spacing.unwrap_or_default();
-    let scale_factor = scale_factor.get();
-    font.text_size(letter_spacing, &text_getter(), max_width.map(|x| x * scale_factor))
-        / scale_factor
+    let font =
+        FONT_CACHE.with(|cache| cache.borrow_mut().font(font_request.clone(), scale_factor, text));
+    let letter_spacing = font_request.letter_spacing.unwrap_or_default();
+    font.text_size(letter_spacing, text, max_width.map(|x| x * scale_factor)) / scale_factor
 }
 
 #[derive(Copy, Clone)]
