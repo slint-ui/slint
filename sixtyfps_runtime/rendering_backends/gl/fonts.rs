@@ -283,7 +283,7 @@ impl FontCache {
         //);
 
         let fallbacks = if !scripts_required.is_empty() {
-            self.font_fallbacks_for_request(&request, reference_text)
+            self.font_fallbacks_for_request(&request, &primary_font, reference_text)
         } else {
             Vec::new()
         };
@@ -321,6 +321,7 @@ impl FontCache {
     fn font_fallbacks_for_request(
         &self,
         _request: &FontRequest,
+        _primary_font: &LoadedFont,
         _reference_text: &str,
     ) -> Vec<FontRequest> {
         let requested_font = match core_text::font::new_from_name(
@@ -350,24 +351,37 @@ impl FontCache {
     fn font_fallbacks_for_request(
         &self,
         _request: &FontRequest,
+        _primary_font: &LoadedFont,
         _reference_text: &str,
     ) -> Vec<FontRequest> {
-        let family_name = _request
-            .family
-            .as_ref()
-            .map_or(font_kit::family_name::FamilyName::SansSerif, |family| {
-                font_kit::family_name::FamilyName::Title(family.to_string())
-            });
+        // TODO: use bindings::Windows::Win32::Graphics::DirectWrite directly.
+        let handle = self
+            .available_fonts
+            .face_source(_primary_font.fontdb_face_id)
+            .and_then(|(source, face_index)| match source.as_ref() {
+                fontdb::Source::File(path) => {
+                    font_kit::loaders::directwrite::Font::from_path(path, face_index).ok()
+                }
+                _ => None,
+            })
+            .unwrap_or_else(|| {
+                let family_name = _request
+                    .family
+                    .as_ref()
+                    .map_or(font_kit::family_name::FamilyName::SansSerif, |family| {
+                        font_kit::family_name::FamilyName::Title(family.to_string())
+                    });
 
-        let handle = font_kit::source::SystemSource::new()
-            .select_best_match(
-                &[family_name, font_kit::family_name::FamilyName::SansSerif],
-                &font_kit::properties::Properties::new()
-                    .weight(font_kit::properties::Weight(_request.weight.unwrap() as f32)),
-            )
-            .unwrap()
-            .load()
-            .unwrap();
+                font_kit::source::SystemSource::new()
+                    .select_best_match(
+                        &[family_name, font_kit::family_name::FamilyName::SansSerif],
+                        &font_kit::properties::Properties::new()
+                            .weight(font_kit::properties::Weight(_request.weight.unwrap() as f32)),
+                    )
+                    .unwrap()
+                    .load()
+                    .unwrap()
+            });
 
         handle
             .get_fallbacks(_reference_text, "")
@@ -387,6 +401,7 @@ impl FontCache {
     fn font_fallbacks_for_request(
         &self,
         _request: &FontRequest,
+        _primary_font: &LoadedFont,
         _reference_text: &str,
     ) -> Vec<FontRequest> {
         self.fontconfig_fallback_families
@@ -405,6 +420,7 @@ impl FontCache {
     fn font_fallbacks_for_request(
         &self,
         _request: &FontRequest,
+        _primary_font: &LoadedFont,
         _reference_text: &str,
     ) -> Vec<FontRequest> {
         [FontRequest {
