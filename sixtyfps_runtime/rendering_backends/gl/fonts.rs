@@ -137,13 +137,28 @@ struct LoadedFont {
     fontdb_face_id: fontdb::ID,
 }
 
-type ScriptCoverage = HashMap<unicode_script::Script, bool>;
+#[derive(Default)]
+struct GlyphCoverage {
+    // Used to express script support for all scripts except Unknown, Common and Inherited
+    // For those the detailed glyph_coverage is used instead
+    supported_scripts: HashMap<unicode_script::Script, bool>,
+    // Especially in characters mapped to the common script, the support varies. For example
+    // '✓' and the digit '1' map to Common, but not all fonts providing digits also support the
+    // check mark glyph.
+    exact_glyph_coverage: HashMap<char, bool>,
+}
+
+enum GlyphCoverageCheckResult {
+    CoverageIncomplete,
+    CoverageImproved,
+    CoverageComplete,
+}
 
 pub struct FontCache {
     loaded_fonts: HashMap<FontCacheKey, LoadedFont>,
     // for a given fontdb face id, this tells us what we've learned about the script
     // coverage of the font.
-    loaded_font_coverage: HashMap<fontdb::ID, ScriptCoverage>,
+    loaded_font_coverage: HashMap<fontdb::ID, GlyphCoverage>,
     pub(crate) text_context: TextContext,
     available_fonts: fontdb::Database,
     available_families: HashSet<SharedString>,
@@ -270,19 +285,35 @@ impl FontCache {
 
         let primary_font = self.load_single_font(&request);
 
-        use unicode_script::UnicodeScript;
+        use unicode_script::{Script, UnicodeScript};
         // map from required script to sample character
-        let mut scripts_required: HashMap<unicode_script::Script, char> =
-            reference_text.chars().map(|c| (c.script(), c)).collect();
+        let mut scripts_required: HashMap<unicode_script::Script, char> = Default::default();
+        let mut chars_required: HashSet<char> = Default::default();
+        for ch in reference_text.chars() {
+            if ch.is_control() || ch.is_whitespace() {
+                continue;
+            }
+            let script = ch.script();
+            if script == Script::Common || script == Script::Inherited || script == Script::Unknown
+            {
+                chars_required.insert(ch);
+            } else {
+                scripts_required.insert(script, ch);
+            }
+        }
 
-        self.check_and_update_script_coverage(&mut scripts_required, primary_font.fontdb_face_id);
+        let mut coverage_result = self.check_and_update_script_coverage(
+            &mut scripts_required,
+            &mut chars_required,
+            primary_font.fontdb_face_id,
+        );
 
         //eprintln!(
         //    "coverage for {} after checking primary font: {:#?}",
         //    reference_text, scripts_required
         //);
 
-        let fallbacks = if !scripts_required.is_empty() {
+        let fallbacks = if !matches!(coverage_result, GlyphCoverageCheckResult::CoverageComplete) {
             self.font_fallbacks_for_request(&request, &primary_font, reference_text)
         } else {
             Vec::new()
@@ -290,19 +321,19 @@ impl FontCache {
 
         let fonts = core::iter::once(primary_font.femtovg_font_id)
             .chain(fallbacks.iter().filter_map(|fallback_request| {
-                if scripts_required.is_empty() {
+                if matches!(coverage_result, GlyphCoverageCheckResult::CoverageComplete) {
                     return None;
                 }
+
                 let fallback_font = self.load_single_font(fallback_request);
 
-                let previous_coverage = scripts_required.len();
-
-                self.check_and_update_script_coverage(
+                coverage_result = self.check_and_update_script_coverage(
                     &mut scripts_required,
+                    &mut chars_required,
                     fallback_font.fontdb_face_id,
                 );
 
-                if scripts_required.len() < previous_coverage {
+                if matches!(coverage_result, GlyphCoverageCheckResult::CoverageImproved) {
                     Some(fallback_font.femtovg_font_id)
                 } else {
                     None
@@ -449,34 +480,73 @@ impl FontCache {
     fn check_and_update_script_coverage(
         &mut self,
         scripts_without_coverage: &mut HashMap<unicode_script::Script, char>,
+        chars_without_coverage: &mut HashSet<char>,
         face_id: fontdb::ID,
-    ) {
+    ) -> GlyphCoverageCheckResult {
         //eprintln!("required scripts {:#?}", required_scripts);
         let coverage = self.loaded_font_coverage.entry(face_id).or_default();
 
         let mut scripts_that_need_checking = Vec::new();
+        let mut chars_that_need_checking = Vec::new();
+
+        let old_uncovered_scripts_count = scripts_without_coverage.len();
+        let old_uncovered_chars_count = chars_without_coverage.len();
 
         scripts_without_coverage.retain(|script, sample| {
-            coverage.get(script).map_or_else(
+            coverage.supported_scripts.get(script).map_or_else(
                 || {
                     scripts_that_need_checking.push((*script, *sample));
-                    true
+                    true // this may or may not be supported, so keep it in scripts_without_coverage
                 },
                 |has_coverage| !has_coverage,
             )
         });
 
-        for (unchecked_script, sample_char) in scripts_that_need_checking {
+        chars_without_coverage.retain(|ch| {
+            coverage.exact_glyph_coverage.get(ch).map_or_else(
+                || {
+                    chars_that_need_checking.push(*ch);
+                    true // this may or may not be supported, so keep it in chars_without_coverage
+                },
+                |has_coverage| !has_coverage,
+            )
+        });
+
+        if !scripts_that_need_checking.is_empty() || !chars_that_need_checking.is_empty() {
             self.available_fonts.with_face_data(face_id, |face_data, face_index| {
                 let face = ttf_parser::Face::from_slice(face_data, face_index).unwrap();
 
-                let glyph_coverage = face.glyph_index(sample_char).is_some();
-                coverage.insert(unchecked_script, glyph_coverage);
+                for (unchecked_script, sample_char) in scripts_that_need_checking {
+                    let glyph_coverage = face.glyph_index(sample_char).is_some();
+                    coverage.supported_scripts.insert(unchecked_script, glyph_coverage);
 
-                if glyph_coverage {
-                    scripts_without_coverage.remove(&unchecked_script);
+                    if glyph_coverage {
+                        scripts_without_coverage.remove(&unchecked_script);
+                    }
+                }
+
+                for unchecked_char in chars_that_need_checking {
+                    let glyph_coverage = face.glyph_index(unchecked_char).is_some();
+                    coverage.exact_glyph_coverage.insert(unchecked_char, glyph_coverage);
+
+                    if glyph_coverage {
+                        chars_without_coverage.remove(&unchecked_char);
+                    }
                 }
             });
+        }
+
+        let remaining_required_script_coverage = scripts_without_coverage.len();
+        let remaining_required_char_coverage = chars_without_coverage.len();
+
+        if remaining_required_script_coverage < old_uncovered_scripts_count
+            || remaining_required_char_coverage < old_uncovered_chars_count
+        {
+            GlyphCoverageCheckResult::CoverageImproved
+        } else if scripts_without_coverage.is_empty() && chars_without_coverage.is_empty() {
+            GlyphCoverageCheckResult::CoverageComplete
+        } else {
+            GlyphCoverageCheckResult::CoverageIncomplete
         }
     }
 }
