@@ -270,18 +270,23 @@ impl FontCache {
 
         let primary_font = self.load_single_font(&request);
 
-        let fallbacks = self.font_fallbacks_for_request(&request, reference_text);
-
         use unicode_script::UnicodeScript;
         // map from required script to sample character
         let mut scripts_required: HashMap<unicode_script::Script, char> =
             reference_text.chars().map(|c| (c.script(), c)).collect();
 
         self.check_and_update_script_coverage(&mut scripts_required, primary_font.fontdb_face_id);
+
         //eprintln!(
         //    "coverage for {} after checking primary font: {:#?}",
         //    reference_text, scripts_required
         //);
+
+        let fallbacks = if !scripts_required.is_empty() {
+            self.font_fallbacks_for_request(&request, reference_text)
+        } else {
+            Vec::new()
+        };
 
         let fonts = core::iter::once(primary_font.femtovg_font_id)
             .chain(fallbacks.iter().filter_map(|fallback_request| {
