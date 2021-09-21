@@ -163,7 +163,7 @@ pub struct FontCache {
     loaded_font_coverage: HashMap<fontdb::ID, ScriptCoverage>,
     pub(crate) text_context: TextContext,
     available_fonts: fontdb::Database,
-    _available_families: HashSet<SharedString>,
+    available_families: HashSet<SharedString>,
     #[cfg(not(any(
         target_family = "windows",
         target_os = "macos",
@@ -213,7 +213,7 @@ impl Default for FontCache {
             };
             font_db.set_sans_serif_family(default_sans_serif_family);
         }
-        let _available_families =
+        let available_families =
             font_db.faces().iter().map(|face_info| face_info.family.as_str().into()).collect();
 
         Self {
@@ -221,7 +221,7 @@ impl Default for FontCache {
             loaded_font_coverage: HashMap::new(),
             text_context: Default::default(),
             available_fonts: font_db,
-            _available_families,
+            available_families,
             #[cfg(not(any(
                 target_family = "windows",
                 target_os = "macos",
@@ -435,7 +435,7 @@ impl FontCache {
         request
             .family
             .as_ref()
-            .map(|family_name| self._available_families.contains(&family_name))
+            .map(|family_name| self.available_families.contains(&family_name))
             .unwrap_or(false)
     }
 
