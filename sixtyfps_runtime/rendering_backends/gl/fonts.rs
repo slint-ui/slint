@@ -439,28 +439,41 @@ impl FontCache {
             .unwrap_or(false)
     }
 
-    // From the set of required scripts, remove all entries that are known to be covered by
+    // From the set of script without coverage, remove all entries that are known to be covered by
     // the given face_id. Any yet unknown script coverage for the face_id is updated (hence
     // mutable self).
     fn check_and_update_script_coverage(
         &mut self,
-        required_scripts: &mut HashMap<unicode_script::Script, char>,
+        scripts_without_coverage: &mut HashMap<unicode_script::Script, char>,
         face_id: fontdb::ID,
     ) {
         //eprintln!("required scripts {:#?}", required_scripts);
         let coverage = self.loaded_font_coverage.entry(face_id).or_default();
-        self.available_fonts.with_face_data(face_id, |face_data, face_index| {
-            let face = ttf_parser::Face::from_slice(face_data, face_index).unwrap();
 
-            required_scripts.retain(|script, sample| match coverage.entry(*script) {
-                std::collections::hash_map::Entry::Occupied(entry) => !*entry.get(),
-                std::collections::hash_map::Entry::Vacant(entry) => {
-                    let glyph_coverage = face.glyph_index(*sample).is_some();
-                    entry.insert(glyph_coverage);
-                    !glyph_coverage
-                }
-            })
+        let mut scripts_that_need_checking = Vec::new();
+
+        scripts_without_coverage.retain(|script, sample| {
+            coverage.get(script).map_or_else(
+                || {
+                    scripts_that_need_checking.push((*script, *sample));
+                    true
+                },
+                |has_coverage| !has_coverage,
+            )
         });
+
+        for (unchecked_script, sample_char) in scripts_that_need_checking {
+            self.available_fonts.with_face_data(face_id, |face_data, face_index| {
+                let face = ttf_parser::Face::from_slice(face_data, face_index).unwrap();
+
+                let glyph_coverage = face.glyph_index(sample_char).is_some();
+                coverage.insert(unchecked_script, glyph_coverage);
+
+                if glyph_coverage {
+                    scripts_without_coverage.remove(&unchecked_script);
+                }
+            });
+        }
     }
 }
 
