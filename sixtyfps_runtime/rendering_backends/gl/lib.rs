@@ -1364,7 +1364,26 @@ pub mod native_widgets {}
 pub const HAS_NATIVE_STYLE: bool = false;
 pub const IS_AVAILABLE: bool = true;
 
-thread_local!(pub(crate) static CLIPBOARD : RefCell<copypasta::ClipboardContext> = std::cell::RefCell::new(copypasta::ClipboardContext::new().unwrap()));
+// TODO: We can't connect to the wayland clipboard yet because
+// it requires an external connection.
+cfg_if::cfg_if! {
+    if #[cfg(all(
+             unix,
+             not(any(
+                 target_os = "macos",
+                 target_os = "android",
+                 target_os = "ios",
+                 target_os = "emscripten"
+            )),
+            not(feature = "x11")
+        ))] {
+        type ClipboardBackend = copypasta::nop_clipboard::NopClipboardContext;
+    } else {
+        type ClipboardBackend = copypasta::ClipboardContext;
+    }
+}
+
+thread_local!(pub(crate) static CLIPBOARD : RefCell<ClipboardBackend> = std::cell::RefCell::new(ClipboardBackend::new().unwrap()));
 
 thread_local!(pub(crate) static IMAGE_CACHE: RefCell<images::ImageCache> = Default::default());
 
