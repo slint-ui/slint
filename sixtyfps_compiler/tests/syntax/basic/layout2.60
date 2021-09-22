@@ -28,6 +28,9 @@ X := Rectangle {
 //                      ^error{'rowspan' must be a positive integer}
                 y: 0;
 //                ^error{The property 'y' cannot be set for elements placed in a layout, because the layout is already setting it}
+
+                animate x { duration: 100ms; }
+//                      ^error{The property 'x' cannot be set for elements placed in a layout, because the layout is already setting it}                
             }
         }
         Row {

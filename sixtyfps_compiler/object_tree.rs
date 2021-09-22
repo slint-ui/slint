@@ -857,6 +857,7 @@ impl Element {
                                 r.bindings.entry(resolved_name.to_string()).or_insert_with(|| {
                                     let mut r = BindingExpression::from(Expression::Invalid);
                                     r.priority = 1;
+                                    r.span = Some(prop_name_token.to_source_location());
                                     r
                                 });
                             if expr_binding
