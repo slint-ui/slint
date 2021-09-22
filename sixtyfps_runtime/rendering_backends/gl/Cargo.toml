@@ -17,7 +17,7 @@ path = "lib.rs"
 x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
 svg = ["resvg", "usvg", "tiny-skia"]
-default = ["x11", "svg"]
+default = ["svg"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.2", path = "../../corelib" }

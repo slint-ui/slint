@@ -18,7 +18,7 @@ x11 = ["sixtyfps-rendering-backend-default/x11"]
 wayland = ["sixtyfps-rendering-backend-default/wayland"]
 backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl"]
 backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt"]
-default = ["backend-gl", "backend-qt"]
+default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.2", path = "../corelib", features = ["rtti"] }
