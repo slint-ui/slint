@@ -54,7 +54,7 @@ thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInsta
 fn main() -> Result<()> {
     let args = Cli::from_args();
 
-    if args.auto_reload && (args.save_data.is_some()) {
+    if args.auto_reload && args.save_data.is_some() {
         eprintln!("Cannot pass both --auto-reload and --save-data");
         std::process::exit(-1);
     }
