@@ -102,13 +102,13 @@ pub async fn run_passes(
     default_geometry::default_geometry(root_component, diag);
     visible::handle_visible(root_component, &global_type_registry.borrow());
     materialize_fake_properties::materialize_fake_properties(root_component);
+    ensure_window::ensure_window(root_component, &doc.local_registry);
     apply_default_properties_from_style::apply_default_properties_from_style(
         root_component,
         &mut type_loader,
         diag,
     )
     .await;
-    ensure_window::ensure_window(root_component, &doc.local_registry);
     collect_globals::collect_globals(doc, diag);
     unique_id::assign_unique_id(root_component);
     binding_analysis::binding_analysis(root_component, diag);
