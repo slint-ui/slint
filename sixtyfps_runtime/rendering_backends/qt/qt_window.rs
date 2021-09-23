@@ -553,8 +553,11 @@ impl ItemRenderer for QtItemRenderer<'_> {
             0
         };
 
-        let text_cursor_width: f32 =
-            if text_input.cursor_visible() { text_input.text_cursor_width() } else { 0. };
+        let text_cursor_width: f32 = if text_input.cursor_visible() && text_input.enabled() {
+            text_input.text_cursor_width()
+        } else {
+            0.
+        };
 
         let single_line: bool = text_input.single_line();
 

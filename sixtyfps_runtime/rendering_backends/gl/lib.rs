@@ -503,7 +503,7 @@ impl ItemRenderer for GLItemRenderer {
 
         let (min_select, max_select) = text_input.selection_anchor_and_cursor();
         let cursor_pos = text_input.cursor_position();
-        let cursor_visible = cursor_pos >= 0 && text_input.cursor_visible();
+        let cursor_visible = cursor_pos >= 0 && text_input.cursor_visible() && text_input.enabled();
         let mut canvas = self.canvas.borrow_mut();
         let font_height = canvas.measure_font(paint).unwrap().height();
         let text = text_input.text();
