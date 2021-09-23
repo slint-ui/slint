@@ -713,6 +713,19 @@ pub fn store_property(
     let component = element.borrow().enclosing_component.upgrade().unwrap();
     if element.borrow().id == component.root_element.borrow().id {
         if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
+            if let Some(orig_decl) = enclosing_component
+                .component_type
+                .original
+                .root_element
+                .borrow()
+                .property_declarations
+                .get(name)
+            {
+                // Do an extra type checking because PropertyInfo::set won't do it for custom structures or array
+                if !check_value_type(&value, &orig_decl.property_type) {
+                    return Err(SetPropertyError::WrongType);
+                }
+            }
             unsafe {
                 let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
                 return x
@@ -727,8 +740,52 @@ pub fn store_property(
     let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
     let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
     let p = &item_info.rtti.properties.get(name).ok_or(SetPropertyError::NoSuchProperty)?;
-    p.set(item, value, maybe_animation.as_animation()).unwrap();
+    p.set(item, value, maybe_animation.as_animation()).map_err(|()| SetPropertyError::WrongType)?;
     Ok(())
+}
+
+fn check_value_type(value: &Value, ty: &Type) -> bool {
+    match ty {
+        Type::Void => true,
+        Type::Invalid
+        | Type::InferredProperty
+        | Type::InferredCallback
+        | Type::Component(_)
+        | Type::Builtin(_)
+        | Type::Native(_)
+        | Type::Callback { .. }
+        | Type::Function { .. }
+        | Type::ElementReference => panic!("not valid property type"),
+        Type::Float32 => matches!(value, Value::Number(_)),
+        Type::Int32 => matches!(value, Value::Number(_)),
+        Type::String => matches!(value, Value::String(_)),
+        Type::Color => matches!(value, Value::Brush(_)),
+        Type::UnitProduct(_)
+        | Type::Duration
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Angle
+        | Type::Percent => matches!(value, Value::Number(_)),
+        Type::Image => matches!(value, Value::Image(_)),
+        Type::Bool => matches!(value, Value::Bool(_)),
+        Type::Model => {
+            matches!(value, Value::Model(_) | Value::Bool(_) | Value::Number(_) | Value::Array(_))
+        }
+        Type::PathElements => matches!(value, Value::PathElements(_)),
+        Type::Easing => matches!(value, Value::EasingCurve(_)),
+        Type::Brush => matches!(value, Value::Brush(_)),
+        Type::Array(inner) => {
+            matches!(value, Value::Model(_))
+                || matches!(value, Value::Array(vec) if vec.iter().all(|x| check_value_type(x, inner)))
+        }
+        Type::Struct { fields, .. } => {
+            matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| fields.get(k).map_or(false, |ty| check_value_type(v, ty))))
+        }
+        Type::Enumeration(en) => {
+            matches!(value, Value::EnumerationValue(name, _) if name == en.name.as_str())
+        }
+        Type::LayoutCache => matches!(value, Value::LayoutCache(_)),
+    }
 }
 
 pub(crate) fn invoke_callback(
