@@ -1295,6 +1295,54 @@ fn globals() {
     );
 }
 
+#[test]
+fn component_definition_struct_properties() {
+    let mut compiler = ComponentCompiler::default();
+    let comp_def = spin_on::spin_on(
+        compiler.build_from_source(
+            r#"
+    export struct Settings := {
+        string_value: string,
+    }
+    export Dummy := Rectangle {
+        property <Settings> test;
+    }"#
+            .into(),
+            "".into(),
+        ),
+    )
+    .unwrap();
+
+    let props = comp_def.properties().collect::<Vec<(_, _)>>();
+
+    assert_eq!(props.len(), 1);
+    assert_eq!(props[0].0, "test");
+    assert_eq!(props[0].1, ValueType::Struct);
+
+    let instance = comp_def.create();
+
+    let valid_struct: Struct =
+        [("string_value".to_string(), Value::String("hello".into()))].iter().cloned().collect();
+
+    assert_eq!(instance.set_property("test", Value::Struct(valid_struct.clone())), Ok(()));
+    assert_eq!(instance.get_property("test").unwrap().value_type(), ValueType::Struct);
+
+    assert_eq!(instance.set_property("test", Value::Number(42.)), Err(SetPropertyError::WrongType));
+
+    let mut invalid_struct = valid_struct.clone();
+    invalid_struct.set_field("other".into(), Value::Number(44.));
+    assert_eq!(
+        instance.set_property("test", Value::Struct(invalid_struct)),
+        Err(SetPropertyError::WrongType)
+    );
+    let mut invalid_struct = valid_struct.clone();
+    invalid_struct.set_field("string_value".into(), Value::Number(44.));
+    assert_eq!(
+        instance.set_property("test", Value::Struct(invalid_struct)),
+        Err(SetPropertyError::WrongType)
+    );
+}
+
 #[cfg(feature = "ffi")]
 #[allow(missing_docs)]
 #[path = "ffi.rs"]
