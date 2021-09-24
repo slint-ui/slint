@@ -38,6 +38,7 @@ pub enum BuiltinFunction {
     ATan,
     SetFocusItem,
     ShowPopupWindow,
+    CloseWindow,
     /// the "42".to_float()
     StringToFloat,
     /// the "42".is_float()
@@ -94,6 +95,10 @@ impl BuiltinFunction {
             BuiltinFunction::ShowPopupWindow => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
+            },
+            BuiltinFunction::CloseWindow => Type::Function {
+                return_type: Box::new(Type::Void),
+                args: vec![Type::ElementReference, Type::Int32],
             },
             BuiltinFunction::StringToFloat => {
                 Type::Function { return_type: Box::new(Type::Float32), args: vec![Type::String] }
@@ -158,6 +163,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan => true,
             BuiltinFunction::SetFocusItem => false,
             BuiltinFunction::ShowPopupWindow => false,
+            BuiltinFunction::CloseWindow => false,
             BuiltinFunction::StringToFloat | BuiltinFunction::StringIsFloat => true,
             BuiltinFunction::ColorBrighter | BuiltinFunction::ColorDarker => true,
             // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and

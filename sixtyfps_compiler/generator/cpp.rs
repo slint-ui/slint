@@ -1550,11 +1550,8 @@ fn compile_expression(
             BuiltinFunction::ASin => format!("[](float a){{ return std::asin(a) / {}; }}", std::f32::consts::PI / 180.),
             BuiltinFunction::ACos => format!("[](float a){{ return std::acos(a) / {}; }}", std::f32::consts::PI / 180.),
             BuiltinFunction::ATan => format!("[](float a){{ return std::atan(a) / {}; }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::SetFocusItem => {
-                "self->m_window.window_handle().set_focus_item".into()
-            }
-            BuiltinFunction::ShowPopupWindow => {
-                "self->m_window.window_handle().show_popup".into()
+            BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::CloseWindow => {
+                panic!("handle in the call expression")
             }
 
            /*  std::from_chars is unfortunately not yet implemented in gcc
@@ -1698,7 +1695,7 @@ fn compile_expression(
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow, _) => {
                 if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to SetFocusItem call");
+                    panic!("internal error: incorrect argument count to ShowPopupWindow call");
                 }
                 if let Expression::ElementReference(popup_window) = &arguments[0] {
                     let popup_window = popup_window.upgrade().unwrap();
@@ -1713,6 +1710,12 @@ fn compile_expression(
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::CloseWindow, _) => {
+                if arguments.len() != 2 {
+                    panic!("internal error: incorrect argument count to CloseWindow call");
+                }
+                format!("sixtyfps::quit_event_loop({})", compile_expression(&arguments[1], component))
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo(orientation), _) => {
                 if arguments.len() != 1 {

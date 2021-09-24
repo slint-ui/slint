@@ -30,9 +30,9 @@ pub unsafe extern "C" fn sixtyfps_windowrc_init(out: *mut WindowRcOpaque) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_run_event_loop() {
+pub unsafe extern "C" fn sixtyfps_run_event_loop() -> i32 {
     crate::backend()
-        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed)
 }
 
 /// Will execute the given functor in the main thread
@@ -63,8 +63,8 @@ pub unsafe extern "C" fn sixtyfps_post_event(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_quit_event_loop() {
-    crate::backend().quit_event_loop();
+pub unsafe extern "C" fn sixtyfps_quit_event_loop(exit_code: i32) {
+    crate::backend().quit_event_loop(exit_code);
 }
 
 #[no_mangle]

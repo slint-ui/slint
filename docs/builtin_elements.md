@@ -53,6 +53,11 @@ or smaller. The initial width can be controlled with the `preferred-width` prope
 * **`default-font-weight`** (*int*): The font weight to use as default in text elements inside this window, that don't
   have their weight set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 
+### Methods
+
+* **`close(int)`** Call this function to close the window and exit the application with that error code.
+
+
 ## `Rectangle`
 
 By default, the rectangle is just an empty item that shows nothing. By setting a color or a border

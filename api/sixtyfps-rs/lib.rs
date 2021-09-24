@@ -387,6 +387,11 @@ pub mod internal {
             handler(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap(), arg)
         })
     }
+
+    // fixme: merge with sixtyfps::quit_event_loop
+    pub fn quit_event_loop_with_error_code(error_code: i32) {
+        sixtyfps_rendering_backend_default::backend().quit_event_loop(error_code);
+    }
 }
 
 /// Creates a new window to render components in.
@@ -398,9 +403,9 @@ pub fn create_window() -> re_exports::WindowRc {
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
-pub fn run_event_loop() {
+pub fn run_event_loop() -> i32 {
     sixtyfps_rendering_backend_default::backend()
-        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed)
 }
 
 /// Schedules the main event loop for termination. This function is meant
@@ -408,7 +413,7 @@ pub fn run_event_loop() {
 /// it will return immediately and once control is passed back to the event loop,
 /// the initial call to [`run_event_loop()`] will return.
 pub fn quit_event_loop() {
-    sixtyfps_rendering_backend_default::backend().quit_event_loop();
+    sixtyfps_rendering_backend_default::backend().quit_event_loop(0);
 }
 
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
