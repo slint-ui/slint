@@ -389,13 +389,18 @@ Example := Rectangle {
 
 If something changes `my-property`, the width will be updated automatically.
 
-Arithmetic in expression works like in most programming language with the operators `*`, `+`, `-`, `/`:
+Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
 ```60
 Example := Rectangle {
     property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
 ```
+
+`+` can also be applied with strings to mean concatenation.
+
+There are also the operators `&&` and `||` for logical *and* and *or* between booleans. Comparisons of values of the same types can be done with
+`==`, `!=`, `>`, `<`, `=>` and `<=`.
 
 You can access properties by addressing the associated element, followed by a `.` and the property name:
 
