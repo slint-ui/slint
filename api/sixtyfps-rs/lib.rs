@@ -150,6 +150,7 @@ The follow table summarizes the entire mapping:
 | --- | --- | --- |
 | `int` | `i32` | |
 | `float` | `f32` | |
+| `bool` | `bool` | |
 | `string` | [`SharedString`] | A reference-counted string type that can be easily converted to a str reference. |
 | `color` | [`Color`] | |
 | `brush` | [`Brush`] | |

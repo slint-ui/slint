@@ -7,6 +7,7 @@ The follow table summarizes the entire mapping:
 | --- | --- | --- |
 | `int` | `int` | |
 | `float` | `float` | |
+| `bool` | `bool` | |
 | `string` | [`sixtyfps::SharedString`](../api/structsixtyfps_1_1_shared_string.html) | A reference-counted string type that uses UTF-8 encoding and can be easily converted to a std::string_view or a const char *. |
 | `color` | [`sixtyfps::Color`](../api/classsixtyfps_1_1_color.html) | |
 | `brush` | [`sixtyfps::Brush`](../api/classsixtyfps_1_1_brush.html) | |

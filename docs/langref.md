@@ -192,6 +192,7 @@ All properties in elements have a type. The following types are supported:
 | --- | --- |
 | `int` | Signed integral number. |
 | `float` | Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`. |
+| `bool` | boolean whose value can be either `true` or `false`. |
 | `string` | UTF-8 encoded, reference counted string. |
 | `color` | RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as `#RRGGBBAA` or `#RGB`. |
 | `brush` | A brush is a special type that can be either initialized from a color or a gradient specification. See the [Colors Section](#colors) for more information. |
