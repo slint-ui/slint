@@ -306,6 +306,16 @@ impl Image {
     }
 
     /// Returns the path of the image on disk, if it was constructed via [`Self::load_from_path`].
+    ///
+    /// For example:
+    /// ```
+    /// # use std::path::Path;
+    /// # use sixtyfps_corelib::graphics::*;
+    /// let path_buf = Path::new(env!("CARGO_MANIFEST_DIR"))
+    ///     .join("../../examples/printerdemo/ui/images/cat_preview_round.png");
+    /// let image = Image::load_from_path(&path_buf).unwrap();
+    /// assert_eq!(image.path(), Some(path_buf.as_path()));
+    /// ```
     pub fn path(&self) -> Option<&std::path::Path> {
         match &self.0 {
             ImageInner::AbsoluteFilePath(path) => Some(std::path::Path::new(path.as_str())),
