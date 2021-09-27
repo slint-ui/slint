@@ -86,12 +86,20 @@ TEST_CASE("Image")
         REQUIRE(size.width == 0.);
         REQUIRE(size.height == 0.);
     }
+    {
+        REQUIRE(!img.path().has_value());
+    }
 
     img = Image::load_from_path(SOURCE_DIR "/../../vscode_extension/extension-logo.png");
     {
         auto size = img.size();
         REQUIRE(size.width == 128.);
         REQUIRE(size.height == 128.);
+    }
+    {
+        auto actual_path = img.path();
+        REQUIRE(actual_path.has_value());
+        REQUIRE(*actual_path == SOURCE_DIR "/../../vscode_extension/extension-logo.png");
     }
 }
 

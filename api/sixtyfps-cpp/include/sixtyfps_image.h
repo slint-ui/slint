@@ -54,6 +54,16 @@ public:
     /// Returns the size of the Image in pixels.
     Size size() const { return cbindgen_private::types::sixtyfps_image_size(&data); }
 
+    /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
+    std::optional<sixtyfps::SharedString> path() const
+    {
+        if (auto *str = cbindgen_private::types::sixtyfps_image_path(&data)) {
+            return *str;
+        } else {
+            return {};
+        }
+    }
+
     /// Returns true if \a a refers to the same image as \a b; false otherwise.
     friend bool operator==(const Image &a, const Image &b) { return a.data == b.data; }
     /// Returns false if \a a refers to the same image as \a b; true otherwise.
