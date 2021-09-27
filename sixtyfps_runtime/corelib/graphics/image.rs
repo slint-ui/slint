@@ -304,6 +304,14 @@ impl Image {
             ImageInner::EmbeddedImage(buffer) => [buffer.width() as _, buffer.height() as _].into(),
         }
     }
+
+    /// Returns the path of the image on disk, if it was constructed via [`Self::load_from_path`].
+    pub fn path(&self) -> Option<&std::path::Path> {
+        match &self.0 {
+            ImageInner::AbsoluteFilePath(path) => Some(std::path::Path::new(path.as_str())),
+            _ => None,
+        }
+    }
 }
 
 #[test]
@@ -346,5 +354,13 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_image_size(image: &Image) -> Size {
         image.size()
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_image_path(image: &Image) -> Option<&SharedString> {
+        match &image.0 {
+            ImageInner::AbsoluteFilePath(path) => Some(&path),
+            _ => None,
+        }
     }
 }

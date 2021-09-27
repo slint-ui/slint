@@ -147,6 +147,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "sixtyfps_color_brighter",
         "sixtyfps_color_darker",
         "sixtyfps_image_size",
+        "sixtyfps_image_path",
     ]
     .iter()
     .map(|x| x.to_string())
@@ -205,6 +206,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
                 "Image",
                 "Size",
                 "sixtyfps_image_size",
+                "sixtyfps_image_path",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
             ],
@@ -253,6 +255,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
             "sixtyfps_color_brighter",
             "sixtyfps_color_darker",
             "sixtyfps_image_size",
+            "sixtyfps_image_path",
         ]
         .iter()
         .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))
