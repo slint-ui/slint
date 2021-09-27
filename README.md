@@ -34,8 +34,8 @@ SixtyFPS is in active development. Its state of development depends on the kind 
 
 Refer to the README of each language directory in the `api` sub-folder:
 
- * [SixtyFPS-cpp](api/sixtyfps-cpp) ([Documentation](https://sixtyfps.io/docs/cpp) | [Tutorial](https://sixtyfps.io/docs/tutorial/cpp) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo))
- * [SixtyFPS-rs](api/sixtyfps-rs) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps) ([Documentation](https://sixtyfps.io/docs/rust/sixtyfps/) | [Tutorial](https://sixtyfps.io/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo))
+ * [SixtyFPS-cpp](api/sixtyfps-cpp) ([Documentation](https://sixtyfps.io/docs/cpp) | [Tutorial](https://sixtyfps.io/docs/tutorial/cpp) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/sixtyfpsui/sixtyfps-cpp-template))
+ * [SixtyFPS-rs](api/sixtyfps-rs) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps) ([Documentation](https://sixtyfps.io/docs/rust/sixtyfps/) | [Tutorial](https://sixtyfps.io/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/sixtyfpsui/sixtyfps-rust-template))
  * [SixtyFPS-node](api/sixtyfps-node) [![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps) ([Documentation](https://sixtyfps.io/docs/node))
 
 The [examples](/examples) folder contains examples and demos. The `docs` folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
