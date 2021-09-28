@@ -27,7 +27,7 @@ rgb = "0.8"
 imgref = "1.6.1"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 by_address = "1.0.4"
-femtovg = { version = "0.2.5" }
+femtovg = { version = "0.2.6" }
 euclid = "0.22.1"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
@@ -56,6 +56,7 @@ winit = { version = "0.25", default-features = false }
 glutin = { version = "0.27", default-features = false }
 glow = { version = "0.11.0", default-features = false }
 fontdb = { version = "0.6.2", features = ["memmap"] }
+memmap2 = { version = "0.3.1" }
 
 [target.'cfg(target_family = "windows")'.dependencies]
 font-kit = { version = "0.10", features = [] }
