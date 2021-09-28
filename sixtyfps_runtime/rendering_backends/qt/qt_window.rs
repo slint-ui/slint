@@ -21,7 +21,9 @@ use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{self, FillRule, ImageRendering, ItemRef, TextOverflow, TextWrap};
 use sixtyfps_corelib::layout::Orientation;
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
+use sixtyfps_corelib::window::{
+    PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc, WindowState,
+};
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
 use sixtyfps_corelib::{ImageInner, PathData, Property};
 
@@ -1187,7 +1189,7 @@ impl QtWindow {
 
 #[allow(unused)]
 impl PlatformWindow for QtWindow {
-    fn show(self: Rc<Self>) {
+    fn show(self: Rc<Self>, target_state: WindowState) {
         let component_rc = self.self_weak.upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
@@ -1195,9 +1197,17 @@ impl PlatformWindow for QtWindow {
             self.apply_window_properties(window_item);
         }
 
+        let fullscreen: bool = match target_state {
+            WindowState::Normal => false,
+            WindowState::Fullscreen => true,
+        };
+
         let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*"] {
-            widget_ptr->show();
+        cpp! {unsafe [widget_ptr as "QWidget*", fullscreen as "bool"] {
+            if (fullscreen)
+                widget_ptr->showFullScreen();
+            else
+                widget_ptr->show();
         }};
     }
 
@@ -1206,6 +1216,13 @@ impl PlatformWindow for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             widget_ptr->hide();
         }};
+    }
+
+    fn is_visible(&self) -> bool {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] -> bool as "bool" {
+            return widget_ptr->isVisible();
+        }}
     }
 
     fn request_redraw(&self) {

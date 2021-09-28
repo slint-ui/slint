@@ -20,7 +20,7 @@ use image::GenericImageView;
 use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{Image, Point, Size};
 use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::{PlatformWindow, Window};
+use sixtyfps_corelib::window::{PlatformWindow, Window, WindowState};
 use sixtyfps_corelib::ImageInner;
 use std::path::Path;
 use std::pin::Pin;
@@ -104,11 +104,15 @@ impl Default for TestingWindow {
     }
 }
 impl PlatformWindow for TestingWindow {
-    fn show(self: Rc<Self>) {
+    fn show(self: Rc<Self>, _target_state: WindowState) {
         unimplemented!("showing a testing window")
     }
 
     fn hide(self: Rc<Self>) {}
+
+    fn is_visible(&self) -> bool {
+        false
+    }
 
     fn request_redraw(&self) {}
 

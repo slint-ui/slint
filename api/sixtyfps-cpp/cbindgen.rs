@@ -243,6 +243,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
             "sixtyfps_windowrc_drop",
             "sixtyfps_windowrc_clone",
             "sixtyfps_windowrc_show",
+            "sixtyfps_windowrc_show_with_state",
             "sixtyfps_windowrc_hide",
             "sixtyfps_windowrc_get_scale_factor",
             "sixtyfps_windowrc_set_scale_factor",

@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
  - sixtyfps-viewer gained ability to read or save the property values to a json file with `--save-data` and `--load-data`
  - `sixtyfps::Image` has now a `path()` accessor function in Rust and C++ to access the optional path
    of the file on disk that's backing the image.
+ - `sixtyfps::Window::show_fullscreen()` in Rust/C++/JavaSCript allows showing the window in full screen size. The
+   sibling function `show_normal()` can be used to exit fullscreen mode and show the window with its intrinsic size
+   and window decorations.
 
 ### Fixed
 

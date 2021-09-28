@@ -11,7 +11,7 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::window::WindowHandleAccess;
+use sixtyfps_corelib::window::{WindowHandleAccess, WindowState};
 use sixtyfps_corelib::{ImageInner, SharedVector};
 
 mod js_model;
@@ -484,6 +484,22 @@ declare_types! {
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             window.show();
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+
+        method show_normal(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            window.show_with_state(WindowState::Normal);
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+
+        method show_fullscreen(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            window.show_with_state(WindowState::Fullscreen);
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 

@@ -107,6 +107,10 @@ public:
     }
 
     void show() const { sixtyfps_windowrc_show(&inner); }
+    void show_with_state(cbindgen_private::WindowState target_state) const
+    {
+        sixtyfps_windowrc_show_with_state(&inner, target_state);
+    }
     void hide() const { sixtyfps_windowrc_hide(&inner); }
 
     float scale_factor() const { return sixtyfps_windowrc_get_scale_factor(&inner); }
@@ -314,6 +318,14 @@ public:
 
     /// Registers the window with the windowing system in order to make it visible on the screen.
     void show() { inner.show(); }
+    /// Registers the window with the windowing system in order to make it visible on the screen
+    /// with its intrinsic size and with window decorations. If the window was previously shown
+    /// in full screen size, then it will exit fullscreen mode.
+    void show_normal() { inner.show_with_state(cbindgen_private::WindowState::Normal); }
+
+    /// Registers the window with the windowing system in order to make it visible on the screen
+    /// with a size to cover the entire screen and without window decorations.
+    void show_fullscreen() { inner.show_with_state(cbindgen_private::WindowState::Fullscreen); }
     /// De-registers the window from the windowing system, therefore hiding it.
     void hide() { inner.hide(); }
 
@@ -404,7 +416,8 @@ inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 
 namespace private_api {
 /// Access the layout cache of an item within a repeater
-inline float layout_cache_access(const SharedVector<float> &cache, int offset, int repeater_index) {
+inline float layout_cache_access(const SharedVector<float> &cache, int offset, int repeater_index)
+{
     size_t idx = size_t(cache[offset]) + repeater_index * 2;
     return idx < cache.size() ? cache[idx] : 0;
 }
@@ -447,7 +460,8 @@ public:
     /// The default implementation will print a warning to stderr.
     ///
     /// If the model can update the data, it should also call `row_changed`
-    virtual void set_row_data(int, const ModelData &) {
+    virtual void set_row_data(int, const ModelData &)
+    {
         std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
     };
 
@@ -844,7 +858,8 @@ void invoke_from_event_loop(Functor f)
 /// }
 /// ```
 template<typename Functor>
-auto blocking_invoke_from_event_loop(Functor f) -> std::invoke_result_t<Functor> {
+auto blocking_invoke_from_event_loop(Functor f) -> std::invoke_result_t<Functor>
+{
     std::optional<std::invoke_result_t<Functor>> result;
     std::mutex mtx;
     std::condition_variable cv;

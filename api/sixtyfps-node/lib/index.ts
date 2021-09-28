@@ -63,6 +63,8 @@ class Component {
 
 interface Window {
     show(): void;
+    show_normal(): void;
+    show_fullscreen(): void;
     hide(): void;
 }
 

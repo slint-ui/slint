@@ -26,9 +26,12 @@ use std::rc::{Rc, Weak};
 /// window resizing and other typically windowing system related tasks.
 pub trait PlatformWindow {
     /// Registers the window with the windowing system.
-    fn show(self: Rc<Self>);
+    fn show(self: Rc<Self>, target_state: WindowState);
     /// De-registers the window from the windowing system.
     fn hide(self: Rc<Self>);
+    /// Returns true if show() was previously called; false when the window
+    /// was initially created and after calling hide().
+    fn is_visible(&self) -> bool;
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
     fn request_redraw(&self);
@@ -127,6 +130,15 @@ pub struct PopupWindow {
     pub location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
     pub component: ComponentRc,
+}
+
+/// This enum describes the desired state of the window after calling show().
+#[repr(C)]
+pub enum WindowState {
+    /// Show the window in its regular size and with window decorations.
+    Normal,
+    /// Show the window in the size of the screen, without window decorations.
+    Fullscreen,
 }
 
 /// Structure that represent a Window in the runtime
@@ -412,16 +424,34 @@ impl Window {
         }
     }
 
+    /// Shows the window if it's not already visible.
+    pub fn show(&self) {
+        let platform_window = self.platform_window.get().unwrap();
+        if !platform_window.is_visible() {
+            self.show_with_state(WindowState::Normal)
+        }
+    }
+
     /// Registers the window with the windowing system, in order to render the component's items and react
     /// to input events once the event loop spins.
-    pub fn show(&self) {
-        self.platform_window.get().unwrap().clone().show();
+    pub fn show_with_state(&self, mut target_state: WindowState) {
+        if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+            target_state = WindowState::Fullscreen;
+        }
+
+        self.platform_window.get().unwrap().clone().show(target_state);
         self.update_window_properties();
     }
 
     /// De-registers the window with the windowing system.
     pub fn hide(&self) {
         self.platform_window.get().unwrap().clone().hide();
+    }
+
+    /// Returns true if show() was previously called; false when the window
+    /// was initially created and after calling hide().
+    pub fn is_visible(&self) -> bool {
+        self.platform_window.get().unwrap().is_visible()
     }
 
     /// Registers the specified window and component to be considered the active popup.
@@ -555,6 +585,19 @@ pub mod api {
             self.0.show();
         }
 
+        /// Registers the window with the windowing system in order to make it visible on the screen
+        /// with its intrinsic size and with window decorations. If the window was previously shown
+        /// in full screen size, then it will exit fullscreen mode.
+        pub fn show_normal(&self) {
+            self.0.show_with_state(super::WindowState::Normal)
+        }
+
+        /// Registers the window with the windowing system in order to make it visible on the screen
+        /// with a size to cover the entire screen and without window decorations.
+        pub fn show_fullscreen(&self) {
+            self.0.show_with_state(super::WindowState::Fullscreen)
+        }
+
         /// De-registers the window from the windowing system, therefore hiding it.
         pub fn hide(&self) {
             self.0.hide();
@@ -601,14 +644,24 @@ pub mod ffi {
         core::ptr::write(target as *mut WindowRc, window.clone());
     }
 
-    /// Spins an event loop and renders the items of the provided component in this window.
+    /// Shows this window if it's not already visible.
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_windowrc_show(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.show();
     }
 
-    /// Spins an event loop and renders the items of the provided component in this window.
+    /// Shows this window with the given state.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_windowrc_show_with_state(
+        handle: *const WindowRcOpaque,
+        target_state: WindowState,
+    ) {
+        let window = &*(handle as *const WindowRc);
+        window.show_with_state(target_state);
+    }
+
+    /// Hides this window.
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_windowrc_hide(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);

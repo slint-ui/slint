@@ -23,7 +23,7 @@ use corelib::input::{KeyboardModifiers, MouseEvent};
 use corelib::items::ItemRef;
 use corelib::layout::Orientation;
 use corelib::slice::Slice;
-use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
+use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowState};
 use corelib::Property;
 use sixtyfps_corelib as corelib;
 use winit::dpi::LogicalSize;
@@ -85,9 +85,9 @@ impl GraphicsWindow {
     ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
     ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
     ///   with the size as it may be changed by the user or the windowing system in general.
-    fn map_window(self: Rc<Self>) {
+    fn map_window(self: Rc<Self>, target_state: WindowState) {
         if self.is_mapped() {
-            return;
+            self.clone().unmap_window();
         }
 
         let component = self.component();
@@ -103,24 +103,27 @@ impl GraphicsWindow {
         };
         let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
 
-        let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
-            window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
-        } else {
-            let component_rc = self.component();
-            let component = ComponentRc::borrow_pin(&component_rc);
-            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-            let s = LogicalSize::new(
-                layout_info_h.preferred_bounded(),
-                layout_info_v.preferred_bounded(),
-            );
-            if s.width > 0. && s.height > 0. {
-                // Make sure that the window's inner size is in sync with the root window item's
-                // width/height.
-                self.set_geometry(s.width, s.height);
-                window_builder.with_inner_size(s)
-            } else {
-                window_builder
+        let window_builder = match target_state {
+            WindowState::Normal => {
+                let component_rc = self.component();
+                let component = ComponentRc::borrow_pin(&component_rc);
+                let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+                let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+                let s = LogicalSize::new(
+                    layout_info_h.preferred_bounded(),
+                    layout_info_v.preferred_bounded(),
+                );
+                if s.width > 0. && s.height > 0. {
+                    // Make sure that the window's inner size is in sync with the root window item's
+                    // width/height.
+                    self.set_geometry(s.width, s.height);
+                    window_builder.with_inner_size(s)
+                } else {
+                    window_builder
+                }
+            }
+            WindowState::Fullscreen => {
+                window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
             }
         };
 
@@ -494,12 +497,16 @@ impl PlatformWindow for GraphicsWindow {
         }
     }
 
-    fn show(self: Rc<Self>) {
-        self.map_window();
+    fn show(self: Rc<Self>, target_state: WindowState) {
+        self.map_window(target_state);
     }
 
     fn hide(self: Rc<Self>) {
         self.unmap_window();
+    }
+
+    fn is_visible(&self) -> bool {
+        self.is_mapped()
     }
 
     fn text_size(
