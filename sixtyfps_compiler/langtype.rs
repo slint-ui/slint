@@ -567,13 +567,6 @@ impl NativeClass {
         self.properties.len() + self.parent.clone().map(|p| p.property_count()).unwrap_or_default()
     }
 
-    pub fn visit_class_hierarchy(self: Rc<Self>, mut visitor: impl FnMut(&Rc<Self>)) {
-        visitor(&self);
-        if let Some(parent_class) = &self.parent {
-            parent_class.clone().visit_class_hierarchy(visitor)
-        }
-    }
-
     pub fn lookup_property(&self, name: &str) -> Option<Type> {
         if let Some(ty) = self.properties.get(name) {
             Some(ty.clone())
@@ -632,18 +625,7 @@ pub struct BuiltinElement {
 
 impl BuiltinElement {
     pub fn new(native_class: Rc<NativeClass>) -> Self {
-        let mut properties = HashMap::new();
-        native_class.clone().visit_class_hierarchy(|class| {
-            for (prop_name, prop_type) in &class.properties {
-                properties.insert(prop_name.clone(), BuiltinPropertyInfo::new(prop_type.clone()));
-            }
-        });
-        Self {
-            name: native_class.class_name.clone(),
-            native_class,
-            properties,
-            ..Default::default()
-        }
+        Self { name: native_class.class_name.clone(), native_class, ..Default::default() }
     }
 }
 

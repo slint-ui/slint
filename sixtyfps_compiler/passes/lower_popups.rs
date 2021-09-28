@@ -21,9 +21,7 @@ pub fn lower_popups(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    let window_type = Type::Native(
-        type_register.lookup_element("Window").unwrap().as_builtin().native_class.clone(),
-    );
+    let window_type = type_register.lookup_element("Window").unwrap();
 
     recurse_elem_including_sub_components_no_borrow(
         component,
