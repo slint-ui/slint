@@ -311,6 +311,7 @@ declare_value_enum_conversion!(sixtyfps_corelib::items::ImageRendering, ImageRen
 declare_value_enum_conversion!(sixtyfps_corelib::input::KeyEventType, KeyEventType);
 declare_value_enum_conversion!(sixtyfps_corelib::items::EventResult, EventResult);
 declare_value_enum_conversion!(sixtyfps_corelib::items::FillRule, FillRule);
+declare_value_enum_conversion!(sixtyfps_corelib::items::StandardButtonKind, StandardButtonKind);
 
 impl From<sixtyfps_corelib::animations::Instant> for Value {
     fn from(value: sixtyfps_corelib::animations::Instant) -> Self {

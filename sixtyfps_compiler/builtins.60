@@ -153,7 +153,7 @@ export Flickable := _ {
     //-default_size_binding:expands_to_parent_geometry
 }
 
-export WindowItem := _ {
+WindowItem := _ {
     property <length> width: native_output;
     property <length> height: native_output;
     property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
@@ -429,6 +429,8 @@ export NativeButton := _ {
     property <bool> pressed: native_output;
     callback clicked;
     property <bool> enabled: true;
+    property <StandardButtonKind> standard-button-kind;
+    property <bool> is-standard-button;
     //-is_internal
 }
 

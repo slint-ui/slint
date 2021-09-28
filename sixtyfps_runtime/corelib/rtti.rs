@@ -47,6 +47,7 @@ declare_ValueType![
     crate::items::EventResult,
     crate::Brush,
     crate::items::FillRule,
+    crate::items::StandardButtonKind,
     crate::graphics::Point,
 ];
 

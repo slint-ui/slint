@@ -36,6 +36,56 @@ export global StyleMetrics := {
     property<color> textedit-text-color-disabled: lightgray;// Palette.text-color-disabled;
 }
 
+export Button := Rectangle {
+    callback clicked;
+    property<string> text;
+    property<length> font-size;
+    property<bool> pressed: self.enabled && touch-area.pressed;
+    property<bool> enabled <=> touch-area.enabled;
+    property<image> icon;
+
+    border-width: 1px;
+    border-radius: 2px;
+    border-color: Palette.text-color;
+    background: !self.enabled ? Palette.button-background-disabled: self.pressed ? Palette.button-pressed : (touch-area.has-hover ? Palette.button-hover : Palette.button-background);
+    animate background { duration: 100ms; }
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+
+    HorizontalLayout {
+        padding-top: root.border-radius + 8px;
+        padding-bottom: root.border-radius + 8px;
+        padding-left: root.border-radius + 16px;
+        padding-right: root.border-radius + 16px;
+        spacing: StyleMetrics.layout-spacing;
+
+        if (icon.width > 0 && icon.height > 0): Image {
+            source <=> icon;
+            // Avoid that the icon makes the button grow. This isn't quite a perfect approximation,
+            // as the glyphs are typically a bit smaller than the font size. 12px is the default
+            // in the GL backend.
+            width: root.font-size > 0 ? root.font-size : 12px;
+        }
+
+        Text {
+            text: root.text;
+            font-size: root.font-size;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            color: root.enabled ? Palette.text-color : Palette.text-color-disabled;
+        }
+    }
+
+    touch-area := TouchArea {
+        width: root.width;
+        height: root.height;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 ScrollBar := Rectangle {
     background: white;
     border-color: Palette.button-background;
