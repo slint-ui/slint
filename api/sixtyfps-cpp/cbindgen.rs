@@ -114,6 +114,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "TextWrap",
         "ImageFit",
         "FillRule",
+        "StandardButtonKind",
     ]
     .iter()
     .chain(items.iter())

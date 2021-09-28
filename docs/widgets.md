@@ -31,6 +31,34 @@ Example := Window {
 }
 ```
 
+## `StandardButton`
+
+The StandardButton looks like a button, but instead of customizing with `text` and `icon`,
+it can used one of the pre-defined `kind` and the text and icon will depend on the style.
+
+### Properties
+
+* **`kind`** (*enum*): The kind of button, one of
+   `ok` `cancel`, `apply`, `close`, `reset`, `help`, `yes`, `no,` `abort`, `retry` or `ignore`
+* **`enabled`**: (*bool*): Defaults to true. When false, the button cannot be pressed
+
+### Callbacks
+
+* **`clicked`**
+
+### Example
+
+```60
+import { StandardButton, VerticalBox } from "sixtyfps_widgets.60";
+Example := Window {
+  VerticalBox {
+    StandardButton { kind: ok; }
+    StandardButton { kind: apply; }
+    StandardButton { kind: cancel; }
+  }
+}
+```
+
 ## `CheckBox`
 
 ### Properties

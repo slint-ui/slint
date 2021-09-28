@@ -174,6 +174,13 @@ impl TypeRegister {
         declare_enum("ImageRendering", &["smooth", "pixelated"]);
         declare_enum("EventResult", &["reject", "accept"]);
         declare_enum("FillRule", &["nonzero", "evenodd"]);
+        declare_enum(
+            "StandardButtonKind",
+            &[
+                "ok", "cancel", "apply", "close", "reset", "help", "yes", "no", "abort", "retry",
+                "ignore",
+            ],
+        );
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());

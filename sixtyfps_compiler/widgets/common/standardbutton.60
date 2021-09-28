@@ -1,0 +1,27 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { StyleMetrics, Button } from "sixtyfps_widgets_impl.60";
+
+export StandardButton := Button {
+    property <StandardButtonKind> kind;
+    text:
+        kind == StandardButtonKind.ok ? "Ok" :
+        kind == StandardButtonKind.cancel ? "Cancel" :
+        kind == StandardButtonKind.apply ? "Apply" :
+        kind == StandardButtonKind.close ? "Close" :
+        kind == StandardButtonKind.reset ? "Reset" :
+        kind == StandardButtonKind.help ? "Help" :
+        kind == StandardButtonKind.yes ? "Yes" :
+        kind == StandardButtonKind.no ? "No" :
+        kind == StandardButtonKind.abort ? "Abort" :
+        kind == StandardButtonKind.retry ? "Retry" :
+        kind == StandardButtonKind.ignore ? "Ignore" : "";
+}

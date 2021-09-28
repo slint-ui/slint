@@ -889,6 +889,9 @@ pub(crate) fn generate_component<'id>(
                 "TextOverflow" => property_info::<sixtyfps_corelib::items::TextOverflow>(),
                 "ImageFit" => property_info::<sixtyfps_corelib::items::ImageFit>(),
                 "FillRule" => property_info::<sixtyfps_corelib::items::FillRule>(),
+                "StandardButtonKind" => {
+                    property_info::<sixtyfps_corelib::items::StandardButtonKind>()
+                }
                 _ => panic!("unknown enum"),
             },
             Type::LayoutCache => property_info::<SharedVector<f32>>(),

@@ -1240,3 +1240,26 @@ declare_item_vtable! {
 declare_item_vtable! {
     fn sixtyfps_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum StandardButtonKind {
+    ok,
+    cancel,
+    apply,
+    close,
+    reset,
+    help,
+    yes,
+    no,
+    abort,
+    retry,
+    ignore,
+}
+
+impl Default for StandardButtonKind {
+    fn default() -> Self {
+        Self::ok
+    }
+}

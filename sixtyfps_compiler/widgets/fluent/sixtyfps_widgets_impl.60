@@ -75,6 +75,45 @@ export global StyleMetrics := {
     property<color> textedit-text-color-disabled: #a19f9d;//Palette.neutralTertiary;
 }
 
+export Button := Rectangle {
+    callback clicked <=> touch.clicked;
+    property<string> text <=> text.text;
+    property<bool> pressed: self.enabled && touch.pressed;
+    property<bool> enabled <=> touch.enabled;
+    property<image> icon;
+    property<length> font-size <=> text.font-size;
+
+    border-width: 1px;
+    border-radius: 2px;
+    border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
+    background: !enabled ? Palette.neutralLighter
+        : touch.pressed ? Palette.neutralLight
+        : touch.has-hover ? Palette.neutralLighter
+        : Palette.white;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    min-height: 32px;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 8px;
+
+        if (icon.width > 0 && icon.height > 0): Image {
+            source <=> icon;
+            width: 24px;
+        }
+
+        text := Text {
+            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            font-weight: 600;
+        }
+    }
+
+
+    touch := TouchArea {}
+}
 
 ScrollBar := Rectangle {
     background: white;

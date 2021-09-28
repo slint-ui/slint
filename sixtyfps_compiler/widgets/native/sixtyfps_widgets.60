@@ -17,6 +17,11 @@ export Button := NativeButton {
     property<length> font-size;
     enabled: true;
 }
+
+export StandardButton := NativeButton {
+    property<StandardButtonKind> kind <=> self.standard-button-kind;
+    is-standard-button: true;
+}
 export CheckBox := NativeCheckBox { }
 export SpinBox := NativeSpinBox { property<length> font-size; }
 export Slider := NativeSlider { }
