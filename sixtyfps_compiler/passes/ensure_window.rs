@@ -10,7 +10,6 @@ LICENSE END */
 //! Make sure that the top level element of the component is always a Window
 
 use crate::expression_tree::BindingExpression;
-use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
@@ -23,9 +22,7 @@ pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
         return; // already a window, nothing to do
     }
 
-    let window_type = Type::Native(
-        type_register.lookup_element("Window").unwrap().as_builtin().native_class.clone(),
-    );
+    let window_type = type_register.lookup_element("Window").unwrap();
 
     let win_elem = component.root_element.clone();
 

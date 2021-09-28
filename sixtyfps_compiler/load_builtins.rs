@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::expression_tree::Expression;
-use crate::langtype::{BuiltinElement, DefaultSizeBinding, NativeClass, Type};
+use crate::langtype::{BuiltinElement, BuiltinPropertyInfo, DefaultSizeBinding, NativeClass, Type};
 use crate::object_tree::{self, *};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
@@ -130,18 +130,37 @@ pub fn load_builtins(register: &mut TypeRegister) {
             .collect();
         n.cpp_type = parse_annotation("cpp_type", &e).map(|x| x.unwrap());
         n.rust_type_constructor = parse_annotation("rust_type_constructor", &e).map(|x| x.unwrap());
-        let global = if let Some(base) = e.QualifiedName() {
+        enum Base {
+            None,
+            Global,
+            NativeParent(Rc<BuiltinElement>),
+        }
+        let base = if let Some(base) = e.QualifiedName() {
             let base = QualifiedTypeName::from_node(base).to_string();
             if base != "-" {
-                n.parent = Some(natives.get(&base).unwrap().native_class.clone())
-            };
-            false
+                let base = natives.get(&base).unwrap().clone();
+                n.parent = Some(base.native_class.clone());
+                Base::NativeParent(base)
+            } else {
+                Base::None
+            }
         } else {
-            true
+            Base::Global
         };
         let mut builtin = BuiltinElement::new(Rc::new(n));
-        builtin.is_global = global;
+        builtin.is_global = matches!(base, Base::Global);
         let properties = &mut builtin.properties;
+        if let Base::NativeParent(parent) = &base {
+            properties.extend(parent.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
+        }
+        properties.extend(
+            builtin
+                .native_class
+                .properties
+                .iter()
+                .map(|(k, v)| (k.clone(), BuiltinPropertyInfo::new(v.clone()))),
+        );
+
         for p in e.PropertyDeclaration() {
             if let (Some(name), Some(e)) =
                 (identifier_text(&p.DeclaredIdentifier()), p.BindingExpression())
@@ -181,7 +200,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
             })
             .collect();
         if let Some(builtin_name) = exports.get(&id) {
-            if !global {
+            if !matches!(&base, Base::Global) {
                 builtin.name = builtin_name.clone();
                 register
                     .insert_type_with_name(Type::Builtin(Rc::new(builtin)), builtin_name.clone());
@@ -199,7 +218,6 @@ pub fn load_builtins(register: &mut TypeRegister) {
             }
         } else {
             // because they are not taken from if we inherit from it
-            assert!(builtin.properties.iter().all(|(_, i)| i.default_value.is_none()));
             assert!(builtin.additional_accepted_child_types.is_empty());
             natives.insert(id, Rc::new(builtin));
         }

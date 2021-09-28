@@ -165,7 +165,7 @@ WindowItem := _ {
     property <image> icon;
 }
 
-export { WindowItem as Window }
+export Window := WindowItem {}
 
 export BoxShadow := _ {
     property <length> x;
