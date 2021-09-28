@@ -235,3 +235,5 @@ That's it.
 
 For more details, check the [Online documentation](https://sixtyfps.io/docs/cpp) and the full
   [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/cpp).
+We also have a [Getting Started Template](https://github.com/sixtyfpsui/sixtyfps-cpp-template) repository with
+the code of a minimal C++ application using SixtyFPS that can be used as a starting point to your program.

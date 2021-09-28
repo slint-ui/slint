@@ -74,3 +74,8 @@ the ui, read or write properties or set callbacks. You can learn more about how 
 
 For an in-depth walk-through, you may be interested in reading our walk-through <a href="../tutorial/cpp">SixtyFPS Memory Game Tutorial Tutorial</a>.
 It will guide you through the `.60` mark-up language and the C++ API by building a little memory game.
+
+## Template
+
+You can clone the [Template Repository](https://github.com/sixtyfpsui/sixtyfps-cpp-template) repository with
+the code of a minimal C++ application using SixtyFPS that can be used as a starting point to your program.

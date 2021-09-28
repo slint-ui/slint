@@ -91,6 +91,14 @@ fn main() {
 }
 ```
 
+To quickly get started with this pattern, we have a [Template Repository](https://github.com/sixtyfpsui/sixtyfps-rust-template) that
+can be used with cargo-generate.
+
+```bash
+cargo install cargo-generate
+cargo generate --git https://github.com/sixtyfpsui/sixtyfps-rust-template
+```
+
 ## Generated components
 
 As of now, only the last component of a .60 source is generated. It is planned to generate all exported components.
