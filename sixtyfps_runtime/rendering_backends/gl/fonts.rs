@@ -137,6 +137,16 @@ struct LoadedFont {
     fontdb_face_id: fontdb::ID,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone)]
+struct MMappedFont(std::rc::Rc<memmap2::Mmap>);
+#[cfg(not(target_arch = "wasm32"))]
+impl AsRef<[u8]> for MMappedFont {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
 #[derive(Default)]
 struct GlyphCoverage {
     // Used to express script support for all scripts except Unknown, Common and Inherited
@@ -169,6 +179,8 @@ pub struct FontCache {
         target_arch = "wasm32"
     )))]
     fontconfig_fallback_families: Vec<String>,
+    #[cfg(not(target_arch = "wasm32"))]
+    mapped_font_files: HashMap<std::path::PathBuf, MMappedFont>,
 }
 
 impl Default for FontCache {
@@ -227,6 +239,8 @@ impl Default for FontCache {
                 target_arch = "wasm32"
             )))]
             fontconfig_fallback_families,
+            #[cfg(not(target_arch = "wasm32"))]
+            mapped_font_files: Default::default(),
         }
     }
 }
@@ -261,13 +275,46 @@ impl FontCache {
 
         let fontdb_face_id =
             self.available_fonts.query(&query).expect("font database cannot be empty");
-        let femtovg_font_id = self
+
+        let (fontdb_source, face_index) = self
             .available_fonts
-            .with_face_data(fontdb_face_id, |data, _index| {
-                // pass index to femtovg once femtovg/femtovg/pull/21 is merged
-                text_context.add_font_mem(data).unwrap()
-            })
-            .expect("unable to map font from disk");
+            .face_source(fontdb_face_id)
+            .expect("unable to map fontdb face id to font source");
+
+        let femtovg_font_id = match fontdb_source.as_ref() {
+            fontdb::Source::Binary(data) => {
+                text_context.add_shared_font_with_index(data.clone(), face_index).unwrap()
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            fontdb::Source::File(path) => {
+                let shared_data = self
+                    .mapped_font_files
+                    .entry(path.clone())
+                    .or_insert_with(|| {
+                        let file = std::fs::File::open(path).ok().expect("unable to open ttf file");
+                        eprintln!("mmap {:#?} -> size {}", path, file.metadata().unwrap().len());
+                        MMappedFont(
+                            // Safety: We map font files into memory that - while we neve unmap them - may
+                            // theoretically get corrupted/truncated by another process and then we'll crash
+                            // and burn. In practice that should not happen though, font files are - at worst -
+                            // removed by a package manager and they unlink instead of truncate, even when
+                            // replacing files. Unlinking OTOH is safe and doesn't destroy the file mapping,
+                            // the backing file becomes an orphan in a special area of the file system. That works
+                            // on Unixy platforms and on Windows the default file flags prevent the deletion.
+                            unsafe {
+                                memmap2::MmapOptions::new()
+                                    .map(&file)
+                                    .ok()
+                                    .expect("unable to mmap font")
+                            }
+                            .into(),
+                        )
+                    })
+                    .clone();
+                text_context.add_shared_font_with_index(shared_data, face_index).unwrap()
+            }
+        };
+
         //println!("Loaded {:#?} in {}ms.", request, now.elapsed().as_millis());
         let new_font = LoadedFont { femtovg_font_id, fontdb_face_id };
         self.loaded_fonts.insert(cache_key, new_font);
