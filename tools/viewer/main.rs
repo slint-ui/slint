@@ -28,7 +28,7 @@ struct Cli {
     #[structopt(name = "path to .60 file", parse(from_os_str))]
     path: std::path::PathBuf,
 
-    /// The style name ('native', or 'ulgy')
+    /// The style name ('native', or 'ugly')
     #[structopt(long, name = "style name", default_value)]
     style: String,
 
