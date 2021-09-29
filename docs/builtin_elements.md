@@ -649,6 +649,34 @@ Example := Window {
 }
 ```
 
+## `Dialog`
+
+Dialog is like a window, but it has buttons that are automatically laid out.
+
+A Dialog should have one main element for the content, that is not a button.
+And the window can have any number of `StandardButton` widget.
+The button will be layed out in an order that depends on the platform.
+
+The `kind` property of the `StandardButton`s needs to be set to a specific value. it cannot be a complex expression.
+
+### Properties
+
+* **`title`** (*string*): The window title that is shown in the title bar.
+* **`icon`** (*image*): The window icon shown in the title bar or the task bar on window managers supporting it.
+
+### Example
+
+```60
+import { StandardButton } from "sixtyfps_widgets.60";
+Example := Dialog {
+    Text {
+      text: "This is a dialog box";
+    }
+    StandardButton { kind: ok; }
+    StandardButton { kind: cancel; }
+}
+```
+
 # Builtin Structures
 
 ## `Point`

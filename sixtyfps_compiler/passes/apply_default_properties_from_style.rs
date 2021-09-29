@@ -69,7 +69,7 @@ pub async fn apply_default_properties_from_style(
                         .into()
                     });
                 }
-                "Window" | "WindowItem" => {
+                "Dialog" | "Window" | "WindowItem" => {
                     elem.bindings.set_binding_if_not_set("background".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,

@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
  - sixtyfps-compiler and sixtyfps-viewer can read the .60 file content from stdin by passing `-`
  - sixtyfps-viewer gained ability to read or save the property values to a json file with `--save-data` and `--load-data`
  - New `StandardButton` widget
+ - New `Dialog` element
  - `sixtyfps::Image` has now a `path()` accessor function in Rust and C++ to access the optional path
    of the file on disk that's backing the image.
 

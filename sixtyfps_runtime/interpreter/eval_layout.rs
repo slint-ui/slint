@@ -21,6 +21,7 @@ use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::WindowRc;
 use std::convert::TryInto;
+use std::str::FromStr;
 
 pub(crate) fn to_runtime(o: Orientation) -> core_layout::Orientation {
     match o {
@@ -91,7 +92,17 @@ pub(crate) fn solve_layout(
 
     match lay {
         Layout::GridLayout(grid_layout) => {
-            let cells = grid_layout_data(grid_layout, orientation, component, &expr_eval);
+            let mut cells = grid_layout_data(grid_layout, orientation, component, &expr_eval);
+            if let (Some(buttons_roles), Orientation::Horizontal) =
+                (&grid_layout.dialog_button_roles, orientation)
+            {
+                let roles = buttons_roles
+                    .iter()
+                    .map(|r| core_layout::DialogButtonRole::from_str(r).unwrap())
+                    .collect::<Vec<_>>();
+                core_layout::reorder_dialog_button_layout(&mut cells, &roles);
+            }
+
             let (padding, spacing) =
                 padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
 

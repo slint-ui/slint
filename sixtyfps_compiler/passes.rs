@@ -90,7 +90,7 @@ pub async fn run_passes(
     lower_states::lower_states(root_component, &doc.local_registry, diag);
     repeater_component::process_repeater_components(root_component);
     lower_popups::lower_popups(root_component, &doc.local_registry, diag);
-    lower_layout::lower_layouts(root_component, &global_type_registry.borrow(), diag);
+    lower_layout::lower_layouts(root_component, &mut type_loader, diag).await;
     z_order::reorder_by_z_order(root_component, diag);
     lower_shadows::lower_shadow_properties(root_component, &doc.local_registry, diag);
     clip::handle_clip(root_component, &global_type_registry.borrow(), diag);

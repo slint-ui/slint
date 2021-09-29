@@ -393,6 +393,10 @@ pub struct GridLayout {
     pub elems: Vec<GridLayoutElement>,
 
     pub geometry: LayoutGeometry,
+
+    /// When this GridLyout is actually the layout of a Dialog, then the cells start with all the buttons,
+    /// and this variable contains their roles. The string is actually one of the values from the sixtyfps_corelib::layout::DialogButtonRole
+    pub dialog_button_roles: Option<Vec<&'static str>>,
 }
 
 impl GridLayout {

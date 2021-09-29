@@ -17,20 +17,35 @@ use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::layout::*;
 use crate::object_tree::*;
+use crate::typeloader::TypeLoader;
 use crate::typeregister::TypeRegister;
 use std::rc::Rc;
 
-pub fn lower_layouts(
+pub async fn lower_layouts(
     component: &Rc<Component>,
-    type_register: &TypeRegister,
+    type_loader: &mut TypeLoader<'_>,
     diag: &mut BuildDiagnostics,
 ) {
+    // Ignore import errors
+    let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
+    let style_metrics = type_loader
+        .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
+        .await;
+    let style_metrics =
+        style_metrics.and_then(|sm| if let Type::Component(c) = sm { Some(c) } else { None });
+
     *component.root_constraints.borrow_mut() =
         LayoutConstraints::new(&component.root_element, diag);
 
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
         let component = elem.borrow().enclosing_component.upgrade().unwrap();
-        lower_element_layout(&component, elem, type_register, diag);
+        lower_element_layout(
+            &component,
+            elem,
+            &type_loader.global_type_registry.borrow(),
+            &style_metrics,
+            diag,
+        );
         check_no_layout_properties(elem, diag);
     });
 }
@@ -39,6 +54,7 @@ fn lower_element_layout(
     component: &Rc<Component>,
     elem: &ElementRc,
     type_register: &TypeRegister,
+    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
     let base_type = if let Type::Builtin(base_type) = &elem.borrow().base_type {
@@ -49,9 +65,13 @@ fn lower_element_layout(
     match base_type.name.as_str() {
         "Row" => panic!("Error caught at element lookup time"),
         "GridLayout" => lower_grid_layout(component, elem, diag),
-        "HorizontalLayout" => lower_box_layout(component, elem, diag, Orientation::Horizontal),
-        "VerticalLayout" => lower_box_layout(component, elem, diag, Orientation::Vertical),
-        "PathLayout" => lower_path_layout(component, elem, diag),
+        "HorizontalLayout" => lower_box_layout(elem, diag, Orientation::Horizontal),
+        "VerticalLayout" => lower_box_layout(elem, diag, Orientation::Vertical),
+        "PathLayout" => lower_path_layout(elem, diag),
+        "Dialog" => {
+            lower_dialog_layout(elem, style_metrics, diag);
+            return; // the Dialog stays in the tree as a Dialog
+        }
         _ => return,
     };
 
@@ -81,6 +101,7 @@ fn lower_grid_layout(
     let mut grid = GridLayout {
         elems: Default::default(),
         geometry: LayoutGeometry::new(grid_layout_element),
+        dialog_button_roles: None,
     };
 
     let layout_cache_prop_h =
@@ -200,6 +221,25 @@ impl GridLayout {
             *col = c;
         }
 
+        self.add_element_with_coord(
+            item_element,
+            (*row, *col),
+            (rowspan, colspan),
+            layout_cache_prop_h,
+            layout_cache_prop_v,
+            diag,
+        )
+    }
+
+    fn add_element_with_coord(
+        &mut self,
+        item_element: &ElementRc,
+        (row, col): (u16, u16),
+        (rowspan, colspan): (u16, u16),
+        layout_cache_prop_h: &NamedReference,
+        layout_cache_prop_v: &NamedReference,
+        diag: &mut BuildDiagnostics,
+    ) {
         let index = self.elems.len();
         if let Some(layout_item) = create_layout_item(item_element, diag) {
             if layout_item.repeater_index.is_some() {
@@ -222,8 +262,8 @@ impl GridLayout {
             }
 
             self.elems.push(GridLayoutElement {
-                col: *col,
-                row: *row,
+                col,
+                row,
                 colspan,
                 rowspan,
                 item: layout_item.item,
@@ -233,7 +273,6 @@ impl GridLayout {
 }
 
 fn lower_box_layout(
-    _component: &Rc<Component>,
     layout_element: &ElementRc,
     diag: &mut BuildDiagnostics,
     orientation: Orientation,
@@ -337,11 +376,141 @@ fn lower_box_layout(
     layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
 }
 
-fn lower_path_layout(
-    _component: &Rc<Component>,
-    layout_element: &ElementRc,
+fn lower_dialog_layout(
+    dialog_element: &ElementRc,
+    style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
+    let mut grid = GridLayout {
+        elems: Default::default(),
+        geometry: LayoutGeometry::new(dialog_element),
+        dialog_button_roles: None,
+    };
+    if let Some(metrics) = style_metrics.as_ref().map(|comp| &comp.root_element) {
+        grid.geometry.padding.bottom.get_or_insert(NamedReference::new(metrics, "layout-padding"));
+        grid.geometry.padding.top.get_or_insert(NamedReference::new(metrics, "layout-padding"));
+        grid.geometry.padding.left.get_or_insert(NamedReference::new(metrics, "layout-padding"));
+        grid.geometry.padding.right.get_or_insert(NamedReference::new(metrics, "layout-padding"));
+        grid.geometry.spacing.get_or_insert(NamedReference::new(metrics, "layout-spacing"));
+    }
+
+    let layout_cache_prop_h = create_new_prop(dialog_element, "layout-cache-h", Type::LayoutCache);
+    let layout_cache_prop_v = create_new_prop(dialog_element, "layout-cache-v", Type::LayoutCache);
+    let layout_info_prop_h = create_new_prop(dialog_element, "layoutinfo-h", layout_info_type());
+    let layout_info_prop_v = create_new_prop(dialog_element, "layoutinfo-v", layout_info_type());
+
+    let mut main_widget = None;
+    let mut button_roles = vec![];
+    for layout_child in &dialog_element.borrow().children {
+        let is_button = layout_child.borrow().property_declarations.get("kind").map_or(false, |pd| {
+            matches!(&pd.property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
+        });
+
+        if is_button {
+            grid.add_element_with_coord(
+                layout_child,
+                (1, button_roles.len() as u16),
+                (1, 1),
+                &layout_cache_prop_h,
+                &layout_cache_prop_v,
+                diag,
+            );
+            match layout_child.borrow().bindings.get("kind") {
+                None => diag.push_error(
+                    "The `kind` property of the StandardButton in a Dialog must be set".into(),
+                    &*layout_child.borrow(),
+                ),
+                Some(binding) => {
+                    if let Expression::EnumerationValue(val) = &binding.expression {
+                        let en = &val.enumeration;
+                        debug_assert_eq!(en.name, "StandardButtonKind");
+                        let role = match en.values[val.value].as_str() {
+                            "ok" => "Accept",
+                            "cancel" => "Reject",
+                            "apply" => "Apply",
+                            "close" => "Reject",
+                            "reset" => "Reset",
+                            "help" => "Help",
+                            "yes" => "Accept",
+                            "no" => "Reject",
+                            "abort" => "Reject",
+                            "retry" => "Accept",
+                            "ignore" => "Accept",
+                            _ => unreachable!(),
+                        };
+                        button_roles.push(role);
+                    } else {
+                        diag.push_error(
+                            "The `kind` property of the StandardButton in a Dialog must be known at compile-time"
+                                .into(),
+                            binding,
+                        );
+                    }
+                }
+            }
+        } else if main_widget.is_some() {
+            diag.push_error(
+                "A Dialog should have a single child element that is not StandardButton".into(),
+                &*layout_child.borrow(),
+            );
+        } else {
+            main_widget = Some(layout_child.clone())
+        }
+    }
+
+    if let Some(main_widget) = main_widget {
+        grid.add_element_with_coord(
+            &main_widget,
+            (0, 0),
+            (1, button_roles.len() as u16 + 1),
+            &layout_cache_prop_h,
+            &layout_cache_prop_v,
+            diag,
+        );
+    } else {
+        diag.push_error(
+            "A Dialog should have a single child element that is not StandardButton".into(),
+            &*dialog_element.borrow(),
+        );
+    }
+    grid.dialog_button_roles = Some(button_roles);
+
+    let span = dialog_element.borrow().to_source_location();
+    layout_cache_prop_h.element().borrow_mut().bindings.insert(
+        layout_cache_prop_h.name().into(),
+        BindingExpression::new_with_span(
+            Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Horizontal),
+            span.clone(),
+        ),
+    );
+    layout_cache_prop_v.element().borrow_mut().bindings.insert(
+        layout_cache_prop_v.name().into(),
+        BindingExpression::new_with_span(
+            Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Vertical),
+            span.clone(),
+        ),
+    );
+    layout_info_prop_h.element().borrow_mut().bindings.insert(
+        layout_info_prop_h.name().into(),
+        BindingExpression::new_with_span(
+            Expression::ComputeLayoutInfo(
+                Layout::GridLayout(grid.clone()),
+                Orientation::Horizontal,
+            ),
+            span.clone(),
+        ),
+    );
+    layout_info_prop_v.element().borrow_mut().bindings.insert(
+        layout_info_prop_v.name().into(),
+        BindingExpression::new_with_span(
+            Expression::ComputeLayoutInfo(Layout::GridLayout(grid), Orientation::Vertical),
+            span,
+        ),
+    );
+    dialog_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
+}
+
+fn lower_path_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
     let layout_cache_prop = create_new_prop(layout_element, "layout-cache", Type::LayoutCache);
 
     let path_elements_expr = match layout_element.borrow_mut().bindings.remove("elements") {
