@@ -781,7 +781,7 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
         add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
         add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
     } else {
-        // GNOME variant
+        // GNOME variant and fallback for WASM build
         add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
         add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
         idx += 1;

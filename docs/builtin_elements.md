@@ -654,10 +654,10 @@ Example := Window {
 Dialog is like a window, but it has buttons that are automatically laid out.
 
 A Dialog should have one main element for the content, that is not a button.
-And the window can have any number of `StandardButton` widget.
+And the window can have any number of `StandardButton` widgets.
 The button will be layed out in an order that depends on the platform.
 
-The `kind` property of the `StandardButton`s needs to be set to a specific value. it cannot be a complex expression.
+The `kind` property of the `StandardButton`s needs to be set to a specific value. It cannot be a complex expression.
 
 ### Properties
 
