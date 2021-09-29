@@ -292,9 +292,8 @@ impl FontCache {
                     .entry(path.clone())
                     .or_insert_with(|| {
                         let file = std::fs::File::open(path).ok().expect("unable to open ttf file");
-                        eprintln!("mmap {:#?} -> size {}", path, file.metadata().unwrap().len());
                         MMappedFont(
-                            // Safety: We map font files into memory that - while we neve unmap them - may
+                            // Safety: We map font files into memory that - while we never unmap them - may
                             // theoretically get corrupted/truncated by another process and then we'll crash
                             // and burn. In practice that should not happen though, font files are - at worst -
                             // removed by a package manager and they unlink instead of truncate, even when
