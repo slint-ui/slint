@@ -160,24 +160,68 @@ impl OpenGLContext {
     ) -> (Self, femtovg::renderer::OpenGl) {
         #[cfg(not(target_arch = "wasm32"))]
         {
+            use crate::event_loop::EventLoopInterface;
             use glutin::ContextBuilder;
             let windowed_context = crate::event_loop::with_window_target(|event_loop| {
-                let builder = ContextBuilder::new().with_vsync(true);
-                // With latest Windows 10 and VmWare glutin's default for srgb produces surfaces that are always rendered black :(
-                #[cfg(target_os = "windows")]
-                let builder = builder.with_srgb(false);
+                // Try different strategies for creating an GL context. First request our "favorite", OpenGL ES 2.0,
+                // then try GlLatest (but with windows quirk) and finally try glutin's defaults.
+                // We might be able to just go back to requesting GlLatest if
+                // https://github.com/rust-windowing/glutin/issues/1371 is resolved
+                // in favor of falling back to creating a GLES context.
+                let context_factory_fns = [
+                    |window_builder, event_loop: &dyn EventLoopInterface| {
+                        let builder = ContextBuilder::new()
+                            .with_vsync(true)
+                            .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGlEs, (2, 0)));
+                        #[cfg(target_os = "windows")]
+                        let builder = builder.with_srgb(false);
+                        builder
+                            .build_windowed(window_builder, event_loop.event_loop_target())
+                            .map_err(|creation_error| {
+                                format!(
+                                    "could not create OpenGL ES 2.0 context: {}",
+                                    creation_error
+                                )
+                            })
+                    },
+                    |window_builder, event_loop: &dyn EventLoopInterface| {
+                        let builder = ContextBuilder::new().with_vsync(true);
+                        // With latest Windows 10 and VmWare glutin's default for srgb produces surfaces that are always rendered black :(
+                        #[cfg(target_os = "windows")]
+                        let builder = builder.with_srgb(false);
+                        builder
+                            .build_windowed(window_builder, event_loop.event_loop_target())
+                            .map_err(|creation_error| {
+                                format!(
+                                    "could not create GlLatest context (with windows quirk): {}",
+                                    creation_error
+                                )
+                            })
+                    },
+                    |window_builder, event_loop: &dyn EventLoopInterface| {
+                        // Try again with glutin defaults
+                        ContextBuilder::new()
+                            .with_vsync(true)
+                            .build_windowed(window_builder, event_loop.event_loop_target())
+                            .map_err(|creation_error| {
+                                format!("could not create GlLatest context : {}", creation_error)
+                            })
+                    },
+                ];
 
-                if let Ok(builder) =
-                    builder.build_windowed(window_builder.clone(), event_loop.event_loop_target())
-                {
-                    builder
-                } else {
-                    // Try again with glutin defaults
-                    ContextBuilder::new()
-                        .with_vsync(true)
-                        .build_windowed(window_builder, event_loop.event_loop_target())
-                        .expect("Failed to create OpenGL Context:")
+                let mut last_err = None;
+                for factory_fn in context_factory_fns {
+                    match factory_fn(window_builder.clone(), event_loop) {
+                        Ok(new_context) => {
+                            return new_context;
+                        }
+                        Err(e) => {
+                            last_err = Some(e);
+                        }
+                    }
                 }
+
+                panic!("Failed to create OpenGL context: {}", last_err.unwrap())
             });
             let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 

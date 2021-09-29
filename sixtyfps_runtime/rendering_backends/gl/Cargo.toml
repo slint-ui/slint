@@ -27,7 +27,7 @@ rgb = "0.8"
 imgref = "1.6.1"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 by_address = "1.0.4"
-femtovg = { version = "0.2.6" }
+femtovg = { version = "0.2.7" }
 euclid = "0.22.1"
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
