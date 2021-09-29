@@ -719,6 +719,78 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
     result
 }
 
+#[derive(
+    Copy, Clone, Eq, PartialEq, Hash, Debug, strum_macros::EnumString, strum_macros::ToString,
+)]
+#[repr(u8)]
+pub enum DialogButtonRole {
+    Accept,
+    Reject,
+    Apply,
+    Reset,
+    Help,
+}
+
+/// Given the cells of a layout of a Dialog, re-order the button according to the platform
+///
+/// This function assume that the `roles` contains the roles of the button which are the first `cells`
+/// It will simply change the column field of the cell
+pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[DialogButtonRole]) {
+    fn add_buttons(
+        cells: &mut [GridLayoutCellData],
+        roles: &[DialogButtonRole],
+        idx: &mut u16,
+        role: DialogButtonRole,
+    ) {
+        for (cell, r) in cells.iter_mut().zip(roles.iter()) {
+            if *r == role {
+                cell.col_or_row = *idx;
+                *idx += 1;
+            }
+        }
+    }
+
+    let mut idx = 0;
+
+    if cfg!(windows) {
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+        idx += 1;
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+    } else if cfg!(target_os = "macos") {
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        idx += 1;
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+
+        // assume some unix check if XDG_CURRENT_DESKTOP stats with K
+    } else if std::env::var("XDG_CURRENT_DESKTOP")
+        .ok()
+        .and_then(|v| v.as_bytes().get(0).copied())
+        .map_or(false, |x| x.to_ascii_uppercase() == b'K')
+    {
+        // KDE variant
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+        idx += 1;
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+    } else {
+        // GNOME variant
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+        idx += 1;
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+    }
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -778,5 +850,17 @@ pub(crate) mod ffi {
         result: &mut SharedVector<Coord>,
     ) {
         *result = super::solve_path_layout(data, repeater_indexes)
+    }
+
+    /// Calls [`reorder_dialog_button_layout`].
+    ///
+    /// Safety: `cells` must be a pointer to a mutable array of cell data, the array must have at
+    /// least `roles.len()` elements.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_reorder_dialog_button_layout(
+        cells: *mut GridLayoutCellData,
+        roles: Slice<DialogButtonRole>,
+    ) {
+        reorder_dialog_button_layout(core::slice::from_raw_parts_mut(cells, roles.len()), &roles);
     }
 }

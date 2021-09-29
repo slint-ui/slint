@@ -1893,16 +1893,25 @@ fn compile_expression(
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
             let cells = grid_layout_cell_data(layout, *o, component);
             let size = layout_geometry_size(&layout.geometry.rect, *o, component);
-            format!("[&] {{ \
+            let dialog = if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, *o) {
+                format!("sixtyfps::cbindgen_private::DialogButtonRole roles[] = {{ {r} }};\
+                        sixtyfps::cbindgen_private::sixtyfps_reorder_dialog_button_layout(cells,\
+                            sixtyfps::Slice<sixtyfps::cbindgen_private::DialogButtonRole>{{ roles, std::size(roles) }});\
+                        ",
+                    r = button_roles.iter().map(|r| format!("sixtyfps::cbindgen_private::DialogButtonRole::{}", r)).join(", ")
+                )
+            } else { String::new() };
+            format!("[&] {{\
                     const auto padding = {p};\
-                    sixtyfps::GridLayoutCellData cells[] = {{ {c} }}; \
-                    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}}; \
-                    const sixtyfps::GridLayoutData grid {{ {sz},  {s}, &padding, slice }};
-                    sixtyfps::SharedVector<float> result;
+                    sixtyfps::GridLayoutCellData cells[] = {{ {c} }};\
+                    {dialog}
+                    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}};\
+                    const sixtyfps::GridLayoutData grid {{ {sz},  {s}, &padding, slice }};\
+                    sixtyfps::SharedVector<float> result;\
                     sixtyfps::sixtyfps_solve_grid_layout(&grid, &result);\
-                    return result;
+                    return result;\
                 }}()",
-                p = padding, c = cells, s = spacing, sz = size
+                dialog = dialog, p = padding, c = cells, s = spacing, sz = size
             )
         }
         Expression::SolveLayout(Layout::BoxLayout(layout), o) => {

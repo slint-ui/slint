@@ -1,0 +1,27 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { StandardButton, GridBox } from "sixtyfps_widgets.60";
+
+TestCase := Dialog {
+    Rectangle {
+        background: red;
+        preferred-width: 600px;
+        preferred-height: 600px;
+    }
+
+    StandardButton { kind: help; }
+    StandardButton { kind: ok; }
+    StandardButton { kind: cancel; }
+    StandardButton { kind: apply; }
+    StandardButton { kind: reset; }
+    StandardButton { kind: yes; }
+}
+

@@ -399,6 +399,8 @@ export PopupWindow := _ {
     //show() is hardcoded in typeregister.rs
 }
 
+export Dialog := WindowItem {}
+
 PropertyAnimation := _ {
     property <duration> duration;
     property <easing> easing;

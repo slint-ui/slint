@@ -1,0 +1,48 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { StandardButton } from "sixtyfps_widgets.60";
+
+MyDiag1 := Dialog {
+    Rectangle {}
+    StandardButton { kind: cancel; }
+    Rectangle {}
+//  ^error{A Dialog should have a single child element that is not StandardButton}
+}
+
+MyDiag2 := Dialog {
+    StandardButton { kind: cancel; }
+    StandardButton {
+        kind: cancel;
+        col: 42;
+//          ^error{col used outside of a GridLayout}
+        rowspan: 2;
+//              ^error{rowspan used outside of a GridLayout}
+    }
+}
+
+MyDiag3 := Dialog {
+    Rectangle { }
+    StandardButton { kind: ok; }
+    StandardButton { }
+//  ^error{The `kind` property of the StandardButton in a Dialog must be set}
+    StandardButton { kind: true ? ok : cancel; }
+//                        ^error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
+}
+
+
+Test := Rectangle {
+    MyDiag1 {}
+    MyDiag2 {} // FIXME: not the best place for the error
+//  ^error{A Dialog should have a single child element that is not StandardButton}
+    MyDiag3 {}
+}
+
+

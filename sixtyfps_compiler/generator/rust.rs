@@ -1598,12 +1598,26 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
             let cells = grid_layout_cell_data(layout, *o, component);
             let size = layout_geometry_size(&layout.geometry.rect, *o, component);
-            quote!(solve_grid_layout(&GridLayoutData{
-                size: #size,
-                spacing: #spacing,
-                padding: #padding,
-                cells: Slice::from_slice(&#cells),
-            }))
+            if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, *o) {
+                let role = button_roles.iter().map(|x| format_ident!("{}", x));
+                quote!({
+                    let mut cells = #cells;
+                    reorder_dialog_button_layout(&mut cells, &[ #(DialogButtonRole::#role),* ]);
+                    solve_grid_layout(&GridLayoutData{
+                        size: #size,
+                        spacing: #spacing,
+                        padding: #padding,
+                        cells: Slice::from_slice(&cells),
+                    })
+                })
+            } else {
+                quote!(solve_grid_layout(&GridLayoutData{
+                    size: #size,
+                    spacing: #spacing,
+                    padding: #padding,
+                    cells: Slice::from_slice(&#cells),
+                }))
+            }
         }
         Expression::SolveLayout(Layout::BoxLayout(layout), o) => {
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
@@ -1626,8 +1640,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             })
         }
         Expression::SolveLayout(Layout::PathLayout(layout), _) => {
-            let width = layout_geometry_size(&layout.rect,  Orientation::Horizontal, component);
-            let height = layout_geometry_size(&layout.rect,  Orientation::Vertical, component);
+            let width = layout_geometry_size(&layout.rect, Orientation::Horizontal, component);
+            let height = layout_geometry_size(&layout.rect, Orientation::Vertical, component);
             let elements = compile_path(&layout.path, component);
             let get_prop = |nr: &Option<NamedReference>| {
                 nr.as_ref().map_or_else(
