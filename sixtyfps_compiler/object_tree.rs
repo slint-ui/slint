@@ -394,14 +394,18 @@ impl BindingsMap {
     pub fn set_binding_if_not_set(
         &mut self,
         property_name: String,
-        expression_fn: impl FnOnce() -> BindingExpression,
+        expression_fn: impl FnOnce() -> Expression,
     ) {
         match self.0.entry(property_name) {
             Entry::Vacant(vacant_entry) => {
-                vacant_entry.insert(expression_fn());
+                let mut binding: BindingExpression = expression_fn().into();
+                binding.priority = i32::MAX;
+                vacant_entry.insert(binding);
             }
             Entry::Occupied(mut existing_entry) if !existing_entry.get().has_binding() => {
-                existing_entry.get_mut().merge_with(&expression_fn());
+                let mut binding: BindingExpression = expression_fn().into();
+                binding.priority = i32::MAX;
+                existing_entry.get_mut().merge_with(&binding);
             }
             _ => {}
         };

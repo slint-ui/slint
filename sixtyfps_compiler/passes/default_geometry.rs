@@ -97,7 +97,6 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                                                 .try_value_from_string("contain")
                                                 .unwrap(),
                                         )
-                                        .into()
                                     },
                                 );
                             }
@@ -208,14 +207,13 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
     }
     elem.borrow_mut().bindings.set_binding_if_not_set(resolved_name.to_string(), || {
         Expression::PropertyReference(NamedReference::new(parent_element, resolved_name.as_ref()))
-            .into()
     });
 }
 
 fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientation) {
     let base = crate::layout::implicit_layout_info_call(elem, orientation).into();
     elem.borrow_mut().bindings.set_binding_if_not_set(property.into(), || {
-        Expression::StructFieldAccess { base, name: "preferred".into() }.into()
+        Expression::StructFieldAccess { base, name: "preferred".into() }
     });
 }
 

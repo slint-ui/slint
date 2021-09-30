@@ -42,31 +42,24 @@ pub async fn apply_default_properties_from_style(
                             &style_metrics.root_element,
                             "text-cursor-width",
                         ))
-                        .into()
                     });
-                    elem.bindings.set_binding_if_not_set("color".into(), || {
-                        Expression::Cast {
-                            from: Expression::PropertyReference(NamedReference::new(
-                                &style_metrics.root_element,
-                                "default-text-color",
-                            ))
-                            .into(),
-                            to: Type::Brush,
-                        }
-                        .into()
+                    elem.bindings.set_binding_if_not_set("color".into(), || Expression::Cast {
+                        from: Expression::PropertyReference(NamedReference::new(
+                            &style_metrics.root_element,
+                            "default-text-color",
+                        ))
+                        .into(),
+                        to: Type::Brush,
                     });
                 }
                 "Text" => {
-                    elem.bindings.set_binding_if_not_set("color".into(), || {
-                        Expression::Cast {
-                            from: Expression::PropertyReference(NamedReference::new(
-                                &style_metrics.root_element,
-                                "default-text-color",
-                            ))
-                            .into(),
-                            to: Type::Brush,
-                        }
-                        .into()
+                    elem.bindings.set_binding_if_not_set("color".into(), || Expression::Cast {
+                        from: Expression::PropertyReference(NamedReference::new(
+                            &style_metrics.root_element,
+                            "default-text-color",
+                        ))
+                        .into(),
+                        to: Type::Brush,
                     });
                 }
                 "Dialog" | "Window" | "WindowItem" => {
@@ -75,7 +68,6 @@ pub async fn apply_default_properties_from_style(
                             &style_metrics.root_element,
                             "window-background",
                         ))
-                        .into()
                     });
                 }
 
