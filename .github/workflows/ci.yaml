@@ -73,34 +73,12 @@ jobs:
       run: |
           npm install -g node-gyp
           node-gyp install
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-    - uses: actions/cache@v2
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
-        restore-keys: |
-          ${{ runner.os }}-${{ github.job }}-node-
-    - name: Cache cargo build
-      if: matrix.os != 'macos-latest'
-      uses: actions/cache@v2
-      with:
-        path: target
-        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}-${{ steps.nodeversion.outputs.node-version }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
-          override: true
-          components: rustfmt, clippy
+          profile: minimal
+    - uses: Swatinem/rust-cache@v1
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -111,41 +89,6 @@ jobs:
       with:
           command: test
           args: --verbose
-    - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          du -hs target
-          rm -rf target/*/incremental
-          rm -rf target/*/*/*sixtyfps*
-          rm -rf target/*/*sixtyfps*
-          rm -rf target/*/*/test* target/*/*/gallery* target/*/*/printerdemo* target/*/*/sixtyfps-viewer* target/*/*/todo* target/*/*/slide_puzzle* target/*/*/memory* target/*/*/imagefilter target/*/*/plotter*
-          rm -rf target/*/sixtyfps-viewer target/*/printerdemo target/*/gallery target/*/todo target/*/slide_puzzle target/*/memory target/*/imagefilter target/*/plotter
-          rm -rf target/*/*test*
-          du -hs target
-    - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'windows-latest'
-      run: |
-          du -hs target
-          rm -Recurse -Force target/*/incremental
-          rm -Recurse -Force target/*/*/*sixtyfps*
-          rm -Recurse -Force target/*/*sixtyfps*
-          rm -Recurse -Force target/*/*/test*
-          rm -Recurse -Force target/*/*/gallery*
-          rm -Recurse -Force target/*/*/printerdemo*
-          rm -Recurse -Force target/*/*/todo*
-          rm -Recurse -Force target/*/*/slide_puzzle*
-          rm -Recurse -Force target/*/*/sixtyfps-viewer*
-          rm -Recurse -Force target/*/*/todo*
-          rm -Recurse -Force target/*/sixtyfps-viewer
-          rm -Recurse -Force target/*/printerdemo
-          rm -Recurse -Force target/*/gallery
-          rm -Recurse -Force target/*/todo
-          rm -Recurse -Force target/*/slide_puzzle
-          rm -Recurse -Force target/*/memory
-          rm -Recurse -Force target/*/imagefilter
-          rm -Recurse -Force target/*/plotter
-          rm -Recurse -Force target/*/*test*
-          du -hs target
   cpp_test_driver:
     env:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
@@ -324,21 +267,6 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: '12'
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo build
-      uses: actions/cache@v2
-      with:
-        path: target
-        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
     - name: Cache mdbook and mdbook-linkcheck
       uses: actions/cache@v2
       with:
@@ -350,6 +278,7 @@ jobs:
       uses: actions-rs/toolchain@v1
       with:
           toolchain: nightly
+    - uses: Swatinem/rust-cache@v1
     - name: Install mdbook
       run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }} || true
     - name: Install mdbook-linkcheck
@@ -422,34 +351,19 @@ jobs:
     - id: nodeversion
       run: |
           echo "::set-output name=node-version::$(node --version)"
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
     - uses: actions/cache@v2
       with:
         path: ~/.npm
         key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
         restore-keys: |
           ${{ runner.os }}-${{ github.job }}-node-
-    - name: Cache cargo build
-      uses: actions/cache@v2
-      with:
-        path: target
-        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}-${{ steps.nodeversion.outputs.node-version }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
-          override: true
-          components: rustfmt, clippy
+          profile: minimal
           target: wasm32-unknown-unknown
+    - uses: Swatinem/rust-cache@v1
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Compile sixtyfps-wasm-interpreter
@@ -467,12 +381,6 @@ jobs:
           path: |
               api/sixtyfps-wasm-interpreter/pkg/
               tools/online_editor/dist/
-    - name: Clean cache # Otherwise the cache is much too big
-      run: |
-          du -hs target
-          rm -rf target/*/incremental
-          rm -rf target/*/*/*sixtyfps*
-          du -hs target
 
   wasm_demo:
     env:
@@ -481,28 +389,13 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo build
-      uses: actions/cache@v2
-      with:
-        path: target
-        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}-${{ steps.nodeversion.outputs.node-version }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
-          override: true
-          components: rustfmt, clippy
+          profile: minimal
           target: wasm32-unknown-unknown
+    - uses: Swatinem/rust-cache@v1
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Gallery WASM build
@@ -583,26 +476,12 @@ jobs:
         fetch-depth: 0
     - name: Install Linux Dependencies
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo build
-      uses: actions/cache@v2
-      with:
-        path: target
-        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
-          override: true
+          profile: minimal
+    - uses: Swatinem/rust-cache@v1
     - name: Checkout old version
       run: |
           git checkout v${{ matrix.from_version }} --no-overlay -- examples
@@ -634,14 +513,6 @@ jobs:
           # skip example_printerdemo_old because that was not in 0.0.5
           # skip test_interpreter_examples_rotate because the internal rotate element was removed
           args: --bin test-driver-interpreter -- --skip example_printerdemo_old --skip test_interpreter_examples_rotate
-    - name: Clean cache # Otherwise the cache is much too big
-      run: |
-          du -hs target
-          rm -rf target/*/incremental
-          rm -rf target/*/*/*sixtyfps*
-          rm -rf target/*/*/test*
-          rm -rf target/*/*test*
-          du -hs target
 
   publish:
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
