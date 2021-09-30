@@ -170,7 +170,7 @@ pub struct FontCache {
     // coverage of the font.
     loaded_font_coverage: HashMap<fontdb::ID, GlyphCoverage>,
     pub(crate) text_context: TextContext,
-    available_fonts: fontdb::Database,
+    pub(crate) available_fonts: fontdb::Database,
     available_families: HashSet<SharedString>,
     #[cfg(not(any(
         target_family = "windows",
