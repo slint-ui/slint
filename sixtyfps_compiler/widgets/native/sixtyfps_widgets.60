@@ -51,7 +51,7 @@ export LineEdit := NativeLineEdit {
         padding-top: root.native-padding-top;
         padding-bottom: root.native-padding-bottom;
         inner := LineEditInner {
-            placeholder-color: #ecedeb; // FIXME: use the palette
+            placeholder-color: enabled ? StyleMetrics.placeholder-color : StyleMetrics.placeholder-color-disabled;
             enabled <=> root.enabled;
         }
     }

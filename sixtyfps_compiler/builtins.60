@@ -593,6 +593,11 @@ export global NativeStyleMetrics := {
     property <color> textedit-text-color;
     property <color> textedit-background-disabled;
     property <color> textedit-text-color-disabled;
+
+    // specific to the Native one
+    property <color> placeholder-color;
+    property <color> placeholder-color-disabled;
+
     //-is_non_item_type
     //-is_internal
 }

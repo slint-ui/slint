@@ -205,6 +205,9 @@ pub struct NativeStyleMetrics {
     pub textedit_text_color: Property<Color>,
     pub textedit_background_disabled: Property<Color>,
     pub textedit_text_color_disabled: Property<Color>,
+
+    pub placeholder_color: Property<Color>,
+    pub placeholder_color_disabled: Property<Color>,
 }
 
 impl Default for NativeStyleMetrics {
@@ -219,6 +222,8 @@ impl Default for NativeStyleMetrics {
             textedit_text_color: Default::default(),
             textedit_background_disabled: Default::default(),
             textedit_text_color_disabled: Default::default(),
+            placeholder_color: Default::default(),
+            placeholder_color_disabled: Default::default(),
         };
         sixtyfps_init_native_style_metrics(&s);
         s
@@ -267,4 +272,12 @@ pub extern "C" fn sixtyfps_init_native_style_metrics(self_: &NativeStyleMetrics)
         return qApp->palette().color(QPalette::Disabled, QPalette::Base).rgba();
     });
     self_.textedit_background_disabled.set(Color::from_argb_encoded(textedit_background_disabled));
+    let placeholder_color = cpp!(unsafe[] -> u32 as "QRgb" {
+        return qApp->palette().color(QPalette::PlaceholderText).rgba();
+    });
+    self_.placeholder_color.set(Color::from_argb_encoded(placeholder_color));
+    let placeholder_color_disabled = cpp!(unsafe[] -> u32 as "QRgb" {
+        return qApp->palette().color(QPalette::Disabled, QPalette::PlaceholderText).rgba();
+    });
+    self_.placeholder_color_disabled.set(Color::from_argb_encoded(placeholder_color_disabled));
 }
