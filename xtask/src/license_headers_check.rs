@@ -322,7 +322,7 @@ impl CargoDependency {
                 return Some(Self::Simple { _version: s.value().clone() })
             }
             toml_edit::Value::Float(_) => None,
-            toml_edit::Value::DateTime(_) => None,
+            toml_edit::Value::Datetime(_) => None,
             toml_edit::Value::Boolean(_) => None,
             toml_edit::Value::Array(_) => None,
             toml_edit::Value::Integer(_) => None,
