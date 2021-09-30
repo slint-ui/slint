@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+#![doc = include_str!("README.md")]
+
 use sixtyfps_interpreter::{ComponentInstance, SharedString};
 use std::future::Future;
 use std::pin::Pin;
@@ -28,7 +30,7 @@ struct Cli {
     #[structopt(name = "path to .60 file", parse(from_os_str))]
     path: std::path::PathBuf,
 
-    /// The style name ('native', or 'ugly')
+    /// The style name ('native', 'fluent', or 'ugly')
     #[structopt(long, name = "style name", default_value)]
     style: String,
 
