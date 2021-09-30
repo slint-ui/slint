@@ -220,6 +220,11 @@ cpp! {{
             count++;
         }
         layout.endLayout();
+        if (flags & Qt::AlignVCenter) {
+            layout.setPosition(QPointF(0, (rect.height() - height) / 2.));
+        } else if (flags & Qt::AlignBottom) {
+            layout.setPosition(QPointF(0, rect.height() - height));
+        }
         return -1;
     }
 }}
