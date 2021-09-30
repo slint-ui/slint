@@ -50,6 +50,7 @@ struct Cli {
 }
 
 thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
+static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn main() -> Result<()> {
     let args = Cli::from_args();
@@ -75,6 +76,7 @@ fn main() -> Result<()> {
     };
 
     let component = c.create();
+    init_dialog(&component);
 
     if let Some(data_path) = args.load_data {
         load_data(&component, &data_path)?;
@@ -122,7 +124,7 @@ fn main() -> Result<()> {
         }
     }
 
-    Ok(())
+    std::process::exit(EXIT_CODE.load(std::sync::atomic::Ordering::Relaxed))
 }
 
 fn init_compiler(
@@ -168,6 +170,25 @@ fn init_compiler(
     compiler
 }
 
+fn init_dialog(instance: &ComponentInstance) {
+    for cb in instance.definition().callbacks() {
+        let exit_code = match cb.as_str() {
+            "ok-clicked" | "yes-clicked" | "closed-clicked" => 0,
+            "cancel-clicked" | "no-clicked" => 1,
+            _ => continue,
+        };
+        // this is a dialog, so clicking the "x" should cancel
+        EXIT_CODE.store(1, std::sync::atomic::Ordering::Relaxed);
+        instance
+            .set_callback(&cb, move |_| {
+                EXIT_CODE.store(exit_code, std::sync::atomic::Ordering::Relaxed);
+                sixtyfps_rendering_backend_default::backend().quit_event_loop();
+                Default::default()
+            })
+            .unwrap();
+    }
+}
+
 static PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
 
 fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatcher>>> {
@@ -198,9 +219,12 @@ async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
             let mut current = current.borrow_mut();
             if let Some(handle) = current.take() {
                 let window = handle.window();
-                current.replace(c.create_with_existing_window(window));
+                let new_handle = c.create_with_existing_window(window);
+                init_dialog(&new_handle);
+                current.replace(new_handle);
             } else {
                 let handle = c.create();
+                init_dialog(&handle);
                 handle.show();
                 current.replace(handle);
             }
