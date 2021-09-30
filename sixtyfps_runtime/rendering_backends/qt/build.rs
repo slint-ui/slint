@@ -39,6 +39,8 @@ fn main() {
 
     config.flag_if_supported("-std=c++17");
     config.flag_if_supported("/std:c++17");
+    // Make sure that MSVC reports the correct value for __cplusplus
+    config.flag_if_supported("/Zc:__cplusplus");
 
     if cfg!(target_os = "macos") {
         config.flag("-F");
