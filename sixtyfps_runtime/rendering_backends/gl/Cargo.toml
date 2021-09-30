@@ -54,7 +54,6 @@ winit = { version = "0.25", default-features = false, features = ["web-sys"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 winit = { version = "0.25", default-features = false }
 glutin = { version = "0.27", default-features = false }
-glow = { version = "0.11.0", default-features = false }
 fontdb = { version = "0.6.2", features = ["memmap"] }
 memmap2 = { version = "0.3.1" }
 
