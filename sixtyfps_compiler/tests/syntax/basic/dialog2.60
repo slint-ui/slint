@@ -11,7 +11,7 @@ LICENSE END */
 import { StandardButton } from "sixtyfps_widgets.60";
 
 Test := Dialog {
-//     ^error{A Dialog should have a single child element that is not StandardButton}
+//     ^error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: ok; }
     StandardButton { }
 //  ^error{The `kind` property of the StandardButton in a Dialog must be set}
