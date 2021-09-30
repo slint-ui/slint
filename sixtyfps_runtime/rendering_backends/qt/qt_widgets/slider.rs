@@ -42,22 +42,22 @@ pub struct NativeSlider {
 
 cpp! {{
 void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, int active_controls, int minimum, int maximum, int value) {
-option.subControls = QStyle::SC_SliderGroove | QStyle::SC_SliderHandle;
-option.activeSubControls = { active_controls };
-option.orientation = Qt::Horizontal;
-option.maximum = maximum;
-option.minimum = minimum;
-option.sliderPosition = value;
-option.sliderValue = value;
-if (enabled) {
-    option.state |= QStyle::State_Enabled;
-} else {
-    option.palette.setCurrentColorGroup(QPalette::Disabled);
-}
-option.state |= QStyle::State_Horizontal;
-if (pressed) {
-    option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
-}
+    option.subControls = QStyle::SC_SliderGroove | QStyle::SC_SliderHandle;
+    option.activeSubControls = { active_controls };
+    option.orientation = Qt::Horizontal;
+    option.maximum = maximum;
+    option.minimum = minimum;
+    option.sliderPosition = value;
+    option.sliderValue = value;
+    if (enabled) {
+        option.state |= QStyle::State_Enabled;
+    } else {
+        option.palette.setCurrentColorGroup(QPalette::Disabled);
+    }
+    option.state |= QStyle::State_Horizontal;
+    if (pressed) {
+        option.state |= QStyle::State_Sunken | QStyle::State_MouseOver;
+    }
 }
 }}
 
