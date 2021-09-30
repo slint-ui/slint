@@ -489,7 +489,7 @@ fn lower_dialog_layout(
             }
         } else if main_widget.is_some() {
             diag.push_error(
-                "A Dialog should have a single child element that is not StandardButton".into(),
+                "A Dialog can have only one child element that is not a StandardButton".into(),
                 &*layout_child.borrow(),
             );
         } else {
@@ -509,7 +509,7 @@ fn lower_dialog_layout(
         );
     } else {
         diag.push_error(
-            "A Dialog should have a single child element that is not StandardButton".into(),
+            "A Dialog must have a single child element that is not StandardButton".into(),
             &*dialog_element.borrow(),
         );
     }
