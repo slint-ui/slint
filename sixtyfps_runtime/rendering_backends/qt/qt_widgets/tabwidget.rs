@@ -487,6 +487,7 @@ impl Item for NativeTab {
             }
             if (current == tab_index)
                 option.state |= QStyle::State_Selected;
+            option.features |= QStyleOptionTab::HasFrame;
             qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter, nullptr);
         });
     }
