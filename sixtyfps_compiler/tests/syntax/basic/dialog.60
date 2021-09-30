@@ -18,7 +18,7 @@ MyDiag1 := Dialog {
 }
 
 MyDiag2 := Dialog {
-    StandardButton { kind: cancel; }
+    StandardButton { kind: reset; }
     StandardButton {
         kind: cancel;
         col: 42;
@@ -35,6 +35,9 @@ MyDiag3 := Dialog {
 //  ^error{The `kind` property of the StandardButton in a Dialog must be set}
     StandardButton { kind: true ? ok : cancel; }
 //                        ^error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
+    StandardButton { kind: ok; }
+//                        ^error{Duplicated `kind`: There are two StandardButton in this Dialog with the same kind}
+
 }
 
 

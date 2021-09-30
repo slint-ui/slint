@@ -87,6 +87,9 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
         fixup_reference(&mut p.y);
         visit_all_named_references(&p.component, &mut |e| fixup_reference(e))
     });
+    for pd in decl.property_declarations.values_mut() {
+        pd.is_alias.as_mut().map(fixup_reference);
+    }
 
     let move_properties = &mut |elem: &ElementRc| {
         let elem_decl = Declarations::take_from_element(&mut *elem.borrow_mut());

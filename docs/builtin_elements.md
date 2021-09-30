@@ -657,7 +657,13 @@ A Dialog should have one main element for the content, that is not a button.
 And the window can have any number of `StandardButton` widgets.
 The button will be layed out in an order that depends on the platform.
 
-The `kind` property of the `StandardButton`s needs to be set to a specific value. It cannot be a complex expression.
+The `kind` property of the `StandardButton`s needs to be set to a specific value. It cannot be a complex expression,
+and there cannot be several button of the same kind.
+
+If A callback `<kind>_clicked` is automatically added for each button which does not have an explicit
+callback handler, so it can be handled from the native code. (e.g. if there is a button of kind `cancel`,
+a `cancel_clicked` callback will be added)
+When viewed with the `sixtyfps-viewer` program, the `ok`, `cancel`, and `close` button will cause the dialog to close.
 
 ### Properties
 

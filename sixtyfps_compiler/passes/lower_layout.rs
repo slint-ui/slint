@@ -19,6 +19,7 @@ use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
 use crate::typeregister::TypeRegister;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 pub async fn lower_layouts(
@@ -401,7 +402,9 @@ fn lower_dialog_layout(
 
     let mut main_widget = None;
     let mut button_roles = vec![];
-    for layout_child in &dialog_element.borrow().children {
+    let mut seen_buttons = HashSet::new();
+    let layout_children = std::mem::take(&mut dialog_element.borrow_mut().children);
+    for layout_child in &layout_children {
         let is_button = layout_child.borrow().property_declarations.get("kind").map_or(false, |pd| {
             matches!(&pd.property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
         });
@@ -424,7 +427,8 @@ fn lower_dialog_layout(
                     if let Expression::EnumerationValue(val) = &binding.expression {
                         let en = &val.enumeration;
                         debug_assert_eq!(en.name, "StandardButtonKind");
-                        let role = match en.values[val.value].as_str() {
+                        let kind = &en.values[val.value];
+                        let role = match kind.as_str() {
                             "ok" => "Accept",
                             "cancel" => "Reject",
                             "apply" => "Apply",
@@ -439,6 +443,41 @@ fn lower_dialog_layout(
                             _ => unreachable!(),
                         };
                         button_roles.push(role);
+                        if !seen_buttons.insert(val.value) {
+                            diag.push_error("Duplicated `kind`: There are two StandardButton in this Dialog with the same kind".into(), binding);
+                        } else if Rc::ptr_eq(
+                            dialog_element,
+                            &dialog_element
+                                .borrow()
+                                .enclosing_component
+                                .upgrade()
+                                .unwrap()
+                                .root_element,
+                        ) {
+                            let clicked_ty =
+                                layout_child.borrow().lookup_property("clicked").property_type;
+                            if matches!(&clicked_ty, Type::Callback { .. })
+                                && layout_child
+                                    .borrow()
+                                    .bindings
+                                    .get("clicked")
+                                    .map_or(true, |c| matches!(c.expression, Expression::Invalid))
+                            {
+                                dialog_element
+                                    .borrow_mut()
+                                    .property_declarations
+                                    .entry(format!("{}-clicked", kind))
+                                    .or_insert_with(|| PropertyDeclaration {
+                                        property_type: clicked_ty,
+                                        node: None,
+                                        expose_in_public_api: true,
+                                        is_alias: Some(NamedReference::new(
+                                            layout_child,
+                                            "clicked",
+                                        )),
+                                    });
+                            }
+                        }
                     } else {
                         diag.push_error(
                             "The `kind` property of the StandardButton in a Dialog must be known at compile-time"
@@ -457,6 +496,7 @@ fn lower_dialog_layout(
             main_widget = Some(layout_child.clone())
         }
     }
+    dialog_element.borrow_mut().children = layout_children;
 
     if let Some(main_widget) = main_widget {
         grid.add_element_with_coord(

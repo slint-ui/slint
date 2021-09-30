@@ -25,3 +25,18 @@ TestCase := Dialog {
     StandardButton { kind: yes; }
 }
 
+/*
+```rust
+let instance = TestCase::new();
+instance.on_help_clicked(|| { dbg!() });
+instance.on_cancel_clicked(|| { dbg!() });
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.on_help_clicked([] { });
+instance.on_cancel_clicked([] { });
+```
+
+*/
