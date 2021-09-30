@@ -9,15 +9,28 @@
 LICENSE END */
 #![cfg(feature = "svg")]
 
+fn with_svg_options<T>(callback: impl FnOnce(usvg::OptionsRef<'_>) -> T) -> T {
+    crate::fonts::FONT_CACHE.with(|cache| {
+        let options = usvg::Options::default();
+        let mut options_ref = options.to_ref();
+        let cache = cache.borrow();
+        options_ref.fontdb = &cache.available_fonts;
+        callback(options_ref)
+    })
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_from_path(path: &std::path::Path) -> Result<usvg::Tree, std::io::Error> {
     let svg_data = std::fs::read(path)?;
-    usvg::Tree::from_data(&svg_data, &usvg::Options::default().to_ref())
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+
+    with_svg_options(|options| {
+        usvg::Tree::from_data(&svg_data, &options)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    })
 }
 
 pub fn load_from_data(slice: &[u8]) -> Result<usvg::Tree, usvg::Error> {
-    usvg::Tree::from_data(slice, &usvg::Options::default().to_ref())
+    with_svg_options(|options| usvg::Tree::from_data(slice, &options))
 }
 
 pub fn render(
