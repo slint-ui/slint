@@ -38,6 +38,7 @@ MainWindow := Window {
                 placeholder-text: "What needs to be done?";
                 accepted(text) => {
                     todo-added(text);
+                    self.text = "";
                 }
             }
             btn := Button {
@@ -45,6 +46,7 @@ MainWindow := Window {
                 enabled: text-edit.text != "";
                 clicked => {
                     todo-added(text-edit.text);
+                    text-edit.text = "";
                 }
             }
         }
