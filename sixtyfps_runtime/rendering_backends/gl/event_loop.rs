@@ -417,7 +417,8 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                                         winit::event::VirtualKeyCode::Delete => {
                                             Some(InternalKeyCode::Delete)
                                         }
-                                        winit::event::VirtualKeyCode::Return => {
+                                        winit::event::VirtualKeyCode::Return
+                                        | winit::event::VirtualKeyCode::NumpadEnter => {
                                             Some(InternalKeyCode::Return)
                                         }
                                         winit::event::VirtualKeyCode::Escape => {
