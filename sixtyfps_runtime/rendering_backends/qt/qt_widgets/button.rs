@@ -206,6 +206,10 @@ impl Item for NativeButton {
             option.icon = icon;
             auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
             option.iconSize = QSize(iconSize, iconSize);
+            if (!icon.isNull()) {
+                option.rect.setHeight(qMax(option.rect.height(), iconSize));
+                option.rect.setWidth(option.rect.width() + 4 + iconSize);
+            }
             return qApp->style()->sizeFromContents(QStyle::CT_PushButton, &option, option.rect.size(), nullptr);
         });
         LayoutInfo {
