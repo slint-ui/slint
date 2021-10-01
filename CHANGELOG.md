@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
  - Due to changes in the build system, the C++ build now requires CMake >= 3.19.
+ - Fluent style: The Slider and ScrollBar now updates as the mouse moves.
 
 ### Added
 

@@ -195,7 +195,7 @@ export Slider := Rectangle {
     }
 
     Rectangle {
-        width: (parent.width - parent.min-height) * (handle.new-value / maximum);
+        width: (parent.width - parent.min-height) * (value / maximum);
         x: parent.height / 2;
         height: parent.min-height / 4;
         y: (parent.height - height) / 2;
@@ -214,20 +214,19 @@ export Slider := Rectangle {
             : touch.has-hover ? Palette.themePrimary
             : Palette.neutralSecondary;
         background: Palette.white;
-        x: (root.width - handle.width) * (new-value - minimum)/(maximum - minimum);
-        property<float> new-value-tmp : (touch.pressed && enabled)
-            ? root.value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)
-            : root.value;
-        property<float> new-value : new-value-tmp < root.minimum ? root.minimum
-            : new-value-tmp > root.maximum ? root.maximum : new-value-tmp;
+        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
     }
     touch := TouchArea {
         width: parent.width;
         height: parent.height;
-        clicked => {
-            if (enabled) {
-                root.value = handle.new-value;
-                root.changed(root.value);
+        property <float> pressed-value;
+        pressed-changed => {
+            if (pressed) { pressed-value = root.value; }
+        }
+        moved => {
+            if (enabled && pressed) {
+                value = max(root.minimum, min(root.maximum,
+                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
             }
         }
     }
