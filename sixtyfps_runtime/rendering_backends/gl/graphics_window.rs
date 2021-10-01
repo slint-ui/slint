@@ -433,7 +433,16 @@ impl PlatformWindow for GraphicsWindow {
         if h > 0. {
             size.height = h as _;
         }
-        self.borrow_mapped_window().unwrap().opengl_context.window().set_inner_size(size);
+        {
+            let mapped_window = self.borrow_mapped_window().unwrap();
+            let winit_window = mapped_window.opengl_context.window();
+            // If we're in fullscreen state, don't try to resize the window but maintain the surface
+            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
+            // when we create a surface that's bigger than the screen due to constraints (#532).
+            if winit_window.fullscreen().is_none() {
+                winit_window.set_inner_size(size);
+            }
+        }
         if must_resize {
             self.set_geometry(size.width as _, size.height as _)
         }
@@ -445,29 +454,33 @@ impl PlatformWindow for GraphicsWindow {
         constraints_vertical: corelib::layout::LayoutInfo,
     ) {
         if let Some(window) = self.borrow_mapped_window() {
+            let winit_window = window.opengl_context.window();
+            // If we're in fullscreen state, don't try to resize the window but maintain the surface
+            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
+            // when we create a surface that's bigger than the screen due to constraints (#532).
+            if winit_window.fullscreen().is_some() {
+                return;
+            }
+
             if (constraints_horizontal, constraints_vertical) != window.constraints.get() {
                 let min_width = constraints_horizontal.min.min(constraints_horizontal.max);
                 let min_height = constraints_vertical.min.min(constraints_vertical.max);
                 let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
                 let max_height = constraints_vertical.max.max(constraints_vertical.min);
 
-                window.opengl_context.window().set_min_inner_size(
-                    if min_width > 0. || min_height > 0. {
-                        Some(winit::dpi::LogicalSize::new(min_width, min_height))
-                    } else {
-                        None
-                    },
-                );
-                window.opengl_context.window().set_max_inner_size(
-                    if max_width < f32::MAX || max_height < f32::MAX {
-                        Some(winit::dpi::LogicalSize::new(
-                            max_width.min(65535.),
-                            max_height.min(65535.),
-                        ))
-                    } else {
-                        None
-                    },
-                );
+                winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
+                    Some(winit::dpi::LogicalSize::new(min_width, min_height))
+                } else {
+                    None
+                });
+                winit_window.set_max_inner_size(if max_width < f32::MAX || max_height < f32::MAX {
+                    Some(winit::dpi::LogicalSize::new(
+                        max_width.min(65535.),
+                        max_height.min(65535.),
+                    ))
+                } else {
+                    None
+                });
                 window.constraints.set((constraints_horizontal, constraints_vertical));
 
                 #[cfg(target_arch = "wasm32")]
