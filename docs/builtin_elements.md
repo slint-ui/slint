@@ -141,7 +141,7 @@ An Image can be used to represent an image loaded from an image file.
 * **`image-rendering`** (*enum*): Specifies how the source image will be scaled. Possible values are:
   * `smooth`: The image is scaled with a linear interpolation algorithm.
   * `pixelated`: The image is scaled with the nearest neighbor algorithm.
-  
+
   The default value is `smooth`.
 
 * **`colorize`** (*brush*): When set, the image is used as an alpha mask and is drown in the given color (or with the gradient)
@@ -421,7 +421,9 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 ### Callbacks
 
-* **`clicked`**: Emitted when the mouse is released
+* **`clicked`**: Emitted when clicked (the mouse is pressed, then released on this element)
+* **`moved`**: The mouse has been moved. This will only be called if the mouse is also pressed.
+* **`pressed-changed`**: The value of the `pressed` property changed.
 
 ### Example
 
