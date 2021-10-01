@@ -1,0 +1,67 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+import { TabWidget, StandardButton, GridBox } from "sixtyfps_widgets.60";
+
+
+SysInfo := Dialog {
+    property cpu_count <=> cpu-count.text;
+    property cpu_model <=> cpu-model.text;
+    property cpu_vendor <=> cpu-vendor.text;
+    property<int> mem_size_kb;
+
+    StandardButton { kind: ok; }
+    preferred-width: 300px;
+    TabWidget {
+        Tab {
+            title: "CPU";
+            GridBox {
+                Row {
+                    Text {
+                        text: "Product:";
+                        max-width: min-width;
+                    }
+                    cpu-model := Text {
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Vendor:";
+                        max-width: min-width;
+                    }
+                    cpu-vendor := Text {
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Number of logical cores:";
+                        max-width: min-width;
+                    }
+                    cpu-count := Text {
+                    }
+                }                
+            }
+        }
+        Tab {
+            title: "Memory";
+            GridBox {
+                Row {
+                    Text {
+                        text: "Size:";
+                        max-width: min-width;
+                    }
+                    Text {
+                        text: "\{floor(mem_size_kb / 1024)} GB";
+                    }
+                }
+            }            
+        }
+    }
+}
