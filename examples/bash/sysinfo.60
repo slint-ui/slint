@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { TabWidget, StandardButton, GridBox } from "sixtyfps_widgets.60";
+import { TabWidget, StandardButton, GridBox, ListView } from "sixtyfps_widgets.60";
 
 
 SysInfo := Dialog {
@@ -16,6 +16,20 @@ SysInfo := Dialog {
     property cpu_model <=> cpu-model.text;
     property cpu_vendor <=> cpu-vendor.text;
     property<int> mem_size_kb;
+    property <[{dev: string, mnt: string, total: int, used: int}]> partitions;
+    title: "System information";
+
+    callback human-unit(int) -> string;
+    human-unit(unit) => {
+        if (unit > 900 * 1000 * 1000) {
+            return "\{round(unit / 1000 / 1000 / 10) / 100} GB";
+        } else if (unit > 900 * 1000) {
+            return "\{round(unit / 1000 / 10) / 100} MB";
+        } else if (unit > 900) {
+            return "\{round(unit / 10) / 100} kB";
+        }
+        return "\{unit} bytes";
+    }
 
     StandardButton { kind: ok; }
     preferred-width: 300px;
@@ -46,7 +60,8 @@ SysInfo := Dialog {
                     }
                     cpu-count := Text {
                     }
-                }                
+                }
+                Rectangle {}
             }
         }
         Tab {
@@ -58,10 +73,32 @@ SysInfo := Dialog {
                         max-width: min-width;
                     }
                     Text {
-                        text: "\{floor(mem_size_kb / 1024)} GB";
+                        text: "\{floor(mem_size_kb / (1000*1000))} GB";
                     }
                 }
-            }            
+            }
+        }
+        Tab {
+            title: "Partitions";
+            ListView {
+                for disk in partitions : HorizontalLayout {
+                    padding: 5px;
+                    spacing: 5px;
+                    Text { text: disk.dev + " → " + disk.mnt; }
+                    Rectangle {
+                        min-width: t.min-width + 10px;
+                        background: lightblue;
+                        Rectangle {
+                            background: lightgray;
+                            width: (disk.used / disk.total) * parent.width;
+                        }
+                        t := Text {
+                            x: 5px;
+                            text: "\{human-unit(disk.used)} of \{human-unit(disk.total)} (\{round(100 * (disk.used / disk.total))} %)";
+                        }
+                    }
+                }
+            }
         }
     }
 }
