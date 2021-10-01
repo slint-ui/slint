@@ -350,6 +350,8 @@ pub struct TouchArea {
     pub mouse_x: Property<f32>,
     pub mouse_y: Property<f32>,
     pub clicked: Callback<VoidArg>,
+    pub moved: Callback<VoidArg>,
+    pub pressed_changed: Callback<VoidArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -407,21 +409,33 @@ impl Item for TouchArea {
             InputEventResult::GrabMouse
         };
 
-        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
+        match event {
             MouseEvent::MousePressed { pos } => {
                 Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(pos.x);
                 Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(pos.y);
-                true
+                Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
+                Self::FIELD_OFFSETS.pressed_changed.apply_pin(self).call(&());
             }
-            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
-            MouseEvent::MouseMoved { .. } | MouseEvent::MouseWheel { .. } => {
+            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => {
+                Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
+                Self::FIELD_OFFSETS.pressed_changed.apply_pin(self).call(&());
+            }
+            MouseEvent::MouseMoved { .. } => {
+                return if self.pressed() {
+                    Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
+                    InputEventResult::GrabMouse
+                } else {
+                    InputEventResult::EventAccepted
+                }
+            }
+            MouseEvent::MouseWheel { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
                 }
             }
-        });
+        };
         result
     }
 
