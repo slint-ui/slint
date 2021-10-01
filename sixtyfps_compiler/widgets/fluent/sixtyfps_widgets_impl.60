@@ -120,33 +120,35 @@ ScrollBar := Rectangle {
    // border-color: Palette.button-background;
     border-width: 1px;
     property <bool> horizontal;
-    property<length> max;
+    property<length> maximum;
     property<length> page-size;
-    // this is always negative and migger than  -max
+    // this is always negative and bigger than  -maximum
     property<length> value;
 
     handle := Rectangle {
-        width: !horizontal ? parent.width : max <= 0phx ? 0phx : parent.width * (page-size / (max + page-size));
-        height: horizontal ? parent.height : max <= 0phx ? 0phx : parent.height * (page-size / (max + page-size));
+        width: !horizontal ? parent.width : maximum <= 0phx ? 0phx : parent.width * (page-size / (maximum + page-size));
+        height: horizontal ? parent.height : maximum <= 0phx ? 0phx : parent.height * (page-size / (maximum + page-size));
 
         border-radius: (horizontal ? self.height : self.width) / 2;
         background: touch-area.pressed ? Palette.themePrimary :
             touch-area.has-hover ? Palette.themeSecondary : Palette.neutralTertiary;
-        x: !horizontal ? 0phx : (root.width - handle.width) * (new-value / max);
-        y: horizontal ? 0phx : (root.height - handle.height) * (new-value / max);
-        property<length> new-value-tmp : -root.value + (
-            !touch-area.pressed ? 0phx
-            : horizontal ?  (touch-area.mouse-x - touch-area.pressed-x) * (max / (root.width - handle.width))
-            : (touch-area.mouse-y - touch-area.pressed-y) * (max / (root.height - handle.height)));
-        property<length> new-value : new-value-tmp < 0phx ? 0phx
-            : root.max < 0phx ? 0phx
-            : new-value-tmp > root.max ? root.max : new-value-tmp;
+        x: !horizontal ? 0phx : (root.width - handle.width) * (-value / maximum);
+        y: horizontal ? 0phx : (root.height - handle.height) * (-value / maximum);
     }
     touch-area := TouchArea {
         width: parent.width;
         height: parent.height;
-        clicked => {
-            root.value = -handle.new-value;
+        property <length> pressed-value;
+        pressed-changed => {
+            if (pressed) { pressed-value = -root.value; }
+        }
+        moved => {
+            if (enabled && pressed) {
+                value = -max(0px, min(root.maximum, pressed-value + (
+                    horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (maximum / (root.width - handle.width))
+                               : (touch-area.mouse-y - touch-area.pressed-y) * (maximum / (root.height - handle.height))
+                )));
+            }
         }
     }
 }
@@ -189,7 +191,7 @@ export ScrollView := Rectangle {
         y: fli.y;
         height: fli.height;
         horizontal: false;
-        max: fli.viewport-height - fli.height;
+        maximum: fli.viewport-height - fli.height;
         page-size: fli.height;
     }
     hbar := ScrollBar {
@@ -198,7 +200,7 @@ export ScrollView := Rectangle {
         x: fli.x;
         width: fli.width;
         horizontal: true;
-        max: fli.viewport-width - fli.width;
+        maximum: fli.viewport-width - fli.width;
         page-size: fli.width;
     }
 }
