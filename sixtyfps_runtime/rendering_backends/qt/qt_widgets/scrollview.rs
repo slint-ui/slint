@@ -53,9 +53,6 @@ impl Item for NativeScrollView {
             sliderMin = qApp->style()->pixelMetric(QStyle::PM_ScrollBarSliderMin, &option, nullptr);
             auto vertical_size = qApp->style()->sizeFromContents(QStyle::CT_ScrollBar, &option, QSize(extent, extent * 2 + sliderMin), nullptr);
 
-            /*int hscrollOverlap = hbar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &opt, hbar);
-                int vscrollOverlap = vbar->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &opt, vbar);*/
-
             QStyleOptionFrame frameOption;
             frameOption.rect = QRect(QPoint(), QSize(1000, 1000));
             frameOption.frameShape = QFrame::StyledPanel;
@@ -273,25 +270,23 @@ impl Item for NativeScrollView {
     fn_render! { this dpr size painter initial_state =>
 
         let data = this.data();
-        let left = this.native_padding_left();
-        let right = this.native_padding_right();
-        let top = this.native_padding_top();
-        let bottom = this.native_padding_bottom();
-        let corner_rect = qttypes::QRectF {
-            x: (size.width as f32 / dpr - (right - left)) as _,
-            y: (size.height as f32 / dpr - (bottom - top)) as _,
-            width: (right - left) as _,
-            height: (bottom - top) as _,
+        let margins = qttypes::QMargins {
+            left: this.native_padding_left() as _,
+            top: this.native_padding_top() as _,
+            right: this.native_padding_right() as _,
+            bottom: this.native_padding_bottom() as _,
         };
         let enabled: bool = this.enabled();
         let has_focus: bool = this.has_focus();
-        cpp!(unsafe [
+        let frame_around_contents = cpp!(unsafe [
             painter as "QPainter*",
-            corner_rect as "QRectF",
+            size as "QSize",
+            dpr as "float",
+            margins as "QMargins",
             enabled as "bool",
             has_focus as "bool",
             initial_state as "int"
-        ] {
+        ] -> bool as "bool" {
             ensure_initialized();
             QStyleOptionFrame frameOption;
             frameOption.state |= QStyle::State(initial_state);
@@ -299,7 +294,7 @@ impl Item for NativeScrollView {
 
             frameOption.lineWidth = 1;
             frameOption.midLineWidth = 0;
-            frameOption.rect = corner_rect.toAlignedRect();
+            frameOption.rect = QRect(QPoint(), size / dpr);
             frameOption.state |= QStyle::State_Sunken;
             if (enabled) {
                 frameOption.state |= QStyle::State_Enabled;
@@ -308,10 +303,21 @@ impl Item for NativeScrollView {
             }
             if (has_focus)
                 frameOption.state |= QStyle::State_HasFocus;
-            qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, nullptr);
+            //int scrollOverlap = qApp->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &frameOption, nullptr);
             bool foac = qApp->style()->styleHint(QStyle::SH_ScrollView_FrameOnlyAroundContents, &frameOption, nullptr);
-            frameOption.rect = QRect(QPoint(), foac ? corner_rect.toAlignedRect().topLeft() : corner_rect.toAlignedRect().bottomRight());
-            qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, nullptr);
+            // this assume that the frame size is the same on both side, so that the scrollbar width is (right-left)
+            QSize corner_size = QSize(margins.right() - margins.left(), margins.bottom() - margins.top());
+            if (foac) {
+                frameOption.rect = QRect(QPoint(), (size / dpr) - corner_size);
+                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, nullptr);
+                frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1), corner_size);
+                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, nullptr);
+            } else {
+                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, nullptr);
+                frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1) - QPoint(margins.right(), margins.bottom()), corner_size);
+                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, nullptr);
+            }
+            return foac;
         });
 
         let draw_scrollbar = |horizontal: bool,
@@ -370,13 +376,15 @@ impl Item for NativeScrollView {
             });
         };
 
+        let scrollbars_width = (margins.right - margins.left) as f32;
+        let scrollbars_height = (margins.bottom - margins.top) as f32;
         draw_scrollbar(
             false,
             qttypes::QRectF {
-                x: ((size.width as f32 - right + left) / dpr) as _,
-                y: 0.,
-                width: ((right - left) / dpr) as _,
-                height: ((size.height as f32 - bottom + top) / dpr) as _,
+                x: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { margins.right as _ }) as _,
+                y: (if frame_around_contents { 0 } else { margins.top }) as _,
+                width: scrollbars_width as _,
+                height: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { (margins.bottom + margins.top) as f32 }) as _,
             },
             this.vertical_value() as i32,
             this.vertical_page_size() as i32,
@@ -388,10 +396,10 @@ impl Item for NativeScrollView {
         draw_scrollbar(
             true,
             qttypes::QRectF {
-                x: 0.,
-                y: ((size.height as f32 - bottom + top) / dpr) as _,
-                width: ((size.width as f32 - right + left) / dpr) as _,
-                height: ((bottom - top) / dpr) as _,
+                x: (if frame_around_contents { 0 } else { margins.left }) as _,
+                y: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { margins.bottom as _ }) as _,
+                width: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { (margins.left + margins.right) as _ }) as _,
+                height: (scrollbars_height) as _,
             },
             this.horizontal_value() as i32,
             this.horizontal_page_size() as i32,
