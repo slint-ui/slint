@@ -30,7 +30,7 @@ pub struct LoadedDocuments {
 
 pub struct VirtualFile<'a> {
     pub path: &'a str,
-    pub contents: &'a str,
+    pub contents: &'a [u8],
 }
 
 pub type VirtualDirectory<'a> = [&'a VirtualFile<'a>];
@@ -167,7 +167,7 @@ impl<'a> TypeLoader<'a> {
         &self,
         import_token: Option<&NodeOrToken>,
         maybe_relative_path_or_url: &str,
-    ) -> (std::path::PathBuf, Option<&'_ str>) {
+    ) -> (std::path::PathBuf, Option<&'static [u8]>) {
         let referencing_file_or_url =
             import_token.and_then(|tok| tok.source_file().map(|s| s.path()));
 
@@ -222,7 +222,8 @@ impl<'a> TypeLoader<'a> {
         }
 
         let source_code_result = if let Some(builtin) = builtin {
-            Ok(builtin)
+            Ok(String::from_utf8(builtin)
+                .expect("internal error: embedded file is not UTF-8 source code"))
         } else if let Some(fallback) = &self.compiler_config.open_import_fallback {
             let result = fallback(path_canon.to_string_lossy().into()).await;
             result.unwrap_or_else(|| std::fs::read_to_string(&path_canon))
@@ -366,7 +367,7 @@ impl<'a> TypeLoader<'a> {
         &self,
         referencing_file: Option<&std::path::Path>,
         file_to_import: &str,
-    ) -> Option<(PathBuf, Option<&str>)> {
+    ) -> Option<(PathBuf, Option<&'static [u8]>)> {
         // The directory of the current file is the first in the list of include directories.
         let maybe_current_directory =
             referencing_file.and_then(|path| path.parent()).map(|p| p.to_path_buf());

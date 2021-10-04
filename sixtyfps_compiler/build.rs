@@ -64,7 +64,7 @@ fn process_style(path: &Path) -> std::io::Result<String> {
         .iter()
         .map(|file| {
             format!(
-                "&VirtualFile {{path: r#\"{}\"# , contents: include_str!(r#\"{}\"#)}}",
+                "&VirtualFile {{path: r#\"{}\"# , contents: include_bytes!(r#\"{}\"#)}}",
                 file.file_name().unwrap().to_string_lossy(),
                 file.display()
             )
