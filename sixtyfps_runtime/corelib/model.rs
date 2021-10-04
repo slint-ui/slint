@@ -616,7 +616,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             unsafe { self.map_unchecked(|s| &s.listview_geometry_tracker) };
         let init = &init;
 
-        let geometry_changed = listview_geometry_tracker
+        let geometry_updated = listview_geometry_tracker
             .evaluate_if_dirty(|| {
                 // Fetch the model again to make sure that it is a dependency of this geometry tracker.
                 // invariant: model existence was checked earlier, so unwrap() should be safe.
@@ -685,9 +685,9 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     break;
                 }
             })
-            .is_none();
+            .is_some();
 
-        if geometry_changed && self.inner.borrow().borrow().is_dirty.as_ref().get() {
+        if !geometry_updated && self.inner.borrow().borrow().is_dirty.as_ref().get() {
             let count = self
                 .inner
                 .borrow()
