@@ -22,6 +22,7 @@ use corelib::window::*;
 use corelib::SharedString;
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
+use winit::event::WindowEvent;
 
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::run_return::EventLoopExtRunReturn;
@@ -146,6 +147,10 @@ pub fn unregister_window(id: winit::window::WindowId) {
     })
 }
 
+fn window_by_id(id: winit::window::WindowId) -> Option<Rc<crate::graphics_window::GraphicsWindow>> {
+    ALL_WINDOWS.with(|windows| windows.borrow().get(&id).and_then(|weakref| weakref.upgrade()))
+}
+
 /// This enum captures run-time specific events that can be dispatched to the event loop in
 /// addition to the winit events.
 pub enum CustomEvent {
@@ -167,6 +172,181 @@ impl std::fmt::Debug for CustomEvent {
             Self::UserEvent(_) => write!(f, "UserEvent"),
             Self::Exit => write!(f, "Exit"),
         }
+    }
+}
+
+fn redraw_all_windows() {
+    let all_windows_weak =
+        ALL_WINDOWS.with(|windows| windows.borrow().values().cloned().collect::<Vec<_>>());
+    for window_weak in all_windows_weak {
+        if let Some(window) = window_weak.upgrade() {
+            window.request_redraw();
+        }
+    }
+}
+
+fn process_window_event(
+    window: Rc<crate::graphics_window::GraphicsWindow>,
+    event: WindowEvent,
+    quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
+    control_flow: &mut winit::event_loop::ControlFlow,
+    cursor_pos: &mut Point,
+    pressed: &mut bool,
+) {
+    corelib::animations::update_animations();
+    let runtime_window = window.self_weak.upgrade().unwrap();
+    match event {
+        WindowEvent::Resized(size) => {
+            let size = size.to_logical(window.scale_factor() as f64);
+            window.set_geometry(size.width, size.height);
+        }
+        WindowEvent::CloseRequested => {
+            window.hide();
+            match quit_behavior {
+                corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                    let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
+                    if window_count == 0 {
+                        *control_flow = winit::event_loop::ControlFlow::Exit;
+                    }
+                }
+                corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
+            }
+        }
+        WindowEvent::ReceivedCharacter(ch) => {
+            // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
+            // with a control character. We choose not to forward those but try to use the current key code instead.
+            let text: Option<SharedString> = if ch.is_control() {
+                window.currently_pressed_key_code.take().and_then(winit_key_code_to_string)
+            } else {
+                Some(ch.to_string().into())
+            };
+
+            let text = match text {
+                Some(text) => text,
+                None => return,
+            };
+
+            let modifiers = window.current_keyboard_modifiers();
+
+            let mut event = KeyEvent { event_type: KeyEventType::KeyPressed, text, modifiers };
+            runtime_window.clone().process_key_input(&event);
+            event.event_type = KeyEventType::KeyReleased;
+            runtime_window.process_key_input(&event);
+        }
+        WindowEvent::Focused(have_focus) => {
+            // We don't render popups as separate windows yet, so treat
+            // focus to be the same as being active.
+            runtime_window.set_active(have_focus);
+            runtime_window.set_focus(have_focus);
+        }
+        WindowEvent::KeyboardInput { ref input, .. } => {
+            window.currently_pressed_key_code.set(match input.state {
+                winit::event::ElementState::Pressed => input.virtual_keycode.clone(),
+                _ => None,
+            });
+            if let Some(key_code) =
+                input.virtual_keycode.and_then(|virtual_keycode| match virtual_keycode {
+                    winit::event::VirtualKeyCode::Left => Some(InternalKeyCode::Left),
+                    winit::event::VirtualKeyCode::Right => Some(InternalKeyCode::Right),
+                    winit::event::VirtualKeyCode::Home => Some(InternalKeyCode::Home),
+                    winit::event::VirtualKeyCode::End => Some(InternalKeyCode::End),
+                    winit::event::VirtualKeyCode::Back => Some(InternalKeyCode::Back),
+                    winit::event::VirtualKeyCode::Delete => Some(InternalKeyCode::Delete),
+                    winit::event::VirtualKeyCode::Return
+                    | winit::event::VirtualKeyCode::NumpadEnter => Some(InternalKeyCode::Return),
+                    winit::event::VirtualKeyCode::Escape => Some(InternalKeyCode::Escape),
+                    _ => None,
+                })
+            {
+                let text = key_code.encode_to_string();
+                let event = KeyEvent {
+                    event_type: match input.state {
+                        winit::event::ElementState::Pressed => KeyEventType::KeyPressed,
+                        winit::event::ElementState::Released => KeyEventType::KeyReleased,
+                    },
+                    text,
+                    modifiers: window.current_keyboard_modifiers(),
+                };
+                runtime_window.process_key_input(&event);
+            };
+        }
+        WindowEvent::ModifiersChanged(state) => {
+            // To provide an easier cross-platform behavior, we map the command key to control
+            // on macOS, and control to meta.
+            #[cfg(target_os = "macos")]
+            let (control, meta) = (state.logo(), state.ctrl());
+            #[cfg(not(target_os = "macos"))]
+            let (control, meta) = (state.ctrl(), state.logo());
+            let modifiers =
+                KeyboardModifiers { shift: state.shift(), alt: state.alt(), control, meta };
+            window.set_current_keyboard_modifiers(modifiers);
+        }
+        WindowEvent::CursorMoved { position, .. } => {
+            let position = position.to_logical(window.scale_factor() as f64);
+            *cursor_pos = euclid::point2(position.x, position.y);
+            window.process_mouse_input(MouseEvent::MouseMoved { pos: *cursor_pos });
+        }
+        WindowEvent::CursorLeft { .. } => {
+            // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
+            #[cfg(target_arch = "wasm32")]
+            if *pressed {
+                *pressed = false;
+                window.process_mouse_input(MouseEvent::MouseExit);
+            }
+        }
+        WindowEvent::MouseWheel { delta, .. } => {
+            let delta = match delta {
+                winit::event::MouseScrollDelta::LineDelta(lx, ly) => {
+                    euclid::point2(lx * 60., ly * 60.)
+                }
+                winit::event::MouseScrollDelta::PixelDelta(d) => {
+                    let d = d.to_logical(window.scale_factor() as f64);
+                    euclid::point2(d.x, d.y)
+                }
+            };
+            window.process_mouse_input(MouseEvent::MouseWheel { pos: *cursor_pos, delta });
+        }
+        WindowEvent::MouseInput { state, button, .. } => {
+            let button = match button {
+                winit::event::MouseButton::Left => PointerEventButton::left,
+                winit::event::MouseButton::Right => PointerEventButton::right,
+                winit::event::MouseButton::Middle => PointerEventButton::middle,
+                winit::event::MouseButton::Other(_) => PointerEventButton::none,
+            };
+            let ev = match state {
+                winit::event::ElementState::Pressed => {
+                    *pressed = true;
+                    MouseEvent::MousePressed { pos: *cursor_pos, button }
+                }
+                winit::event::ElementState::Released => {
+                    *pressed = false;
+                    MouseEvent::MouseReleased { pos: *cursor_pos, button }
+                }
+            };
+            window.process_mouse_input(ev);
+        }
+        WindowEvent::Touch(touch) => {
+            let location = touch.location.to_logical(window.scale_factor() as f64);
+            let pos = euclid::point2(location.x, location.y);
+            let ev = match touch.phase {
+                winit::event::TouchPhase::Started => {
+                    *pressed = true;
+                    MouseEvent::MousePressed { pos, button: PointerEventButton::left }
+                }
+                winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
+                    *pressed = false;
+                    MouseEvent::MouseReleased { pos, button: PointerEventButton::left }
+                }
+                winit::event::TouchPhase::Moved => MouseEvent::MouseMoved { pos },
+            };
+            window.process_mouse_input(ev);
+        }
+        WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size: size } => {
+            let size = size.to_logical(scale_factor);
+            window.set_geometry(size.width, size.height);
+            runtime_window.set_scale_factor(scale_factor as f32);
+        }
+        _ => {}
     }
 }
 
@@ -205,347 +385,30 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
             *control_flow = ControlFlow::Wait;
 
             match event {
-                winit::event::Event::WindowEvent {
-                    event: winit::event::WindowEvent::CloseRequested,
-                    window_id,
-                } => {
-                    if let Some(window_rc) = ALL_WINDOWS.with(|windows| {
-                        windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
-                    }) {
-                        window_rc.hide();
-                    }
-                    match quit_behavior {
-                        corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
-                            let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
-                            if window_count == 0 {
-                                *control_flow = winit::event_loop::ControlFlow::Exit;
-                            }
-                        }
-                        corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
-                    }
+                winit::event::Event::WindowEvent { event, window_id } => {
+                    if let Some(window) = window_by_id(window_id) {
+                        process_window_event(
+                            window,
+                            event,
+                            quit_behavior,
+                            control_flow,
+                            &mut cursor_pos,
+                            &mut pressed,
+                        );
+                    };
                 }
+
                 winit::event::Event::RedrawRequested(id) => {
                     corelib::animations::update_animations();
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(&id).and_then(|weakref| weakref.upgrade())
-                        {
-                            window.draw();
-                        }
-                    });
-                }
-                winit::event::Event::WindowEvent {
-                    event: winit::event::WindowEvent::Resized(size),
-                    window_id,
-                } => {
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            let size = size.to_logical(window.scale_factor() as f64);
-                            window.set_geometry(size.width, size.height);
-                        }
-                    });
-                }
-                winit::event::Event::WindowEvent {
-                    event:
-                        winit::event::WindowEvent::ScaleFactorChanged {
-                            scale_factor,
-                            new_inner_size: size,
-                        },
-                    window_id,
-                } => {
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            let size = size.to_logical(scale_factor);
-                            window.set_geometry(size.width, size.height);
-                            let runtime_window = window.self_weak.upgrade().unwrap();
-                            runtime_window.set_scale_factor(scale_factor as f32);
-                        }
-                    });
-                }
-
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::MouseInput { state, button, .. },
-                    ..
-                } => {
-                    corelib::animations::update_animations();
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            let button = match button {
-                                winit::event::MouseButton::Left => PointerEventButton::left,
-                                winit::event::MouseButton::Right => PointerEventButton::right,
-                                winit::event::MouseButton::Middle => PointerEventButton::middle,
-                                winit::event::MouseButton::Other(_) => PointerEventButton::none,
-                            };
-                            let ev = match state {
-                                winit::event::ElementState::Pressed => {
-                                    pressed = true;
-                                    MouseEvent::MousePressed { pos: cursor_pos, button }
-                                }
-                                winit::event::ElementState::Released => {
-                                    pressed = false;
-                                    MouseEvent::MouseReleased { pos: cursor_pos, button }
-                                }
-                            };
-                            window.process_mouse_input(ev);
-                        }
-                    });
-                }
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::Touch(touch),
-                    ..
-                } => {
-                    corelib::animations::update_animations();
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            let location = touch.location.to_logical(window.scale_factor() as f64);
-                            let pos = euclid::point2(location.x, location.y);
-                            let ev = match touch.phase {
-                                winit::event::TouchPhase::Started => {
-                                    pressed = true;
-                                    MouseEvent::MousePressed {
-                                        pos,
-                                        button: PointerEventButton::left,
-                                    }
-                                }
-                                winit::event::TouchPhase::Ended
-                                | winit::event::TouchPhase::Cancelled => {
-                                    pressed = false;
-                                    MouseEvent::MouseReleased {
-                                        pos,
-                                        button: PointerEventButton::left,
-                                    }
-                                }
-                                winit::event::TouchPhase::Moved => MouseEvent::MouseMoved { pos },
-                            };
-                            window.process_mouse_input(ev);
-                        }
-                    });
-                }
-                winit::event::Event::WindowEvent {
-                    window_id,
-                    event: winit::event::WindowEvent::CursorMoved { position, .. },
-                    ..
-                } => {
-                    corelib::animations::update_animations();
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            let position = position.to_logical(window.scale_factor() as f64);
-                            cursor_pos = euclid::point2(position.x, position.y);
-                            window.process_mouse_input(MouseEvent::MouseMoved { pos: cursor_pos });
-                        }
-                    });
-                }
-                // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
-                #[cfg(target_arch = "wasm32")]
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::CursorLeft { .. },
-                    ..
-                } => {
-                    if pressed {
-                        corelib::animations::update_animations();
-                        ALL_WINDOWS.with(|windows| {
-                            if let Some(window) = windows
-                                .borrow()
-                                .get(&window_id)
-                                .and_then(|weakref| weakref.upgrade())
-                            {
-                                pressed = false;
-                                window.process_mouse_input(MouseEvent::MouseExit);
-                            }
-                        });
+                    if let Some(window) = window_by_id(id) {
+                        window.draw();
                     }
-                }
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::MouseWheel { delta, .. },
-                    ..
-                } => {
-                    corelib::animations::update_animations();
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            let delta = match delta {
-                                winit::event::MouseScrollDelta::LineDelta(lx, ly) => {
-                                    euclid::point2(lx * 60., ly * 60.)
-                                }
-                                winit::event::MouseScrollDelta::PixelDelta(d) => {
-                                    let d = d.to_logical(window.scale_factor() as f64);
-                                    euclid::point2(d.x, d.y)
-                                }
-                            };
-                            window.process_mouse_input(MouseEvent::MouseWheel {
-                                pos: cursor_pos,
-                                delta,
-                            });
-                        }
-                    });
-                }
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::KeyboardInput { ref input, .. },
-                } => {
-                    corelib::animations::update_animations();
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            window.currently_pressed_key_code.set(match input.state {
-                                winit::event::ElementState::Pressed => {
-                                    input.virtual_keycode.clone()
-                                }
-                                _ => None,
-                            });
-                            if let Some(key_code) =
-                                input.virtual_keycode.and_then(|virtual_keycode| {
-                                    match virtual_keycode {
-                                        winit::event::VirtualKeyCode::Left => {
-                                            Some(InternalKeyCode::Left)
-                                        }
-                                        winit::event::VirtualKeyCode::Right => {
-                                            Some(InternalKeyCode::Right)
-                                        }
-                                        winit::event::VirtualKeyCode::Home => {
-                                            Some(InternalKeyCode::Home)
-                                        }
-                                        winit::event::VirtualKeyCode::End => {
-                                            Some(InternalKeyCode::End)
-                                        }
-                                        winit::event::VirtualKeyCode::Back => {
-                                            Some(InternalKeyCode::Back)
-                                        }
-                                        winit::event::VirtualKeyCode::Delete => {
-                                            Some(InternalKeyCode::Delete)
-                                        }
-                                        winit::event::VirtualKeyCode::Return
-                                        | winit::event::VirtualKeyCode::NumpadEnter => {
-                                            Some(InternalKeyCode::Return)
-                                        }
-                                        winit::event::VirtualKeyCode::Escape => {
-                                            Some(InternalKeyCode::Escape)
-                                        }
-                                        _ => None,
-                                    }
-                                })
-                            {
-                                let text = key_code.encode_to_string();
-                                let event = KeyEvent {
-                                    event_type: match input.state {
-                                        winit::event::ElementState::Pressed => {
-                                            KeyEventType::KeyPressed
-                                        }
-                                        winit::event::ElementState::Released => {
-                                            KeyEventType::KeyReleased
-                                        }
-                                    },
-                                    text,
-                                    modifiers: window.current_keyboard_modifiers(),
-                                };
-                                window.self_weak.upgrade().unwrap().process_key_input(&event);
-                            };
-                        }
-                    });
-                }
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::ReceivedCharacter(ch),
-                } => {
-                    corelib::animations::update_animations();
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
-                            // with a control character. We choose not to forward those but try to use the current key code instead.
-                            let text: Option<SharedString> = if ch.is_control() {
-                                window
-                                    .currently_pressed_key_code
-                                    .take()
-                                    .and_then(winit_key_code_to_string)
-                            } else {
-                                Some(ch.to_string().into())
-                            };
-
-                            let text = match text {
-                                Some(text) => text,
-                                None => return,
-                            };
-
-                            let modifiers = window.current_keyboard_modifiers();
-
-                            let mut event =
-                                KeyEvent { event_type: KeyEventType::KeyPressed, text, modifiers };
-
-                            window.self_weak.upgrade().unwrap().process_key_input(&event);
-
-                            event.event_type = KeyEventType::KeyReleased;
-                            window.self_weak.upgrade().unwrap().process_key_input(&event);
-                        }
-                    });
-                }
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::ModifiersChanged(state),
-                } => {
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            // To provide an easier cross-platform behavior, we map the command key to control
-                            // on macOS, and control to meta.
-                            #[cfg(target_os = "macos")]
-                            let (control, meta) = (state.logo(), state.ctrl());
-                            #[cfg(not(target_os = "macos"))]
-                            let (control, meta) = (state.ctrl(), state.logo());
-                            let modifiers = KeyboardModifiers {
-                                shift: state.shift(),
-                                alt: state.alt(),
-                                control,
-                                meta,
-                            };
-                            window.set_current_keyboard_modifiers(modifiers);
-                        }
-                    });
-                }
-
-                winit::event::Event::WindowEvent {
-                    ref window_id,
-                    event: winit::event::WindowEvent::Focused(have_focus),
-                } => {
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            let window = window.self_weak.upgrade().unwrap();
-                            // We don't render popups as separate windows yet, so treat
-                            // focus to be the same as being active.
-                            window.set_active(have_focus);
-                            window.set_focus(have_focus);
-                        }
-                    });
                 }
 
                 winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
-                    ALL_WINDOWS.with(|windows| {
-                        if let Some(window) =
-                            windows.borrow().get(&window_id).and_then(|weakref| weakref.upgrade())
-                        {
-                            window.self_weak.upgrade().unwrap().update_window_properties();
-                        }
-                    });
+                    if let Some(window) = window_by_id(window_id) {
+                        window.self_weak.upgrade().unwrap().update_window_properties();
+                    }
                 }
 
                 winit::event::Event::UserEvent(CustomEvent::Exit) => {
@@ -558,32 +421,18 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
 
                 #[cfg(target_arch = "wasm32")]
                 winit::event::Event::UserEvent(CustomEvent::RedrawAllWindows) => {
-                    ALL_WINDOWS.with(|windows| {
-                        windows.borrow().values().for_each(|window| {
-                            if let Some(window) = window.upgrade() {
-                                window.request_redraw();
-                            }
-                        })
-                    })
+                    redraw_all_windows()
                 }
-
                 _ => (),
             }
 
             if *control_flow != winit::event_loop::ControlFlow::Exit {
-                corelib::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-                    if !driver.has_active_animations() {
-                        return;
-                    }
+                if corelib::animations::CURRENT_ANIMATION_DRIVER
+                    .with(|driver| driver.has_active_animations())
+                {
                     *control_flow = ControlFlow::Poll;
-                    ALL_WINDOWS.with(|windows| {
-                        windows.borrow().values().for_each(|window| {
-                            if let Some(window) = window.upgrade() {
-                                window.request_redraw();
-                            }
-                        })
-                    })
-                })
+                    redraw_all_windows()
+                }
             }
 
             corelib::timers::TimerList::maybe_activate_timers();

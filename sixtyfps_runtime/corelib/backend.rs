@@ -17,6 +17,7 @@ use std::rc::Rc;
 use crate::graphics::{Image, Size};
 use crate::window::Window;
 
+#[derive(Copy, Clone)]
 /// Behavior describing how the event loop should terminate.
 pub enum EventLoopQuitBehavior {
     /// Terminate the event loop when the last window was closed.
