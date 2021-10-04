@@ -35,11 +35,11 @@ SysInfo := Dialog {
     preferred-width: 300px;
     TabWidget {
         Tab {
-            title: "CPU";
+            title: "General";
             GridBox {
                 Row {
                     Text {
-                        text: "Product:";
+                        text: "CPU Model:";
                         max-width: min-width;
                     }
                     cpu-model := Text {
@@ -47,7 +47,7 @@ SysInfo := Dialog {
                 }
                 Row {
                     Text {
-                        text: "Vendor:";
+                        text: "CPU Vendor:";
                         max-width: min-width;
                     }
                     cpu-vendor := Text {
@@ -61,21 +61,16 @@ SysInfo := Dialog {
                     cpu-count := Text {
                     }
                 }
-                Rectangle {}
-            }
-        }
-        Tab {
-            title: "Memory";
-            GridBox {
                 Row {
                     Text {
-                        text: "Size:";
+                        text: "Memory Size:";
                         max-width: min-width;
                     }
                     Text {
                         text: "\{floor(mem_size_kb / (1000*1000))} GB";
                     }
-                }
+                }   
+                Rectangle {}
             }
         }
         Tab {
