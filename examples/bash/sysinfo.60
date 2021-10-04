@@ -12,6 +12,7 @@ import { TabWidget, StandardButton, GridBox, ListView } from "sixtyfps_widgets.6
 
 
 SysInfo := Dialog {
+    property os_name <=> os-name.text;
     property uptime <=> uptime.text;
     property cpu_count <=> cpu-count.text;
     property cpu_model <=> cpu-model.text;
@@ -38,6 +39,14 @@ SysInfo := Dialog {
         Tab {
             title: "General";
             GridBox {
+                Row {
+                    Text {
+                        text: "Operationg System:";
+                        max-width: min-width;
+                    }
+                    os-name := Text {
+                    }
+                }                
                 Row {
                     Text {
                         text: "CPU Model:";

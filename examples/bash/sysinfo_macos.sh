@@ -9,6 +9,9 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 
+os_name=`sw_vers -productName`
+os_version=`sw_vers -productVersion`
+os_name="$os_name $os_version"
 uptime=`uptime | awk 'BEGIN{FS="up |,"}{print $2}'`
 cpu_count=`sysctl -n hw.ncpu`
 cpu_vendor=`sysctl -n machdep.cpu.vendor`
@@ -18,6 +21,7 @@ partitions=`df -lk | tail -n+2 | sed 's/\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^
 
 sixtyfps-viewer `dirname $0`/sysinfo.60 --load-data - <<EOT
 {
+    "os_name": "$os_name",
     "uptime": "$uptime",
     "cpu_count": "$cpu_count",
     "cpu_vendor": "$cpu_vendor",

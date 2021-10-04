@@ -9,6 +9,12 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 
+if command lsb_release 2>/dev/null >/dev/null; then
+   os_name=`lsb_release -ds`
+else
+   os_name="(unable to determine Linux distribution)"
+fi
+
 uptime=`uptime -p | cut -d " " -f2-`
 cpu_count=`grep processor /proc/cpuinfo | wc -l`
 cpu_vendor=`awk -F ": " '/vendor_id/{ print $2; exit}' < /proc/cpuinfo`
@@ -18,6 +24,7 @@ partitions=`df --block-size=1 | tail -n+2 | sed 's/\([^ ]*\)  *\([^ ]*\)  *\([^ 
 
 sixtyfps-viewer `dirname $0`/sysinfo.60 --load-data - <<EOT
 {
+    "os_name": "$os_name",
     "uptime": "$uptime",
     "cpu_count": "$cpu_count",
     "cpu_vendor": "$cpu_vendor",
