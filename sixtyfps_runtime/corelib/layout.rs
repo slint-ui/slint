@@ -11,7 +11,7 @@ LICENSE END */
 
 // cspell:ignore coord
 
-use crate::{slice::Slice, SharedVector};
+use crate::{items::DialogButtonRole, slice::Slice, SharedVector};
 
 /// Vertical or Horizontal orientation
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -719,18 +719,6 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
     result
 }
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Hash, Debug, strum_macros::EnumString, strum_macros::ToString,
-)]
-#[repr(u8)]
-pub enum DialogButtonRole {
-    Accept,
-    Reject,
-    Apply,
-    Reset,
-    Help,
-}
-
 /// Given the cells of a layout of a Dialog, re-order the button according to the platform
 ///
 /// This function assume that the `roles` contains the roles of the button which are the first `cells`
@@ -753,19 +741,21 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
     let mut idx = 0;
 
     if cfg!(windows) {
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);
         idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::action);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
     } else if cfg!(target_os = "macos") {
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::action);
         idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
 
         // assume some unix check if XDG_CURRENT_DESKTOP stats with K
     } else if std::env::var("XDG_CURRENT_DESKTOP")
@@ -774,20 +764,22 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
         .map_or(false, |x| x.to_ascii_uppercase() == b'K')
     {
         // KDE variant
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);
         idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::action);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
     } else {
         // GNOME variant and fallback for WASM build
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);
         idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::action);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
     }
 }
 

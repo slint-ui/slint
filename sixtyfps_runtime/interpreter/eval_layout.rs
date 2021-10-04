@@ -16,6 +16,7 @@ use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutGeometry, Orientation};
 use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_compilerlib::object_tree::ElementRc;
+use sixtyfps_corelib::items::DialogButtonRole;
 use sixtyfps_corelib::layout::{self as core_layout};
 use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::slice::Slice;
@@ -98,7 +99,7 @@ pub(crate) fn solve_layout(
             {
                 let roles = buttons_roles
                     .iter()
-                    .map(|r| core_layout::DialogButtonRole::from_str(r).unwrap())
+                    .map(|r| DialogButtonRole::from_str(r).unwrap())
                     .collect::<Vec<_>>();
                 core_layout::reorder_dialog_button_layout(&mut cells, &roles);
             }

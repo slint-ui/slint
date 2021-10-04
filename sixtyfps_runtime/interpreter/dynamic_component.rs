@@ -892,6 +892,7 @@ pub(crate) fn generate_component<'id>(
                 "StandardButtonKind" => {
                     property_info::<sixtyfps_corelib::items::StandardButtonKind>()
                 }
+                "DialogButtonRole" => property_info::<sixtyfps_corelib::items::DialogButtonRole>(),
                 "PointerEventButton" => {
                     property_info::<sixtyfps_corelib::items::PointerEventButton>()
                 }

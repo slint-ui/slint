@@ -43,6 +43,24 @@ const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
+thread_local! {
+    pub static DIALOG_BUTTON_ROLE_ENUM: Type =
+        Type::Enumeration(Rc::new(Enumeration {
+            name: "DialogButtonRole".into(),
+            values: IntoIterator::into_iter([
+                "none".to_owned(),
+                "accept".to_owned(),
+                "reject".to_owned(),
+                "apply".to_owned(),
+                "reset".to_owned(),
+                "action".to_owned(),
+                "help".to_owned(),
+            ])
+            .collect(),
+            default_value: 0,
+        }));
+}
+
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
     ("clip", Type::Bool),
     ("opacity", Type::Float32),
@@ -67,6 +85,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(std::array::IntoIter::new([
             ("forward-focus", Type::ElementReference),
             ("focus", BuiltinFunction::SetFocusItem.ty()),
+            ("dialog-button-role", DIALOG_BUTTON_ROLE_ENUM.with(|e| e.clone())),
         ]))
 }
 
@@ -183,6 +202,7 @@ impl TypeRegister {
         );
         declare_enum("PointerEventKind", &["cancel", "down", "up"]);
         declare_enum("PointerEventButton", &["none", "left", "right", "middle"]);
+        register.insert_type(DIALOG_BUTTON_ROLE_ENUM.with(|x| x.clone()));
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());

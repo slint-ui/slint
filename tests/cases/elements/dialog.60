@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { StandardButton, GridBox } from "sixtyfps_widgets.60";
+import { StandardButton, Button, GridBox } from "sixtyfps_widgets.60";
 
 TestCase := Dialog {
     Rectangle {
@@ -23,6 +23,10 @@ TestCase := Dialog {
     StandardButton { kind: apply; }
     StandardButton { kind: reset; }
     StandardButton { kind: yes; }
+    Button {
+        text: "Action";
+        dialog-button-role: action;
+    }
 }
 
 /*

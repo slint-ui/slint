@@ -17,6 +17,7 @@ These properties are valid on all visible items
   children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
 * **`visible`** (*bool*): When set to `false`, the element and all his children will not be drawn
   and not react to mouse input (default: `true`)
+* **`dialog-button-role`** (*enum DialogButtonRole*): Specify that this is a button in a `Dialog`.
 
 
 ### Drop Shadows
@@ -656,13 +657,15 @@ Example := Window {
 Dialog is like a window, but it has buttons that are automatically laid out.
 
 A Dialog should have one main element for the content, that is not a button.
-And the window can have any number of `StandardButton` widgets.
+And the window can have any number of `StandardButton` widgets or other button
+with the `dialog-button-role` property.
 The button will be layed out in an order that depends on the platform.
 
-The `kind` property of the `StandardButton`s needs to be set to a specific value. It cannot be a complex expression,
-and there cannot be several button of the same kind.
+The `kind` property of the `StandardButton`s and the ``dialog-button-role` properties needs to be set to a specific value,
+it cannot be a complex expression.
+There cannot be several StandardButton of the same kind.
 
-If A callback `<kind>_clicked` is automatically added for each button which does not have an explicit
+If A callback `<kind>_clicked` is automatically added for each StandardButton which does not have an explicit
 callback handler, so it can be handled from the native code. (e.g. if there is a button of kind `cancel`,
 a `cancel_clicked` callback will be added)
 When viewed with the `sixtyfps-viewer` program, the `ok`, `cancel`, and `close` button will cause the dialog to close.
@@ -675,13 +678,17 @@ When viewed with the `sixtyfps-viewer` program, the `ok`, `cancel`, and `close` 
 ### Example
 
 ```60
-import { StandardButton } from "sixtyfps_widgets.60";
+import { StandardButton, Button } from "sixtyfps_widgets.60";
 Example := Dialog {
     Text {
       text: "This is a dialog box";
     }
     StandardButton { kind: ok; }
     StandardButton { kind: cancel; }
+    Button {
+      text: "More Info";
+      dialog-button-role: action;
+    }
 }
 ```
 
@@ -789,3 +796,19 @@ This enum describes the different ways of deciding what the inside of a shape de
 
 * **`FillRule.nonzero`**: The ["nonzero" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#nonzero).
 * **`FillRule.evenodd`**: The ["evenodd" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#evenodd).
+
+## `DialogButtonRole`
+
+This enum represent the value of the `dialog-button-role` property which can be added to
+any element within a `Dialog` to put that item in the button row, and its exact position
+depends on the role and the platform.
+
+### Values
+
+* **`none`**: This is not a button means to go in the row of button of the dialog
+* **`accept`**: This is the role of the main button to click to accept the dialog. e.g. "Ok" or "Yes"
+* **`reject`**: This is the role of the main button to click to reject the dialog. e.g. "Cancel" or "No"
+* **`apply`**: This is the role of the "Apply" button
+* **`reset`**: This is the role of the "Reset" button
+* **`help`**: This is the role of the  "Help" button
+* **`action`**: This is the role of any other button that perform another action.

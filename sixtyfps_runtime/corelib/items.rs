@@ -1297,6 +1297,27 @@ impl Default for StandardButtonKind {
     }
 }
 
+#[derive(
+    Copy, Clone, Eq, PartialEq, Hash, Debug, strum_macros::EnumString, strum_macros::ToString,
+)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum DialogButtonRole {
+    none,
+    accept,
+    reject,
+    apply,
+    reset,
+    action,
+    help,
+}
+
+impl Default for DialogButtonRole {
+    fn default() -> Self {
+        Self::none
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]

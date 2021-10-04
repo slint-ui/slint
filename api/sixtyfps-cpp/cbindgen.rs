@@ -116,6 +116,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "ImageFit",
         "FillRule",
         "StandardButtonKind",
+        "DialogButtonRole",
         "PointerEventKind",
         "PointerEventButton",
         "PointerEvent",
