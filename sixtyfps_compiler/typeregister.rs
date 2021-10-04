@@ -181,6 +181,8 @@ impl TypeRegister {
                 "ignore",
             ],
         );
+        declare_enum("PointerEventKind", &["cancel", "down", "up"]);
+        declare_enum("PointerEventButton", &["none", "left", "right", "middle"]);
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());

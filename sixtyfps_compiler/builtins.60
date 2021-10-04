@@ -96,6 +96,13 @@ export Text := _ {
     //-default_size_binding:implicit_size
 }
 
+
+export struct PointerEvent := {
+    //-name:sixtyfps::private_api::PointerEvent
+    button: PointerEventButton,
+    kind: PointerEventKind,
+}
+
 export TouchArea := _ {
     property <length> x;
     property <length> y;
@@ -110,7 +117,7 @@ export TouchArea := _ {
     property <length> pressed_y: native_output;
     callback clicked;
     callback moved;
-    callback pressed-changed;
+    callback pointer-event(PointerEvent);
     //-default_size_binding:expands_to_parent_geometry
 }
 

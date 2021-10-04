@@ -262,6 +262,7 @@ declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyboardModifie
 declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyEvent { event_type, text, modifiers });
 declare_value_struct_conversion!(struct sixtyfps_corelib::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct sixtyfps_corelib::graphics::Point { x, y, ..Default::default()});
+declare_value_struct_conversion!(struct sixtyfps_corelib::items::PointerEvent { kind, button });
 
 /// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///
@@ -312,6 +313,8 @@ declare_value_enum_conversion!(sixtyfps_corelib::input::KeyEventType, KeyEventTy
 declare_value_enum_conversion!(sixtyfps_corelib::items::EventResult, EventResult);
 declare_value_enum_conversion!(sixtyfps_corelib::items::FillRule, FillRule);
 declare_value_enum_conversion!(sixtyfps_corelib::items::StandardButtonKind, StandardButtonKind);
+declare_value_enum_conversion!(sixtyfps_corelib::items::PointerEventKind, PointerEventKind);
+declare_value_enum_conversion!(sixtyfps_corelib::items::PointerEventButton, PointerEventButton);
 
 impl From<sixtyfps_corelib::animations::Instant> for Value {
     fn from(value: sixtyfps_corelib::animations::Instant) -> Self {

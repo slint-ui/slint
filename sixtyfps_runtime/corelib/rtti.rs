@@ -49,6 +49,9 @@ declare_ValueType![
     crate::items::FillRule,
     crate::items::StandardButtonKind,
     crate::graphics::Point,
+    crate::items::PointerEvent,
+    crate::items::PointerEventButton,
+    crate::items::PointerEventKind,
 ];
 
 /// What kind of animation is on a binding

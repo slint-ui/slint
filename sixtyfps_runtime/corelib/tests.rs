@@ -47,14 +47,14 @@ pub extern "C" fn sixtyfps_send_mouse_click(
     );
     state = crate::input::process_mouse_input(
         component.clone(),
-        MouseEvent::MousePressed { pos },
+        MouseEvent::MousePressed { pos, button: crate::items::PointerEventButton::left },
         window,
         state,
     );
     sixtyfps_mock_elapsed_time(50);
     crate::input::process_mouse_input(
         component.clone(),
-        MouseEvent::MouseReleased { pos },
+        MouseEvent::MouseReleased { pos, button: crate::items::PointerEventButton::left },
         window,
         state,
     );

@@ -242,7 +242,7 @@ impl Window {
             .and_then(|(popup_component, coordinates)| {
                 event.translate(-coordinates.to_vector());
 
-                if let MouseEvent::MousePressed { pos } = &event {
+                if let MouseEvent::MousePressed { pos, .. } = &event {
                     // close the popup if one press outside the popup
                     let geom = ComponentRc::borrow_pin(&popup_component)
                         .as_ref()
