@@ -9,6 +9,7 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 
+uptime=`uptime | awk 'BEGIN{FS="up |,"}{print $2}'`
 cpu_count=`sysctl -n hw.ncpu`
 cpu_vendor=`sysctl -n machdep.cpu.vendor`
 cpu_model=`sysctl -n machdep.cpu.brand_string`
@@ -17,6 +18,7 @@ partitions=`df -lk | tail -n+2 | sed 's/\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^
 
 sixtyfps-viewer `dirname $0`/sysinfo.60 --load-data - <<EOT
 {
+    "uptime": "$uptime",
     "cpu_count": "$cpu_count",
     "cpu_vendor": "$cpu_vendor",
     "cpu_model": "$cpu_model",

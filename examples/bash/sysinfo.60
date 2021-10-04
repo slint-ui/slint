@@ -12,6 +12,7 @@ import { TabWidget, StandardButton, GridBox, ListView } from "sixtyfps_widgets.6
 
 
 SysInfo := Dialog {
+    property uptime <=> uptime.text;
     property cpu_count <=> cpu-count.text;
     property cpu_model <=> cpu-model.text;
     property cpu_vendor <=> cpu-vendor.text;
@@ -69,7 +70,15 @@ SysInfo := Dialog {
                     Text {
                         text: "\{floor(mem_size_kb / (1000*1000))} GB";
                     }
-                }   
+                }
+                Row {
+                    Text{
+                        text: "Uptime:";
+                        max-width: min-width;
+                    }
+                    uptime := Text {
+                    }
+                }
                 Rectangle {}
             }
         }
