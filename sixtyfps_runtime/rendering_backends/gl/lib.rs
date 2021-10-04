@@ -1455,7 +1455,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
 
     fn register_font_from_memory(
         &'static self,
-        data: &[u8],
+        data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         self::fonts::register_font_from_memory(data)
     }

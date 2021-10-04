@@ -35,9 +35,9 @@ smallvec = "1.4.1"
 once_cell = "1.5"
 lyon_path = "0.17.3"
 copypasta = { version = "0.7.0", default-features = false }
-fontdb = { version = "0.6.2", default-features = false }
-resvg = { version= "0.18", optional = true, default-features = false }
-usvg = { version= "0.18", optional = true, default-features = false, features = ["text"] }
+fontdb = { version = "0.7.0", default-features = false }
+resvg = { version= "0.19", optional = true, default-features = false }
+usvg = { version= "0.19", optional = true, default-features = false, features = ["text"] }
 tiny-skia = { version= "0.6", optional = true, default-features = false }
 derive_more = "0.99.5"
 # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
@@ -54,9 +54,8 @@ winit = { version = "0.25", default-features = false, features = ["web-sys"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 winit = { version = "0.25", default-features = false }
 glutin = { version = "0.27", default-features = false }
-fontdb = { version = "0.6.2", features = ["memmap"] }
-memmap2 = { version = "0.5.0" }
-usvg = { version= "0.18", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
+fontdb = { version = "0.7.0", features = ["memmap"] }
+usvg = { version= "0.19", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
 
 [target.'cfg(target_family = "windows")'.dependencies]
 font-kit = { version = "0.10", features = [] }
