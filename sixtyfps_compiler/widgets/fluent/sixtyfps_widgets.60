@@ -8,10 +8,10 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { LineEditInner, TextEdit } from "../common/common.60";
+import { LineEditInner, TextEdit, AboutSixtyFPS } from "../common/common.60";
 import { StandardButton } from "../common/standardbutton.60";
 import { StyleMetrics, ScrollView, Button, Palette  } from "sixtyfps_widgets_impl.60";
-export { StyleMetrics, ScrollView, Button, StandardButton, TextEdit }
+export { StyleMetrics, ScrollView, Button, StandardButton, TextEdit, AboutSixtyFPS }
 
 export CheckBox := Rectangle {
     callback toggled;

@@ -85,3 +85,26 @@ export TextEdit := ScrollView {
         }
     }
 }
+
+export AboutSixtyFPS := Rectangle {
+    VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+        alignment: start;
+        Text {
+            text: "Made width";
+            font-size: 24px;
+            font-weight: 700;
+            horizontal-alignment: center;
+        }
+        Image {
+            source: @image-url("sixtyfps_logo.svg");
+            preferred-width: 128px;
+        }
+        Text {
+            text: "Version 0.1.3\n© 2021 SixtyFPS GmbH\nhttps://sixtyfps.io/";
+            font-size: 10px;
+            horizontal-alignment: center;
+        }
+    }
+}

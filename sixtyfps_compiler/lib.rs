@@ -135,4 +135,21 @@ pub async fn compile_syntax_node(
 
 mod library {
     include!(env!("SIXTYFPS_WIDGETS_LIBRARY"));
+
+    pub fn load_file(builtin_path: &std::path::Path) -> Option<&'static [u8]> {
+        let mut components = vec![];
+        for part in builtin_path.iter() {
+            if part == ".." {
+                components.pop();
+            } else if part != "." {
+                components.push(part);
+            }
+        }
+        if let &[folder, file] = components.as_slice() {
+            let library = widget_library().iter().find(|x| x.0 == folder)?.1;
+            library.iter().find_map(|vf| if vf.path == file { Some(vf.contents) } else { None })
+        } else {
+            None
+        }
+    }
 }

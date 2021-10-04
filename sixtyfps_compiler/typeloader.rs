@@ -389,24 +389,7 @@ impl<'a> TypeLoader<'a> {
                 match candidate.strip_prefix("builtin:/") {
                     Err(_) => candidate.exists().then(|| (candidate, None)),
                     Ok(builtin) => {
-                        let mut components = vec![];
-                        for part in builtin.iter() {
-                            if part == ".." {
-                                components.pop();
-                            } else if part != "." {
-                                components.push(part);
-                            }
-                        }
-                        if let &[folder, file] = components.as_slice() {
-                            let library =
-                                crate::library::widget_library().iter().find(|x| x.0 == folder)?.1;
-                            library
-                                .iter()
-                                .find(|vf| vf.path == file)
-                                .map(|vf| (candidate, Some(vf.contents)))
-                        } else {
-                            None
-                        }
+                        crate::library::load_file(builtin).map(|data| (candidate, Some(data)))
                     }
                 }
             })

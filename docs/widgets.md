@@ -396,3 +396,17 @@ Example := Window {
 
 That's the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the spacing and padding values
  depending on the style instead of defaulting to 0.
+
+## `AboutSixtyFPS`
+
+This element displays the a "Made with SixtyFPS" badge.
+
+```60
+import { AboutSixtyFPS } from "sixtyfps_widgets.60";
+Example := Window {
+    width: 128px;
+    height: 128px;
+    AboutSixtyFPS {        
+    }
+}
+```

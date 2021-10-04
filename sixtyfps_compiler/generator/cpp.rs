@@ -599,8 +599,13 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
 
     file.declarations.extend(doc.root_component.embedded_file_resources.borrow().iter().map(
         |(path, id)| {
-            let data =
-                std::fs::read(path).expect(&format!("unable to read file for embedding: {}", path));
+            let data = match path.strip_prefix("builtin:/") {
+                None => std::fs::read(path)
+                    .expect(&format!("unable to read file for embedding: {}", path)),
+                Some(builtin) => crate::library::load_file(std::path::Path::new(builtin))
+                    .expect("non-existent internal file referenced")
+                    .to_vec(),
+            };
 
             let mut init = "{ ".to_string();
 

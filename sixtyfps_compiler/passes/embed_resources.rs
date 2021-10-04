@@ -13,14 +13,14 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn embed_resources(component: &Rc<Component>) {
+pub fn embed_resources(component: &Rc<Component>, embed_files_by_default: bool) {
     let global_embedded_resources = &component.embedded_file_resources;
 
     for component in
         component.used_types.borrow().sub_components.iter().chain(std::iter::once(component))
     {
         visit_all_expressions(component, |e, _| {
-            embed_resources_from_expression(e, global_embedded_resources)
+            embed_resources_from_expression(e, global_embedded_resources, embed_files_by_default)
         });
     }
 }
@@ -28,11 +28,13 @@ pub fn embed_resources(component: &Rc<Component>) {
 fn embed_resources_from_expression(
     e: &mut Expression,
     global_embedded_resources: &RefCell<HashMap<String, usize>>,
+    embed_files_by_default: bool,
 ) {
     if let Expression::ImageReference(ref mut resource_ref) = e {
         match resource_ref {
-            ImageReference::None => {}
-            ImageReference::AbsolutePath(path) => {
+            ImageReference::AbsolutePath(path)
+                if embed_files_by_default || path.starts_with("builtin:/") =>
+            {
                 let mut resources = global_embedded_resources.borrow_mut();
                 let maybe_id = resources.len();
                 let resource_id = *resources.entry(path.clone()).or_insert(maybe_id);
@@ -45,9 +47,11 @@ fn embed_resources_from_expression(
                         .unwrap_or_default(),
                 }
             }
-            ImageReference::EmbeddedData { .. } => {}
+            _ => {}
         }
     };
 
-    e.visit_mut(|mut e| embed_resources_from_expression(&mut e, global_embedded_resources));
+    e.visit_mut(|mut e| {
+        embed_resources_from_expression(&mut e, global_embedded_resources, embed_files_by_default)
+    });
 }
