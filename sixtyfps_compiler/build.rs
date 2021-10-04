@@ -55,7 +55,13 @@ fn process_style(path: &Path) -> std::io::Result<String> {
         .filter_map(Result::ok)
         .filter(|entry| {
             entry.path().is_file()
-                && entry.path().extension().unwrap_or_default() == std::ffi::OsStr::new("60")
+                && entry
+                    .path()
+                    .extension()
+                    .map(|ext| {
+                        ext == std::ffi::OsStr::new("60") || ext == std::ffi::OsStr::new("svg")
+                    })
+                    .unwrap_or_default()
         })
         .map(|entry| entry.path())
         .collect();

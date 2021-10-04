@@ -656,7 +656,8 @@ fn generate_component(
         .iter()
         .map(|(path, id)| {
             let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
-            quote!(const #symbol: &'static [u8] = ::core::include_bytes!(#path);)
+            let data = embedded_file_tokens(path);
+            quote!(const #symbol: &'static [u8] = #data;)
         })
         .collect();
 
@@ -2082,4 +2083,16 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
 // components ends up large amounts of stack space (see issue #133)
 fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
     quote!({ *&#component_id::FIELD_OFFSETS.#field })
+}
+
+fn embedded_file_tokens(path: &str) -> TokenStream {
+    match path.strip_prefix("builtin:/") {
+        None => quote!(::core::include_bytes!(#path)),
+        Some(builtin) => {
+            let data = crate::library::load_file(std::path::Path::new(builtin))
+                .expect("non-existent internal file referenced");
+            let literal = proc_macro2::Literal::byte_string(data);
+            quote!(#literal)
+        }
+    }
 }

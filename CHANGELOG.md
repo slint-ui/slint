@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
  - `sixtyfps::Image` has now a `path()` accessor function in Rust and C++ to access the optional path
    of the file on disk that's backing the image.
  - New `moved` and `pointer-event` callback in `TouchArea`
+ - New `AboutSixtyFPS` widget
 
 ### Fixed
 

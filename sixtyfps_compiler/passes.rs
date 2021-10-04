@@ -78,9 +78,7 @@ pub async fn run_passes(
         lower_tabwidget::lower_tabwidget(component, &mut type_loader, diag).await;
     }
 
-    if compiler_config.embed_resources {
-        embed_resources::embed_resources(root_component);
-    }
+    embed_resources::embed_resources(root_component, compiler_config.embed_resources);
 
     inlining::inline(doc);
     focus_item::resolve_element_reference_in_set_focus_calls(root_component, diag);

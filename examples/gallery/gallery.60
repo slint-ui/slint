@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView,
-    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit } from "sixtyfps_widgets.60";
+    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit, AboutSixtyFPS } from "sixtyfps_widgets.60";
 
 App := Window {
     preferred-width: 500px;
@@ -146,6 +146,14 @@ App := Window {
                             wrap: no-wrap;
                             enabled: !disable-toggle.checked;
                         }
+                    }
+                }
+            }
+            Tab {
+                title: "About";
+                HorizontalBox {
+                    alignment: center;
+                    AboutSixtyFPS {
                     }
                 }
             }
