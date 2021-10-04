@@ -34,8 +34,13 @@ mod fontconfig;
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
-pub fn register_font_from_memory(data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
-    FONT_CACHE.with(|cache| cache.borrow_mut().available_fonts.load_font_data(data.into()));
+pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
+    FONT_CACHE.with(|cache| {
+        cache
+            .borrow_mut()
+            .available_fonts
+            .load_font_source(fontdb::Source::Binary(std::sync::Arc::new(data)))
+    });
     Ok(())
 }
 
@@ -44,9 +49,9 @@ pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std
     let requested_path = path.canonicalize().unwrap_or_else(|_| path.to_owned());
     FONT_CACHE.with(|cache| {
         for face_info in cache.borrow().available_fonts.faces() {
-            match &*face_info.source {
+            match &face_info.source {
                 fontdb::Source::Binary(_) => {}
-                fontdb::Source::File(loaded_path) => {
+                fontdb::Source::File(loaded_path) | fontdb::Source::SharedFile(loaded_path, ..) => {
                     if *loaded_path == requested_path {
                         return Ok(());
                     }
@@ -137,13 +142,10 @@ struct LoadedFont {
     fontdb_face_id: fontdb::ID,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Clone)]
-struct MMappedFont(std::rc::Rc<memmap2::Mmap>);
-#[cfg(not(target_arch = "wasm32"))]
-impl AsRef<[u8]> for MMappedFont {
+struct SharedFontData(std::sync::Arc<dyn AsRef<[u8]>>);
+impl AsRef<[u8]> for SharedFontData {
     fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
+        self.0.as_ref().as_ref()
     }
 }
 
@@ -179,8 +181,6 @@ pub struct FontCache {
         target_arch = "wasm32"
     )))]
     fontconfig_fallback_families: Vec<String>,
-    #[cfg(not(target_arch = "wasm32"))]
-    mapped_font_files: HashMap<std::path::PathBuf, MMappedFont>,
 }
 
 impl Default for FontCache {
@@ -239,8 +239,6 @@ impl Default for FontCache {
                 target_arch = "wasm32"
             )))]
             fontconfig_fallback_families,
-            #[cfg(not(target_arch = "wasm32"))]
-            mapped_font_files: Default::default(),
         }
     }
 }
@@ -276,43 +274,34 @@ impl FontCache {
         let fontdb_face_id =
             self.available_fonts.query(&query).expect("font database cannot be empty");
 
-        let (fontdb_source, face_index) = self
+        // Safety: We map font files into memory that - while we never unmap them - may
+        // theoretically get corrupted/truncated by another process and then we'll crash
+        // and burn. In practice that should not happen though, font files are - at worst -
+        // removed by a package manager and they unlink instead of truncate, even when
+        // replacing files. Unlinking OTOH is safe and doesn't destroy the file mapping,
+        // the backing file becomes an orphan in a special area of the file system. That works
+        // on Unixy platforms and on Windows the default file flags prevent the deletion.
+        #[cfg(not(target_arch = "wasm32"))]
+        let (shared_data, face_index) = unsafe {
+            self.available_fonts.make_shared_face_data(fontdb_face_id).expect("unable to mmap font")
+        };
+        #[cfg(target_arch = "wasm32")]
+        let (shared_data, face_index) = self
             .available_fonts
             .face_source(fontdb_face_id)
-            .expect("unable to map fontdb face id to font source");
+            .map(|(source, face_index)| {
+                (
+                    match source {
+                        fontdb::Source::Binary(data) => data.clone(),
+                    },
+                    face_index,
+                )
+            })
+            .expect("invalid fontdb face id");
 
-        let femtovg_font_id = match fontdb_source.as_ref() {
-            fontdb::Source::Binary(data) => {
-                text_context.add_shared_font_with_index(data.clone(), face_index).unwrap()
-            }
-            #[cfg(not(target_arch = "wasm32"))]
-            fontdb::Source::File(path) => {
-                let shared_data = self
-                    .mapped_font_files
-                    .entry(path.clone())
-                    .or_insert_with(|| {
-                        let file = std::fs::File::open(path).ok().expect("unable to open ttf file");
-                        MMappedFont(
-                            // Safety: We map font files into memory that - while we never unmap them - may
-                            // theoretically get corrupted/truncated by another process and then we'll crash
-                            // and burn. In practice that should not happen though, font files are - at worst -
-                            // removed by a package manager and they unlink instead of truncate, even when
-                            // replacing files. Unlinking OTOH is safe and doesn't destroy the file mapping,
-                            // the backing file becomes an orphan in a special area of the file system. That works
-                            // on Unixy platforms and on Windows the default file flags prevent the deletion.
-                            unsafe {
-                                memmap2::MmapOptions::new()
-                                    .map(&file)
-                                    .ok()
-                                    .expect("unable to mmap font")
-                            }
-                            .into(),
-                        )
-                    })
-                    .clone();
-                text_context.add_shared_font_with_index(shared_data, face_index).unwrap()
-            }
-        };
+        let femtovg_font_id = text_context
+            .add_shared_font_with_index(SharedFontData(shared_data), face_index)
+            .unwrap();
 
         //println!("Loaded {:#?} in {}ms.", request, now.elapsed().as_millis());
         let new_font = LoadedFont { femtovg_font_id, fontdb_face_id };
@@ -435,8 +424,8 @@ impl FontCache {
         let handle = self
             .available_fonts
             .face_source(_primary_font.fontdb_face_id)
-            .and_then(|(source, face_index)| match source.as_ref() {
-                fontdb::Source::File(path) => {
+            .and_then(|(source, face_index)| match source {
+                fontdb::Source::File(path) | fontdb::Source::SharedFile(path, _) => {
                     font_kit::loaders::directwrite::Font::from_path(path, face_index).ok()
                 }
                 _ => None,

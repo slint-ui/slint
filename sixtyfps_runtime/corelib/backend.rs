@@ -42,7 +42,7 @@ pub trait Backend: Send + Sync {
     /// font.
     fn register_font_from_memory(
         &'static self,
-        data: &[u8],
+        data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>>;
 
     /// This function can be used to register a custom TrueType font with SixtyFPS,
