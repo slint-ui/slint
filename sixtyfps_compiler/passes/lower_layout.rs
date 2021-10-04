@@ -405,19 +405,24 @@ fn lower_dialog_layout(
     let mut seen_buttons = HashSet::new();
     let layout_children = std::mem::take(&mut dialog_element.borrow_mut().children);
     for layout_child in &layout_children {
-        let is_button = layout_child.borrow().property_declarations.get("kind").map_or(false, |pd| {
+        let dialog_button_role_binding =
+            layout_child.borrow_mut().bindings.remove("dialog-button-role");
+        let is_button = if let Some(role_binding) = dialog_button_role_binding {
+            if let Expression::EnumerationValue(val) = &role_binding.expression {
+                let en = &val.enumeration;
+                debug_assert_eq!(en.name, "DialogButtonRole");
+                button_roles.push(en.values[val.value].clone());
+                if val.value == 0 {
+                    diag.push_error("The `dialog-button-role` cannot be set explicitly to none".into(), &role_binding);
+                }
+            } else {
+                diag.push_error("The `dialog-button-role` property must be known at compile-time".into(), &role_binding);
+            }
+            true
+        } else if layout_child.borrow().property_declarations.get("kind").map_or(false, |pd| {
             matches!(&pd.property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
-        });
-
-        if is_button {
-            grid.add_element_with_coord(
-                layout_child,
-                (1, button_roles.len() as u16),
-                (1, 1),
-                &layout_cache_prop_h,
-                &layout_cache_prop_v,
-                diag,
-            );
+        }) {
+            // layout_child is a StandardButton
             match layout_child.borrow().bindings.get("kind") {
                 None => diag.push_error(
                     "The `kind` property of the StandardButton in a Dialog must be set".into(),
@@ -429,20 +434,20 @@ fn lower_dialog_layout(
                         debug_assert_eq!(en.name, "StandardButtonKind");
                         let kind = &en.values[val.value];
                         let role = match kind.as_str() {
-                            "ok" => "Accept",
-                            "cancel" => "Reject",
-                            "apply" => "Apply",
-                            "close" => "Reject",
-                            "reset" => "Reset",
-                            "help" => "Help",
-                            "yes" => "Accept",
-                            "no" => "Reject",
-                            "abort" => "Reject",
-                            "retry" => "Accept",
-                            "ignore" => "Accept",
+                            "ok" => "accept",
+                            "cancel" => "reject",
+                            "apply" => "apply",
+                            "close" => "reject",
+                            "reset" => "reset",
+                            "help" => "help",
+                            "yes" => "accept",
+                            "no" => "reject",
+                            "abort" => "reject",
+                            "retry" => "accept",
+                            "ignore" => "accept",
                             _ => unreachable!(),
                         };
-                        button_roles.push(role);
+                        button_roles.push(role.into());
                         if !seen_buttons.insert(val.value) {
                             diag.push_error("Duplicated `kind`: There are two StandardButton in this Dialog with the same kind".into(), binding);
                         } else if Rc::ptr_eq(
@@ -487,6 +492,20 @@ fn lower_dialog_layout(
                     }
                 }
             }
+            true
+        } else {
+            false
+        };
+
+        if is_button {
+            grid.add_element_with_coord(
+                layout_child,
+                (1, button_roles.len() as u16),
+                (1, 1),
+                &layout_cache_prop_h,
+                &layout_cache_prop_v,
+                diag,
+            );
         } else if main_widget.is_some() {
             diag.push_error(
                 "A Dialog can have only one child element that is not a StandardButton".into(),
@@ -754,6 +773,9 @@ fn check_no_layout_properties(item: &ElementRc, diag: &mut BuildDiagnostics) {
     for (prop, expr) in item.borrow().bindings.iter() {
         if matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan") {
             diag.push_error(format!("{} used outside of a GridLayout", prop), expr);
+        }
+        if matches!(prop.as_ref(), "dialog-button-role") {
+            diag.push_error(format!("{} used outside of a Dialog", prop), expr);
         }
     }
 }

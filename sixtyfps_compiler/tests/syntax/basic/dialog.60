@@ -40,12 +40,25 @@ MyDiag3 := Dialog {
 
 }
 
+MyDialog4 := Dialog {
+    StandardButton { kind: ok; }
+    Rectangle { dialog-button-role: accept; }
+    Rectangle { dialog-button-role: none; }
+//                                 ^error{The `dialog-button-role` cannot be set explicitly to none}
+    Rectangle { dialog-button-role: true ? accept : reject; }
+//                                 ^error{The `dialog-button-role` property must be known at compile-time}
+    Rectangle {
+        Rectangle { dialog-button-role: accept; }
+//                                     ^error{dialog-button-role used outside of a Dialog}
+    }
+}
 
 Test := Rectangle {
     MyDiag1 {}
     MyDiag2 {} // FIXME: not the best place for the error
 //  ^error{A Dialog must have a single child element that is not StandardButton}
     MyDiag3 {}
+    MyDialog4 {}
 }
 
 
