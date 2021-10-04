@@ -193,7 +193,6 @@ fn process_window_event(
     cursor_pos: &mut Point,
     pressed: &mut bool,
 ) {
-    corelib::animations::update_animations();
     let runtime_window = window.self_weak.upgrade().unwrap();
     match event {
         WindowEvent::Resized(size) => {
@@ -213,6 +212,7 @@ fn process_window_event(
             }
         }
         WindowEvent::ReceivedCharacter(ch) => {
+            corelib::animations::update_animations();
             // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
             // with a control character. We choose not to forward those but try to use the current key code instead.
             let text: Option<SharedString> = if ch.is_control() {
@@ -240,6 +240,7 @@ fn process_window_event(
             runtime_window.set_focus(have_focus);
         }
         WindowEvent::KeyboardInput { ref input, .. } => {
+            corelib::animations::update_animations();
             window.currently_pressed_key_code.set(match input.state {
                 winit::event::ElementState::Pressed => input.virtual_keycode.clone(),
                 _ => None,
@@ -282,6 +283,7 @@ fn process_window_event(
             window.set_current_keyboard_modifiers(modifiers);
         }
         WindowEvent::CursorMoved { position, .. } => {
+            corelib::animations::update_animations();
             let position = position.to_logical(window.scale_factor() as f64);
             *cursor_pos = euclid::point2(position.x, position.y);
             window.process_mouse_input(MouseEvent::MouseMoved { pos: *cursor_pos });
@@ -290,11 +292,13 @@ fn process_window_event(
             // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
             #[cfg(target_arch = "wasm32")]
             if *pressed {
+                corelib::animations::update_animations();
                 *pressed = false;
                 window.process_mouse_input(MouseEvent::MouseExit);
             }
         }
         WindowEvent::MouseWheel { delta, .. } => {
+            corelib::animations::update_animations();
             let delta = match delta {
                 winit::event::MouseScrollDelta::LineDelta(lx, ly) => {
                     euclid::point2(lx * 60., ly * 60.)
@@ -307,6 +311,7 @@ fn process_window_event(
             window.process_mouse_input(MouseEvent::MouseWheel { pos: *cursor_pos, delta });
         }
         WindowEvent::MouseInput { state, button, .. } => {
+            corelib::animations::update_animations();
             let button = match button {
                 winit::event::MouseButton::Left => PointerEventButton::left,
                 winit::event::MouseButton::Right => PointerEventButton::right,
@@ -326,6 +331,7 @@ fn process_window_event(
             window.process_mouse_input(ev);
         }
         WindowEvent::Touch(touch) => {
+            corelib::animations::update_animations();
             let location = touch.location.to_logical(window.scale_factor() as f64);
             let pos = euclid::point2(location.x, location.y);
             let ev = match touch.phase {
