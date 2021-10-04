@@ -15,6 +15,7 @@ use crate::animations::EasingCurve;
 use crate::animations::Instant;
 use crate::graphics::Point;
 use crate::input::{InputEventFilterResult, InputEventResult, MouseEvent};
+use crate::items::PointerEventButton;
 use crate::items::{Flickable, PropertyAnimation, Rectangle};
 use core::cell::RefCell;
 use core::pin::Pin;
@@ -48,7 +49,7 @@ impl FlickableData {
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
         match event {
-            MouseEvent::MousePressed { pos } => {
+            MouseEvent::MousePressed { pos, button: PointerEventButton::left } => {
                 inner.pressed_pos = pos;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = Point::new(
@@ -65,7 +66,8 @@ impl FlickableData {
                     InputEventFilterResult::ForwardAndInterceptGrab
                 }
             }
-            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => {
+            MouseEvent::MouseExit
+            | MouseEvent::MouseReleased { button: PointerEventButton::left, .. } => {
                 let was_capturing = inner.capture_events;
                 Self::mouse_released(&mut inner, flick, event);
                 if was_capturing {
@@ -90,6 +92,10 @@ impl FlickableData {
                 }
             }
             MouseEvent::MouseWheel { .. } => InputEventFilterResult::Intercept,
+            // Not the left button
+            MouseEvent::MousePressed { .. } | MouseEvent::MouseReleased { .. } => {
+                InputEventFilterResult::ForwardAndIgnore
+            }
         }
     }
 

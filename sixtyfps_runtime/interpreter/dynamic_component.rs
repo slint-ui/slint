@@ -892,6 +892,10 @@ pub(crate) fn generate_component<'id>(
                 "StandardButtonKind" => {
                     property_info::<sixtyfps_corelib::items::StandardButtonKind>()
                 }
+                "PointerEventButton" => {
+                    property_info::<sixtyfps_corelib::items::PointerEventButton>()
+                }
+                "PointerEventKind" => property_info::<sixtyfps_corelib::items::PointerEventKind>(),
                 _ => panic!("unknown enum"),
             },
             Type::LayoutCache => property_info::<SharedVector<f32>>(),

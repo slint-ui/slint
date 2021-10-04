@@ -18,7 +18,9 @@ use sixtyfps_corelib::graphics::{
 };
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{self, FillRule, ImageRendering, ItemRef, TextOverflow, TextWrap};
+use sixtyfps_corelib::items::{
+    self, FillRule, ImageRendering, ItemRef, PointerEventButton, TextOverflow, TextWrap,
+};
 use sixtyfps_corelib::layout::Orientation;
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
@@ -98,16 +100,20 @@ cpp! {{
 
         void mousePressEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
-            rust!(SFPS_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+            int button = event->button();
+            rust!(SFPS_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let pos = Point::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(MouseEvent::MousePressed{ pos })
+                let button = from_qt_button(button);
+                rust_window.mouse_event(MouseEvent::MousePressed{ pos, button })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
-            rust!(SFPS_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+            int button = event->button();
+            rust!(SFPS_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let pos = Point::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(MouseEvent::MouseReleased{ pos})
+                let button = from_qt_button(button);
+                rust_window.mouse_event(MouseEvent::MouseReleased{ pos, button })
             });
             if (auto p = dynamic_cast<const SixtyFPSWidget*>(parent())) {
                 // FIXME: better way to close the popup
@@ -332,6 +338,15 @@ impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
             }
             _ => QBrush::default(),
         }
+    }
+}
+
+fn from_qt_button(qt_button: u32) -> PointerEventButton {
+    match qt_button {
+        1 => PointerEventButton::left,
+        2 => PointerEventButton::right,
+        3 => PointerEventButton::middle,
+        _ => PointerEventButton::none,
     }
 }
 

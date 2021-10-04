@@ -61,6 +61,7 @@ namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
 using cbindgen_private::KeyboardModifiers;
 using cbindgen_private::KeyEvent;
+using cbindgen_private::PointerEvent;
 
 /// Internal function that checks that the API that must be called from the main
 /// thread is indeed called from the main thread, or abort the program otherwise

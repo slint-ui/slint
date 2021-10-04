@@ -13,7 +13,7 @@ LICENSE END */
 
 use crate::graphics::Point;
 use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
-use crate::items::{ItemRc, ItemRef, ItemWeak};
+use crate::items::{ItemRc, ItemRef, ItemWeak, PointerEventButton};
 use crate::window::WindowRc;
 use crate::Property;
 use crate::{component::ComponentRc, SharedString};
@@ -28,9 +28,9 @@ use std::rc::Rc;
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse was pressed
-    MousePressed { pos: Point },
+    MousePressed { pos: Point, button: PointerEventButton },
     /// The mouse was released
-    MouseReleased { pos: Point },
+    MouseReleased { pos: Point, button: PointerEventButton },
     /// The mouse position has changed
     MouseMoved { pos: Point },
     /// Wheel was operated.
@@ -45,8 +45,8 @@ impl MouseEvent {
     /// The position of the cursor
     pub fn pos(&self) -> Option<Point> {
         match self {
-            MouseEvent::MousePressed { pos } => Some(*pos),
-            MouseEvent::MouseReleased { pos } => Some(*pos),
+            MouseEvent::MousePressed { pos, .. } => Some(*pos),
+            MouseEvent::MouseReleased { pos, .. } => Some(*pos),
             MouseEvent::MouseMoved { pos } => Some(*pos),
             MouseEvent::MouseWheel { pos, .. } => Some(*pos),
             MouseEvent::MouseExit => None,
@@ -56,8 +56,8 @@ impl MouseEvent {
     /// Translate the position by the given value
     pub fn translate(&mut self, vec: Vector2D<f32>) {
         let pos = match self {
-            MouseEvent::MousePressed { pos } => Some(pos),
-            MouseEvent::MouseReleased { pos } => Some(pos),
+            MouseEvent::MousePressed { pos, .. } => Some(pos),
+            MouseEvent::MouseReleased { pos, .. } => Some(pos),
             MouseEvent::MouseMoved { pos } => Some(pos),
             MouseEvent::MouseWheel { pos, .. } => Some(pos),
             MouseEvent::MouseExit => None,

@@ -14,7 +14,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 
-use super::{Item, ItemConsts, ItemRc, PointArg, VoidArg};
+use super::{Item, ItemConsts, ItemRc, PointArg, PointerEventButton, VoidArg};
 use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
     FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
@@ -325,7 +325,7 @@ impl Item for TextInput {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::MousePressed { pos } => {
+            MouseEvent::MousePressed { pos, button: PointerEventButton::left } => {
                 let clicked_offset = window.text_input_byte_offset_for_position(self, pos) as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position.set(clicked_offset);
@@ -334,9 +334,8 @@ impl Item for TextInput {
                     window.clone().set_focus_item(self_rc);
                 }
             }
-            MouseEvent::MouseReleased { .. } | MouseEvent::MouseExit => {
-                self.as_ref().pressed.set(false)
-            }
+            MouseEvent::MouseReleased { button: PointerEventButton::left, .. }
+            | MouseEvent::MouseExit => self.as_ref().pressed.set(false),
             MouseEvent::MouseMoved { pos } => {
                 if self.as_ref().pressed.get() {
                     let clicked_offset =
@@ -344,7 +343,7 @@ impl Item for TextInput {
                     self.set_cursor_position(clicked_offset, window);
                 }
             }
-            MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
+            _ => return InputEventResult::EventIgnored,
         }
         InputEventResult::EventAccepted
     }

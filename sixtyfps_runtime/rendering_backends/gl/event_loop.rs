@@ -13,6 +13,7 @@ LICENSE END */
     [PlatformWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
+use corelib::items::PointerEventButton;
 use sixtyfps_corelib as corelib;
 
 use corelib::graphics::Point;
@@ -268,7 +269,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
 
                 winit::event::Event::WindowEvent {
                     ref window_id,
-                    event: winit::event::WindowEvent::MouseInput { state, .. },
+                    event: winit::event::WindowEvent::MouseInput { state, button, .. },
                     ..
                 } => {
                     corelib::animations::update_animations();
@@ -276,14 +277,20 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                         if let Some(window) =
                             windows.borrow().get(window_id).and_then(|weakref| weakref.upgrade())
                         {
+                            let button = match button {
+                                winit::event::MouseButton::Left => PointerEventButton::left,
+                                winit::event::MouseButton::Right => PointerEventButton::right,
+                                winit::event::MouseButton::Middle => PointerEventButton::middle,
+                                winit::event::MouseButton::Other(_) => PointerEventButton::none,
+                            };
                             let ev = match state {
                                 winit::event::ElementState::Pressed => {
                                     pressed = true;
-                                    MouseEvent::MousePressed { pos: cursor_pos }
+                                    MouseEvent::MousePressed { pos: cursor_pos, button }
                                 }
                                 winit::event::ElementState::Released => {
                                     pressed = false;
-                                    MouseEvent::MouseReleased { pos: cursor_pos }
+                                    MouseEvent::MouseReleased { pos: cursor_pos, button }
                                 }
                             };
                             window.process_mouse_input(ev);
@@ -305,12 +312,18 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                             let ev = match touch.phase {
                                 winit::event::TouchPhase::Started => {
                                     pressed = true;
-                                    MouseEvent::MousePressed { pos }
+                                    MouseEvent::MousePressed {
+                                        pos,
+                                        button: PointerEventButton::left,
+                                    }
                                 }
                                 winit::event::TouchPhase::Ended
                                 | winit::event::TouchPhase::Cancelled => {
                                     pressed = false;
-                                    MouseEvent::MouseReleased { pos }
+                                    MouseEvent::MouseReleased {
+                                        pos,
+                                        button: PointerEventButton::left,
+                                    }
                                 }
                                 winit::event::TouchPhase::Moved => MouseEvent::MouseMoved { pos },
                             };

@@ -40,6 +40,7 @@ fn default_config() -> cbindgen::Config {
                 ("Callback".into(), "private_api::CallbackHelper".into()),
                 ("VoidArg".into(), "void".into()),
                 ("KeyEventArg".into(), "KeyEvent".into()),
+                ("PointerEventArg".into(), "PointerEvent".into()),
                 ("PointArg".into(), "Point".into()),
             ]
             .iter()
@@ -115,6 +116,9 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "ImageFit",
         "FillRule",
         "StandardButtonKind",
+        "PointerEventKind",
+        "PointerEventButton",
+        "PointerEvent",
     ]
     .iter()
     .chain(items.iter())
@@ -143,6 +147,7 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "WindowRc",
         "VoidArg",
         "KeyEventArg",
+        "PointerEventArg",
         "PointArg",
         "Point",
         "sixtyfps_color_brighter",
@@ -340,7 +345,7 @@ namespace sixtyfps {{
     namespace cbindgen_private {{
         using sixtyfps::private_api::WindowRc;
         using namespace vtable;
-        struct KeyEvent;
+        struct KeyEvent; struct PointerEvent;
         using private_api::Property;
         using private_api::PathData;
         using private_api::Point;

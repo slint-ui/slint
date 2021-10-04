@@ -423,7 +423,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 * **`clicked`**: Emitted when clicked (the mouse is pressed, then released on this element)
 * **`moved`**: The mouse has been moved. This will only be called if the mouse is also pressed.
-* **`pressed-changed`**: The value of the `pressed` property changed.
+* **`pointer-event(PointerEvent)`**: Received when a button was pressed or released.
 
 ### Example
 
@@ -717,6 +717,18 @@ are pressed during the generation of a key event.
 * **`alt`** (*bool*): `true` if alt key is pressed.
 * **`shift`** (*bool*): `true` if the shift key is pressed.
 * **`meta`** (*bool*): `true` if the windows key is pressed on Windows, or the control key on macOS.
+
+## `PointerEvent`
+
+This structure is generated and passed to the `pointer-event` callback of the `TouchArea` element.
+
+### Fields
+
+* **`kind`** (*enum PointerEventKind*): The kind of the event: one of the following
+   - `down`: The button was pressed.
+   - `up`: The button was released.
+   - `cancel`: Another element or window took hold of the grab. This applies to all pressed button and the `button` is not relevent.
+* **`button`** (*enum PointerEventButton*): The button that was pressed or released. `left`, `right`, `middle`, or `none`.
 
 # Builtin Enums
 

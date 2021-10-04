@@ -220,8 +220,10 @@ export Slider := Rectangle {
         width: parent.width;
         height: parent.height;
         property <float> pressed-value;
-        pressed-changed => {
-            if (pressed) { pressed-value = root.value; }
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                pressed-value = root.value;
+            }
         }
         moved => {
             if (enabled && pressed) {

@@ -54,6 +54,7 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 /// Workarounds for cbindgen
 pub type VoidArg = ();
 type KeyEventArg = (KeyEvent,);
+type PointerEventArg = (PointerEvent,);
 type PointArg = (Point,);
 
 #[macro_export]
@@ -351,7 +352,7 @@ pub struct TouchArea {
     pub mouse_y: Property<f32>,
     pub clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
-    pub pressed_changed: Callback<VoidArg>,
+    pub pointer_event: Callback<PointerEventArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -400,25 +401,43 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result = if let MouseEvent::MouseReleased { pos, .. } = event {
-            if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
-                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
-            }
-            InputEventResult::EventAccepted
-        } else {
-            InputEventResult::GrabMouse
-        };
+        let result =
+            if let MouseEvent::MouseReleased { pos, button: PointerEventButton::left } = event {
+                if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
+                    Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+                }
+                InputEventResult::EventAccepted
+            } else {
+                InputEventResult::GrabMouse
+            };
 
         match event {
-            MouseEvent::MousePressed { pos } => {
-                Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(pos.x);
-                Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(pos.y);
-                Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
-                Self::FIELD_OFFSETS.pressed_changed.apply_pin(self).call(&());
+            MouseEvent::MousePressed { pos, button } => {
+                if button == PointerEventButton::left {
+                    Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(pos.x);
+                    Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(pos.y);
+                    Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
+                }
+                Self::FIELD_OFFSETS
+                    .pointer_event
+                    .apply_pin(self)
+                    .call(&(PointerEvent { button, kind: PointerEventKind::down },));
             }
-            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => {
+            MouseEvent::MouseExit => {
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
-                Self::FIELD_OFFSETS.pressed_changed.apply_pin(self).call(&());
+                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                    button: PointerEventButton::none,
+                    kind: PointerEventKind::down,
+                },));
+            }
+            MouseEvent::MouseReleased { button, .. } => {
+                if button == PointerEventButton::left {
+                    Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
+                }
+                Self::FIELD_OFFSETS
+                    .pointer_event
+                    .apply_pin(self)
+                    .call(&(PointerEvent { button, kind: PointerEventKind::down },));
             }
             MouseEvent::MouseMoved { .. } => {
                 return if self.pressed() {
@@ -1276,4 +1295,43 @@ impl Default for StandardButtonKind {
     fn default() -> Self {
         Self::ok
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum PointerEventKind {
+    cancel,
+    down,
+    up,
+}
+
+impl Default for PointerEventKind {
+    fn default() -> Self {
+        Self::cancel
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum PointerEventButton {
+    none,
+    left,
+    right,
+    middle,
+}
+
+impl Default for PointerEventButton {
+    fn default() -> Self {
+        Self::none
+    }
+}
+
+/// Represents a key event sent by the windowing system.
+#[derive(Debug, Clone, PartialEq, Default)]
+#[repr(C)]
+pub struct PointerEvent {
+    pub button: PointerEventButton,
+    pub kind: PointerEventKind,
 }

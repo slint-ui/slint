@@ -8,6 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+use sixtyfps_corelib::items::PointerEventButton;
+
 use super::*;
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
@@ -152,17 +154,22 @@ impl Item for NativeSlider {
             return style->hitTestComplexControl(QStyle::CC_Slider, &option, pos, nullptr);
         });
         let result = match event {
-            MouseEvent::MousePressed { pos } if enabled => {
+            _ if !enabled => {
+                data.pressed = 0;
+                InputEventResult::EventIgnored
+            }
+            MouseEvent::MousePressed { pos, button: PointerEventButton::left } => {
                 data.pressed_x = pos.x as f32;
                 data.pressed = 1;
                 data.pressed_val = value;
                 InputEventResult::GrabMouse
             }
-            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => {
+            MouseEvent::MouseExit
+            | MouseEvent::MouseReleased { button: PointerEventButton::left, .. } => {
                 data.pressed = 0;
                 InputEventResult::EventAccepted
             }
-            MouseEvent::MouseMoved { pos } if enabled => {
+            MouseEvent::MouseMoved { pos } => {
                 if data.pressed != 0 {
                     // FIXME: use QStyle::subControlRect to find out the actual size of the groove
                     let new_val = data.pressed_val
@@ -175,16 +182,15 @@ impl Item for NativeSlider {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::MouseWheel { delta, .. } if enabled => {
+            MouseEvent::MouseWheel { delta, .. } => {
                 let new_val = value + delta.x + delta.y;
                 let new_val = new_val.max(min).min(max);
                 self.value.set(new_val);
                 Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));
                 InputEventResult::EventAccepted
             }
-            _ => {
-                assert!(!enabled);
-                data.pressed = 0;
+            MouseEvent::MousePressed { button, .. } | MouseEvent::MouseReleased { button, .. } => {
+                debug_assert_ne!(button, PointerEventButton::left);
                 InputEventResult::EventIgnored
             }
         };

@@ -32,6 +32,9 @@ TestCase := Rectangle {
         width: 5phx;
         height: 5phx;
         clicked => { touch2+=1; }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.cancel || e.button == PointerEventButton.right) {}
+        }
     }
 }
 
