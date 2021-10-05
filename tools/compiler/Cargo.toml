@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-compiler"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -13,7 +13,7 @@ name = "sixtyfps-compiler"
 path = "main.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.1.2", path = "../../sixtyfps_compiler", features = ["display-diagnostics", "cpp", "rust"]}
+sixtyfps-compilerlib = { version = "=0.1.3", path = "../../sixtyfps_compiler", features = ["display-diagnostics", "cpp", "rust"]}
 structopt = "0.3.14"
 spin_on = "0.1"
 proc-macro2 = "1.0.11"
