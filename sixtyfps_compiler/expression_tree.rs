@@ -403,7 +403,10 @@ pub enum Expression {
         op: char,
     },
 
-    ImageReference(ImageReference),
+    ImageReference {
+        resource_ref: ImageReference,
+        source_location: Option<SourceLocation>,
+    },
 
     Condition {
         condition: Box<Expression>,
@@ -1004,7 +1007,10 @@ impl Expression {
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
             Type::Percent => Expression::NumberLiteral(100., Unit::Percent),
             // FIXME: Is that correct?
-            Type::Image => Expression::ImageReference(ImageReference::AbsolutePath(String::new())),
+            Type::Image => Expression::ImageReference {
+                resource_ref: ImageReference::AbsolutePath(String::new()),
+                source_location: None,
+            },
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => Expression::Invalid,
             Type::PathElements => Expression::PathElements { elements: Path::Elements(vec![]) },
@@ -1280,7 +1286,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "{}", op)?;
             pretty_print(f, sub)
         }
-        Expression::ImageReference(a) => write!(f, "{:?}", a),
+        Expression::ImageReference { resource_ref, .. } => write!(f, "{:?}", resource_ref),
         Expression::Condition { condition, true_expr, false_expr } => {
             write!(f, "if (")?;
             pretty_print(f, condition)?;

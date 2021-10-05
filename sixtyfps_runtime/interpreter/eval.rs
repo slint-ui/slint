@@ -469,7 +469,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (sub, op) => panic!("unsupported {} {:?}", op, sub),
             }
         }
-        Expression::ImageReference(resource_ref) => {
+        Expression::ImageReference{ resource_ref, .. } => {
             Value::Image(match resource_ref {
                 sixtyfps_compilerlib::expression_tree::ImageReference::None => {
                     Ok(Default::default())
@@ -485,18 +485,22 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let extra_data = toplevel_instance.component_type.extra_data_offset.apply(toplevel_instance.as_ref());
                     let path = extra_data.embedded_file_resources.get(resource_id).expect("internal error: invalid resource id");
 
-                    let virtual_file = match path.strip_prefix("builtin:/") {
-                        None => unimplemented!(),
-                        Some(builtin) => {
-                         sixtyfps_compilerlib::library::load_file(std::path::Path::new(builtin))
-                                .expect("non-existent internal file referenced")
-                        }
-                    };
-                    let virtual_file_extension = std::path::Path::new(virtual_file.path).extension().unwrap().to_str().unwrap();
-                    debug_assert_eq!(virtual_file_extension, extension);
-                    Ok(corelib::graphics::Image::from(
-                        corelib::graphics::ImageInner::EmbeddedData{ data: corelib::slice::Slice::from_slice(virtual_file.contents), format: corelib::slice::Slice::from_slice(virtual_file_extension.as_bytes()) }
-                    ))
+                    let virtual_file = sixtyfps_compilerlib::fileaccess::load_file(std::path::Path::new(path)).unwrap();  // embedding pass ensured that the file exists
+
+                    if let (std::borrow::Cow::Borrowed(static_path), Some(static_data)) = (virtual_file.path, virtual_file.builtin_contents) {
+                        let virtual_file_extension = std::path::Path::new(static_path).extension().unwrap().to_str().unwrap();
+                        debug_assert_eq!(virtual_file_extension, extension);
+                        Ok(corelib::graphics::Image::from(
+                            corelib::graphics::ImageInner::EmbeddedData {
+                                data: corelib::slice::Slice::from_slice(static_data),
+                                format: corelib::slice::Slice::from_slice(virtual_file_extension.as_bytes())
+                            }
+                        ))
+                    } else {
+                        corelib::debug_log!("Cannot embed images from disk {}", path);
+                        Ok(corelib::graphics::Image::default())
+
+                    }
                 }
             }.unwrap_or_else(|_| {
                 eprintln!("Could not load image {:?}",resource_ref );

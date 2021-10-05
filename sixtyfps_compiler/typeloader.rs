@@ -28,13 +28,6 @@ pub struct LoadedDocuments {
     currently_loading: HashSet<PathBuf>,
 }
 
-pub struct VirtualFile<'a> {
-    pub path: &'a str,
-    pub contents: &'a [u8],
-}
-
-pub type VirtualDirectory<'a> = [&'a VirtualFile<'a>];
-
 pub struct ImportedTypes {
     pub import_token: SyntaxToken,
     pub imported_types: syntax_nodes::ImportSpecifier,
@@ -386,11 +379,8 @@ impl<'a> TypeLoader<'a> {
             .chain(std::iter::once_with(|| format!("builtin:/{}", self.style).into()))
             .find_map(|include_dir| {
                 let candidate = include_dir.join(file_to_import);
-                match candidate.strip_prefix("builtin:/") {
-                    Err(_) => candidate.exists().then(|| (candidate, None)),
-                    Ok(builtin) => crate::library::load_file(builtin)
-                        .map(|virtual_file| (candidate, Some(virtual_file.contents))),
-                }
+                crate::fileaccess::load_file(&candidate)
+                    .map(|virtual_file| (candidate, virtual_file.builtin_contents))
             })
     }
 

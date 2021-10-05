@@ -1469,7 +1469,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let op = proc_macro2::Punct::new(*op, proc_macro2::Spacing::Alone);
             quote!( #op #sub )
         }
-        Expression::ImageReference(resource_ref) => {
+        Expression::ImageReference { resource_ref, .. } => {
             match resource_ref {
                 crate::expression_tree::ImageReference::None => {
                     quote!(sixtyfps::re_exports::Image::default())
@@ -2086,13 +2086,12 @@ fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenSt
 }
 
 fn embedded_file_tokens(path: &str) -> TokenStream {
-    match path.strip_prefix("builtin:/") {
-        None => quote!(::core::include_bytes!(#path)),
-        Some(builtin) => {
-            let data = crate::library::load_file(std::path::Path::new(builtin))
-                .expect("non-existent internal file referenced");
-            let literal = proc_macro2::Literal::byte_string(data.contents);
+    let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+    match file.builtin_contents {
+        Some(static_data) => {
+            let literal = proc_macro2::Literal::byte_string(static_data);
             quote!(#literal)
         }
+        None => quote!(::core::include_bytes!(#path)),
     }
 }
