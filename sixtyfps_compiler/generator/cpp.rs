@@ -605,6 +605,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
                     .into(),
                 Some(builtin) => crate::library::load_file(std::path::Path::new(builtin))
                     .expect("non-existent internal file referenced")
+                    .contents
                     .into(),
             };
 

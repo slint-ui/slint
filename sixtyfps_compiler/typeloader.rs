@@ -388,9 +388,8 @@ impl<'a> TypeLoader<'a> {
                 let candidate = include_dir.join(file_to_import);
                 match candidate.strip_prefix("builtin:/") {
                     Err(_) => candidate.exists().then(|| (candidate, None)),
-                    Ok(builtin) => {
-                        crate::library::load_file(builtin).map(|data| (candidate, Some(data)))
-                    }
+                    Ok(builtin) => crate::library::load_file(builtin)
+                        .map(|virtual_file| (candidate, Some(virtual_file.contents))),
                 }
             })
     }

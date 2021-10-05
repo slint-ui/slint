@@ -485,15 +485,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let extra_data = toplevel_instance.component_type.extra_data_offset.apply(toplevel_instance.as_ref());
                     let path = extra_data.embedded_file_resources.get(resource_id).expect("internal error: invalid resource id");
 
-                    let data = match path.strip_prefix("builtin:/") {
+                    let virtual_file = match path.strip_prefix("builtin:/") {
                         None => unimplemented!(),
                         Some(builtin) => {
                          sixtyfps_compilerlib::library::load_file(std::path::Path::new(builtin))
                                 .expect("non-existent internal file referenced")
                         }
                     };
+                    let virtual_file_extension = std::path::Path::new(virtual_file.path).extension().unwrap().to_str().unwrap();
+                    debug_assert_eq!(virtual_file_extension, extension);
                     Ok(corelib::graphics::Image::from(
-                        corelib::graphics::ImageInner::EmbeddedData{ data: corelib::slice::Slice::from_slice(data), format: corelib::slice::Slice::from_slice(interned_str(extension).as_bytes()) }
+                        corelib::graphics::ImageInner::EmbeddedData{ data: corelib::slice::Slice::from_slice(virtual_file.contents), format: corelib::slice::Slice::from_slice(virtual_file_extension.as_bytes()) }
                     ))
                 }
             }.unwrap_or_else(|_| {
@@ -1096,17 +1098,4 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             panic!("There can't be such property")
         }
     }
-}
-
-lazy_static::lazy_static! {
-    static ref INTERNED_STRINGS: std::sync::Mutex<std::collections::HashSet<String>> = Default::default();
-}
-
-pub fn interned_str(s: &str) -> &'static str {
-    let mut cache = INTERNED_STRINGS.lock().unwrap();
-    if !cache.contains(s) {
-        cache.insert(s.into());
-    }
-    let s: &str = cache.get(s).unwrap();
-    return unsafe { std::mem::transmute(s) };
 }
