@@ -582,7 +582,6 @@ fn handle_repeater(
                 model_data_type(&parent_element, diag)
             ),
             name: repeater_id,
-            init: None,
             ..Default::default()
         }),
     ));
@@ -847,12 +846,7 @@ fn generate_component(
         if property_decl.is_alias.is_none() {
             component_struct.members.push((
                 if component.is_global() { Access::Public } else { Access::Private },
-                Declaration::Var(Var {
-                    ty,
-                    name: cpp_name.into_owned(),
-                    init: None,
-                    ..Default::default()
-                }),
+                Declaration::Var(Var { ty, name: cpp_name.into_owned(), ..Default::default() }),
             ));
         }
     }
@@ -869,7 +863,6 @@ fn generate_component(
                 Declaration::Var(Var {
                     ty: "sixtyfps::private_api::Property<int>".into(),
                     name: "index".into(),
-                    init: None,
                     ..Default::default()
                 }),
             ));
@@ -879,7 +872,6 @@ fn generate_component(
                 Declaration::Var(Var {
                     ty: format!("sixtyfps::private_api::Property<{}>", cpp_model_data_type),
                     name: "model_data".into(),
-                    init: None,
                     ..Default::default()
                 }),
             ));
@@ -1327,7 +1319,6 @@ fn generate_component(
             Declaration::Var(Var {
                 ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
                 name: "static_vtable".to_owned(),
-                init: None,
                 ..Default::default()
             }),
         ));
