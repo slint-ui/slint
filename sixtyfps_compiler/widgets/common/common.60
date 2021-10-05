@@ -92,7 +92,7 @@ export AboutSixtyFPS := Rectangle {
         spacing: 8px;
         alignment: start;
         Text {
-            text: "Made width";
+            text: "Made with";
             font-size: 24px;
             font-weight: 700;
             horizontal-alignment: center;
