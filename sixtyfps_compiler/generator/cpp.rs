@@ -1832,9 +1832,10 @@ fn compile_expression(
                 crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"sixtyfps::Image::load_from_path(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format!("sfps_embedded_resource_{}", resource_id);
-                    let data_slice = format!("sixtyfps::Slice<uint8_t>{{std::data({}), std::size({})}}", symbol, symbol);
-                    let extension_slice = format!("sixtyfps::Slice<uint8_t>{{const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(\"{}\")), {}}}", extension, extension.as_bytes().len());
-                    format!("sixtyfps::Image(sixtyfps::cbindgen_private::types::ImageInner::EmbeddedData({}, {}))", data_slice, extension_slice)
+                    format!(
+                        r#"sixtyfps::Image(sixtyfps::cbindgen_private::types::ImageInner::EmbeddedData(sixtyfps::Slice<uint8_t>{{std::data({}), std::size({})}}, sixtyfps::Slice<uint8_t>{{const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(u8"{}")), {}}}))"#,
+                        symbol, symbol, escape_string(extension), extension.as_bytes().len()
+                    )
                 }
             }
         }
