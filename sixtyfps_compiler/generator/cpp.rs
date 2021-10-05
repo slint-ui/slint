@@ -604,11 +604,13 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
 
             let mut init = "{ ".to_string();
 
+            use std::fmt::Write;
+
             for (index, byte) in data.iter().enumerate() {
                 if index > 0 {
                     init.push(',');
                 }
-                init.push_str(&format!("0x{:x}", byte));
+                write!(&mut init, "0x{:x}", byte).unwrap();
                 if index % 16 == 0 {
                     init.push('\n');
                 }
