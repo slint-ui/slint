@@ -477,7 +477,25 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 sixtyfps_compilerlib::expression_tree::ImageReference::AbsolutePath(path) => {
                     corelib::graphics::Image::load_from_path(std::path::Path::new(path))
                 }
-                sixtyfps_compilerlib::expression_tree::ImageReference::EmbeddedData { .. } => panic!("Resource embedding is not supported by the interpreter")
+                sixtyfps_compilerlib::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                    let toplevel_instance = match local_context.component_instance {
+                        ComponentInstance::InstanceRef(instance) => instance.toplevel_instance(),
+                        ComponentInstance::GlobalComponent(_) => unimplemented!(),
+                    };
+                    let extra_data = toplevel_instance.component_type.extra_data_offset.apply(toplevel_instance.as_ref());
+                    let path = extra_data.embedded_file_resources.get(resource_id).expect("internal error: invalid resource id");
+
+                    let data = match path.strip_prefix("builtin:/") {
+                        None => unimplemented!(),
+                        Some(builtin) => {
+                         sixtyfps_compilerlib::library::load_file(std::path::Path::new(builtin))
+                                .expect("non-existent internal file referenced")
+                        }
+                    };
+                    Ok(corelib::graphics::Image::from(
+                        corelib::graphics::ImageInner::EmbeddedData{ data: corelib::slice::Slice::from_slice(data), format: corelib::slice::Slice::from_slice(interned_str(extension).as_bytes()) }
+                    ))
+                }
             }.unwrap_or_else(|_| {
                 eprintln!("Could not load image {:?}",resource_ref );
                 Default::default()
@@ -1078,4 +1096,17 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             panic!("There can't be such property")
         }
     }
+}
+
+lazy_static::lazy_static! {
+    static ref INTERNED_STRINGS: std::sync::Mutex<std::collections::HashSet<String>> = Default::default();
+}
+
+pub fn interned_str(s: &str) -> &'static str {
+    let mut cache = INTERNED_STRINGS.lock().unwrap();
+    if !cache.contains(s) {
+        cache.insert(s.into());
+    }
+    let s: &str = cache.get(s).unwrap();
+    return unsafe { std::mem::transmute(s) };
 }

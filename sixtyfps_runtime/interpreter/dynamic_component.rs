@@ -194,11 +194,17 @@ pub(crate) struct ComponentExtraData {
     pub(crate) globals: HashMap<String, Pin<Rc<dyn crate::global_component::GlobalComponent>>>,
     pub(crate) self_weak:
         once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
+    // resource id -> file path
+    pub(crate) embedded_file_resources: HashMap<usize, String>,
 }
 
 impl Default for ComponentExtraData {
     fn default() -> Self {
-        Self { globals: HashMap::new(), self_weak: Default::default() }
+        Self {
+            globals: HashMap::new(),
+            self_weak: Default::default(),
+            embedded_file_resources: Default::default(),
+        }
     }
 }
 
@@ -1078,6 +1084,14 @@ pub fn instantiate(
             })
             .flatten()
             .collect();
+
+        extra_data.embedded_file_resources = component_type
+            .original
+            .embedded_file_resources
+            .borrow()
+            .iter()
+            .map(|(path, id)| (*id, path.clone()))
+            .collect();
     }
     *component_type.window_offset.apply_mut(instance.as_mut()) =
         window.map(|window| window.clone().into());
@@ -1543,6 +1557,33 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 
     pub fn window(&self) -> &sixtyfps_corelib::window::api::Window {
         self.component_type.window_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
+    }
+
+    pub fn parent_instance(&self) -> Option<InstanceRef<'a, 'id>> {
+        if let Some(parent_offset) = self.component_type.parent_component_offset {
+            if let Some(parent) = parent_offset.apply(self.as_ref()) {
+                let parent_instance = unsafe {
+                    Self {
+                        instance: Pin::new_unchecked(
+                            &*(parent.as_ref().as_ptr() as *const Instance<'id>),
+                        ),
+                        component_type: &*(Pin::into_inner_unchecked(*parent).get_vtable()
+                            as *const ComponentVTable
+                            as *const ComponentDescription<'id>),
+                    }
+                };
+                return Some(parent_instance);
+            };
+        }
+        None
+    }
+
+    pub fn toplevel_instance(&self) -> InstanceRef<'a, 'id> {
+        if let Some(parent) = self.parent_instance() {
+            parent.toplevel_instance()
+        } else {
+            *self
+        }
     }
 }
 
