@@ -2091,7 +2091,7 @@ fn embedded_file_tokens(path: &str) -> TokenStream {
         Some(builtin) => {
             let data = crate::library::load_file(std::path::Path::new(builtin))
                 .expect("non-existent internal file referenced");
-            let literal = proc_macro2::Literal::byte_string(data);
+            let literal = proc_macro2::Literal::byte_string(data.contents);
             quote!(#literal)
         }
     }
