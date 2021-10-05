@@ -243,7 +243,22 @@ impl Expression {
             .map(|n| Self::from_expression_node(n, ctx))
             .or_else(|| node.AtImageUrl().map(|n| Self::from_at_image_url_node(n, ctx)))
             .or_else(|| node.AtLinearGradient().map(|n| Self::from_at_linear_gradient(n, ctx)))
-            .or_else(|| node.QualifiedName().map(|s| Self::from_qualified_name_node(s.into(), ctx)))
+            .or_else(|| {
+                node.QualifiedName().map(|n| {
+                    let exp = Self::from_qualified_name_node(n.clone(), ctx);
+                    if matches!(exp.ty(), Type::Function { .. } | Type::Callback { .. }) {
+                        ctx.diag.push_error(
+                            format!(
+                                "'{}' must be called. Did you forgot the '()'?",
+                                QualifiedTypeName::from_node(n.clone())
+                            )
+                            .into(),
+                            &n,
+                        )
+                    }
+                    exp
+                })
+            })
             .or_else(|| {
                 node.child_text(SyntaxKind::StringLiteral).map(|s| {
                     crate::literals::unescape_string(&s).map(Self::StringLiteral).unwrap_or_else(
@@ -456,9 +471,7 @@ impl Expression {
     }
 
     /// Perform the lookup
-    fn from_qualified_name_node(node: SyntaxNode, ctx: &mut LookupCtx) -> Self {
-        debug_assert_eq!(node.kind(), SyntaxKind::QualifiedName);
-
+    fn from_qualified_name_node(node: syntax_nodes::QualifiedName, ctx: &mut LookupCtx) -> Self {
         let mut it = node
             .children_with_tokens()
             .filter(|n| n.kind() == SyntaxKind::Identifier)
@@ -552,14 +565,30 @@ impl Expression {
         node: syntax_nodes::FunctionCallExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let mut sub_expr = node.Expression().map(|n| {
-            (Self::from_expression_node(n.clone(), ctx), Some(NodeOrToken::from((*n).clone())))
-        });
-
         let mut arguments = Vec::new();
 
-        let (function, _) =
-            sub_expr.next().unwrap_or_else(|| (Expression::Invalid, Some((*node).clone().into())));
+        let mut sub_expr = node.Expression();
+
+        let function = sub_expr
+            .next()
+            .and_then(|n| {
+                n.QualifiedName().or_else(|| {
+                    n.Expression().and_then(|mut e| {
+                        while let Some(e2) = e.Expression() {
+                            e = e2;
+                        }
+                        e.QualifiedName().map(|q| {
+                            ctx.diag.push_warning("Parentheses around callable are deprecated. Remove the parentheses".into(), &n);
+                            q
+                        })
+                    })
+                })
+            })
+            .map_or(Expression::Invalid, |n| Self::from_qualified_name_node(n.clone(), ctx));
+
+        let sub_expr = sub_expr.map(|n| {
+            (Self::from_expression_node(n.clone(), ctx), Some(NodeOrToken::from((*n).clone())))
+        });
 
         let function = match function {
             Expression::BuiltinMacroReference(mac, n) => {
@@ -917,7 +946,7 @@ impl Expression {
 fn continue_lookup_within_element(
     elem: &ElementRc,
     it: &mut impl Iterator<Item = crate::parser::SyntaxToken>,
-    node: SyntaxNode,
+    node: syntax_nodes::QualifiedName,
     ctx: &mut LookupCtx,
 ) -> Expression {
     let second = if let Some(second) = it.next() {
@@ -947,7 +976,7 @@ fn continue_lookup_within_element(
         let member = elem.borrow().base_type.lookup_member_function(&resolved_name);
         Expression::MemberFunction {
             base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
-            base_node: Some(node.into()),
+            base_node: Some(NodeOrToken::Node(node.into())),
             member: Box::new(member),
         }
     } else {
@@ -1025,7 +1054,10 @@ pub fn resolve_two_way_binding(
     node: syntax_nodes::TwoWayBinding,
     ctx: &mut LookupCtx,
 ) -> Option<NamedReference> {
-    let e = Expression::from_expression_node(node.Expression(), ctx);
+    let e = node
+        .Expression()
+        .QualifiedName()
+        .map_or(Expression::Invalid, |n| Expression::from_qualified_name_node(n, ctx));
     let ty = e.ty();
     match e {
         Expression::PropertyReference(n) => {
