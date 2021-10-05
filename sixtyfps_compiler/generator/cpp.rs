@@ -599,15 +599,8 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
 
     file.declarations.extend(doc.root_component.embedded_file_resources.borrow().iter().map(
         |(path, id)| {
-            let data: std::borrow::Cow<[u8]> = match path.strip_prefix("builtin:/") {
-                None => std::fs::read(path)
-                    .expect(&format!("unable to read file for embedding: {}", path))
-                    .into(),
-                Some(builtin) => crate::library::load_file(std::path::Path::new(builtin))
-                    .expect("non-existent internal file referenced")
-                    .contents
-                    .into(),
-            };
+            let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+            let data = file.read();
 
             let mut init = "{ ".to_string();
 
@@ -1833,7 +1826,7 @@ fn compile_expression(
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(&*sub, component), op = op,)
         }
-        Expression::ImageReference(resource_ref)  => {
+        Expression::ImageReference { resource_ref, .. }  => {
             match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"sixtyfps::Image()"#.to_string(),
                 crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"sixtyfps::Image::load_from_path(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),

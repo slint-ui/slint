@@ -24,8 +24,7 @@ fn main() -> std::io::Result<()> {
     write!(
         file,
         r#"
-use crate::typeloader::{{VirtualFile, VirtualDirectory}};
-pub fn widget_library() -> &'static [(&'static str, &'static VirtualDirectory<'static>)] {{
+fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'static>)] {{
     &[
 "#
     )?;
@@ -70,7 +69,7 @@ fn process_style(path: &Path) -> std::io::Result<String> {
         .iter()
         .map(|file| {
             format!(
-                "&VirtualFile {{path: r#\"{}\"# , contents: include_bytes!(r#\"{}\"#)}}",
+                "&BuiltinFile {{path: r#\"{}\"# , contents: include_bytes!(r#\"{}\"#)}}",
                 file.file_name().unwrap().to_string_lossy(),
                 file.display()
             )

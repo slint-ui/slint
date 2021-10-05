@@ -34,6 +34,7 @@ use std::rc::Rc;
 pub mod builtin_macros;
 pub mod diagnostics;
 pub mod expression_tree;
+pub mod fileaccess;
 pub mod generator;
 pub mod langtype;
 pub mod layout;
@@ -131,25 +132,4 @@ pub async fn compile_syntax_node(
     diagnostics.all_loaded_files = loader.all_files().cloned().collect();
 
     (doc, diagnostics)
-}
-
-pub mod library {
-    include!(env!("SIXTYFPS_WIDGETS_LIBRARY"));
-
-    pub fn load_file(builtin_path: &std::path::Path) -> Option<&'static VirtualFile<'static>> {
-        let mut components = vec![];
-        for part in builtin_path.iter() {
-            if part == ".." {
-                components.pop();
-            } else if part != "." {
-                components.push(part);
-            }
-        }
-        if let &[folder, file] = components.as_slice() {
-            let library = widget_library().iter().find(|x| x.0 == folder)?.1;
-            library.iter().find_map(|vf| if vf.path == file { Some(*vf) } else { None })
-        } else {
-            None
-        }
-    }
 }
