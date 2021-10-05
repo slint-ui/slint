@@ -8,18 +8,14 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-
-X := Rectangle {
-    edit := TextInput { }
+export Demo := Window {
+    callback foobar;
     TouchArea {
         clicked => {
-            (edit.focus)();
-//          ^warning{Parentheses around callable are deprecated. Remove the parentheses}
-            edit.focus;
-//          ^error{'edit.focus' must be called. Did you forgot the '\(\)'\?}
+            root
+//          ^error{'root.foobar' must be called. Did you forgot the '\(\)'\?}
+                .foobar
         }
     }
-    x: edit.focus;
-//    ^error{Cannot convert function\(element ref\) -> void to length}
-//     ^^error{'edit.focus' must be called. Did you forgot the '\(\)'\?}
 }
+

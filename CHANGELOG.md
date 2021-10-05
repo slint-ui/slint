@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
  - Due to changes in the build system, the C++ build now requires CMake >= 3.19.
  - Fluent style: The Slider and ScrollBar now updates as the mouse moves.
+ - Parentheses around callable expression is now deprecated.
+ - Naming a callback without calling it is now a hard error instead of producing error in the generated code.
 
 ### Added
 

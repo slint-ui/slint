@@ -29,9 +29,12 @@ Xxx := Rectangle {
 //      ^error{The expression is not a function}
 //                ^^error{Unknown unqualified identifier 'fff'}
         (plop)("45", #fff, 42);
+//      ^warning{Parentheses around callable are deprecated. Remove the parentheses}
         (root.plop)("45", #fff, 42);
+//      ^warning{Parentheses around callable are deprecated. Remove the parentheses}
         (root.plop)("45", #fff, "45");
 //                              ^error{Cannot convert string to int}
+//      ^^warning{Parentheses around callable are deprecated. Remove the parentheses}
     }
 
     x: 12phx;
