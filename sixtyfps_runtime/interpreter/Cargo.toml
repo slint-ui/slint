@@ -30,6 +30,7 @@ derive_more = "0.99.5"
 generativity = "1"
 once_cell = "1.5"
 thiserror = "1"
+lazy_static = "1"
 
 [dependencies.spin_on]
 version = "0.1"

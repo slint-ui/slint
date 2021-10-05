@@ -133,7 +133,7 @@ pub async fn compile_syntax_node(
     (doc, diagnostics)
 }
 
-mod library {
+pub mod library {
     include!(env!("SIXTYFPS_WIDGETS_LIBRARY"));
 
     pub fn load_file(builtin_path: &std::path::Path) -> Option<&'static [u8]> {
