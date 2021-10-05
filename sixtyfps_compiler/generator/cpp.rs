@@ -181,6 +181,7 @@ mod cpp_ast {
     pub struct Var {
         pub ty: String,
         pub name: String,
+        pub array_size: Option<usize>,
         pub init: Option<String>,
     }
 
@@ -188,6 +189,9 @@ mod cpp_ast {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             indent(f)?;
             write!(f, "{} {}", self.ty, self.name)?;
+            if let Some(size) = self.array_size {
+                write!(f, "[{}]", size)?;
+            }
             if let Some(i) = &self.init {
                 write!(f, " = {}", i)?;
             }
@@ -493,6 +497,7 @@ fn handle_item(elem: &ElementRc, main_struct: &mut Struct) {
             ),
             name: ident(&item.id).into_owned(),
             init: Some("{}".to_owned()),
+            ..Default::default()
         }),
     ));
 }
@@ -578,6 +583,7 @@ fn handle_repeater(
             ),
             name: repeater_id,
             init: None,
+            ..Default::default()
         }),
     ));
 }
@@ -591,6 +597,34 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<cstdlib>".into()); // TODO: ideally only include this if needed (by to_float)
     file.includes.push("<cmath>".into()); // TODO: ideally only include this if needed (by floor/ceil/round)
     file.includes.push("<sixtyfps.h>".into());
+
+    file.declarations.extend(doc.root_component.embedded_file_resources.borrow().iter().map(
+        |(path, id)| {
+            let data =
+                std::fs::read(path).expect(&format!("unable to read file for embedding: {}", path));
+
+            let mut init = "{ ".to_string();
+
+            for (index, byte) in data.iter().enumerate() {
+                if index > 0 {
+                    init.push(',');
+                }
+                init.push_str(&format!("0x{:x}", byte));
+                if index % 16 == 0 {
+                    init.push('\n');
+                }
+            }
+
+            init.push_str("}");
+
+            Declaration::Var(Var {
+                ty: "inline uint8_t".into(),
+                name: format!("sfps_embedded_resource_{}", id),
+                array_size: Some(data.len()),
+                init: Some(init),
+            })
+        },
+    ));
 
     for ty in doc.root_component.used_types.borrow().structs.iter() {
         if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
@@ -626,7 +660,8 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
             env!("CARGO_PKG_VERSION_MINOR"),
             env!("CARGO_PKG_VERSION_PATCH")),
         name: "THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME".into(),
-        init: Some("sixtyfps::private_api::VersionCheckHelper<int(sixtyfps::private_api::VersionCheck::Major), int(sixtyfps::private_api::VersionCheck::Minor), int(sixtyfps::private_api::VersionCheck::Patch)>()".into())
+        init: Some("sixtyfps::private_api::VersionCheckHelper<int(sixtyfps::private_api::VersionCheck::Major), int(sixtyfps::private_api::VersionCheck::Minor), int(sixtyfps::private_api::VersionCheck::Patch)>()".into()),
+        ..Default::default()
     }));
 
     if diag.has_error() {
@@ -812,7 +847,12 @@ fn generate_component(
         if property_decl.is_alias.is_none() {
             component_struct.members.push((
                 if component.is_global() { Access::Public } else { Access::Private },
-                Declaration::Var(Var { ty, name: cpp_name.into_owned(), init: None }),
+                Declaration::Var(Var {
+                    ty,
+                    name: cpp_name.into_owned(),
+                    init: None,
+                    ..Default::default()
+                }),
             ));
         }
     }
@@ -830,6 +870,7 @@ fn generate_component(
                     ty: "sixtyfps::private_api::Property<int>".into(),
                     name: "index".into(),
                     init: None,
+                    ..Default::default()
                 }),
             ));
 
@@ -839,6 +880,7 @@ fn generate_component(
                     ty: format!("sixtyfps::private_api::Property<{}>", cpp_model_data_type),
                     name: "model_data".into(),
                     init: None,
+                    ..Default::default()
                 }),
             ));
 
@@ -885,6 +927,7 @@ fn generate_component(
                 ty: parent_type,
                 name: "parent".into(),
                 init: Some("nullptr".to_owned()),
+                ..Default::default()
             }),
         ));
         component_struct.friends.push(parent_component_id);
@@ -942,6 +985,7 @@ fn generate_component(
                 ty: "sixtyfps::Window".into(),
                 name: "m_window".into(),
                 init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
+                ..Default::default()
             }),
         ));
     } else if !component.is_global() {
@@ -951,6 +995,7 @@ fn generate_component(
                 ty: "sixtyfps::Window".into(),
                 name: "m_window".into(),
                 init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
+                ..Default::default()
             }),
         ));
 
@@ -1283,6 +1328,7 @@ fn generate_component(
                 ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
                 name: "static_vtable".to_owned(),
                 init: None,
+                ..Default::default()
             }),
         ));
 
@@ -1321,6 +1367,7 @@ fn generate_component(
                 ty: format!("std::shared_ptr<{}>", ty),
                 name: global_field_name(glob),
                 init: Some(format!("std::make_shared<{}>()", ty)),
+                ..Default::default()
             }),
         ));
     }
@@ -1374,6 +1421,7 @@ fn generate_component(
                 "{{ visit_children, get_item_ref, parent_item,  layout_info, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
                 component_id)
             ),
+            ..Default::default()
         }));
     }
 }
@@ -1593,7 +1641,7 @@ fn compile_expression(
                 panic!("internal error: RegisterCustomFontByPath can only be evaluated from within a FunctionCall expression")
             }
             BuiltinFunction::RegisterCustomFontByMemory => {
-                panic!("embedding fonts is not supported in C++ yet")
+                panic!("internal error: RegisterCustomFontByMemory can only be evaluated from within a FunctionCall expression")
             }
         },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
@@ -1742,6 +1790,18 @@ fn compile_expression(
                     panic!("internal error: argument to RegisterCustomFontByPath must be a string literal")
                 }
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory, _) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to RegisterCustomFontByMemory call");
+                }
+                if let Expression::NumberLiteral(resource_id, _) = &arguments[0] {
+                    let resource_id: usize = *resource_id as _;
+                    let symbol = format!("sfps_embedded_resource_{}", resource_id);
+                    format!("sixtyfps::private_api::register_font_from_data({}, std::size({}));", symbol, symbol)
+                } else {
+                    panic!("internal error: argument to RegisterCustomFontByMemory must be a number")
+                }
+            }
             _ => {
                 let mut args = arguments.iter().map(|e| compile_expression(e, component));
 
@@ -1777,7 +1837,12 @@ fn compile_expression(
             match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"sixtyfps::Image()"#.to_string(),
                 crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"sixtyfps::Image::load_from_path(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
-                crate::expression_tree::ImageReference::EmbeddedData { .. } => unimplemented!("The C++ generator does not support resource embedding yet")
+                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                    let symbol = format!("sfps_embedded_resource_{}", resource_id);
+                    let data_slice = format!("sixtyfps::Slice<uint8_t>{{std::data({}), std::size({})}}", symbol, symbol);
+                    let extension_slice = format!("sixtyfps::Slice<uint8_t>{{const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(\"{}\")), {}}}", extension, extension.as_bytes().len());
+                    format!("sixtyfps::Image(sixtyfps::cbindgen_private::types::ImageInner::EmbeddedData({}, {}))", data_slice, extension_slice)
+                }
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {

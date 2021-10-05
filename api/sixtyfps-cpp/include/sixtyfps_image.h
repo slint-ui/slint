@@ -69,6 +69,9 @@ public:
     /// Returns false if \a a refers to the same image as \a b; true otherwise.
     friend bool operator!=(const Image &a, const Image &b) { return a.data != b.data; }
 
+    /// \private
+    explicit Image(cbindgen_private::types::Image inner) : data(inner) { }
+
 private:
     using Tag = cbindgen_private::types::ImageInner::Tag;
     using Data = cbindgen_private::types::Image;

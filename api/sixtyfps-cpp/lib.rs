@@ -81,6 +81,20 @@ pub unsafe extern "C" fn sixtyfps_register_font_from_path(
     )
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn sixtyfps_register_font_from_data(
+    data: sixtyfps_corelib::slice::Slice<'static, u8>,
+    error_str: *mut sixtyfps_corelib::SharedString,
+) {
+    core::ptr::write(
+        error_str,
+        match crate::backend().register_font_from_memory(data.as_slice()) {
+            Ok(()) => Default::default(),
+            Err(err) => err.to_string().into(),
+        },
+    )
+}
+
 #[cfg(feature = "testing")]
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_testing_init_backend() {
