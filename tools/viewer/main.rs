@@ -31,12 +31,12 @@ struct Cli {
     path: std::path::PathBuf,
 
     /// The style name ('native', 'fluent', or 'ugly')
-    #[structopt(long, name = "style name", default_value)]
-    style: String,
+    #[structopt(long, name = "style name")]
+    style: Option<String>,
 
     /// The rendering backend
-    #[structopt(long, name = "backend", default_value)]
-    backend: String,
+    #[structopt(long, name = "backend")]
+    backend: Option<String>,
 
     /// Automatically watch the file system, and reload when it changes
     #[structopt(long)]
@@ -62,8 +62,8 @@ fn main() -> Result<()> {
         std::process::exit(-1);
     }
 
-    if !args.backend.is_empty() {
-        std::env::set_var("SIXTYFPS_BACKEND", &args.backend);
+    if let Some(backend) = &args.backend {
+        std::env::set_var("SIXTYFPS_BACKEND", backend);
     }
 
     let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };
@@ -135,8 +135,8 @@ fn init_compiler(
 ) -> sixtyfps_interpreter::ComponentCompiler {
     let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(args.include_paths.clone());
-    if !args.style.is_empty() {
-        compiler.set_style(args.style.clone());
+    if let Some(style) = &args.style {
+        compiler.set_style(style.clone());
     }
     if let Some(watcher) = fswatcher {
         notify::Watcher::watch(
