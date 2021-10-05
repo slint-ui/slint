@@ -19,7 +19,7 @@ SubElements := Rectangle {
 
     Image {
         source: @image-url("builtin:/common/does-not-exist.svg");
-//              ^error{Cannot find image file}
+//              ^warning{Cannot find image file}
     }
 
     Rectangle {
