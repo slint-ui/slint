@@ -271,8 +271,16 @@ impl FontCache {
             ..Default::default()
         };
 
-        let fontdb_face_id =
-            self.available_fonts.query(&query).expect("font database cannot be empty");
+        let fontdb_face_id = self
+            .available_fonts
+            .query(&query)
+            .or_else(|| {
+                // If the requested family could not be found, fall back to *some* family that must exist
+                let mut fallback_query = query;
+                fallback_query.families = &[fontdb::Family::SansSerif];
+                self.available_fonts.query(&fallback_query)
+            })
+            .expect("there must be a sans-serif font face registered");
 
         // Safety: We map font files into memory that - while we never unmap them - may
         // theoretically get corrupted/truncated by another process and then we'll crash
