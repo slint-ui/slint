@@ -206,7 +206,7 @@ impl Item for NativeSlider {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let enabled = this.enabled();
         let value = this.value() as i32;
         let min = this.minimum() as i32;
@@ -217,6 +217,7 @@ impl Item for NativeSlider {
 
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             enabled as "bool",
             value as "int",
             min as "int",
@@ -232,7 +233,7 @@ impl Item for NativeSlider {
             option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
-            style->drawComplexControl(QStyle::CC_Slider, &option, painter, nullptr);
+            style->drawComplexControl(QStyle::CC_Slider, &option, painter, widget);
         });
     }
 }

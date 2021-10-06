@@ -96,13 +96,14 @@ impl Item for NativeCheckBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let checked: bool = this.checked();
         let enabled = this.enabled();
         let text: qttypes::QString = this.text().as_str().into();
 
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             enabled as "bool",
             text as "QString",
             size as "QSize",
@@ -120,7 +121,7 @@ impl Item for NativeCheckBox {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, painter, nullptr);
+            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, painter, widget);
         });
     }
 }

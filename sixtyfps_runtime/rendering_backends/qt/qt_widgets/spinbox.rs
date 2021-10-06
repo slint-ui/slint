@@ -190,7 +190,7 @@ impl Item for NativeSpinBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let value: i32 = this.value();
         let enabled = this.enabled();
         let data = this.data();
@@ -199,6 +199,7 @@ impl Item for NativeSpinBox {
 
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             value as "int",
             enabled as "bool",
             size as "QSize",
@@ -214,7 +215,7 @@ impl Item for NativeSpinBox {
             initQSpinBoxOptions(option, pressed, enabled, active_controls);
             style->drawComplexControl(QStyle::CC_SpinBox, &option, painter, nullptr);
 
-            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, nullptr);
+            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, widget);
             painter->setPen(option.palette.color(QPalette::Text));
             painter->drawText(text_rect, QString::number(value));
         });

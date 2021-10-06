@@ -115,12 +115,13 @@ impl Item for NativeLineEdit {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let focused: bool = this.focused();
         let enabled: bool = this.enabled();
 
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             size as "QSize",
             dpr as "float",
             enabled as "bool",
@@ -139,7 +140,7 @@ impl Item for NativeLineEdit {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, painter, nullptr);
+            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, painter, widget);
         });
     }
 }

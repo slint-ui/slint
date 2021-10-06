@@ -272,7 +272,7 @@ impl Item for NativeButton {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let down: bool = this.pressed();
         let standard_button_kind = this.actual_standard_button_kind();
         let text: qttypes::QString = this.actual_text(standard_button_kind);
@@ -281,6 +281,7 @@ impl Item for NativeButton {
 
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             text as "QString",
             icon as "QPixmap",
             enabled as "bool",
@@ -305,7 +306,7 @@ impl Item for NativeButton {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter, nullptr);
+            qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter, widget);
         });
     }
 }

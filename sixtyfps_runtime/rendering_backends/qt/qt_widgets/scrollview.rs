@@ -267,7 +267,7 @@ impl Item for NativeScrollView {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
 
         let data = this.data();
         let margins = qttypes::QMargins {
@@ -280,6 +280,7 @@ impl Item for NativeScrollView {
         let has_focus: bool = this.has_focus();
         let frame_around_contents = cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             size as "QSize",
             dpr as "float",
             margins as "QMargins",
@@ -304,18 +305,18 @@ impl Item for NativeScrollView {
             if (has_focus)
                 frameOption.state |= QStyle::State_HasFocus;
             //int scrollOverlap = qApp->style()->pixelMetric(QStyle::PM_ScrollView_ScrollBarOverlap, &frameOption, nullptr);
-            bool foac = qApp->style()->styleHint(QStyle::SH_ScrollView_FrameOnlyAroundContents, &frameOption, nullptr);
+            bool foac = qApp->style()->styleHint(QStyle::SH_ScrollView_FrameOnlyAroundContents, &frameOption, widget);
             // this assume that the frame size is the same on both side, so that the scrollbar width is (right-left)
             QSize corner_size = QSize(margins.right() - margins.left(), margins.bottom() - margins.top());
             if (foac) {
                 frameOption.rect = QRect(QPoint(), (size / dpr) - corner_size);
-                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, nullptr);
+                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, widget);
                 frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1), corner_size);
-                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, nullptr);
+                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, widget);
             } else {
-                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, nullptr);
+                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, widget);
                 frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1) - QPoint(margins.right(), margins.bottom()), corner_size);
-                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, nullptr);
+                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, widget);
             }
             return foac;
         });
@@ -330,6 +331,7 @@ impl Item for NativeScrollView {
                               initial_state: i32| {
             cpp!(unsafe [
                 painter as "QPainter*",
+                widget as "QWidget*",
                 value as "int",
                 page_size as "int",
                 max as "int",
@@ -368,7 +370,7 @@ impl Item for NativeScrollView {
                 }
 
                 auto style = qApp->style();
-                style->drawComplexControl(QStyle::CC_ScrollBar, &option, painter, nullptr);
+                style->drawComplexControl(QStyle::CC_ScrollBar, &option, painter, widget);
             #if defined(Q_OS_MAC)
                 }
                 painter->drawImage(r.topLeft(), scrollbar_image);

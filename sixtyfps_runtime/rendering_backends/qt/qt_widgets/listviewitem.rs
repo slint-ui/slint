@@ -89,13 +89,14 @@ impl Item for NativeStandardListViewItem {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let index: i32 = this.index();
         let is_selected: bool = this.is_selected();
         let item = this.item();
         let text: qttypes::QString = item.text.as_str().into();
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             size as "QSize",
             dpr as "float",
             index as "int",
@@ -126,8 +127,8 @@ impl Item for NativeStandardListViewItem {
             if (new_clip.isEmpty()) return;
             engine->setSystemClip(new_clip);
 
-            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter, nullptr);
-            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, painter, nullptr);
+            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter, widget);
+            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, painter, widget);
             engine->setSystemClip(old_clip);
         });
     }

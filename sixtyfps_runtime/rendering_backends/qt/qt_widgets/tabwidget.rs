@@ -249,13 +249,14 @@ impl Item for NativeTabWidget {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let tabbar_size = qttypes::QSizeF {
             width: this.tabbar_preferred_width() as _,
             height: this.tabbar_preferred_height() as _,
         };
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             size as "QSize",
             dpr as "float",
             tabbar_size as "QSizeF",
@@ -264,7 +265,7 @@ impl Item for NativeTabWidget {
             QStyleOptionTabWidgetFrame option;
             option.state |= QStyle::State(initial_state);
             auto style = qApp->style();
-            option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, nullptr);
+            option.lineWidth = style->pixelMetric(QStyle::PM_DefaultFrameWidth, 0, widget);
             option.shape = QTabBar::RoundedNorth;
             if (true /*enabled*/) {
                 option.state |= QStyle::State_Enabled;
@@ -275,14 +276,14 @@ impl Item for NativeTabWidget {
             option.tabBarSize = tabbar_size.toSize();
             option.rightCornerWidgetSize = QSize(0, 0);
             option.leftCornerWidgetSize = QSize(0, 0);
-            option.tabBarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, nullptr);
-            option.rect = style->subElementRect(QStyle::SE_TabWidgetTabPane, &option, nullptr);
-            style->drawPrimitive(QStyle::PE_FrameTabWidget, &option, painter, nullptr);
+            option.tabBarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, widget);
+            option.rect = style->subElementRect(QStyle::SE_TabWidgetTabPane, &option, widget);
+            style->drawPrimitive(QStyle::PE_FrameTabWidget, &option, painter, widget);
 
             /* -- we don't need to draw the base since we already draw the frame
                 QStyleOptionTab tabOverlap;
                 tabOverlap.shape = option.shape;
-                int overlap = style->pixelMetric(QStyle::PM_TabBarBaseOverlap, &tabOverlap, nullptr);
+                int overlap = style->pixelMetric(QStyle::PM_TabBarBaseOverlap, &tabOverlap, widget);
                 QStyleOptionTabBarBase optTabBase;
                 static_cast<QStyleOption&>(optTabBase) = (option);
                 optTabBase.shape = option.shape;
@@ -292,7 +293,7 @@ impl Item for NativeTabWidget {
                 }
                 optTabBase.tabBarRect = option.tabBarRect;
                 optTabBase.selectedTabRect = option.selectedTabRect;
-                style->drawPrimitive(QStyle::PE_FrameTabBarBase, &optTabBase, painter, nullptr);*/
+                style->drawPrimitive(QStyle::PE_FrameTabBarBase, &optTabBase, painter, widget);*/
         });
     }
 }
@@ -435,7 +436,7 @@ impl Item for NativeTab {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let down: bool = this.pressed();
         let text: qttypes::QString = this.title().as_str().into();
         let icon: qttypes::QPixmap = crate::qt_window::load_image_from_resource(
@@ -451,6 +452,7 @@ impl Item for NativeTab {
 
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             text as "QString",
             icon as "QPixmap",
             enabled as "bool",
@@ -488,7 +490,7 @@ impl Item for NativeTab {
             if (current == tab_index)
                 option.state |= QStyle::State_Selected;
             option.features |= QStyleOptionTab::HasFrame;
-            qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter, nullptr);
+            qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter, widget);
         });
     }
 }

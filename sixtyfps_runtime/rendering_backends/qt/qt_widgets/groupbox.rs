@@ -163,13 +163,14 @@ impl Item for NativeGroupBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let text: qttypes::QString =
             this.title().as_str().into();
         let enabled = this.enabled();
 
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             text as "QString",
             enabled as "bool",
             size as "QSize",
@@ -193,7 +194,7 @@ impl Item for NativeGroupBox {
             }
             option.textColor = QColor(qApp->style()->styleHint(
                 QStyle::SH_GroupBox_TextLabelColor, &option));
-            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, painter, nullptr);
+            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, painter, widget);
         });
     }
 }

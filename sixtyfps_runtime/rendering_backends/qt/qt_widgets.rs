@@ -60,7 +60,7 @@ macro_rules! get_size {
 }
 
 macro_rules! fn_render {
-    ($this:ident $dpr:ident $size:ident $painter:ident $initial_state:ident => $($tt:tt)*) => {
+    ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
         fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
             let $dpr: f32 = backend.scale_factor();
 
@@ -79,6 +79,9 @@ macro_rules! fn_render {
                 let $size: qttypes::QSize = get_size!(self);
                 let $this = self;
                 painter.save_state();
+                let $widget = cpp!(unsafe [painter as "QPainter*"] -> * const () as "QWidget*" {
+                    return painter->device()->devType() == QInternal::Widget ? static_cast<QWidget *>(painter->device()) : nullptr;
+                });
                 let $painter = painter;
                 $($tt)*
                 $painter.restore_state();
@@ -96,6 +99,7 @@ macro_rules! fn_render {
                         let mut imgarray = QImageWrapArray::new($size, $dpr);
                         let img = &mut imgarray.img;
                         let mut painter_ = cpp!(unsafe [img as "QImage*"] -> QPainter as "QPainter" { return QPainter(img); });
+                        let $widget: * const () = core::ptr::null();
                         let $painter = &mut painter_;
                         let $this = self;
                         $($tt)*

@@ -103,7 +103,7 @@ impl Item for NativeComboBox {
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
-    fn_render! { this dpr size painter initial_state =>
+    fn_render! { this dpr size painter widget initial_state =>
         let down: bool = this.pressed();
         let is_open: bool = this.is_open();
         let text: qttypes::QString =
@@ -111,6 +111,7 @@ impl Item for NativeComboBox {
         let enabled = this.enabled();
         cpp!(unsafe [
             painter as "QPainter*",
+            widget as "QWidget*",
             text as "QString",
             enabled as "bool",
             size as "QSize",
@@ -135,8 +136,8 @@ impl Item for NativeComboBox {
             if (is_open)
                 option.state |= QStyle::State_On;
             option.subControls = QStyle::SC_All;
-            qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, painter, nullptr);
-            qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, painter, nullptr);
+            qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, painter, widget);
+            qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, painter, widget);
         });
     }
 }
