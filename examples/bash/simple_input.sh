@@ -19,7 +19,7 @@ _ := Dialog {
     preferred-width: 300px;
     GridBox {
         Row {
-            Text { text: "Enter Your name:"; }
+            Text { text: "Enter your name:"; }
             name-le := LineEdit { }
         }
         Row {
