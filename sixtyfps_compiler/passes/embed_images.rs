@@ -14,7 +14,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-pub fn embed_resources(
+pub fn embed_images(
     component: &Rc<Component>,
     embed_files_by_default: bool,
     diag: &mut BuildDiagnostics,
@@ -25,17 +25,12 @@ pub fn embed_resources(
         component.used_types.borrow().sub_components.iter().chain(std::iter::once(component))
     {
         visit_all_expressions(component, |e, _| {
-            embed_resources_from_expression(
-                e,
-                global_embedded_resources,
-                embed_files_by_default,
-                diag,
-            )
+            embed_images_from_expression(e, global_embedded_resources, embed_files_by_default, diag)
         });
     }
 }
 
-fn embed_resources_from_expression(
+fn embed_images_from_expression(
     e: &mut Expression,
     global_embedded_resources: &RefCell<HashMap<String, usize>>,
     embed_files_by_default: bool,
@@ -69,7 +64,7 @@ fn embed_resources_from_expression(
     };
 
     e.visit_mut(|mut e| {
-        embed_resources_from_expression(
+        embed_images_from_expression(
             &mut e,
             global_embedded_resources,
             embed_files_by_default,

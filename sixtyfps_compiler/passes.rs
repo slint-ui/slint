@@ -20,7 +20,7 @@ mod collect_subcomponents;
 mod compile_paths;
 mod deduplicate_property_read;
 mod default_geometry;
-mod embed_resources;
+mod embed_images;
 mod ensure_window;
 mod flickable;
 mod focus_item;
@@ -78,7 +78,7 @@ pub async fn run_passes(
         lower_tabwidget::lower_tabwidget(component, &mut type_loader, diag).await;
     }
 
-    embed_resources::embed_resources(root_component, compiler_config.embed_resources, diag);
+    embed_images::embed_images(root_component, compiler_config.embed_resources, diag);
 
     inlining::inline(doc);
     focus_item::resolve_element_reference_in_set_focus_calls(root_component, diag);
