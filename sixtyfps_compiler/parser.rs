@@ -215,13 +215,12 @@ macro_rules! declare_syntax {
                 match self {
                     $(Self::$token => {
                         if let Some(character) = <dyn std::any::Any>::downcast_ref::<&str>(& $rule) {
-                            write!(f, "'{}'", character)
-                        } else {
-                            write!(f, "{:?}", self)
+                            return write!(f, "'{}'", character)
                         }
                     })*
-                    _ => write!(f, "{:?}", self)
+                    _ => ()
                 }
+                write!(f, "{:?}", self)
             }
         }
 
