@@ -979,8 +979,12 @@ fn adjust_to_image_fit(
 fn is_svg(resource: &ImageInner) -> bool {
     match resource {
         ImageInner::None => false,
-        ImageInner::AbsoluteFilePath(path) => path.as_str().ends_with(".svg"),
-        ImageInner::EmbeddedData { format, .. } => format.as_slice() == b"svg",
+        ImageInner::AbsoluteFilePath(path) => {
+            path.as_str().ends_with(".svg") || path.as_str().ends_with(".svgz")
+        }
+        ImageInner::EmbeddedData { format, .. } => {
+            format.as_slice() == b"svg" || format.as_slice() == b"svgz"
+        }
         ImageInner::EmbeddedImage { .. } => false,
     }
 }

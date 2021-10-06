@@ -180,7 +180,7 @@ impl CachedImage {
         #[cfg(not(target_arch = "wasm32"))]
         {
             #[cfg(feature = "svg")]
-            if path.ends_with(".svg") {
+            if path.ends_with(".svg") || path.ends_with(".svgz") {
                 return Some(Self::new_on_cpu_svg(
                     super::svg::load_from_path(std::path::Path::new(&path.as_str())).map_or_else(
                         |err| {
@@ -205,7 +205,7 @@ impl CachedImage {
 
     fn new_from_data(data: &Slice<u8>, format: &Slice<u8>) -> Option<Self> {
         #[cfg(feature = "svg")]
-        if format.as_slice() == b"svg" {
+        if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
             return Some(CachedImage::new_on_cpu_svg(
                 super::svg::load_from_data(data.as_slice()).map_or_else(
                     |svg_err| {

@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changed
+
+ - Enable support for compressed SVG (.svgz).
+
 ## [0.1.3] - 2021-10-06
 
 ### Changed
