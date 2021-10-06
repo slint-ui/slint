@@ -22,7 +22,7 @@ In your `Cargo.toml` add:
 
 ```toml
 [dependencies]
-sixtyfps = "0.1.2"
+sixtyfps = "0.1.3"
 ```
 
 And in your `main.rs`:
