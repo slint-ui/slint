@@ -1434,7 +1434,13 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         .popup_windows
         .borrow()
         .iter()
-        .for_each(|p| recurse_elem_including_sub_components_no_borrow(&p.component, state, vis))
+        .for_each(|p| recurse_elem_including_sub_components_no_borrow(&p.component, state, vis));
+    component
+        .used_types
+        .borrow()
+        .globals
+        .iter()
+        .for_each(|p| recurse_elem_including_sub_components_no_borrow(&p, state, vis));
 }
 
 /// This visit the binding attached to this element, but does not recurse in children elements
