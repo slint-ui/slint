@@ -241,7 +241,10 @@ impl NativeStyleMetrics {
 pub extern "C" fn sixtyfps_init_native_style_metrics(self_: &NativeStyleMetrics) {
     let layout_spacing = cpp!(unsafe [] -> f32 as "float" {
         ensure_initialized();
-        return qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing);
+        int spacing = qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing);
+        if (spacing < 0)
+            spacing = qApp->style()->layoutSpacing(QSizePolicy::DefaultType, QSizePolicy::DefaultType, Qt::Horizontal);
+        return spacing;
     });
     self_.layout_spacing.set(layout_spacing.max(0.0));
     let layout_padding = cpp!(unsafe [] -> f32 as "float" {
