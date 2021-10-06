@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [0.1.3] - 2021-10-06
+
 ### Changed
 
  - Due to changes in the build system, the C++ build now requires CMake >= 3.19.
@@ -269,3 +271,4 @@ All notable changes to this project will be documented in this file.
 [0.1.0]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.0
 [0.1.1]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.1
 [0.1.2]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.2
+[0.1.3]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.3
