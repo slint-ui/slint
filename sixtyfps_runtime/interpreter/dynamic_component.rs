@@ -1109,7 +1109,9 @@ pub fn instantiate(
 
     // Some properties are generated as Value, but for which the default constructed Value must be initialized
     for (prop_name, decl) in &component_type.original.root_element.borrow().property_declarations {
-        if !matches!(decl.property_type, Type::Struct { .. } | Type::Array(_)) {
+        if !matches!(decl.property_type, Type::Struct { .. } | Type::Array(_))
+            || decl.is_alias.is_some()
+        {
             continue;
         }
         if let Some(b) = component_type.original.root_element.borrow().bindings.get(prop_name) {
