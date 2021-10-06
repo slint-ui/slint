@@ -22,7 +22,7 @@ TestCase := Window {
 
         property yo yo;
 //               ^error{Missing type. The syntax to declare a property is `property <type> name;`. Only two way bindings can omit the type}
-//                  ^^error{Syntax error: expected Semicolon}
+//                  ^^error{Syntax error: expected ';'}
 //                    ^^^error{Parse error}
 
 

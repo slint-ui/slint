@@ -9,4 +9,4 @@
 LICENSE END */
 
 import foo from bar;
-//     ^error{Syntax error: expected LBrace}
+//     ^error{Syntax error: expected '\{'}

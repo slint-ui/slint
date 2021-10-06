@@ -20,7 +20,7 @@ This module has different sub modules with the actual parser functions
 
 use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
 pub use smol_str::SmolStr;
-use std::convert::TryFrom;
+use std::{convert::TryFrom, fmt::Display};
 
 mod document;
 mod element;
@@ -209,6 +209,22 @@ macro_rules! declare_syntax {
                 $nodekind,
             )*
         }
+
+        impl Display for SyntaxKind {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                match self {
+                    $(Self::$token => {
+                        if let Some(character) = <dyn std::any::Any>::downcast_ref::<&str>(& $rule) {
+                            write!(f, "'{}'", character)
+                        } else {
+                            write!(f, "{:?}", self)
+                        }
+                    })*
+                    _ => write!(f, "{:?}", self)
+                }
+            }
+        }
+
 
         /// Returns a pair of the matched token type at the beginning of `text`, and its size
         pub fn lex_next_token(text : &str, state: &mut crate::lexer::LexState) -> Option<(usize, SyntaxKind)> {
@@ -496,7 +512,7 @@ mod parser_trait {
         /// Returns true if the token was consumed.
         fn expect(&mut self, kind: SyntaxKind) -> bool {
             if !self.test(kind) {
-                self.error(format!("Syntax error: expected {:?}", kind));
+                self.error(format!("Syntax error: expected {}", kind));
                 return false;
             }
             true

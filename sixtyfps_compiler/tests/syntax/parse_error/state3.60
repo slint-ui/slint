@@ -13,6 +13,6 @@ TestCase := Rectangle {
         checked when true: {
             foo
         }
-//      ^error{Syntax error: expected Colon}
+//      ^error{Syntax error: expected ':'}
     ]
 }

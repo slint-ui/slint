@@ -16,5 +16,5 @@ TestCase := Window {
 //               ^error{Syntax error: expected Identifier}
     }
 //  ^error{Syntax error: expected Identifier}
-//  ^^error{Syntax error: expected Semicolon}
+//  ^^error{Syntax error: expected ';'}
 }

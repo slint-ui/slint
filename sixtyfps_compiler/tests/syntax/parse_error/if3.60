@@ -12,4 +12,4 @@ TestCase := Window {
     if goo
 
   }
-//^error{expected Colon}
+//^error{expected ':'}

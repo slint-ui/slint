@@ -13,5 +13,5 @@ TestCase := Window {
 
   }
 //^error{invalid expression}
-//^^error{expected RParent}
-//^^^error{expected Colon}
+//^^error{expected '\)'}
+//^^^error{expected ':'}

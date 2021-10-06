@@ -9,4 +9,4 @@
 LICENSE END */
 
 import;
-//    ^error{Syntax error: expected LBrace}
+//    ^error{Syntax error: expected '\{'}

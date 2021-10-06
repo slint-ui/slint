@@ -232,7 +232,7 @@ Foo := Rectangle foo { x:0px; }
     assert!(process(
         r#"
 Foo := Rectangle foo { x:0px; }
-//               ^error{expected LBrace}
+//               ^error{expected '\{'}
     "#
     )?);
 
@@ -240,7 +240,7 @@ Foo := Rectangle foo { x:0px; }
     assert!(!process(
         r#"
 Foo := Rectangle foo { x:0px; }
-//             ^error{expected LBrace}
+//             ^error{expected '\{'}
     "#
     )?);
 
@@ -249,7 +249,7 @@ Foo := Rectangle foo { x:0px; }
         r#"
 Foo := Rectangle foo { x:0px; }
 
-//               ^error{expected LBrace}
+//               ^error{expected '\{'}
     "#
     )?);
 
@@ -266,13 +266,13 @@ Foo := Rectangle foo { x:0px; }
         r#"
 
 Foo := Rectangle foo { x:0px; }
-//               ^^error{expected LBrace}
+//               ^^error{expected '\{'}
     "#
     )?);
 
     // Even on windows, it should work
     assert!(process(
-        "\r\nFoo := Rectangle foo { x:0px; }\r\n//               ^error{expected LBrace}\r\n"
+        "\r\nFoo := Rectangle foo { x:0px; }\r\n//               ^error{expected '\\{'}\r\n"
     )?);
 
     Ok(())

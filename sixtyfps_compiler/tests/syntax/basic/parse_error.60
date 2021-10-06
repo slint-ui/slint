@@ -14,14 +14,14 @@ SuperSimple := Rectangle {
     foo := Rectangle {
         background: blue + 3
         x: 45phx;
-//      ^error{Syntax error: expected Semicolon}
+//      ^error{Syntax error: expected ';'}
 // FIXME: would be nice if the smeicolon error was on the previous line
     }
 
     there was already parse error in this scope, so no more
 
     property <string> xyz = 425;
-                      //  ^error{Syntax error: expected Semicolon}
+                      //  ^error{Syntax error: expected ';'}
 
     Image {
         * .
