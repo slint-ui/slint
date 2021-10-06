@@ -60,7 +60,7 @@ fn embed_resources_from_expression(
                             .unwrap_or_default(),
                     }
                 } else {
-                    diag.push_warning("Cannot find image file".into(), source_location);
+                    diag.push_warning(format!("Cannot find image file {}", path), source_location);
                     *resource_ref = ImageReference::None;
                 }
             }
