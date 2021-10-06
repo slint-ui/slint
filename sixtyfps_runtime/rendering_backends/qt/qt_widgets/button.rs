@@ -171,11 +171,10 @@ impl NativeButton {
                 .unwrap_or_default();
             }
         };
-        let is_standard_button: bool = standard_button_kind.is_some();
-        cpp!(unsafe [style_icon as "QStyle::StandardPixmap", is_standard_button as "bool"] -> qttypes::QPixmap as "QPixmap" {
+        cpp!(unsafe [style_icon as "QStyle::StandardPixmap"] -> qttypes::QPixmap as "QPixmap" {
             ensure_initialized();
             auto style = qApp->style();
-            if (is_standard_button && !style->styleHint(QStyle::SH_DialogButtonBox_ButtonsHaveIcons, nullptr, nullptr))
+            if (!style->styleHint(QStyle::SH_DialogButtonBox_ButtonsHaveIcons, nullptr, nullptr))
                 return QPixmap();
             return style->standardPixmap(style_icon);
         })
