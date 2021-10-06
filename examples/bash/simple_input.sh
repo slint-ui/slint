@@ -19,11 +19,11 @@ _ := Dialog {
     preferred-width: 300px;
     GridBox {
         Row {
-            Text { text: "Enter Your name"; }
+            Text { text: "Enter Your name:"; }
             name-le := LineEdit { }
         }
         Row {
-            Text { text: "Address"; }
+            Text { text: "Address:"; }
             address-le := LineEdit { }
         }
     }
