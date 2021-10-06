@@ -131,7 +131,7 @@ impl NativeButton {
     ) -> qttypes::QString {
         // We would need to use the private API to get the text from QPlatformTheme
         match standard_button_kind {
-            Some(StandardButtonKind::ok) => "Ok".into(),
+            Some(StandardButtonKind::ok) => "OK".into(),
             Some(StandardButtonKind::cancel) => "Cancel".into(),
             Some(StandardButtonKind::apply) => "Apply".into(),
             Some(StandardButtonKind::close) => "Close".into(),

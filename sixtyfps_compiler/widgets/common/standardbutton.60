@@ -13,7 +13,7 @@ import { StyleMetrics, Button } from "sixtyfps_widgets_impl.60";
 export StandardButton := Button {
     property <StandardButtonKind> kind;
     text:
-        kind == StandardButtonKind.ok ? "Ok" :
+        kind == StandardButtonKind.ok ? "OK" :
         kind == StandardButtonKind.cancel ? "Cancel" :
         kind == StandardButtonKind.apply ? "Apply" :
         kind == StandardButtonKind.close ? "Close" :
