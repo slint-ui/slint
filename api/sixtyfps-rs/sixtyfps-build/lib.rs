@@ -266,7 +266,9 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-changed={}", path.display());
 
     for resource in doc.root_component.embedded_file_resources.borrow().keys() {
-        println!("cargo:rerun-if-changed={}", resource);
+        if !resource.starts_with("builtin:") {
+            println!("cargo:rerun-if-changed={}", resource);
+        }
     }
     println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
 
