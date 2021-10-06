@@ -1274,7 +1274,13 @@ impl PlatformWindow for QtWindow {
                 }};
             }
             &ImageInner::None => (),
-            _ => todo!("icon currently only support text"),
+            r => {
+                if let Some(pixmap) = load_image_from_resource(r, None, ImageFit::contain) {
+                    cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap"] {
+                        widget_ptr->setWindowIcon(QIcon(pixmap));
+                    }};
+                }
+            }
         };
 
         cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
