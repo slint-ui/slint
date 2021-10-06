@@ -244,6 +244,11 @@ pub extern "C" fn sixtyfps_init_native_style_metrics(self_: &NativeStyleMetrics)
         return qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing);
     });
     self_.layout_spacing.set(layout_spacing.max(0.0));
+    let layout_padding = cpp!(unsafe [] -> f32 as "float" {
+        ensure_initialized();
+        return qApp->style()->pixelMetric(QStyle::PM_LayoutLeftMargin);
+    });
+    self_.layout_padding.set(layout_padding.max(0.0));
     let text_cursor_width = cpp!(unsafe [] -> f32 as "float" {
         return qApp->style()->pixelMetric(QStyle::PM_TextCursorWidth);
     });
