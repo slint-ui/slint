@@ -12,3 +12,10 @@ cargo install sixtyfps-viewer
 The examples also assume that [`jq`](https://stedolan.github.io/jq/) is in the path
 
  * `simple_input.sh`: shows how to query a few parameter with bash
+
+
+## Attributions
+
+The `laptop.svg` icon is `emoji_u1f4bb.svg` from the Noto Emoji font from
+    https://github.com/googlefonts/noto-emoji
+and licensed under the terms of the Apache license, version 2.0; copyright Google Inc.
