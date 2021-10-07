@@ -12,6 +12,7 @@ cargo install sixtyfps-viewer
 The examples also assume that [`jq`](https://stedolan.github.io/jq/) is in the path
 
  * `simple_input.sh`: shows how to query a few parameter with bash
+ * `sysinfo_linux.sh`/`sysinfo_macos.sh`: show how to display the result of bash commands.
 
 
 ## Attributions
