@@ -630,15 +630,19 @@ pub(crate) fn layout_text_lines(
         }
     };
 
-    let mut process_line =
-        |text: &str, y: f32, start: usize, line_metrics: &femtovg::TextMetrics| {
-            let x = match horizontal_alignment {
-                TextHorizontalAlignment::left => 0.,
-                TextHorizontalAlignment::center => max_width / 2. - line_metrics.width() / 2.,
-                TextHorizontalAlignment::right => max_width - line_metrics.width(),
-            };
-            layout_line(text, Point::new(x, y), start, line_metrics);
+    let mut process_line = |text: &str,
+                            y: f32,
+                            start: usize,
+                            line_metrics: &femtovg::TextMetrics| {
+        let x = match horizontal_alignment {
+            TextHorizontalAlignment::left => 0.,
+            TextHorizontalAlignment::center => {
+                max_width / 2. - f32::min(max_width, line_metrics.width()) / 2.
+            }
+            TextHorizontalAlignment::right => max_width - f32::min(max_width, line_metrics.width()),
         };
+        layout_line(text, Point::new(x, y), start, line_metrics);
+    };
 
     let baseline_y = match vertical_alignment {
         TextVerticalAlignment::top => 0.,
