@@ -47,6 +47,10 @@ TestCase := Rectangle {
     property<int> materialized_rect_max_height: rect.max-height / 1phx;
     property<int> materialized_rect_min_width: rect.min-width / 1phx;
     property<int> materialized_rect_min_height: rect.min-height / 1phx;
+
+    property <bool> test:
+        materialized_max_height == 300 && materialized_min_width == 50 && materialized_min_height == 25 && materialized_max_width > 100000 &&
+        materialized_rect_max_height == 300 && materialized_rect_min_width == 50 && materialized_rect_min_height == 25 && materialized_rect_max_width > 100000;
 }
 
 /*

@@ -42,6 +42,12 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 
     for nr in to_initialize {
         let elem = nr.element();
+        if !must_initialize(&elem.borrow(), nr.name()) {
+            // One must check again if one really need to be initialized, because when
+            // we checked the first time, the element's binding were temporarily moved
+            // by visit_all_named_references_in_element
+            continue;
+        }
         if let Some(init_expr) = initialize(&elem, nr.name()) {
             let mut elem_mut = elem.borrow_mut();
             let span = elem_mut.to_source_location();
@@ -54,7 +60,6 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
                 }
             }
         }
-        if !elem.borrow().bindings.contains_key(nr.name()) {}
     }
 }
 
