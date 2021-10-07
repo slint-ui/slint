@@ -10,7 +10,7 @@
 LICENSE END */
 
 import { Rec12 } from "../../typeloader/recursive_import1.60";
-//                    ^error{No exported type called Rec12 found in.*recursive_import1.60}
+//                    ^error{No exported type called 'Rec12' found in ".*recursive_import1.60"}
 Blah := Rec12 {
 //     ^error{Unknown type Rec12}
     width: 100px;

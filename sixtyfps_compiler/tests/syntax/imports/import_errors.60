@@ -9,10 +9,10 @@
 LICENSE END */
 
 import { NotThere } from "file_not_there.60";
-//                       ^error{Cannot find requested import file_not_there.60 in the include search path}
+//                       ^error{Cannot find requested import "file_not_there.60" in the include search path}
 
 import { NotExported } from "../../typeloader/incpath/local_helper_type.60";
-//                          ^error{No exported type called NotExported found in .*\.\./\.\./typeloader/incpath/local_helper_type.60}
+//                          ^error{No exported type called 'NotExported' found in ".*\.\./\.\./typeloader/incpath/local_helper_type.60}
 
 import { Nothing } from "";
 //                      ^error{Unexpected empty import url}
@@ -21,7 +21,10 @@ import "invalid_export.60";
 //     ^error{Import names are missing. Please specify which types you would like to import}
 
 import "myimage.png";
-//     ^error{Unsupported foreign import myimage.png}
+//     ^error{Unsupported foreign import "myimage.png"}
+
+import ".";
+//     ^error{Unsupported foreign import ".*"}
 
 X := Rectangle {
 

@@ -142,7 +142,7 @@ impl Document {
                     Some(import.file)
                 } else {
                     diag.push_error(
-                        format!("Unsupported foreign import {}", import.file),
+                        format!("Unsupported foreign import \"{}\"", import.file),
                         &import.import_token,
                     );
                     None

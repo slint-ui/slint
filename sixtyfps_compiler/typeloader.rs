@@ -210,7 +210,7 @@ impl<'a> TypeLoader<'a> {
 
         if !self.all_documents.currently_loading.insert(path_canon.clone()) {
             diagnostics
-                .push_error(format!("Recursive import of {}", path.display()), &import_token);
+                .push_error(format!("Recursive import of \"{}\"", path.display()), &import_token);
             return None;
         }
 
@@ -229,7 +229,7 @@ impl<'a> TypeLoader<'a> {
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 diagnostics.push_error(
                     format!(
-                        "Cannot find requested import {} in the include search path",
+                        "Cannot find requested import \"{}\" in the include search path",
                         file_to_import
                     ),
                     &import_token,
@@ -238,7 +238,7 @@ impl<'a> TypeLoader<'a> {
             }
             Err(err) => {
                 diagnostics.push_error(
-                    format!("Error reading requested import {}: {}", path.display(), err),
+                    format!("Error reading requested import \"{}\": {}", path.display(), err),
                     &import_token,
                 );
                 return None;
@@ -338,7 +338,7 @@ impl<'a> TypeLoader<'a> {
                     None => {
                         build_diagnostics.push_error(
                             format!(
-                                "No exported type called {} found in {}",
+                                "No exported type called '{}' found in \"{}\"",
                                 import_name.external_name, import.file
                             ),
                             &import.import_token,
