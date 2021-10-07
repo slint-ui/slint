@@ -175,7 +175,7 @@ fn init_compiler(
 fn init_dialog(instance: &ComponentInstance) {
     for cb in instance.definition().callbacks() {
         let exit_code = match cb.as_str() {
-            "ok-clicked" | "yes-clicked" | "closed-clicked" => 0,
+            "ok-clicked" | "yes-clicked" | "close-clicked" => 0,
             "cancel-clicked" | "no-clicked" => 1,
             _ => continue,
         };
