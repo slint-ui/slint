@@ -41,7 +41,7 @@ SysInfo := Dialog {
             GridBox {
                 Row {
                     Text {
-                        text: "Operationg System:";
+                        text: "Operating System:";
                         max-width: min-width;
                     }
                     os-name := Text {
