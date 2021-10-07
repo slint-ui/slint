@@ -8,7 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
-import { TabWidget, StandardButton, GridBox, ListView } from "sixtyfps_widgets.60";
+import { TabWidget, StandardButton, GridBox, VerticalBox, ListView } from "sixtyfps_widgets.60";
 
 
 SysInfo := Dialog {
@@ -18,6 +18,10 @@ SysInfo := Dialog {
     property cpu_model <=> cpu-model.text;
     property cpu_vendor <=> cpu-vendor.text;
     property<int> mem_size_kb;
+    property<int> buffer_mem_size_kb;
+    property<int> swap_total_kb;
+    property<int> swap_used_kb;
+    property<int> swap_free_kb;
     property <[{dev: string, mnt: string, total: int, free: int}]> partitions;
     title: "System information";
 
@@ -77,16 +81,6 @@ SysInfo := Dialog {
                     cpu-count := Text {}
                 }
                 Row {
-                    Text {
-                        col: 1;
-                        text: "Memory Size:";
-                        max-width: min-width;
-                    }
-                    Text {
-                        text: "\{floor(mem_size_kb / (1000*1000))} GB";
-                    }
-                }
-                Row {
                     Text{
                         col: 1;
                         text: "Uptime:";
@@ -99,8 +93,62 @@ SysInfo := Dialog {
         }
 
         Tab {
+            title: "Memory";
+            GridBox {
+                Row {
+                    Text {
+                        text: "Installed Memory:";
+                        max-width: min-width;
+                    }
+                    Text {
+                        text: "\{floor(mem_size_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Buffer/Cache Memory:";
+                        max-width: min-width;
+                    }
+                    Text {
+                        text: "\{floor(buffer_mem_size_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Swap Total:";
+                        max-width: min-width;
+                    }
+                    Text {
+                        text: "\{floor(swap_total_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Swap Used:";
+                        max-width: min-width;
+                    }
+                    Text {
+                        text: "\{floor(swap_used_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Text {
+                        text: "Swap Free:";
+                        max-width: min-width;
+                    }
+                    Text {
+                        text: "\{floor(swap_free_kb / (1024*1024))} GiB";
+                    }
+                }
+                Row {
+                    Rectangle {}
+                }
+            }
+        }
+
+        Tab {
             title: "Partitions";
-            VerticalLayout {
+            VerticalBox {
                 padding: 5px;
 
                 HorizontalLayout {
