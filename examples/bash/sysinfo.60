@@ -33,7 +33,7 @@ SysInfo := Dialog {
         return "\{unit} bytes";
     }
 
-    StandardButton { kind: ok; }
+    StandardButton { kind: close; }
     preferred-width: 300px;
     TabWidget {
         Tab {
