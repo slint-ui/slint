@@ -366,6 +366,10 @@ Example := Window {
 TabWidget is a container for a set of tabs. It can only have `Tab` elements as children and only one tab will be visible at
 a time.
 
+### Properties
+
+* **`current-index`** (*int*): The index of the currently visible tab
+
 ### Properties of the `Tab` element
 
 * **`title`** (*string*): The text written in the tab bar.
