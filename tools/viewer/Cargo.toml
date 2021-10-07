@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-viewer"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -9,9 +9,9 @@ repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.1.3", path="../../sixtyfps_runtime/corelib" }
-sixtyfps-rendering-backend-default = { version = "=0.1.3", path="../../sixtyfps_runtime/rendering_backends/default" }
-sixtyfps-interpreter = { version = "=0.1.3", path = "../../sixtyfps_runtime/interpreter", features = ["display-diagnostics"] }
+sixtyfps-corelib = { version = "=0.1.4", path="../../sixtyfps_runtime/corelib" }
+sixtyfps-rendering-backend-default = { version = "=0.1.4", path="../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-interpreter = { version = "=0.1.4", path = "../../sixtyfps_runtime/interpreter", features = ["display-diagnostics"] }
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"

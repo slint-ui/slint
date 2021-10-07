@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-rendering-backend-gl"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -20,7 +20,7 @@ svg = ["resvg", "usvg", "tiny-skia"]
 default = ["svg"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.1.3", path = "../../corelib" }
+sixtyfps-corelib = { version = "=0.1.4", path = "../../corelib" }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 image = { version = "0.23.12", default-features = false }
 rgb = "0.8"

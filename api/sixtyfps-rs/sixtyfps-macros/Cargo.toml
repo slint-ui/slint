@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-macros"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -16,5 +16,5 @@ path = "lib.rs"
 [dependencies]
 quote = "1.0"
 proc-macro2 = "1.0.17"
-sixtyfps-compilerlib = { version = "=0.1.3", path = "../../../sixtyfps_compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
+sixtyfps-compilerlib = { version = "=0.1.4", path = "../../../sixtyfps_compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
 spin_on = "0.1"
