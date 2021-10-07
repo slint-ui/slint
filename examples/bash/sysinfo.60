@@ -18,24 +18,25 @@ SysInfo := Dialog {
     property cpu_model <=> cpu-model.text;
     property cpu_vendor <=> cpu-vendor.text;
     property<int> mem_size_kb;
-    property <[{dev: string, mnt: string, total: int, used: int}]> partitions;
+    property <[{dev: string, mnt: string, total: int, free: int}]> partitions;
     title: "System information";
 
     callback human-unit(int) -> string;
     human-unit(unit) => {
         if (unit > 900 * 1000 * 1000) {
-            return "\{round(unit / 1000 / 1000 / 10) / 100} GB";
+            return "\{round(unit / 1000 / 1000 / 100) / 10} GB";
         } else if (unit > 900 * 1000) {
-            return "\{round(unit / 1000 / 10) / 100} MB";
+            return "\{round(unit / 1000 / 100) / 10} MB";
         } else if (unit > 900) {
-            return "\{round(unit / 10) / 100} kB";
+            return "\{round(unit / 100) / 10} kB";
         }
-        return "\{unit} bytes";
+        return "\{unit} B";
     }
 
     StandardButton { kind: close; }
-    preferred-width: 300px;
+    preferred-width: 600px;
     TabWidget {
+
         Tab {
             title: "General";
             GridBox {
@@ -44,32 +45,28 @@ SysInfo := Dialog {
                         text: "Operating System:";
                         max-width: min-width;
                     }
-                    os-name := Text {
-                    }
-                }                
+                    os-name := Text {}
+                }
                 Row {
                     Text {
                         text: "CPU Model:";
                         max-width: min-width;
                     }
-                    cpu-model := Text {
-                    }
+                    cpu-model := Text {}
                 }
                 Row {
                     Text {
                         text: "CPU Vendor:";
                         max-width: min-width;
                     }
-                    cpu-vendor := Text {
-                    }
+                    cpu-vendor := Text {}
                 }
                 Row {
                     Text {
                         text: "Number of logical cores:";
                         max-width: min-width;
                     }
-                    cpu-count := Text {
-                    }
+                    cpu-count := Text {}
                 }
                 Row {
                     Text {
@@ -85,29 +82,44 @@ SysInfo := Dialog {
                         text: "Uptime:";
                         max-width: min-width;
                     }
-                    uptime := Text {
-                    }
+                    uptime := Text {}
                 }
                 Rectangle {}
             }
         }
+
         Tab {
             title: "Partitions";
-            ListView {
-                for disk in partitions : HorizontalLayout {
-                    padding: 5px;
-                    spacing: 5px;
-                    Text { text: disk.dev + " → " + disk.mnt; }
-                    Rectangle {
-                        min-width: t.min-width + 10px;
-                        background: lightblue;
+            VerticalLayout {
+                padding: 5px;
+
+                HorizontalLayout {
+                    padding: 5px; spacing: 5px;
+                    t1 := Text { width: 25%; overflow: elide; text: "Device"; }
+                    t2 := Text { width: 25%; overflow: elide; text: "Mount Point"; }
+                    t3 := Text { width: preferred-width * 2; text: "Total"; }
+                    t4 := Text { width: t3.width; text: "Free"; }
+                    t5 := Text { horizontal-stretch: 1; text: "Usage"; }
+                }
+                ListView {
+                    for disk in partitions : HorizontalLayout {
+                        padding: 5px;
+                        spacing: 5px;
+                        Text { width: t1.width; overflow: elide; text: disk.dev; }
+                        Text { width: t2.width; overflow: elide; text: disk.mnt; }
+                        Text { width: t3.width; text: human-unit(disk.total); }
+                        Text { width: t4.width; text: human-unit(disk.free); }
                         Rectangle {
-                            background: lightgray;
-                            width: (disk.used / disk.total) * parent.width;
-                        }
-                        t := Text {
-                            x: 5px;
-                            text: "\{human-unit(disk.used)} of \{human-unit(disk.total)} (\{round(100 * (disk.used / disk.total))} %)";
+                            min-width: t.min-width + 10px;
+                            background: lightblue;
+                            Rectangle {
+                                background: lightgray;
+                                width: (1 - (disk.free / disk.total)) * parent.width;
+                            }
+                            t := Text {
+                                x: 5px;
+                                text: round(100 - 100 * (disk.free / disk.total)) + "%";
+                            }
                         }
                     }
                 }

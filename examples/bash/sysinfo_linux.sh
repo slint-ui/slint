@@ -20,7 +20,7 @@ cpu_count=`grep processor /proc/cpuinfo | wc -l`
 cpu_vendor=`awk -F ": " '/vendor_id/{ print $2; exit}' < /proc/cpuinfo | tr -d '"\\\\'`
 cpu_model=`awk -F ": " '/model name/{ print $2; exit}' < /proc/cpuinfo | tr -d '"\\\\'`
 mem_size_kb=`sed -n -e "s,MemTotal:\s\+\(.*\)\s\+.\+,\1,p"< /proc/meminfo`
-partitions=`df --block-size=1 | tail -n+2 | sed 's/\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)/{ "dev": "\1", "mnt": "\6", "total": \2, "used": \3 },/' | sed '$s/,$//'`
+partitions=`df -T --block-size=1 | tail -n+2 | awk 'NR > 1 { printf(", ") } {printf "{ \"dev\": \"%s\", \"mnt\": \"%s\", \"total\": %s, \"free\": %s }", $1,$7, $3, $5}'`
 
 sixtyfps-viewer `dirname $0`/sysinfo.60 --load-data - <<EOT
 {

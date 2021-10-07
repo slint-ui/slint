@@ -17,7 +17,7 @@ cpu_count=`sysctl -n hw.ncpu`
 cpu_vendor=`sysctl -n machdep.cpu.vendor`
 cpu_model=`sysctl -n machdep.cpu.brand_string`
 mem_size_kb=`sysctl -n hw.memsize`
-partitions=`df -lk | tail -n+2 | sed 's/\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)/{ "dev": "\1", "mnt": "\9", "total": \2, "used": \3 },/' | sed '$s/,$//'`
+partitions=`df -lk | tail -n+2 | sed 's/\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)/{ "dev": "\1", "mnt": "\9", "total": \2, "free": \4 },/' | sed '$s/,$//'`
 
 sixtyfps-viewer `dirname $0`/sysinfo.60 --load-data - <<EOT
 {
