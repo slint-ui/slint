@@ -92,7 +92,7 @@ pub fn resolve_expressions(
     for component in doc.inner_components.iter() {
         let scope = ComponentScope(vec![component.root_element.clone()]);
 
-        recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
+        recurse_elem_no_borrow(&component.root_element, &scope, &mut |elem, scope| {
             let mut new_scope = scope.clone();
             let mut is_repeated = elem.borrow().repeated.is_some();
             if is_repeated {
@@ -1082,6 +1082,40 @@ pub fn resolve_two_way_binding(
             } else {
                 Some(n)
             }
+        }
+        Expression::StructFieldAccess { ref base, ref name }
+            if matches!(**base, Expression::RepeaterModelReference { .. })
+                && matches!(base.ty(), Type::Struct { .. }) =>
+        {
+            // TODO: make it work with nested field access
+            let model_element = match base.as_ref() {
+                Expression::RepeaterModelReference { element } => element.upgrade().unwrap(),
+                _ => unreachable!(),
+            };
+            let struct_field = match base.ty() {
+                Type::Struct { fields, .. } => fields.get(name).unwrap().clone(),
+                _ => unreachable!(),
+            };
+            // FIXME: this name is ... questionable
+            let synthetic_model_property_name = format!("__model_property_{}", name);
+            if !model_element
+                .borrow()
+                .property_declarations
+                .contains_key(&synthetic_model_property_name)
+            {
+                let mut model_element = model_element.borrow_mut();
+                model_element.property_declarations.insert(
+                    synthetic_model_property_name.clone(),
+                    PropertyDeclaration { property_type: struct_field, ..Default::default() },
+                );
+                model_element
+                    .repeated
+                    .as_mut()
+                    .unwrap()
+                    .synthetic_model_properties
+                    .insert(name.clone());
+            }
+            Some(NamedReference::new(&model_element, &synthetic_model_property_name))
         }
         _ => {
             ctx.diag.push_error(

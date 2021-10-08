@@ -25,7 +25,7 @@ use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
 use std::collections::btree_map::Entry;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::iter::FromIterator;
 use std::rc::{Rc, Weak};
 
@@ -616,6 +616,10 @@ pub struct RepeatedElementInfo {
     pub is_conditional_element: bool,
     /// When the for is the delegate of a ListView
     pub is_listview: Option<ListViewInfo>,
+
+    // properties that are two-way bound to model data and need manual updating
+    // in the update() function.
+    pub synthetic_model_properties: BTreeSet<String>,
 }
 
 pub type ElementRc = Rc<RefCell<Element>>;
@@ -1032,6 +1036,7 @@ impl Element {
                 .unwrap_or_default(),
             is_conditional_element: false,
             is_listview,
+            synthetic_model_properties: Default::default(),
         };
         let e = Element::from_sub_element_node(
             node.SubElement(),
@@ -1057,6 +1062,7 @@ impl Element {
             index_id: String::new(),
             is_conditional_element: true,
             is_listview: None,
+            synthetic_model_properties: Default::default(),
         };
         let e = Element::from_sub_element_node(
             node.SubElement(),

@@ -523,11 +523,24 @@ fn generate_component(
                     diag,
                 );
 
+                let mut two_way_model_struct_bindings: Option<TokenStream> = None;
+                for name in &repeated.synthetic_model_properties {
+                    let source_field = format_ident!("{}", name);
+                    let prop = format_ident!("__model_property_{}", name);
+
+                    two_way_model_struct_bindings.get_or_insert_with(|| TokenStream::new()).extend(
+                        quote!(
+                            self.#prop.set(data.#source_field.clone());
+                        ),
+                    );
+                }
+
                 quote! {
                     impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
                         type Data = #data_type;
                         fn update(&self, index: usize, data: Self::Data) {
                             self.index.set(index);
+                            #two_way_model_struct_bindings
                             self.model_data.set(data);
                         }
                         #extra_fn
