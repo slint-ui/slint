@@ -24,7 +24,7 @@ partitions=`df -T --block-size=1 | tail -n+2 | awk 'NR > 1 { printf(", ") } {pri
 buffer_mem_size_kb=`sed -n -e "s,Buffers:\s\+\(.*\)\s\+.\+,\1,p"< /proc/meminfo`
 swap_total_kb=`sed -n -e "s,SwapTotal:\s\+\(.*\)\s\+.\+,\1,p"< /proc/meminfo`
 swap_free_kb=`sed -n -e "s,SwapFree:\s\+\(.*\)\s\+.\+,\1,p"< /proc/meminfo`
-swap_used_kb=$(swap_total_kb - swap_free_kb))
+swap_used_kb=$((swap_total_kb - swap_free_kb))
 
 sixtyfps-viewer `dirname $0`/sysinfo.60 --load-data - <<EOT
 {

@@ -39,6 +39,7 @@ SysInfo := Dialog {
 
     StandardButton { kind: close; }
     preferred-width: 600px;
+    preferred-height: 400px;
     TabWidget {
 
         Tab {
@@ -48,6 +49,7 @@ SysInfo := Dialog {
                     Image {
                         rowspan: 6;
                         source: @image-url("laptop.svg");
+                        min-width: 128px;
                     }
                     Text {
                         col: 1;
