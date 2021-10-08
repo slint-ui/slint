@@ -429,12 +429,13 @@ impl Item for TouchArea {
                     .call(&(PointerEvent { button, kind: PointerEventKind::down },));
             }
             MouseEvent::MouseExit => {
-                self.grabbed.set(false);
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
-                Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
-                    button: PointerEventButton::none,
-                    kind: PointerEventKind::cancel,
-                },));
+                if self.grabbed.replace(false) {
+                    Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
+                        button: PointerEventButton::none,
+                        kind: PointerEventKind::cancel,
+                    },));
+                }
             }
             MouseEvent::MouseReleased { button, .. } => {
                 self.grabbed.set(false);
