@@ -27,8 +27,5 @@ sixtyfps-corelib = { version = "=0.1.4", path="../../sixtyfps_runtime/corelib" }
 sixtyfps-rendering-backend-default = { version = "=0.1.4", path="../../sixtyfps_runtime/rendering_backends/default" }
 pin-weak = "1"
 
-[build-dependencies]
-rustc_version = "0.4"
-
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/resources/sixtyfps-docs-preview.html", "--html-in-header", "docs/resources/sixtyfps-docs-highlight.html" ]
