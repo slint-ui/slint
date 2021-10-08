@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changed
+
+ - The TouchArea will grab the mouse for every button instead of just the left button
+
 ### Added
 
  - Enable support for compressed SVG (.svgz).
