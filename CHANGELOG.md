@@ -3,9 +3,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-### Changed
+### Added
 
  - Enable support for compressed SVG (.svgz).
+
+### Fixed
+
+ - Fixed the PointerEvent.kind always being down
 
 ## [0.1.3] - 2021-10-06
 

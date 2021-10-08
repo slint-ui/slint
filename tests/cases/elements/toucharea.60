@@ -12,6 +12,8 @@ TestCase := Rectangle {
     property <int> touch2;
     property <int> touch3;
 
+    property <string> pointer-event-test;
+
     TouchArea {
         x: 100phx;
         y: 100phx;
@@ -31,9 +33,31 @@ TestCase := Rectangle {
         y: 100phx;
         width: 5phx;
         height: 5phx;
-        clicked => { touch2+=1; }
+        clicked => {
+            pointer-event-test += "click";
+            touch2+=1;
+        }
         pointer-event(e) => {
-            if (e.kind == PointerEventKind.cancel || e.button == PointerEventButton.right) {}
+            if (e.kind == PointerEventKind.cancel) {
+                pointer-event-test += "cancel";
+            } else if (e.kind == PointerEventKind.up) {
+                pointer-event-test += "up";
+            } else if (e.kind == PointerEventKind.down) {
+                pointer-event-test += "down";
+            } else {
+                pointer-event-test += "err";
+            }
+            if (e.button == PointerEventButton.right) {
+                pointer-event-test += "right";
+            } else if (e.button == PointerEventButton.left) {
+                pointer-event-test += "left";
+            } else if (e.button == PointerEventButton.middle) {
+                pointer-event-test += "middle";
+            } else if (e.button == PointerEventButton.none) {
+                pointer-event-test += "none";
+            } else {
+                pointer-event-test += "other";
+            }
         }
     }
 }
@@ -67,6 +91,8 @@ assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
 assert_eq(instance.get_touch3(), 1);
 
+assert_eq(instance.get_pointer_event_test(), "downleftclickupleft");
+
 ```
 
 
@@ -96,6 +122,8 @@ assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 1);
 
+assert_eq!(instance.get_pointer_event_test().as_str(), "downleftclickupleft");
+
 ```
 
 ```js
@@ -123,5 +151,7 @@ instance.send_mouse_click(106., 103.);
 assert.equal(instance.touch1, 1);
 assert.equal(instance.touch2, 1);
 assert.equal(instance.touch3, 1);
+
+assert.equal(instance.pointer_event_test, "downleftclickupleft");
 ```
 */
