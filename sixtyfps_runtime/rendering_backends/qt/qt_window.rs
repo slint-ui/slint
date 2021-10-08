@@ -345,7 +345,7 @@ fn from_qt_button(qt_button: u32) -> PointerEventButton {
     match qt_button {
         1 => PointerEventButton::left,
         2 => PointerEventButton::right,
-        3 => PointerEventButton::middle,
+        4 => PointerEventButton::middle,
         _ => PointerEventButton::none,
     }
 }
