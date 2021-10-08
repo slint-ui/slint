@@ -292,11 +292,7 @@ fn to_debug_string(
                     false_expr: Box::new(cond),
                 };
             }
-            v.push(Expression::BinaryExpression {
-                lhs: Box::new(cond),
-                op: '+',
-                rhs: Box::new(Expression::StringLiteral(" }".into())),
-            });
+            v.push(cond);
             Expression::CodeBlock(v)
         }
     }
