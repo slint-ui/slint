@@ -38,6 +38,7 @@ use crate::rtti::*;
 use crate::window::WindowRc;
 use crate::{Callback, Property, SharedString};
 use const_field_offset::FieldOffsets;
+use core::cell::Cell;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
 use vtable::*;
@@ -355,6 +356,8 @@ pub struct TouchArea {
     pub pointer_event: Callback<PointerEventArg>,
     /// FIXME: remove this
     pub cached_rendering_data: CachedRenderingData,
+    /// true when we are currently grabbing the mouse
+    grabbed: Cell<bool>,
 }
 
 impl Item for TouchArea {
@@ -401,18 +404,20 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result =
-            if let MouseEvent::MouseReleased { pos, button: PointerEventButton::left } = event {
-                if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
-                    Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
-                }
-                InputEventResult::EventAccepted
-            } else {
-                InputEventResult::GrabMouse
-            };
+        let result = if let MouseEvent::MouseReleased { pos, button } = event {
+            if button == PointerEventButton::left
+                && euclid::rect(0., 0., self.width(), self.height()).contains(pos)
+            {
+                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+            }
+            InputEventResult::EventAccepted
+        } else {
+            InputEventResult::GrabMouse
+        };
 
         match event {
             MouseEvent::MousePressed { pos, button } => {
+                self.grabbed.set(true);
                 if button == PointerEventButton::left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(pos.x);
                     Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(pos.y);
@@ -424,6 +429,7 @@ impl Item for TouchArea {
                     .call(&(PointerEvent { button, kind: PointerEventKind::down },));
             }
             MouseEvent::MouseExit => {
+                self.grabbed.set(false);
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
                     button: PointerEventButton::none,
@@ -431,6 +437,7 @@ impl Item for TouchArea {
                 },));
             }
             MouseEvent::MouseReleased { button, .. } => {
+                self.grabbed.set(false);
                 if button == PointerEventButton::left {
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 }
@@ -440,7 +447,7 @@ impl Item for TouchArea {
                     .call(&(PointerEvent { button, kind: PointerEventKind::up },));
             }
             MouseEvent::MouseMoved { .. } => {
-                return if self.pressed() {
+                return if self.grabbed.get() {
                     Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
                     InputEventResult::GrabMouse
                 } else {
@@ -448,7 +455,7 @@ impl Item for TouchArea {
                 }
             }
             MouseEvent::MouseWheel { .. } => {
-                return if self.pressed() {
+                return if self.grabbed.get() {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventAccepted
