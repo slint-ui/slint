@@ -399,7 +399,7 @@ impl PlatformWindow for GraphicsWindow {
             let window = self.borrow_mapped_window().unwrap();
             let winit_window = window.opengl_context.window();
             winit_window.set_title(&title);
-            if no_frame {
+            if no_frame && winit_window.fullscreen().is_none() {
                 winit_window.set_decorations(false);
             } else {
                 winit_window.set_decorations(true);
