@@ -1103,6 +1103,7 @@ pub struct WindowItem {
     pub height: Property<f32>,
     pub background: Property<Color>,
     pub title: Property<SharedString>,
+    pub no_frame: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<f32>,

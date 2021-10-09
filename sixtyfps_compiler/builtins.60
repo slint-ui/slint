@@ -168,6 +168,7 @@ WindowItem := _ {
     property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
     property <color> color <=> background;
     property <string> title: "SixtyFPS Window";
+    property <bool> no-frame: false;
     property <string> default-font-family;
     property <length> default-font-size;
     property <int> default-font-weight;

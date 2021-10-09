@@ -1250,6 +1250,7 @@ impl PlatformWindow for QtWindow {
     fn apply_window_properties(&self, window_item: Pin<&items::WindowItem>) {
         let widget_ptr = self.widget_ptr();
         let title: qttypes::QString = window_item.title().as_str().into();
+        let no_frame = window_item.no_frame();
         let mut size = qttypes::QSize {
             width: window_item.width().ceil() as _,
             height: window_item.height().ceil() as _,
@@ -1296,6 +1297,19 @@ impl PlatformWindow for QtWindow {
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
             widget_ptr->setPalette(pal);
         }};
+
+        if no_frame {
+            cpp! {unsafe [widget_ptr as "QWidget*"] {
+                widget_ptr->setWindowFlags(Qt::FramelessWindowHint);
+                widget_ptr->show();
+            }};
+        } else {
+            cpp! {unsafe [widget_ptr as "QWidget*"] {
+                auto flags = widget_ptr->windowFlags();
+                widget_ptr->setWindowFlags(flags & (~Qt::FramelessWindowHint));
+                widget_ptr->show();
+            }};
+        }
     }
 
     /// Set the min/max sizes on the QWidget
