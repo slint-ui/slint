@@ -94,12 +94,12 @@ impl GraphicsWindow {
         let component = ComponentRc::borrow_pin(&component);
         let root_item = component.as_ref().get_item_ref(0);
 
-        let window_title = if let Some(window_item) =
+        let (window_title, no_frame) = if let Some(window_item) =
             ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
         {
-            window_item.title().to_string()
+            (window_item.title().to_string(), window_item.no_frame())
         } else {
-            "SixtyFPS Window".to_string()
+            ("SixtyFPS Window".to_string(), false)
         };
         let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
 
@@ -123,6 +123,9 @@ impl GraphicsWindow {
                 window_builder
             }
         };
+
+        let window_builder =
+            if no_frame { window_builder.with_decorations(false) } else { window_builder };
 
         #[cfg(target_arch = "wasm32")]
         let (opengl_context, renderer) =
@@ -380,6 +383,7 @@ impl PlatformWindow for GraphicsWindow {
     fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
         let background = window_item.background();
         let title = window_item.title();
+        let no_frame = window_item.no_frame();
         let icon = window_item.icon();
         let width = window_item.width();
         let height = window_item.height();
@@ -395,6 +399,11 @@ impl PlatformWindow for GraphicsWindow {
             let window = self.borrow_mapped_window().unwrap();
             let winit_window = window.opengl_context.window();
             winit_window.set_title(&title);
+            if no_frame {
+                winit_window.set_decorations(false);
+            } else {
+                winit_window.set_decorations(true);
+            }
             if let Some(rgba) = crate::IMAGE_CACHE
                 .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
                 .and_then(|i| i.to_rgba())
