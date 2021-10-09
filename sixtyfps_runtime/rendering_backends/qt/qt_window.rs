@@ -1263,28 +1263,22 @@ impl PlatformWindow for QtWindow {
             _ => todo!("icon currently only support text"),
         };
 
-        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb"] {
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb", no_frame as "bool"] {
             if (size != widget_ptr->size()) {
                 widget_ptr->resize(size.expandedTo({1, 1}));
+            }
+            if (no_frame) {
+                widget_ptr->setWindowFlags(Qt::FramelessWindowHint);
+            } else {
+                auto flags = widget_ptr->windowFlags();
+                widget_ptr->setWindowFlags(flags & (~Qt::FramelessWindowHint));
             }
             widget_ptr->setWindowTitle(title);
             auto pal = widget_ptr->palette();
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
             widget_ptr->setPalette(pal);
+            widget_ptr->show();
         }};
-
-        if no_frame {
-            cpp! {unsafe [widget_ptr as "QWidget*"] {
-                widget_ptr->setWindowFlags(Qt::FramelessWindowHint);
-                widget_ptr->show();
-            }};
-        } else {
-            cpp! {unsafe [widget_ptr as "QWidget*"] {
-                auto flags = widget_ptr->windowFlags();
-                widget_ptr->setWindowFlags(flags & (~Qt::FramelessWindowHint));
-                widget_ptr->show();
-            }};
-        }
     }
 
     /// Set the min/max sizes on the QWidget

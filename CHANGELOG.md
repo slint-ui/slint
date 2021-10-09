@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+ - New `no-frame` property of a `Window` which changes it to borderless/frameless
  - sixtyfps-compiler and sixtyfps-viewer can read the .60 file content from stdin by passing `-`
  - sixtyfps-viewer gained ability to read or save the property values to a json file with `--save-data` and `--load-data`
  - New `StandardButton` widget
