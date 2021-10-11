@@ -10,7 +10,7 @@ LICENSE END */
 
 #![doc = include_str!("README.md")]
 
-use sixtyfps_interpreter::{ComponentInstance, SharedString};
+use sixtyfps_interpreter::{ComponentInstance, SharedString, Value};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -49,6 +49,13 @@ struct Cli {
     /// Store properties values in a json file at exit ('-' for stdout)
     #[structopt(long, name = "save data file")]
     save_data: Option<std::path::PathBuf>,
+
+    /// Specify callbacks handler.
+    /// The first argument is the callback name, and the second argument is a string that is going
+    /// to be passed to the shell to be executed. Occurences of `$1` will be replaced by the first argument,
+    /// and so on.
+    #[structopt(long, value_names(&["callback", "handler"]), number_of_values = 2)]
+    on: Vec<String>,
 }
 
 thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
@@ -83,6 +90,7 @@ fn main() -> Result<()> {
     if let Some(data_path) = args.load_data {
         load_data(&component, &data_path)?;
     }
+    install_callbacks(&component, &args.on);
 
     if args.auto_reload {
         CURRENT_INSTANCE.with(|current| current.replace(Some(component.clone_strong())));
@@ -273,6 +281,55 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
             Err(e) => eprintln!("Warning: cannot set property '{}' from data file: {:?}", name, e),
         };
     }
+    Ok(())
+}
+
+fn install_callbacks(instance: &ComponentInstance, callbacks: &[String]) {
+    assert!(callbacks.len() % 2 == 0);
+    for chunk in callbacks.chunks(2) {
+        if let [callback, cmd] = chunk {
+            let cmd = cmd.clone();
+            match instance.set_callback(callback, move |args| {
+                match execute_cmd(&cmd, args) {
+                    Ok(()) => (),
+                    Err(e) => eprintln!("Error: {}", e),
+                }
+                Value::Void
+            }) {
+                Ok(()) => (),
+                Err(e) => {
+                    eprintln!("Warning: cannot set callback handler for '{}': {}", callback, e)
+                }
+            }
+        }
+    }
+}
+
+fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
+    let cmd_args = shlex::split(cmd).ok_or("Could not parse the command string")?;
+    let program_name = cmd_args.first().ok_or("Missing program name")?;
+    let mut command = std::process::Command::new(program_name);
+    let callback_args = callback_args
+        .iter()
+        .map(|v| {
+            Ok(match v {
+                Value::Number(x) => x.to_string(),
+                Value::String(x) => x.to_string(),
+                Value::Bool(x) => x.to_string(),
+                Value::Image(img) => {
+                    img.path().map(|p| p.to_string_lossy()).unwrap_or_default().into()
+                }
+                _ => return Err(format!("Cannot convert argument to string: {:?}", v).into()),
+            })
+        })
+        .collect::<Result<Vec<String>>>()?;
+    for mut a in cmd_args.into_iter().skip(1) {
+        for (idx, cb_a) in callback_args.iter().enumerate() {
+            a = a.replace(&format!("${}", idx + 1), cb_a);
+        }
+        command.arg(a);
+    }
+    command.spawn()?;
     Ok(())
 }
 
