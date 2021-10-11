@@ -413,6 +413,20 @@ Example := Rectangle {
 }
 ```
 
+The ternary operator `... ? ... : ...`  is also supported, like in C or JavaScript:
+
+```60
+Example := Rectangle {
+    touch := TouchArea {}
+    background: touch.pressed ? #111 : #eee;
+    border-width: 1px;
+    border-color: !touch.enabled ? #888
+        : touch.pressed ? #aaa
+        : #555;
+}
+```
+
+
 ### Strings
 
 Strings can be used with surrounding quotes: `"foo"`.
@@ -541,7 +555,7 @@ Calling a callback
 clicked => { root.some-callback(); }
 ```
 
-Conditional expression
+Conditional statements
 
 ```ignore
 clicked => {
