@@ -201,6 +201,8 @@ pub fn compile_with_config(
             compiler_config.embed_resources = true;
         }
     };
+    let mut rerun_if_changed = String::new();
+
     if std::env::var_os("SIXTYFPS_STYLE").is_none() && compiler_config.style.is_none() {
         compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
             // Same logic as in sixtyfps-rendering-backend-default's build script to get the path
@@ -208,7 +210,7 @@ pub fn compile_with_config(
             // unfortunately, if for some reason the file is changed by the sixtyfps-rendering-backend-default's build script,
             // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
             // to settle the right thing.
-            println!("cargo:rerun-if-changed={}", path.display());
+            rerun_if_changed = format!("cargo:rerun-if-changed={}", path.display());
             let style = std::fs::read_to_string(path).ok()?;
             Some(style.trim().into())
         });
@@ -263,7 +265,7 @@ pub fn compile_with_config(
     };
 
     write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
-    println!("cargo:rerun-if-changed={}", path.display());
+    println!("{}\ncargo:rerun-if-changed={}", rerun_if_changed, path.display());
 
     for resource in doc.root_component.embedded_file_resources.borrow().keys() {
         if !resource.starts_with("builtin:") {
