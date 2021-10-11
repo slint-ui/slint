@@ -40,7 +40,6 @@ MainWindow := Window {
     width: 772px;
     height: 504px;
     title: "SixtyFPS printer demo";
-    no-frame: false;
     background: DemoPalette.main-background;
     default-font-family: "Noto Sans";
     default-font-size: DemoPalette.base-font-size;

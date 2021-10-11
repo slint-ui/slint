@@ -11,6 +11,7 @@ LICENSE END */
 TestCase := Window {
     width: 500phx;
     height: 500phx;
+    no-frame: false;
 
     f := Flickable {
         width: parent.width;
