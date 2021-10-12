@@ -375,6 +375,10 @@ impl<T> Model for ModelHandle<T> {
         self.0.as_ref().unwrap().row_data(row)
     }
 
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        self.0.as_ref().unwrap().set_row_data(row, data)
+    }
+
     fn attach_peer(&self, peer: ModelPeer) {
         if let Some(model) = self.0.as_ref() {
             model.attach_peer(peer);
