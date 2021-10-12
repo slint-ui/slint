@@ -42,6 +42,7 @@ All notable changes to this project will be documented in this file.
  - Fixed panic when using `TabWidget` with `Text` elements and the native style.
  - Fixed panic when caling `hide()` on a `sixtyfps::Window` from within a callback triggered by keyboard/mouse input
    when using the GL backend.
+ - Rust: The implementation of <code>ModelModel::set_row_data</code> now forward the call to the inner model
 
 ## [0.1.2] - 2021-09-09
 
