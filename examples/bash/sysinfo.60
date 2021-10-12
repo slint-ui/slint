@@ -23,23 +23,13 @@ SysInfo := Dialog {
     property<int> swap_used_kb;
     property<int> swap_free_kb;
     property <[{dev: string, mnt: string, total: int, free: int}]> partitions;
-    title: "System information";
-
-    callback human-unit(int) -> string;
-    human-unit(unit) => {
-        if (unit > 900 * 1000 * 1000) {
-            return "\{round(unit / 1000 / 1000 / 100) / 10} GB";
-        } else if (unit > 900 * 1000) {
-            return "\{round(unit / 1000 / 100) / 10} MB";
-        } else if (unit > 900) {
-            return "\{round(unit / 100) / 10} kB";
-        }
-        return "\{unit} B";
-    }
 
     StandardButton { kind: close; }
+
+    title: "System information";
     preferred-width: 600px;
     preferred-height: 400px;
+
     TabWidget {
 
         Tab {
@@ -185,5 +175,17 @@ SysInfo := Dialog {
                 }
             }
         }
+    }
+
+    callback human-unit(int) -> string;
+    human-unit(unit) => {
+        if (unit > 900 * 1000 * 1000) {
+            return "\{round(unit / 1000 / 1000 / 100) / 10} GB";
+        } else if (unit > 900 * 1000) {
+            return "\{round(unit / 1000 / 100) / 10} MB";
+        } else if (unit > 900) {
+            return "\{round(unit / 100) / 10} kB";
+        }
+        return "\{unit} B";
     }
 }
