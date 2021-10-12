@@ -12,20 +12,6 @@ import { TabWidget, StandardButton, GridBox, VerticalBox, ListView } from "sixty
 
 
 SysInfo := Dialog {
-    property os_name <=> os-name.text;
-    property uptime <=> uptime.text;
-    property cpu_count <=> cpu-count.text;
-    property cpu_model <=> cpu-model.text;
-    property cpu_vendor <=> cpu-vendor.text;
-    property<int> mem_size_kb;
-    property<int> buffer_mem_size_kb;
-    property<int> swap_total_kb;
-    property<int> swap_used_kb;
-    property<int> swap_free_kb;
-    property <[{dev: string, mnt: string, total: int, free: int}]> partitions;
-
-    StandardButton { kind: close; }
-
     title: "System information";
     preferred-width: 600px;
     preferred-height: 400px;
@@ -176,6 +162,20 @@ SysInfo := Dialog {
             }
         }
     }
+
+    StandardButton { kind: close; }
+
+    property os_name <=> os-name.text;
+    property uptime <=> uptime.text;
+    property cpu_count <=> cpu-count.text;
+    property cpu_model <=> cpu-model.text;
+    property cpu_vendor <=> cpu-vendor.text;
+    property<int> mem_size_kb;
+    property<int> buffer_mem_size_kb;
+    property<int> swap_total_kb;
+    property<int> swap_used_kb;
+    property<int> swap_free_kb;
+    property <[{dev: string, mnt: string, total: int, free: int}]> partitions;
 
     callback human-unit(int) -> string;
     human-unit(unit) => {
