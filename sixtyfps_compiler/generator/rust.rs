@@ -888,7 +888,7 @@ fn generate_component(
                     quote!(
                         impl<'a> sixtyfps::Global<'a, #public_component_id> for #global_type<'a> {
                             fn get(component: &'a #public_component_id) -> Self {
-                                Self(&component.0.#global_name)
+                                Self(&component.0 .#global_name)
                             }
                         }
                     )
