@@ -1,7 +1,6 @@
 # The `.60` language reference
 
-This page is work in progress as the language is not yet set in stones.
-`TODO` indicates things that are not yet implemented.
+This document describes the `.60` design markup language.
 
 ## `.60` files
 
