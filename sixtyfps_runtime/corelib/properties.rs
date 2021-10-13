@@ -705,6 +705,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 }
             });
         }
+        self.handle.mark_dirty();
     }
 
     /// Set a binding to this property.
@@ -1835,6 +1836,7 @@ pub(crate) mod ffi {
                 }
             })
         };
+        handle.0.mark_dirty();
     }
 
     /// Internal function to set up a property animation to the specified target value for an integer property.

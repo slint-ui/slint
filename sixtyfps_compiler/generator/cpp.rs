@@ -2030,11 +2030,13 @@ fn compile_assignment(
     match lhs {
         Expression::PropertyReference(nr) => {
             let access = access_named_reference(nr, component, "self");
-            if op == '=' {
-                format!(r#"{lhs}.set({rhs})"#, lhs = access, rhs = rhs)
-            } else {
-                format!(r#"{lhs}.set({lhs}.get() {op} {rhs})"#, lhs = access, rhs = rhs, op = op,)
-            }
+            let set = property_set_value_code(
+                component,
+                &nr.element(),
+                nr.name(),
+                &(if op == '=' { rhs } else { format!("{}.get() {} {}", access, op, rhs) }),
+            );
+            format!("{}.{}", access, set)
         }
         Expression::StructFieldAccess { base, name } => {
             let tmpobj = "tmpobj";

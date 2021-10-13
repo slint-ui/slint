@@ -1692,16 +1692,22 @@ fn compile_assignment(
     match lhs {
         Expression::PropertyReference(nr) => {
             let lhs_ = access_named_reference(nr, component, quote!(_self));
-            if op == '=' {
-                quote!( #lhs_.set((#rhs) as _) )
+            let set = if op == '=' {
+                property_set_value_tokens(component, &nr.element(), nr.name(), quote!((#rhs) as _))
             } else {
                 let op = proc_macro2::Punct::new(op, proc_macro2::Spacing::Alone);
-                if lhs.ty() == Type::String {
-                    quote!( #lhs_.set(#lhs_.get() #op #rhs.as_str()) )
-                } else {
-                    quote!( #lhs_.set(((#lhs_.get() as f64) #op (#rhs as f64)) as _) )
-                }
-            }
+                property_set_value_tokens(
+                    component,
+                    &nr.element(),
+                    nr.name(),
+                    if lhs.ty() == Type::String {
+                        quote!( #lhs_.get() #op #rhs.as_str())
+                    } else {
+                        quote!( ((#lhs_.get() as f64) #op (#rhs as f64)) as _)
+                    },
+                )
+            };
+            quote!( #lhs_.#set )
         }
         Expression::StructFieldAccess { base, name } => {
             let tmpobj = quote!(tmpobj);
