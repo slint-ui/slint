@@ -34,7 +34,7 @@ adjust the `LD_LIBRARY_PATH` environment variable to contain a path that contain
 
 ### macOS
 
-If when running your SixtyFPS applicatino you get an error that the QtCore.framework could not be found, you need to
+If when running your SixtyFPS application you get an error that the QtCore.framework could not be found, you need to
 adjust the `DYLD_FRAMEWORK_PATH` environment variable to contain a path that contains the Qt frameworks.
 
 ## How To Disable the Qt Backend
