@@ -1,14 +1,25 @@
 # The `.60` language reference
 
-This document describes the `.60` design markup language.
+The SixtyFPS design markup language is used to describe graphical user interfaces:
+
+ * Place and compose a tree of visual elements in a window using a textual representation.
+ * Configure the appearance of elements via properties. For example a `Text` element has font and text
+   properties, while a `Rectangle` element offers a background color.
+ * Assign binding expressions to properties to automatically compute values that depend on other properties.
+ * Group binding expressions together with named states and conditions.
+ * Declare animations on properties and states to make the user interface feel alive.
+ * Build your own re-usable components and share them in `.60` module files.
+ * Define data structures and models and access them from programming languages.
+ * Build highly customized user interfaces with the [builtin elements](builtin_elements.md) provided.
+
+SixtyFPS also comes with a catalog of high-level [widgets](widgets.md), that are written in the `.60`
+language.
 
 ## `.60` files
 
 The basic idea is that the `.60` files contains one or several components.
 These components contain a tree of elements. Each declared component can be
 given a name and re-used under that name as an element later.
-
-By default, the SixtyFPS comes with some [builtin elements](builtin_elements.md) and [widgets](widgets.md).
 
 Below is an example of components and elements:
 
