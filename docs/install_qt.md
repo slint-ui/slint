@@ -30,7 +30,12 @@ Many distributions may contains Qt 5.15 in the distribution package. In that cas
 and there is not much more to do.
 
 If when running your SixtyFPS application you get an error that libQt5Core.so.5 or such cannot be found, you need to
-adjust the LD_LIBRARY_PATH environment variable to contain a path that contains the Qt library.
+adjust the `LD_LIBRARY_PATH` environment variable to contain a path that contains the Qt library.
+
+### macOS
+
+If when running your SixtyFPS applicatino you get an error that the QtCore.framework could not be found, you need to
+adjust the `DYLD_FRAMEWORK_PATH` environment variable to contain a path that contains the Qt frameworks.
 
 ## How To Disable the Qt Backend
 
