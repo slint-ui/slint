@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
  - Fixed the PointerEvent.kind always being down
+ - LineEdit.has-hocus with the native style
 
 ## [0.1.3] - 2021-10-06
 

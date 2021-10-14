@@ -507,7 +507,7 @@ export NativeLineEdit := _ {
     property <length> native-padding-right: native_output;
     property <length> native-padding-top: native_output;
     property <length> native-padding-bottom: native_output;
-    property <bool> focused: native_output;
+    property <bool> has-focus;
     property <bool> enabled: true;
     //-is_internal
 }

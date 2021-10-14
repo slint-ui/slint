@@ -1,0 +1,113 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+TestCase := Rectangle {
+    width: 120px;
+    height: 120px;
+
+    property <int> hello: a.hello;
+    property <int> binding_dep: a.binding_dep;
+
+    a := TouchArea {
+        property<int> hello: 40;
+        animate hello {
+            duration: 1200ms;
+        }
+        property<bool> condition: true;
+        property<int> binding_dep: condition ? 100 : 150;
+        animate binding_dep {
+            duration: 1200ms;
+        }
+        clicked => {
+            debug("CLICKED") ;
+            self.hello = 60;
+            self.condition = false;
+            debug("DONE");
+        }
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_hello(), 40);
+assert_eq!(instance.get_binding_dep(), 100);
+sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+// no time has ellapsed yet
+assert_eq!(instance.get_hello(), 40);
+assert_eq!(instance.get_binding_dep(), 100);
+
+// Half the animation
+sixtyfps::testing::mock_elapsed_time(600);
+assert_eq!(instance.get_hello(), 50);
+assert_eq!(instance.get_binding_dep(), 125);
+
+
+// Remaining half
+sixtyfps::testing::mock_elapsed_time(600);
+assert_eq!(instance.get_hello(), 60);
+assert_eq!(instance.get_binding_dep(), 150);
+
+sixtyfps::testing::mock_elapsed_time(100);
+assert_eq!(instance.get_hello(), 60);
+assert_eq!(instance.get_binding_dep(), 150);
+
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_hello(), 40);
+assert_eq(instance.get_binding_dep(), 100);
+sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+// no time has ellapsed yet
+assert_eq(instance.get_hello(), 40);
+assert_eq(instance.get_binding_dep(), 100);
+
+// Half the animation
+sixtyfps::testing::mock_elapsed_time(600);
+assert_eq(instance.get_hello(), 50);
+assert_eq(instance.get_binding_dep(), 125);
+
+
+// Remaining half
+sixtyfps::testing::mock_elapsed_time(600);
+assert_eq(instance.get_hello(), 60);
+assert_eq(instance.get_binding_dep(), 150);
+
+sixtyfps::testing::mock_elapsed_time(100);
+assert_eq(instance.get_hello(), 60);
+assert_eq(instance.get_binding_dep(), 150);
+```
+
+```js
+var instance = new sixtyfps.TestCase({});
+assert.equal(instance.hello, 40);
+assert.equal(instance.binding_dep, 100);
+instance.send_mouse_click(5., 5.);
+// no time has ellapsed yet
+assert.equal(instance.hello, 40);
+assert.equal(instance.binding_dep, 100);
+
+// Half the animation
+sixtyfpslib.private_api.mock_elapsed_time(600);
+assert.equal(instance.hello, 50);
+assert.equal(instance.binding_dep, 125);
+// Remaining half
+sixtyfpslib.private_api.mock_elapsed_time(600);
+assert.equal(instance.hello, 60);
+assert.equal(instance.binding_dep, 150);
+sixtyfpslib.private_api.mock_elapsed_time(100);
+assert.equal(instance.hello, 60);
+assert.equal(instance.binding_dep, 150);
+
+```
+*/

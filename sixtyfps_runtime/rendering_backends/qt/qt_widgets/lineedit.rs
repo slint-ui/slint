@@ -23,7 +23,7 @@ pub struct NativeLineEdit {
     pub native_padding_right: Property<f32>,
     pub native_padding_top: Property<f32>,
     pub native_padding_bottom: Property<f32>,
-    pub focused: Property<bool>,
+    pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
 }
 
@@ -116,7 +116,7 @@ impl Item for NativeLineEdit {
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
 
     fn_render! { this dpr size painter widget initial_state =>
-        let focused: bool = this.focused();
+        let has_focus: bool = this.has_focus();
         let enabled: bool = this.enabled();
 
         cpp!(unsafe [
@@ -125,7 +125,7 @@ impl Item for NativeLineEdit {
             size as "QSize",
             dpr as "float",
             enabled as "bool",
-            focused as "bool",
+            has_focus as "bool",
             initial_state as "int"
         ] {
             QStyleOptionFrame option;
@@ -133,7 +133,7 @@ impl Item for NativeLineEdit {
             option.rect = QRect(QPoint(), size / dpr);
             option.lineWidth = 1;
             option.midLineWidth = 0;
-            if (focused)
+            if (has_focus)
                 option.state |= QStyle::State_HasFocus;
             if (enabled) {
                 option.state |= QStyle::State_Enabled;
