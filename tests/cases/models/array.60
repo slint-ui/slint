@@ -10,7 +10,7 @@ const TestCase &instance = *handle;
 
 assert_eq(instance.get_num_ints(), 5);
 
-instance.set_ints(sixtyfps::VectorModel(std::vec{1, 2, 3, 4, 5, 6, 7}));
+instance.set_ints(sixtyfps::VectorModel<int>(std::vector<int>{1, 2, 3, 4, 5, 6, 7}));
 assert_eq(instance.get_num_ints(), 7);
 ```
 
