@@ -521,6 +521,7 @@ impl LookupObject for Expression {
                 Type::String => StringExpression(self).for_each_entry(ctx, f),
                 Type::Color => ColorExpression(self).for_each_entry(ctx, f),
                 Type::Image => ImageExpression(self).for_each_entry(ctx, f),
+                Type::Array(_) => ArrayExpression(self).for_each_entry(ctx, f),
                 _ => None,
             },
         }
@@ -547,6 +548,7 @@ impl LookupObject for Expression {
                 Type::String => StringExpression(self).lookup(ctx, name),
                 Type::Color => ColorExpression(self).lookup(ctx, name),
                 Type::Image => ImageExpression(self).lookup(ctx, name),
+                Type::Array(_) => ArrayExpression(self).lookup(ctx, name),
                 _ => None,
             },
         }
@@ -612,5 +614,24 @@ impl<'a> LookupObject for ImageExpression<'a> {
         };
         None.or_else(|| f("width", field_access("width")))
             .or_else(|| f("height", field_access("height")))
+    }
+}
+
+struct ArrayExpression<'a>(&'a Expression);
+impl<'a> LookupObject for ArrayExpression<'a> {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+    ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| Expression::FunctionCall {
+            function: Box::new(Expression::BuiltinFunctionReference(
+                f,
+                ctx.current_token.as_ref().map(|t| t.to_source_location()),
+            )),
+            source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+            arguments: vec![self.0.clone()],
+        };
+        None.or_else(|| f("length", member_function(BuiltinFunction::ArrayLength)))
     }
 }

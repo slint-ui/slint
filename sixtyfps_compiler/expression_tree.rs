@@ -45,6 +45,7 @@ pub enum BuiltinFunction {
     ColorBrighter,
     ColorDarker,
     ImageSize,
+    ArrayLength,
     Rgb,
     ImplicitLayoutInfo(Orientation),
     RegisterCustomFontByPath,
@@ -125,6 +126,10 @@ impl BuiltinFunction {
                 }),
                 args: vec![Type::Image],
             },
+            BuiltinFunction::ArrayLength => Type::Function {
+                return_type: Box::new(Type::Int32),
+                args: vec![Type::Array(Box::new(Type::InferredGenericType))],
+            },
             BuiltinFunction::Rgb => Type::Function {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
@@ -168,6 +173,7 @@ impl BuiltinFunction {
             BuiltinFunction::ImageSize => true,
             #[cfg(target_arch = "wasm32")]
             BuiltinFunction::ImageSize => false,
+            BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
             BuiltinFunction::RegisterCustomFontByPath
@@ -985,6 +991,7 @@ impl Expression {
     pub fn default_value_for_type(ty: &Type) -> Expression {
         match ty {
             Type::Invalid
+            | Type::InferredGenericType
             | Type::Component(_)
             | Type::Builtin(_)
             | Type::Native(_)

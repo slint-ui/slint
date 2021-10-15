@@ -1238,6 +1238,9 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::ImageSize => {
                 quote!((|x: Image| -> Size { x.size() }))
             }
+            BuiltinFunction::ArrayLength => {
+                quote!((|x: ModelHandle<_>| -> i32 { x.row_count() as i32 }))
+            }
 
             BuiltinFunction::Rgb => {
                 quote!((|r: i32, g: i32, b: i32, a: f32| {
