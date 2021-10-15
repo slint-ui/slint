@@ -361,7 +361,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::ImageSize, _) => {
                 if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to ColorDarker")
+                    panic!("internal error: incorrect argument count to ImageSize")
                 }
                 if let Value::Image(img) = eval_expression(&arguments[0], local_context) {
                     let size = img.size();
@@ -372,6 +372,22 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     Value::Struct(values)
                 } else {
                     panic!("First argument not an image");
+                }
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::ArrayLength, _) => {
+                if arguments.len() != 1 {
+                    panic!("internal error: incorrect argument count to ArrayLength")
+                }
+                match eval_expression(&arguments[0], local_context) {
+                    Value::Array(array) => {
+                        Value::Number(array.len() as f64)
+                    }
+                    Value::Model(array) => {
+                        Value::Number(array.row_count() as f64)
+                    }
+                    _ => {
+                        panic!("First argument not an array");
+                    }
                 }
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Rgb, _) => {
