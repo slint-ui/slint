@@ -1627,6 +1627,9 @@ fn compile_expression(
             BuiltinFunction::ImageSize => {
                 "[](const sixtyfps::Image &img) { return img.size(); }".into()
             }
+            BuiltinFunction::ArrayLength => {
+                "[](const sixtyfps::Model &model) { return (int) model.row_count(); }".into()
+            }
             BuiltinFunction::Rgb => {
                 "[](int r, int g, int b, float a) {{ return sixtyfps::Color::from_argb_uint8(std::clamp(a * 255., 0., 255.), std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255)); }}".into()
             }

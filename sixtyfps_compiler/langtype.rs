@@ -76,11 +76,14 @@ pub enum Type {
 
     /// This is a `SharedArray<f32>`
     LayoutCache,
+
+    InferredGenericType,
 }
 
 impl core::cmp::PartialEq for Type {
     fn eq(&self, other: &Self) -> bool {
         match self {
+            Type::InferredGenericType => true,
             Type::Invalid => matches!(other, Type::Invalid),
             Type::Void => matches!(other, Type::Void),
             Type::InferredProperty => matches!(other, Type::InferredProperty),
@@ -124,6 +127,7 @@ impl core::cmp::PartialEq for Type {
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Type::InferredGenericType => write!(f, "<_>"),
             Type::Invalid => write!(f, "<error>"),
             Type::Void => write!(f, "void"),
             Type::InferredProperty => write!(f, "?"),
@@ -469,6 +473,7 @@ impl Type {
             // Unit::Percent is special that it does not combine with other units like
             Type::Percent => None,
             Type::Angle => Some(Unit::Deg),
+            Type::InferredGenericType => None,
             Type::Invalid => None,
             Type::Void => None,
             Type::InferredProperty | Type::InferredCallback => None,
