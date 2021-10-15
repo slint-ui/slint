@@ -126,10 +126,9 @@ impl BuiltinFunction {
                 }),
                 args: vec![Type::Image],
             },
-            BuiltinFunction::ArrayLength => Type::Function {
-                return_type: Box::new(Type::Int32),
-                args: vec![Type::Model],
-            },
+            BuiltinFunction::ArrayLength => {
+                Type::Function { return_type: Box::new(Type::Int32), args: vec![Type::Model] }
+            }
             BuiltinFunction::Rgb => Type::Function {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
