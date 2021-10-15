@@ -179,7 +179,6 @@ fn to_debug_string(
     match &ty {
         Type::Invalid => Expression::Invalid,
         Type::Void
-        | Type::InferredGenericType
         | Type::InferredCallback
         | Type::InferredProperty
         | Type::Component(_)
