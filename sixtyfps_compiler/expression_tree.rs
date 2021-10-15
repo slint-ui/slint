@@ -128,7 +128,7 @@ impl BuiltinFunction {
             },
             BuiltinFunction::ArrayLength => Type::Function {
                 return_type: Box::new(Type::Int32),
-                args: vec![Type::Array(Box::new(Type::InferredGenericType))],
+                args: vec![Type::Model],
             },
             BuiltinFunction::Rgb => Type::Function {
                 return_type: Box::new(Type::Color),
@@ -991,7 +991,6 @@ impl Expression {
     pub fn default_value_for_type(ty: &Type) -> Expression {
         match ty {
             Type::Invalid
-            | Type::InferredGenericType
             | Type::Component(_)
             | Type::Builtin(_)
             | Type::Native(_)
