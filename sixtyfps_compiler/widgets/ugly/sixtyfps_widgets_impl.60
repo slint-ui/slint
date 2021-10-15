@@ -147,8 +147,6 @@ export ScrollView := Rectangle {
         interactive: false;
         viewport-y <=> vbar.value;
         viewport-x <=> hbar.value;
-        viewport-height: 1000px;
-        viewport-width: 1000px;
         width: parent.width - vbar.width - 1px;
         height: parent.height - hbar.height -1px;
     }

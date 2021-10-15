@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
  - The TouchArea will grab the mouse for every button instead of just the left button
+ - The ScrollView's default viewport size is no longer hardcoded to 1000px. Its size now depends on the contents
 
 ### Added
 

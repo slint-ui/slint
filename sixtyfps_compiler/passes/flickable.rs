@@ -147,14 +147,15 @@ fn is_layout(base_type: &Type) -> bool {
 
 /// Set the property binding on the given element to the given expression (computed lazily).
 /// The parameter to the lazily calculation is the element's children
-pub fn set_binding_if_not_explicit(
+fn set_binding_if_not_explicit(
     elem: &ElementRc,
     property: &str,
     expression: impl FnOnce() -> Option<Expression>,
 ) {
-    if !elem.borrow().bindings.contains_key(property) {
+    // we can't use `set_binding_if_not_set` directly because `expression()` may borrow `elem`
+    if !elem.borrow().bindings.get(property).map_or(true, |b| !b.has_binding()) {
         if let Some(e) = expression() {
-            elem.borrow_mut().bindings.insert(property.into(), e.into());
+            elem.borrow_mut().bindings.set_binding_if_not_set(property.into(), || e);
         }
     }
 }

@@ -34,7 +34,5 @@ export ScrollView := NativeScrollView {
         interactive: false;
         viewport-y <=> root.vertical-value;
         viewport-x <=> root.horizontal-value;
-        viewport-height: 1000px;
-        viewport-width: 1000px;
     }
 }
