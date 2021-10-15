@@ -1,0 +1,35 @@
+export TestCase := Rectangle {
+    property<[int]> ints: [1, 2, 3, 4, 5];
+    property<int> num_ints: ints.length;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_num_ints(), 5);
+
+instance.set_ints(VectorModel(std::vec{1, 2, 3, 4, 5, 6, 7}));
+assert_eq(instance.get_num_ints(), 7);
+```
+
+
+```rust
+let instance = TestCase::new();
+
+assert_eq!(instance.get_num_ints(), 5);
+
+instance.set_ints(sixtyfps::VecModel::from_slice(&[1, 2, 3, 4, 5, 6, 7]));
+assert_eq!(instance.get_num_ints(), 7);
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+
+assert.equal(instance.num_ints, 5);
+
+instance.ints = [1, 2, 3, 4, 5, 6, 7];
+assert.equal(instance.num_ints, 7);
+```
+*/
