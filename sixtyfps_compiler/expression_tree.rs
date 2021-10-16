@@ -371,6 +371,13 @@ pub enum Expression {
         name: String,
     },
 
+    /// Access to a index within an array.
+    ArrayIndex {
+        /// This expression should have [`Type::Array`] type
+        array: Box<Expression>,
+        index: Box<Expression>,
+    },
+
     /// Cast an expression to the given type
     Cast {
         from: Box<Expression>,
@@ -505,6 +512,12 @@ impl Expression {
                 Type::Component(c) => c.root_element.borrow().lookup_property(name).property_type,
                 _ => Type::Invalid,
             },
+            Expression::ArrayIndex { array, .. } => match array.ty() {
+                Type::Array(ty) => {
+                    (*ty).clone()
+                }
+                _ => Type::Invalid,
+            },
             Expression::Cast { to, .. } => to.clone(),
             Expression::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
             Expression::FunctionCall { function, .. } => match function.ty() {
@@ -615,6 +628,10 @@ impl Expression {
             Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
             Expression::StructFieldAccess { base, .. } => visitor(&**base),
+            Expression::ArrayIndex { array, index } => {
+                visitor(&**array);
+                visitor(&**index);
+            }
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&**from),
@@ -697,6 +714,10 @@ impl Expression {
             Expression::BuiltinMacroReference { .. } => {}
             Expression::ElementReference(_) => {}
             Expression::StructFieldAccess { base, .. } => visitor(&mut **base),
+            Expression::ArrayIndex { array, index } => {
+                visitor(&mut **array);
+                visitor(&mut **index);
+            }
             Expression::RepeaterIndexReference { .. } => {}
             Expression::RepeaterModelReference { .. } => {}
             Expression::Cast { from, .. } => visitor(&mut **from),
@@ -790,6 +811,7 @@ impl Expression {
             Expression::FunctionParameterReference { .. } => false,
             Expression::BuiltinMacroReference { .. } => true,
             Expression::StructFieldAccess { base, .. } => base.is_constant(),
+            Expression::ArrayIndex { array, .. } => array.is_constant(),
             Expression::Cast { from, .. } => from.is_constant(),
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { function, arguments, .. } => {
@@ -1249,6 +1271,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::StructFieldAccess { base, name } => {
             pretty_print(f, base)?;
             write!(f, ".{}", name)
+        }
+        Expression::ArrayIndex { array, index } => {
+            pretty_print(f, array)?;
+            write!(f, "[")?;
+            pretty_print(f, index)?;
+            write!(f, "]")
         }
         Expression::Cast { from, to } => {
             write!(f, "(")?;

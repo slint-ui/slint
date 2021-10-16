@@ -294,6 +294,7 @@ impl Expression {
             .or_else(|| {
                 node.FunctionCallExpression().map(|n| Self::from_function_call_node(n, ctx))
             })
+            .or_else(|| node.IndexExpression().map(|n| Self::from_index_expression_node(n, ctx)))
             .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignment_node(n, ctx)))
             .or_else(|| node.BinaryExpression().map(|n| Self::from_binary_expression_node(n, ctx)))
             .or_else(|| {
@@ -824,6 +825,29 @@ impl Expression {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
             false_expr: Box::new(false_expr),
+        }
+    }
+
+    fn from_index_expression_node(
+        node: syntax_nodes::IndexExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let (array_expr_n, index_expr_n) = node.Expression();
+        
+        let array_expr = Self::from_expression_node(array_expr_n, ctx);
+        let index_expr = Self::from_expression_node(index_expr_n.clone(), ctx).maybe_convert_to(
+            Type::Int32,
+            &index_expr_n,
+            &mut ctx.diag,
+        );
+
+        if let Type::Array(_) = array_expr.ty() {
+            Expression::ArrayIndex {
+                array: Box::new(array_expr),
+                index: Box::new(index_expr),
+            }
+        } else {
+            panic!();
         }
     }
 

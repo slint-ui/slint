@@ -1302,6 +1302,14 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
+        Expression::ArrayIndex { array, index } => match array.ty() {
+            Type::Array(ty) => {
+                let base_e = compile_expression(array, component);
+                let index_e = compile_expression(index, component);
+                quote!((#base_e).row_data(#index_e))
+            }
+            _ => panic!("Expression::ArrayIndex's base expression is not an Array type"),
+        },
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, component));
             quote!({ #(#map);* })

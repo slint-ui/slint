@@ -31,6 +31,7 @@ use super::prelude::*;
 /// -0.3px + 0.3px - 3.pt+3pt
 /// aa == cc && bb && (xxx || fff) && 3 + aaa == bbb
 /// [array]
+/// array[index]
 /// {object:42}
 /// ```
 pub fn parse_expression(p: &mut impl Parser) -> bool {
@@ -96,6 +97,14 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
         let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::FunctionCallExpression);
         parse_function_arguments(&mut *p);
+    } else if p.nth(0).kind() == SyntaxKind::LBracket {
+        {
+            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+        }
+        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::IndexExpression);
+        p.expect(SyntaxKind::LBracket);
+        parse_expression(&mut *p);
+        p.expect(SyntaxKind::RBracket);
     }
 
     if precedence >= OperatorPrecedence::Mul {
