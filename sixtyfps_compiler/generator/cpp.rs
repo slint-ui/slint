@@ -2077,6 +2077,12 @@ fn compile_expression(
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
+        Expression::ArrayIndex { array, index } => match array.ty() {
+            Type::Array(_) => {
+                format!("({})->row_data({})", compile_expression(array, component), compile_expression(index, component))
+            }
+            _ => panic!("Expression::ArrayIndex's base expression is not an Array type"),
+        },
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, component);
             match (from.ty(), to) {

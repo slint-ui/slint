@@ -357,7 +357,7 @@ declare_syntax! {
         CodeBlock-> [ *Expression, *ReturnStatement ],
         ReturnStatement -> [ ?Expression ],
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
-        Expression-> [ ?Expression, ?FunctionCallExpression, ?SelfAssignment,
+        Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtLinearGradient,
                        ?MemberAccess ],
@@ -369,6 +369,8 @@ declare_syntax! {
         AtLinearGradient -> [*Expression],
         /// expression()
         FunctionCallExpression -> [*Expression],
+        /// expression[index]
+        IndexExpression -> [2 Expression],
         /// `expression += expression`
         SelfAssignment -> [2 Expression],
         /// `condition ? first : second`

@@ -288,6 +288,7 @@ impl Expression {
                 node.FunctionCallExpression().map(|n| Self::from_function_call_node(n, ctx))
             })
             .or_else(|| node.MemberAccess().map(|n| Self::from_member_access_node(n, ctx)))
+            .or_else(|| node.IndexExpression().map(|n| Self::from_index_expression_node(n, ctx)))
             .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignment_node(n, ctx)))
             .or_else(|| node.BinaryExpression().map(|n| Self::from_binary_expression_node(n, ctx)))
             .or_else(|| {
@@ -850,6 +851,26 @@ impl Expression {
             true_expr: Box::new(true_expr),
             false_expr: Box::new(false_expr),
         }
+    }
+
+    fn from_index_expression_node(
+        node: syntax_nodes::IndexExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let (array_expr_n, index_expr_n) = node.Expression();
+        let array_expr = Self::from_expression_node(array_expr_n, ctx);
+        let index_expr = Self::from_expression_node(index_expr_n.clone(), ctx).maybe_convert_to(
+            Type::Int32,
+            &index_expr_n,
+            &mut ctx.diag,
+        );
+
+        let ty = array_expr.ty();
+        if let Type::Array(_) = ty {
+        } else {
+            ctx.diag.push_error(format!("{} is not an indexable type", ty), &node);
+        }
+        Expression::ArrayIndex { array: Box::new(array_expr), index: Box::new(index_expr) }
     }
 
     fn from_object_literal_node(
