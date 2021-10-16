@@ -407,7 +407,6 @@ impl Type {
             }
             true
         };
-
         match (self, other) {
             (a, b) if a == b => true,
             (_, Type::Invalid)

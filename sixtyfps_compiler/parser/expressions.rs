@@ -27,6 +27,7 @@ use super::prelude::*;
 /// -0.3px + 0.3px - 3.pt+3pt
 /// aa == cc && bb && (xxx || fff) && 3 + aaa == bbb
 /// [array]
+/// array[index]
 /// {object:42}
 /// "foo".bar.something().something.xx({a: 1.foo}.a)
 /// ```
@@ -105,6 +106,15 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
                 }
                 let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::FunctionCallExpression);
                 parse_function_arguments(&mut *p);
+            }
+            SyntaxKind::LBracket => {
+                {
+                    let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+                }
+                let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::IndexExpression);
+                p.expect(SyntaxKind::LBracket);
+                parse_expression(&mut *p);
+                p.expect(SyntaxKind::RBracket);
             }
             _ => break,
         }
