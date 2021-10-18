@@ -47,7 +47,12 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
                     inline_element(elem, &c, component);
                 }
             }
-        })
+        });
+        component
+            .popup_windows
+            .borrow()
+            .iter()
+            .for_each(|p| inline_components_recursively(&p.component, inline_selection))
     }
     inline_components_recursively(&doc.root_component, inline_selection)
 }
@@ -74,6 +79,7 @@ fn inline_element(
         inlined_component.root_element.borrow().repeated.is_none(),
         "root element of a component cannot be repeated"
     );
+    debug_assert!(inlined_component.parent_element.upgrade().is_none());
 
     let mut elem_mut = elem.borrow_mut();
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();
@@ -128,6 +134,16 @@ fn inline_element(
 
     elem_mut.children = new_children;
 
+    match &mut elem_mut.base_type {
+        Type::Component(c) => {
+            if c.parent_element.upgrade().is_some() {
+                debug_assert!(Rc::ptr_eq(elem, &c.parent_element.upgrade().unwrap()));
+                *c = duplicate_sub_component(c, elem, &mut mapping);
+            }
+        }
+        _ => {}
+    };
+
     root_component.popup_windows.borrow_mut().extend(
         inlined_component.popup_windows.borrow().iter().map(|p| duplicate_popup(p, &mut mapping)),
     );
@@ -150,6 +166,10 @@ fn inline_element(
     for e in mapping.values() {
         visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
         visit_element_expressions(e, |expr, _, _| fixup_element_references(expr, &mapping));
+    }
+    for p in root_component.popup_windows.borrow_mut().iter_mut() {
+        fixup_reference(&mut p.x, &mapping);
+        fixup_reference(&mut p.y, &mapping);
     }
 }
 
@@ -195,6 +215,7 @@ fn duplicate_element_with_mapping(
     match &mut new.borrow_mut().base_type {
         Type::Component(c) => {
             if c.parent_element.upgrade().is_some() {
+                debug_assert!(Rc::ptr_eq(element, &c.parent_element.upgrade().unwrap()));
                 *c = duplicate_sub_component(c, &new, mapping);
             }
         }
@@ -210,11 +231,7 @@ fn duplicate_sub_component(
     new_parent: &ElementRc,
     mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
 ) -> Rc<Component> {
-    debug_assert!(
-        component_to_duplicate.parent_element.upgrade().is_some(),
-        "{:?}",
-        component_to_duplicate
-    );
+    debug_assert!(component_to_duplicate.parent_element.upgrade().is_some());
     let new_component = Component {
         id: component_to_duplicate.id.clone(),
         root_element: duplicate_element_with_mapping(
@@ -251,6 +268,10 @@ fn duplicate_sub_component(
         .iter()
         .map(|p| duplicate_popup(p, mapping))
         .collect();
+    for p in new_component.popup_windows.borrow_mut().iter_mut() {
+        fixup_reference(&mut p.x, &mapping);
+        fixup_reference(&mut p.y, &mapping);
+    }
     new_component
 }
 
