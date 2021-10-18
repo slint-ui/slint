@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 
  - Enable support for compressed SVG (.svgz).
  - Viewer: added possibility to set shell callback handler with `--on <callback> <handler>`
+ - It is now possible to query the length of a model with `.length`
 
 ### Fixed
 
