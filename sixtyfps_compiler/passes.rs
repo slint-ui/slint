@@ -83,12 +83,12 @@ pub async fn run_passes(
         focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
         focus_item::determine_initial_focus_item(component, diag);
         focus_item::erase_forward_focus_properties(component);
+        flickable::handle_flickable(component, &global_type_registry.borrow());
+        lower_states::lower_states(component, &doc.local_registry, diag);
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
 
-    flickable::handle_flickable(root_component, &global_type_registry.borrow());
-    lower_states::lower_states(root_component, &doc.local_registry, diag);
     repeater_component::process_repeater_components(root_component);
     lower_popups::lower_popups(root_component, &doc.local_registry, diag);
     lower_layout::lower_layouts(root_component, &mut type_loader, diag).await;

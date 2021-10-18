@@ -196,7 +196,7 @@ fn duplicate_binding(
     let b = BindingExpression {
         expression: b.expression.clone(),
         span: b.span.clone(),
-        priority: b.priority + 1,
+        priority: b.priority.saturating_add(1),
         animation: b
             .animation
             .as_ref()
