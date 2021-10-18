@@ -27,8 +27,8 @@ pub fn get_explicit_forward_focus(
     element: &ElementRc,
 ) -> Option<std::cell::Ref<BindingExpression>> {
     let element = element.borrow();
-    if element.bindings.contains_key("forward_focus") {
-        Some(std::cell::Ref::map(element, |elem| &elem.bindings["forward_focus"]))
+    if element.bindings.contains_key("forward-focus") {
+        Some(std::cell::Ref::map(element, |elem| &elem.bindings["forward-focus"]))
     } else {
         None
     }

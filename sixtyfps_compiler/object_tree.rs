@@ -23,8 +23,8 @@ use crate::parser;
 use crate::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeloader::ImportedTypes;
 use crate::typeregister::TypeRegister;
+use std::cell::RefCell;
 use std::collections::btree_map::Entry;
-use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::iter::FromIterator;
 use std::rc::{Rc, Weak};
@@ -225,7 +225,6 @@ pub struct Component {
     /// The names under which this component should be accessible
     /// if it is a global singleton and exported.
     pub exported_global_names: RefCell<Vec<ExportedName>>,
-    pub requires_inlining: Cell<bool>,
 }
 
 impl Component {
