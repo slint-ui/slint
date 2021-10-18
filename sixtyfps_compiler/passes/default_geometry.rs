@@ -275,31 +275,3 @@ fn make_default_aspect_ratio_preserving_binding(
 
     elem.borrow_mut().bindings.insert(missing_size_property.to_string(), binding.into());
 }
-
-fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
-    Expression::FunctionCall {
-        function: Box::new(Expression::BuiltinFunctionReference(
-            BuiltinFunction::ImplicitLayoutInfo(orientation),
-            None,
-        )),
-        arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
-        source_location: None,
-    }
-}
-
-pub fn element_requires_parent_for_geometry(element: &ElementRc) -> bool {
-    for property in ["width", "height"] {
-        if !element.borrow().bindings.get(property).map_or(false, |b| b.ty() == Type::Percent) {
-            return true;
-        }
-    }
-    if let Type::Builtin(builtin_type) = &element.borrow().base_type {
-        if matches!(builtin_type.default_size_binding, DefaultSizeBinding::ExpandsToParentGeometry)
-        {
-            // FIXME: this does not apply to children of layouts
-            return true;
-        }
-    }
-
-    false
-}
