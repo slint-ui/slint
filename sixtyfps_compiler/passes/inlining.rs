@@ -31,6 +31,12 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
             if let Type::Component(c) = base {
                 // First, make sure that the component itself is properly inlined
                 inline_components_recursively(&c, inline_selection);
+
+                if c.parent_element.upgrade().is_some() {
+                    // We should not inline a repeated element
+                    return;
+                }
+
                 // Inline this component.
                 if match inline_selection {
                     InlineSelection::InlineAllComponents => true,
@@ -122,6 +128,9 @@ fn inline_element(
 
     elem_mut.children = new_children;
 
+    root_component.popup_windows.borrow_mut().extend(
+        inlined_component.popup_windows.borrow().iter().map(|p| duplicate_popup(p, &mut mapping)),
+    );
     for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
         match elem_mut.bindings.entry(k.clone()) {
             std::collections::btree_map::Entry::Vacant(entry) => {
@@ -183,7 +192,81 @@ fn duplicate_element_with_mapping(
         is_flickable_viewport: elem.is_flickable_viewport,
     }));
     mapping.insert(element_key(element.clone()), new.clone());
+    match &mut new.borrow_mut().base_type {
+        Type::Component(c) => {
+            if c.parent_element.upgrade().is_some() {
+                *c = duplicate_sub_component(c, &new, mapping);
+            }
+        }
+        _ => (),
+    };
+
     new
+}
+
+/// Duplicate Component for repeated element or popup window that have a parent_element
+fn duplicate_sub_component(
+    component_to_duplicate: &Rc<Component>,
+    new_parent: &ElementRc,
+    mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
+) -> Rc<Component> {
+    debug_assert!(
+        component_to_duplicate.parent_element.upgrade().is_some(),
+        "{:?}",
+        component_to_duplicate
+    );
+    let new_component = Component {
+        id: component_to_duplicate.id.clone(),
+        root_element: duplicate_element_with_mapping(
+            &component_to_duplicate.root_element,
+            mapping,
+            component_to_duplicate, // that's the wrong one, but we fixup further
+        ),
+        parent_element: Rc::downgrade(new_parent),
+        optimized_elements: RefCell::new(
+            component_to_duplicate
+                .optimized_elements
+                .borrow()
+                .iter()
+                .map(|e| duplicate_element_with_mapping(e, mapping, component_to_duplicate))
+                .collect(),
+        ),
+        embedded_file_resources: component_to_duplicate.embedded_file_resources.clone(),
+        root_constraints: component_to_duplicate.root_constraints.clone(),
+        child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
+        setup_code: component_to_duplicate.setup_code.clone(),
+        used_types: Default::default(),
+        popup_windows: Default::default(),
+        exported_global_names: component_to_duplicate.exported_global_names.clone(),
+    };
+
+    let new_component = Rc::new(new_component);
+    let weak = Rc::downgrade(&new_component);
+    recurse_elem(&new_component.root_element, &(), &mut |e, _| {
+        e.borrow_mut().enclosing_component = weak.clone()
+    });
+    *new_component.popup_windows.borrow_mut() = component_to_duplicate
+        .popup_windows
+        .borrow()
+        .iter()
+        .map(|p| duplicate_popup(p, mapping))
+        .collect();
+    new_component
+}
+
+fn duplicate_popup(
+    p: &PopupWindow,
+    mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
+) -> PopupWindow {
+    let parent = mapping
+        .get(&element_key(p.component.parent_element.upgrade().expect("must have a parent")))
+        .expect("Parent must be in the mapping")
+        .clone();
+    PopupWindow {
+        x: p.x.clone(),
+        y: p.y.clone(),
+        component: duplicate_sub_component(&p.component, &parent, mapping),
+    }
 }
 
 /// Clone and increase the priority of a binding
