@@ -30,7 +30,13 @@ TestCase := Rectangle {
 
 ComplexTestCase := Window {
     TestCase {
-        Combo {  }
+        cob := Combo {
+            PopupWindow {
+                width: root.width * 0.5;
+                height: parent.height;
+                x: 20px + cob.height;
+            }
+        }
     }
     TestCase {  }
 }
