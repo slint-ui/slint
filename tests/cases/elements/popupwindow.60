@@ -27,3 +27,10 @@ Combo := Rectangle {
 TestCase := Rectangle {
     for x in [1, 2] :  Combo { }
 }
+
+ComplexTestCase := Window {
+    TestCase {
+        Combo {  }
+    }
+    TestCase {  }
+}
