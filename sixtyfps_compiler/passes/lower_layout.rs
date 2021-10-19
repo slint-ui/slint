@@ -417,15 +417,20 @@ fn lower_dialog_layout(
                 debug_assert_eq!(en.name, "DialogButtonRole");
                 button_roles.push(en.values[val.value].clone());
                 if val.value == 0 {
-                    diag.push_error("The `dialog-button-role` cannot be set explicitly to none".into(), &role_binding);
+                    diag.push_error(
+                        "The `dialog-button-role` cannot be set explicitly to none".into(),
+                        &role_binding,
+                    );
                 }
             } else {
-                diag.push_error("The `dialog-button-role` property must be known at compile-time".into(), &role_binding);
+                diag.push_error(
+                    "The `dialog-button-role` property must be known at compile-time".into(),
+                    &role_binding,
+                );
             }
             true
-        } else if layout_child.borrow().property_declarations.get("kind").map_or(false, |pd| {
-            matches!(&pd.property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
-        }) {
+        } else if matches!(&layout_child.borrow().lookup_property("kind").property_type, Type::Enumeration(e) if e.name == "StandardButtonKind")
+        {
             // layout_child is a StandardButton
             match layout_child.borrow().bindings.get("kind") {
                 None => diag.push_error(

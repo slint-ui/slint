@@ -155,38 +155,38 @@ impl LayoutConstraints {
             fixed_height: false,
         };
         let mut apply_size_constraint =
-            |prop, binding: &BindingExpression, op: &mut Option<NamedReference>| {
+            |prop, binding: &BindingExpression, depth, op: &mut Option<NamedReference>| {
                 if let Some(other_prop) = op {
-                    let old_priority = other_prop
-                        .element()
-                        .borrow()
-                        .bindings
-                        .get(other_prop.name())
-                        .map_or(0, |b| b.priority);
-                    if old_priority <= binding.priority {
-                        diag.push_error(
-                            format!("Cannot specify both '{}' and '{}'", prop, other_prop.name()),
-                            binding,
-                        )
-                    }
+                    find_binding(&other_prop.element(), other_prop.name(), |old, d2| {
+                        let old_priority = old.priority.saturating_add(d2);
+                        if old_priority <= binding.priority.saturating_add(depth) {
+                            diag.push_error(
+                                format!(
+                                    "Cannot specify both '{}' and '{}'",
+                                    prop,
+                                    other_prop.name()
+                                ),
+                                binding,
+                            )
+                        }
+                    });
                 }
                 *op = Some(NamedReference::new(element, prop))
             };
-        let e = element.borrow();
-        if let Some(s) = e.bindings.get("height") {
+        find_binding(element, "height", |s, depth| {
             constraints.fixed_height = true;
-            apply_size_constraint("height", s, &mut constraints.min_height);
-            apply_size_constraint("height", s, &mut constraints.max_height);
-        }
-        if let Some(s) = e.bindings.get("width") {
+            apply_size_constraint("height", s, depth, &mut constraints.min_height);
+            apply_size_constraint("height", s, depth, &mut constraints.max_height);
+        });
+        find_binding(element, "width", |s, depth| {
             if s.expression.ty() == Type::Percent {
-                apply_size_constraint("width", s, &mut constraints.min_width);
+                apply_size_constraint("width", s, depth, &mut constraints.min_width);
             } else {
                 constraints.fixed_width = true;
-                apply_size_constraint("width", s, &mut constraints.min_width);
-                apply_size_constraint("width", s, &mut constraints.max_width);
+                apply_size_constraint("width", s, depth, &mut constraints.min_width);
+                apply_size_constraint("width", s, depth, &mut constraints.max_width);
             }
-        }
+        });
 
         constraints
     }
@@ -334,35 +334,7 @@ impl LayoutGeometry {
         }
         self.padding.visit_named_references(visitor);
     }
-}
 
-/// Return a named reference to a property if a binding is set on that property
-fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
-    element.borrow().bindings.contains_key(name).then(|| NamedReference::new(element, name))
-}
-
-fn init_fake_property(
-    grid_layout_element: &ElementRc,
-    name: &str,
-    lazy_default: impl Fn() -> Option<NamedReference>,
-) {
-    if grid_layout_element.borrow().property_declarations.contains_key(name)
-        && !grid_layout_element.borrow().bindings.contains_key(name)
-    {
-        if let Some(e) = lazy_default() {
-            if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
-                // Don't reference self
-                return;
-            }
-            grid_layout_element
-                .borrow_mut()
-                .bindings
-                .insert(name.to_owned(), Expression::PropertyReference(e).into());
-        }
-    }
-}
-
-impl LayoutGeometry {
     pub fn new(layout_element: &ElementRc) -> Self {
         let spacing = binding_reference(layout_element, "spacing");
         let alignment = binding_reference(layout_element, "alignment");
@@ -383,6 +355,54 @@ impl LayoutGeometry {
         let rect = LayoutRect::install_on_element(layout_element);
 
         Self { rect, spacing, padding, alignment }
+    }
+}
+
+/// If this element or any of the parent has a binding to the property, call the functor with that binding, and the depth.
+/// Return None if the binding does not exist in any of the sub component, or Some with the result of the functor otherwise
+fn find_binding<R>(
+    element: &ElementRc,
+    name: &str,
+    f: impl FnOnce(&BindingExpression, i32) -> R,
+) -> Option<R> {
+    let mut element = element.clone();
+    let mut depth = 0;
+    loop {
+        if let Some(b) = element.borrow().bindings.get(name) {
+            return Some(f(b, depth));
+        }
+        let e = match &element.borrow().base_type {
+            Type::Component(base) => base.root_element.clone(),
+            _ => return None,
+        };
+        element = e;
+        depth += 1;
+    }
+}
+
+/// Return a named reference to a property if a binding is set on that property
+fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
+    find_binding(element, name, |_, _| NamedReference::new(&element, name))
+}
+
+fn init_fake_property(
+    grid_layout_element: &ElementRc,
+    name: &str,
+    lazy_default: impl Fn() -> Option<NamedReference>,
+) {
+    if grid_layout_element.borrow().property_declarations.contains_key(name)
+        && !grid_layout_element.borrow().bindings.contains_key(name)
+    {
+        if let Some(e) = lazy_default() {
+            if e.name() == name && Rc::ptr_eq(&e.element(), grid_layout_element) {
+                // Don't reference self
+                return;
+            }
+            grid_layout_element
+                .borrow_mut()
+                .bindings
+                .insert(name.to_owned(), Expression::PropertyReference(e).into());
+        }
     }
 }
 

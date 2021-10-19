@@ -18,6 +18,7 @@ MyDiag1 := Dialog {
 }
 
 MyDiag2 := Dialog {
+//        ^error{A Dialog must have a single child element that is not StandardButton}
     StandardButton { kind: reset; }
     StandardButton {
         kind: cancel;
@@ -55,8 +56,7 @@ MyDialog4 := Dialog {
 
 Test := Rectangle {
     MyDiag1 {}
-    MyDiag2 {} // FIXME: not the best place for the error
-//  ^error{A Dialog must have a single child element that is not StandardButton}
+    MyDiag2 {}
     MyDiag3 {}
     MyDialog4 {}
 }
