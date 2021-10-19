@@ -42,6 +42,8 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
                     InlineSelection::InlineAllComponents => true,
                     InlineSelection::InlineOnlyRequiredComponents => {
                         component_requires_inlining(&c)
+                            // otherwise the children of the clipped items won't get moved as child of the Clip element
+                            || elem.borrow().bindings.contains_key("clip")
                     }
                 } {
                     inline_element(elem, &c, component);
@@ -434,6 +436,14 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         || super::lower_layout::is_layout_element(root_element)
     {
         return true;
+    }
+
+    for prop in root_element.borrow().bindings.keys() {
+        // The passes that dp the drop shadow or the opacity currently won't allow this property
+        // on the top level of a component. This could be changed in the future.
+        if prop.starts_with("drop-shadow-") || prop == "opacity" {
+            return true;
+        }
     }
 
     false
