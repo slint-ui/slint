@@ -171,6 +171,7 @@ pub struct PopupWindow {
     pub component: Rc<Component>,
     pub x: NamedReference,
     pub y: NamedReference,
+    pub parent_element: ElementRc,
 }
 
 type ChildrenInsertionPoint = (ElementRc, syntax_nodes::ChildrenPlaceholder);

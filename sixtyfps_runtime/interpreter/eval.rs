@@ -305,7 +305,20 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
                     let x = load_property_helper(local_context.component_instance, &popup.x.element(), popup.x.name()).unwrap();
                     let y = load_property_helper(local_context.component_instance, &popup.y.element(), popup.y.name()).unwrap();
-                    crate::dynamic_component::show_popup(popup, x.try_into().unwrap(), y.try_into().unwrap(), component.borrow(), window_ref(component).unwrap());
+
+                    generativity::make_guard!(guard);
+                    let enclosing_component =
+                        enclosing_component_for_element(&popup.parent_element, component, guard);
+                    let parent_item_info = &enclosing_component.component_type.items[popup.parent_element.borrow().id.as_str()];
+                    let parent_item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+                    let parent_item = corelib::items::ItemRc::new(vtable::VRc::into_dyn(parent_item_comp), parent_item_info.item_index());
+
+                    crate::dynamic_component::show_popup(
+                        popup,
+                        sixtyfps_corelib::graphics::Point::new(x.try_into().unwrap(), y.try_into().unwrap()),
+                        component.borrow(),
+                        window_ref(component).unwrap(),
+                        &parent_item);
                     Value::Void
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")

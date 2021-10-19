@@ -472,6 +472,19 @@ impl Window {
         size
     }
 
+    /// Show a popup at the given position relative to the item
+    pub fn show_popup(&self, popup: &ComponentRc, mut position: Point, parent_item: &ItemRc) {
+        let mut parent_item = parent_item.clone();
+        loop {
+            position += parent_item.borrow().as_ref().geometry().origin.to_vector();
+            parent_item = match parent_item.parent_item().upgrade() {
+                None => break,
+                Some(pi) => pi,
+            }
+        }
+        self.platform_window.get().unwrap().show_popup(popup, position)
+    }
+
     /// Removes any active popup.
     pub fn close_popup(&self) {
         if let Some(current_popup) = self.active_popup.replace(None) {
@@ -671,9 +684,10 @@ pub mod ffi {
         handle: *const WindowRcOpaque,
         popup: &ComponentRc,
         position: crate::graphics::Point,
+        parent_item: &ItemRc,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.show_popup(popup, position);
+        window.show_popup(popup, position, parent_item);
     }
     /// Close the current popup
     pub unsafe extern "C" fn sixtyfps_windowrc_close_popup(handle: *const WindowRcOpaque) {

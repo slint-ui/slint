@@ -298,6 +298,10 @@ fn duplicate_popup(
         x: p.x.clone(),
         y: p.y.clone(),
         component: duplicate_sub_component(&p.component, &parent, mapping),
+        parent_element: mapping
+            .get(&element_key(p.parent_element.clone()))
+            .expect("Parent element must be in the mapping")
+            .clone(),
     }
 }
 
