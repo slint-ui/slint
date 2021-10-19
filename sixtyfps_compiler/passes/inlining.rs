@@ -144,6 +144,13 @@ fn inline_element(
         _ => {}
     };
 
+    root_component.optimized_elements.borrow_mut().extend(
+        inlined_component
+            .optimized_elements
+            .borrow()
+            .iter()
+            .map(|x| duplicate_element_with_mapping(x, &mut mapping, root_component)),
+    );
     root_component.popup_windows.borrow_mut().extend(
         inlined_component.popup_windows.borrow().iter().map(|p| duplicate_popup(p, &mut mapping)),
     );
@@ -273,6 +280,10 @@ fn duplicate_sub_component(
         fixup_reference(&mut p.y, &mapping);
     }
     new_component
+        .root_constraints
+        .borrow_mut()
+        .visit_named_references(&mut |nr| fixup_reference(nr, &mapping));
+    new_component
 }
 
 fn duplicate_popup(
@@ -348,12 +359,38 @@ fn fixup_element_references(
     expr: &mut Expression,
     mapping: &HashMap<ByAddress<ElementRc>, ElementRc>,
 ) {
-    if let Expression::ElementReference(element) = expr {
-        if let Some(new_element) = element.upgrade().and_then(|e| mapping.get(&element_key(e))) {
-            *element = Rc::downgrade(new_element);
+    let fx = |element: &mut std::rc::Weak<RefCell<Element>>| {
+        if let Some(e) = element.upgrade().and_then(|e| mapping.get(&element_key(e))) {
+            *element = Rc::downgrade(e);
         }
-    } else {
-        expr.visit_mut(|e| fixup_element_references(e, mapping));
+    };
+    let fxe = |element: &mut ElementRc| {
+        if let Some(e) = mapping.get(&element_key(element.clone())) {
+            *element = e.clone();
+        }
+    };
+    match expr {
+        Expression::ElementReference(element) => fx(element),
+        Expression::SolveLayout(l, _) | Expression::ComputeLayoutInfo(l, _) => match l {
+            crate::layout::Layout::GridLayout(l) => {
+                for e in &mut l.elems {
+                    fxe(&mut e.item.element);
+                }
+            }
+            crate::layout::Layout::PathLayout(l) => {
+                for e in &mut l.elements {
+                    fxe(e);
+                }
+            }
+            crate::layout::Layout::BoxLayout(l) => {
+                for e in &mut l.elems {
+                    fxe(&mut e.element);
+                }
+            }
+        },
+        Expression::RepeaterModelReference { element }
+        | Expression::RepeaterIndexReference { element } => fx(element),
+        _ => expr.visit_mut(|e| fixup_element_references(e, mapping)),
     }
 }
 

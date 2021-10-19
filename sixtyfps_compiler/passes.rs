@@ -66,6 +66,18 @@ pub async fn run_passes(
     unique_id::check_unique_id(doc, diag);
     check_public_api::check_public_api(doc, diag);
 
+    collect_subcomponents::collect_subcomponents(root_component);
+    for component in root_component
+        .used_types
+        .borrow()
+        .sub_components
+        .iter()
+        .chain(std::iter::once(root_component))
+    {
+        compile_paths::compile_paths(component, &doc.local_registry, diag);
+        lower_tabwidget::lower_tabwidget(component, &mut type_loader, diag).await;
+    }
+
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);
     collect_subcomponents::collect_subcomponents(root_component);
 
@@ -78,8 +90,6 @@ pub async fn run_passes(
         .iter()
         .chain(std::iter::once(root_component))
     {
-        compile_paths::compile_paths(component, &doc.local_registry, diag);
-        lower_tabwidget::lower_tabwidget(component, &mut type_loader, diag).await;
         focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
         focus_item::determine_initial_focus_item(component, diag);
         focus_item::erase_forward_focus_properties(component);
@@ -87,11 +97,11 @@ pub async fn run_passes(
         lower_states::lower_states(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
+        lower_layout::lower_layouts(component, &mut type_loader, diag).await;
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
 
-    lower_layout::lower_layouts(root_component, &mut type_loader, diag).await;
     z_order::reorder_by_z_order(root_component, diag);
     lower_shadows::lower_shadow_properties(root_component, &doc.local_registry, diag);
     clip::handle_clip(root_component, &global_type_registry.borrow(), diag);
