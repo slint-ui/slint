@@ -18,6 +18,17 @@ LICENSE END */
 // Additionally, there are three green rectangles at the bottom placed diagonally
 // using equal spacing and manual calcuation, using a repeater.
 
+BlueRect := Rectangle {
+    background: blue;
+    border-radius: 10px;
+    drop-shadow-offset-x: 10px;
+    drop-shadow-offset-y: 10px;
+    drop-shadow-color: #00000080;
+    drop-shadow-blur: 5px;
+    opacity: 0.5;
+    clip: true;
+}
+
 TestCase := Window {
     width: 800px;
     height: 600px;
@@ -25,14 +36,7 @@ TestCase := Window {
     VerticalLayout {
         padding: 50px;
 
-        Rectangle {
-            background: blue;
-            border-radius: 10px;
-            drop-shadow-offset-x: 10px;
-            drop-shadow-offset-y: 10px;
-            drop-shadow-color: #00000080;
-            drop-shadow-blur: 5px;
-        }
+        BlueRect {}
 
         for r[i] in [
             {color: #0f0 },

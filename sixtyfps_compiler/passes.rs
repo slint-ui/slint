@@ -98,18 +98,18 @@ pub async fn run_passes(
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         lower_layout::lower_layouts(component, &mut type_loader, diag).await;
+        z_order::reorder_by_z_order(component, diag);
+        lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
+        clip::handle_clip(component, &global_type_registry.borrow(), diag);
+        transform_and_opacity::handle_transform_and_opacity(
+            component,
+            &global_type_registry.borrow(),
+            diag,
+        );
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
 
-    z_order::reorder_by_z_order(root_component, diag);
-    lower_shadows::lower_shadow_properties(root_component, &doc.local_registry, diag);
-    clip::handle_clip(root_component, &global_type_registry.borrow(), diag);
-    transform_and_opacity::handle_transform_and_opacity(
-        root_component,
-        &global_type_registry.borrow(),
-        diag,
-    );
     default_geometry::default_geometry(root_component, diag);
     visible::handle_visible(root_component, &global_type_registry.borrow());
     materialize_fake_properties::materialize_fake_properties(root_component);

@@ -7,6 +7,11 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+Foo := Rectangle {
+    drop-shadow-color: red;
+}
+
 SuperSimple := Rectangle {
     drop-shadow-color: #00000080;
 //                    ^warning{The drop-shadow-color property cannot be used on the root element, the shadow will not be visible}
@@ -15,4 +20,6 @@ SuperSimple := Rectangle {
         drop-shadow-color: black;
 //                        ^error{The drop-shadow-color property is only supported on Rectangle and Clip elements right now}
     }
+
+    Foo {}
 }
