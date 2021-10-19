@@ -1239,7 +1239,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 quote!((|x: Image| -> Size { x.size() }))
             }
             BuiltinFunction::ArrayLength => {
-                quote!((|x: ModelHandle<_>| -> i32 { x.row_count() as i32 }))
+                quote!((|x: ModelHandle<_>| -> i32 { x.model_tracker().track_row_count_changes(); x.row_count() as i32 }))
             }
 
             BuiltinFunction::Rgb => {

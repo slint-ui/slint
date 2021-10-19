@@ -11,7 +11,7 @@ LICENSE END */
 use crate::dynamic_component::ErasedComponentBox;
 
 use super::*;
-use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer};
+use sixtyfps_corelib::model::{Model, ModelNotify};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{WindowHandleAccess, WindowRc};
 use std::ffi::c_void;
@@ -597,8 +597,8 @@ impl Model for ModelAdaptorWrapper {
         }
     }
 
-    fn attach_peer(&self, peer: ModelPeer) {
-        self.0.get_notify().as_model_notify().attach(peer);
+    fn model_tracker(&self) -> &dyn sixtyfps_corelib::model::ModelTracker {
+        self.0.get_notify().as_model_notify()
     }
 
     fn set_row_data(&self, row: usize, data: Value) {
@@ -609,10 +609,10 @@ impl Model for ModelAdaptorWrapper {
 
 #[repr(C)]
 #[cfg(target_pointer_width = "64")]
-pub struct ModelNotifyOpaque([usize; 6]);
+pub struct ModelNotifyOpaque([usize; 8]);
 #[repr(C)]
 #[cfg(target_pointer_width = "32")]
-pub struct ModelNotifyOpaque([usize; 10]);
+pub struct ModelNotifyOpaque([usize; 12]);
 /// Asserts that ModelNotifyOpaque is at least as large as ModelNotify, otherwise this would overflow
 const _: usize = std::mem::size_of::<ModelNotifyOpaque>() - std::mem::size_of::<ModelNotify>();
 

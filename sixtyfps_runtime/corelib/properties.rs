@@ -675,6 +675,12 @@ impl<T: Clone> Property<T> {
     pub fn is_dirty(&self) -> bool {
         self.handle.access(|binding| binding.map_or(false, |b| b.dirty.get()))
     }
+
+    /// Internal function to mark the property as dirty and notify dependencies, regardless of
+    /// whether the property value has actually changed or not.
+    pub(crate) fn set_dirty(&self) {
+        self.handle.mark_dirty()
+    }
 }
 
 impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {

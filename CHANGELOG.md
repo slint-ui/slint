@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
  - The TouchArea will grab the mouse for every button instead of just the left button
  - The ScrollView's default viewport size is no longer hardcoded to 1000px. Its size now depends on the contents
+ - In Rust, the `sixtyfps::Model` trait deprecates the `attach_peer` function in favor of `model_tracker`, where all
+   you need to do is return a reference to your `sixtyfps::ModelNotify` field.
 
 ### Added
 

@@ -219,7 +219,7 @@ pub use sixtyfps_corelib::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use sixtyfps_corelib::model::{
-    Model, ModelHandle, ModelNotify, ModelPeer, StandardListViewItem, VecModel,
+    Model, ModelHandle, ModelNotify, ModelPeer, ModelTracker, StandardListViewItem, VecModel,
 };
 pub use sixtyfps_corelib::sharedvector::SharedVector;
 pub use sixtyfps_corelib::string::SharedString;

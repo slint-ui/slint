@@ -31,11 +31,29 @@ pub struct ModelPeer {
     inner: Weak<RefCell<ModelPeerInner>>,
 }
 
+/// This trait defines the interface that users of a model can use to track changes
+/// to a model. It is supplied via [`Model::model_tracker`] and implementation usually
+/// return a reference to its field of [`ModelNotify`].
+pub trait ModelTracker {
+    /// Attach one peer. The peer will be notified when the model changes
+    fn attach_peer(&self, peer: ModelPeer);
+    /// Register the model as a dependency to the current binding being evaluated, so
+    /// that it will be notified when the model changes its size.
+    fn track_row_count_changes(&self);
+}
+
+impl ModelTracker for () {
+    fn attach_peer(&self, _peer: ModelPeer) {}
+
+    fn track_row_count_changes(&self) {}
+}
+
 /// Dispatch notifications from a [`Model`] to one or several [`ModelPeer`].
 /// Typically, you would want to put this in the implementation of the Model
 #[derive(Default)]
 pub struct ModelNotify {
     inner: RefCell<weak_table::PtrWeakHashSet<Weak<RefCell<ModelPeerInner>>>>,
+    model_dirty_property: RefCell<Option<Pin<Rc<Property<()>>>>>,
 }
 
 impl ModelNotify {
@@ -47,19 +65,43 @@ impl ModelNotify {
     }
     /// Notify the peers that rows were added
     pub fn row_added(&self, index: usize, count: usize) {
+        if let Some(model_dirty_tracker) = self.model_dirty_property.borrow().as_ref() {
+            model_dirty_tracker.set_dirty()
+        }
         for peer in self.inner.borrow().iter() {
             peer.borrow_mut().row_added(index, count)
         }
     }
     /// Notify the peers that rows were removed
     pub fn row_removed(&self, index: usize, count: usize) {
+        if let Some(model_dirty_tracker) = self.model_dirty_property.borrow().as_ref() {
+            model_dirty_tracker.set_dirty()
+        }
         for peer in self.inner.borrow().iter() {
             peer.borrow_mut().row_removed(index, count)
         }
     }
     /// Attach one peer. The peer will be notified when the model changes
+    #[deprecated(
+        note = "In your model, re-implement `model_tracker` of the `Model` trait instead of calling this function from our `attach_peer` implementation"
+    )]
     pub fn attach(&self, peer: ModelPeer) {
+        self.attach_peer(peer)
+    }
+}
+
+impl ModelTracker for ModelNotify {
+    /// Attach one peer. The peer will be notified when the model changes
+    fn attach_peer(&self, peer: ModelPeer) {
         peer.inner.upgrade().map(|rc| self.inner.borrow_mut().insert(rc));
+    }
+
+    fn track_row_count_changes(&self) {
+        self.model_dirty_property
+            .borrow_mut()
+            .get_or_insert_with(|| Rc::pin(Default::default()))
+            .as_ref()
+            .get();
     }
 }
 
@@ -150,7 +192,15 @@ pub trait Model {
         );
     }
     /// The implementation should forward to [`ModelNotify::attach`]
-    fn attach_peer(&self, peer: ModelPeer);
+    #[deprecated(note = "Re-implement model_tracker instead of this function")]
+    fn attach_peer(&self, peer: ModelPeer) {
+        self.model_tracker().attach_peer(peer)
+    }
+
+    /// The implementation should return a reference to its [`ModelNotify`] field.
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &()
+    }
 
     /// Returns an iterator visiting all elements of the model.
     fn iter(&self) -> ModelIterator<Self::Data>
@@ -264,8 +314,8 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         self.notify.row_changed(row);
     }
 
-    fn attach_peer(&self, peer: ModelPeer) {
-        self.notify.attach(peer);
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &self.notify
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
@@ -282,10 +332,6 @@ impl Model for usize {
 
     fn row_data(&self, row: usize) -> Self::Data {
         row as i32
-    }
-
-    fn attach_peer(&self, _peer: ModelPeer) {
-        // The model is read_only: nothing to do
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
@@ -305,10 +351,6 @@ impl Model for bool {
     }
 
     fn row_data(&self, _row: usize) -> Self::Data {}
-
-    fn attach_peer(&self, _peer: ModelPeer) {
-        // The model is read_only: nothing to do
-    }
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
@@ -379,10 +421,8 @@ impl<T> Model for ModelHandle<T> {
         self.0.as_ref().unwrap().set_row_data(row, data)
     }
 
-    fn attach_peer(&self, peer: ModelPeer) {
-        if let Some(model) = self.0.as_ref() {
-            model.attach_peer(peer);
-        }
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        self.0.as_ref().map_or(&(), |model| model.model_tracker())
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
@@ -544,6 +584,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             (*Rc::make_mut(&mut self.inner.borrow_mut()).get_mut()) = RepeaterInner::default();
             if let ModelHandle(Some(m)) = model.get() {
                 let peer: Rc<RefCell<dyn ViewAbstraction>> = self.inner.borrow().clone();
+                #[allow(deprecated)]
                 m.attach_peer(ModelPeer { inner: Rc::downgrade(&peer) });
             }
         }
@@ -828,4 +869,41 @@ impl<C: RepeatedComponent> Repeater<C> {
 pub struct StandardListViewItem {
     /// The text content of the item
     pub text: crate::SharedString,
+}
+
+#[test]
+fn test_tracking_model_handle() {
+    let model: Rc<VecModel<u8>> = Rc::new(Default::default());
+    let handle = ModelHandle::new(model.clone());
+    let tracker = Box::pin(crate::properties::PropertyTracker::default());
+    assert_eq!(
+        tracker.as_ref().evaluate(|| {
+            handle.model_tracker().track_row_count_changes();
+            handle.row_count()
+        }),
+        0
+    );
+    assert!(!tracker.is_dirty());
+    model.push(42);
+    model.push(100);
+    assert!(tracker.is_dirty());
+    assert_eq!(
+        tracker.as_ref().evaluate(|| {
+            handle.model_tracker().track_row_count_changes();
+            handle.row_count()
+        }),
+        2
+    );
+    assert!(!tracker.is_dirty());
+    model.set_row_data(0, 41);
+    assert!(!tracker.is_dirty());
+    model.remove(0);
+    assert!(tracker.is_dirty());
+    assert_eq!(
+        tracker.as_ref().evaluate(|| {
+            handle.model_tracker().track_row_count_changes();
+            handle.row_count()
+        }),
+        1
+    );
 }

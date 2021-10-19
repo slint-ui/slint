@@ -89,8 +89,8 @@ impl Model for JsModel {
         r.into_inner()
     }
 
-    fn attach_peer(&self, peer: sixtyfps_corelib::model::ModelPeer) {
-        self.notify.attach(peer)
+    fn model_tracker(&self) -> &dyn sixtyfps_corelib::model::ModelTracker {
+        &self.notify
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
