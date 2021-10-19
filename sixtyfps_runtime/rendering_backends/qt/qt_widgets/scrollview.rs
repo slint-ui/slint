@@ -344,6 +344,9 @@ impl Item for NativeScrollView {
                 initial_state as "int"
             ] {
                 auto r = rect.toAlignedRect();
+                // The mac style may crash on invalid rectangles (#595)
+                if (!r.isValid())
+                    return;
                 // The mac style ignores painter translations (due to CGContextRef redirection) as well as
                 // option.rect's top-left - hence this hack with an intermediate buffer.
             #if defined(Q_OS_MAC)
