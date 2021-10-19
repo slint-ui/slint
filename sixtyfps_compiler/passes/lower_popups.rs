@@ -25,27 +25,24 @@ pub fn lower_popups(
 
     recurse_elem_including_sub_components_no_borrow(
         component,
-        &Vec::new(),
-        &mut |elem, parent_stack: &Vec<ElementRc>| {
+        &None,
+        &mut |elem, parent_element: &Option<ElementRc>| {
             let is_popup = elem.borrow().base_type.to_string() == "PopupWindow";
             if is_popup {
-                lower_popup_window(elem, parent_stack, &window_type, diag);
+                lower_popup_window(elem, parent_element.as_ref(), &window_type, diag);
             }
-            // this could be implemented in a better way with less cloning of the state
-            let mut parent_stack = parent_stack.clone();
-            parent_stack.push(elem.clone());
-            parent_stack
+            Some(elem.clone())
         },
     )
 }
 
 fn lower_popup_window(
     popup_window_element: &ElementRc,
-    parent_stack: &[ElementRc],
+    parent_element: Option<&ElementRc>,
     window_type: &Type,
     diag: &mut BuildDiagnostics,
 ) {
-    let parent_element = match parent_stack.last() {
+    let parent_element = match parent_element {
         None => {
             diag.push_error(
                 "PopupWindow cannot be the top level".into(),
@@ -76,8 +73,8 @@ fn lower_popup_window(
 
     // Generate a x and y property, relative to the window coordinate
     // FIXME: this is a hack that doesn't always work, perhaps should we store an item ref or something
-    let coord_x = create_coordinate(&popup_comp, parent_stack, "x");
-    let coord_y = create_coordinate(&popup_comp, parent_stack, "y");
+    let coord_x = create_coordinate(&popup_comp, parent_element, "x");
+    let coord_y = create_coordinate(&popup_comp, parent_element, "y");
 
     // Throw error when accessing the popup from outside
     // FIXME:
@@ -99,30 +96,22 @@ fn lower_popup_window(
         component: popup_comp,
         x: coord_x,
         y: coord_y,
+        parent_element: parent_element.clone(),
     });
 }
 
 fn create_coordinate(
     popup_comp: &Rc<Component>,
-    parent_stack: &[ElementRc],
+    parent_element: &ElementRc,
     coord: &str,
 ) -> NamedReference {
-    let mut expression = popup_comp
+    let expression = popup_comp
         .root_element
         .borrow()
         .bindings
         .get(coord)
         .map(|e| e.expression.clone())
         .unwrap_or(Expression::NumberLiteral(0., crate::expression_tree::Unit::Phx));
-
-    for parent in parent_stack {
-        expression = Expression::BinaryExpression {
-            lhs: Box::new(expression),
-            rhs: Box::new(Expression::PropertyReference(NamedReference::new(parent, coord))),
-            op: '+',
-        };
-    }
-    let parent_element = parent_stack.last().unwrap();
     let property_name = format!("{}-popup-{}", popup_comp.root_element.borrow().id, coord);
     parent_element
         .borrow_mut()

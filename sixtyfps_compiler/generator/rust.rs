@@ -1342,10 +1342,13 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
                         let x = access_named_reference(&popup.x, component, quote!(_self));
                         let y = access_named_reference(&popup.y, component, quote!(_self));
+                        let parent_component_ref = access_element_component(&popup.parent_element, component, quote!(_self));
+                        let parent_index = *popup.parent_element.borrow().item_index.get().unwrap();
                         quote!(
                             _self.window.window_handle().show_popup(
                                 &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into()),
-                                Point::new(#x.get(), #y.get())
+                                Point::new(#x.get(), #y.get()),
+                                &ItemRc::new(VRc::into_dyn(#parent_component_ref.self_weak.get().unwrap().upgrade().unwrap()), #parent_index)
                             );
                         )
                     } else {

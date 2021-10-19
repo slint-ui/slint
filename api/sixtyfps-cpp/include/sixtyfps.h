@@ -139,10 +139,11 @@ public:
     }
 
     template<typename Component, typename Parent>
-    void show_popup(const Parent *parent_component, cbindgen_private::Point p) const
+    void show_popup(const Parent *parent_component, cbindgen_private::Point p,
+                    cbindgen_private::ItemRc parent_item) const
     {
         auto popup = Component::create(parent_component).into_dyn();
-        cbindgen_private::sixtyfps_windowrc_show_popup(&inner, &popup, p);
+        cbindgen_private::sixtyfps_windowrc_show_popup(&inner, &popup, p, &parent_item);
     }
 
 private:

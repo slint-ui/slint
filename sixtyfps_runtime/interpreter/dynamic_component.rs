@@ -1592,16 +1592,15 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 /// Show the popup at the given location
 pub fn show_popup(
     popup: &object_tree::PopupWindow,
-    x: f32,
-    y: f32,
+    pos: sixtyfps_corelib::graphics::Point,
     parent_comp: ComponentRefPin,
     parent_window: &WindowRc,
+    parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
     let inst = instantiate(compiled, Some(parent_comp), Some(parent_window));
     inst.run_setup_code();
-    parent_window
-        .show_popup(&vtable::VRc::into_dyn(inst), sixtyfps_corelib::graphics::Point::new(x, y));
+    parent_window.show_popup(&vtable::VRc::into_dyn(inst), pos, parent_item);
 }

@@ -1753,7 +1753,12 @@ fn compile_expression(
                     let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
                     let x = access_named_reference(&popup.x, component, "self");
                     let y = access_named_reference(&popup.y, component, "self");
-                    format!("self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }} );", popup_window_rcid, x, y)
+                    let parent_component_ref = access_element_component(&popup.parent_element, component, "self");
+                    format!(
+                        "self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }}, {{ {}->self_weak.lock()->into_dyn(), {} }} );",
+                        popup_window_rcid, x, y,
+                        parent_component_ref, popup.parent_element.borrow().item_index.get().unwrap(),
+                    )
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
