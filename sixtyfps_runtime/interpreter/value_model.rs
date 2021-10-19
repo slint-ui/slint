@@ -9,7 +9,7 @@
 LICENSE END */
 
 use crate::api::Value;
-use sixtyfps_corelib::model::Model;
+use sixtyfps_corelib::model::{Model, ModelTracker};
 use std::cell::RefCell;
 
 pub struct ValueModel {
@@ -20,6 +20,19 @@ pub struct ValueModel {
 impl ValueModel {
     pub fn new(value: Value) -> Self {
         Self { value: RefCell::new(value), notify: Default::default() }
+    }
+}
+
+impl ModelTracker for ValueModel {
+    fn attach_peer(&self, peer: sixtyfps_corelib::model::ModelPeer) {
+        if let Value::Model(ref model_ptr) = *self.value.borrow() {
+            model_ptr.model_tracker().attach_peer(peer.clone())
+        }
+        self.notify.attach_peer(peer)
+    }
+
+    fn track_row_count_changes(&self) {
+        self.notify.track_row_count_changes()
     }
 }
 
@@ -53,11 +66,8 @@ impl Model for ValueModel {
         }
     }
 
-    fn attach_peer(&self, peer: sixtyfps_corelib::model::ModelPeer) {
-        if let Value::Model(ref model_ptr) = *self.value.borrow() {
-            model_ptr.attach_peer(peer.clone())
-        }
-        self.notify.attach(peer)
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        self
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
