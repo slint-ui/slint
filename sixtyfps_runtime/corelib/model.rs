@@ -116,7 +116,7 @@ impl ModelTracker for ModelNotify {
 /// As an example, let's see the implementation of [`VecModel`].
 ///
 /// ```
-/// # use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer};
+/// # use sixtyfps_corelib::model::{Model, ModelNotify, ModelPeer, ModelTracker};
 /// pub struct VecModel<T> {
 ///     // the backing data, stored in a `RefCell` as this model can be modified
 ///     array: std::cell::RefCell<Vec<T>>,
@@ -141,9 +141,8 @@ impl ModelTracker for ModelNotify {
 ///         self.notify.row_changed(row);
 ///     }
 ///
-///     fn attach_peer(&self, peer: ModelPeer) {
-///         // simply forward to ModelNotify::attach
-///         self.notify.attach(peer);
+///     fn model_tracker(&self) -> &dyn ModelTracker {
+///         &self.notify
 ///     }
 ///
 ///     fn as_any(&self) -> &dyn core::any::Any {
