@@ -678,7 +678,7 @@ impl<T: Clone> Property<T> {
 
     /// Internal function to mark the property as dirty and notify dependencies, regardless of
     /// whether the property value has actually changed or not.
-    pub fn set_dirty(&self) {
+    pub fn mark_dirty(&self) {
         self.handle.mark_dirty()
     }
 }
@@ -1817,7 +1817,7 @@ pub(crate) mod ffi {
 
     /// Marks the property as dirty and notifies dependencies.
     #[no_mangle]
-    pub extern "C" fn sixtyfps_property_set_dirty(handle: &PropertyHandleOpaque) {
+    pub extern "C" fn sixtyfps_property_mark_dirty(handle: &PropertyHandleOpaque) {
         handle.0.mark_dirty()
     }
 
