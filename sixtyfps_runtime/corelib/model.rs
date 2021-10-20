@@ -66,7 +66,7 @@ impl ModelNotify {
     /// Notify the peers that rows were added
     pub fn row_added(&self, index: usize, count: usize) {
         if let Some(model_dirty_tracker) = self.model_dirty_property.borrow().as_ref() {
-            model_dirty_tracker.set_dirty()
+            model_dirty_tracker.mark_dirty()
         }
         for peer in self.inner.borrow().iter() {
             peer.borrow_mut().row_added(index, count)
@@ -75,7 +75,7 @@ impl ModelNotify {
     /// Notify the peers that rows were removed
     pub fn row_removed(&self, index: usize, count: usize) {
         if let Some(model_dirty_tracker) = self.model_dirty_property.borrow().as_ref() {
-            model_dirty_tracker.set_dirty()
+            model_dirty_tracker.mark_dirty()
         }
         for peer in self.inner.borrow().iter() {
             peer.borrow_mut().row_removed(index, count)

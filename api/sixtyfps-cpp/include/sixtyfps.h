@@ -470,13 +470,13 @@ protected:
     /// Notify the views that rows were added
     void row_added(int index, int count)
     {
-        model_dirty_property.set_dirty();
+        model_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_added(index, count); });
     }
     /// Notify the views that rows were removed
     void row_removed(int index, int count)
     {
-        model_dirty_property.set_dirty();
+        model_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_removed(index, count); });
     }
 
