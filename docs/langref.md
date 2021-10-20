@@ -257,7 +257,6 @@ Example := Window {
 ```
 
 * **`length`**: One can query the length of an array and model using the builtin `.length` property.
-  **Current limitation**: accessing the length is not updated when rows or columns are added or remove to the model.
 
 ### Conversions
 
