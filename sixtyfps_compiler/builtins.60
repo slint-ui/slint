@@ -598,6 +598,7 @@ export global NativeStyleMetrics := {
     property <length> layout-spacing;
     property <length> layout-padding;
     property <length> text-cursor-width;
+    property <color> window-background;
     property <color> default-text-color;
     property <color> textedit-background;
     property <color> textedit-text-color;
