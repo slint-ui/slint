@@ -382,8 +382,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     Value::Array(array) => {
                         Value::Number(array.len() as f64)
                     }
-                    Value::Model(array) => {
-                        Value::Number(array.row_count() as f64)
+                    Value::Model(model) => {
+                        model.model_tracker().track_row_count_changes();
+                        Value::Number(model.row_count() as f64)
                     }
                     _ => {
                         panic!("First argument not an array");
