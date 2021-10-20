@@ -646,7 +646,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     }
                 }
 
-                let element_height = if count.get() > 0 {
+                let mut element_height = if count.get() > 0 {
                     total_height.get() / (count.get() as f32)
                 } else {
                     // There seems to be currently no items. Just instantiate one item.
@@ -670,24 +670,41 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
                 let min_height = min_height.get().min(element_height).max(1.);
 
-                viewport_height.set(element_height * row_count as f32);
-                self.inner.borrow().borrow_mut().cached_item_height = element_height;
-                if -viewport_y.get() > element_height * row_count as f32 - listview_height {
-                    viewport_y.set(-(element_height * row_count as f32 - listview_height).max(0.))
+                let mut offset_y = -viewport_y.get().min(0.);
+                if offset_y > element_height * row_count as f32 - listview_height
+                    && offset_y > viewport_height.get() - listview_height
+                {
+                    offset_y = (element_height * row_count as f32 - listview_height).max(0.);
                 }
-                let offset = (-viewport_y.get_untracked() / element_height).floor() as usize;
-                let mut count =
-                    ((listview_height / min_height).ceil() as usize).min(row_count - offset);
+                let mut count = ((listview_height / min_height).ceil() as usize)
+                    // count never decreases to avoid too much flickering if items have different size
+                    .max(self.inner.borrow().borrow().components.len())
+                    .min(row_count);
+                let mut offset =
+                    ((offset_y / element_height).floor() as usize).min(row_count - count);
+                self.inner.borrow().borrow_mut().cached_item_height = element_height;
                 loop {
+                    self.inner.borrow().borrow_mut().cached_item_height = element_height;
                     self.set_offset(offset, count);
                     self.ensure_updated_impl(init, &model, count);
                     let end = self.compute_layout_listview(viewport_width, listview_width);
-                    let diff = listview_height - viewport_y.get_untracked() - end;
-                    if diff > 0. && count < row_count - offset {
-                        count = (count + (diff / element_height).ceil() as usize)
-                            .min(row_count - offset);
+                    let adjusted_element_height =
+                        (end - element_height * offset as f32) / count as f32;
+                    element_height = adjusted_element_height;
+                    let diff = listview_height + offset_y - end;
+                    if diff > 0.5 && count < row_count {
+                        // we did not create enough item, try increasing count until it matches
+                        count = (count + (diff / element_height).ceil() as usize).min(row_count);
+                        if offset + count > row_count {
+                            // apparently, we scrolled past the end, so decrease the offset and make offset_y
+                            // so we just are at the end
+                            offset = row_count - count;
+                            offset_y = (offset_y - diff).max(0.);
+                        }
                         continue;
                     }
+                    viewport_height.set((element_height * row_count as f32).max(end));
+                    viewport_y.set(-offset_y);
                     break;
                 }
             })
