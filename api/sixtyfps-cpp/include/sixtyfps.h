@@ -456,6 +456,11 @@ public:
     /// Internal function called by the view to register itself
     void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
 
+    /// \private
+    /// Internal function called from within bindings to register with the currently
+    /// evaluating dependency and get notified when this model's row count changes.
+    void track_row_count_changes() { model_dirty_property.get(); }
+
 protected:
     /// Notify the views that a specific row was changed
     void row_changed(int row)
@@ -465,11 +470,13 @@ protected:
     /// Notify the views that rows were added
     void row_added(int index, int count)
     {
+        model_dirty_property.set_dirty();
         for_each_peers([=](auto peer) { peer->row_added(index, count); });
     }
     /// Notify the views that rows were removed
     void row_removed(int index, int count)
     {
+        model_dirty_property.set_dirty();
         for_each_peers([=](auto peer) { peer->row_removed(index, count); });
     }
 
@@ -489,6 +496,7 @@ private:
                     peers.end());
     }
     std::vector<private_api::ModelPeer> peers;
+    private_api::Property<bool> model_dirty_property;
 };
 
 namespace private_api {
