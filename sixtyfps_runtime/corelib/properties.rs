@@ -678,7 +678,7 @@ impl<T: Clone> Property<T> {
 
     /// Internal function to mark the property as dirty and notify dependencies, regardless of
     /// whether the property value has actually changed or not.
-    pub(crate) fn set_dirty(&self) {
+    pub fn set_dirty(&self) {
         self.handle.mark_dirty()
     }
 }
