@@ -73,6 +73,35 @@ TEST_CASE("Property Tracker")
     REQUIRE(!tracker1.is_dirty());
 }
 
+TEST_CASE("Model row changes")
+{
+    using namespace sixtyfps::private_api;
+
+    auto model = std::make_shared<sixtyfps::VectorModel<int>>();
+
+    PropertyTracker tracker;
+
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_count_changes();
+        return model->row_count();
+    }) == 0);
+    REQUIRE(!tracker.is_dirty());
+    model->push_back(1);
+    model->push_back(2);
+    REQUIRE(tracker.is_dirty());
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_count_changes();
+        return model->row_count();
+    }) == 2);
+    REQUIRE(!tracker.is_dirty());
+    model->erase(0);
+    REQUIRE(tracker.is_dirty());
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_count_changes();
+        return model->row_count();
+    }) == 1);
+}
+
 TEST_CASE("Image")
 {
     using namespace sixtyfps;

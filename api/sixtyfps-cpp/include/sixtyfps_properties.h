@@ -142,6 +142,7 @@ struct Property
     }
 
     bool is_dirty() const { return cbindgen_private::sixtyfps_property_is_dirty(&inner); }
+    void set_dirty() const { cbindgen_private::sixtyfps_property_set_dirty(&inner); }
 
     static void link_two_way(const Property<T> *p1, const Property<T> *p2)
     {
