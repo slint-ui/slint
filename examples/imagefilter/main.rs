@@ -74,10 +74,6 @@ impl sixtyfps::Model for Filters {
     fn row_data(&self, row: usize) -> Self::Data {
         self.0[row].name.clone()
     }
-
-    fn attach_peer(&self, _peer: sixtyfps::ModelPeer) {
-        // The model is read_only: nothing to do
-    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
