@@ -41,14 +41,14 @@ Example: Imagine we have a myfile.60 looking like this:
 
 ```60
 MyApp := Window {
-  callback open-url(string)
+  callback open-url(string);
   //...
 }
 ```
 
 It is possible to make the `open-url` callback to execute a command by doing
 
-```
+```bash
 sixtyfps-viewer --on open-url 'xdg-open $1' myfile.60
 ```
 
@@ -73,3 +73,8 @@ The program returns with the following error code:
  - If a Dialog is closed with the "Ok" or "Closed" or "Yes" button, the exit code will be *0*
  - If a Dialog is closed with the "Cancel" or "No" button, or using the close button in the window
    title bar, the exit code will be *1*
+
+## Examples
+
+`sixtyfps-viewer` can be used to display an GUI from a shell script.
+We have [a few examples](https://github.com/sixtyfpsui/sixtyfps/tree/master/examples/bash)
