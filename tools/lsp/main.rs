@@ -154,7 +154,7 @@ fn run_lsp_server() -> Result<(), Error> {
         }),
         definition_provider: Some(OneOf::Left(true)),
         text_document_sync: Some(TextDocumentSyncCapability::Kind(
-            lsp_types::TextDocumentSyncKind::Full,
+            lsp_types::TextDocumentSyncKind::FULL,
         )),
         code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
         execute_command_provider: Some(ExecuteCommandOptions {
@@ -601,7 +601,7 @@ fn get_document_symbols(
                     make_range(c.root_element.borrow().node.as_ref()?)?,
                 ),
                 name: c.id.clone(),
-                kind: lsp_types::SymbolKind::Object,
+                kind: lsp_types::SymbolKind::OBJECT,
                 ..si.clone()
             })
         })
@@ -611,7 +611,7 @@ fn get_document_symbols(
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(SymbolInformation {
             location: Location::new(uri.clone(), make_range(node.parent().as_ref()?)?),
             name: name.clone(),
-            kind: lsp_types::SymbolKind::Struct,
+            kind: lsp_types::SymbolKind::STRUCT,
             ..si.clone()
         }),
         _ => None,

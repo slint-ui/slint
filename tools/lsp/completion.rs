@@ -46,15 +46,15 @@ pub(crate) fn completion_at(
                     .and_then(|caps| caps.snippet_support)
                     .unwrap_or(false)
                 {
-                    c.insert_text_format = Some(InsertTextFormat::Snippet);
+                    c.insert_text_format = Some(InsertTextFormat::SNIPPET);
                     match c.kind {
-                        Some(CompletionItemKind::Property) => {
+                        Some(CompletionItemKind::PROPERTY) => {
                             c.insert_text = Some(format!("{}: $1;", c.label))
                         }
-                        Some(CompletionItemKind::Method) => {
+                        Some(CompletionItemKind::METHOD) => {
                             c.insert_text = Some(format!("{} => {{ $1 }}", c.label))
                         }
-                        Some(CompletionItemKind::Class) => {
+                        Some(CompletionItemKind::CLASS) => {
                             c.insert_text = Some(format!("{} {{ $1 }}", c.label))
                         }
                         _ => (),
@@ -77,7 +77,7 @@ pub(crate) fn completion_at(
                 .iter()
                 .map(|(kw, ins_tex)| {
                     let mut c = CompletionItem::new_simple(kw.to_string(), String::new());
-                    c.kind = Some(CompletionItemKind::Keyword);
+                    c.kind = Some(CompletionItemKind::KEYWORD);
                     with_insert_text(c, ins_tex, client_caps)
                 }),
             );
@@ -89,7 +89,7 @@ pub(crate) fn completion_at(
         }
         let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
         return Some(
-            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::Property)).collect(),
+            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY)).collect(),
         );
     } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -97,7 +97,7 @@ pub(crate) fn completion_at(
         }
         let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
         return Some(
-            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::Property)).collect(),
+            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY)).collect(),
         );
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -105,7 +105,7 @@ pub(crate) fn completion_at(
         }
         let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
         return Some(
-            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::Method)).collect(),
+            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::METHOD)).collect(),
         );
     } else if matches!(
         node.kind(),
@@ -159,7 +159,7 @@ pub(crate) fn completion_at(
                                 _ => return None,
                             };
                             let mut c = CompletionItem::new_simple(k, "element".into());
-                            c.kind = Some(CompletionItemKind::Class);
+                            c.kind = Some(CompletionItemKind::CLASS);
                             Some(c)
                         })
                         .collect(),
@@ -220,7 +220,7 @@ fn with_insert_text(
         .and_then(|caps| caps.snippet_support)
         .unwrap_or(false)
     {
-        c.insert_text_format = Some(InsertTextFormat::Snippet);
+        c.insert_text_format = Some(InsertTextFormat::SNIPPET);
         c.insert_text = Some(ins_text.to_string());
     }
     c
@@ -244,9 +244,9 @@ fn resolve_element_scope(
             .map(|(k, t)| {
                 let mut c = CompletionItem::new_simple(k, t.to_string());
                 c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
-                    CompletionItemKind::Method
+                    CompletionItemKind::METHOD
                 } else {
-                    CompletionItemKind::Property
+                    CompletionItemKind::PROPERTY
                 });
                 c
             })
@@ -256,7 +256,7 @@ fn resolve_element_scope(
                         .unwrap_or_default(),
                     pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
                 );
-                c.kind = Some(CompletionItemKind::Property);
+                c.kind = Some(CompletionItemKind::PROPERTY);
                 c
             }))
             .chain(element.CallbackDeclaration().map(|cd| {
@@ -265,7 +265,7 @@ fn resolve_element_scope(
                         .unwrap_or_default(),
                     "callback".into(),
                 );
-                c.kind = Some(CompletionItemKind::Method);
+                c.kind = Some(CompletionItemKind::METHOD);
                 c
             }))
             .chain(sixtyfps_compilerlib::typeregister::reserved_properties().filter_map(
@@ -275,9 +275,9 @@ fn resolve_element_scope(
                     }
                     let mut c = CompletionItem::new_simple(k.into(), t.to_string());
                     c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
-                        CompletionItemKind::Method
+                        CompletionItemKind::METHOD
                     } else {
-                        CompletionItemKind::Property
+                        CompletionItemKind::PROPERTY
                     });
                     Some(c)
                 },
@@ -289,7 +289,7 @@ fn resolve_element_scope(
                     _ => return None,
                 };
                 let mut c = CompletionItem::new_simple(k, "element".into());
-                c.kind = Some(CompletionItemKind::Class);
+                c.kind = Some(CompletionItemKind::CLASS);
                 Some(c)
             }))
             .collect(),
@@ -309,21 +309,21 @@ fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<Completion
 fn completion_item_from_expression(str: &str, expr: Expression) -> CompletionItem {
     let mut c = CompletionItem::new_simple(str.to_string(), expr.ty().to_string());
     c.kind = match expr {
-        Expression::BoolLiteral(_) => Some(CompletionItemKind::Constant),
-        Expression::CallbackReference(_) => Some(CompletionItemKind::Method),
-        Expression::PropertyReference(_) => Some(CompletionItemKind::Property),
-        Expression::BuiltinFunctionReference(..) => Some(CompletionItemKind::Function),
-        Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::Function),
-        Expression::ElementReference(_) => Some(CompletionItemKind::Class),
-        Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::Variable),
-        Expression::RepeaterModelReference { .. } => Some(CompletionItemKind::Variable),
-        Expression::FunctionParameterReference { .. } => Some(CompletionItemKind::Variable),
-        Expression::Cast { .. } => Some(CompletionItemKind::Constant),
-        Expression::EasingCurve(_) => Some(CompletionItemKind::Constant),
+        Expression::BoolLiteral(_) => Some(CompletionItemKind::CONSTANT),
+        Expression::CallbackReference(_) => Some(CompletionItemKind::METHOD),
+        Expression::PropertyReference(_) => Some(CompletionItemKind::PROPERTY),
+        Expression::BuiltinFunctionReference(..) => Some(CompletionItemKind::FUNCTION),
+        Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::FUNCTION),
+        Expression::ElementReference(_) => Some(CompletionItemKind::CLASS),
+        Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::VARIABLE),
+        Expression::RepeaterModelReference { .. } => Some(CompletionItemKind::VARIABLE),
+        Expression::FunctionParameterReference { .. } => Some(CompletionItemKind::VARIABLE),
+        Expression::Cast { .. } => Some(CompletionItemKind::CONSTANT),
+        Expression::EasingCurve(_) => Some(CompletionItemKind::CONSTANT),
         Expression::EnumerationValue(ev) => Some(if ev.value == usize::MAX {
-            CompletionItemKind::Enum
+            CompletionItemKind::ENUM
         } else {
-            CompletionItemKind::EnumMember
+            CompletionItemKind::ENUM_MEMBER
         }),
         _ => None,
     };
@@ -346,7 +346,7 @@ fn resolve_type_scope(
             .filter_map(|(k, t)| {
                 t.is_property_type().then(|| {
                     let mut c = CompletionItem::new_simple(k, String::new());
-                    c.kind = Some(CompletionItemKind::TypeParameter);
+                    c.kind = Some(CompletionItemKind::TYPE_PARAMETER);
                     c
                 })
             })
@@ -372,10 +372,10 @@ fn complete_path_in_string(base: &Path, text: &str, offset: u32) -> Option<Vec<C
             let mut c =
                 CompletionItem::new_simple(entry.file_name().into_string().ok()?, String::new());
             if entry.file_type().ok()?.is_dir() {
-                c.kind = Some(CompletionItemKind::Folder);
+                c.kind = Some(CompletionItemKind::FOLDER);
                 c.insert_text = Some(format!("{}/", c.label));
             } else {
-                c.kind = Some(CompletionItemKind::File);
+                c.kind = Some(CompletionItemKind::FILE);
             }
             Some(c)
         })

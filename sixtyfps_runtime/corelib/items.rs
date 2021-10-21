@@ -1307,7 +1307,7 @@ impl Default for StandardButtonKind {
 }
 
 #[derive(
-    Copy, Clone, Eq, PartialEq, Hash, Debug, strum_macros::EnumString, strum_macros::ToString,
+    Copy, Clone, Eq, PartialEq, Hash, Debug, strum_macros::EnumString, strum_macros::Display,
 )]
 #[repr(C)]
 #[allow(non_camel_case_types)]
