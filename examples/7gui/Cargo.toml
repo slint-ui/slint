@@ -12,4 +12,4 @@ name = "booker"
 
 [dependencies]
 sixtyfps = { path = "../../api/sixtyfps-rs" }
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
