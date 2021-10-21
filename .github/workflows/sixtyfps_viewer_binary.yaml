@@ -140,7 +140,7 @@ jobs:
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtWidgets.framework ./bin
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtDBus.framework ./bin
             mkdir -p ./bin/plugins/platforms
-            cp -a ~/work/sixtyfps-viewer/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./bin/plugins/platforms
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./bin/plugins/platforms
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
