@@ -23,7 +23,7 @@ default = ["svg"]
 sixtyfps-corelib = { version = "=0.1.4", path = "../../corelib" }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 image = { version = "0.23.14", default-features = false, features = [ "png", "jpeg" ] }
-rgb = "0.8"
+rgb = "0.8.27"
 imgref = "1.6.1"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 by_address = "1.0.4"
