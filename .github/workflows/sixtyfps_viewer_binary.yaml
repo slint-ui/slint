@@ -22,7 +22,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
             command: build
-            args: --verbose --no-default-features --features sixtyfps-backend-qt --release
+            args: --verbose --no-default-features --features sixtyfps-backend-qt --release -p sixtyfps-viewer
       - name: Create artifact directory
         run: |
             mkdir bin
@@ -66,7 +66,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
             command: build
-            args: --verbose --no-default-features --features sixtyfps-backend-qt --release
+            args: --verbose --no-default-features --features sixtyfps-backend-qt --release -p sixtyfps-viewer
       - name: Create artifact directory
         run: |
             mkdir bin
@@ -115,12 +115,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
             command: build
-            args: --verbose --target x86_64-apple-darwin --no-default-features --features sixtyfps-backend-qt --release
+            args: --verbose --target x86_64-apple-darwin --no-default-features --features sixtyfps-backend-qt --release -p sixtyfps-viewer
       - name: Build aarch64
         uses: actions-rs/cargo@v1
         with:
             command: build
-            args: --verbose --target aarch64-apple-darwin --no-default-features --features sixtyfps-backend-qt --release
+            args: --verbose --target aarch64-apple-darwin --no-default-features --features sixtyfps-backend-qt --release -p sixtyfps-viewer
       - name: Create artifact directory
         run: |
             mkdir bin
