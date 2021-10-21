@@ -87,9 +87,15 @@ graph and integrate the result into SixtyFPS.
 
 ![Screenshot of the plotter example](https://sixtyfps.io/resources/plotter_screenshot.png "Plotter")
 
+### [`bash`](./bash)
+
+Some examples of how to use the `sixtyfps-viewer` to add a GUI to shell scripts.
+
 ### External examples
 
-* [cargo-ui](https://github.com/sixtyfpsui/cargo-ui): A rust application that makes use of threads in the background.
+* [Cargo UI](https://github.com/sixtyfpsui/cargo-ui): A rust application that makes use of threads in the background.
+
+![Screenshot of Cargo UI](https://raw.githubusercontent.com/sixtyfpsui/cargo-ui/master/screenshots/deptree.png "Cargo UI")
 
 ## Loading the example with the `viewer`
 
