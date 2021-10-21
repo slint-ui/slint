@@ -80,13 +80,13 @@ jobs:
         run: |
             mkdir bin
             cp target/release/sixtyfps-viewer bin/
-      # TODO: use tar to preserve executable permissions
+      - name: Tar artifacts to preserve permissions
+        run: tar czvf sixtyfps-viewer-linux.tar.gz bin
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
             name: sixtyfps-viewer-linux
-            path: |
-                bin
+            path: sixtyfps-viewer.tar.gz
 
   build_macos:
     runs-on: macos-latest
@@ -141,9 +141,10 @@ jobs:
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtDBus.framework ./bin
             mkdir -p ./bin/plugins/platforms
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./bin/plugins/platforms
+      - name: Tar artifacts to preserve permissions
+        run: tar czvf sixtyfps-viewer-macos.tar.gz bin
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
             name: sixtyfps-viewer-macos
-            path: |
-                bin
+            path: sixtyfps-viewer-macos.tar.gz
