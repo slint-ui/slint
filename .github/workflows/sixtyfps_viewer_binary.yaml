@@ -1,0 +1,140 @@
+name: Build sixtyfps-viewer binary
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: 5.15.2
+      - uses: Swatinem/rust-cache@v1            
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+            command: build
+            args: --verbose --no-default-features --features sixtyfps-backend-qt --release
+      - name: Create artifact directory
+        run: |
+            mkdir bin
+            cp target/release/sixtyfps-viewer.exe bin/
+            cp ..\Qt\5.15.2\msvc2019_64\bin/Qt5Core.dll bin/
+            cp ..\Qt\5.15.2\msvc2019_64\bin/Qt5Gui.dll bin/
+            cp ..\Qt\5.15.2\msvc2019_64\bin/Qt5Widgets.dll bin/
+            mkdir bin\plugins\platforms
+            cp ..\Qt\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll bin/plugins/platforms
+            mkdir bin\plugins\styles
+            cp ..\Qt\5.15.2\msvc2019_64\plugins\styles\qwindowsvistastyle.dll bin/plugins/styles
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+            name: sixtyfps-viewer-windows
+            path: |
+                bin
+
+  build_linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-unknown-linux-gnu
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v2
+        with:
+          path: ~/work/sixtyfps/Qt
+          key: ${{ runner.os }}-${{ github.job }}-Qt
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: 5.15.2
+          cached: ${{ steps.cache-qt.outputs.cache-hit }}
+      - uses: Swatinem/rust-cache@v1            
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+            command: build
+            args: --verbose --no-default-features --features sixtyfps-backend-qt --release
+      - name: Create artifact directory
+        run: |
+            mkdir bin
+            cp target/release/sixtyfps-viewer bin/
+      # TODO: use tar to preserve executable permissions
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+            name: sixtyfps-viewer-linux
+            path: |
+                bin
+
+  build_macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: x86_64-apple-darwin
+      - name: Install latest stable Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-apple-darwin
+      - name: Select XCode version
+        run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
+      - name: Select SDK
+        run: |
+          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v2
+        with:
+          path: ~/work/sixtyfps/Qt
+          key: ${{ runner.os }}-${{ github.job }}-Qt
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v2
+        with:
+          version: 6.2.0 # for Apple Silicon support
+          cached: ${{ steps.cache-qt.outputs.cache-hit }}
+      - uses: Swatinem/rust-cache@v1            
+      - name: Build x86_64
+        uses: actions-rs/cargo@v1
+        with:
+            command: build
+            args: --verbose --target x86_64-apple-darwin --no-default-features --features sixtyfps-backend-qt --release
+      - name: Build aarch64
+        uses: actions-rs/cargo@v1
+        with:
+            command: build
+            args: --verbose --target aarch64-apple-darwin --no-default-features --features sixtyfps-backend-qt --release
+      - name: Create artifact directory
+        run: |
+            mkdir bin
+            lipo -create -output bin/sixtyfps-viewer target/x86_64-apple-darwin/release/sixtyfps-viewer target/aarch64-apple-darwin/release/sixtyfps-viewer
+            install_name_tool -add_rpath @executable_path/. ./bin/sixtyfps-viewer
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtCore.framework ./bin
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtGui.framework ./bin
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtWidgets.framework ./bin
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtDBus.framework ./bin
+            mkdir -p ./bin/plugins/platforms
+            cp -a ~/work/sixtyfps-viewer/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./bin/plugins/platforms
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+            name: sixtyfps-viewer-macos
+            path: |
+                bin
