@@ -3,23 +3,25 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [0.1.4] - 2021-10-21
+
 ### Changed
 
- - The TouchArea will grab the mouse for every button instead of just the left button
- - The ScrollView's default viewport size is no longer hardcoded to 1000px. Its size now depends on the contents
+ - The TouchArea now grabs the mouse for every button instead of just the left button.
+ - The ScrollView's default viewport size is no longer hardcoded to 1000px but depends on the contents.
  - In Rust, the `sixtyfps::Model` trait deprecates the `attach_peer` function in favor of `model_tracker`, where all
    you need to do is return a reference to your `sixtyfps::ModelNotify` field.
 
 ### Added
 
  - Enable support for compressed SVG (.svgz).
- - Viewer: added possibility to set shell callback handler with `--on <callback> <handler>`
- - It is now possible to query the length of a model with `.length`
+ - Viewer: added possibility to set shell callback handler with `--on <callback> <handler>`.
+ - It is now possible to query the length of a model with `.length`.
 
 ### Fixed
 
- - Fixed the PointerEvent.kind always being down
- - LineEdit.has-hocus with the native style
+ - Fixed the `PointerEvent.kind` always being down.
+ - `LineEdit.has-hocus` with the native style
 
 ## [0.1.3] - 2021-10-06
 
@@ -292,3 +294,4 @@ All notable changes to this project will be documented in this file.
 [0.1.1]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.1
 [0.1.2]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.2
 [0.1.3]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.3
+[0.1.4]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.4
