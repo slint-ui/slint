@@ -88,7 +88,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
             name: sixtyfps-viewer-linux
-            path: sixtyfps-viewer.tar.gz
+            path: sixtyfps-viewer-linux.tar.gz
 
   build_macos:
     runs-on: macos-latest
