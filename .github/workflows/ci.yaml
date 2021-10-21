@@ -79,7 +79,8 @@ jobs:
           toolchain: stable
           profile: minimal      
     - uses: Swatinem/rust-cache@v1
-      key: ${{ steps.nodeversion.outputs.node-version }} # The cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+      with:
+          key: ${{ steps.nodeversion.outputs.node-version }} # The cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Build
       uses: actions-rs/cargo@v1
       with:
