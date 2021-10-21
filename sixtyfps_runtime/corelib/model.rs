@@ -420,6 +420,14 @@ impl<T> Model for ModelHandle<T> {
         self.0.as_ref().unwrap().set_row_data(row, data)
     }
 
+    fn attach_peer(&self, peer: ModelPeer) {
+        // Forward, in case the model doesn't provide `model_tracker` yet.
+        if let Some(model) = self.0.as_ref() {
+            #[allow(deprecated)]
+            model.attach_peer(peer);
+        }
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         self.0.as_ref().map_or(&(), |model| model.model_tracker())
     }
