@@ -172,7 +172,7 @@ The follow table summarizes the entire mapping:
 
 For user defined structures in the .60, an extra struct is generated.
 For example, if the `.60` contains
-```60
+```60,ignore
 export struct MyStruct := {
     foo: int,
     bar: string,

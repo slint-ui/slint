@@ -12,7 +12,7 @@ cargo install sixtyfps-viewer
 
 Alternatively, you can download one of our pre-built binaries for Linux or Windows:
 
-1. Open https://github.com/sixtyfpsui/sixtyfps/releases
+1. Open <https://github.com/sixtyfpsui/sixtyfps/releases>
 2. Click on the latest release
 3. From "Assets" download either `sixtyfps-viewer-linux.tar.gz` for a Linux x86-64 binary
    or `sixtyfps-viewer-windows.zip` for a Windows x86-64 binary.
