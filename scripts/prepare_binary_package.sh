@@ -81,33 +81,10 @@ cat > about.hbs <<EOT
 
         <h2>Qt License attribution</h2>
         <p>This program also uses the Qt library, which is licensed under the
-        <a href="qt/LICENSE.LGPLv3">LGPL v3</a></p>.
-        <p>Qt may include additional third-party components:</p>
-        <ul>
+        <a href="LICENSE.QT">LGPL v3</a></p>.
+        <p>Qt may include additional third-party components: <a href="QtThirdPartySoftware_Listing.txt">QtThirdPartySoftware_Listing.txt</a></p>
+    <main></body></html>
 EOT
-
-mkdir -p $target_path/qt
-attribution_files=(
-    $qt_path/Docs/Qt-$qt_version/qtcore/*-attribution-*.html
-    $qt_path/Docs/Qt-$qt_version/qtgui/*-attribution-*.html
-    $qt_path/Docs/Qt-$qt_version/qtwidgets/*-attribution-*.html
-    $qt_path/Docs/Qt-$qt_version/qtdbus/*-attribution-*.html
-)
-
-cp $qt_path/$qt_version/Src/LICENSE.LGPLv3 $target_path/qt
-
-
-for file in ${attribution_files[@]}; do
-    cp $file $target_path/qt/
-    title=`sed -n -e "s,<title>\(.*\)</title>,\1,p" < $file`
-    link=`basename $file`
-    echo "<li><a href=\"qt/$link\">$title</a></li>" >> about.hbs
-done
-
-
-
-echo "</ul><main></body></html>" >> about.hbs
-
 
 cat > about.toml << EOT
 accepted = [
@@ -131,4 +108,6 @@ ignore-build-dependencies = true
 ignore-dev-dependencies = true
 EOT
 
-cargo about about.hbs -o $target_path/index.html
+cargo about generate about.hbs -o $target_path/index.html
+
+cp sixtyfps_runtime/rendering_backends/LICENSE.QT sixtyfps_runtime/rendering_backends/QtThirdPartySoftware_Listing.txt $target_path/
