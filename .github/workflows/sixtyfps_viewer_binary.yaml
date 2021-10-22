@@ -26,7 +26,10 @@ jobs:
         uses: jurplel/install-qt-action@v2
         with:
           version: 5.15.2
-      - uses: Swatinem/rust-cache@v1            
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-about
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -74,7 +77,10 @@ jobs:
         with:
           version: 5.15.2
           cached: ${{ steps.cache-qt.outputs.cache-hit }}
-      - uses: Swatinem/rust-cache@v1            
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-about
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -124,7 +130,10 @@ jobs:
         with:
           version: 6.2.0 # for Apple Silicon support
           cached: ${{ steps.cache-qt.outputs.cache-hit }}
-      - uses: Swatinem/rust-cache@v1            
+      - uses: Swatinem/rust-cache@v1
+      - uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-about
       - name: Build x86_64
         uses: actions-rs/cargo@v1
         with:
