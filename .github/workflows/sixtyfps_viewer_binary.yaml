@@ -30,6 +30,7 @@ jobs:
       - uses: actions-rs/install@v0.1
         with:
           crate: cargo-about
+          use-tool-cache: true
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -81,6 +82,7 @@ jobs:
       - uses: actions-rs/install@v0.1
         with:
           crate: cargo-about
+          use-tool-cache: true
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -92,7 +94,7 @@ jobs:
             cp target/release/sixtyfps-viewer sixtyfps-viewer/bin/
             ./scripts/prepare_binary_package.sh sixtyfps-viewer ~/work/sixtyfps/Qt 5.15.2
       - name: Tar artifacts to preserve permissions
-        run: tar czvf sixtyfps-viewer-linux.tar.gz bin
+        run: tar czvf sixtyfps-viewer-linux.tar.gz sixtyfps-viewer
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
@@ -134,6 +136,7 @@ jobs:
       - uses: actions-rs/install@v0.1
         with:
           crate: cargo-about
+          use-tool-cache: true
       - name: Build x86_64
         uses: actions-rs/cargo@v1
         with:
@@ -148,7 +151,7 @@ jobs:
         run: |
             mkdir -p sixtyfps-viewer/bin
             cd sixtyfps-viewer
-            lipo -create -output ./bin/sixtyfps-viewer target/x86_64-apple-darwin/release/sixtyfps-viewer target/aarch64-apple-darwin/release/sixtyfps-viewer
+            lipo -create -output ./bin/sixtyfps-viewer ../target/x86_64-apple-darwin/release/sixtyfps-viewer ../target/aarch64-apple-darwin/release/sixtyfps-viewer
             install_name_tool -add_rpath @executable_path/. ./bin/sixtyfps-viewer
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtCore.framework ./bin
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtGui.framework ./bin
@@ -156,9 +159,10 @@ jobs:
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtDBus.framework ./bin
             mkdir -p ./bin/plugins/platforms
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./bin/plugins/platforms
-            ../scripts/prepare_binary_package.sh . ~/work/sixtyfps/Qt 6.2.0
+            cd ..
+            ./scripts/prepare_binary_package.sh . ~/work/sixtyfps/Qt 6.2.0
       - name: Tar artifacts to preserve permissions
-        run: tar czvf sixtyfps-viewer-macos.tar.gz bin
+        run: tar czvf sixtyfps-viewer-macos.tar.gz sixtyfps-viewer
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
