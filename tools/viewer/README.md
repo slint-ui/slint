@@ -87,5 +87,5 @@ The program returns with the following error code:
 
 ## Examples
 
-`sixtyfps-viewer` can be used to display an GUI from a shell script.
-We have [a few examples](https://github.com/sixtyfpsui/sixtyfps/tree/master/examples/bash)
+`sixtyfps-viewer` can be used to display an GUI from a shell script. For examples check out the
+[examples/bash](https://github.com/sixtyfpsui/sixtyfps/tree/master/examples/bash) folder in our repository.
