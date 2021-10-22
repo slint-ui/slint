@@ -238,11 +238,9 @@ lazy_static! {
         (".+\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".*README$", LicenseLocation::NoLicense),
-        (".*README\\.txt$", LicenseLocation::NoLicense),
         ("LICENSE\\..*", LicenseLocation::NoLicense),
         ("LICENSE-DejaVu", LicenseLocation::NoLicense),
-        ("^examples/slide_puzzle/plaster-font/OFL.txt$", LicenseLocation::NoLicense),
-        ("^examples/printerdemo/ui/fonts/LICENSE_OFL.txt$", LicenseLocation::NoLicense),
+        (".+\\.txt$", LicenseLocation::NoLicense),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
