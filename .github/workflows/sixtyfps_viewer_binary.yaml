@@ -53,7 +53,7 @@ jobs:
             cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\styles\qwindowsvistastyle.dll bin/plugins/styles
             cd ..
             cd ..
-            ./scripts/prepare_binary_package.sh pkg\sixtyfps-viewer ..\Qt 5.15.2
+            bash -x ./scripts/prepare_binary_package.sh pkg\sixtyfps-viewer ..\Qt 5.15.2
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
