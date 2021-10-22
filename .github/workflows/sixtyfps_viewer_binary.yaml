@@ -49,7 +49,8 @@ jobs:
             cp ..\..\Qt\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll bin/plugins/platforms
             mkdir bin\plugins\styles
             cp ..\..\Qt\5.15.2\msvc2019_64\plugins\styles\qwindowsvistastyle.dll bin/plugins/styles
-            ../scripts/prepare_binary_package.sh sixtyfps-viewer ..\..\Qt 5.15.2
+            cd ..
+            ./scripts/prepare_binary_package.sh sixtyfps-viewer ..\Qt 5.15.2
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
@@ -160,7 +161,7 @@ jobs:
             mkdir -p ./bin/plugins/platforms
             cp -a ~/work/sixtyfps/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./bin/plugins/platforms
             cd ..
-            ./scripts/prepare_binary_package.sh . ~/work/sixtyfps/Qt 6.2.0
+            ./scripts/prepare_binary_package.sh sixtyfps-viewer ~/work/sixtyfps/Qt 6.2.0
       - name: Tar artifacts to preserve permissions
         run: tar czvf sixtyfps-viewer-macos.tar.gz sixtyfps-viewer
       - name: Upload artifact
