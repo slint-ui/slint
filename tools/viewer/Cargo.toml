@@ -11,7 +11,9 @@ homepage = "https://sixtyfps.io"
 [features]
 sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]
 sixtyfps-backend-gl = ["sixtyfps-interpreter/backend-gl"]
-default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl"]
+x11 = ["sixtyfps-interpreter/x11"]
+wayland = ["sixtyfps-interpreter/wayland"]
+default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.4", path="../../sixtyfps_runtime/corelib" }
