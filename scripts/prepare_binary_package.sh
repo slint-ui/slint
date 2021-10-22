@@ -50,10 +50,19 @@ attribution_files=(
 
 cp $qt_path/$qt_version/Src/LICENSE.LGPLv3 $target_path/qt
 
+cat >$target_path/qt/index.html <<EOT
+<html><head><title>Qt Licenses Attributions</title></head>
+<body><h1>Qt Licenses Attributions</h1>
+<p><a href="LICENSE.LGPLv3">LICENSE.LGPLv3<+a></p>
+<ul>
+
+EOT
+
 for file in ${attribution_files[@]}; do
     cp $file $target_path/qt/
     title=`sed -n -e "s,<title>\(.*\)</title>,\1,p" < $file`
     link=`basename $file`
-    echo "[$title]($link)" >> $target_path/index.md
-    echo "" >> $target_path/qt/index.md
+    echo "<li><a href=\"$link\">$title</a></li>" >> $target_path/qt/index.html
 done
+
+echo "</ul></body></html>" > $target_path/qt/index.html
