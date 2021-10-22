@@ -42,15 +42,14 @@ jobs:
             cd pkg
             mkdir sixtyfps-viewer
             cd sixtyfps-viewer
-            mkdir bin
-            cp ..\..\target/release/sixtyfps-viewer.exe bin/
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Core.dll bin/
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Gui.dll bin/
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Widgets.dll bin/
-            mkdir bin\plugins\platforms
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll bin/plugins/platforms
-            mkdir bin\plugins\styles
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\styles\qwindowsvistastyle.dll bin/plugins/styles
+            cp ..\..\target/release/sixtyfps-viewer.exe ./
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Core.dll ./
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Gui.dll ./
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Widgets.dll ./
+            mkdir .\plugins\platforms
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll ./plugins/platforms
+            mkdir .\plugins\styles
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\styles\qwindowsvistastyle.dll ./plugins/styles
             cd ..
             cd ..
             bash -x ./scripts/prepare_binary_package.sh pkg\sixtyfps-viewer ..\Qt 5.15.2
@@ -94,8 +93,8 @@ jobs:
             args: --verbose --no-default-features --features sixtyfps-backend-qt --release -p sixtyfps-viewer
       - name: Create artifact directory
         run: |
-            mkdir -p sixtyfps-viewer/bin
-            cp target/release/sixtyfps-viewer sixtyfps-viewer/bin/
+            mkdir -p sixtyfps-viewer
+            cp target/release/sixtyfps-viewer sixtyfps-viewer/
             ./scripts/prepare_binary_package.sh sixtyfps-viewer ~/work/sixtyfps/Qt 5.15.2
       - name: Tar artifacts to preserve permissions
         run: tar czvf sixtyfps-viewer-linux.tar.gz sixtyfps-viewer
@@ -153,16 +152,16 @@ jobs:
             args: --verbose --target aarch64-apple-darwin --no-default-features --features sixtyfps-backend-qt --release -p sixtyfps-viewer
       - name: Create artifact directory
         run: |
-            mkdir -p sixtyfps-viewer/bin
+            mkdir -p sixtyfps-viewer
             cd sixtyfps-viewer
-            lipo -create -output ./bin/sixtyfps-viewer ../target/x86_64-apple-darwin/release/sixtyfps-viewer ../target/aarch64-apple-darwin/release/sixtyfps-viewer
-            install_name_tool -add_rpath @executable_path/. ./bin/sixtyfps-viewer
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtCore.framework ./bin
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtGui.framework ./bin
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtWidgets.framework ./bin
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtDBus.framework ./bin
-            mkdir -p ./bin/plugins/platforms
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./bin/plugins/platforms
+            lipo -create -output ./sixtyfps-viewer ../target/x86_64-apple-darwin/release/sixtyfps-viewer ../target/aarch64-apple-darwin/release/sixtyfps-viewer
+            install_name_tool -add_rpath @executable_path/. ./sixtyfps-viewer
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtCore.framework ./
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtGui.framework ./
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtWidgets.framework ./
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtDBus.framework ./
+            mkdir -p ./plugins/platforms
+            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
             cd ..
             ./scripts/prepare_binary_package.sh sixtyfps-viewer ~/work/sixtyfps/Qt 6.2.0
       - name: Tar artifacts to preserve permissions
