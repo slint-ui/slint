@@ -16,8 +16,7 @@ Alternatively, you can download one of our pre-built binaries for Linux or Windo
 2. Click on the latest release
 3. From "Assets" download either `sixtyfps-viewer-linux.tar.gz` for a Linux x86-64 binary
    or `sixtyfps-viewer-windows.zip` for a Windows x86-64 binary.
-4. Uncompress the downloaded archive and find `sixtyfps-viewer`/`sixtyfps-viewer.exe` in the
-   `bin` sub-directory.
+4. Uncompress the downloaded archive and run `sixtyfps-viewer`/`sixtyfps-viewer.exe`.
 
 ## Usage
 
