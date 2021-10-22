@@ -31,10 +31,10 @@ mkdir -p $target_path
 cp -a `dirname $0`/../LICENSE.md $target_path
 
 cat >$target_path/index.md <<EOT
-This program is distributed under the terms outlined in [LICENSE.md]().
+This program is distributed under the terms outlined in [LICENSE.md](LICENSE.md).
 
 This program also uses the Qt library, which is licensed under the
-LGPL v3: [qt/LICENSE.LGPLv3]().
+LGPL v3: [qt/LICENSE.LGPLv3](qt/LICENSE.LGPLv3).
 
 Qt may include additional third-party components:
 
