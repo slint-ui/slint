@@ -38,26 +38,29 @@ jobs:
             args: --verbose --no-default-features --features sixtyfps-backend-qt --release -p sixtyfps-viewer
       - name: Create artifact directory
         run: |
+            mkdir pkg
+            cd pkg
             mkdir sixtyfps-viewer
             cd sixtyfps-viewer
             mkdir bin
-            cp ..\target/release/sixtyfps-viewer.exe bin/
-            cp ..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Core.dll bin/
-            cp ..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Gui.dll bin/
-            cp ..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Widgets.dll bin/
+            cp ..\..\target/release/sixtyfps-viewer.exe bin/
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Core.dll bin/
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Gui.dll bin/
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Widgets.dll bin/
             mkdir bin\plugins\platforms
-            cp ..\..\Qt\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll bin/plugins/platforms
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll bin/plugins/platforms
             mkdir bin\plugins\styles
-            cp ..\..\Qt\5.15.2\msvc2019_64\plugins\styles\qwindowsvistastyle.dll bin/plugins/styles
+            cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\styles\qwindowsvistastyle.dll bin/plugins/styles
             cd ..
-            ./scripts/prepare_binary_package.sh sixtyfps-viewer ..\Qt 5.15.2
+            cd ..
+            ./scripts/prepare_binary_package.sh pkg\sixtyfps-viewer ..\Qt 5.15.2
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
             name: sixtyfps-viewer-windows
             path: |
-                sixtyfps-viewer
+                pkg
 
   build_linux:
     runs-on: ubuntu-20.04
