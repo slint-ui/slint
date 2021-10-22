@@ -2,7 +2,7 @@
 
 This program is a viewer for `.60` files from the [SixtyFPS Project](https://sixtyfps.io).
 
-## Usage
+## Installation
 
 The viewer can be installed from crates.io:
 
@@ -10,7 +10,18 @@ The viewer can be installed from crates.io:
 cargo install sixtyfps-viewer
 ```
 
-Then you can open .60 files by just passing it as an argument:
+Alternatively, you can download one of our pre-built binaries for Linux or Windows:
+
+1. Open https://github.com/sixtyfpsui/sixtyfps/releases
+2. Click on the latest release
+3. From "Assets" download either `sixtyfps-viewer-linux.tar.gz` for a Linux x86-64 binary
+   or `sixtyfps-viewer-windows.zip` for a Windows x86-64 binary.
+4. Uncompress the downloaded archive and find `sixtyfps-viewer`/`sixtyfps-viewer.exe` in the
+   `bin` sub-directory.
+
+## Usage
+
+You can open .60 files by just passing it as an argument:
 
 ```bash
 sixtyfps-viewer path/to/myfile.60
