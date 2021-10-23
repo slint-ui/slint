@@ -257,6 +257,7 @@ Example := Window {
 ```
 
 * **`length`**: One can query the length of an array and model using the builtin `.length` property.
+* **`array[index]`**: Individual elements of an array can be retrieved using the `array[index]` syntax.
 
 ### Conversions
 

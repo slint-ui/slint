@@ -841,13 +841,16 @@ impl Expression {
             &mut ctx.diag,
         );
 
-        if let Type::Array(_) = array_expr.ty() {
-            Expression::ArrayIndex {
-                array: Box::new(array_expr),
-                index: Box::new(index_expr),
-            }
-        } else {
-            panic!();
+        let ty = array_expr.ty();
+        if let Type::Array(_) = ty {} else {
+            ctx.diag.push_error(
+                format!("{} is not an indexable type", ty),
+                &node,
+            );
+        }
+        Expression::ArrayIndex {
+            array: Box::new(array_expr),
+            index: Box::new(index_expr),
         }
     }
 
