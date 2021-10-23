@@ -811,7 +811,7 @@ impl Expression {
             Expression::FunctionParameterReference { .. } => false,
             Expression::BuiltinMacroReference { .. } => true,
             Expression::StructFieldAccess { base, .. } => base.is_constant(),
-            Expression::ArrayIndex { array, .. } => array.is_constant(),
+            Expression::ArrayIndex { array, index } => array.is_constant() && index.is_constant(),
             Expression::Cast { from, .. } => from.is_constant(),
             Expression::CodeBlock(sub) => sub.len() == 1 && sub.first().unwrap().is_constant(),
             Expression::FunctionCall { function, arguments, .. } => {
