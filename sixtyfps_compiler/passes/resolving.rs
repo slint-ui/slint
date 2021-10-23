@@ -833,7 +833,6 @@ impl Expression {
         ctx: &mut LookupCtx,
     ) -> Expression {
         let (array_expr_n, index_expr_n) = node.Expression();
-        
         let array_expr = Self::from_expression_node(array_expr_n, ctx);
         let index_expr = Self::from_expression_node(index_expr_n.clone(), ctx).maybe_convert_to(
             Type::Int32,
@@ -842,16 +841,11 @@ impl Expression {
         );
 
         let ty = array_expr.ty();
-        if let Type::Array(_) = ty {} else {
-            ctx.diag.push_error(
-                format!("{} is not an indexable type", ty),
-                &node,
-            );
+        if let Type::Array(_) = ty {
+        } else {
+            ctx.diag.push_error(format!("{} is not an indexable type", ty), &node);
         }
-        Expression::ArrayIndex {
-            array: Box::new(array_expr),
-            index: Box::new(index_expr),
-        }
+        Expression::ArrayIndex { array: Box::new(array_expr), index: Box::new(index_expr) }
     }
 
     fn from_object_literal_node(

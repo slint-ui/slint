@@ -513,9 +513,7 @@ impl Expression {
                 _ => Type::Invalid,
             },
             Expression::ArrayIndex { array, .. } => match array.ty() {
-                Type::Array(ty) => {
-                    (*ty).clone()
-                }
+                Type::Array(ty) => (*ty).clone(),
                 _ => Type::Invalid,
             },
             Expression::Cast { to, .. } => to.clone(),
