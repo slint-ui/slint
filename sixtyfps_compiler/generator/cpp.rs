@@ -1681,7 +1681,7 @@ fn compile_expression(
         },
         Expression::ArrayIndex { array, index } => match array.ty() {
             Type::Array(_) => {
-                format!("({}).row_data({})", compile_expression(array, component), compile_expression(index, component))
+                format!("({})->row_data({})", compile_expression(array, component), compile_expression(index, component))
             }
             _ => panic!("Expression::ArrayIndex's base expression is not an Array type"),
         },
