@@ -1306,7 +1306,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             Type::Array(_) => {
                 let base_e = compile_expression(array, component);
                 let index_e = compile_expression(index, component);
-                quote!((#base_e).row_data(#index_e))
+                quote!((#base_e).row_data((#index_e) as usize))
             }
             _ => panic!("Expression::ArrayIndex's base expression is not an Array type"),
         },
