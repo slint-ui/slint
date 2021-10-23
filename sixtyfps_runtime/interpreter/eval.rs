@@ -177,6 +177,25 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 Value::Void
             }
         }
+        Expression::ArrayIndex { array, index } => {
+            let array = eval_expression(array, local_context);
+            let index = eval_expression(index, local_context);
+            match (array, index) {
+                (Value::Array(vec), Value::Number(index)) => {
+                    vec.as_slice().get(index as usize).cloned().unwrap_or(Value::Void)
+                }
+                (Value::Model(model), Value::Number(index)) => {
+                    if (index as usize) < model.row_count() {
+                        model.row_data(index as usize)
+                    } else {
+                        Value::Void
+                    }
+                }
+                _ => {
+                    Value::Void
+                }
+            }
+        }
         Expression::Cast { from, to } => {
             let v = eval_expression(&*from, local_context);
             match (v, to) {
