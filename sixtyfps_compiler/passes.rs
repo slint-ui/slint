@@ -108,10 +108,10 @@ pub async fn run_passes(
         );
         default_geometry::default_geometry(component, diag);
         visible::handle_visible(component, &global_type_registry.borrow());
+        materialize_fake_properties::materialize_fake_properties(component);
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
-    materialize_fake_properties::materialize_fake_properties(root_component);
     ensure_window::ensure_window(root_component, &doc.local_registry);
     apply_default_properties_from_style::apply_default_properties_from_style(
         root_component,
