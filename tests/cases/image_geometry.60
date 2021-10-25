@@ -8,6 +8,12 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 //include_path: ../../examples/printerdemo/ui/images/
+
+FixedWidthtImage := Image {
+    source: @image-url("cat_preview_round.png");
+    width: 500phx;
+}
+
 TestCase := Rectangle {
     fixed_image := Image {
         width: 50phx;
@@ -27,9 +33,7 @@ TestCase := Rectangle {
         }
     }
 
-    image_with_missing_height := Image {
-        source: @image-url("cat_preview_round.png");
-        width: 500phx;
+    image_with_missing_height := FixedWidthtImage {
         property <bool> expected_height_ok: self.height == 750phx;
     }
 

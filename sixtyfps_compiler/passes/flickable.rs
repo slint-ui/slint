@@ -159,7 +159,7 @@ fn set_binding_if_not_explicit(
     // we can't use `set_binding_if_not_set` directly because `expression()` may borrow `elem`
     if elem.borrow().bindings.get(property).map_or(true, |b| !b.has_binding()) {
         if let Some(e) = expression() {
-            elem.borrow_mut().bindings.set_binding_if_not_set(property.into(), || e);
+            elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
         }
     }
 }

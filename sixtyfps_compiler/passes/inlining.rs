@@ -169,6 +169,14 @@ fn inline_element(
         }
     }
 
+    if let Some(orig) = &inlined_component.root_element.borrow().layout_info_prop {
+        if let Some(_new) = &mut elem_mut.layout_info_prop {
+            todo!("Merge layout infos");
+        } else {
+            elem_mut.layout_info_prop = Some(orig.clone());
+        }
+    }
+
     core::mem::drop(elem_mut);
 
     // Now fixup all binding and reference
@@ -438,11 +446,17 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         return true;
     }
 
-    for prop in root_element.borrow().bindings.keys() {
+    for (prop, binding) in &root_element.borrow().bindings {
         // The passes that dp the drop shadow or the opacity currently won't allow this property
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-") || prop == "opacity" {
             return true;
+        }
+        if prop == "height" || prop == "width" {
+            if binding.expression.ty() == Type::Percent {
+                // percentage size in the root element might not make sense anyway.
+                return true;
+            }
         }
     }
 

@@ -37,13 +37,13 @@ pub async fn apply_default_properties_from_style(
             let mut elem = elem.borrow_mut();
             match elem.base_type.to_string().as_str() {
                 "TextInput" => {
-                    elem.bindings.set_binding_if_not_set("text-cursor-width".into(), || {
+                    elem.set_binding_if_not_set("text-cursor-width".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
                             "text-cursor-width",
                         ))
                     });
-                    elem.bindings.set_binding_if_not_set("color".into(), || Expression::Cast {
+                    elem.set_binding_if_not_set("color".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
                             "default-text-color",
@@ -53,7 +53,7 @@ pub async fn apply_default_properties_from_style(
                     });
                 }
                 "Text" => {
-                    elem.bindings.set_binding_if_not_set("color".into(), || Expression::Cast {
+                    elem.set_binding_if_not_set("color".into(), || Expression::Cast {
                         from: Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
                             "default-text-color",
@@ -63,7 +63,7 @@ pub async fn apply_default_properties_from_style(
                     });
                 }
                 "Dialog" | "Window" | "WindowItem" => {
-                    elem.bindings.set_binding_if_not_set("background".into(), || {
+                    elem.set_binding_if_not_set("background".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
                             "window-background",

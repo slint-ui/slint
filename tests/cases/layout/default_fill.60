@@ -7,6 +7,13 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+SubSub := Rectangle {
+    width: 30phx;
+}
+
+Sub := SubSub {}
+
 TestCase := Rectangle {
     width: 300phx;
     height: 200phx;
@@ -18,9 +25,14 @@ TestCase := Rectangle {
         height: 50%;
     }
 
+    elem4 := Sub { }
+
     property <bool> elem1_ok: elem1.width == 300phx && elem1.height == 200phx;
     property <bool> elem2_ok: elem2.width == 300phx && elem2.height == 200phx;
-    property <bool> elem3_ok: elem2.width == 300phx && elem3.height == 200phx / 2;
+    property <bool> elem3_ok: elem3.width == 300phx && elem3.height == 200phx / 2;
+    property <bool> elem4_ok: elem4.width == 30phx && elem4.height == 200phx;
+
+    property<bool> test: elem1_ok && elem2_ok && elem3_ok && elem4_ok;
 }
 
 /*
@@ -31,6 +43,7 @@ const TestCase &instance = *handle;
 assert(instance.get_elem1_ok());
 assert(instance.get_elem2_ok());
 assert(instance.get_elem3_ok());
+assert(instance.get_elem4_ok());
 ```
 
 
@@ -39,6 +52,7 @@ let instance = TestCase::new();
 assert!(instance.get_elem1_ok());
 assert!(instance.get_elem2_ok());
 assert!(instance.get_elem3_ok());
+assert!(instance.get_elem4_ok());
 ```
 
 */

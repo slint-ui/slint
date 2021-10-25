@@ -7,6 +7,62 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+
+RectRed := Rectangle {
+    background: red;
+    min_width: 200phx;
+    horizontal-stretch: 0;
+    HorizontalLayout {
+        spacing: 10px;
+        padding: 0phx;
+        rect_green := Rectangle {
+            background: green;
+            max_width: 50phx;
+            max_height: 50phx;
+        }
+        rect_pink := Rectangle {
+            background: pink;
+        }
+    }
+
+    property <bool> rect_green_ok:
+        rect_green.x == 0phx &&
+        rect_green.y == 0phx &&
+        rect_green.width == 50phx &&
+        rect_green.height == 50phx;
+    property <bool> rect_pink_ok:
+        rect_pink.x == 60phx &&
+        rect_pink.y == 0phx &&
+        rect_pink.width == 140phx &&
+        rect_pink.height == 50phx;
+}
+
+RedBlue := HorizontalLayout {
+    spacing: 0phx;
+    padding: 0phx;
+
+    rect_red := RectRed {}
+    rect_blue := Rectangle {
+        horizontal-stretch: 1;
+        background: blue;
+    }
+
+    property rect_green_ok <=> rect_red.rect_green_ok;
+    property rect_pink_ok <=> rect_red.rect_pink_ok;
+
+    property <bool> rect_blue_ok:
+        rect_blue.x == 200phx &&
+        rect_blue.y == 0phx &&
+        rect_blue.width == 100phx &&
+        rect_blue.height == 50phx;
+    property <bool> rect_red_ok:
+        rect_red.x == 0phx &&
+        rect_red.y == 0phx &&
+        rect_red.width == 200phx &&
+        rect_red.height == 50phx;
+}
+
 TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
@@ -19,32 +75,7 @@ TestCase := Rectangle {
             background: orange;
             max_height: 10phx;
         }
-        hl_redblue := HorizontalLayout {
-            spacing: 0phx;
-            padding: 0phx;
-
-            rect_red := Rectangle {
-                background: red;
-                min_width: 200phx;
-                horizontal-stretch: 0;
-                HorizontalLayout {
-                    spacing: 10px;
-                    padding: 0phx;
-                    rect_green := Rectangle {
-                        background: green;
-                        max_width: 50phx;
-                        max_height: 50phx;
-                    }
-                    rect_pink := Rectangle {
-                        background: pink;
-                    }
-                }
-            }
-            rect_blue := Rectangle {
-                horizontal-stretch: 1;
-                background: blue;
-            }
-        }
+        hl_redblue := RedBlue {}
         rect_yellow := Rectangle {
             background: yellow;
             HorizontalLayout {
@@ -94,25 +125,9 @@ TestCase := Rectangle {
         rect_orange.width == 300phx &&
         rect_orange.height == 10phx;
     property <bool> rect_blue_ok:
-        rect_blue.x == 200phx &&
-        hl_redblue.y == 10phx && rect_blue.y == 0phx &&
-        rect_blue.width == 100phx &&
-        rect_blue.height == 50phx;
+        hl_redblue.y == 10phx && hl-redblue.rect-blue-ok;
     property <bool> rect_red_ok:
-        rect_red.x == 0phx &&
-        hl_redblue.y == 10phx && rect_red.y == 0phx &&
-        rect_red.width == 200phx &&
-        rect_red.height == 50phx;
-    property <bool> rect_green_ok:
-        rect_green.x == 0phx &&
-        rect_green.y == 0phx &&
-        rect_green.width == 50phx &&
-        rect_green.height == 50phx;
-    property <bool> rect_pink_ok:
-        rect_pink.x == 60phx &&
-        rect_pink.y == 0phx &&
-        rect_pink.width == 140phx &&
-        rect_pink.height == 50phx;
+        hl_redblue.y == 10phx && hl-redblue.rect-red-ok;
     property <bool> rect_yellow_ok:
         rect_yellow.x == 0phx &&
         rect_yellow.y == 60phx &&
@@ -128,6 +143,9 @@ TestCase := Rectangle {
         rect_black2.y + vl2.y == 2phx &&
         rect_black2.width == 1phx * (300 - 18 - 2)/2 &&
         rect_black2.height == 1phx * (240 - 6 - 10)/2 ;
+
+    property rect_green_ok <=> hl_redblue.rect_green_ok;
+    property rect_pink_ok <=> hl_redblue.rect_pink_ok;
 
     property <bool> test: rect_orange_ok && rect_blue_ok && rect_red_ok && rect_green_ok && rect_pink_ok && rect_yellow_ok && rect_black1_ok && rect_black2_ok;
 }

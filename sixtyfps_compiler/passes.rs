@@ -106,11 +106,10 @@ pub async fn run_passes(
             &global_type_registry.borrow(),
             diag,
         );
+        default_geometry::default_geometry(component, diag);
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
-
-    default_geometry::default_geometry(root_component, diag);
     visible::handle_visible(root_component, &global_type_registry.borrow());
     materialize_fake_properties::materialize_fake_properties(root_component);
     ensure_window::ensure_window(root_component, &doc.local_registry);
