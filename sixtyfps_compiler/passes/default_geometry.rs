@@ -35,8 +35,8 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
 
             gen_layout_info_prop(elem);
 
-            let base_type = elem.borrow().base_type.clone();
-            if let (Some(parent), Type::Builtin(builtin_type)) = (parent, base_type) {
+            let base_type = elem.borrow().builtin_type();
+            if let (Some(parent), Some(builtin_type)) = (parent, base_type) {
                 match builtin_type.default_size_binding {
                     DefaultSizeBinding::None => {}
                     DefaultSizeBinding::ExpandsToParentGeometry => {
@@ -53,16 +53,13 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                                 property_type == Type::LogicalLength
                             });
 
-                            elem.borrow_mut()
-                                .bindings
-                                .get(property)
-                                .map_or(false, |b| b.priority > 0)
+                            elem.borrow().is_binding_set(property, true)
                         };
 
                         let width_specified = has_length_property_binding(elem, "width");
                         let height_specified = has_length_property_binding(elem, "height");
 
-                        let is_image = matches!(elem.borrow().builtin_type(), Some(builtin) if builtin.name == "Image");
+                        let is_image = builtin_type.name == "Image";
 
                         if !elem.borrow().child_of_layout {
                             // Add aspect-ratio preserving width or height bindings
@@ -87,7 +84,7 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                                     property_type: image_fit_prop_type,
                                 } = elem.borrow().lookup_property("image-fit");
 
-                                elem.borrow_mut().bindings.set_binding_if_not_set(
+                                elem.borrow_mut().set_binding_if_not_set(
                                     image_fit_prop_name.into(),
                                     || {
                                         Expression::EnumerationValue(
@@ -205,15 +202,16 @@ fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str
     if property_type != Type::LogicalLength {
         return;
     }
-    elem.borrow_mut().bindings.set_binding_if_not_set(resolved_name.to_string(), || {
+    elem.borrow_mut().set_binding_if_not_set(resolved_name.to_string(), || {
         Expression::PropertyReference(NamedReference::new(parent_element, resolved_name.as_ref()))
     });
 }
 
 fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientation) {
     let base = crate::layout::implicit_layout_info_call(elem, orientation).into();
-    elem.borrow_mut().bindings.set_binding_if_not_set(property.into(), || {
-        Expression::StructFieldAccess { base, name: "preferred".into() }
+    elem.borrow_mut().set_binding_if_not_set(property.into(), || Expression::StructFieldAccess {
+        base,
+        name: "preferred".into(),
     });
 }
 
@@ -229,7 +227,7 @@ fn make_default_aspect_ratio_preserving_binding(
     missing_size_property: &str,
     given_size_property: &str,
 ) {
-    if elem.borrow().bindings.contains_key(missing_size_property) {
+    if elem.borrow().is_binding_set(missing_size_property, false) {
         return;
     }
 

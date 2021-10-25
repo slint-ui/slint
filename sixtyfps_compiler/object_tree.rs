@@ -391,28 +391,6 @@ impl Clone for PropertyAnimation {
 #[derive(Debug, Clone, Default, derive_more::Deref, derive_more::DerefMut)]
 pub struct BindingsMap(BTreeMap<String, BindingExpression>);
 
-impl BindingsMap {
-    pub fn set_binding_if_not_set(
-        &mut self,
-        property_name: String,
-        expression_fn: impl FnOnce() -> Expression,
-    ) {
-        match self.0.entry(property_name) {
-            Entry::Vacant(vacant_entry) => {
-                let mut binding: BindingExpression = expression_fn().into();
-                binding.priority = i32::MAX;
-                vacant_entry.insert(binding);
-            }
-            Entry::Occupied(mut existing_entry) if !existing_entry.get().has_binding() => {
-                let mut binding: BindingExpression = expression_fn().into();
-                binding.priority = i32::MAX;
-                existing_entry.get_mut().merge_with(&binding);
-            }
-            _ => {}
-        };
-    }
-}
-
 impl IntoIterator for BindingsMap {
     type Item = (String, BindingExpression);
 
@@ -1178,6 +1156,49 @@ impl Element {
             .and_then(|n| n.child_token(parser::SyntaxKind::Identifier))
             .map(|n| n.to_string())
             .unwrap_or_else(|| self.id.clone())
+    }
+
+    /// Return true if the binding is set, either on this element or in a base
+    ///
+    /// If `need_explicit` is true, then only consider binding set in the code, not the ones set
+    /// by the compiler later.
+    pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
+        if self
+            .bindings
+            .get(property_name)
+            .map_or(false, |b| b.has_binding() && (!need_explicit || b.priority > 0))
+        {
+            true
+        } else if let Type::Component(base) = &self.base_type {
+            base.root_element.borrow().is_binding_set(property_name, need_explicit)
+        } else {
+            false
+        }
+    }
+
+    /// Set the property `property_name` of this Element only if it was not set.
+    /// the `expression_fn` will only be called if it isn't set
+    pub fn set_binding_if_not_set(
+        &mut self,
+        property_name: String,
+        expression_fn: impl FnOnce() -> Expression,
+    ) {
+        if self.is_binding_set(&property_name, false) {
+            return;
+        }
+
+        match self.bindings.entry(property_name) {
+            Entry::Vacant(vacant_entry) => {
+                let mut binding: BindingExpression = expression_fn().into();
+                binding.priority = i32::MAX;
+                vacant_entry.insert(binding);
+            }
+            Entry::Occupied(mut existing_entry) => {
+                let mut binding: BindingExpression = expression_fn().into();
+                binding.priority = i32::MAX;
+                existing_entry.get_mut().merge_with(&binding);
+            }
+        };
     }
 }
 
