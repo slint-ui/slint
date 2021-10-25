@@ -159,11 +159,13 @@ fn inline_element(
     for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
         match elem_mut.bindings.entry(k.clone()) {
             std::collections::btree_map::Entry::Vacant(entry) => {
-                entry.insert(val.clone()).priority += 1;
+                let priority = &mut entry.insert(val.clone()).priority;
+                *priority = priority.saturating_add(1);
             }
             std::collections::btree_map::Entry::Occupied(mut entry) => {
-                if entry.get_mut().merge_with(val) {
-                    entry.get_mut().priority += 1;
+                let entry = entry.get_mut();
+                if entry.merge_with(val) {
+                    entry.priority = entry.priority.saturating_add(1);
                 }
             }
         }
