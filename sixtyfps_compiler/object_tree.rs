@@ -1406,7 +1406,9 @@ pub fn recurse_elem_including_sub_components<State>(
         ));
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
-                recurse_elem_including_sub_components(base, state, vis);
+                if base.parent_element.upgrade().is_some() {
+                    recurse_elem_including_sub_components(base, state, vis);
+                }
             }
         }
         vis(elem, state)
