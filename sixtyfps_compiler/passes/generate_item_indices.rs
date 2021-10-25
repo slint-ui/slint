@@ -15,7 +15,9 @@ pub fn generate_item_indices(component: &std::rc::Rc<crate::object_tree::Compone
         if item.base_type == crate::langtype::Type::Void {
         } else {
             if let crate::langtype::Type::Component(c) = &item.base_type {
-                generate_item_indices(c);
+                if c.parent_element.upgrade().is_some() {
+                    generate_item_indices(c);
+                }
             }
             item.item_index.set(current_item_index).unwrap();
             current_item_index += 1;
