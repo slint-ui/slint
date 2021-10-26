@@ -79,9 +79,12 @@ pub async fn run_passes(
 
     embed_images::embed_images(root_component, compiler_config.embed_resources, diag);
 
-    for component in (root_component.used_types.borrow().sub_components.iter())
+    let mut roots = (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
-    {
+        .cloned()
+        .collect::<Vec<_>>();
+
+    for component in &roots {
         focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
         focus_item::determine_initial_focus_item(component, diag);
         focus_item::erase_forward_focus_properties(component);
@@ -102,12 +105,9 @@ pub async fn run_passes(
         visible::handle_visible(component, &global_type_registry.borrow());
         materialize_fake_properties::materialize_fake_properties(component);
     }
-
     ensure_window::ensure_window(root_component, &doc.local_registry);
 
-    for component in (root_component.used_types.borrow().sub_components.iter())
-        .chain(std::iter::once(root_component))
-    {
+    for component in &roots {
         apply_default_properties_from_style::apply_default_properties_from_style(
             component,
             &mut type_loader,
@@ -117,17 +117,33 @@ pub async fn run_passes(
     }
     collect_globals::collect_globals(&doc, diag);
 
-    inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
-    unique_id::assign_unique_id(root_component);
-    binding_analysis::binding_analysis(root_component, diag);
-    deduplicate_property_read::deduplicate_property_read(root_component);
-    optimize_useless_rectangles::optimize_useless_rectangles(root_component);
-    move_declarations::move_declarations(root_component, diag);
-    remove_aliases::remove_aliases(root_component, diag);
-    resolve_native_classes::resolve_native_classes(root_component);
-    remove_unused_properties::remove_unused_properties(root_component);
-    collect_structs::collect_structs(root_component, diag);
-    generate_item_indices::generate_item_indices(root_component);
+    let disable_inlining = match std::env::var("SIXTYFPS_DISABLE_INLINING") {
+        Ok(var) => var.parse().unwrap_or_else(|_| {
+            panic!("SIXTYFPS_INLINE has incorrect value. Must be either unset, 'true' or 'false'")
+        }),
+        Err(_) => true,
+    };
+    if !disable_inlining {
+        inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
+        roots.clear();
+        roots.push(root_component.clone());
+    }
+
+    for component in &roots {
+        unique_id::assign_unique_id(component);
+        binding_analysis::binding_analysis(component, diag);
+        deduplicate_property_read::deduplicate_property_read(component);
+        optimize_useless_rectangles::optimize_useless_rectangles(component);
+        move_declarations::move_declarations(component, diag);
+        remove_aliases::remove_aliases(component, diag);
+
+        resolve_native_classes::resolve_native_classes(component);
+
+        remove_unused_properties::remove_unused_properties(component);
+        collect_structs::collect_structs(component, diag);
+        generate_item_indices::generate_item_indices(component);
+    }
+
     collect_custom_fonts::collect_custom_fonts(
         root_component,
         std::iter::once(&*doc).chain(type_loader.all_documents()),
