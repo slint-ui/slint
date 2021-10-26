@@ -121,7 +121,7 @@ pub async fn run_passes(
         Ok(var) => var.parse().unwrap_or_else(|_| {
             panic!("SIXTYFPS_INLINE has incorrect value. Must be either unset, 'true' or 'false'")
         }),
-        Err(_) => true,
+        Err(_) => false,
     };
     if !disable_inlining {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
