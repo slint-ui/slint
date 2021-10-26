@@ -67,11 +67,7 @@ pub async fn run_passes(
     check_public_api::check_public_api(doc, diag);
 
     collect_subcomponents::collect_subcomponents(root_component);
-    for component in root_component
-        .used_types
-        .borrow()
-        .sub_components
-        .iter()
+    for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
     {
         compile_paths::compile_paths(component, &doc.local_registry, diag);
@@ -83,11 +79,7 @@ pub async fn run_passes(
 
     embed_images::embed_images(root_component, compiler_config.embed_resources, diag);
 
-    for component in root_component
-        .used_types
-        .borrow()
-        .sub_components
-        .iter()
+    for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
     {
         focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
@@ -111,14 +103,20 @@ pub async fn run_passes(
         materialize_fake_properties::materialize_fake_properties(component);
     }
 
-    inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
     ensure_window::ensure_window(root_component, &doc.local_registry);
-    apply_default_properties_from_style::apply_default_properties_from_style(
-        root_component,
-        &mut type_loader,
-        diag,
-    )
-    .await;
+
+    for component in (root_component.used_types.borrow().sub_components.iter())
+        .chain(std::iter::once(root_component))
+    {
+        apply_default_properties_from_style::apply_default_properties_from_style(
+            component,
+            &mut type_loader,
+            diag,
+        )
+        .await;
+    }
+
+    inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
     collect_globals::collect_globals(&doc, diag);
     unique_id::assign_unique_id(root_component);
     binding_analysis::binding_analysis(root_component, diag);
