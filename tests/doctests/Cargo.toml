@@ -1,6 +1,6 @@
 [package]
 name = "doctests"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 publish = false

@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-viewer"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -16,9 +16,9 @@ wayland = ["sixtyfps-interpreter/wayland"]
 default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.1.4", path="../../sixtyfps_runtime/corelib" }
-sixtyfps-rendering-backend-default = { version = "=0.1.4", path="../../sixtyfps_runtime/rendering_backends/default" }
-sixtyfps-interpreter = { version = "=0.1.4", path = "../../sixtyfps_runtime/interpreter", default-features = false, features = ["display-diagnostics"] }
+sixtyfps-corelib = { version = "=0.1.5", path="../../sixtyfps_runtime/corelib" }
+sixtyfps-rendering-backend-default = { version = "=0.1.5", path="../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-interpreter = { version = "=0.1.5", path = "../../sixtyfps_runtime/interpreter", default-features = false, features = ["display-diagnostics"] }
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
 structopt = "0.3.14"
 codemap-diagnostic = "0.1.1"

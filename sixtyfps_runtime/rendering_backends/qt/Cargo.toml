@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-rendering-backend-qt"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -20,8 +20,8 @@ path = "lib.rs"
 cpp = "0.5.5"
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
-sixtyfps-corelib-macros = { version = "=0.1.4", path = "../../corelib_macros" }
-sixtyfps-corelib = { version = "=0.1.4", path = "../../corelib" }
+sixtyfps-corelib-macros = { version = "=0.1.5", path = "../../corelib_macros" }
+sixtyfps-corelib = { version = "=0.1.5", path = "../../corelib" }
 euclid = "0.22.1"
 pin-weak = "1"
 once_cell = "1"
