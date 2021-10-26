@@ -1,6 +1,7 @@
 # SixtyFPS development guide
 
-The build instructions are in the [building.md](./building.md) file
+The build instructions are in the [building.md](./building.md) file.
+The testing instructions are in the [testing.md](./testing.md) file.
 
 ## Repository structures
 
@@ -42,6 +43,8 @@ Here one find the frontend for different language.
 ### `tests`
 
 The integration test that are testing a bunch of .60 with different front-ends
+
+See [testing.md](./testing.md)
 
 ### `examples`
 

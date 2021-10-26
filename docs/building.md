@@ -59,6 +59,10 @@ cargo build --lib -p sixtyfps-cpp
 cargo test --bin test-driver-cpp
 ```
 
+### More info about tests
+
+See [testing.md](./testing.md)
+
 ## C++ Build
 
 This is just a normal cmake build.

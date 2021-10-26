@@ -10,10 +10,16 @@ LICENSE END */
 //! This test is trying to compile all the *.60 files in the sub directories and check that compilation
 //! errors are properly reported
 //!
-//! The compiler can have comments like this:
-//! ```
+//! The .60 files can have comments like this:
+//! ```ignore
+//!  hi ho
 //!  // ^error{some_regexp}
 //! ```
+//!
+//! Meaning that there must an error following with an error message for that regular expression in the position
+//! on the line above at the column pointed by the caret.
+//! If there are two carets: ` ^^error{some_regexpr}`  then it means two line above, and so on with more carets.
+//! `^warning{regexp}` is also supported.
 
 use std::path::{Path, PathBuf};
 
