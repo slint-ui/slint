@@ -115,9 +115,9 @@ pub async fn run_passes(
         )
         .await;
     }
+    collect_globals::collect_globals(&doc, diag);
 
     inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
-    collect_globals::collect_globals(&doc, diag);
     unique_id::assign_unique_id(root_component);
     binding_analysis::binding_analysis(root_component, diag);
     deduplicate_property_read::deduplicate_property_read(root_component);
