@@ -11,15 +11,32 @@ LICENSE END */
 //! Passes that fills the root component used_types.structs
 
 use crate::expression_tree::Expression;
+use crate::langtype::Type;
 use crate::object_tree::*;
-use crate::{diagnostics::BuildDiagnostics, langtype::Type};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /// Fill the root_component's used_types.structs
-pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnostics) {
+pub fn collect_structs(doc: &Document) {
     let mut hash = BTreeMap::new();
 
+    for component in (doc.root_component.used_types.borrow().sub_components.iter())
+        .chain(std::iter::once(&doc.root_component))
+    {
+        collect_structs_in_component(component, &mut hash)
+    }
+
+    let mut used_types = doc.root_component.used_types.borrow_mut();
+    let used_struct = &mut used_types.structs;
+    *used_struct = Vec::with_capacity(hash.len());
+    while let Some(next) = hash.iter().next() {
+        // Here, using BTreeMap::pop_first would be great when it is stable
+        let key = next.0.clone();
+        sort_struct(&mut hash, used_struct, &key);
+    }
+}
+
+fn collect_structs_in_component(root_component: &Rc<Component>, hash: &mut BTreeMap<String, Type>) {
     let mut maybe_collect_object = |ty: &Type| {
         visit_named_object(ty, &mut |name, sub_ty| {
             hash.entry(name.clone()).or_insert_with(|| sub_ty.clone());
@@ -39,15 +56,6 @@ pub fn collect_structs(root_component: &Rc<Component>, _diag: &mut BuildDiagnost
             }
         })
     });
-
-    let mut used_types = root_component.used_types.borrow_mut();
-    let used_struct = &mut used_types.structs;
-    *used_struct = Vec::with_capacity(hash.len());
-    while let Some(next) = hash.iter().next() {
-        // Here, using BTreeMap::pop_first would be great when it is stable
-        let key = next.0.clone();
-        sort_struct(&mut hash, used_struct, &key);
-    }
 }
 
 /// Move the object named `key` from hash to vector, making sure that all object used by

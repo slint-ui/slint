@@ -140,7 +140,11 @@ pub async fn run_passes(
         resolve_native_classes::resolve_native_classes(component);
 
         remove_unused_properties::remove_unused_properties(component);
-        collect_structs::collect_structs(component, diag);
+    }
+
+    collect_structs::collect_structs(&doc);
+
+    for component in &roots {
         generate_item_indices::generate_item_indices(component);
     }
 
