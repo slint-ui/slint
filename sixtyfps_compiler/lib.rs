@@ -112,7 +112,7 @@ pub async fn compile_syntax_node(
     let foreign_imports =
         loader.load_dependencies_recursively(&doc_node, &mut diagnostics, &type_registry).await;
 
-    let mut doc = crate::object_tree::Document::from_node(
+    let doc = crate::object_tree::Document::from_node(
         doc_node,
         foreign_imports,
         &mut diagnostics,
@@ -126,7 +126,7 @@ pub async fn compile_syntax_node(
 
     if !diagnostics.has_error() {
         // FIXME: ideally we would be able to run more passes, but currently we panic because invariant are not met.
-        passes::run_passes(&mut doc, &mut diagnostics, &mut loader, &compiler_config).await;
+        passes::run_passes(&doc, &mut diagnostics, &mut loader, &compiler_config).await;
     }
 
     diagnostics.all_loaded_files = loader.all_files().cloned().collect();

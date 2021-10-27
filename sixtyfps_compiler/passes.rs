@@ -48,7 +48,7 @@ mod z_order;
 use crate::langtype::Type;
 
 pub async fn run_passes(
-    doc: &mut crate::object_tree::Document,
+    doc: &crate::object_tree::Document,
     diag: &mut crate::diagnostics::BuildDiagnostics,
     mut type_loader: &mut crate::typeloader::TypeLoader<'_>,
     compiler_config: &crate::CompilerConfiguration,
@@ -123,12 +123,9 @@ pub async fn run_passes(
         }),
         Err(_) => false,
     };
-    if disable_inlining {
-        // Need to compile generate additional components not inlined.
-        doc.supplementary_components =
-            root_component.used_types.borrow().sub_components.iter().cloned().collect();
-    } else {
+    if !disable_inlining {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
+        root_component.used_types.borrow_mut().sub_components.clear();
         roots.clear();
         roots.push(root_component.clone());
     }

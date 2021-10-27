@@ -633,7 +633,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         }
     }
 
-    for sub_comp in doc.supplementary_components.iter() {
+    for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
         generate_component(&mut file, sub_comp, diag, None);
     }
 
