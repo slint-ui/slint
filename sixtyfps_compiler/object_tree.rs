@@ -1209,6 +1209,16 @@ impl Element {
             }
         };
     }
+
+    pub fn sub_component(&self) -> Option<&Rc<Component>> {
+        if self.repeated.is_some() {
+            None
+        } else if let Type::Component(sub_component) = &self.base_type {
+            Some(sub_component)
+        } else {
+            None
+        }
+    }
 }
 
 /// Create a Type for this node

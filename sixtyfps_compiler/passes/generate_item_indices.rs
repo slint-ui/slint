@@ -20,7 +20,7 @@ pub fn generate_item_indices(component: &std::rc::Rc<crate::object_tree::Compone
                 }
             }
             item.item_index.set(current_item_index).unwrap();
-            current_item_index += 1;
+            current_item_index += crate::generator::item_tree_element_size(item_rc);
         }
     });
     for p in component.popup_windows.borrow().iter() {
