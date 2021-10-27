@@ -1046,42 +1046,6 @@ fn generate_component(
         component_struct.friends.push("sixtyfps::private_api::WindowRc".into());
     }
 
-    if !component.is_global() {
-        let maybe_constructor_param = if constructor_parent_arg.is_empty() { "" } else { "parent" };
-
-        let mut create_code = vec![
-            format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
-            format!("auto self = const_cast<{0} *>(&*self_rc);", component_id),
-            "self->self_weak = vtable::VWeak(self_rc);".into(),
-        ];
-
-        if component.parent_element.upgrade().is_none() {
-            create_code.push(
-                "self->m_window.window_handle().set_component(**self->self_weak.lock());".into(),
-            );
-        }
-
-        create_code.extend(
-            component.setup_code.borrow().iter().map(|code| compile_expression(code, component)),
-        );
-        create_code
-            .push(format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", component_id));
-
-        component_struct.members.push((
-            Access::Public,
-            Declaration::Function(Function {
-                name: "create".into(),
-                signature: format!(
-                    "({}) -> sixtyfps::ComponentHandle<{}>",
-                    constructor_parent_arg, component_id
-                ),
-                statements: Some(create_code),
-                is_static: true,
-                ..Default::default()
-            }),
-        ));
-    }
-
     let mut children_visitor_cases = vec![];
     let mut repeated_input_branch = vec![];
     let mut repeater_layout_code = vec![];
@@ -1152,11 +1116,6 @@ fn generate_component(
         handle_property_binding(elem, prop, binding, &mut init)
     });
 
-    if !component.is_global() {
-        component_struct
-            .friends
-            .push(format!("vtable::VRc<sixtyfps::private_api::ComponentVTable, {}>", component_id));
-    }
     component_struct.members.push((
         if !component.is_global() { Access::Private } else { Access::Public },
         Declaration::Function(Function {
@@ -1174,6 +1133,44 @@ fn generate_component(
     ));
 
     if !component.is_global() {
+        let maybe_constructor_param = if constructor_parent_arg.is_empty() { "" } else { "parent" };
+
+        let mut create_code = vec![
+            format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
+            format!("auto self = const_cast<{0} *>(&*self_rc);", component_id),
+            "self->self_weak = vtable::VWeak(self_rc);".into(),
+        ];
+
+        if component.parent_element.upgrade().is_none() {
+            create_code.push(
+                "self->m_window.window_handle().set_component(**self->self_weak.lock());".into(),
+            );
+        }
+
+        create_code.extend(
+            component.setup_code.borrow().iter().map(|code| compile_expression(code, component)),
+        );
+        create_code
+            .push(format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", component_id));
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "create".into(),
+                signature: format!(
+                    "({}) -> sixtyfps::ComponentHandle<{}>",
+                    constructor_parent_arg, component_id
+                ),
+                statements: Some(create_code),
+                is_static: true,
+                ..Default::default()
+            }),
+        ));
+
+        component_struct
+            .friends
+            .push(format!("vtable::VRc<sixtyfps::private_api::ComponentVTable, {}>", component_id));
+
         let mut destructor = vec!["[[maybe_unused]] auto self = this;".to_owned()];
 
         if component.parent_element.upgrade().is_some() {
@@ -1207,9 +1204,7 @@ fn generate_component(
                 ..Default::default()
             }),
         ));
-    }
 
-    if !component.is_global() {
         component_struct.members.push((
             Access::Private,
             Declaration::Function(Function {
@@ -1328,6 +1323,16 @@ fn generate_component(
                 ..Default::default()
             }),
         ));
+
+        file.definitions.push(Declaration::Var(Var {
+            ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
+            name: format!("{}::static_vtable", component_id),
+            init: Some(format!(
+                "{{ visit_children, get_item_ref, parent_item,  layout_info, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+                component_id)
+            ),
+            ..Default::default()
+        }));
     }
 
     let used_types = component.used_types.borrow();
@@ -1394,18 +1399,6 @@ fn generate_component(
 
     file.definitions.extend(component_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(component_struct));
-
-    if !component.is_global() {
-        file.definitions.push(Declaration::Var(Var {
-            ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
-            name: format!("{}::static_vtable", component_id),
-            init: Some(format!(
-                "{{ visit_children, get_item_ref, parent_item,  layout_info, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
-                component_id)
-            ),
-            ..Default::default()
-        }));
-    }
 }
 
 fn component_id(component: &Rc<Component>) -> String {
