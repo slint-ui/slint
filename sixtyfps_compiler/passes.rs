@@ -79,12 +79,9 @@ pub async fn run_passes(
 
     embed_images::embed_images(root_component, compiler_config.embed_resources, diag);
 
-    let mut roots = (root_component.used_types.borrow().sub_components.iter())
+    for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
-        .cloned()
-        .collect::<Vec<_>>();
-
-    for component in &roots {
+    {
         focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
         focus_item::determine_initial_focus_item(component, diag);
         focus_item::erase_forward_focus_properties(component);
@@ -107,7 +104,9 @@ pub async fn run_passes(
     }
     ensure_window::ensure_window(root_component, &doc.local_registry);
 
-    for component in &roots {
+    for component in (root_component.used_types.borrow().sub_components.iter())
+        .chain(std::iter::once(root_component))
+    {
         apply_default_properties_from_style::apply_default_properties_from_style(
             component,
             &mut type_loader,
@@ -125,11 +124,11 @@ pub async fn run_passes(
     };
     if !disable_inlining {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
-        roots.clear();
-        roots.push(root_component.clone());
     }
 
-    for component in &roots {
+    for component in (root_component.used_types.borrow().sub_components.iter())
+        .chain(std::iter::once(root_component))
+    {
         unique_id::assign_unique_id(component);
         binding_analysis::binding_analysis(component, diag);
         deduplicate_property_read::deduplicate_property_read(component);
@@ -144,7 +143,9 @@ pub async fn run_passes(
 
     collect_structs::collect_structs(&doc);
 
-    for component in &roots {
+    for component in (root_component.used_types.borrow().sub_components.iter())
+        .chain(std::iter::once(root_component))
+    {
         generate_item_indices::generate_item_indices(component);
     }
 
