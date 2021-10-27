@@ -127,11 +127,11 @@ pub async fn run_passes(
     }
 
     binding_analysis::binding_analysis(doc, diag);
+    unique_id::assign_unique_id(doc);
 
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
     {
-        unique_id::assign_unique_id(component);
         deduplicate_property_read::deduplicate_property_read(component);
         optimize_useless_rectangles::optimize_useless_rectangles(component);
         move_declarations::move_declarations(component, diag);

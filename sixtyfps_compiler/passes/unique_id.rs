@@ -17,10 +17,19 @@ use std::rc::Rc;
 /// This pass make sure that the id of the elements are unique
 ///
 /// It currently does so by adding a number to the existing id
-pub fn assign_unique_id(component: &Rc<Component>) {
+pub fn assign_unique_id(doc: &Document) {
     let mut count = 0;
+    assign_unique_id_in_component(&doc.root_component, &mut count);
+    for c in &doc.root_component.used_types.borrow().sub_components {
+        assign_unique_id_in_component(c, &mut count);
+    }
+
+    rename_globals(&doc.root_component, count);
+}
+
+fn assign_unique_id_in_component(component: &Rc<Component>, count: &mut u32) {
     recurse_elem_including_sub_components(component, &(), &mut |elem, _| {
-        count += 1;
+        *count += 1;
         let mut elem_mut = elem.borrow_mut();
         let old_id = if !elem_mut.id.is_empty() {
             elem_mut.id.clone()
@@ -29,8 +38,6 @@ pub fn assign_unique_id(component: &Rc<Component>) {
         };
         elem_mut.id = format!("{}-{}", old_id, count);
     });
-
-    rename_globals(component, count);
 }
 
 /// Give globals unique name
