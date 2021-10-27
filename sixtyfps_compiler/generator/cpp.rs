@@ -856,18 +856,32 @@ fn generate_component(
     let mut constructor_parent_arg = String::new();
 
     if !is_root || !component.is_global() {
+        let access = if !component.is_global() {
+            // FIXME: many of the different component bindings need to access this
+            Access::Public
+        } else {
+            Access::Private
+        };
+
         component_struct.members.push((
-            if !component.is_global() {
-                // FIXME: many of the different component bindings need to access this
-                Access::Public
-            } else {
-                Access::Private
-            },
+            access,
             Declaration::Var(Var {
                 ty: "sixtyfps::Window".into(),
                 name: "m_window".into(),
                 init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
                 ..Default::default()
+            }),
+        ));
+
+        component_struct.members.push((
+            access,
+            Declaration::Var(Var {
+                ty: format!(
+                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",
+                    component_id
+                ),
+                name: "self_weak".into(),
+                ..Var::default()
             }),
         ));
     }
@@ -979,30 +993,7 @@ fn generate_component(
                 }),
             ));
         }
-        component_struct.members.push((
-            Access::Public,
-            Declaration::Var(Var {
-                ty: format!(
-                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",
-                    component_id
-                ),
-                name: "self_weak".into(),
-                ..Var::default()
-            }),
-        ));
     } else if !component.is_global() {
-        component_struct.members.push((
-            Access::Public, // FIXME: Used for the tests
-            Declaration::Var(Var {
-                ty: format!(
-                    "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",
-                    component_id
-                ),
-                name: "self_weak".into(),
-                ..Var::default()
-            }),
-        ));
-
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
