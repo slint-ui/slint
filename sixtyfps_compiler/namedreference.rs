@@ -17,7 +17,7 @@ use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
 use crate::langtype::Type;
-use crate::object_tree::{Element, ElementRc};
+use crate::object_tree::{Element, ElementRc, PropertyAnalysis};
 
 /// Reference to a property or callback of a given name within an element.
 #[derive(Clone)]
@@ -77,6 +77,9 @@ impl NamedReference {
                 return false;
             }
         }
+        if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set_derived) {
+            return false;
+        }
         drop(e);
 
         loop {
@@ -111,6 +114,19 @@ impl NamedReference {
                 _ => return true,
             }
         }
+    }
+
+    /// Mark that this property is set  somewhere in the code
+    pub fn mark_as_set(&self) {
+        let element = self.element();
+        element
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(self.name().to_owned())
+            .or_default()
+            .is_set = true;
+        mark_property_set_derived_in_base(element, self.name())
     }
 }
 
@@ -174,5 +190,33 @@ impl NamedReferenceContainer {
         } else {
             false
         }
+    }
+}
+
+/// Mark that a given property is `is_set_derived` in all bases
+pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &str) {
+    loop {
+        let next = if let Type::Component(c) = &element.borrow().base_type {
+            if element.borrow().property_declarations.contains_key(name) {
+                return;
+            };
+            match c.root_element.borrow().property_analysis.borrow_mut().entry(name.to_owned()) {
+                std::collections::hash_map::Entry::Occupied(e)
+                    if e.get().is_set || e.get().is_set_derived =>
+                {
+                    return
+                }
+                std::collections::hash_map::Entry::Occupied(mut e) => {
+                    e.get_mut().is_set_derived = true;
+                }
+                std::collections::hash_map::Entry::Vacant(e) => {
+                    e.insert(PropertyAnalysis { is_set_derived: true, ..Default::default() });
+                }
+            }
+            c.root_element.clone()
+        } else {
+            return;
+        };
+        element = next;
     }
 }

@@ -560,6 +560,9 @@ pub struct PropertyAnalysis {
     /// true if somewhere in the code, there is an expression that changes this property with an assignment
     pub is_set: bool,
 
+    /// True if this property might be set from a derived component.
+    pub is_set_derived: bool,
+
     /// true if somewhere in the code, an expression is reading this property
     /// Note: currently this is only set in the binding analysis pass
     pub is_read: bool,
@@ -569,6 +572,8 @@ impl PropertyAnalysis {
     /// Merge analysis from base element for e.g. inlining
     pub fn merge(&mut self, other: &PropertyAnalysis) {
         self.is_set |= other.is_set;
+        self.is_set_derived |= other.is_set_derived;
+        self.is_read |= other.is_read;
     }
 }
 
