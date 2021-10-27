@@ -1141,7 +1141,7 @@ fn generate_component(
             "self->self_weak = vtable::VWeak(self_rc);".into(),
         ];
 
-        if component.parent_element.upgrade().is_none() {
+        if is_root {
             create_code.push(
                 "self->m_window.window_handle().set_component(**self->self_weak.lock());".into(),
             );
@@ -1167,13 +1167,9 @@ fn generate_component(
             }),
         ));
 
-        component_struct
-            .friends
-            .push(format!("vtable::VRc<sixtyfps::private_api::ComponentVTable, {}>", component_id));
-
         let mut destructor = vec!["[[maybe_unused]] auto self = this;".to_owned()];
 
-        if component.parent_element.upgrade().is_some() {
+        if !is_root {
             destructor.push("if (!parent) return;".to_owned())
         }
         if !item_names_and_vt_symbols.is_empty() {
@@ -1205,134 +1201,14 @@ fn generate_component(
             }),
         ));
 
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Function(Function {
-                name: "visit_children".into(),
-                signature: "(sixtyfps::private_api::ComponentRef component, intptr_t index, sixtyfps::private_api::TraversalOrder order, sixtyfps::private_api::ItemVisitorRefMut visitor) -> int64_t".into(),
-                is_static: true,
-                statements: Some(vec![
-                    "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
-                    format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
-                    format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
-                    "    std::abort();\n};".to_owned(),
-                    format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", component_id),
-                    "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
-                ]),
-                ..Default::default()
-            }),
-        ));
-
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Function(Function {
-                name: "get_item_ref".into(),
-                signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index) -> sixtyfps::private_api::ItemRef".into(),
-                is_static: true,
-                statements: Some(vec![
-                    "return sixtyfps::private_api::get_item_ref(component, item_tree(), index);".to_owned(),
-                ]),
-                ..Default::default()
-            }),
-        ));
-
-        let parent_item_from_parent_component = if let Some(parent_index) =
-            component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().copied())
-        {
-            format!(
-                "   *result = sixtyfps::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->item_tree(), {});",
-                parent_index,
-            )
-        } else {
-            "".to_owned()
-        };
-
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Function(Function {
-                name: "parent_item".into(),
-                signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index, sixtyfps::private_api::ItemWeak *result) -> void".into(),
-                is_static: true,
-                statements: Some(vec![
-                    format!("auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
-                    "if (index == 0) {".into(),
-                    parent_item_from_parent_component,
-                    "   return;".into(),
-                    "}".into(),
-                    "*result = sixtyfps::private_api::parent_item(self->self_weak.into_dyn(), item_tree(), index);".into(),
-                ]),
-                ..Default::default()
-            }),
-        ));
-
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Function(Function {
-                name: "item_tree".into(),
-                signature: "() -> sixtyfps::Slice<sixtyfps::private_api::ItemTreeNode>".into(),
-                is_static: true,
-                statements: Some(vec![
-                    "static const sixtyfps::private_api::ItemTreeNode children[] {".to_owned(),
-                    format!("    {} }};", tree_array.join(", ")),
-                    "return { const_cast<sixtyfps::private_api::ItemTreeNode*>(children), std::size(children) };"
-                        .to_owned(),
-                ]),
-                ..Default::default()
-            }),
-        ));
-
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Function(Function {
-                name: "layout_info".into(),
-                signature:
-                    "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::Orientation o) -> sixtyfps::LayoutInfo"
-                        .into(),
-                is_static: true,
-                statements: Some(vec![
-                    format!("[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
-                    format!("if (o == sixtyfps::Orientation::Horizontal) return {};",
-                        get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Horizontal)),
-                    format!("else return {};",
-                        get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Vertical))
-                ]),
-                ..Default::default()
-            }),
-        ));
-
-        component_struct.members.push((
-            Access::Public,
-            Declaration::Var(Var {
-                ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
-                name: "static_vtable".to_owned(),
-                ..Default::default()
-            }),
-        ));
-
-        let root_elem = component.root_element.borrow();
-        component_struct.members.push((
-            Access::Public,
-            Declaration::Function(Function {
-                name: "root_item".into(),
-                signature: "() const -> sixtyfps::private_api::ItemRef".into(),
-                statements: Some(vec![format!(
-                    "return {{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
-                    vt = root_elem.base_type.as_native().cpp_vtable_getter,
-                    id = ident(&root_elem.id)
-                )]),
-                ..Default::default()
-            }),
-        ));
-
-        file.definitions.push(Declaration::Var(Var {
-            ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
-            name: format!("{}::static_vtable", component_id),
-            init: Some(format!(
-                "{{ visit_children, get_item_ref, parent_item,  layout_info, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
-                component_id)
-            ),
-            ..Default::default()
-        }));
+        generate_component_vtable(
+            &mut component_struct,
+            component_id,
+            component,
+            children_visitor_cases,
+            tree_array,
+            file,
+        );
     }
 
     let used_types = component.used_types.borrow();
@@ -1399,6 +1275,139 @@ fn generate_component(
 
     file.definitions.extend(component_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(component_struct));
+}
+
+fn generate_component_vtable(
+    component_struct: &mut Struct,
+    component_id: String,
+    component: &Rc<Component>,
+    children_visitor_cases: Vec<String>,
+    tree_array: Vec<String>,
+    file: &mut File,
+) {
+    component_struct
+        .friends
+        .push(format!("vtable::VRc<sixtyfps::private_api::ComponentVTable, {}>", component_id));
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "visit_children".into(),
+            signature: "(sixtyfps::private_api::ComponentRef component, intptr_t index, sixtyfps::private_api::TraversalOrder order, sixtyfps::private_api::ItemVisitorRefMut visitor) -> int64_t".into(),
+            is_static: true,
+            statements: Some(vec![
+                "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> int64_t {".to_owned(),
+                format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", component_id),
+                format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
+                "    std::abort();\n};".to_owned(),
+                format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", component_id),
+                "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "get_item_ref".into(),
+            signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index) -> sixtyfps::private_api::ItemRef".into(),
+            is_static: true,
+            statements: Some(vec![
+                "return sixtyfps::private_api::get_item_ref(component, item_tree(), index);".to_owned(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+    let parent_item_from_parent_component = if let Some(parent_index) =
+        component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().copied())
+    {
+        format!(
+            "   *result = sixtyfps::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->item_tree(), {});",
+            parent_index,
+        )
+    } else {
+        "".to_owned()
+    };
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "parent_item".into(),
+            signature: "(sixtyfps::private_api::ComponentRef component, uintptr_t index, sixtyfps::private_api::ItemWeak *result) -> void".into(),
+            is_static: true,
+            statements: Some(vec![
+                format!("auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
+                "if (index == 0) {".into(),
+                parent_item_from_parent_component,
+                "   return;".into(),
+                "}".into(),
+                "*result = sixtyfps::private_api::parent_item(self->self_weak.into_dyn(), item_tree(), index);".into(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "item_tree".into(),
+            signature: "() -> sixtyfps::Slice<sixtyfps::private_api::ItemTreeNode>".into(),
+            is_static: true,
+            statements: Some(vec![
+                "static const sixtyfps::private_api::ItemTreeNode children[] {".to_owned(),
+                format!("    {} }};", tree_array.join(", ")),
+                "return { const_cast<sixtyfps::private_api::ItemTreeNode*>(children), std::size(children) };"
+                    .to_owned(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+    component_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "layout_info".into(),
+            signature:
+                "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::Orientation o) -> sixtyfps::LayoutInfo"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![
+                format!("[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
+                format!("if (o == sixtyfps::Orientation::Horizontal) return {};",
+                    get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Horizontal)),
+                format!("else return {};",
+                    get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Vertical))
+            ]),
+            ..Default::default()
+        }),
+    ));
+    component_struct.members.push((
+        Access::Public,
+        Declaration::Var(Var {
+            ty: "static const sixtyfps::private_api::ComponentVTable".to_owned(),
+            name: "static_vtable".to_owned(),
+            ..Default::default()
+        }),
+    ));
+    let root_elem = component.root_element.borrow();
+    component_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "root_item".into(),
+            signature: "() const -> sixtyfps::private_api::ItemRef".into(),
+            statements: Some(vec![format!(
+                "return {{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
+                vt = root_elem.base_type.as_native().cpp_vtable_getter,
+                id = ident(&root_elem.id)
+            )]),
+            ..Default::default()
+        }),
+    ));
+    file.definitions.push(Declaration::Var(Var {
+        ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
+        name: format!("{}::static_vtable", component_id),
+        init: Some(format!(
+            "{{ visit_children, get_item_ref, parent_item,  layout_info, sixtyfps::private_api::drop_in_place<{}>, sixtyfps::private_api::dealloc }}",
+            component_id)
+        ),
+        ..Default::default()
+    }));
 }
 
 fn component_id(component: &Rc<Component>) -> String {
