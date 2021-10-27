@@ -14,7 +14,7 @@ use crate::langtype::Type;
 use crate::object_tree::*;
 use by_address::ByAddress;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 #[derive(Copy, Clone)]
@@ -25,12 +25,18 @@ pub enum InlineSelection {
 }
 
 pub fn inline(doc: &Document, inline_selection: InlineSelection) {
-    fn inline_components_recursively(component: &Rc<Component>, inline_selection: InlineSelection) {
+    let mut inlined_components: HashSet<ByAddress<Rc<Component>>> = HashSet::new();
+
+    fn inline_components_recursively(
+        component: &Rc<Component>,
+        inline_selection: InlineSelection,
+        inlined_components: &mut HashSet<ByAddress<Rc<Component>>>,
+    ) {
         recurse_elem(&component.root_element, &(), &mut |elem, _| {
             let base = elem.borrow().base_type.clone();
             if let Type::Component(c) = base {
                 // First, make sure that the component itself is properly inlined
-                inline_components_recursively(&c, inline_selection);
+                inline_components_recursively(&c, inline_selection, inlined_components);
 
                 if c.parent_element.upgrade().is_some() {
                     // We should not inline a repeated element
@@ -46,17 +52,30 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
                             || elem.borrow().bindings.contains_key("clip")
                     }
                 } {
+                    inlined_components.insert(ByAddress(c.clone()));
+
                     inline_element(elem, &c, component);
                 }
             }
         });
-        component
-            .popup_windows
-            .borrow()
-            .iter()
-            .for_each(|p| inline_components_recursively(&p.component, inline_selection))
+        component.popup_windows.borrow().iter().for_each(|p| {
+            inline_components_recursively(&p.component, inline_selection, inlined_components)
+        })
     }
-    inline_components_recursively(&doc.root_component, inline_selection)
+    inline_components_recursively(&doc.root_component, inline_selection, &mut inlined_components);
+
+    // Use Vec::drain_filter() when stabilized
+    let mut used_sub_components =
+        std::mem::take(&mut doc.root_component.used_types.borrow_mut().sub_components);
+    let mut i = 0;
+    while i < used_sub_components.len() {
+        if inlined_components.contains(&ByAddress(used_sub_components[i].clone())) {
+            used_sub_components.remove(i);
+        } else {
+            i += 1;
+        }
+    }
+    doc.root_component.used_types.borrow_mut().sub_components = used_sub_components;
 }
 
 fn clone_tuple<U: Clone, V: Clone>((u, v): (&U, &V)) -> (U, V) {
