@@ -125,7 +125,6 @@ pub async fn run_passes(
     };
     if !disable_inlining {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
-        root_component.used_types.borrow_mut().sub_components.clear();
         roots.clear();
         roots.push(root_component.clone());
     }
