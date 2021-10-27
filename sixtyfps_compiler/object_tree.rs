@@ -48,6 +48,8 @@ pub struct Document {
     pub inner_components: Vec<Rc<Component>>,
     pub inner_structs: Vec<Type>,
     pub root_component: Rc<Component>,
+    // components not inlined into root_component, that need to be generated
+    pub supplementary_components: Vec<Rc<Component>>,
     pub local_registry: TypeRegister,
     /// A list of paths to .ttf/.ttc files that are supposed to be registered on
     /// startup for custom font use.
@@ -153,6 +155,7 @@ impl Document {
         Document {
             node: Some(node),
             root_component,
+            supplementary_components: vec![],
             inner_components,
             inner_structs,
             local_registry,

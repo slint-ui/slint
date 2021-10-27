@@ -632,6 +632,11 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
             generate_struct(&mut file, name, fields, diag);
         }
     }
+
+    for sub_comp in doc.supplementary_components.iter() {
+        generate_component(&mut file, sub_comp, diag, None);
+    }
+
     for glob in doc
         .root_component
         .used_types
@@ -1083,7 +1088,7 @@ fn generate_component(
                 diag,
             );
             repeater_count += 1;
-        } else {
+        } else if let Type::Native(native_class) = &item.base_type {
             if item.is_flickable_viewport {
                 tree_array.push(format!(
                     "sixtyfps::private_api::make_item_node(offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
@@ -1098,7 +1103,7 @@ fn generate_component(
                     "sixtyfps::private_api::make_item_node(offsetof({}, {}), {}, {}, {}, {})",
                     component_id,
                     ident(&item.id),
-                    item.base_type.as_native().cpp_vtable_getter,
+                    native_class.cpp_vtable_getter,
                     item.children.len(),
                     children_offset,
                     parent_index,
