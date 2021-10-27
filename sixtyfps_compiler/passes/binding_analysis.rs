@@ -131,7 +131,7 @@ fn analyse_binding(
             element = next;
         }
     };
-    let binding = &element.borrow().bindings[dbg!(name)];
+    let binding = &element.borrow().bindings[name];
     for nr in &binding.two_way_bindings {
         process_prop(nr);
     }
