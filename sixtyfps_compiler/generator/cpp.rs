@@ -859,6 +859,7 @@ fn generate_component(
     }
 
     let mut constructor_parent_arg = String::new();
+    let mut constructor_member_initializers = vec![];
 
     if !is_root || !component.is_global() {
         let access = if !component.is_global() {
@@ -868,12 +869,20 @@ fn generate_component(
             Access::Private
         };
 
+        let mut window_init = None;
+        if is_root {
+            window_init = Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into())
+        } else {
+            constructor_member_initializers
+                .push("m_window(parent->m_window.window_handle())".into());
+        }
+
         component_struct.members.push((
             access,
             Declaration::Var(Var {
                 ty: "sixtyfps::Window".into(),
                 name: "m_window".into(),
-                init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
+                init: window_init,
                 ..Default::default()
             }),
         ));
@@ -1128,11 +1137,7 @@ fn generate_component(
             signature: format!("({})", constructor_parent_arg),
             is_constructor_or_destructor: true,
             statements: Some(init),
-            constructor_member_initializers: if !component.is_global() && !is_root {
-                vec!["m_window(parent->m_window.window_handle())".into()]
-            } else {
-                vec![]
-            },
+            constructor_member_initializers,
             ..Default::default()
         }),
     ));
