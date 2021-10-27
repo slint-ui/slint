@@ -1129,6 +1129,16 @@ fn generate_component(
                 ident(&item.id).into_owned(),
                 item.base_type.as_native().cpp_vtable_getter.clone(),
             ));
+        } else if let Type::Component(component) = &item.base_type {
+            let class_name = self::component_id(&component);
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Var(Var {
+                    ty: class_name,
+                    name: ident(&item.id).into_owned(),
+                    ..Default::default()
+                }),
+            ));
         }
     });
 
