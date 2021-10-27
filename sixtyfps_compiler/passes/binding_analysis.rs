@@ -20,16 +20,21 @@ use crate::langtype::Type;
 use crate::layout::LayoutItem;
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
+use crate::object_tree::Document;
 use crate::object_tree::{Component, ElementRc};
 
 type PropertySet = linked_hash_set::LinkedHashSet<NamedReference>;
 
-pub fn binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
+pub fn binding_analysis(doc: &Document, diag: &mut BuildDiagnostics) {
+    let component = &doc.root_component;
     propagate_is_set_on_aliases(component);
-    for g in component.used_types.borrow().globals.iter() {
-        propagate_is_set_on_aliases(g);
-    }
 
+    mark_used_base_properties(component);
+
+    perform_binding_analysis(component, diag);
+}
+
+fn perform_binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components_no_borrow(
         component,
         &(),
@@ -47,6 +52,10 @@ pub fn binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) 
             }
         },
     );
+
+    for c in &component.used_types.borrow().sub_components {
+        perform_binding_analysis(c, diag);
+    }
 }
 
 fn analyse_binding(
@@ -97,21 +106,32 @@ fn analyse_binding(
     currently_analysing.insert(nr.clone());
 
     let mut process_prop = |prop: &NamedReference| {
-        prop.element()
-            .borrow()
-            .property_analysis
-            .borrow_mut()
-            .entry(prop.name().into())
-            .or_default()
-            .is_read = true;
-        if let Some(binding) = prop.element().borrow().bindings.get(prop.name()) {
-            if binding.analysis.borrow().is_some() {
-                return;
-            }
-            analyse_binding(&prop.element(), prop.name(), currently_analysing, diag);
+        let mut element = prop.element();
+        loop {
+            element
+                .borrow()
+                .property_analysis
+                .borrow_mut()
+                .entry(prop.name().into())
+                .or_default()
+                .is_read = true;
+            if let Some(binding) = element.borrow().bindings.get(prop.name()) {
+                if binding.analysis.borrow().is_none() {
+                    analyse_binding(&element, prop.name(), currently_analysing, diag);
+                }
+            };
+            let next = if let Type::Component(base) = &element.borrow().base_type {
+                if element.borrow().property_declarations.contains_key(prop.name()) {
+                    break;
+                }
+                base.root_element.clone()
+            } else {
+                break;
+            };
+            element = next;
         }
     };
-    let binding = &element.borrow().bindings[name];
+    let binding = &element.borrow().bindings[dbg!(name)];
     for nr in &binding.two_way_bindings {
         process_prop(nr);
     }
@@ -273,18 +293,40 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
     fn propagate_alias(binding: &BindingExpression) {
         for alias in &binding.two_way_bindings {
             if !alias.is_externally_modified() {
-                let al_el = alias.element();
-                let al_el = al_el.borrow();
-                al_el
-                    .property_analysis
-                    .borrow_mut()
-                    .entry(alias.name().into())
-                    .or_default()
-                    .is_set = true;
-                if let Some(bind) = al_el.bindings.get(alias.name()) {
+                alias.mark_as_set();
+                if let Some(bind) = alias.element().borrow().bindings.get(alias.name()) {
                     propagate_alias(bind)
                 }
             }
         }
+    }
+
+    for g in &component.used_types.borrow().globals {
+        propagate_is_set_on_aliases(g);
+    }
+    for c in &component.used_types.borrow().sub_components {
+        propagate_is_set_on_aliases(c);
+    }
+}
+
+/// Make sure that the set_in_derived is true for all bindings
+fn mark_used_base_properties(component: &Rc<Component>) {
+    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+        component,
+        &(),
+        &mut |element, _| {
+            if !matches!(element.borrow().base_type, Type::Component(_)) {
+                return;
+            }
+            for (name, binding) in &element.borrow().bindings {
+                if binding.has_binding() {
+                    crate::namedreference::mark_property_set_derived_in_base(element.clone(), name);
+                }
+            }
+        },
+    );
+
+    for c in &component.used_types.borrow().sub_components {
+        mark_used_base_properties(c);
     }
 }

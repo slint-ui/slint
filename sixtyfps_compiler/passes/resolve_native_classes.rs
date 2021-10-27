@@ -38,7 +38,12 @@ pub fn resolve_native_classes(component: &Component) {
             let native_properties_used: HashSet<_> = elem
                 .bindings
                 .keys()
-                .chain(analysis.iter().filter(|(_, v)| v.is_read || v.is_set).map(|(k, _)| k))
+                .chain(
+                    analysis
+                        .iter()
+                        .filter(|(_, v)| v.is_read || v.is_set || v.is_set_derived)
+                        .map(|(k, _)| k),
+                )
                 .filter(|k| {
                     !elem.property_declarations.contains_key(*k)
                         && base_type.as_ref().properties.contains_key(*k)

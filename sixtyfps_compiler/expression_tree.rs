@@ -1046,13 +1046,7 @@ impl Expression {
     pub fn try_set_rw(&mut self) -> bool {
         match self {
             Expression::PropertyReference(nr) => {
-                nr.element()
-                    .borrow()
-                    .property_analysis
-                    .borrow_mut()
-                    .entry(nr.name().to_owned())
-                    .or_default()
-                    .is_set = true;
+                nr.mark_as_set();
                 true
             }
             Expression::StructFieldAccess { base, .. } => base.try_set_rw(),

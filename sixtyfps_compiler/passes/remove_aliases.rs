@@ -160,13 +160,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                     d.is_alias = Some(to.clone());
                     drop(elem);
                     // one must mark the aliased property as settable from outside
-                    to.element()
-                        .borrow()
-                        .property_analysis
-                        .borrow_mut()
-                        .entry(to.name().into())
-                        .or_default()
-                        .is_set = true;
+                    to.mark_as_set();
                 } else {
                     elem.property_declarations.remove(remove.name());
                 }
