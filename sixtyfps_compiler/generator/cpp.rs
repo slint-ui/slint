@@ -870,7 +870,7 @@ fn generate_component(
     let mut constructor_parent_arg = String::new();
     let mut constructor_member_initializers = vec![];
 
-    if component.is_root_component.get() || !component.is_global() {
+    if component.is_root_component.get() || is_child_component {
         let mut window_init = None;
         let mut access = Access::Private;
 
