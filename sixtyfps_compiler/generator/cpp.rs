@@ -748,6 +748,8 @@ fn generate_component(
     let component_id = component_id(component);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
+    let is_child_component = component.parent_element.upgrade().is_some();
+
     for c in component.popup_windows.borrow().iter() {
         let mut friends = vec![self::component_id(&c.component)];
         generate_component(file, &c.component, diag, Some(&mut friends));
@@ -757,7 +759,14 @@ fn generate_component(
         component_struct.friends.append(&mut friends);
     }
 
-    let is_root = component.parent_element.upgrade().is_none();
+    let expose_property = |property: &PropertyDeclaration| -> bool {
+        if component.is_global() || component.is_root_component.get() {
+            property.expose_in_public_api
+        } else {
+            false
+        }
+    };
+
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
@@ -774,7 +783,7 @@ fn generate_component(
             let return_type = return_type
                 .as_ref()
                 .map_or("void".into(), |t| get_cpp_type(t, property_decl, diag));
-            if property_decl.expose_in_public_api && is_root {
+            if expose_property(property_decl) {
                 let callback_emitter = vec![format!(
                     "return {}.call({});",
                     access,
@@ -815,7 +824,7 @@ fn generate_component(
         } else {
             let cpp_type = get_cpp_type(&property_decl.property_type, property_decl, diag);
 
-            if property_decl.expose_in_public_api && is_root {
+            if expose_property(property_decl) {
                 let prop_getter: Vec<String> = vec![format!("return {}.get();", access)];
                 component_struct.members.push((
                     Access::Public,
@@ -861,17 +870,14 @@ fn generate_component(
     let mut constructor_parent_arg = String::new();
     let mut constructor_member_initializers = vec![];
 
-    if !is_root || !component.is_global() {
-        let access = if !component.is_global() {
-            // FIXME: many of the different component bindings need to access this
-            Access::Public
-        } else {
-            Access::Private
-        };
-
+    if component.is_root_component.get() || !component.is_global() {
         let mut window_init = None;
-        if is_root {
-            window_init = Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into())
+        let mut access = Access::Private;
+
+        if component.is_root_component.get() {
+            window_init = Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into());
+            // FIXME: many of the different component bindings need to access this
+            access = Access::Public;
         } else {
             constructor_member_initializers
                 .push("m_window(parent->m_window.window_handle())".into());
@@ -900,9 +906,7 @@ fn generate_component(
         ));
     }
 
-    if !is_root {
-        let parent_element = component.parent_element.upgrade().unwrap();
-
+    if let Some(parent_element) = component.parent_element.upgrade() {
         if parent_element.borrow().repeated.as_ref().map_or(false, |r| !r.is_conditional_element) {
             let cpp_model_data_type = model_data_type(&parent_element, diag);
             component_struct.members.push((
@@ -1007,7 +1011,9 @@ fn generate_component(
                 }),
             ));
         }
-    } else if !component.is_global() {
+    }
+
+    if component.is_root_component.get() {
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
@@ -1142,7 +1148,7 @@ fn generate_component(
         }),
     ));
 
-    if !component.is_global() {
+    if is_child_component || component.is_root_component.get() {
         let maybe_constructor_param = if constructor_parent_arg.is_empty() { "" } else { "parent" };
 
         let mut create_code = vec![
@@ -1151,7 +1157,7 @@ fn generate_component(
             "self->self_weak = vtable::VWeak(self_rc);".into(),
         ];
 
-        if is_root {
+        if component.is_root_component.get() {
             create_code.push(
                 "self->m_window.window_handle().set_component(**self->self_weak.lock());".into(),
             );
@@ -1179,9 +1185,10 @@ fn generate_component(
 
         let mut destructor = vec!["[[maybe_unused]] auto self = this;".to_owned()];
 
-        if !is_root {
+        if is_child_component {
             destructor.push("if (!parent) return;".to_owned())
         }
+
         if !item_names_and_vt_symbols.is_empty() {
             destructor.push("sixtyfps::private_api::ItemRef items[] = {".into());
             destructor.push(

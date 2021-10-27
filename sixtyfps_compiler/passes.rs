@@ -155,6 +155,8 @@ pub async fn run_passes(
         std::iter::once(&*doc).chain(type_loader.all_documents()),
         compiler_config.embed_resources,
     );
+
+    root_component.is_root_component.set(true);
 }
 
 /// Run the passes on imported documents
