@@ -749,6 +749,8 @@ fn generate_component(
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
     let is_child_component = component.parent_element.upgrade().is_some();
+    let is_sub_component =
+        !component.is_root_component.get() && !is_child_component && !component.is_global();
 
     for c in component.popup_windows.borrow().iter() {
         let mut friends = vec![self::component_id(&c.component)];
@@ -1013,6 +1015,10 @@ fn generate_component(
         }
     }
 
+    if is_sub_component {
+        constructor_parent_arg = "uintptr_t item_index_start".into();
+    }
+
     if component.is_root_component.get() {
         component_struct.members.push((
             Access::Public,
@@ -1131,13 +1137,19 @@ fn generate_component(
             ));
         } else if let Type::Component(component) = &item.base_type {
             let class_name = self::component_id(&component);
+
+            let member_name = ident(&item.id).into_owned();
+            let parent_index = if is_sub_component { "item_index_start + " } else { "" };
+
+            constructor_member_initializers.push(format!(
+                "{}{{{}{}}}",
+                member_name,
+                parent_index,
+                item.item_index.get().unwrap()
+            ));
             component_struct.members.push((
                 Access::Public,
-                Declaration::Var(Var {
-                    ty: class_name,
-                    name: ident(&item.id).into_owned(),
-                    ..Default::default()
-                }),
+                Declaration::Var(Var { ty: class_name, name: member_name, ..Default::default() }),
             ));
         }
     });
