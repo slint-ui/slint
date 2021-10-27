@@ -855,6 +855,23 @@ fn generate_component(
 
     let mut constructor_parent_arg = String::new();
 
+    if !is_root || !component.is_global() {
+        component_struct.members.push((
+            if !component.is_global() {
+                // FIXME: many of the different component bindings need to access this
+                Access::Public
+            } else {
+                Access::Private
+            },
+            Declaration::Var(Var {
+                ty: "sixtyfps::Window".into(),
+                name: "m_window".into(),
+                init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
+                ..Default::default()
+            }),
+        ));
+    }
+
     if !is_root {
         let parent_element = component.parent_element.upgrade().unwrap();
 
@@ -973,26 +990,7 @@ fn generate_component(
                 ..Var::default()
             }),
         ));
-        component_struct.members.push((
-            Access::Private,
-            Declaration::Var(Var {
-                ty: "sixtyfps::Window".into(),
-                name: "m_window".into(),
-                init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
-                ..Default::default()
-            }),
-        ));
     } else if !component.is_global() {
-        component_struct.members.push((
-            Access::Public, // FIXME: many of the different component bindings need to access this
-            Declaration::Var(Var {
-                ty: "sixtyfps::Window".into(),
-                name: "m_window".into(),
-                init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
-                ..Default::default()
-            }),
-        ));
-
         component_struct.members.push((
             Access::Public, // FIXME: Used for the tests
             Declaration::Var(Var {
