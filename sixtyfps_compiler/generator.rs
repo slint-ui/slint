@@ -110,8 +110,9 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
     visit_children(&component.root_element, 0, 1, &mut visit_item);
 
     fn sub_children_count(e: &ElementRc) -> usize {
-        let mut count = e.borrow().children.len();
+        let mut count = 0;
         for i in &e.borrow().children {
+            count += item_tree_element_size(i);
             count += sub_children_count(i);
         }
         count
@@ -124,7 +125,11 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
         visit_item: &mut impl FnMut(&ElementRc, u32, u32),
     ) {
         debug_assert_eq!(index, item.borrow().item_index.get().map(|x| *x as u32).unwrap_or(index));
-        let mut offset = children_offset + item.borrow().children.len() as u32;
+        let mut offset = children_offset;
+
+        for i in &item.borrow().children {
+            offset += item_tree_element_size(i) as u32;
+        }
 
         for i in &item.borrow().children {
             visit_item(i, offset, index);
@@ -136,7 +141,7 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
 
         for e in &item.borrow().children {
             visit_children(e, index, offset, visit_item);
-            index += 1;
+            index += item_tree_element_size(e) as u32;
             offset += sub_children_count(e) as u32;
         }
     }
@@ -199,4 +204,17 @@ pub fn handle_property_bindings_init(
             );
         }
     });
+}
+
+// Returns the number of indices in the item tree the element needs. If the element is
+// a built-in item, then this function returns 1. If the element is a sub-component, then
+// the number of items (including children) the sub-component needs is returned.
+pub fn item_tree_element_size(element: &ElementRc) -> usize {
+    let mut size = 1;
+    if let Some(sub_component) = element.borrow().sub_component() {
+        for child in &sub_component.root_element.borrow().children {
+            size += item_tree_element_size(&child);
+        }
+    }
+    size
 }
