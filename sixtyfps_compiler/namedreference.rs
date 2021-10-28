@@ -77,7 +77,7 @@ impl NamedReference {
                 return false;
             }
         }
-        if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set_derived) {
+        if e.property_analysis.borrow().get(self.name()).map_or(false, |a| a.is_set_externally) {
             return false;
         }
         drop(e);
@@ -202,15 +202,15 @@ pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &s
             };
             match c.root_element.borrow().property_analysis.borrow_mut().entry(name.to_owned()) {
                 std::collections::hash_map::Entry::Occupied(e)
-                    if e.get().is_set || e.get().is_set_derived =>
+                    if e.get().is_set || e.get().is_set_externally =>
                 {
                     return
                 }
                 std::collections::hash_map::Entry::Occupied(mut e) => {
-                    e.get_mut().is_set_derived = true;
+                    e.get_mut().is_set_externally = true;
                 }
                 std::collections::hash_map::Entry::Vacant(e) => {
-                    e.insert(PropertyAnalysis { is_set_derived: true, ..Default::default() });
+                    e.insert(PropertyAnalysis { is_set_externally: true, ..Default::default() });
                 }
             }
             c.root_element.clone()
