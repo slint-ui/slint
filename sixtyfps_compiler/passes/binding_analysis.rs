@@ -107,14 +107,15 @@ fn analyse_binding(
 
     let mut process_prop = |prop: &NamedReference| {
         let mut element = prop.element();
+        element
+            .borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(prop.name().into())
+            .or_default()
+            .is_read = true;
+
         loop {
-            element
-                .borrow()
-                .property_analysis
-                .borrow_mut()
-                .entry(prop.name().into())
-                .or_default()
-                .is_read = true;
             if let Some(binding) = element.borrow().bindings.get(prop.name()) {
                 if binding.analysis.borrow().is_none() {
                     analyse_binding(&element, prop.name(), currently_analysing, diag);
@@ -129,6 +130,13 @@ fn analyse_binding(
                 break;
             };
             element = next;
+            element
+                .borrow()
+                .property_analysis
+                .borrow_mut()
+                .entry(prop.name().into())
+                .or_default()
+                .is_read_externally = true;
         }
     };
     let binding = &element.borrow().bindings[name];

@@ -155,8 +155,13 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
         // Remove the declaration
         {
             let mut elem = elem.borrow_mut();
+            let used_externally = elem
+                .property_analysis
+                .borrow()
+                .get(remove.name())
+                .map_or(false, |v| v.is_read_externally || v.is_set_externally);
             if let Some(d) = elem.property_declarations.get_mut(remove.name()) {
-                if d.expose_in_public_api {
+                if d.expose_in_public_api || used_externally {
                     d.is_alias = Some(to.clone());
                     drop(elem);
                     // one must mark the aliased property as settable from outside
