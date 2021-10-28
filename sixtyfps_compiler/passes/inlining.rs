@@ -50,9 +50,6 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
                         component_requires_inlining(&c)
                             // otherwise the children of the clipped items won't get moved as child of the Clip element
                             || elem.borrow().bindings.contains_key("clip")
-                            // for repeated elements (`for x in 10: MyButton{}`) the generators assert that the root element's
-                            // base type is a built-in element, in order to implement `root_item` of the `ComponentVTable`.
-                            || elem.borrow().repeated.is_some()
                     }
                 } {
                     inlined_components.insert(ByAddress(c.clone()));
