@@ -10,7 +10,7 @@ LICENSE END */
 //! Assign the Element::item_index on each elements
 pub fn generate_item_indices(component: &std::rc::Rc<crate::object_tree::Component>) {
     let mut current_item_index: usize = 0;
-    crate::generator::build_array_helper(component, move |item_rc, _, _| {
+    crate::object_tree::recurse_elem_level_order(&component.root_element, &mut |item_rc| {
         let item = item_rc.borrow();
         if item.base_type == crate::langtype::Type::Void {
         } else {

@@ -1170,7 +1170,7 @@ fn generate_component(
 
     let mut repeater_count = 0;
 
-    super::build_array_helper(component, |item_rc, _, _| {
+    crate::object_tree::recurse_elem_level_order(&component.root_element, &mut |item_rc| {
         let item = item_rc.borrow();
         if item.base_type == Type::Void {
             assert!(component.is_global());
