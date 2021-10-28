@@ -1224,7 +1224,7 @@ fn generate_component(
     });
 
     component_struct.members.push((
-        if !component.is_global() { Access::Private } else { Access::Public },
+        if !component.is_global() && !is_sub_component { Access::Private } else { Access::Public },
         Declaration::Function(Function {
             name: component_id.clone(),
             signature: format!("({})", constructor_parent_arg),
