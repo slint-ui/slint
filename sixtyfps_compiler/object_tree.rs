@@ -1419,6 +1419,24 @@ pub fn recurse_elem<State>(
     }
 }
 
+/// Call the visitor for each children of the element recursively, starting with the element itself.
+/// The traversal happens in level-order, meaning each level of the element tree is visisted before
+/// going to the next depth.
+///
+/// The state returned by the visitor is passed to the children
+pub fn recurse_elem_level_order(elem: &ElementRc, vis: &mut impl FnMut(&ElementRc)) {
+    vis(elem);
+    visit_children(elem, vis);
+    fn visit_children(elem: &ElementRc, vis: &mut impl FnMut(&ElementRc)) {
+        for child in &elem.borrow().children {
+            vis(child);
+        }
+        for child in &elem.borrow().children {
+            visit_children(child, vis);
+        }
+    }
+}
+
 /// Same as [`recurse_elem`] but include the elements form sub_components
 pub fn recurse_elem_including_sub_components<State>(
     component: &Component,
