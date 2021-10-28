@@ -1127,7 +1127,8 @@ fn generate_component(
                 item.base_type.as_native().cpp_vtable_getter.clone(),
             ));
         } else if let Type::Component(sub_component) = &item.base_type {
-            // todo
+            let subcomponent_base_offset =
+                subcomponent_base_offset + *item.item_index.get().unwrap() as u32;
             super::build_array_helper(
                 &sub_component,
                 |nested_item_rc, nested_children_offset, nested_parent_index| {
@@ -1140,7 +1141,7 @@ fn generate_component(
                             &self::component_id(component),
                             ident(&item.id)
                         ),
-                        *item.item_index.get().unwrap() as u32,
+                        subcomponent_base_offset,
                         subcomponent_base_offset + nested_children_offset,
                         subcomponent_base_offset + nested_parent_index,
                         tree_array,
