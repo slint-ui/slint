@@ -1425,16 +1425,21 @@ fn generate_component_vtable(
         }),
     ));
     let root_elem = component.root_element.borrow();
+    let get_root_item_ref = if let Type::Component(_) = root_elem.base_type {
+        format!("return this->{id}.root_item();", id = ident(&root_elem.id))
+    } else {
+        format!(
+            "return {{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
+            vt = root_elem.base_type.as_native().cpp_vtable_getter,
+            id = ident(&root_elem.id)
+        )
+    };
     component_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: "root_item".into(),
             signature: "() const -> sixtyfps::private_api::ItemRef".into(),
-            statements: Some(vec![format!(
-                "return {{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
-                vt = root_elem.base_type.as_native().cpp_vtable_getter,
-                id = ident(&root_elem.id)
-            )]),
+            statements: Some(vec![get_root_item_ref]),
             ..Default::default()
         }),
     ));
@@ -2271,6 +2276,12 @@ fn get_layout_info(
         &elem.borrow().layout_info_prop(orientation)
     {
         format!("{}.get()", access_named_reference(layout_info_prop, component, "self"))
+    } else if let Type::Component(_sub_component) = &elem.borrow().base_type {
+        format!(
+            "self->{id}.layouting_info({o}, &self->m_window.window_handle())",
+            id = ident(&elem.borrow().id),
+            o = to_cpp_orientation(orientation),
+        )
     } else {
         format!(
             "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &self->m_window.window_handle())",
