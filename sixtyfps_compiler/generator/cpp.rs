@@ -385,6 +385,8 @@ fn handle_property_binding(
             "{id}.viewport.",
             id = ident(&crate::object_tree::find_parent_element(elem).unwrap().borrow().id)
         )
+    } else if item.sub_component().is_some() {
+        format!("{id}.root_item()->", id = ident(&item.id))
     } else {
         format!("{id}.", id = ident(&item.id))
     };
@@ -1315,6 +1317,24 @@ fn generate_component(
             tree_array,
             file,
         );
+    }
+
+    if is_sub_component {
+        let root_element = component.root_element.borrow();
+        let get_root_item = if root_element.sub_component().is_some() {
+            format!("{}.root_item()", ident(&root_element.id))
+        } else {
+            format!("&{}", ident(&root_element.id))
+        };
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "root_item".to_owned(),
+                signature: "()".into(),
+                statements: Some(vec![format!("return {};", get_root_item)]),
+                ..Default::default()
+            }),
+        ));
     }
 
     let used_types = component.used_types.borrow();
