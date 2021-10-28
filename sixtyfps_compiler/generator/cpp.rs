@@ -486,10 +486,10 @@ fn handle_property_binding(
     }
 }
 
-fn handle_item(elem: &ElementRc, main_struct: &mut Struct) {
+fn handle_item(elem: &ElementRc, field_access: Access, main_struct: &mut Struct) {
     let item = elem.borrow();
     main_struct.members.push((
-        Access::Private,
+        field_access,
         Declaration::Var(Var {
             ty: format!(
                 "sixtyfps::cbindgen_private::{}",
@@ -1172,6 +1172,8 @@ fn generate_component(
     let mut repeater_count = 0;
 
     crate::object_tree::recurse_elem_level_order(&component.root_element, &mut |item_rc| {
+        let field_access =
+            if component.is_root_component.get() { Access::Private } else { Access::Public };
         let item = item_rc.borrow();
         if item.base_type == Type::Void {
             assert!(component.is_global());
@@ -1199,7 +1201,7 @@ fn generate_component(
             );
             repeater_count += 1;
         } else if let Type::Native(_) = &item.base_type {
-            handle_item(item_rc, &mut component_struct);
+            handle_item(item_rc, field_access, &mut component_struct);
         } else if let Type::Component(sub_component) = &item.base_type {
             let class_name = self::component_id(&sub_component);
 
@@ -1213,7 +1215,7 @@ fn generate_component(
                 item.item_index.get().unwrap()
             ));
             component_struct.members.push((
-                if component.is_root_component.get() { Access::Private } else { Access::Public },
+                field_access,
                 Declaration::Var(Var { ty: class_name, name: member_name, ..Default::default() }),
             ));
         }
