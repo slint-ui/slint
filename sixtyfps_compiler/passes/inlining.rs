@@ -50,6 +50,8 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
                         component_requires_inlining(&c)
                             // otherwise the children of the clipped items won't get moved as child of the Clip element
                             || elem.borrow().bindings.contains_key("clip")
+                            // the generators assume that the children list is complete, which sub-components may break
+                            || !elem.borrow().children.is_empty()
                     }
                 } {
                     inlined_components.insert(ByAddress(c.clone()));
