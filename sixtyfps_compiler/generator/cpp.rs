@@ -1200,8 +1200,8 @@ fn generate_component(
             repeater_count += 1;
         } else if let Type::Native(_) = &item.base_type {
             handle_item(item_rc, &mut component_struct);
-        } else if let Type::Component(component) = &item.base_type {
-            let class_name = self::component_id(&component);
+        } else if let Type::Component(sub_component) = &item.base_type {
+            let class_name = self::component_id(&sub_component);
 
             let member_name = ident(&item.id).into_owned();
             let parent_index = if is_sub_component { "item_index_start + " } else { "" };
@@ -1213,7 +1213,7 @@ fn generate_component(
                 item.item_index.get().unwrap()
             ));
             component_struct.members.push((
-                Access::Public,
+                if component.is_root_component.get() { Access::Private } else { Access::Public },
                 Declaration::Var(Var { ty: class_name, name: member_name, ..Default::default() }),
             ));
         }
