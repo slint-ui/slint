@@ -21,6 +21,7 @@ use crate::layout::LayoutItem;
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::Document;
+use crate::object_tree::PropertyAnimation;
 use crate::object_tree::{Component, ElementRc};
 
 type PropertySet = linked_hash_set::LinkedHashSet<NamedReference>;
@@ -38,23 +39,25 @@ fn perform_binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnosti
     crate::object_tree::recurse_elem_including_sub_components_no_borrow(
         component,
         &(),
-        &mut |e, _| {
-            for (name, binding) in &e.borrow().bindings {
-                if matches!(e.borrow().lookup_property(name).property_type, Type::Callback { .. }) {
-                    // TODO: We probably also want to do some analysis on callbacks.
-                    continue;
-                }
-                if binding.analysis.borrow().is_some() {
-                    continue;
-                }
-                let mut set = PropertySet::default();
-                analyse_binding(e, name, &mut set, diag);
-            }
-        },
+        &mut |e, _| analyze_element(e, diag),
     );
 
     for c in &component.used_types.borrow().sub_components {
         perform_binding_analysis(c, diag);
+    }
+}
+
+fn analyze_element(elem: &ElementRc, diag: &mut BuildDiagnostics) {
+    for (name, binding) in &elem.borrow().bindings {
+        if matches!(elem.borrow().lookup_property(name).property_type, Type::Callback { .. }) {
+            // TODO: We probably also want to do some analysis on callbacks.
+            continue;
+        }
+        if binding.analysis.borrow().is_some() {
+            continue;
+        }
+        let mut set = PropertySet::default();
+        analyse_binding(elem, name, &mut set, diag);
     }
 }
 
@@ -156,6 +159,17 @@ fn analyse_binding(
         analysis.is_const = is_const;
     }
 
+    match &binding.animation {
+        Some(PropertyAnimation::Static(e)) => analyze_element(e, diag),
+        Some(PropertyAnimation::Transition { animations, state_ref }) => {
+            recurse_expression(state_ref, &mut process_prop);
+            for a in animations {
+                analyze_element(&a.animation, diag);
+            }
+        }
+        None => (),
+    }
+
     let o = currently_analysing.pop_back();
     assert_eq!(o.unwrap(), nr);
 }
@@ -219,6 +233,11 @@ fn visit_layout_items_dependencies<'a>(
         if let Some(nr) = it.element.borrow().layout_info_prop(orientation) {
             vis(nr);
         } else {
+            if let Type::Component(base) = &it.element.borrow().base_type {
+                if let Some(nr) = base.root_element.borrow().layout_info_prop(orientation) {
+                    vis(nr);
+                }
+            }
             visit_implicit_layout_info_dependencies(orientation, &it.element, vis);
         }
 
