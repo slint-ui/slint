@@ -1084,7 +1084,8 @@ fn generate_component(
     fn append_to_item_tree(
         component: &Rc<Component>,
         item_rc: &ElementRc,
-        subcomponent_accessor: &str,
+        offsetof_prefix: &str, // offsetof(App, sub_component) + offsetof(SubComponent, sub_sub_component) + ...
+        field_prefix: &str,    // sub_component.sub_sub_componet
         subcomponent_base_offset: u32,
         children_offset: u32,
         parent_index: u32,
@@ -1105,7 +1106,7 @@ fn generate_component(
             if item.is_flickable_viewport {
                 tree_array.push(format!(
                     "sixtyfps::private_api::make_item_node({}offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
-                    subcomponent_accessor,
+                    offsetof_prefix,
                     &self::component_id(component),
                     ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id),
                     item.children.len(),
@@ -1115,7 +1116,7 @@ fn generate_component(
             } else {
                 tree_array.push(format!(
                     "sixtyfps::private_api::make_item_node({}offsetof({}, {}), {}, {}, {}, {})",
-                    subcomponent_accessor,
+                    offsetof_prefix,
                     &self::component_id(component),
                     ident(&item.id),
                     native_class.cpp_vtable_getter,
@@ -1124,13 +1125,14 @@ fn generate_component(
                     parent_index,
                 ));
             }
-            item_names_and_vt_symbols.push((
-                ident(&item.id).into_owned(),
-                item.base_type.as_native().cpp_vtable_getter.clone(),
-            ));
+            let item_field_name = format!("{}{}", field_prefix, ident(&item.id));
+            item_names_and_vt_symbols
+                .push((item_field_name, item.base_type.as_native().cpp_vtable_getter.clone()));
         } else if let Type::Component(sub_component) = &item.base_type {
             let subcomponent_base_offset =
                 subcomponent_base_offset + *item.item_index.get().unwrap() as u32;
+            let field_prefix = &format!("{}{}.", field_prefix, self::ident(&item.id));
+
             super::build_array_helper(
                 &sub_component,
                 |nested_item_rc, nested_children_offset, nested_parent_index| {
@@ -1139,10 +1141,11 @@ fn generate_component(
                         nested_item_rc,
                         &format!(
                             "{}offsetof({}, {}) + ",
-                            subcomponent_accessor,
+                            offsetof_prefix,
                             &self::component_id(component),
                             ident(&item.id)
                         ),
+                        field_prefix,
                         subcomponent_base_offset,
                         subcomponent_base_offset + nested_children_offset,
                         subcomponent_base_offset + nested_parent_index,
@@ -1161,6 +1164,7 @@ fn generate_component(
         append_to_item_tree(
             component,
             item_rc,
+            "",
             "",
             0,
             children_offset,
