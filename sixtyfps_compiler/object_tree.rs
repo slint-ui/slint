@@ -293,6 +293,12 @@ impl Component {
             .map(|name| name.original_name())
             .collect()
     }
+
+    pub fn is_sub_component(&self) -> bool {
+        !self.is_root_component.get()
+            && self.parent_element.upgrade().is_none()
+            && !self.is_global()
+    }
 }
 
 #[derive(Clone, Debug, Default)]

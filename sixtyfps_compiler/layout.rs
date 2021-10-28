@@ -482,13 +482,6 @@ pub fn layout_info_type() -> Type {
 /// Get the implicit layout info of a particular element
 pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
     match &elem.borrow().base_type {
-        Type::Component(base_comp) => match &base_comp.root_element.borrow().layout_info_prop {
-            Some((hor, vert)) => Expression::PropertyReference(match orientation {
-                Orientation::Horizontal => hor.clone(),
-                Orientation::Vertical => vert.clone(),
-            }),
-            None => implicit_layout_info_call(&base_comp.root_element, orientation),
-        },
         Type::Builtin(base_type) if base_type.name == "Rectangle" => {
             // hard-code the value for rectangle because many rectangle end up optimized away and we
             // don't want to depend on the element.

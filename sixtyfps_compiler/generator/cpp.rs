@@ -751,8 +751,7 @@ fn generate_component(
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
     let is_child_component = component.parent_element.upgrade().is_some();
-    let is_sub_component =
-        !component.is_root_component.get() && !is_child_component && !component.is_global();
+    let is_sub_component = component.is_sub_component();
 
     for c in component.popup_windows.borrow().iter() {
         let mut friends = vec![self::component_id(&c.component)];
@@ -1339,6 +1338,22 @@ fn generate_component(
                 ..Default::default()
             }),
         ));
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "layout_info".into(),
+                signature:
+                    "(sixtyfps::Orientation o, sixtyfps::private_api::WindowRc *window_handle) -> sixtyfps::LayoutInfo"
+                        .into(),
+                statements: Some(layout_info_function_body(
+                    &component,
+                    "auto self = this;".to_owned(),
+                    Some("window_handle"),
+                )),
+                ..Default::default()
+            }),
+        ));
     }
 
     let used_types = component.used_types.borrow();
@@ -1497,13 +1512,10 @@ fn generate_component_vtable(
                 "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::Orientation o) -> sixtyfps::LayoutInfo"
                     .into(),
             is_static: true,
-            statements: Some(vec![
-                format!("[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);", component_id),
-                format!("if (o == sixtyfps::Orientation::Horizontal) return {};",
-                    get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Horizontal)),
-                format!("else return {};",
-                    get_layout_info(&component.root_element, component, &component.root_constraints.borrow(), Orientation::Vertical))
-            ]),
+            statements: Some(layout_info_function_body(&component, format!(
+                "[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);",
+                component_id
+            ), None)),
             ..Default::default()
         }),
     ));
@@ -1896,13 +1908,20 @@ fn compile_expression(
                 if let Expression::ElementReference(item) = &arguments[0] {
                     let item = item.upgrade().unwrap();
                     let item = item.borrow();
-                    let native_item = item.base_type.as_native();
-                    format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &m_window.window_handle())",
-                        vt = native_item.cpp_vtable_getter,
-                        ty = native_item.class_name,
-                        id = ident(&item.id),
-                        o = to_cpp_orientation(*orientation),
-                    )
+                    if item.sub_component().is_some() {
+                        format!("self->{compo}.layout_info({o}, &m_window.window_handle())",
+                            compo = ident(&item.id),
+                            o = to_cpp_orientation(*orientation)
+                        )
+                    } else {
+                        let native_item = item.base_type.as_native();
+                        format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &m_window.window_handle())",
+                            vt = native_item.cpp_vtable_getter,
+                            ty = native_item.class_name,
+                            id = ident(&item.id),
+                            o = to_cpp_orientation(*orientation),
+                        )
+                    }
                 } else {
                     panic!("internal error: argument to ImplicitLayoutInfo must be an element")
                 }
@@ -2252,7 +2271,7 @@ fn grid_layout_cell_data(
                 "sixtyfps::GridLayoutCellData {{ {}, {}, {} }}",
                 col_or_row,
                 span,
-                get_layout_info(&c.item.element, component, &c.item.constraints, orientation),
+                get_layout_info(&c.item.element, component, &c.item.constraints, orientation, None),
             )
         })
         .join(", ")
@@ -2279,7 +2298,7 @@ fn box_layout_data(
         let mut cells = layout.elems.iter().map(|li| {
             format!(
                 "sixtyfps::BoxLayoutCellData{{ {} }}",
-                get_layout_info(&li.element, component, &li.constraints, orientation)
+                get_layout_info(&li.element, component, &li.constraints, orientation, None)
             )
         });
         if let Some((ri, _)) = &mut repeated_indices {
@@ -2320,7 +2339,7 @@ fn box_layout_data(
             } else {
                 push_code += &format!(
                     "cells.push_back({{ {} }});",
-                    get_layout_info(&item.element, component, &item.constraints, orientation)
+                    get_layout_info(&item.element, component, &item.constraints, orientation, None)
                 );
             }
         }
@@ -2362,24 +2381,32 @@ fn get_layout_info(
     component: &Rc<Component>,
     constraints: &crate::layout::LayoutConstraints,
     orientation: Orientation,
+    custom_window_handle_accessor: Option<&'_ str>,
 ) -> String {
+    let window_handle = if let Some(custom_accessor) = custom_window_handle_accessor {
+        custom_accessor
+    } else {
+        "&self->m_window.window_handle()"
+    };
     let mut layout_info = if let Some(layout_info_prop) =
         &elem.borrow().layout_info_prop(orientation)
     {
         format!("{}.get()", access_named_reference(layout_info_prop, component, "self"))
-    } else if let Type::Component(_sub_component) = &elem.borrow().base_type {
+    } else if elem.borrow().sub_component().is_some() {
         format!(
-            "self->{id}.layouting_info({o}, &self->m_window.window_handle())",
+            "self->{id}.layout_info({o}, {window_handle})",
             id = ident(&elem.borrow().id),
             o = to_cpp_orientation(orientation),
+            window_handle = window_handle
         )
     } else {
         format!(
-            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &self->m_window.window_handle())",
+            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, {window_handle})",
             vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
             ty = elem.borrow().base_type.as_native().class_name,
             id = ident(&elem.borrow().id),
             o = to_cpp_orientation(orientation),
+            window_handle = window_handle
         )
     };
 
@@ -2395,6 +2422,36 @@ fn get_layout_info(
         layout_info += " return layout_info; }()";
     }
     layout_info
+}
+
+fn layout_info_function_body(
+    component: &Rc<Component>,
+    self_accessor: String,
+    custom_window_accessor: Option<&'_ str>,
+) -> Vec<String> {
+    vec![
+        self_accessor,
+        format!(
+            "if (o == sixtyfps::Orientation::Horizontal) return {};",
+            get_layout_info(
+                &component.root_element,
+                component,
+                &component.root_constraints.borrow(),
+                Orientation::Horizontal,
+                custom_window_accessor
+            )
+        ),
+        format!(
+            "else return {};",
+            get_layout_info(
+                &component.root_element,
+                component,
+                &component.root_constraints.borrow(),
+                Orientation::Vertical,
+                custom_window_accessor
+            )
+        ),
+    ]
 }
 
 fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) -> String {
