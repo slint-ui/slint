@@ -168,6 +168,17 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                     to.mark_as_set();
                 } else {
                     elem.property_declarations.remove(remove.name());
+                    let analysis = elem.property_analysis.borrow().get(remove.name()).cloned();
+                    if let Some(analysis) = analysis {
+                        drop(elem);
+                        to.element()
+                            .borrow()
+                            .property_analysis
+                            .borrow_mut()
+                            .entry(to.name().to_owned())
+                            .or_default()
+                            .merge(&analysis);
+                    };
                 }
             } else {
                 // This is not a declaration, we must re-create the binding
