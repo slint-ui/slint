@@ -570,14 +570,21 @@ pub struct PropertyAnalysis {
     /// true if somewhere in the code, an expression is reading this property
     /// Note: currently this is only set in the binding analysis pass
     pub is_read: bool,
+
+    /// true if this property is read from another component
+    pub is_read_externally: bool,
 }
 
 impl PropertyAnalysis {
     /// Merge analysis from base element for e.g. inlining
     pub fn merge(&mut self, other: &PropertyAnalysis) {
         self.is_set |= other.is_set;
-        self.is_set_externally |= other.is_set_externally;
         self.is_read |= other.is_read;
+    }
+
+    /// Return true if it is read or set or used in any way
+    pub fn is_used(&self) -> bool {
+        self.is_read || self.is_read_externally || self.is_set || self.is_set_externally
     }
 }
 

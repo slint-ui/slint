@@ -22,6 +22,12 @@ pub fn remove_unused_properties(component: &Component) {
                 for (prop, decl) in &elem.borrow().property_declarations {
                     if !decl.expose_in_public_api
                         && !elem.borrow().named_references.is_referenced(prop)
+                        && !elem
+                            .borrow()
+                            .property_analysis
+                            .borrow()
+                            .get(prop)
+                            .map_or(false, |v| v.is_used())
                     {
                         to_remove.insert(prop.to_owned());
                     }
