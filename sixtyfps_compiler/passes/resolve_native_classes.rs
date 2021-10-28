@@ -41,7 +41,7 @@ pub fn resolve_native_classes(component: &Component) {
                 .chain(
                     analysis
                         .iter()
-                        .filter(|(_, v)| v.is_read || v.is_set || v.is_set_derived)
+                        .filter(|(_, v)| v.is_read || v.is_set || v.is_set_externally)
                         .map(|(k, _)| k),
                 )
                 .filter(|k| {
