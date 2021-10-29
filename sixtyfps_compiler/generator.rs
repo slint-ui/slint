@@ -104,6 +104,7 @@ pub fn generate(
 ///  1. the item
 ///  2. the first_children_offset,
 ///  3. the parent index
+/// DEPRECATED: Port to build_item_tree and remove this function.
 #[allow(dead_code)]
 pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&ElementRc, u32, u32)) {
     visit_item(&component.root_element, 1, 0);
@@ -146,6 +147,137 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
             visit_children(e, index, offset, visit_item);
             index += item_tree_element_size(e) as u32;
             offset += sub_children_count(e) as u32;
+        }
+    }
+}
+
+struct SubTree<State> {
+    component: Rc<Component>,
+    parent_index: u32,
+    children_offset: u32,
+    state: State,
+}
+
+/// Visit each item in order in which they should appear in the children tree array.
+/// The parameter of the visitor are
+///  1. The application specific state (can be used to keep track of how to reach fields)
+///  2. The current component being built (can be sub-component)
+///  3. the item
+///  4. the first_children_offset,
+///  5. the parent index
+///
+/// The start_subtree callback is called when encountering a sub-component.
+/// The parameters are:
+///  1. The application specific state
+///  2. The current component being built (the parent of the sub-component!)
+///  3. The element used to instantiate the sub-component
+#[allow(dead_code)]
+pub fn build_item_tree<State>(
+    root_component: &Rc<Component>,
+    initial_state: State,
+    mut visit_item: impl FnMut(&State, &Rc<Component>, &ElementRc, u32, u32),
+    mut start_subtree: impl FnMut(&State, &Rc<Component>, &ElementRc) -> State,
+) {
+    visit_item(&initial_state, root_component, &root_component.root_element, 1, 0);
+
+    let mut subtrees_to_process = vec![SubTree {
+        component: root_component.clone(),
+        parent_index: 0,
+        children_offset: 1,
+        state: initial_state,
+    }];
+
+    while let Some(SubTree { component, parent_index, children_offset, state }) =
+        subtrees_to_process.pop()
+    {
+        visit_children(
+            &state,
+            &component,
+            &component.root_element,
+            parent_index,
+            0,
+            children_offset,
+            1,
+            &mut visit_item,
+            &mut start_subtree,
+            &mut subtrees_to_process,
+        );
+    }
+
+    fn sub_children_count(e: &ElementRc) -> usize {
+        let mut count = 0;
+        for i in &e.borrow().children {
+            count += item_tree_element_size(i);
+            count += sub_children_count(i);
+        }
+        count
+    }
+
+    fn visit_children<State>(
+        state: &State,
+        component: &Rc<Component>,
+        parent_item: &ElementRc,
+        parent_index: u32,
+        relative_parent_index: u32,
+        children_offset: u32,
+        relative_children_offset: u32,
+        visit_item: &mut impl FnMut(&State, &Rc<Component>, &ElementRc, u32, u32),
+        start_subtree: &mut impl FnMut(&State, &Rc<Component>, &ElementRc) -> State,
+        subtrees_to_process: &mut Vec<SubTree<State>>,
+    ) {
+        debug_assert_eq!(
+            relative_parent_index,
+            parent_item.borrow().item_index.get().map(|x| *x as u32).unwrap_or(parent_index)
+        );
+        let mut offset = children_offset + parent_item.borrow().children.len() as u32;
+
+        let sub_tree_size = offset - children_offset;
+
+        for child in &parent_item.borrow().children {
+            if let Some(sub_component) = child.borrow().sub_component() {
+                let subtree_state = start_subtree(state, component, child);
+                visit_item(
+                    &subtree_state,
+                    sub_component,
+                    &sub_component.root_element,
+                    offset,
+                    parent_index,
+                );
+                subtrees_to_process.push(SubTree {
+                    component: sub_component.clone(),
+                    parent_index,
+                    children_offset: offset,
+                    state: subtree_state,
+                });
+                offset += item_tree_element_size(&sub_component.root_element) as u32;
+            } else {
+                visit_item(state, component, child, offset, parent_index);
+                offset += sub_children_count(child) as u32;
+            }
+        }
+
+        let mut offset = children_offset + sub_tree_size;
+        let mut relative_offset = relative_children_offset + sub_tree_size;
+        let mut index = children_offset;
+        let mut relative_index = relative_children_offset;
+
+        for e in &parent_item.borrow().children {
+            visit_children(
+                state,
+                component,
+                e,
+                index,
+                relative_index,
+                offset,
+                relative_offset,
+                visit_item,
+                start_subtree,
+                subtrees_to_process,
+            );
+            index += item_tree_element_size(e) as u32;
+            relative_index += item_tree_element_size(e) as u32;
+            offset += sub_children_count(e) as u32;
+            relative_offset += sub_children_count(e) as u32;
         }
     }
 }

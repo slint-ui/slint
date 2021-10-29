@@ -1100,99 +1100,69 @@ fn generate_component(
     let mut item_names_and_vt_symbols = vec![];
     let mut repeater_count = 0;
 
-    fn append_to_item_tree(
-        component: &Rc<Component>,
-        item_rc: &ElementRc,
-        offsetof_prefix: &str, // offsetof(App, sub_component) + offsetof(SubComponent, sub_sub_component) + ...
-        field_prefix: &str,    // sub_component.sub_sub_componet
-        subcomponent_base_offset: u32,
-        children_offset: u32,
-        parent_index: u32,
-        tree_array: &mut Vec<String>,
-        repeater_count: &mut i32,
-        item_names_and_vt_symbols: &mut Vec<(String, String)>,
-    ) {
-        let item = item_rc.borrow();
-        if item.base_type == Type::Void {
-            assert!(component.is_global());
-        } else if item.repeated.is_some() {
-            tree_array.push(format!(
-                "sixtyfps::private_api::make_dyn_node({}, {})",
-                repeater_count, parent_index
-            ));
-            *repeater_count += 1;
-        } else if let Type::Native(native_class) = &item.base_type {
-            if item.is_flickable_viewport {
-                tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node({}offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
-                    offsetof_prefix,
-                    &self::component_id(component),
-                    ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id),
-                    item.children.len(),
-                    children_offset,
-                    parent_index,
-                ));
-            } else {
-                tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node({}offsetof({}, {}), {}, {}, {}, {})",
-                    offsetof_prefix,
-                    &self::component_id(component),
-                    ident(&item.id),
-                    native_class.cpp_vtable_getter,
-                    item.children.len(),
-                    children_offset,
-                    parent_index,
-                ));
-            }
-            let item_field_name = format!("{}{}", field_prefix, ident(&item.id));
-            item_names_and_vt_symbols
-                .push((item_field_name, item.base_type.as_native().cpp_vtable_getter.clone()));
-        } else if let Type::Component(sub_component) = &item.base_type {
-            let subcomponent_base_offset =
-                subcomponent_base_offset + *item.item_index.get().unwrap() as u32;
-            let field_prefix = &format!("{}{}.", field_prefix, self::ident(&item.id));
-
-            super::build_array_helper(
-                &sub_component,
-                |nested_item_rc, nested_children_offset, nested_parent_index| {
-                    append_to_item_tree(
-                        sub_component,
-                        nested_item_rc,
-                        &format!(
-                            "{}offsetof({}, {}) + ",
-                            offsetof_prefix,
-                            &self::component_id(component),
-                            ident(&item.id)
-                        ),
-                        field_prefix,
-                        subcomponent_base_offset,
-                        subcomponent_base_offset + nested_children_offset,
-                        subcomponent_base_offset + nested_parent_index,
-                        tree_array,
-                        repeater_count,
-                        item_names_and_vt_symbols,
-                    );
-                },
-            );
-        }
+    #[derive(Default)]
+    struct SubTreeState {
+        offsetof_prefix: String, // offsetof(App, sub_component) + offsetof(SubComponent, sub_sub_component) + ...
+        field_prefix: String,    // sub_component.sub_sub_componet
     }
 
-    // Build the item tree separately from the members, as the former needs to be flattened all the way, while the former
-    // does not nest into sub-components, for example.
-    super::build_array_helper(component, |item_rc, children_offset, parent_index| {
-        append_to_item_tree(
-            component,
-            item_rc,
-            "",
-            "",
-            0,
-            children_offset,
-            parent_index,
-            &mut tree_array,
-            &mut repeater_count,
-            &mut item_names_and_vt_symbols,
-        )
-    });
+    super::build_item_tree(
+        component,
+        SubTreeState::default(),
+        &mut |state: &SubTreeState,
+              component: &Rc<Component>,
+              item_rc: &ElementRc,
+              children_offset,
+              parent_index| {
+            let item = item_rc.borrow();
+            if item.base_type == Type::Void {
+                assert!(component.is_global());
+            } else if item.repeated.is_some() {
+                tree_array.push(format!(
+                    "sixtyfps::private_api::make_dyn_node({}, {})",
+                    repeater_count, parent_index
+                ));
+                repeater_count += 1;
+            } else if let Type::Native(native_class) = &item.base_type {
+                if item.is_flickable_viewport {
+                    tree_array.push(format!(
+                        "sixtyfps::private_api::make_item_node({}offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
+                        state.offsetof_prefix,
+                        &self::component_id(component),
+                        ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id),
+                        item.children.len(),
+                        children_offset,
+                        parent_index,
+                    ));
+                } else {
+                    tree_array.push(format!(
+                        "sixtyfps::private_api::make_item_node({}offsetof({}, {}), {}, {}, {}, {})",
+                        state.offsetof_prefix,
+                        &self::component_id(component),
+                        ident(&item.id),
+                        native_class.cpp_vtable_getter,
+                        item.children.len(),
+                        children_offset,
+                        parent_index,
+                    ));
+                }
+                let item_field_name = format!("{}{}", state.field_prefix, ident(&item.id));
+                item_names_and_vt_symbols
+                    .push((item_field_name, item.base_type.as_native().cpp_vtable_getter.clone()));
+            }
+        },
+        |state, sub_component, item_rc| {
+            let item = item_rc.borrow();
+            let field_prefix = format!("{}{}.", state.field_prefix, self::ident(&item.id));
+            let offsetof_prefix = format!(
+                "{}offsetof({}, {}) + ",
+                state.offsetof_prefix,
+                &self::component_id(sub_component),
+                ident(&item.id)
+            );
+            SubTreeState { offsetof_prefix, field_prefix }
+        },
+    );
 
     let mut repeater_count = 0;
 
@@ -1557,7 +1527,7 @@ fn generate_component_vtable(
             is_static: true,
             statements: Some(vec![
                 "static const sixtyfps::private_api::ItemTreeNode children[] {".to_owned(),
-                format!("    {} }};", tree_array.join(", ")),
+                format!("    {} }};", tree_array.join(", \n")),
                 "return { const_cast<sixtyfps::private_api::ItemTreeNode*>(children), std::size(children) };"
                     .to_owned(),
             ]),
