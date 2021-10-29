@@ -1339,6 +1339,17 @@ fn generate_component(
 
         constructor_member_initializers.push("m_root(root)".into());
 
+        constructor_member_initializers.push("m_window(root->m_window.window_handle())".into());
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "sixtyfps::Window".into(),
+                name: "m_window".into(),
+                ..Default::default()
+            }),
+        ));
+
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
