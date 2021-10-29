@@ -389,7 +389,8 @@ fn handle_property_binding(
             "{id}.viewport.",
             id = ident(&crate::object_tree::find_parent_element(elem).unwrap().borrow().id)
         )
-    } else if item.sub_component().is_some() {
+    } else if matches!(item.sub_component(), Some(sub_component) if !sub_component.root_element.borrow().property_declarations.contains_key(prop_name))
+    {
         format!("{id}.root_item()->", id = ident(&item.id))
     } else {
         format!("{id}.", id = ident(&item.id))
@@ -790,6 +791,12 @@ fn generate_component(
         }
     };
 
+    let field_access = if !component.is_root_component.get() || component.is_global() {
+        Access::Public
+    } else {
+        Access::Private
+    };
+
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
@@ -884,7 +891,7 @@ fn generate_component(
 
         if property_decl.is_alias.is_none() {
             component_struct.members.push((
-                if component.is_global() { Access::Public } else { Access::Private },
+                field_access,
                 Declaration::Var(Var { ty, name: cpp_name.into_owned(), ..Default::default() }),
             ));
         }
@@ -1193,8 +1200,6 @@ fn generate_component(
     let mut repeater_count = 0;
 
     crate::object_tree::recurse_elem_level_order(&component.root_element, &mut |item_rc| {
-        let field_access =
-            if component.is_root_component.get() { Access::Private } else { Access::Public };
         let item = item_rc.borrow();
         if item.base_type == Type::Void {
             assert!(component.is_global());
