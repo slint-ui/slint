@@ -77,27 +77,31 @@ mod cpp_ast {
     impl Display for Struct {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
             indent(f)?;
-            writeln!(f, "class {} {{", self.name)?;
-            INDENTATION.with(|x| x.set(x.get() + 1));
-            let mut access = Access::Private;
-            for m in &self.members {
-                if m.0 != access {
-                    access = m.0;
-                    indent(f)?;
-                    match access {
-                        Access::Public => writeln!(f, "public:")?,
-                        Access::Private => writeln!(f, "private:")?,
+            if self.members.is_empty() && self.friends.is_empty() {
+                writeln!(f, "class {};", self.name)
+            } else {
+                writeln!(f, "class {} {{", self.name)?;
+                INDENTATION.with(|x| x.set(x.get() + 1));
+                let mut access = Access::Private;
+                for m in &self.members {
+                    if m.0 != access {
+                        access = m.0;
+                        indent(f)?;
+                        match access {
+                            Access::Public => writeln!(f, "public:")?,
+                            Access::Private => writeln!(f, "private:")?,
+                        }
                     }
+                    write!(f, "{}", m.1)?;
                 }
-                write!(f, "{}", m.1)?;
-            }
-            for friend in &self.friends {
+                for friend in &self.friends {
+                    indent(f)?;
+                    writeln!(f, "friend class {};", friend)?;
+                }
+                INDENTATION.with(|x| x.set(x.get() - 1));
                 indent(f)?;
-                writeln!(f, "friend class {};", friend)?;
+                writeln!(f, "}};")
             }
-            INDENTATION.with(|x| x.set(x.get() - 1));
-            indent(f)?;
-            writeln!(f, "}};")
         }
     }
 
@@ -629,6 +633,12 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         },
     ));
 
+    // Forward-declare the root so that sub-components can access singletons, the window, etc.
+    file.declarations.push(Declaration::Struct(Struct {
+        name: component_id(&doc.root_component),
+        ..Default::default()
+    }));
+
     for ty in doc.root_component.used_types.borrow().structs.iter() {
         if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
             generate_struct(&mut file, name, fields, diag);
@@ -636,7 +646,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     }
 
     for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
-        generate_component(&mut file, sub_comp, diag, None);
+        generate_component(&mut file, sub_comp, &doc.root_component, diag, None);
     }
 
     for glob in doc
@@ -647,7 +657,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         .iter()
         .filter(|glob| glob.requires_code_generation())
     {
-        generate_component(&mut file, glob, diag, None);
+        generate_component(&mut file, glob, &doc.root_component, diag, None);
 
         if glob.visible_in_public_api() {
             file.definitions.extend(glob.global_aliases().into_iter().map(|name| {
@@ -659,7 +669,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         }
     }
 
-    generate_component(&mut file, &doc.root_component, diag, None);
+    generate_component(&mut file, &doc.root_component, &doc.root_component, diag, None);
 
     file.definitions.push(Declaration::Var(Var{
         ty: format!(
@@ -744,6 +754,7 @@ fn generate_struct(
 fn generate_component(
     file: &mut File,
     component: &Rc<Component>,
+    root_component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
     mut sub_components: Option<&mut Vec<String>>,
 ) {
@@ -753,9 +764,18 @@ fn generate_component(
     let is_child_component = component.parent_element.upgrade().is_some();
     let is_sub_component = component.is_sub_component();
 
+    component_struct.friends.extend(
+        component
+            .used_types
+            .borrow()
+            .sub_components
+            .iter()
+            .map(|sub_component| self::component_id(&sub_component)),
+    );
+
     for c in component.popup_windows.borrow().iter() {
         let mut friends = vec![self::component_id(&c.component)];
-        generate_component(file, &c.component, diag, Some(&mut friends));
+        generate_component(file, &c.component, root_component, diag, Some(&mut friends));
         if let Some(sub_components) = sub_components.as_mut() {
             sub_components.extend_from_slice(friends.as_slice());
         }
@@ -870,7 +890,7 @@ fn generate_component(
         }
     }
 
-    let mut constructor_parent_arg = String::new();
+    let mut constructor_arguments = String::new();
     let mut constructor_member_initializers = vec![];
 
     if component.is_root_component.get() || is_child_component {
@@ -965,7 +985,7 @@ fn generate_component(
                 .unwrap(),
         );
         let parent_type = format!("class {} const *", parent_component_id);
-        constructor_parent_arg = format!("{} parent", parent_type);
+        constructor_arguments = format!("{} parent", parent_type);
         init.push("this->parent = parent;".into());
         component_struct.members.push((
             Access::Public, // Because Repeater accesses it
@@ -1014,10 +1034,6 @@ fn generate_component(
                 }),
             ));
         }
-    }
-
-    if is_sub_component {
-        constructor_parent_arg = "uintptr_t item_index_start".into();
     }
 
     if component.is_root_component.get() {
@@ -1185,7 +1201,7 @@ fn generate_component(
         } else if let Some(repeated) = &item.repeated {
             let base_component = item.base_type.as_component();
             let mut friends = Vec::new();
-            generate_component(file, base_component, diag, Some(&mut friends));
+            generate_component(file, base_component, root_component, diag, Some(&mut friends));
             if let Some(sub_components) = sub_components.as_mut() {
                 sub_components.extend_from_slice(friends.as_slice());
                 sub_components.push(self::component_id(base_component))
@@ -1213,12 +1229,18 @@ fn generate_component(
             let member_name = ident(&item.id).into_owned();
             let parent_index = if is_sub_component { "item_index_start + " } else { "" };
 
+            let root_ptr = if is_sub_component { "root" } else { "this" };
+
             constructor_member_initializers.push(format!(
-                "{}{{{}{}}}",
-                member_name,
-                parent_index,
-                item.item_index.get().unwrap()
+                "{member_name}{{{root_ptr}, {parent_index}{local_index}}}",
+                root_ptr = root_ptr,
+                member_name = member_name,
+                parent_index = parent_index,
+                local_index = item.item_index.get().unwrap()
             ));
+
+            init.push(format!("{}.init();", member_name));
+
             component_struct.members.push((
                 field_access,
                 Declaration::Var(Var { ty: class_name, name: member_name, ..Default::default() }),
@@ -1230,20 +1252,8 @@ fn generate_component(
         handle_property_binding(elem, prop, binding, &mut init)
     });
 
-    component_struct.members.push((
-        if !component.is_global() && !is_sub_component { Access::Private } else { Access::Public },
-        Declaration::Function(Function {
-            name: component_id.clone(),
-            signature: format!("({})", constructor_parent_arg),
-            is_constructor_or_destructor: true,
-            statements: Some(init),
-            constructor_member_initializers,
-            ..Default::default()
-        }),
-    ));
-
     if is_child_component || component.is_root_component.get() {
-        let maybe_constructor_param = if constructor_parent_arg.is_empty() { "" } else { "parent" };
+        let maybe_constructor_param = if constructor_arguments.is_empty() { "" } else { "parent" };
 
         let mut create_code = vec![
             format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
@@ -1269,7 +1279,7 @@ fn generate_component(
                 name: "create".into(),
                 signature: format!(
                     "({}) -> sixtyfps::ComponentHandle<{}>",
-                    constructor_parent_arg, component_id
+                    constructor_arguments, component_id
                 ),
                 statements: Some(create_code),
                 is_static: true,
@@ -1314,7 +1324,7 @@ fn generate_component(
 
         generate_component_vtable(
             &mut component_struct,
-            component_id,
+            component_id.clone(),
             component,
             children_visitor_cases,
             tree_array,
@@ -1323,6 +1333,21 @@ fn generate_component(
     }
 
     if is_sub_component {
+        let root_ptr_type = format!("{} *", self::component_id(root_component));
+
+        constructor_arguments = format!("{} root, uintptr_t item_index_start", root_ptr_type);
+
+        constructor_member_initializers.push("m_root(root)".into());
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: root_ptr_type,
+                name: "m_root".to_owned(),
+                ..Default::default()
+            }),
+        ));
+
         let root_element = component.root_element.borrow();
         let get_root_item = if root_element.sub_component().is_some() {
             format!("{}.root_item()", ident(&root_element.id))
@@ -1354,7 +1379,29 @@ fn generate_component(
                 ..Default::default()
             }),
         ));
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "init".into(),
+                signature: "()".into(),
+                statements: Some(std::mem::take(&mut init)),
+                ..Default::default()
+            }),
+        ))
     }
+
+    component_struct.members.push((
+        if !component.is_global() && !is_sub_component { Access::Private } else { Access::Public },
+        Declaration::Function(Function {
+            name: component_id,
+            signature: format!("({})", constructor_arguments),
+            is_constructor_or_destructor: true,
+            statements: Some(init),
+            constructor_member_initializers,
+            ..Default::default()
+        }),
+    ));
 
     let used_types = component.used_types.borrow();
 
@@ -1619,11 +1666,14 @@ fn access_member(
             format!("{}->{}.{}", component_cpp, ident(&e.id), ident(name))
         }
     } else if enclosing_component.is_global() {
-        let mut root_component = component.clone();
+        let mut top_level_component = component.clone();
         let mut component_cpp = component_cpp.to_owned();
-        while let Some(p) = root_component.parent_element.upgrade() {
-            root_component = p.borrow().enclosing_component.upgrade().unwrap();
+        while let Some(p) = top_level_component.parent_element.upgrade() {
+            top_level_component = p.borrow().enclosing_component.upgrade().unwrap();
             component_cpp = format!("{}->parent", component_cpp);
+        }
+        if top_level_component.is_sub_component() {
+            component_cpp = format!("{}->m_root", component_cpp);
         }
         let global_comp =
             format!("{}->global_{}", component_cpp, component_id(&enclosing_component));
