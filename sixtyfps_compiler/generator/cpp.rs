@@ -382,19 +382,7 @@ fn handle_property_binding(
 ) {
     let item = elem.borrow();
     let component = item.enclosing_component.upgrade().unwrap();
-    let accessor_prefix = if item.property_declarations.contains_key(prop_name) {
-        String::new()
-    } else if item.is_flickable_viewport {
-        format!(
-            "{id}.viewport.",
-            id = ident(&crate::object_tree::find_parent_element(elem).unwrap().borrow().id)
-        )
-    } else if matches!(item.sub_component(), Some(sub_component) if !sub_component.root_element.borrow().property_declarations.contains_key(prop_name))
-    {
-        format!("{id}.root_item()->", id = ident(&item.id))
-    } else {
-        format!("{id}.", id = ident(&item.id))
-    };
+    let prop_access = access_member(elem, prop_name, &component, "this");
     let prop_type = item.lookup_property(prop_name).property_type;
     if let Type::Callback { args, .. } = &prop_type {
         if matches!(binding_expression.expression, Expression::Invalid) {
@@ -405,13 +393,12 @@ fn handle_property_binding(
         });
 
         init.push(format!(
-            "{accessor_prefix}{prop}.set_handler(
+            "{prop_access}.set_handler(
                     [this]({params}) {{
                         [[maybe_unused]] auto self = this;
                         return {code};
                     }});",
-            accessor_prefix = accessor_prefix,
-            prop = ident(prop_name),
+            prop_access = prop_access,
             params = params.join(", "),
             code = compile_expression_wrap_return(binding_expression, &component)
         ));
@@ -420,7 +407,7 @@ fn handle_property_binding(
             init.push(format!(
                 "sixtyfps::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
                 ty = prop_type.cpp_type().unwrap_or_default(),
-                p1 = access_member(elem, prop_name, &component, "this"),
+                p1 = prop_access,
                 p2 = access_named_reference(nr, &component, "this")
             ));
         }
@@ -431,12 +418,11 @@ fn handle_property_binding(
         let component = &item.enclosing_component.upgrade().unwrap();
 
         let init_expr = compile_expression_wrap_return(binding_expression, component);
-        let cpp_prop = format!("{}{}", accessor_prefix, ident(prop_name));
 
         let is_constant =
             binding_expression.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
         init.push(if is_constant {
-            format!("{}.set({});", cpp_prop, init_expr)
+            format!("{}.set({});", prop_access, init_expr)
         } else {
             let binding_code = format!(
                 "[this]() {{
@@ -448,12 +434,12 @@ fn handle_property_binding(
 
             let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
-                format!("sixtyfps::private_api::set_state_binding({}, {});", cpp_prop, binding_code)
+                format!("sixtyfps::private_api::set_state_binding({}, {});", prop_access, binding_code)
             } else {
                 match &binding_expression.animation {
                     Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
                         let anim = property_animation_code(component, anim);
-                        format!("{}.set_animated_binding({}, {});", cpp_prop, binding_code, anim)
+                        format!("{}.set_animated_binding({}, {});", prop_access, binding_code, anim)
                     }
                     Some(crate::object_tree::PropertyAnimation::Transition {
                         state_ref,
@@ -480,13 +466,13 @@ fn handle_property_binding(
                                 {}
                                 return {{}};
                             }});",
-                            cpp_prop,
+                            prop_access,
                             binding_code,
                             state_tokens,
                             anim_expr.join(" ")
                         )
                     }
-                    None => format!("{}.set_binding({});", cpp_prop, binding_code),
+                    None => format!("{}.set_binding({});", prop_access, binding_code),
                 }
             }
         });
@@ -889,6 +875,17 @@ fn generate_component(
             format!("sixtyfps::private_api::Property<{}>", cpp_type)
         };
 
+        if is_sub_component {
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("get_{}", &cpp_name),
+                    signature: "()".to_owned(),
+                    statements: Some(vec![format!("return &{};", access)]),
+                    ..Default::default()
+                }),
+            ));
+        }
         if property_decl.is_alias.is_none() {
             component_struct.members.push((
                 field_access,
@@ -1678,6 +1675,17 @@ fn access_member(
                 ident(&crate::object_tree::find_parent_element(element).unwrap().borrow().id),
                 ident(name)
             )
+        } else if let Some(sub_component) = e.sub_component() {
+            if sub_component.root_element.borrow().property_declarations.contains_key(name) {
+                format!("(*{}->{}.get_{}())", component_cpp, ident(&e.id), ident(name))
+            } else {
+                access_member(
+                    &sub_component.root_element,
+                    name,
+                    sub_component,
+                    &format!("(&{}->{})", component_cpp, ident(&e.id),),
+                )
+            }
         } else {
             format!("{}->{}.{}", component_cpp, ident(&e.id), ident(name))
         }
