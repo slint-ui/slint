@@ -22,7 +22,6 @@ use sixtyfps_corelib::items::{
     self, FillRule, ImageRendering, ItemRef, PointerEventButton, TextOverflow, TextWrap,
 };
 use sixtyfps_corelib::layout::Orientation;
-use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
 use sixtyfps_corelib::{component::ComponentRc, SharedString};
 use sixtyfps_corelib::{ImageInner, PathData, Property};
@@ -1327,8 +1326,8 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
-    fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<items::ItemRef<'a>>>) {
-        for item in items.iter() {
+    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = &'a Pin<ItemRef<'a>>>) {
+        for item in items {
             let cached_rendering_data = item.cached_rendering_data_offset();
             cached_rendering_data.release(&mut self.cache.borrow_mut());
         }

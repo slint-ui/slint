@@ -19,7 +19,6 @@ You should use the `sixtyfps` crate instead.
 use image::GenericImageView;
 use sixtyfps_corelib::component::ComponentRc;
 use sixtyfps_corelib::graphics::{Image, Point, Size};
-use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{PlatformWindow, Window};
 use sixtyfps_corelib::ImageInner;
 use std::path::Path;
@@ -114,7 +113,7 @@ impl PlatformWindow for TestingWindow {
 
     fn free_graphics_resources<'a>(
         &self,
-        _items: &Slice<'a, Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
+        _items: &mut dyn Iterator<Item = &'a Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
     ) {
     }
 

@@ -723,7 +723,7 @@ fn generate_component(
                     let items = [
                         #(VRef::new_pin(#item_fields.apply_pin(self.as_ref())),)*
                     ];
-                    self.window.window_handle().free_graphics_resources(&Slice::from_slice(&items));
+                    self.window.window_handle().free_graphics_resources(&mut items.iter());
                 }
             })),
             quote!(#[pin_drop]),

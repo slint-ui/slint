@@ -15,7 +15,6 @@ use crate::graphics::{Point, Size};
 use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::{Property, PropertyTracker};
-use crate::slice::Slice;
 use core::cell::Cell;
 use core::pin::Pin;
 use std::cell::RefCell;
@@ -35,7 +34,7 @@ pub trait PlatformWindow {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>);
+    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = &'a Pin<ItemRef<'a>>>);
 
     /// Show a popup at the given position
     fn show_popup(&self, popup: &ComponentRc, position: Point);
@@ -588,6 +587,7 @@ pub mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
+    use crate::slice::Slice;
 
     #[allow(non_camel_case_types)]
     type c_void = ();
@@ -655,7 +655,7 @@ pub mod ffi {
         items: &Slice<'a, Pin<ItemRef<'a>>>,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.free_graphics_resources(items)
+        window.free_graphics_resources(&mut items.iter())
     }
 
     /// Sets the focus item.

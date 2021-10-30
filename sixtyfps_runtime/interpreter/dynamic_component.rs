@@ -29,7 +29,6 @@ use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
-use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{api::Window, WindowHandleAccess, WindowRc};
 use sixtyfps_corelib::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
@@ -79,7 +78,7 @@ impl<'id> Drop for ComponentBox<'id> {
                 })
                 .collect::<Vec<_>>();
 
-            window.free_graphics_resources(&Slice::from_slice(items.as_slice()));
+            window.free_graphics_resources(&mut items.iter());
         }
     }
 }

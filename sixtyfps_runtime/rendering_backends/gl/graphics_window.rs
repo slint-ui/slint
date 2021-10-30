@@ -22,7 +22,6 @@ use corelib::graphics::*;
 use corelib::input::{KeyboardModifiers, MouseEvent};
 use corelib::items::ItemRef;
 use corelib::layout::Orientation;
-use corelib::slice::Slice;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
 use sixtyfps_corelib as corelib;
@@ -323,12 +322,11 @@ impl PlatformWindow for GraphicsWindow {
         }
     }
 
-    fn free_graphics_resources<'a>(&self, items: &Slice<'a, Pin<ItemRef<'a>>>) {
+    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = &'a Pin<ItemRef<'a>>>) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(_) => {
                 let mut cache_entries_to_clear = items
-                    .iter()
                     .flat_map(|item| {
                         let cached_rendering_data = item.cached_rendering_data_offset();
                         cached_rendering_data.release(&mut *self.graphics_cache.borrow_mut())
