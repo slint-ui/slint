@@ -229,6 +229,7 @@ export Slider := Rectangle {
             if (enabled && pressed) {
                 value = max(root.minimum, min(root.maximum,
                     pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
+                root.changed(value);
             }
         }
     }

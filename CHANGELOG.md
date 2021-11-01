@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+ - The Slider's changed callback not being called with the fluent style (#621)
+
 ## [0.1.4] - 2021-10-22
 
 ### Changed
