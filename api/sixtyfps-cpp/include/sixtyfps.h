@@ -855,7 +855,7 @@ void invoke_from_event_loop(Functor f)
 ///     ...
 /// }
 /// ```
-template<typename Functor>
+template<typename Functor, typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<Functor>>>>
 auto blocking_invoke_from_event_loop(Functor f) -> std::invoke_result_t<Functor> {
     std::optional<std::invoke_result_t<Functor>> result;
     std::mutex mtx;
@@ -869,6 +869,21 @@ auto blocking_invoke_from_event_loop(Functor f) -> std::invoke_result_t<Functor>
     std::unique_lock lock(mtx);
     cv.wait(lock, [&] { return result.has_value(); });
     return std::move(*result);
+}
+
+template<typename Functor, typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<Functor>>>>
+auto blocking_invoke_from_event_loop(Functor f) -> void {
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool ok = false;
+    invoke_from_event_loop([&] {
+        f();
+        std::unique_lock lock(mtx);
+        ok = true;
+        cv.notify_one();
+    });
+    std::unique_lock lock(mtx);
+    cv.wait(lock, [&] { return ok; });
 }
 
 namespace private_api {

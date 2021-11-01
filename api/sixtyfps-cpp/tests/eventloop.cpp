@@ -67,9 +67,12 @@ TEST_CASE("Blocking Event from thread")
             return std::make_unique<int>(42);
         });
         called = *foo;
-        sixtyfps::invoke_from_event_loop([&] {
+        int xxx = 123;
+        sixtyfps::blocking_invoke_from_event_loop([&] {
             sixtyfps::quit_event_loop();
+            xxx = 888999;
         });
+        REQUIRE(xxx == 888999);
     });
 
     sixtyfps::run_event_loop();

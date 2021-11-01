@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
  - The Slider's changed callback not being called with the fluent style (#621)
+ - C++: Fixed compilation error in `sixtyfps::blocking_invoke_from_main_loop` when the callable returns `void` (#623)
 
 ## [0.1.4] - 2021-10-22
 
