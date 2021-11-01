@@ -69,16 +69,11 @@ impl<'id> Drop for ComponentBox<'id> {
     fn drop(&mut self) {
         let instance_ref = self.borrow_instance();
         if let Some(window) = eval::window_ref(instance_ref) {
-            let items = self
-                .component_type
-                .items
-                .values()
-                .map(|item_within_component| unsafe {
-                    item_within_component.item_from_component(instance_ref.as_ptr())
-                })
-                .collect::<Vec<_>>();
-
-            window.free_graphics_resources(&mut items.iter());
+            sixtyfps_corelib::component::init_component_items(
+                instance_ref.instance,
+                instance_ref.component_type.item_tree.as_slice(),
+                window,
+            );
         }
     }
 }

@@ -713,17 +713,10 @@ fn generate_component(
     let (drop_impl, pin) = if component.is_global() {
         (None, quote!(#[pin]))
     } else {
-        let item_fields = item_names
-            .iter()
-            .map(|field_name| access_component_field_offset(&format_ident!("Self"), field_name));
         (
             Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #inner_component_id {
                 fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
-                    use sixtyfps::re_exports::*;
-                    let items = [
-                        #(VRef::new_pin(#item_fields.apply_pin(self.as_ref())),)*
-                    ];
-                    self.window.window_handle().free_graphics_resources(&mut items.iter());
+                    sixtyfps::re_exports::init_component_items(self.as_ref(), Self::item_tree(), &self.window.window_handle());
                 }
             })),
             quote!(#[pin_drop]),

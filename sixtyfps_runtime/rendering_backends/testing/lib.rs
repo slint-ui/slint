@@ -113,7 +113,7 @@ impl PlatformWindow for TestingWindow {
 
     fn free_graphics_resources<'a>(
         &self,
-        _items: &mut dyn Iterator<Item = &'a Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
+        _items: &mut dyn Iterator<Item = Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
     ) {
     }
 

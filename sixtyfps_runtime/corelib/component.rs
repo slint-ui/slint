@@ -79,6 +79,18 @@ pub fn init_component_items<Base>(
     })
 }
 
+/// Free the backend graphics resources allocated by the component's items.
+pub fn free_component_item_graphics_resources<Base>(
+    base: core::pin::Pin<&Base>,
+    item_tree: &[crate::item_tree::ItemTreeNode<Base>],
+    window: &WindowRc,
+) {
+    window.free_graphics_resources(&mut item_tree.iter().filter_map(|entry| match entry {
+        crate::item_tree::ItemTreeNode::Item { item, .. } => Some(item.apply_pin(base)),
+        crate::item_tree::ItemTreeNode::DynamicTree { .. } => None,
+    }));
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]

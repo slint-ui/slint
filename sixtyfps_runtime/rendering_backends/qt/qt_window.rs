@@ -1326,7 +1326,7 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
-    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = &'a Pin<ItemRef<'a>>>) {
+    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>) {
         for item in items {
             let cached_rendering_data = item.cached_rendering_data_offset();
             cached_rendering_data.release(&mut self.cache.borrow_mut());

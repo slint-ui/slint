@@ -254,7 +254,8 @@ pub mod re_exports {
     pub use sixtyfps_corelib::animations::EasingCurve;
     pub use sixtyfps_corelib::callbacks::Callback;
     pub use sixtyfps_corelib::component::{
-        init_component_items, Component, ComponentRefPin, ComponentVTable,
+        free_component_item_graphics_resources, init_component_items, Component, ComponentRefPin,
+        ComponentVTable,
     };
     pub use sixtyfps_corelib::graphics::{
         Brush, GradientStop, Image, ImageInner, LinearGradientBrush, PathArcTo, PathCubicTo,

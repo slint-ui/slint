@@ -34,7 +34,7 @@ pub trait PlatformWindow {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = &'a Pin<ItemRef<'a>>>);
+    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>);
 
     /// Show a popup at the given position
     fn show_popup(&self, popup: &ComponentRc, position: Point);
@@ -655,7 +655,7 @@ pub mod ffi {
         items: &Slice<'a, Pin<ItemRef<'a>>>,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.free_graphics_resources(&mut items.iter())
+        window.free_graphics_resources(&mut items.iter().cloned())
     }
 
     /// Sets the focus item.
