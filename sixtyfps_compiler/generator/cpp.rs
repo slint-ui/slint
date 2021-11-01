@@ -1197,7 +1197,17 @@ fn generate_component(
             let member_name = ident(&item.id).into_owned();
             let parent_index = if is_sub_component { "item_index_start + " } else { "" };
 
-            let root_ptr = if is_sub_component { "root" } else { "this" };
+            let root_ptr = if is_sub_component {
+                "root"
+            } else if component.parent_element.upgrade().map_or(false, |c| {
+                c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
+            }) {
+                "parent"
+            } else if is_child_component {
+                "parent->m_root"
+            } else {
+                "this"
+            };
 
             constructor_member_initializers.push(format!(
                 "{member_name}{{{root_ptr}, {parent_index}{local_index}}}",
@@ -1286,7 +1296,7 @@ fn generate_component(
     }
 
     if is_sub_component {
-        let root_ptr_type = format!("{} *", self::component_id(root_component));
+        let root_ptr_type = format!("const {} *", self::component_id(root_component));
 
         constructor_arguments =
             format!("{} root, [[maybe_unused]] uintptr_t item_index_start", root_ptr_type);
