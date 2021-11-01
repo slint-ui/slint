@@ -13,7 +13,7 @@ The module responsible for the code generation.
 There is one sub module for every language
 */
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::diagnostics::BuildDiagnostics;
@@ -172,15 +172,16 @@ pub fn build_item_tree<State>(
 ) {
     visit_item(&initial_state, root_component, &root_component.root_element, 1, 0);
 
-    let mut subtrees_to_process = vec![SubTree {
+    let mut subtrees_to_process = VecDeque::default();
+    subtrees_to_process.push_back(SubTree {
         component: root_component.clone(),
         parent_index: 0,
         children_offset: 1,
         state: initial_state,
-    }];
+    });
 
     while let Some(SubTree { component, parent_index, children_offset, state }) =
-        subtrees_to_process.pop()
+        subtrees_to_process.pop_front()
     {
         visit_children(
             &state,
@@ -244,7 +245,7 @@ pub fn build_item_tree<State>(
         relative_children_offset: u32,
         visit_item: &mut impl FnMut(&State, &Rc<Component>, &ElementRc, u32, u32),
         start_subtree: &mut impl FnMut(&State, &Rc<Component>, &ElementRc) -> State,
-        subtrees_to_process: &mut Vec<SubTree<State>>,
+        subtrees_to_process: &mut VecDeque<SubTree<State>>,
     ) {
         debug_assert_eq!(
             relative_parent_index,
@@ -264,7 +265,7 @@ pub fn build_item_tree<State>(
                     offset,
                     parent_index,
                 );
-                subtrees_to_process.push(SubTree {
+                subtrees_to_process.push_back(SubTree {
                     component: sub_component.clone(),
                     parent_index,
                     children_offset: offset,
@@ -282,6 +283,7 @@ pub fn build_item_tree<State>(
         let mut relative_index = relative_children_offset;
 
         for e in &parent_item.borrow().children {
+            let mut subtrees = VecDeque::new();
             visit_children(
                 state,
                 component,
@@ -292,8 +294,26 @@ pub fn build_item_tree<State>(
                 relative_offset,
                 visit_item,
                 start_subtree,
-                subtrees_to_process,
+                &mut subtrees,
             );
+
+            while let Some(SubTree { component, parent_index, children_offset, state }) =
+                subtrees.pop_front()
+            {
+                visit_children(
+                    &state,
+                    &component,
+                    &component.root_element,
+                    parent_index,
+                    0,
+                    children_offset,
+                    1,
+                    visit_item,
+                    start_subtree,
+                    subtrees_to_process,
+                );
+            }
+
             index += item_tree_element_size(e) as u32;
             relative_index += 1;
             offset += item_sub_tree_size(e) as u32;
