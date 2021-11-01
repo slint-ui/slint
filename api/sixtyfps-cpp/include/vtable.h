@@ -142,6 +142,7 @@ public:
     friend bool operator!=(const VRc &a, const VRc &b) {
         return a.inner != b.inner;
     }
+    const VTable *vtable() const { return inner->vtable; }
 };
 
 template<typename VTable, typename X = Dyn>
@@ -183,6 +184,7 @@ public:
     friend bool operator!=(const VWeak &a, const VWeak &b) {
         return a.inner != b.inner;
     }
+    const VTable *vtable() const { return inner ? inner->vtable : nullptr; }
 };
 
 

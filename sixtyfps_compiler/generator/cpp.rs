@@ -1207,7 +1207,7 @@ fn generate_component(
                 local_index = item.item_index.get().unwrap()
             ));
 
-            init.push(format!("{}.init();", member_name));
+            init.push(format!("{}.init(self_weak.into_dyn());", member_name));
 
             component_struct.members.push((
                 field_access,
@@ -1291,9 +1291,6 @@ fn generate_component(
         constructor_arguments =
             format!("{} root, [[maybe_unused]] uintptr_t item_index_start", root_ptr_type);
 
-        constructor_member_initializers.push("m_window(root->m_window.window_handle())".into());
-        constructor_member_initializers.push("m_root(root)".into());
-
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
@@ -1302,12 +1299,24 @@ fn generate_component(
                 ..Default::default()
             }),
         ));
+        constructor_member_initializers.push("m_window(root->m_window.window_handle())".into());
 
         component_struct.members.push((
             Access::Private,
             Declaration::Var(Var {
                 ty: root_ptr_type,
                 name: "m_root".to_owned(),
+                ..Default::default()
+            }),
+        ));
+        constructor_member_initializers.push("m_root(root)".into());
+
+        // self_weak is not really self in that case, it is a pointer to the enclosing component
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "sixtyfps::cbindgen_private::ComponentWeak".into(),
+                name: "self_weak".into(),
                 ..Default::default()
             }),
         ));
@@ -1344,12 +1353,16 @@ fn generate_component(
             }),
         ));
 
+        let mut init_statements = Vec::with_capacity(init.len() + 1);
+        init_statements.push("self_weak = enclosing_component;".to_string());
+        init_statements.append(&mut init);
+
         component_struct.members.push((
             Access::Public,
             Declaration::Function(Function {
                 name: "init".into(),
-                signature: "()".into(),
-                statements: Some(std::mem::take(&mut init)),
+                signature: "(sixtyfps::cbindgen_private::ComponentWeak enclosing_component)".into(),
+                statements: Some(init_statements),
                 ..Default::default()
             }),
         ))
@@ -1477,7 +1490,9 @@ fn generate_component_vtable(
         component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().copied())
     {
         format!(
-            "   *result = sixtyfps::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->item_tree(), {});",
+            // that does not work when the parent is not a component with a ComponentVTable
+            //"   *result = sixtyfps::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->item_tree(), {});",
+            "self->parent->self_weak.vtable()->parent_item(self->parent->self_weak.lock()->borrow(), {}, result);",
             parent_index,
         )
     } else {
