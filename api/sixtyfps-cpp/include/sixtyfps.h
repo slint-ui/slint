@@ -113,9 +113,11 @@ public:
     float scale_factor() const { return sixtyfps_windowrc_get_scale_factor(&inner); }
     void set_scale_factor(float value) const { sixtyfps_windowrc_set_scale_factor(&inner, value); }
 
-    void free_graphics_resources(const sixtyfps::Slice<ItemRef> &items) const
+    template<typename Component, typename ItemTree>
+    void free_graphics_resources(Component *c, ItemTree items) const
     {
-        cbindgen_private::sixtyfps_windowrc_free_graphics_resources(&inner, &items);
+        cbindgen_private::sixtyfps_component_free_item_graphics_resources(
+                vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 
     void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)

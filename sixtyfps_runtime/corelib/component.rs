@@ -113,4 +113,19 @@ pub(crate) mod ffi {
             window,
         )
     }
+
+    /// Free the backend graphics resources allocated by the component's items.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_component_free_item_graphics_resources(
+        component: ComponentRefPin,
+        item_tree: Slice<ItemTreeNode<u8>>,
+        window_handle: *const crate::window::ffi::WindowRcOpaque,
+    ) {
+        let window = &*(window_handle as *const WindowRc);
+        super::free_component_item_graphics_resources(
+            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            item_tree.as_slice(),
+            window,
+        )
+    }
 }

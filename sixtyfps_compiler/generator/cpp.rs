@@ -1097,7 +1097,6 @@ fn generate_component(
     let mut repeated_input_branch = vec![];
     let mut repeater_layout_code = vec![];
     let mut tree_array = vec![];
-    let mut item_names_and_vt_symbols = vec![];
     let mut repeater_count = 0;
 
     #[derive(Default)]
@@ -1146,9 +1145,6 @@ fn generate_component(
                         parent_index,
                     ));
                 }
-                let item_field_name = format!("{}{}", state.field_prefix, ident(&item.id));
-                item_names_and_vt_symbols
-                    .push((item_field_name, item.base_type.as_native().cpp_vtable_getter.clone()));
             }
         },
         |state, sub_component, item_rc| {
@@ -1265,23 +1261,8 @@ fn generate_component(
             destructor.push("if (!parent) return;".to_owned())
         }
 
-        if !item_names_and_vt_symbols.is_empty() {
-            destructor.push("sixtyfps::private_api::ItemRef items[] = {".into());
-            destructor.push(
-                item_names_and_vt_symbols
-                    .iter()
-                    .map(|(item_name, vt_symbol)| {
-                        format!(
-                            "{{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }}",
-                            id = item_name,
-                            vt = vt_symbol
-                        )
-                    })
-                    .join(","),
-            );
-            destructor.push("};".into());
-            destructor.push("m_window.window_handle().free_graphics_resources(sixtyfps::Slice<sixtyfps::private_api::ItemRef>{items, std::size(items)});".into());
-        }
+        destructor
+            .push("m_window.window_handle().free_graphics_resources(this, item_tree());".into());
 
         component_struct.members.push((
             Access::Public,
