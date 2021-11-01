@@ -26,6 +26,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-latest, windows-latest]
+        rust_version: [stable, 1.54]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -76,8 +77,8 @@ jobs:
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: stable
-          profile: minimal      
+          toolchain: ${{ matrix.rust_version }}
+          profile: minimal
     - uses: Swatinem/rust-cache@v1
       with:
           key: ${{ steps.nodeversion.outputs.node-version }} # The cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
