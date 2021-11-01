@@ -783,6 +783,7 @@ fn generate_component(
         Access::Private
     };
 
+    let mut init_signature = "()";
     let mut init = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
@@ -896,6 +897,7 @@ fn generate_component(
 
     let mut constructor_arguments = String::new();
     let mut constructor_member_initializers = vec![];
+    let mut constructor_code = vec![];
 
     if component.is_root_component.get() || is_child_component {
         let mut window_init = None;
@@ -990,7 +992,7 @@ fn generate_component(
         );
         let parent_type = format!("class {} const *", parent_component_id);
         constructor_arguments = format!("{} parent", parent_type);
-        init.push("this->parent = parent;".into());
+        constructor_code.push("this->parent = parent;".into());
         component_struct.members.push((
             Access::Public, // Because Repeater accesses it
             Declaration::Var(Var {
@@ -1088,7 +1090,7 @@ fn generate_component(
             }),
         ));
 
-        init.push("self->m_window.window_handle().init_items(this, item_tree());".into());
+        init.insert(0, "m_window.window_handle().init_items(this, item_tree());".into());
 
         component_struct.friends.push("sixtyfps::private_api::WindowRc".into());
     }
@@ -1237,6 +1239,7 @@ fn generate_component(
             format!("auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make({1});", component_id, maybe_constructor_param),
             format!("auto self = const_cast<{0} *>(&*self_rc);", component_id),
             "self->self_weak = vtable::VWeak(self_rc);".into(),
+            "self->init();".into(),
         ];
 
         if component.is_root_component.get() {
@@ -1293,9 +1296,7 @@ fn generate_component(
             tree_array,
             file,
         );
-    }
-
-    if is_sub_component {
+    } else if is_sub_component {
         let root_ptr_type = format!("const {} *", self::component_id(root_component));
 
         constructor_arguments =
@@ -1363,19 +1364,28 @@ fn generate_component(
             }),
         ));
 
-        let mut init_statements = Vec::with_capacity(init.len() + 1);
-        init_statements.push("self_weak = enclosing_component;".to_string());
-        init_statements.append(&mut init);
+        init_signature = "(sixtyfps::cbindgen_private::ComponentWeak enclosing_component)";
+        init.insert(0, "self_weak = enclosing_component;".to_string());
+    }
 
+    // For globals nobody calls init(), so move the init code into the constructor.
+    // For everything else we want for whoever creates us to call init() when ready.
+    if component.is_global() {
+        constructor_code.extend(init);
+    } else {
         component_struct.members.push((
-            Access::Public,
+            if !component.is_global() && !is_sub_component {
+                Access::Private
+            } else {
+                Access::Public
+            },
             Declaration::Function(Function {
-                name: "init".into(),
-                signature: "(sixtyfps::cbindgen_private::ComponentWeak enclosing_component)".into(),
-                statements: Some(init_statements),
+                name: "init".to_owned(),
+                signature: format!("{} -> void", init_signature),
+                statements: Some(init),
                 ..Default::default()
             }),
-        ))
+        ));
     }
 
     component_struct.members.push((
@@ -1384,7 +1394,7 @@ fn generate_component(
             name: component_id,
             signature: format!("({})", constructor_arguments),
             is_constructor_or_destructor: true,
-            statements: Some(init),
+            statements: Some(constructor_code),
             constructor_member_initializers,
             ..Default::default()
         }),
