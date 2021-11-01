@@ -716,7 +716,7 @@ fn generate_component(
         (
             Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #inner_component_id {
                 fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
-                    sixtyfps::re_exports::init_component_items(self.as_ref(), Self::item_tree(), &self.window.window_handle());
+                    sixtyfps::re_exports::free_component_item_graphics_resources(self.as_ref(), Self::item_tree(), &self.window.window_handle());
                 }
             })),
             quote!(#[pin_drop]),
