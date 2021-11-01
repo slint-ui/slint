@@ -1288,11 +1288,11 @@ fn generate_component(
     if is_sub_component {
         let root_ptr_type = format!("{} *", self::component_id(root_component));
 
-        constructor_arguments = format!("{} root, uintptr_t item_index_start", root_ptr_type);
-
-        constructor_member_initializers.push("m_root(root)".into());
+        constructor_arguments =
+            format!("{} root, [[maybe_unused]] uintptr_t item_index_start", root_ptr_type);
 
         constructor_member_initializers.push("m_window(root->m_window.window_handle())".into());
+        constructor_member_initializers.push("m_root(root)".into());
 
         component_struct.members.push((
             Access::Private,
