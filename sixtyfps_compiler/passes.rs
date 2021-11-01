@@ -124,6 +124,7 @@ pub async fn run_passes(
     };
     if !disable_inlining {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
+        root_component.used_types.borrow_mut().sub_components.clear();
     }
 
     binding_analysis::binding_analysis(doc, diag);
