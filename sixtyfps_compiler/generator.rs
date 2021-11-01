@@ -108,13 +108,11 @@ pub fn generate(
 #[allow(dead_code)]
 pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&ElementRc, u32, u32)) {
     visit_item(&component.root_element, 1, 0);
-    let children_start = item_tree_element_size(&component.root_element) as u32;
-    visit_children(&component.root_element, 0, children_start, &mut visit_item);
+    visit_children(&component.root_element, 0, 1, &mut visit_item);
 
     fn sub_children_count(e: &ElementRc) -> usize {
-        let mut count = 0;
+        let mut count = e.borrow().children.len();
         for i in &e.borrow().children {
-            count += item_tree_element_size(i);
             count += sub_children_count(i);
         }
         count
@@ -127,25 +125,19 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
         visit_item: &mut impl FnMut(&ElementRc, u32, u32),
     ) {
         debug_assert_eq!(index, item.borrow().item_index.get().map(|x| *x as u32).unwrap_or(index));
-        let mut offset = children_offset;
-
-        for i in &item.borrow().children {
-            offset += item_tree_element_size(i) as u32;
-        }
-
-        let sub_tree_size = offset - children_offset;
+        let mut offset = children_offset + item.borrow().children.len() as u32;
 
         for i in &item.borrow().children {
             visit_item(i, offset, index);
             offset += sub_children_count(i) as u32;
         }
 
-        let mut offset = children_offset + sub_tree_size;
+        let mut offset = children_offset + item.borrow().children.len() as u32;
         let mut index = children_offset;
 
         for e in &item.borrow().children {
             visit_children(e, index, offset, visit_item);
-            index += item_tree_element_size(e) as u32;
+            index += 1;
             offset += sub_children_count(e) as u32;
         }
     }
@@ -204,13 +196,42 @@ pub fn build_item_tree<State>(
         );
     }
 
+    // Size of the element's children and grand-children,
+    // needed to calculate the sub-component relative children offset indices
     fn sub_children_count(e: &ElementRc) -> usize {
-        let mut count = 0;
+        let mut count = e.borrow().children.len();
         for i in &e.borrow().children {
-            count += item_tree_element_size(i);
             count += sub_children_count(i);
         }
         count
+    }
+
+    // Size of the element's children and grand-children including
+    // sub-component children, needed to allocate the correct amount of
+    // index spaces for sub-components.
+    fn item_sub_tree_size(e: &ElementRc) -> usize {
+        let mut count = if let Some(sub_component) = e.borrow().sub_component() {
+            sub_component.root_element.borrow().children.len()
+        } else {
+            e.borrow().children.len()
+        };
+        for i in &e.borrow().children {
+            count += item_sub_tree_size(i);
+        }
+        count
+    }
+
+    // Returns the number of indices in the item tree the element needs. If the element is
+    // a built-in item, then this function returns 1. If the element is a sub-component, then
+    // the number of items (including children) the sub-component needs is returned.
+    fn item_tree_element_size(element: &ElementRc) -> usize {
+        let mut size = 1;
+        if let Some(sub_component) = element.borrow().sub_component() {
+            for child in &sub_component.root_element.borrow().children {
+                size += item_tree_element_size(&child);
+            }
+        }
+        size
     }
 
     fn visit_children<State>(
@@ -249,11 +270,10 @@ pub fn build_item_tree<State>(
                     children_offset: offset,
                     state: subtree_state,
                 });
-                offset += item_tree_element_size(&sub_component.root_element) as u32;
             } else {
                 visit_item(state, component, child, offset, parent_index);
-                offset += sub_children_count(child) as u32;
             }
+            offset += item_sub_tree_size(child) as u32;
         }
 
         let mut offset = children_offset + sub_tree_size;
@@ -275,8 +295,8 @@ pub fn build_item_tree<State>(
                 subtrees_to_process,
             );
             index += item_tree_element_size(e) as u32;
-            relative_index += item_tree_element_size(e) as u32;
-            offset += sub_children_count(e) as u32;
+            relative_index += 1;
+            offset += item_sub_tree_size(e) as u32;
             relative_offset += sub_children_count(e) as u32;
         }
     }
@@ -339,17 +359,4 @@ pub fn handle_property_bindings_init(
             );
         }
     });
-}
-
-// Returns the number of indices in the item tree the element needs. If the element is
-// a built-in item, then this function returns 1. If the element is a sub-component, then
-// the number of items (including children) the sub-component needs is returned.
-pub fn item_tree_element_size(element: &ElementRc) -> usize {
-    let mut size = 1;
-    if let Some(sub_component) = element.borrow().sub_component() {
-        for child in &sub_component.root_element.borrow().children {
-            size += item_tree_element_size(&child);
-        }
-    }
-    size
 }
