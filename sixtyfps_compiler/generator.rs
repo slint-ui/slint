@@ -143,13 +143,6 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
     }
 }
 
-struct SubTree<State> {
-    component: Rc<Component>,
-    parent_index: u32,
-    children_offset: u32,
-    state: State,
-}
-
 /// Visit each item in order in which they should appear in the children tree array.
 /// The parameter of the visitor are
 ///  1. The application specific state (can be used to keep track of how to reach fields)
@@ -158,44 +151,32 @@ struct SubTree<State> {
 ///  4. the first_children_offset,
 ///  5. the parent index
 ///
-/// The start_subtree callback is called when encountering a sub-component.
+/// The visit_sub_component callback is called when encountering a sub-component.
 /// The parameters are:
 ///  1. The application specific state
 ///  2. The current component being built (the parent of the sub-component!)
 ///  3. The element used to instantiate the sub-component
 #[allow(dead_code)]
-pub fn build_item_tree<State>(
+pub fn build_item_tree<ComponentState>(
     root_component: &Rc<Component>,
-    initial_state: State,
-    mut visit_item: impl FnMut(&State, &Rc<Component>, &ElementRc, u32, u32),
-    mut start_subtree: impl FnMut(&State, &Rc<Component>, &ElementRc) -> State,
+    initial_state: ComponentState,
+    mut visit_item: impl FnMut(&ComponentState, &Rc<Component>, &ElementRc, u32, u32),
+    mut visit_sub_component: impl FnMut(&ComponentState, &Rc<Component>, &ElementRc) -> ComponentState,
 ) {
     visit_item(&initial_state, root_component, &root_component.root_element, 1, 0);
 
-    let mut subtrees_to_process = VecDeque::default();
-    subtrees_to_process.push_back(SubTree {
-        component: root_component.clone(),
-        parent_index: 0,
-        children_offset: 1,
-        state: initial_state,
-    });
-
-    while let Some(SubTree { component, parent_index, children_offset, state }) =
-        subtrees_to_process.pop_front()
-    {
-        visit_children(
-            &state,
-            &component,
-            &component.root_element,
-            parent_index,
-            0,
-            children_offset,
-            1,
-            &mut visit_item,
-            &mut start_subtree,
-            &mut subtrees_to_process,
-        );
-    }
+    visit_children(
+        &initial_state,
+        &root_component.root_element.borrow().children,
+        &root_component,
+        &root_component.root_element,
+        0,
+        0,
+        1,
+        1,
+        &mut visit_item,
+        &mut visit_sub_component,
+    );
 
     // Size of the element's children and grand-children,
     // needed to calculate the sub-component relative children offset indices
@@ -211,110 +192,95 @@ pub fn build_item_tree<State>(
     // sub-component children, needed to allocate the correct amount of
     // index spaces for sub-components.
     fn item_sub_tree_size(e: &ElementRc) -> usize {
-        let mut count = if let Some(sub_component) = e.borrow().sub_component() {
-            sub_component.root_element.borrow().children.len()
+        let e = if let Some(sub_component) = e.borrow().sub_component() {
+            sub_component.root_element.clone()
         } else {
-            e.borrow().children.len()
+            e.clone()
         };
+        let mut count = e.borrow().children.len();
         for i in &e.borrow().children {
             count += item_sub_tree_size(i);
         }
         count
     }
 
-    // Returns the number of indices in the item tree the element needs. If the element is
-    // a built-in item, then this function returns 1. If the element is a sub-component, then
-    // the number of items (including children) the sub-component needs is returned.
-    fn item_tree_element_size(element: &ElementRc) -> usize {
-        let mut size = 1;
-        if let Some(sub_component) = element.borrow().sub_component() {
-            for child in &sub_component.root_element.borrow().children {
-                size += item_tree_element_size(&child);
-            }
-        }
-        size
-    }
-
-    fn visit_children<State>(
-        state: &State,
+    fn visit_children<ComponentState>(
+        state: &ComponentState,
+        children: &Vec<ElementRc>,
         component: &Rc<Component>,
         parent_item: &ElementRc,
         parent_index: u32,
         relative_parent_index: u32,
         children_offset: u32,
         relative_children_offset: u32,
-        visit_item: &mut impl FnMut(&State, &Rc<Component>, &ElementRc, u32, u32),
-        start_subtree: &mut impl FnMut(&State, &Rc<Component>, &ElementRc) -> State,
-        subtrees_to_process: &mut VecDeque<SubTree<State>>,
+        visit_item: &mut impl FnMut(&ComponentState, &Rc<Component>, &ElementRc, u32, u32),
+        visit_sub_component: &mut impl FnMut(
+            &ComponentState,
+            &Rc<Component>,
+            &ElementRc,
+        ) -> ComponentState,
     ) {
         debug_assert_eq!(
             relative_parent_index,
             parent_item.borrow().item_index.get().map(|x| *x as u32).unwrap_or(parent_index)
         );
-        let mut offset = children_offset + parent_item.borrow().children.len() as u32;
+        let mut offset = children_offset + children.len() as u32;
 
-        let sub_tree_size = offset - children_offset;
+        let mut sub_component_states = VecDeque::new();
 
-        for child in &parent_item.borrow().children {
+        for child in children.iter() {
             if let Some(sub_component) = child.borrow().sub_component() {
-                let subtree_state = start_subtree(state, component, child);
+                let sub_component_state = visit_sub_component(state, component, child);
                 visit_item(
-                    &subtree_state,
+                    &sub_component_state,
                     sub_component,
                     &sub_component.root_element,
                     offset,
                     parent_index,
                 );
-                subtrees_to_process.push_back(SubTree {
-                    component: sub_component.clone(),
-                    parent_index,
-                    children_offset: offset,
-                    state: subtree_state,
-                });
+                sub_component_states.push_back(sub_component_state);
             } else {
                 visit_item(state, component, child, offset, parent_index);
             }
             offset += item_sub_tree_size(child) as u32;
         }
 
-        let mut offset = children_offset + sub_tree_size;
-        let mut relative_offset = relative_children_offset + sub_tree_size;
+        let mut offset = children_offset + children.len() as u32;
+        let mut relative_offset = relative_children_offset + children.len() as u32;
         let mut index = children_offset;
         let mut relative_index = relative_children_offset;
 
-        for e in &parent_item.borrow().children {
-            let mut subtrees = VecDeque::new();
-            visit_children(
-                state,
-                component,
-                e,
-                index,
-                relative_index,
-                offset,
-                relative_offset,
-                visit_item,
-                start_subtree,
-                &mut subtrees,
-            );
-
-            while let Some(SubTree { component, parent_index, children_offset, state }) =
-                subtrees.pop_front()
-            {
+        for e in children.iter() {
+            if let Some(sub_component) = e.borrow().sub_component() {
+                let sub_tree_state = sub_component_states.pop_front().unwrap();
                 visit_children(
-                    &state,
-                    &component,
-                    &component.root_element,
-                    parent_index,
+                    &sub_tree_state,
+                    &sub_component.root_element.borrow().children,
+                    sub_component,
+                    &sub_component.root_element,
+                    index,
                     0,
-                    children_offset,
+                    offset,
                     1,
                     visit_item,
-                    start_subtree,
-                    subtrees_to_process,
+                    visit_sub_component,
+                );
+            } else {
+                visit_children(
+                    state,
+                    &e.borrow().children,
+                    component,
+                    e,
+                    index,
+                    relative_index,
+                    offset,
+                    relative_offset,
+                    visit_item,
+                    visit_sub_component,
                 );
             }
 
-            index += item_tree_element_size(e) as u32;
+            index += 1;
             relative_index += 1;
             offset += item_sub_tree_size(e) as u32;
             relative_offset += sub_children_count(e) as u32;
