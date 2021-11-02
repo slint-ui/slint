@@ -201,10 +201,8 @@ pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &s
                 return;
             };
             match c.root_element.borrow().property_analysis.borrow_mut().entry(name.to_owned()) {
-                std::collections::hash_map::Entry::Occupied(e)
-                    if e.get().is_set || e.get().is_set_externally =>
-                {
-                    return
+                std::collections::hash_map::Entry::Occupied(e) if e.get().is_set_externally => {
+                    return;
                 }
                 std::collections::hash_map::Entry::Occupied(mut e) => {
                     e.get_mut().is_set_externally = true;

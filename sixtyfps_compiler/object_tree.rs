@@ -582,10 +582,21 @@ pub struct PropertyAnalysis {
 }
 
 impl PropertyAnalysis {
-    /// Merge analysis from base element for e.g. inlining
+    /// Merge analysis from base element for inlining
+    ///
+    /// Contrary to `merge`, we don't keep the external uses because
+    /// they should come from us
+    pub fn merge_with_base(&mut self, other: &PropertyAnalysis) {
+        self.is_set |= other.is_set;
+        self.is_read |= other.is_read;
+    }
+
+    /// Merge the analysis
     pub fn merge(&mut self, other: &PropertyAnalysis) {
         self.is_set |= other.is_set;
         self.is_read |= other.is_read;
+        self.is_read_externally |= other.is_read_externally;
+        self.is_set_externally |= other.is_set_externally;
     }
 
     /// Return true if it is read or set or used in any way

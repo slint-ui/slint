@@ -92,7 +92,7 @@ fn inline_element(
     );
 
     for (p, a) in inlined_component.root_element.borrow().property_analysis.borrow().iter() {
-        elem_mut.property_analysis.borrow_mut().entry(p.clone()).or_default().merge(a);
+        elem_mut.property_analysis.borrow_mut().entry(p.clone()).or_default().merge_with_base(a);
     }
 
     // FIXME: states and transitions will be merged while inlining, this is not what we want
