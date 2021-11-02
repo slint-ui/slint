@@ -10,9 +10,10 @@ LICENSE END */
 
 Xxx := Rectangle {
     callback plop(string, color, int);
+    callback plop2(string, color, int);
     property <color> glop_col;
     property <string> blah: "yo";
-    plop(x, blah, hello) => {
+    plop2(x, blah, hello) => {
         background = blah;
         x = 42 + hello;
 //      ^error{Assignment needs to be done on a property}
