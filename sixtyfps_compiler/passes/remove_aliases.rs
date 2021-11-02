@@ -29,10 +29,8 @@ impl PropertySets {
         if !std::rc::Weak::ptr_eq(
             &p1.element().borrow().enclosing_component,
             &p2.element().borrow().enclosing_component,
-        ) && (p1.element().borrow().enclosing_component.upgrade().unwrap().is_global()
-            == p2.element().borrow().enclosing_component.upgrade().unwrap().is_global())
-        {
-            // We can  only merge aliases if they are in the same Component. (unless one of them is global)
+        ) {
+            // We can  only merge aliases if they are in the same Component.
             // TODO: actually we could still merge two alias in a component pointing to the same
             // property in a parent component
             return;
