@@ -901,7 +901,7 @@ fn generate_component(
                 Access::Public,
                 Declaration::Function(Function {
                     name: format!("get_{}", &cpp_name),
-                    signature: "()".to_owned(),
+                    signature: "() const".to_owned(),
                     statements: Some(vec![format!("return &{};", access)]),
                     ..Default::default()
                 }),
