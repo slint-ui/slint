@@ -49,10 +49,6 @@ fn perform_binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnosti
 
 fn analyze_element(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     for (name, binding) in &elem.borrow().bindings {
-        if matches!(elem.borrow().lookup_property(name).property_type, Type::Callback { .. }) {
-            // TODO: We probably also want to do some analysis on callbacks.
-            continue;
-        }
         if binding.analysis.borrow().is_some() {
             continue;
         }
