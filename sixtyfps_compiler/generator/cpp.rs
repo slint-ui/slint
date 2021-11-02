@@ -1371,7 +1371,7 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "layout_info".into(),
                 signature:
-                    "(sixtyfps::Orientation o, sixtyfps::private_api::WindowRc *window_handle) -> sixtyfps::LayoutInfo"
+                    "(sixtyfps::Orientation o, [[maybe_unused]] sixtyfps::private_api::WindowRc *window_handle) -> sixtyfps::LayoutInfo"
                         .into(),
                 statements: Some(layout_info_function_body(
                     &component,
