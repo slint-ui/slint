@@ -632,8 +632,15 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         }
     }
 
+    let mut components_to_add_as_friends = vec![];
     for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
-        generate_component(&mut file, sub_comp, &doc.root_component, diag, None);
+        generate_component(
+            &mut file,
+            sub_comp,
+            &doc.root_component,
+            diag,
+            &mut components_to_add_as_friends,
+        );
     }
 
     for glob in doc
@@ -644,7 +651,13 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         .iter()
         .filter(|glob| glob.requires_code_generation())
     {
-        generate_component(&mut file, glob, &doc.root_component, diag, None);
+        generate_component(
+            &mut file,
+            glob,
+            &doc.root_component,
+            diag,
+            &mut components_to_add_as_friends,
+        );
 
         if glob.visible_in_public_api() {
             file.definitions.extend(glob.global_aliases().into_iter().map(|name| {
@@ -656,7 +669,13 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         }
     }
 
-    generate_component(&mut file, &doc.root_component, &doc.root_component, diag, None);
+    generate_component(
+        &mut file,
+        &doc.root_component,
+        &doc.root_component,
+        diag,
+        &mut components_to_add_as_friends,
+    );
 
     file.definitions.push(Declaration::Var(Var{
         ty: format!(
@@ -743,7 +762,7 @@ fn generate_component(
     component: &Rc<Component>,
     root_component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
-    mut sub_components: Option<&mut Vec<String>>,
+    sub_components: &mut Vec<String>,
 ) {
     let component_id = component_id(component);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
@@ -751,21 +770,22 @@ fn generate_component(
     let is_child_component = component.parent_element.upgrade().is_some();
     let is_sub_component = component.is_sub_component();
 
-    component_struct.friends.extend(
-        component
-            .used_types
-            .borrow()
-            .sub_components
-            .iter()
-            .map(|sub_component| self::component_id(&sub_component)),
-    );
+    if component.is_root_component.get() {
+        component_struct.friends.extend(
+            component
+                .used_types
+                .borrow()
+                .sub_components
+                .iter()
+                .map(|sub_component| self::component_id(&sub_component))
+                .chain(std::mem::take(sub_components).into_iter()),
+        );
+    }
 
     for c in component.popup_windows.borrow().iter() {
         let mut friends = vec![self::component_id(&c.component)];
-        generate_component(file, &c.component, root_component, diag, Some(&mut friends));
-        if let Some(sub_components) = sub_components.as_mut() {
-            sub_components.extend_from_slice(friends.as_slice());
-        }
+        generate_component(file, &c.component, root_component, diag, &mut friends);
+        sub_components.extend_from_slice(friends.as_slice());
         component_struct.friends.append(&mut friends);
     }
 
@@ -1171,11 +1191,9 @@ fn generate_component(
         } else if let Some(repeated) = &item.repeated {
             let base_component = item.base_type.as_component();
             let mut friends = Vec::new();
-            generate_component(file, base_component, root_component, diag, Some(&mut friends));
-            if let Some(sub_components) = sub_components.as_mut() {
-                sub_components.extend_from_slice(friends.as_slice());
-                sub_components.push(self::component_id(base_component))
-            }
+            generate_component(file, base_component, root_component, diag, &mut friends);
+            sub_components.extend_from_slice(friends.as_slice());
+            sub_components.push(self::component_id(base_component));
             component_struct.friends.append(&mut friends);
             component_struct.friends.push(self::component_id(base_component));
             handle_repeater(
