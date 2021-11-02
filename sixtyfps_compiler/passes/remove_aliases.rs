@@ -202,6 +202,7 @@ fn best_property(
     macro_rules! canonical_order {
         ($x: expr) => {{
             (
+                !$x.element().borrow().enclosing_component.upgrade().unwrap().is_global(),
                 is_declaration(&$x),
                 !Rc::ptr_eq(&component.root_element, &$x.element()),
                 $x.element().borrow().id.clone(),
