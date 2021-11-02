@@ -495,19 +495,30 @@ impl<'id> ComponentDescription<'id> {
             let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
             generativity::make_guard!(guard);
             let element = alias.element();
-            let enclosing_component = eval::enclosing_component_for_element(&element, c, guard);
-            let component_type = enclosing_component.component_type;
-            let item_info = &component_type.items[element.borrow().id.as_str()];
-            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-
-            if let Some(callback) = item_info.rtti.callbacks.get(alias.name()) {
-                callback.set_handler(item, handler)
-            } else if let Some(callback_offset) = component_type.custom_callbacks.get(alias.name())
-            {
-                let callback = callback_offset.apply(&*enclosing_component.instance);
-                callback.set_handler(handler)
-            } else {
-                return Err(());
+            match eval::enclosing_component_instance_for_element(
+                &element,
+                eval::ComponentInstance::InstanceRef(c),
+                guard,
+            ) {
+                eval::ComponentInstance::InstanceRef(enclosing_component) => {
+                    let component_type = enclosing_component.component_type;
+                    let item_info = &component_type.items[element.borrow().id.as_str()];
+                    let item =
+                        unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+                    if let Some(callback) = item_info.rtti.callbacks.get(alias.name()) {
+                        callback.set_handler(item, handler)
+                    } else if let Some(callback_offset) =
+                        component_type.custom_callbacks.get(alias.name())
+                    {
+                        let callback = callback_offset.apply(&*enclosing_component.instance);
+                        callback.set_handler(handler)
+                    } else {
+                        return Err(());
+                    }
+                }
+                eval::ComponentInstance::GlobalComponent(glob) => {
+                    return glob.as_ref().set_callback_handler(alias.name(), handler);
+                }
             }
         } else {
             let x = self.custom_callbacks.get(name).ok_or(())?;
