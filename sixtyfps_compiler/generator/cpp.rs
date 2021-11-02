@@ -1315,7 +1315,8 @@ fn generate_component(
             file,
         );
     } else if is_sub_component {
-        let root_ptr_type = format!("const {} *", self::component_id(root_component));
+        let root_ptr_type =
+            format!("[[maybe_unused]] const {} *", self::component_id(root_component));
 
         constructor_arguments =
             format!("{} root, [[maybe_unused]] uintptr_t item_index_start", root_ptr_type);
