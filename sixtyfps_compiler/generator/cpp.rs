@@ -1361,7 +1361,7 @@ fn generate_component(
             Access::Public,
             Declaration::Function(Function {
                 name: "root_item".to_owned(),
-                signature: "()".into(),
+                signature: "() const".into(),
                 statements: Some(vec![format!("return {};", get_root_item)]),
                 ..Default::default()
             }),
@@ -1372,7 +1372,7 @@ fn generate_component(
             Declaration::Function(Function {
                 name: "layout_info".into(),
                 signature:
-                    "(sixtyfps::Orientation o, [[maybe_unused]] sixtyfps::private_api::WindowRc *window_handle) -> sixtyfps::LayoutInfo"
+                    "(sixtyfps::Orientation o, [[maybe_unused]] const sixtyfps::private_api::WindowRc *window_handle) const -> sixtyfps::LayoutInfo"
                         .into(),
                 statements: Some(layout_info_function_body(
                     &component,
