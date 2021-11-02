@@ -1339,6 +1339,7 @@ fn generate_component(
             }),
         ));
         constructor_member_initializers.push("m_root(root)".into());
+        constructor_code.push("(void)m_root;".into()); // silence warning about unused variable.
 
         // self_weak is not really self in that case, it is a pointer to the enclosing component
         component_struct.members.push((
