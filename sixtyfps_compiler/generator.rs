@@ -245,10 +245,17 @@ pub fn build_item_tree<ComponentState>(
         for child in children.iter() {
             if let Some(sub_component) = child.borrow().sub_component() {
                 let sub_component_state = visit_sub_component(state, component, child, offset);
+                let mut base_component = sub_component.clone();
+                while let Some(base) = {
+                    let base = base_component.root_element.borrow().sub_component().cloned();
+                    base
+                } {
+                    base_component = base;
+                }
                 visit_item(
                     &sub_component_state,
-                    sub_component,
-                    &sub_component.root_element,
+                    &base_component,
+                    &base_component.root_element,
                     offset,
                     parent_index,
                 );

@@ -1184,6 +1184,8 @@ fn generate_component(
                         parent_index,
                     ));
                 }
+            } else {
+                panic!("item don't have a native type");
             }
         },
         |state, sub_component, item_rc, children_offset| {
