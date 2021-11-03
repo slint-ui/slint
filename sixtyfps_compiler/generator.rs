@@ -143,42 +143,54 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
     }
 }
 
+/// A reference to this trait is passed to the [`build_item_tree`] function.
+/// It can be used to build the array for the item tree.
+pub trait ItemTreeBuilder {
+    /// Some state that contains the code on how to access some particular component
+    type SubComponentState;
+
+    fn push_repeated_item(
+        &mut self,
+        item: &crate::object_tree::ElementRc,
+        repeater_count: u32,
+        parent_index: u32,
+        component_state: &Self::SubComponentState,
+    );
+    fn push_native_item(
+        &mut self,
+        item: &ElementRc,
+        children_offset: u32,
+        parent_index: u32,
+        component_state: &Self::SubComponentState,
+    );
+    /// Called when a component is entered, this allow to change the component_state.
+    /// The returned SubComponentState will be used for all the items within that component
+    fn enter_component(
+        &mut self,
+        item: &ElementRc,
+        children_offset: u32,
+        component_state: &Self::SubComponentState,
+    ) -> Self::SubComponentState;
+}
+
 /// Visit each item in order in which they should appear in the children tree array.
-/// The parameter of the visitor are
-///  1. The application specific state (can be used to keep track of how to reach fields)
-///  2. The current component being built (can be sub-component)
-///  3. the item
-///  4. the first_children_offset,
-///  5. the parent index
-///
-/// The visit_sub_component callback is called when encountering a sub-component.
-/// The parameters are:
-///  1. The application specific state
-///  2. The current component being built (the parent of the sub-component!)
-///  3. The element used to instantiate the sub-component
-///  4. The first_children_offset
 #[allow(dead_code)]
-pub fn build_item_tree<ComponentState>(
+pub fn build_item_tree<T: ItemTreeBuilder>(
     root_component: &Rc<Component>,
-    initial_state: ComponentState,
-    mut visit_item: impl FnMut(&ComponentState, &Rc<Component>, &ElementRc, u32, u32),
-    mut visit_sub_component: impl FnMut(
-        &ComponentState,
-        &Rc<Component>,
-        &ElementRc,
-        u32,
-    ) -> ComponentState,
+    initial_state: &T::SubComponentState,
+    builder: &mut T,
 ) {
     if let Some(sub_component) = root_component.root_element.borrow().sub_component() {
         assert!(root_component.root_element.borrow().children.is_empty());
         let sub_compo_state =
-            visit_sub_component(&initial_state, root_component, &root_component.root_element, 1);
-        build_item_tree(sub_component, sub_compo_state, visit_item, visit_sub_component)
+            builder.enter_component(&root_component.root_element, 1, initial_state);
+        build_item_tree::<T>(sub_component, &sub_compo_state, builder);
     } else {
-        visit_item(&initial_state, root_component, &root_component.root_element, 1, 0);
+        let mut repeater_count = 0;
+        visit_item(initial_state, &root_component.root_element, 1, &mut repeater_count, 0, builder);
 
         visit_children(
-            &initial_state,
+            initial_state,
             &root_component.root_element.borrow().children,
             &root_component,
             &root_component.root_element,
@@ -186,8 +198,8 @@ pub fn build_item_tree<ComponentState>(
             0,
             1,
             1,
-            &mut visit_item,
-            &mut visit_sub_component,
+            &mut repeater_count,
+            builder,
         );
     }
 
@@ -217,8 +229,8 @@ pub fn build_item_tree<ComponentState>(
         count
     }
 
-    fn visit_children<ComponentState>(
-        state: &ComponentState,
+    fn visit_children<T: ItemTreeBuilder>(
+        state: &T::SubComponentState,
         children: &Vec<ElementRc>,
         component: &Rc<Component>,
         parent_item: &ElementRc,
@@ -226,13 +238,8 @@ pub fn build_item_tree<ComponentState>(
         relative_parent_index: u32,
         children_offset: u32,
         relative_children_offset: u32,
-        visit_item: &mut impl FnMut(&ComponentState, &Rc<Component>, &ElementRc, u32, u32),
-        visit_sub_component: &mut impl FnMut(
-            &ComponentState,
-            &Rc<Component>,
-            &ElementRc,
-            u32,
-        ) -> ComponentState,
+        repeater_count: &mut u32,
+        builder: &mut T,
     ) {
         debug_assert_eq!(
             relative_parent_index,
@@ -244,24 +251,18 @@ pub fn build_item_tree<ComponentState>(
 
         for child in children.iter() {
             if let Some(sub_component) = child.borrow().sub_component() {
-                let sub_component_state = visit_sub_component(state, component, child, offset);
-                let mut base_component = sub_component.clone();
-                while let Some(base) = {
-                    let base = base_component.root_element.borrow().sub_component().cloned();
-                    base
-                } {
-                    base_component = base;
-                }
+                let sub_component_state = builder.enter_component(child, offset, state);
                 visit_item(
                     &sub_component_state,
-                    &base_component,
-                    &base_component.root_element,
+                    &sub_component.root_element,
                     offset,
+                    repeater_count,
                     parent_index,
+                    builder,
                 );
                 sub_component_states.push_back(sub_component_state);
             } else {
-                visit_item(state, component, child, offset, parent_index);
+                visit_item(state, child, offset, repeater_count, parent_index, builder);
             }
             offset += item_sub_tree_size(child) as u32;
         }
@@ -283,8 +284,8 @@ pub fn build_item_tree<ComponentState>(
                     0,
                     offset,
                     1,
-                    visit_item,
-                    visit_sub_component,
+                    repeater_count,
+                    builder,
                 );
             } else {
                 visit_children(
@@ -296,8 +297,8 @@ pub fn build_item_tree<ComponentState>(
                     relative_index,
                     offset,
                     relative_offset,
-                    visit_item,
-                    visit_sub_component,
+                    repeater_count,
+                    builder,
                 );
             }
 
@@ -306,6 +307,30 @@ pub fn build_item_tree<ComponentState>(
             let size = item_sub_tree_size(e) as u32;
             offset += size;
             relative_offset += size;
+        }
+    }
+
+    fn visit_item<T: ItemTreeBuilder>(
+        component_state: &T::SubComponentState,
+        item: &ElementRc,
+        children_offset: u32,
+        repeater_count: &mut u32,
+        parent_index: u32,
+        builder: &mut T,
+    ) {
+        if item.borrow().repeated.is_some() {
+            builder.push_repeated_item(item, *repeater_count, parent_index, component_state);
+            *repeater_count += 1;
+            return;
+        } else {
+            let mut item = item.clone();
+            while let Some(base) = {
+                let base = item.borrow().sub_component().map(|c| c.root_element.clone());
+                base
+            } {
+                item = base;
+            }
+            builder.push_native_item(&item, children_offset, parent_index, component_state)
         }
     }
 }

@@ -1132,106 +1132,112 @@ fn generate_component(
         component_struct.friends.push("sixtyfps::private_api::WindowRc".into());
     }
 
-    let mut children_visitor_cases = vec![];
-    let mut repeater_layout_code = vec![];
-    let mut tree_array = vec![];
-    let mut repeater_count = 0;
-
-    #[derive(Default)]
-    struct SubTreeState {
-        offsetof_prefix: String, // offsetof(App, sub_component) + offsetof(SubComponent, sub_sub_component) + ...
-        field_prefix: String,    // sub_component.sub_sub_component
-        level: u32,
+    struct TreeBuilder<'a> {
+        tree_array: Vec<String>,
+        constructor_member_initializers: &'a mut Vec<String>,
+        root_ptr: &'static str,
+        item_index_base: &'static str,
     }
+    impl<'a> super::ItemTreeBuilder for TreeBuilder<'a> {
+        // offsetof(App, sub_component) + offsetof(SubComponent, sub_sub_component) + ...
+        type SubComponentState = String;
 
-    super::build_item_tree(
-        component,
-        SubTreeState::default(),
-        &mut |state: &SubTreeState,
-              component: &Rc<Component>,
-              item_rc: &ElementRc,
-              children_offset,
-              parent_index| {
+        fn push_repeated_item(
+            &mut self,
+            _item: &crate::object_tree::ElementRc,
+            repeater_count: u32,
+            parent_index: u32,
+            _component_state: &Self::SubComponentState,
+        ) {
+            self.tree_array.push(format!(
+                "sixtyfps::private_api::make_dyn_node({}, {})",
+                repeater_count, parent_index
+            ));
+        }
+        fn push_native_item(
+            &mut self,
+            item_rc: &ElementRc,
+            children_offset: u32,
+            parent_index: u32,
+            component_state: &Self::SubComponentState,
+        ) {
             let item = item_rc.borrow();
-            if item.base_type == Type::Void {
-                assert!(component.is_global());
-            } else if item.repeated.is_some() {
-                tree_array.push(format!(
-                    "sixtyfps::private_api::make_dyn_node({}, {})",
-                    repeater_count, parent_index
+            if item.is_flickable_viewport {
+                self.tree_array.push(format!(
+                    "sixtyfps::private_api::make_item_node({}offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
+                    component_state,
+                    &self::component_id(&item.enclosing_component.upgrade().unwrap()),
+                    ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id),
+                    item.children.len(),
+                    children_offset,
+                    parent_index,
                 ));
-                repeater_count += 1;
             } else if let Type::Native(native_class) = &item.base_type {
-                if item.is_flickable_viewport {
-                    tree_array.push(format!(
-                        "sixtyfps::private_api::make_item_node({}offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
-                        state.offsetof_prefix,
-                        &self::component_id(component),
-                        ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id),
-                        item.children.len(),
-                        children_offset,
-                        parent_index,
-                    ));
-                } else {
-                    tree_array.push(format!(
-                        "sixtyfps::private_api::make_item_node({}offsetof({}, {}), {}, {}, {}, {})",
-                        state.offsetof_prefix,
-                        &self::component_id(component),
-                        ident(&item.id),
-                        native_class.cpp_vtable_getter,
-                        item.children.len(),
-                        children_offset,
-                        parent_index,
-                    ));
-                }
+                self.tree_array.push(format!(
+                    "sixtyfps::private_api::make_item_node({}offsetof({}, {}), {}, {}, {}, {})",
+                    component_state,
+                    &self::component_id(&item.enclosing_component.upgrade().unwrap()),
+                    ident(&item.id),
+                    native_class.cpp_vtable_getter,
+                    item.children.len(),
+                    children_offset,
+                    parent_index,
+                ));
             } else {
                 panic!("item don't have a native type");
             }
-        },
-        |state, sub_component, item_rc, children_offset| {
-            if state.level == 0
+        }
+        fn enter_component(
+            &mut self,
+            item_rc: &ElementRc,
+            children_offset: u32,
+            component_state: &Self::SubComponentState,
+        ) -> Self::SubComponentState {
+            let item = item_rc.borrow();
             // Sub-components don't have an entry in the item tree themselves, but we propagate their tree offsets through the constructors.
-            {
-                let item = item_rc.borrow();
-                let member_name = ident(&item.id).into_owned();
-                // `is_sub_component` refers to the component of the `generate_component` function call.
-                let item_index_base =
-                    if is_sub_component { "tree_index_of_first_child + " } else { "" };
-
-                let root_ptr = if is_sub_component {
-                    "root"
-                } else if component.parent_element.upgrade().map_or(false, |c| {
-                    c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
-                }) {
-                    "parent"
-                } else if is_child_component {
-                    "parent->m_root"
-                } else {
-                    "this"
-                };
-
-                constructor_member_initializers.push(format!(
+            if component_state.is_empty() {
+                self.constructor_member_initializers.push(format!(
                     "{member_name}{{{root_ptr}, {item_index_base}{local_index}, {item_index_base}{local_children_offset}}}",
-                    root_ptr = root_ptr,
-                    member_name = member_name,
-                    item_index_base = item_index_base,
+                    root_ptr = self.root_ptr,
+                    member_name = ident(&item.id),
+                    item_index_base = self.item_index_base,
                     local_index = item.item_index.get().unwrap(),
                     local_children_offset = children_offset
                 ));
-            }
+            };
 
-            let item = item_rc.borrow();
-            let field_prefix = format!("{}{}.", state.field_prefix, self::ident(&item.id));
-            let offsetof_prefix = format!(
+            format!(
                 "{}offsetof({}, {}) + ",
-                state.offsetof_prefix,
-                &self::component_id(sub_component),
+                component_state,
+                &self::component_id(&item.enclosing_component.upgrade().unwrap()),
                 ident(&item.id)
-            );
-            SubTreeState { offsetof_prefix, field_prefix, level: state.level + 1 }
-        },
-    );
+            )
+        }
+    }
 
+    let root_ptr = if is_sub_component {
+        "root"
+    } else if component.parent_element.upgrade().map_or(false, |c| {
+        c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
+    }) {
+        "parent"
+    } else if is_child_component {
+        "parent->m_root"
+    } else {
+        "this"
+    };
+    let mut builder = TreeBuilder {
+        tree_array: vec![],
+        constructor_member_initializers: &mut constructor_member_initializers,
+        root_ptr,
+        item_index_base: if is_sub_component { "tree_index_of_first_child + " } else { "" },
+    };
+    if !component.is_global() {
+        super::build_item_tree(component, &String::new(), &mut builder);
+    }
+
+    let mut children_visitor_cases = vec![];
+    let mut repeater_layout_code = vec![];
     let mut repeater_count = 0;
 
     crate::object_tree::recurse_elem_level_order(&component.root_element, &mut |item_rc| {
@@ -1360,7 +1366,7 @@ fn generate_component(
             component_id.clone(),
             component,
             children_visitor_cases,
-            tree_array,
+            builder.tree_array,
             file,
         );
     } else if is_sub_component {

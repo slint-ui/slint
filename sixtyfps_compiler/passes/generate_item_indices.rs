@@ -9,7 +9,7 @@
 LICENSE END */
 //! Assign the Element::item_index on each elements
 
-use std::cell::Cell;
+use crate::object_tree::ElementRc;
 
 /// The item indices are generated and assigned to the ElementRc's item_index for each
 /// element in the component. The indices are local to the component.
@@ -36,41 +36,62 @@ use std::cell::Cell;
 pub fn generate_item_indices(component: &std::rc::Rc<crate::object_tree::Component>) {
     // In order to create the local indices like in the above example (0-5) we use the same function
     // that is also used for building the item tree. It recurses into all sub-components, but we skip
-    // them, by using a nesting level as the state parameter.
+    // them, by checking if the SubComponentState is true.
     // The immediate children of for example the Window element are emitted first. When a sub-component
     // is encountered (like `SubCompo`) the root element is emitted, but the children later. This simulates
     // the structure as if the SubCompo was inlined, but it also means that the local item indices must be
     // counted continuously.
-
-    let current_item_index: Cell<usize> = Cell::new(0);
-    crate::generator::build_item_tree(
-        component,
-        0,
-        |level, _, item_rc, _, _| {
-            let item = item_rc.borrow();
-            if item.base_type == crate::langtype::Type::Void {
-            } else {
-                if *level == 0 {
-                    if let crate::langtype::Type::Component(c) = &item.base_type {
-                        if c.parent_element.upgrade().is_some() {
-                            generate_item_indices(c);
-                        }
-                    }
-                    item.item_index.set(current_item_index.get()).unwrap();
-                }
-                current_item_index.set(current_item_index.get() + 1);
-            }
-        },
-        |level, _, item_rc, _| {
-            if *level == 0 {
-                let item = item_rc.borrow();
-                item.item_index.set(current_item_index.get()).unwrap();
-            }
-
-            level + 1
-        },
-    );
+    crate::generator::build_item_tree(component, &false, &mut Helper { current_item_index: 0 });
     for p in component.popup_windows.borrow().iter() {
         generate_item_indices(&p.component)
+    }
+}
+
+struct Helper {
+    current_item_index: usize,
+}
+impl crate::generator::ItemTreeBuilder for Helper {
+    // true when not at the root
+    type SubComponentState = bool;
+
+    fn push_repeated_item(
+        &mut self,
+        item: &ElementRc,
+        _repeater_count: u32,
+        _parent_index: u32,
+        component_state: &Self::SubComponentState,
+    ) {
+        if !component_state {
+            item.borrow().item_index.set(self.current_item_index).unwrap();
+            if let crate::langtype::Type::Component(c) = &item.borrow().base_type {
+                generate_item_indices(c);
+            }
+        }
+        self.current_item_index += 1;
+    }
+
+    fn push_native_item(
+        &mut self,
+        item: &ElementRc,
+        _children_offset: u32,
+        _parent_index: u32,
+        component_state: &Self::SubComponentState,
+    ) {
+        if !component_state {
+            item.borrow().item_index.set(self.current_item_index).unwrap();
+        }
+        self.current_item_index += 1;
+    }
+
+    fn enter_component(
+        &mut self,
+        item: &ElementRc,
+        _children_offset: u32,
+        component_state: &Self::SubComponentState,
+    ) -> Self::SubComponentState {
+        if !component_state {
+            item.borrow().item_index.set(self.current_item_index).unwrap();
+        }
+        true
     }
 }
