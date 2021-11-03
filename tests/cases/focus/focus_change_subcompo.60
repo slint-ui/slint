@@ -91,11 +91,11 @@ var instance = new sixtyfps.TestCase();
 assert(!instance.input1_focused);
 assert(!instance.input2_focused);
 
-instance.invoke_focus_subcompo1();
+instance.focus_subcompo1();
 assert(instance.input1_focused);
 assert(!instance.input2_focused);
 
-instance.invoke_focus_subcompo2();
+instance.focus_subcompo2();
 assert(!instance.input1_focused);
 assert(instance.input2_focused);
 ```
