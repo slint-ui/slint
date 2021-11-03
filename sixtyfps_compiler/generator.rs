@@ -282,8 +282,9 @@ pub fn build_item_tree<ComponentState>(
 
             index += 1;
             relative_index += 1;
-            offset += item_sub_tree_size(e) as u32;
-            relative_offset += sub_children_count(e) as u32;
+            let size = item_sub_tree_size(e) as u32;
+            offset += size;
+            relative_offset += size;
         }
     }
 }
