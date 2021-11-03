@@ -445,7 +445,6 @@ fn generate_component(
     let mut repeated_element_layouts = Vec::new();
     let mut repeated_element_components = Vec::new();
     let mut repeated_visit_branch = Vec::new();
-    let mut repeated_input_branch = Vec::new();
     let mut init = Vec::new();
     let mut window_field_init = None;
     let mut window_parent_param = None;
@@ -600,10 +599,6 @@ fn generate_component(
                     _self.#repeater_id.compute_layout();
                 ));
             }
-
-            repeated_input_branch.push(quote!(
-                #repeater_index => self.#repeater_id.input_event(rep_index, event, window),
-            ));
 
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::DynamicTree {
