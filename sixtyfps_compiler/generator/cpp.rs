@@ -527,7 +527,6 @@ fn handle_repeater(
     component_struct: &mut Struct,
     init: &mut Vec<String>,
     children_visitor_cases: &mut Vec<String>,
-    layout_repeater_code: &mut Vec<String>,
     diag: &mut BuildDiagnostics,
 ) {
     let parent_element = base_component.parent_element.upgrade().unwrap();
@@ -568,8 +567,6 @@ fn handle_repeater(
             e_u = ensure_updated,
             id = repeater_id,
         ));
-
-        layout_repeater_code.push(ensure_updated)
     } else {
         children_visitor_cases.push(format!(
             "\n        case {i}: {{
@@ -579,8 +576,6 @@ fn handle_repeater(
             id = repeater_id,
             i = repeater_count,
         ));
-
-        layout_repeater_code.push(format!("self->{}.ensure_updated(self);", repeater_id));
     }
 
     component_struct.members.push((
@@ -1237,7 +1232,6 @@ fn generate_component(
     }
 
     let mut children_visitor_cases = vec![];
-    let mut repeater_layout_code = vec![];
     let mut repeater_count = 0;
 
     crate::object_tree::recurse_elem_level_order(&component.root_element, &mut |item_rc| {
@@ -1260,7 +1254,6 @@ fn generate_component(
                 &mut component_struct,
                 &mut init,
                 &mut children_visitor_cases,
-                &mut repeater_layout_code,
                 diag,
             );
             repeater_count += 1;
