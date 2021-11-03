@@ -299,6 +299,20 @@ impl Component {
             && self.parent_element.upgrade().is_none()
             && !self.is_global()
     }
+
+    // Number of repeaters in this component, including sub-components
+    pub fn repeater_count(&self) -> i32 {
+        let mut count = 0;
+        recurse_elem(&self.root_element, &(), &mut |element, _| {
+            let element = element.borrow();
+            if let Some(sub_component) = element.sub_component() {
+                count += sub_component.repeater_count();
+            } else if element.repeated.is_some() {
+                count += 1;
+            }
+        });
+        count
+    }
 }
 
 #[derive(Clone, Debug, Default)]

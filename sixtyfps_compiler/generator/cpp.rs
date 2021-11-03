@@ -1265,6 +1265,27 @@ fn generate_component(
 
             init.push(format!("{}.init(self_weak.into_dyn());", member_name));
 
+            let sub_component_repeater_count = sub_component.repeater_count();
+            if sub_component_repeater_count > 0 {
+                let mut case_code = String::new();
+                for local_repeater_index in 0..sub_component_repeater_count {
+                    case_code.push_str("case ");
+                    case_code.push_str(&(repeater_count + local_repeater_index).to_string());
+                    case_code.push_str(": ");
+                }
+
+                children_visitor_cases.push(format!(
+                    "\n        {case_code} {{
+                            return self->{id}.visit_dynamic_children(dyn_index - {base}, order, visitor);
+                        }}",
+                    case_code = case_code,
+                    id = member_name,
+                    base = repeater_count,
+                ));
+
+                repeater_count += sub_component_repeater_count;
+            }
+
             component_struct.members.push((
                 field_access,
                 Declaration::Var(Var { ty: class_name, name: member_name, ..Default::default() }),
@@ -1431,6 +1452,22 @@ fn generate_component(
                 ..Default::default()
             }),
         ));
+
+        if !children_visitor_cases.is_empty() {
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: "visit_dynamic_children".into(),
+                    signature: "(intptr_t dyn_index, [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor) const -> int64_t".into(),
+                    statements: Some(vec![
+                        "    auto self = this;".to_owned(),
+                        format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
+                        "    std::abort();".to_owned(),
+                    ]),
+                    ..Default::default()
+                }),
+            ));
+        }
 
         init_signature = "(sixtyfps::cbindgen_private::ComponentWeak enclosing_component)";
         init.insert(0, "self_weak = enclosing_component;".to_string());
