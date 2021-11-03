@@ -1627,21 +1627,29 @@ fn generate_component_vtable(
         }),
     ));
     let root_elem = component.root_element.borrow();
-    let get_root_item_ref = if let Type::Component(_) = root_elem.base_type {
-        format!("return this->{id}.root_item();", id = ident(&root_elem.id))
+
+    let get_root_item_ref = if root_elem.sub_component().is_some() {
+        format!("this->{id}.root_item()", id = ident(&root_elem.id))
     } else {
-        format!(
-            "return {{ {vt}, const_cast<decltype(this->{id})*>(&this->{id}) }};",
-            vt = root_elem.base_type.as_native().cpp_vtable_getter,
-            id = ident(&root_elem.id)
-        )
+        format!("&this->{id}", id = ident(&root_elem.id))
     };
+
+    let mut builtin_root_element = component.root_element.clone();
+    while let Some(sub_component) = builtin_root_element.clone().borrow().sub_component() {
+        builtin_root_element = sub_component.root_element.clone();
+    }
+
     component_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: "root_item".into(),
             signature: "() const -> sixtyfps::private_api::ItemRef".into(),
-            statements: Some(vec![get_root_item_ref]),
+            statements: Some(vec![format!(
+                "return {{ {vt}, const_cast<sixtyfps::cbindgen_private::{cpp_type}*>({root_item_ref}) }};",
+                cpp_type = builtin_root_element.borrow().base_type.as_native().class_name,
+                vt = builtin_root_element.borrow().base_type.as_native().cpp_vtable_getter,
+                root_item_ref = get_root_item_ref
+            )]),
             ..Default::default()
         }),
     ));
