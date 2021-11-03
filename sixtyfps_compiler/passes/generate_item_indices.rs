@@ -94,4 +94,13 @@ impl crate::generator::ItemTreeBuilder for Helper {
         }
         true
     }
+
+    fn enter_component_children(
+        &mut self,
+        _item: &ElementRc,
+        _repeater_count: u32,
+        _component_state: &Self::SubComponentState,
+        _sub_component_state: &Self::SubComponentState,
+    ) {
+    }
 }

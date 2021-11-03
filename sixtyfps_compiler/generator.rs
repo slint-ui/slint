@@ -171,6 +171,14 @@ pub trait ItemTreeBuilder {
         children_offset: u32,
         component_state: &Self::SubComponentState,
     ) -> Self::SubComponentState;
+    /// Called before the children of a component are entered.
+    fn enter_component_children(
+        &mut self,
+        item: &ElementRc,
+        repeater_count: u32,
+        component_state: &Self::SubComponentState,
+        sub_component_state: &Self::SubComponentState,
+    );
 }
 
 /// Visit each item in order in which they should appear in the children tree array.
@@ -184,6 +192,12 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         assert!(root_component.root_element.borrow().children.is_empty());
         let sub_compo_state =
             builder.enter_component(&root_component.root_element, 1, initial_state);
+        builder.enter_component_children(
+            &root_component.root_element,
+            0,
+            initial_state,
+            &sub_compo_state,
+        );
         build_item_tree::<T>(sub_component, &sub_compo_state, builder);
     } else {
         let mut repeater_count = 0;
@@ -275,6 +289,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         for e in children.iter() {
             if let Some(sub_component) = e.borrow().sub_component() {
                 let sub_tree_state = sub_component_states.pop_front().unwrap();
+                builder.enter_component_children(e, *repeater_count, state, &sub_tree_state);
                 visit_children(
                     &sub_tree_state,
                     &sub_component.root_element.borrow().children,

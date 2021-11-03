@@ -301,7 +301,7 @@ impl Component {
     }
 
     // Number of repeaters in this component, including sub-components
-    pub fn repeater_count(&self) -> i32 {
+    pub fn repeater_count(&self) -> u32 {
         let mut count = 0;
         recurse_elem(&self.root_element, &(), &mut |element, _| {
             let element = element.borrow();
@@ -1447,24 +1447,6 @@ pub fn recurse_elem<State>(
     let state = vis(elem, state);
     for sub in &elem.borrow().children {
         recurse_elem(sub, &state, vis);
-    }
-}
-
-/// Call the visitor for each children of the element recursively, starting with the element itself.
-/// The traversal happens in level-order, meaning each level of the element tree is visisted before
-/// going to the next depth.
-///
-/// The state returned by the visitor is passed to the children
-pub fn recurse_elem_level_order(elem: &ElementRc, vis: &mut impl FnMut(&ElementRc)) {
-    vis(elem);
-    visit_children(elem, vis);
-    fn visit_children(elem: &ElementRc, vis: &mut impl FnMut(&ElementRc)) {
-        for child in &elem.borrow().children {
-            vis(child);
-        }
-        for child in &elem.borrow().children {
-            visit_children(child, vis);
-        }
     }
 }
 
