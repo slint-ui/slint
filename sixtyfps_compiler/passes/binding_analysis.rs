@@ -299,6 +299,11 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
                     check_alias(e, name, binding);
                 }
             }
+            for (_, decl) in &e.borrow().property_declarations {
+                if let Some(alias) = &decl.is_alias {
+                    mark_alias(alias)
+                }
+            }
         },
     );
 
@@ -315,11 +320,15 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
 
     fn propagate_alias(binding: &BindingExpression) {
         for alias in &binding.two_way_bindings {
-            if !alias.is_externally_modified() {
-                alias.mark_as_set();
-                if let Some(bind) = alias.element().borrow().bindings.get(alias.name()) {
-                    propagate_alias(bind)
-                }
+            mark_alias(alias);
+        }
+    }
+
+    fn mark_alias(alias: &NamedReference) {
+        if !alias.is_externally_modified() {
+            alias.mark_as_set();
+            if let Some(bind) = alias.element().borrow().bindings.get(alias.name()) {
+                propagate_alias(bind)
             }
         }
     }
