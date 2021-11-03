@@ -118,7 +118,7 @@ pub async fn run_passes(
 
     let disable_inlining = match std::env::var("SIXTYFPS_DISABLE_INLINING") {
         Ok(var) => var.parse().unwrap_or_else(|_| {
-            panic!("SIXTYFPS_INLINE has incorrect value. Must be either unset, 'true' or 'false'")
+            panic!("SIXTYFPS_DISABLE_INLINING has incorrect value. Must be either unset, 'true' or 'false'")
         }),
         Err(_) => false,
     };
