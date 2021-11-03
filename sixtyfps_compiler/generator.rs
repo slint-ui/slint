@@ -170,7 +170,7 @@ pub fn build_item_tree<ComponentState>(
     ) -> ComponentState,
 ) {
     if let Some(sub_component) = root_component.root_element.borrow().sub_component() {
-        assert!(root_component.root_elem.borrow().children.is_empty());
+        assert!(root_component.root_element.borrow().children.is_empty());
         let sub_compo_state =
             visit_sub_component(&initial_state, root_component, &root_component.root_element, 1);
         build_item_tree(sub_component, sub_compo_state, visit_item, visit_sub_component)
