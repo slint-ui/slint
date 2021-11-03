@@ -523,7 +523,7 @@ fn handle_repeater(
     repeated: &RepeatedElementInfo,
     base_component: &Rc<Component>,
     parent_component: &Rc<Component>,
-    repeater_count: i32,
+    repeater_count: u32,
     component_struct: &mut Struct,
     init: &mut Vec<String>,
     children_visitor_cases: &mut Vec<String>,
@@ -1129,9 +1129,18 @@ fn generate_component(
 
     struct TreeBuilder<'a> {
         tree_array: Vec<String>,
+        children_visitor_cases: Vec<String>,
         constructor_member_initializers: &'a mut Vec<String>,
         root_ptr: &'static str,
         item_index_base: &'static str,
+        field_access: Access,
+        component_struct: &'a mut Struct,
+        component: &'a Rc<Component>,
+        root_component: &'a Rc<Component>,
+        diag: &'a mut BuildDiagnostics,
+        file: &'a mut File,
+        sub_components: &'a mut Vec<String>,
+        init: &'a mut Vec<String>,
     }
     impl<'a> super::ItemTreeBuilder for TreeBuilder<'a> {
         // offsetof(App, sub_component) + offsetof(SubComponent, sub_sub_component) + ...
@@ -1139,11 +1148,39 @@ fn generate_component(
 
         fn push_repeated_item(
             &mut self,
-            _item: &crate::object_tree::ElementRc,
+            item_rc: &crate::object_tree::ElementRc,
             repeater_count: u32,
             parent_index: u32,
-            _component_state: &Self::SubComponentState,
+            component_state: &Self::SubComponentState,
         ) {
+            if component_state.is_empty() {
+                let item = item_rc.borrow();
+                let base_component = item.base_type.as_component();
+                let mut friends = Vec::new();
+                generate_component(
+                    self.file,
+                    base_component,
+                    self.root_component,
+                    self.diag,
+                    &mut friends,
+                );
+                self.sub_components.extend_from_slice(friends.as_slice());
+                self.sub_components.push(self::component_id(base_component));
+                self.component_struct.friends.append(&mut friends);
+                self.component_struct.friends.push(self::component_id(base_component));
+                let repeated = item.repeated.as_ref().unwrap();
+                handle_repeater(
+                    repeated,
+                    base_component,
+                    self.component,
+                    repeater_count,
+                    &mut self.component_struct,
+                    &mut self.init,
+                    &mut self.children_visitor_cases,
+                    self.diag,
+                );
+            }
+
             self.tree_array.push(format!(
                 "sixtyfps::private_api::make_dyn_node({}, {})",
                 repeater_count, parent_index
@@ -1157,6 +1194,9 @@ fn generate_component(
             component_state: &Self::SubComponentState,
         ) {
             let item = item_rc.borrow();
+            if component_state.is_empty() {
+                handle_item(item_rc, self.field_access, &mut self.component_struct);
+            }
             if item.is_flickable_viewport {
                 self.tree_array.push(format!(
                     "sixtyfps::private_api::make_item_node({}offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
@@ -1191,6 +1231,19 @@ fn generate_component(
             let item = item_rc.borrow();
             // Sub-components don't have an entry in the item tree themselves, but we propagate their tree offsets through the constructors.
             if component_state.is_empty() {
+                let sub_component = item.sub_component().unwrap();
+                let class_name = self::component_id(&sub_component);
+                let member_name = ident(&item.id).into_owned();
+
+                self.component_struct.members.push((
+                    self.field_access,
+                    Declaration::Var(Var {
+                        ty: class_name,
+                        name: member_name,
+                        ..Default::default()
+                    }),
+                ));
+
                 self.constructor_member_initializers.push(format!(
                     "{member_name}{{{root_ptr}, {item_index_base}{local_index}, {item_index_base}{local_children_offset}}}",
                     root_ptr = self.root_ptr,
@@ -1208,6 +1261,41 @@ fn generate_component(
                 ident(&item.id)
             )
         }
+
+        fn enter_component_children(
+            &mut self,
+            item_rc: &ElementRc,
+            repeater_count: u32,
+            component_state: &Self::SubComponentState,
+            _sub_component_state: &Self::SubComponentState,
+        ) {
+            let item = item_rc.borrow();
+            if component_state.is_empty() {
+                let sub_component = item.sub_component().unwrap();
+                let member_name = ident(&item.id).into_owned();
+
+                self.init.push(format!("{}.init(self_weak.into_dyn());", member_name));
+
+                let sub_component_repeater_count = sub_component.repeater_count();
+                if sub_component_repeater_count > 0 {
+                    let mut case_code = String::new();
+                    for local_repeater_index in 0..sub_component_repeater_count {
+                        case_code.push_str("case ");
+                        case_code.push_str(&(repeater_count + local_repeater_index).to_string());
+                        case_code.push_str(": ");
+                    }
+
+                    self.children_visitor_cases.push(format!(
+                        "\n        {case_code} {{
+                                return self->{id}.visit_dynamic_children(dyn_index - {base}, order, visitor);
+                            }}",
+                        case_code = case_code,
+                        id = member_name,
+                        base = repeater_count,
+                    ));
+                }
+            }
+        }
     }
 
     let root_ptr = if is_sub_component {
@@ -1223,76 +1311,26 @@ fn generate_component(
     };
     let mut builder = TreeBuilder {
         tree_array: vec![],
+        children_visitor_cases: vec![],
         constructor_member_initializers: &mut constructor_member_initializers,
         root_ptr,
         item_index_base: if is_sub_component { "tree_index_of_first_child + " } else { "" },
+        field_access,
+        component_struct: &mut component_struct,
+        component,
+        root_component,
+        diag,
+        file,
+        sub_components,
+        init: &mut init,
     };
     if !component.is_global() {
         super::build_item_tree(component, &String::new(), &mut builder);
     }
 
-    let mut children_visitor_cases = vec![];
-    let mut repeater_count = 0;
-
-    crate::object_tree::recurse_elem_level_order(&component.root_element, &mut |item_rc| {
-        let item = item_rc.borrow();
-        if item.base_type == Type::Void {
-            assert!(component.is_global());
-        } else if let Some(repeated) = &item.repeated {
-            let base_component = item.base_type.as_component();
-            let mut friends = Vec::new();
-            generate_component(file, base_component, root_component, diag, &mut friends);
-            sub_components.extend_from_slice(friends.as_slice());
-            sub_components.push(self::component_id(base_component));
-            component_struct.friends.append(&mut friends);
-            component_struct.friends.push(self::component_id(base_component));
-            handle_repeater(
-                repeated,
-                base_component,
-                component,
-                repeater_count,
-                &mut component_struct,
-                &mut init,
-                &mut children_visitor_cases,
-                diag,
-            );
-            repeater_count += 1;
-        } else if let Type::Native(_) = &item.base_type {
-            handle_item(item_rc, field_access, &mut component_struct);
-        } else if let Type::Component(sub_component) = &item.base_type {
-            let class_name = self::component_id(&sub_component);
-
-            let member_name = ident(&item.id).into_owned();
-
-            init.push(format!("{}.init(self_weak.into_dyn());", member_name));
-
-            let sub_component_repeater_count = sub_component.repeater_count();
-            if sub_component_repeater_count > 0 {
-                let mut case_code = String::new();
-                for local_repeater_index in 0..sub_component_repeater_count {
-                    case_code.push_str("case ");
-                    case_code.push_str(&(repeater_count + local_repeater_index).to_string());
-                    case_code.push_str(": ");
-                }
-
-                children_visitor_cases.push(format!(
-                    "\n        {case_code} {{
-                            return self->{id}.visit_dynamic_children(dyn_index - {base}, order, visitor);
-                        }}",
-                    case_code = case_code,
-                    id = member_name,
-                    base = repeater_count,
-                ));
-
-                repeater_count += sub_component_repeater_count;
-            }
-
-            component_struct.members.push((
-                field_access,
-                Declaration::Var(Var { ty: class_name, name: member_name, ..Default::default() }),
-            ));
-        }
-    });
+    let tree_array = std::mem::take(&mut builder.tree_array);
+    let children_visitor_cases = std::mem::take(&mut builder.children_visitor_cases);
+    drop(builder);
 
     super::handle_property_bindings_init(component, |elem, prop, binding| {
         handle_property_binding(elem, prop, binding, &mut init)
@@ -1359,7 +1397,7 @@ fn generate_component(
             component_id.clone(),
             component,
             children_visitor_cases,
-            builder.tree_array,
+            tree_array,
             file,
         );
     } else if is_sub_component {
