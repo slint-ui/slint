@@ -503,7 +503,6 @@ fn handle_repeater(
     component_struct: &mut Struct,
     init: &mut Vec<String>,
     children_visitor_cases: &mut Vec<String>,
-    repeated_input_branch: &mut Vec<String>,
     layout_repeater_code: &mut Vec<String>,
     diag: &mut BuildDiagnostics,
 ) {
@@ -559,12 +558,6 @@ fn handle_repeater(
 
         layout_repeater_code.push(format!("self->{}.ensure_updated(self);", repeater_id));
     }
-
-    repeated_input_branch.push(format!(
-        "\n        case {i}: return self->{id}.item_at(rep_index);",
-        i = repeater_count,
-        id = repeater_id,
-    ));
 
     component_struct.members.push((
         Access::Private,
@@ -1116,7 +1109,6 @@ fn generate_component(
     }
 
     let mut children_visitor_cases = vec![];
-    let mut repeated_input_branch = vec![];
     let mut repeater_layout_code = vec![];
     let mut tree_array = vec![];
     let mut repeater_count = 0;
@@ -1236,7 +1228,6 @@ fn generate_component(
                 &mut component_struct,
                 &mut init,
                 &mut children_visitor_cases,
-                &mut repeated_input_branch,
                 &mut repeater_layout_code,
                 diag,
             );
