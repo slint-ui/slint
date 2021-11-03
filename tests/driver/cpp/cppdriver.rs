@@ -114,7 +114,15 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         return Err("C++ Compilation error (see stdout)".to_owned().into());
     }
 
-    let output = std::process::Command::new(binary_path.deref())
+    let mut cmd;
+    if std::env::var("USE_VALGRIND").is_ok() {
+        cmd = std::process::Command::new("valgrind");
+        cmd.arg(binary_path.deref());
+    } else {
+        cmd = std::process::Command::new(binary_path.deref());
+    }
+
+    let output = cmd
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
