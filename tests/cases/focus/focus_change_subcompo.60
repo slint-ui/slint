@@ -1,0 +1,102 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// Test that the correct item indices are computed when focusing
+// children of sub-components or their roots.
+
+SubComponentWithFocusableChild := Rectangle {
+    property has-focus <=> input.has-focus;
+    
+    callback activate();
+    activate => {
+        input.focus();
+    }
+
+    input := TextInput {
+        width: 100%;
+        height: 100%;
+    }
+}
+
+SubComponentWithRootFocusable := TextInput {    
+    callback activate();
+    activate => {
+        root.focus();
+    }
+}
+
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+
+    callback focus_subcompo1();
+    focus_subcompo1 => { input1.activate(); } 
+    callback focus_subcompo2();
+    focus_subcompo2 => { input2.activate(); } 
+
+    input1 := SubComponentWithFocusableChild {
+        y: 0phx;
+        height: 200phx;
+    }
+
+    input2 := SubComponentWithRootFocusable {
+        y: 200phx;
+        height: 200phx;
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<bool> input2_focused: input2.has_focus;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+assert!(!instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+
+instance.invoke_focus_subcompo1();
+assert!(instance.get_input1_focused());
+assert!(!instance.get_input2_focused());
+
+instance.invoke_focus_subcompo2();
+assert!(!instance.get_input1_focused());
+assert!(instance.get_input2_focused());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_input1_focused());
+assert(!instance.get_input2_focused());
+
+instance.invoke_focus_subcompo1();
+assert(instance.get_input1_focused());
+assert(!instance.get_input2_focused());
+
+instance.invoke_focus_subcompo2();
+assert(!instance.get_input1_focused());
+assert(instance.get_input2_focused());
+```
+
+```js
+var instance = new sixtyfps.TestCase();
+assert(!instance.input1_focused);
+assert(!instance.input2_focused);
+
+instance.invoke_focus_subcompo1();
+assert(instance.input1_focused);
+assert(!instance.input2_focused);
+
+instance.invoke_focus_subcompo2();
+assert(!instance.input1_focused);
+assert(instance.input2_focused);
+```
+*/

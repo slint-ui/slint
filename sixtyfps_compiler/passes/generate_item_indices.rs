@@ -61,7 +61,7 @@ pub fn generate_item_indices(component: &std::rc::Rc<crate::object_tree::Compone
                 current_item_index.set(current_item_index.get() + 1);
             }
         },
-        |level, _, item_rc| {
+        |level, _, item_rc, _| {
             if *level == 0 {
                 let item = item_rc.borrow();
                 item.item_index.set(current_item_index.get()).unwrap();

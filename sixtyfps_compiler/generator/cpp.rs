@@ -1124,7 +1124,8 @@ fn generate_component(
     #[derive(Default)]
     struct SubTreeState {
         offsetof_prefix: String, // offsetof(App, sub_component) + offsetof(SubComponent, sub_sub_component) + ...
-        field_prefix: String,    // sub_component.sub_sub_componet
+        field_prefix: String,    // sub_component.sub_sub_component
+        level: u32,
     }
 
     super::build_item_tree(
@@ -1169,7 +1170,38 @@ fn generate_component(
                 }
             }
         },
-        |state, sub_component, item_rc| {
+        |state, sub_component, item_rc, children_offset| {
+            if state.level == 0
+            // Sub-components don't have an entry in the item tree themselves, but we propagate their tree offsets through the constructors.
+            {
+                let item = item_rc.borrow();
+                let member_name = ident(&item.id).into_owned();
+                // `is_sub_component` refers to the component of the `generate_component` function call.
+                let item_index_base =
+                    if is_sub_component { "tree_index_of_first_child + " } else { "" };
+
+                let root_ptr = if is_sub_component {
+                    "root"
+                } else if component.parent_element.upgrade().map_or(false, |c| {
+                    c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
+                }) {
+                    "parent"
+                } else if is_child_component {
+                    "parent->m_root"
+                } else {
+                    "this"
+                };
+
+                constructor_member_initializers.push(format!(
+                    "{member_name}{{{root_ptr}, {item_index_base}{local_index}, {item_index_base}{local_children_offset}}}",
+                    root_ptr = root_ptr,
+                    member_name = member_name,
+                    item_index_base = item_index_base,
+                    local_index = item.item_index.get().unwrap(),
+                    local_children_offset = children_offset
+                ));
+            }
+
             let item = item_rc.borrow();
             let field_prefix = format!("{}{}.", state.field_prefix, self::ident(&item.id));
             let offsetof_prefix = format!(
@@ -1178,7 +1210,7 @@ fn generate_component(
                 &self::component_id(sub_component),
                 ident(&item.id)
             );
-            SubTreeState { offsetof_prefix, field_prefix }
+            SubTreeState { offsetof_prefix, field_prefix, level: state.level + 1 }
         },
     );
 
@@ -1215,27 +1247,6 @@ fn generate_component(
             let class_name = self::component_id(&sub_component);
 
             let member_name = ident(&item.id).into_owned();
-            let parent_index = if is_sub_component { "item_index_start + " } else { "" };
-
-            let root_ptr = if is_sub_component {
-                "root"
-            } else if component.parent_element.upgrade().map_or(false, |c| {
-                c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
-            }) {
-                "parent"
-            } else if is_child_component {
-                "parent->m_root"
-            } else {
-                "this"
-            };
-
-            constructor_member_initializers.push(format!(
-                "{member_name}{{{root_ptr}, {parent_index}{local_index}}}",
-                root_ptr = root_ptr,
-                member_name = member_name,
-                parent_index = parent_index,
-                local_index = item.item_index.get().unwrap()
-            ));
 
             init.push(format!("{}.init(self_weak.into_dyn());", member_name));
 
@@ -1318,7 +1329,7 @@ fn generate_component(
         let root_ptr_type = format!("const {} *", self::component_id(root_component));
 
         constructor_arguments =
-            format!("{} root, [[maybe_unused]] uintptr_t item_index_start", root_ptr_type);
+            format!("{} root, [[maybe_unused]] uintptr_t tree_index, [[maybe_unused]] uintptr_t tree_index_of_first_child", root_ptr_type);
 
         component_struct.members.push((
             Access::Private,
@@ -1350,6 +1361,29 @@ fn generate_component(
                 ..Default::default()
             }),
         ));
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "uintptr_t".to_owned(),
+                name: "tree_index_of_first_child".to_owned(),
+                ..Default::default()
+            }),
+        ));
+        constructor_member_initializers
+            .push("tree_index_of_first_child(tree_index_of_first_child)".into());
+        constructor_code.push("(void)this->tree_index_of_first_child;".into()); // silence warning about unused variable.
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: "uintptr_t".to_owned(),
+                name: "tree_index".to_owned(),
+                ..Default::default()
+            }),
+        ));
+        constructor_member_initializers.push("tree_index(tree_index)".into());
+        constructor_code.push("(void)this->tree_index;".into()); // silence warning about unused variable.
 
         let root_element = component.root_element.borrow();
         let get_root_item = if root_element.sub_component().is_some() {
@@ -1761,6 +1795,27 @@ fn access_element_component<'a>(
     }
 }
 
+// Returns an expression that will compute the absolute item index in the item tree for a
+// given element. For elements of a child component or the root component, the item_index
+// is already absolute within the corresponding item tree. For sub-components we return an
+// expression that computes the value at run-time.
+fn absolute_element_item_index_expression(element: &ElementRc) -> String {
+    let element = element.borrow();
+    let local_index = element.item_index.get().unwrap();
+    let enclosing_component = element.enclosing_component.upgrade().unwrap();
+    if enclosing_component.is_sub_component() {
+        if *local_index == 0 {
+            "this->tree_index".to_string()
+        } else if *local_index == 1 {
+            "this->tree_index_of_first_child".to_string()
+        } else {
+            format!("this->tree_index_of_first_child + {}", local_index - 1)
+        }
+    } else {
+        local_index.to_string()
+    }
+}
+
 fn compile_expression(
     expr: &crate::expression_tree::Expression,
     component: &Rc<Component>,
@@ -1951,8 +2006,7 @@ fn compile_expression(
                 if let Expression::ElementReference(focus_item) = &arguments[0] {
                     let focus_item = focus_item.upgrade().unwrap();
                     let component_ref = access_element_component(&focus_item, component, "self");
-                    let focus_item = focus_item.borrow();
-                    format!("self->m_window.window_handle().set_focus_item({}->self_weak.lock()->into_dyn(), {});", component_ref, focus_item.item_index.get().unwrap())
+                    format!("self->m_window.window_handle().set_focus_item({}->self_weak.lock()->into_dyn(), {});", component_ref, absolute_element_item_index_expression(&focus_item))
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")
                 }
@@ -1974,7 +2028,8 @@ fn compile_expression(
                     format!(
                         "self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }}, {{ {}->self_weak.lock()->into_dyn(), {} }} );",
                         popup_window_rcid, x, y,
-                        parent_component_ref, popup.parent_element.borrow().item_index.get().unwrap(),
+                        parent_component_ref, 
+                        absolute_element_item_index_expression(&popup.parent_element),
                     )
                 } else {
                     panic!("internal error: argument to SetFocusItem must be an element")

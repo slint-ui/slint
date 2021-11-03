@@ -156,12 +156,18 @@ pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&Ele
 ///  1. The application specific state
 ///  2. The current component being built (the parent of the sub-component!)
 ///  3. The element used to instantiate the sub-component
+///  4. The first_children_offset
 #[allow(dead_code)]
 pub fn build_item_tree<ComponentState>(
     root_component: &Rc<Component>,
     initial_state: ComponentState,
     mut visit_item: impl FnMut(&ComponentState, &Rc<Component>, &ElementRc, u32, u32),
-    mut visit_sub_component: impl FnMut(&ComponentState, &Rc<Component>, &ElementRc) -> ComponentState,
+    mut visit_sub_component: impl FnMut(
+        &ComponentState,
+        &Rc<Component>,
+        &ElementRc,
+        u32,
+    ) -> ComponentState,
 ) {
     visit_item(&initial_state, root_component, &root_component.root_element, 1, 0);
 
@@ -218,6 +224,7 @@ pub fn build_item_tree<ComponentState>(
             &ComponentState,
             &Rc<Component>,
             &ElementRc,
+            u32,
         ) -> ComponentState,
     ) {
         debug_assert_eq!(
@@ -230,7 +237,7 @@ pub fn build_item_tree<ComponentState>(
 
         for child in children.iter() {
             if let Some(sub_component) = child.borrow().sub_component() {
-                let sub_component_state = visit_sub_component(state, component, child);
+                let sub_component_state = visit_sub_component(state, component, child, offset);
                 visit_item(
                     &sub_component_state,
                     sub_component,
