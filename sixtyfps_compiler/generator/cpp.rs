@@ -317,10 +317,34 @@ fn to_cpp_orientation(o: Orientation) -> &'static str {
 /// If the expression is surrounded with parentheses, remove these parentheses
 fn remove_parentheses(expr: &str) -> &str {
     if expr.starts_with('(') && expr.ends_with(')') {
+        let mut level = 0;
+        // check that the opening and closing parentheses are on the same level
+        for byte in expr[1..expr.len() - 1].as_bytes() {
+            match byte {
+                b')' if level == 0 => return expr,
+                b')' => level -= 1,
+                b'(' => level += 1,
+                _ => (),
+            }
+        }
         &expr[1..expr.len() - 1]
     } else {
         expr
     }
+}
+
+#[test]
+fn remove_parentheses_test() {
+    assert_eq!(remove_parentheses("(foo(bar))"), "foo(bar)");
+    assert_eq!(remove_parentheses("(foo).bar"), "(foo).bar");
+    assert_eq!(remove_parentheses("(foo(bar))"), "foo(bar)");
+    assert_eq!(remove_parentheses("(foo)(bar)"), "(foo)(bar)");
+    assert_eq!(remove_parentheses("(foo).get()"), "(foo).get()");
+    assert_eq!(remove_parentheses("((foo).get())"), "(foo).get()");
+    assert_eq!(remove_parentheses("(((()())()))"), "((()())())");
+    assert_eq!(remove_parentheses("((()())())"), "(()())()");
+    assert_eq!(remove_parentheses("(()())()"), "(()())()");
+    assert_eq!(remove_parentheses("()())("), "()())(");
 }
 
 fn new_struct_with_bindings(
