@@ -1,10 +1,23 @@
-# Installing and Building with CMake
+# Installing or Building with CMake
 
 SixtyFPS comes with a CMake integration that automates the compilation step of the `.60` markup language files and
 offers a CMake target for convenient linkage.
 
 *Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.60` dependency tracking.
 You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
+
+## Binary Packages
+
+The SixtyFPS continuous integration system is building binary packages to use with C++ so that you do not need to install a rust compiler.
+These binaries can be found by clicking on the last
+[successful build of the master branch](https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
+and downloading the `cpp_bin` artifact.
+
+After extracting the artifact you can place the `lib` directory into your `CMAKE_PREFIX_PATH` and `find_package(SixtyFPS)` should succeed
+in locating the package.
+
+In the next section you will learn how to use the installed library in your application
+and load `.60` UI files.
 
 ## Building from Sources
 
@@ -92,17 +105,3 @@ cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/sixt
 cmake --build .
 cmake --install .
 ```
-<!-- cSpell:enable -->
-
-## Binary Packages
-
-The SixtyFPS continuous integration system is building binary packages to use with C++ so that you do not need to install a rust compiler.
-These binaries can be found by clicking on the last
-[successful build of the master branch](https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
-and downloading the `cpp_bin` artifact.
-
-After extracting the artifact you can place the `lib` directory into your `CMAKE_PREFIX_PATH` and `find_package(SixtyFPS)` should succeed
-in locating the package.
-
-In the next section you will learn how to use the installed library in your application
-and load `.60` UI files.
