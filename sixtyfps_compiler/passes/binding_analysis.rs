@@ -28,10 +28,8 @@ type PropertySet = linked_hash_set::LinkedHashSet<NamedReference>;
 
 pub fn binding_analysis(doc: &Document, diag: &mut BuildDiagnostics) {
     let component = &doc.root_component;
-    propagate_is_set_on_aliases(component);
-
     mark_used_base_properties(component);
-
+    propagate_is_set_on_aliases(component);
     perform_binding_analysis(component, diag);
 }
 
