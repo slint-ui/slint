@@ -2036,7 +2036,7 @@ fn compile_expression(
                     format!(
                         "self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }}, {{ {}->self_weak.lock()->into_dyn(), {} }} );",
                         popup_window_rcid, x, y,
-                        parent_component_ref, 
+                        parent_component_ref,
                         absolute_element_item_index_expression(&popup.parent_element),
                     )
                 } else {
