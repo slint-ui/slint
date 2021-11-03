@@ -1,12 +1,14 @@
 # SixtyFPS build guide
 
-This page explain how to build and test SixtyFPS.
+This page explains how to build and test SixtyFPS.
 
 ## Prerequisites
 
 ### Installing Rust
 
-Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started).
+Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
+have Rust installed, make sure that it's at least version 1.54 or newer. You can check which version you have installed
+by running `rustc --version`.
 
 Once this is done, you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
 
