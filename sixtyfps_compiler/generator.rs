@@ -169,20 +169,27 @@ pub fn build_item_tree<ComponentState>(
         u32,
     ) -> ComponentState,
 ) {
-    visit_item(&initial_state, root_component, &root_component.root_element, 1, 0);
+    if let Some(sub_component) = root_component.root_element.borrow().sub_component() {
+        assert!(root_component.root_elem.borrow().children.is_empty());
+        let sub_compo_state =
+            visit_sub_component(&initial_state, root_component, &root_component.root_element, 1);
+        build_item_tree(sub_component, sub_compo_state, visit_item, visit_sub_component)
+    } else {
+        visit_item(&initial_state, root_component, &root_component.root_element, 1, 0);
 
-    visit_children(
-        &initial_state,
-        &root_component.root_element.borrow().children,
-        &root_component,
-        &root_component.root_element,
-        0,
-        0,
-        1,
-        1,
-        &mut visit_item,
-        &mut visit_sub_component,
-    );
+        visit_children(
+            &initial_state,
+            &root_component.root_element.borrow().children,
+            &root_component,
+            &root_component.root_element,
+            0,
+            0,
+            1,
+            1,
+            &mut visit_item,
+            &mut visit_sub_component,
+        );
+    }
 
     // Size of the element's children and grand-children,
     // needed to calculate the sub-component relative children offset indices
