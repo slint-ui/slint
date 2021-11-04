@@ -1280,9 +1280,7 @@ fn generate_component(
                 if sub_component_repeater_count > 0 {
                     let mut case_code = String::new();
                     for local_repeater_index in 0..sub_component_repeater_count {
-                        case_code.push_str("case ");
-                        case_code.push_str(&(repeater_count + local_repeater_index).to_string());
-                        case_code.push_str(": ");
+                        write!(case_code, "case {}: ", repeater_count + local_repeater_index).unwrap();
                     }
 
                     self.children_visitor_cases.push(format!(
