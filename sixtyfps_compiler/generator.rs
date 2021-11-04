@@ -99,50 +99,6 @@ pub fn generate(
     Ok(())
 }
 
-/// Visit each item in order in which they should appear in the children tree array.
-/// The parameter of the visitor are
-///  1. the item
-///  2. the first_children_offset,
-///  3. the parent index
-/// DEPRECATED: Port to build_item_tree and remove this function.
-#[allow(dead_code)]
-pub fn build_array_helper(component: &Component, mut visit_item: impl FnMut(&ElementRc, u32, u32)) {
-    visit_item(&component.root_element, 1, 0);
-    visit_children(&component.root_element, 0, 1, &mut visit_item);
-
-    fn sub_children_count(e: &ElementRc) -> usize {
-        let mut count = e.borrow().children.len();
-        for i in &e.borrow().children {
-            count += sub_children_count(i);
-        }
-        count
-    }
-
-    fn visit_children(
-        item: &ElementRc,
-        index: u32,
-        children_offset: u32,
-        visit_item: &mut impl FnMut(&ElementRc, u32, u32),
-    ) {
-        debug_assert_eq!(index, item.borrow().item_index.get().map(|x| *x as u32).unwrap_or(index));
-        let mut offset = children_offset + item.borrow().children.len() as u32;
-
-        for i in &item.borrow().children {
-            visit_item(i, offset, index);
-            offset += sub_children_count(i) as u32;
-        }
-
-        let mut offset = children_offset + item.borrow().children.len() as u32;
-        let mut index = children_offset;
-
-        for e in &item.borrow().children {
-            visit_children(e, index, offset, visit_item);
-            index += 1;
-            offset += sub_children_count(e) as u32;
-        }
-    }
-}
-
 /// A reference to this trait is passed to the [`build_item_tree`] function.
 /// It can be used to build the array for the item tree.
 pub trait ItemTreeBuilder {
@@ -182,7 +138,6 @@ pub trait ItemTreeBuilder {
 }
 
 /// Visit each item in order in which they should appear in the children tree array.
-#[allow(dead_code)]
 pub fn build_item_tree<T: ItemTreeBuilder>(
     root_component: &Rc<Component>,
     initial_state: &T::SubComponentState,
@@ -215,16 +170,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
             &mut repeater_count,
             builder,
         );
-    }
-
-    // Size of the element's children and grand-children,
-    // needed to calculate the sub-component relative children offset indices
-    fn sub_children_count(e: &ElementRc) -> usize {
-        let mut count = e.borrow().children.len();
-        for i in &e.borrow().children {
-            count += sub_children_count(i);
-        }
-        count
     }
 
     // Size of the element's children and grand-children including

@@ -774,60 +774,108 @@ pub(crate) fn generate_component<'id>(
         }
         sixtyfps_rendering_backend_default::NativeWidgets::push(&mut rtti);
     }
-    let rtti = Rc::new(rtti);
 
-    let mut tree_array = vec![];
-    let mut items_types = HashMap::<String, ItemWithinComponent>::new();
-    let mut builder = dynamic_type::TypeBuilder::new(guard);
+    struct TreeBuilder<'id> {
+        tree_array: Vec<ItemTreeNode<Instance<'id>>>,
+        items_types: HashMap<String, ItemWithinComponent>,
+        type_builder: dynamic_type::TypeBuilder<'id>,
+        repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
+        repeater_names: HashMap<String, usize>,
+        rtti: Rc<HashMap<&'static str, Rc<ItemRTTI>>>,
+    }
+    impl<'id> generator::ItemTreeBuilder for TreeBuilder<'id> {
+        type SubComponentState = ();
 
-    let mut repeater = vec![];
-    let mut repeater_names = HashMap::new();
-
-    generator::build_array_helper(component, |rc_item, child_offset, parent_index| {
-        let item = rc_item.borrow();
-        if item.base_type == Type::Void {
-            assert!(component.is_global());
-        } else if let Some(repeated) = &item.repeated {
-            tree_array.push(ItemTreeNode::DynamicTree { index: repeater.len(), parent_index });
+        fn push_repeated_item(
+            &mut self,
+            item_rc: &ElementRc,
+            repeater_count: u32,
+            parent_index: u32,
+            _component_state: &Self::SubComponentState,
+        ) {
+            self.tree_array
+                .push(ItemTreeNode::DynamicTree { index: repeater_count as usize, parent_index });
+            let item = item_rc.borrow();
             let base_component = item.base_type.as_component();
-            repeater_names.insert(item.id.clone(), repeater.len());
+            self.repeater_names.insert(item.id.clone(), self.repeater.len());
             generativity::make_guard!(guard);
-            repeater.push(
+            self.repeater.push(
                 RepeaterWithinComponent {
                     component_to_repeat: generate_component(base_component, guard),
-                    offset: builder.add_field_type::<Repeater<ErasedComponentBox>>(),
-                    model: repeated.model.clone(),
+                    offset: self.type_builder.add_field_type::<Repeater<ErasedComponentBox>>(),
+                    model: item.repeated.as_ref().unwrap().model.clone(),
                 }
                 .into(),
             );
-        } else {
-            let rt = rtti.get(&*item.base_type.as_native().class_name).unwrap_or_else(|| {
+        }
+
+        fn push_native_item(
+            &mut self,
+            rc_item: &ElementRc,
+            child_offset: u32,
+            parent_index: u32,
+            _component_state: &Self::SubComponentState,
+        ) {
+            let item = rc_item.borrow();
+            let rt = self.rtti.get(&*item.base_type.as_native().class_name).unwrap_or_else(|| {
                 panic!("Native type not registered: {}", item.base_type.as_native().class_name)
             });
 
             let offset = if item.is_flickable_viewport {
-                let parent =
-                    &items_types[&object_tree::find_parent_element(rc_item).unwrap().borrow().id];
+                let parent = &self.items_types
+                    [&object_tree::find_parent_element(rc_item).unwrap().borrow().id];
                 assert_eq!(
                     parent.elem.borrow().base_type.as_native().class_name.as_str(),
                     "Flickable"
                 );
                 parent.offset + Flickable::FIELD_OFFSETS.viewport.get_byte_offset()
             } else {
-                builder.add_field(rt.type_info)
+                self.type_builder.add_field(rt.type_info)
             };
-            tree_array.push(ItemTreeNode::Item {
+            self.tree_array.push(ItemTreeNode::Item {
                 item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
                 children_index: child_offset,
                 children_count: item.children.len() as u32,
                 parent_index,
             });
-            items_types.insert(
+            self.items_types.insert(
                 item.id.clone(),
                 ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
             );
         }
-    });
+
+        fn enter_component(
+            &mut self,
+            _item: &ElementRc,
+            _children_offset: u32,
+            _component_state: &Self::SubComponentState,
+        ) -> Self::SubComponentState {
+            ()
+        }
+
+        fn enter_component_children(
+            &mut self,
+            _item: &ElementRc,
+            _repeater_count: u32,
+            _component_state: &Self::SubComponentState,
+            _sub_component_state: &Self::SubComponentState,
+        ) {
+            todo!()
+        }
+    }
+
+    let mut builder = TreeBuilder {
+        tree_array: vec![],
+        items_types: HashMap::new(),
+        type_builder: dynamic_type::TypeBuilder::new(guard),
+        repeater: vec![],
+        repeater_names: HashMap::new(),
+        rtti: Rc::new(rtti),
+    };
+
+    if !component.is_global() {
+        generator::build_item_tree(component, &(), &mut builder);
+    }
 
     let mut custom_properties = HashMap::new();
     let mut custom_callbacks = HashMap::new();
@@ -879,7 +927,8 @@ pub(crate) fn generate_component<'id>(
             Type::Image => property_info::<sixtyfps_corelib::graphics::Image>(),
             Type::Bool => property_info::<bool>(),
             Type::Callback { .. } => {
-                custom_callbacks.insert(name.clone(), builder.add_field_type::<Callback>());
+                custom_callbacks
+                    .insert(name.clone(), builder.type_builder.add_field_type::<Callback>());
                 continue;
             }
             Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => {
@@ -915,38 +964,38 @@ pub(crate) fn generate_component<'id>(
         };
         custom_properties.insert(
             name.clone(),
-            PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
+            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     }
     if component.parent_element.upgrade().is_some() {
         let (prop, type_info) = property_info::<u32>();
         custom_properties.insert(
             "index".into(),
-            PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
+            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
         // FIXME: make it a property for the correct type instead of being generic
         let (prop, type_info) = property_info::<Value>();
         custom_properties.insert(
             "model_data".into(),
-            PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
+            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     } else {
         let (prop, type_info) = property_info::<f32>();
         custom_properties.insert(
             "scale_factor".into(),
-            PropertiesWithinComponent { offset: builder.add_field(type_info), prop },
+            PropertiesWithinComponent { offset: builder.type_builder.add_field(type_info), prop },
         );
     }
 
     let parent_component_offset = if component.parent_element.upgrade().is_some() {
-        Some(builder.add_field_type::<Option<ComponentRefPin>>())
+        Some(builder.type_builder.add_field_type::<Option<ComponentRefPin>>())
     } else {
         None
     };
 
-    let window_offset = builder.add_field_type::<Option<Window>>();
+    let window_offset = builder.type_builder.add_field_type::<Option<Window>>();
 
-    let extra_data_offset = builder.add_field_type::<ComponentExtraData>();
+    let extra_data_offset = builder.type_builder.add_field_type::<ComponentExtraData>();
 
     let public_properties = component.root_element.borrow().property_declarations.clone();
 
@@ -989,14 +1038,14 @@ pub(crate) fn generate_component<'id>(
     };
     let t = ComponentDescription {
         ct: t,
-        dynamic_type: builder.build(),
-        item_tree: tree_array,
-        items: items_types,
+        dynamic_type: builder.type_builder.build(),
+        item_tree: builder.tree_array,
+        items: builder.items_types,
         custom_properties,
         custom_callbacks,
         original: component.clone(),
-        repeater,
-        repeater_names,
+        repeater: builder.repeater,
+        repeater_names: builder.repeater_names,
         parent_component_offset,
         window_offset,
         extra_data_offset,
