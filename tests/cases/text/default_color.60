@@ -25,13 +25,16 @@ TestCase := Rectangle {
         color: #ffff00ff;
     }
     text_in_sub_element := SubElement { sub_color: #ff0000; }
+    text_in_state := Text { }
+    states [ xx when false: { text_in_state.color: #abc; } ]
 
     property <color> default_text_color: default_text.color;
     property <color> color_of_initialized_text: text_with_color.color;
     property <color> color_of_sub_element_text: text_in_sub_element.sub_color;
+    property <color> color_in_state: text-in-state.color;
 
     property <bool> test: default_text_color == StyleMetrics.default-text-color && color-of-initialized-text == #ffff00ff
-        && color_of_sub_element_text == #ff0000;
+        && color_of_sub_element_text == #ff0000 && color-in-state == StyleMetrics.default-text-color;
 }
 
 
@@ -44,6 +47,8 @@ instance.set_binding_to_default_text_color(sixtyfps::Color::from_rgb_uint8(0, 0,
 assert_eq(instance.get_default_text_color(), sixtyfps::Color::from_rgb_uint8(0, 0, 255));
 assert_eq(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_uint8(255, 255, 0));
 assert_eq(instance.get_color_of_sub_element_text(), sixtyfps::Color::from_rgb_uint8(255, 0, 0));
+assert_eq(instance.get_color_in_state(), sixtyfps::Color::from_rgb_uint8(0, 0, 255));
+
 ```
 
 ```rust
@@ -52,6 +57,7 @@ instance.set_binding_to_default_text_color(sixtyfps::Color::from_rgb_u8(0, 0, 13
 assert_eq!(instance.get_default_text_color(), sixtyfps::Color::from_rgb_u8(0, 0, 133));
 assert_eq!(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_u8(255, 255, 0));
 assert_eq!(instance.get_color_of_sub_element_text(), sixtyfps::Color::from_rgb_u8(255, 0, 0));
+assert_eq!(instance.get_color_in_state(), sixtyfps::Color::from_rgb_u8(0, 0, 133));
 ```
 
 */

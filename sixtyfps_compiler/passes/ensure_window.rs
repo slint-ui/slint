@@ -18,7 +18,11 @@ use std::collections::HashSet;
 use std::rc::Rc;
 
 pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
-    if matches!(component.root_element.borrow().base_type.to_string().as_str(), "Window" | "Dialog")
+    if component
+        .root_element
+        .borrow()
+        .builtin_type()
+        .map_or(true, |b| matches!(b.name.as_str(), "Window" | "Dialog"))
     {
         return; // already a window, nothing to do
     }

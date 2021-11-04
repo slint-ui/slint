@@ -85,6 +85,19 @@ pub async fn run_passes(
         focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
         focus_item::determine_initial_focus_item(component, diag);
         focus_item::erase_forward_focus_properties(component);
+    }
+
+    ensure_window::ensure_window(root_component, &doc.local_registry);
+
+    for component in (root_component.used_types.borrow().sub_components.iter())
+        .chain(std::iter::once(root_component))
+    {
+        apply_default_properties_from_style::apply_default_properties_from_style(
+            component,
+            &mut type_loader,
+            diag,
+        )
+        .await;
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_states::lower_states(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
@@ -101,18 +114,6 @@ pub async fn run_passes(
         default_geometry::default_geometry(component, diag);
         visible::handle_visible(component, &global_type_registry.borrow());
         materialize_fake_properties::materialize_fake_properties(component);
-    }
-    ensure_window::ensure_window(root_component, &doc.local_registry);
-
-    for component in (root_component.used_types.borrow().sub_components.iter())
-        .chain(std::iter::once(root_component))
-    {
-        apply_default_properties_from_style::apply_default_properties_from_style(
-            component,
-            &mut type_loader,
-            diag,
-        )
-        .await;
     }
     collect_globals::collect_globals(&doc, diag);
 
@@ -137,9 +138,7 @@ pub async fn run_passes(
         optimize_useless_rectangles::optimize_useless_rectangles(component);
         move_declarations::move_declarations(component, diag);
         remove_aliases::remove_aliases(component, diag);
-
         resolve_native_classes::resolve_native_classes(component);
-
         remove_unused_properties::remove_unused_properties(component);
     }
 
@@ -156,7 +155,6 @@ pub async fn run_passes(
         std::iter::once(&*doc).chain(type_loader.all_documents()),
         compiler_config.embed_resources,
     );
-
     root_component.is_root_component.set(true);
 }
 
