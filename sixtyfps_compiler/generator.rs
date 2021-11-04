@@ -124,6 +124,7 @@ pub trait ItemTreeBuilder {
     fn enter_component(
         &mut self,
         item: &ElementRc,
+        sub_component: &Rc<Component>,
         children_offset: u32,
         component_state: &Self::SubComponentState,
     ) -> Self::SubComponentState;
@@ -146,7 +147,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
     if let Some(sub_component) = root_component.root_element.borrow().sub_component() {
         assert!(root_component.root_element.borrow().children.is_empty());
         let sub_compo_state =
-            builder.enter_component(&root_component.root_element, 1, initial_state);
+            builder.enter_component(&root_component.root_element, &sub_component, 1, initial_state);
         builder.enter_component_children(
             &root_component.root_element,
             0,
@@ -242,7 +243,8 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
 
         for child in children.iter() {
             if let Some(sub_component) = child.borrow().sub_component() {
-                let sub_component_state = builder.enter_component(child, offset, state);
+                let sub_component_state =
+                    builder.enter_component(child, &sub_component, offset, state);
                 visit_item(
                     &sub_component_state,
                     &sub_component.root_element,

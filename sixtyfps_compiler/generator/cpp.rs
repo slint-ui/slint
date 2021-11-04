@@ -1224,13 +1224,13 @@ fn generate_component(
         fn enter_component(
             &mut self,
             item_rc: &ElementRc,
+            sub_component: &Rc<Component>,
             children_offset: u32,
             component_state: &Self::SubComponentState,
         ) -> Self::SubComponentState {
             let item = item_rc.borrow();
             // Sub-components don't have an entry in the item tree themselves, but we propagate their tree offsets through the constructors.
             if component_state.is_empty() {
-                let sub_component = item.sub_component().unwrap();
                 let class_name = self::component_id(&sub_component);
                 let member_name = ident(&item.id).into_owned();
 

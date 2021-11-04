@@ -9,7 +9,9 @@
 LICENSE END */
 //! Assign the Element::item_index on each elements
 
-use crate::object_tree::ElementRc;
+use std::rc::Rc;
+
+use crate::object_tree::{Component, ElementRc};
 
 /// The item indices are generated and assigned to the ElementRc's item_index for each
 /// element in the component. The indices are local to the component.
@@ -33,7 +35,7 @@ use crate::object_tree::ElementRc;
 /// 3: Text      (children: 1, children_offset: 5, parent_index: 0)
 /// 4: Image     (children: 0, children_offset: X, parent_index: 2) // SubCompo's child(ren)
 /// 5: Path      (children: 0, children_offset: X, parent_index: 3)
-pub fn generate_item_indices(component: &std::rc::Rc<crate::object_tree::Component>) {
+pub fn generate_item_indices(component: &Rc<Component>) {
     // In order to create the local indices like in the above example (0-5) we use the same function
     // that is also used for building the item tree. It recurses into all sub-components, but we skip
     // them, by checking if the SubComponentState is true.
@@ -86,6 +88,7 @@ impl crate::generator::ItemTreeBuilder for Helper {
     fn enter_component(
         &mut self,
         item: &ElementRc,
+        _sub_component: &Rc<Component>,
         _children_offset: u32,
         component_state: &Self::SubComponentState,
     ) -> Self::SubComponentState {

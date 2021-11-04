@@ -847,6 +847,7 @@ pub(crate) fn generate_component<'id>(
         fn enter_component(
             &mut self,
             _item: &ElementRc,
+            _sub_component: &Rc<object_tree::Component>,
             _children_offset: u32,
             _component_state: &Self::SubComponentState,
         ) -> Self::SubComponentState {

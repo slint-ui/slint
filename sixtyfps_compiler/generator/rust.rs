@@ -528,6 +528,7 @@ fn generate_component(
         fn enter_component(
             &mut self,
             item_rc: &ElementRc,
+            _sub_component: &Rc<Component>,
             _children_offset: u32,
             component_state: &Self::SubComponentState,
         ) -> Self::SubComponentState {
