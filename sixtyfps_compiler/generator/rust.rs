@@ -302,6 +302,135 @@ fn handle_property_binding(
     }
 }
 
+fn handle_repeater(
+    repeated: &crate::object_tree::RepeatedElementInfo,
+    base_component: &Rc<Component>,
+    repeater_index: usize,
+    extra_components: &mut Vec<TokenStream>,
+    init: &mut Vec<TokenStream>,
+    repeated_element_names: &mut Vec<Ident>,
+    repeated_visit_branch: &mut Vec<TokenStream>,
+    repeated_element_components: &mut Vec<Ident>,
+    diag: &mut BuildDiagnostics,
+) {
+    let parent_element = base_component.parent_element.upgrade().unwrap();
+    let repeater_id = format_ident!("repeater_{}", ident(&parent_element.borrow().id));
+    let rep_inner_component_id = self::inner_component_id(&*base_component);
+    let parent_compo = parent_element.borrow().enclosing_component.upgrade().unwrap();
+    let inner_component_id = self::inner_component_id(&parent_compo);
+
+    let extra_fn = if repeated.is_listview.is_some() {
+        let am = |prop| {
+            access_member(&base_component.root_element, prop, base_component, quote!(self), false)
+        };
+        let p_y = am("y");
+        let p_height = am("height");
+        let p_width = am("width");
+        quote! {
+            fn listview_layout(
+                self: core::pin::Pin<&Self>,
+                offset_y: &mut f32,
+                viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
+            ) {
+                use sixtyfps::re_exports::*;
+                let vp_w = viewport_width.get();
+                #p_y.set(*offset_y);
+                *offset_y += #p_height.get();
+                let w = #p_width.get();
+                if vp_w < w {
+                    viewport_width.set(w);
+                }
+            }
+        }
+    } else {
+        // TODO: we could generate this code only if we know that this component is in a box layout
+        quote! {
+            fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sixtyfps::re_exports::Orientation)
+                -> sixtyfps::re_exports::BoxLayoutCellData
+            {
+                use sixtyfps::re_exports::*;
+                BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
+            }
+        }
+    };
+    extra_components.push(if repeated.is_conditional_element {
+        quote! {
+            impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
+                type Data = ();
+                fn update(&self, _: usize, _: Self::Data) { }
+                #extra_fn
+            }
+        }
+    } else {
+        let data_type = get_rust_type(
+            &Expression::RepeaterModelReference { element: Rc::downgrade(&parent_element) }.ty(),
+            &parent_element.borrow().node.as_ref().map(|x| x.to_source_location()),
+            diag,
+        );
+
+        quote! {
+            impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
+                type Data = #data_type;
+                fn update(&self, index: usize, data: Self::Data) {
+                    self.index.set(index);
+                    self.model_data.set(data);
+                }
+                #extra_fn
+            }
+        }
+    });
+    let mut model = compile_expression(&repeated.model, &parent_compo);
+    if repeated.is_conditional_element {
+        model = quote!(sixtyfps::re_exports::ModelHandle::new(std::rc::Rc::<bool>::new(#model)))
+    }
+    init.push(quote! {
+        _self.#repeater_id.set_model_binding({
+            let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_rc);
+            move || {
+                let self_rc = self_weak.upgrade().unwrap();
+                let _self = self_rc.as_pin_ref();
+                (#model) as _
+            }
+        });
+    });
+    if let Some(listview) = &repeated.is_listview {
+        let vp_y = access_named_reference(&listview.viewport_y, &parent_compo, quote!(_self));
+        let vp_h = access_named_reference(&listview.viewport_height, &parent_compo, quote!(_self));
+        let lv_h = access_named_reference(&listview.listview_height, &parent_compo, quote!(_self));
+        let vp_w = access_named_reference(&listview.viewport_width, &parent_compo, quote!(_self));
+        let lv_w = access_named_reference(&listview.listview_width, &parent_compo, quote!(_self));
+
+        let ensure_updated = quote! {
+            #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
+                || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into() },
+                #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+            );
+        };
+
+        repeated_visit_branch.push(quote!(
+            #repeater_index => {
+                #ensure_updated
+                _self.#repeater_id.visit(order, visitor)
+            }
+        ));
+    } else {
+        let ensure_updated = quote! {
+            #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into() }
+            );
+        };
+
+        repeated_visit_branch.push(quote!(
+            #repeater_index => {
+                #ensure_updated
+                _self.#repeater_id.visit(order, visitor)
+            }
+        ));
+    }
+    repeated_element_names.push(repeater_id);
+    repeated_element_components.push(rep_inner_component_id);
+}
+
 /// Generate the rust code for the given component.
 ///
 /// Fill the diagnostic in case of error.
@@ -438,208 +567,155 @@ fn generate_component(
         return None;
     }
 
-    let mut item_tree_array = Vec::new();
-    let mut item_names = Vec::new();
-    let mut item_types = Vec::new();
-    let mut repeated_element_names = Vec::new();
-    let mut repeated_element_layouts = Vec::new();
-    let mut repeated_element_components = Vec::new();
-    let mut repeated_visit_branch = Vec::new();
-    let mut init = Vec::new();
-    let mut window_field_init = None;
-    let mut window_parent_param = None;
-    super::build_array_helper(component, |item_rc, children_index, parent_index| {
-        let parent_index = parent_index as u32;
-        let item = item_rc.borrow();
-        if item.base_type == Type::Void {
-            assert!(component.is_global());
-        } else if let Some(repeated) = &item.repeated {
-            let base_component = item.base_type.as_component();
-            let repeater_index = repeated_element_names.len();
-            let repeater_id = format_ident!("repeater_{}", ident(&item.id));
-            let rep_inner_component_id = self::inner_component_id(&*base_component);
+    struct TreeBuilder<'a> {
+        tree_array: Vec<TokenStream>,
+        item_names: Vec<Ident>,
+        item_types: Vec<Ident>,
+        extra_components: &'a mut Vec<TokenStream>,
+        init: Vec<TokenStream>,
+        repeated_element_names: Vec<Ident>,
+        repeated_visit_branch: Vec<TokenStream>,
+        repeated_element_components: Vec<Ident>,
+        diag: &'a mut BuildDiagnostics,
+    }
+    impl<'a> super::ItemTreeBuilder for TreeBuilder<'a> {
+        type SubComponentState = TokenStream;
 
-            extra_components.push(generate_component(&*base_component, diag).unwrap_or_else(
-                || {
-                    assert!(diag.has_error());
-                    Default::default()
-                },
-            ));
-
-            let extra_fn = if repeated.is_listview.is_some() {
-                let am = |prop| {
-                    access_member(
-                        &base_component.root_element,
-                        prop,
-                        base_component,
-                        quote!(self),
-                        false,
-                    )
-                };
-                let p_y = am("y");
-                let p_height = am("height");
-                let p_width = am("width");
-                quote! {
-                    fn listview_layout(
-                        self: core::pin::Pin<&Self>,
-                        offset_y: &mut f32,
-                        viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
-                    ) {
-                        use sixtyfps::re_exports::*;
-                        let vp_w = viewport_width.get();
-                        #p_y.set(*offset_y);
-                        *offset_y += #p_height.get();
-                        let w = #p_width.get();
-                        if vp_w < w {
-                            viewport_width.set(w);
-                        }
-                    }
-                }
-            } else {
-                // TODO: we could generate this code only if we know that this component is in a box layout
-                quote! {
-                    fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sixtyfps::re_exports::Orientation)
-                        -> sixtyfps::re_exports::BoxLayoutCellData
-                    {
-                        use sixtyfps::re_exports::*;
-                        BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
-                    }
-                }
-            };
-
-            extra_components.push(if repeated.is_conditional_element {
-                quote! {
-                    impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
-                        type Data = ();
-                        fn update(&self, _: usize, _: Self::Data) { }
-                        #extra_fn
-                    }
-                }
-            } else {
-                let data_type = get_rust_type(
-                    &Expression::RepeaterModelReference { element: Rc::downgrade(item_rc) }.ty(),
-                    &item.node.as_ref().map(|x| x.to_source_location()),
-                    diag,
+        fn push_repeated_item(
+            &mut self,
+            item_rc: &ElementRc,
+            repeater_index: u32,
+            parent_index: u32,
+            component_state: &Self::SubComponentState,
+        ) {
+            let repeater_index = repeater_index as usize;
+            if component_state.is_empty() {
+                let item = item_rc.borrow();
+                let base_component = item.base_type.as_component();
+                self.extra_components.push(
+                    generate_component(&*base_component, self.diag).unwrap_or_else(|| {
+                        assert!(self.diag.has_error());
+                        Default::default()
+                    }),
                 );
-
-                quote! {
-                    impl sixtyfps::re_exports::RepeatedComponent for #rep_inner_component_id {
-                        type Data = #data_type;
-                        fn update(&self, index: usize, data: Self::Data) {
-                            self.index.set(index);
-                            self.model_data.set(data);
-                        }
-                        #extra_fn
-                    }
-                }
-            });
-
-            let mut model = compile_expression(&repeated.model, component);
-            if repeated.is_conditional_element {
-                model =
-                    quote!(sixtyfps::re_exports::ModelHandle::new(std::rc::Rc::<bool>::new(#model)))
+                let repeated = item.repeated.as_ref().unwrap();
+                handle_repeater(
+                    repeated,
+                    base_component,
+                    repeater_index,
+                    self.extra_components,
+                    &mut self.init,
+                    &mut self.repeated_element_names,
+                    &mut self.repeated_visit_branch,
+                    &mut self.repeated_element_components,
+                    self.diag,
+                );
             }
-
-            // FIXME: there could be an optimization if `repeated.model.is_constant()`, we don't need a binding
-            init.push(quote! {
-                _self.#repeater_id.set_model_binding({
-                    let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_rc);
-                    move || {
-                        let self_rc = self_weak.upgrade().unwrap();
-                        let _self = self_rc.as_pin_ref();
-                        (#model) as _
-                    }
-                });
-            });
-
-            if let Some(listview) = &repeated.is_listview {
-                let vp_y = access_named_reference(&listview.viewport_y, component, quote!(_self));
-                let vp_h =
-                    access_named_reference(&listview.viewport_height, component, quote!(_self));
-                let lv_h =
-                    access_named_reference(&listview.listview_height, component, quote!(_self));
-                let vp_w =
-                    access_named_reference(&listview.viewport_width, component, quote!(_self));
-                let lv_w =
-                    access_named_reference(&listview.listview_width, component, quote!(_self));
-
-                let ensure_updated = quote! {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
-                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into() },
-                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
-                    );
-                };
-
-                repeated_visit_branch.push(quote!(
-                    #repeater_index => {
-                        #ensure_updated
-                        _self.#repeater_id.visit(order, visitor)
-                    }
-                ));
-
-                repeated_element_layouts.push(quote!(
-                    #ensure_updated
-                ));
-            } else {
-                let ensure_updated = quote! {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
-                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into() }
-                    );
-                };
-
-                repeated_visit_branch.push(quote!(
-                    #repeater_index => {
-                        #ensure_updated
-                        _self.#repeater_id.visit(order, visitor)
-                    }
-                ));
-
-                repeated_element_layouts.push(quote!(
-                    #ensure_updated
-                    _self.#repeater_id.compute_layout();
-                ));
-            }
-
-            item_tree_array.push(quote!(
+            self.tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::DynamicTree {
                     index: #repeater_index,
                     parent_index: #parent_index,
                 }
             ));
+        }
+        fn push_native_item(
+            &mut self,
+            item_rc: &ElementRc,
+            children_index: u32,
+            parent_index: u32,
+            component_state: &Self::SubComponentState,
+        ) {
+            let item = item_rc.borrow();
+            let children_count = item.children.len() as u32;
+            let inner_component_id =
+                self::inner_component_id(&item.enclosing_component.upgrade().unwrap());
+            if item.is_flickable_viewport {
+                let field_name =
+                    ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id);
+                let field = access_component_field_offset(&inner_component_id, &field_name);
+                self.tree_array.push(quote!(
+                    sixtyfps::re_exports::ItemTreeNode::Item{
+                        item: VOffset::new(#component_state #field + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
+                        children_count: #children_count,
+                        children_index: #children_index,
+                        parent_index: #parent_index
+                    }
+                ));
+            } else {
+                let field_name = ident(&item.id);
+                let field = access_component_field_offset(&inner_component_id, &field_name);
+                self.tree_array.push(quote!(
+                    sixtyfps::re_exports::ItemTreeNode::Item{
+                        item: VOffset::new(#component_state #field),
+                        children_count: #children_count,
+                        children_index: #children_index,
+                        parent_index: #parent_index,
+                    }
+                ));
+                self.item_names.push(field_name);
+                self.item_types.push(ident(&item.base_type.as_native().class_name));
+            }
+        }
 
-            repeated_element_names.push(repeater_id);
-            repeated_element_components.push(rep_inner_component_id);
-        } else if item.is_flickable_viewport {
+        fn enter_component(
+            &mut self,
+            item_rc: &ElementRc,
+            _children_offset: u32,
+            component_state: &Self::SubComponentState,
+        ) -> Self::SubComponentState {
+            let item = item_rc.borrow();
+            // Sub-components don't have an entry in the item tree themselves, but we propagate their tree offsets through the constructors.
+            if component_state.is_empty() {
+                todo!()
+            }
+
+            let inner_component_id =
+                self::inner_component_id(&item.enclosing_component.upgrade().unwrap());
             let field_name =
                 ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id);
-            let children_count = item.children.len() as u32;
             let field = access_component_field_offset(&inner_component_id, &field_name);
-
-            item_tree_array.push(quote!(
-                sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#field + sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport),
-                    children_count: #children_count,
-                    children_index: #children_index,
-                    parent_index: #parent_index
-                }
-            ));
-        } else {
-            let field_name = ident(&item.id);
-            let children_count = item.children.len() as u32;
-            let field = access_component_field_offset(&inner_component_id, &field_name);
-
-            item_tree_array.push(quote!(
-                sixtyfps::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#field),
-                    children_count: #children_count,
-                    children_index: #children_index,
-                    parent_index: #parent_index,
-                }
-            ));
-            item_names.push(field_name);
-            item_types.push(ident(&item.base_type.as_native().class_name));
+            quote!(#component_state #field +)
         }
-    });
+
+        fn enter_component_children(
+            &mut self,
+            _item_rc: &ElementRc,
+            _repeater_count: u32,
+            _component_state: &Self::SubComponentState,
+            _sub_component_state: &Self::SubComponentState,
+        ) {
+            todo!()
+        }
+    }
+
+    let mut builder = TreeBuilder {
+        tree_array: vec![],
+        item_names: vec![],
+        item_types: vec![],
+        extra_components: &mut extra_components,
+        init: vec![],
+        repeated_element_names: vec![],
+        repeated_visit_branch: vec![],
+        repeated_element_components: vec![],
+        diag,
+    };
+    if !component.is_global() {
+        super::build_item_tree(component, &TokenStream::new(), &mut builder);
+    }
+
+    let mut window_field_init = None;
+    let mut window_parent_param = None;
+
+    let TreeBuilder {
+        tree_array: item_tree_array,
+        item_names,
+        item_types,
+        mut init,
+        repeated_element_names,
+        repeated_visit_branch,
+        repeated_element_components,
+        ..
+    } = builder;
 
     super::handle_property_bindings_init(component, |elem, prop, binding| {
         handle_property_binding(component, elem, prop, binding, &mut init)
