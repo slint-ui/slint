@@ -1234,6 +1234,8 @@ fn generate_component(
                 let class_name = self::component_id(&sub_component);
                 let member_name = ident(&item.id).into_owned();
 
+                self.init.push(format!("{}.init(self_weak.into_dyn());", member_name));
+
                 self.component_struct.members.push((
                     self.field_access,
                     Declaration::Var(Var {
@@ -1272,8 +1274,6 @@ fn generate_component(
             if component_state.is_empty() {
                 let sub_component = item.sub_component().unwrap();
                 let member_name = ident(&item.id).into_owned();
-
-                self.init.push(format!("{}.init(self_weak.into_dyn());", member_name));
 
                 let sub_component_repeater_count = sub_component.repeater_count();
                 if sub_component_repeater_count > 0 {
