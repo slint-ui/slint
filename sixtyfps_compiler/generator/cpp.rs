@@ -12,6 +12,8 @@ LICENSE END */
 
 // cSpell:ignore cstdlib cmath constexpr nullptr decltype intptr uintptr
 
+use std::fmt::Write;
+
 /// This module contains some data structure that helps represent a C++ code.
 /// It is then rendered into an actual C++ text using the Display trait
 mod cpp_ast {
@@ -609,8 +611,6 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
 
             let mut init = "{ ".to_string();
 
-            use std::fmt::Write;
-
             for (index, byte) in data.iter().enumerate() {
                 if index > 0 {
                     init.push(',');
@@ -717,7 +717,6 @@ fn generate_struct(
     let mut members = fields
         .iter()
         .map(|(name, t)| {
-            use std::fmt::Write;
             write!(operator_eq, " && a.{0} == b.{0}", ident(name)).unwrap();
             (
                 Access::Public,
@@ -1280,7 +1279,8 @@ fn generate_component(
                 if sub_component_repeater_count > 0 {
                     let mut case_code = String::new();
                     for local_repeater_index in 0..sub_component_repeater_count {
-                        write!(case_code, "case {}: ", repeater_count + local_repeater_index).unwrap();
+                        write!(case_code, "case {}: ", repeater_count + local_repeater_index)
+                            .unwrap();
                     }
 
                     self.children_visitor_cases.push(format!(
