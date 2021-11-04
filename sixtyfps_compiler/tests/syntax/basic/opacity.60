@@ -7,7 +7,7 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
-SuperSimple := Rectangle {
+SuperSimple := Window {
 
     opacity: 0.5;
 //          ^warning{The opacity property cannot be used on the root element, it will not be applied}
