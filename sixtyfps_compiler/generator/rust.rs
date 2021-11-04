@@ -113,6 +113,12 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
             }
         })
         .unzip();
+
+    let mut sub_compos = Vec::new();
+    for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
+        sub_compos.push(generate_component(&sub_comp, diag)?);
+    }
+
     let compo = generate_component(&doc.root_component, diag)?;
     let compo_id = public_component_id(&doc.root_component);
     let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
@@ -151,6 +157,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
             use sixtyfps::re_exports::*;
             #(#structs)*
             #(#globals)*
+            #(#sub_compos)*
             #compo
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
         }
