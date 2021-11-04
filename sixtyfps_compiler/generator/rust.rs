@@ -448,6 +448,9 @@ fn generate_component(
     struct TreeBuilder<'a> {
         tree_array: Vec<TokenStream>,
         item_names: Vec<Ident>,
+        sub_component_names: Vec<Ident>,
+        sub_component_types: Vec<Ident>,
+        sub_component_initializers: Vec<TokenStream>,
         item_types: Vec<Ident>,
         extra_components: &'a mut Vec<TokenStream>,
         init: Vec<TokenStream>,
@@ -520,40 +523,54 @@ fn generate_component(
                         parent_index: #parent_index,
                     }
                 ));
-                self.item_names.push(field_name);
-                self.item_types.push(ident(&item.base_type.as_native().class_name));
+                if component_state.is_empty() {
+                    self.item_names.push(field_name);
+                    self.item_types.push(ident(&item.base_type.as_native().class_name));
+                }
             }
         }
 
         fn enter_component(
             &mut self,
             item_rc: &ElementRc,
-            _sub_component: &Rc<Component>,
+            sub_component: &Rc<Component>,
             _children_offset: u32,
             component_state: &Self::SubComponentState,
         ) -> Self::SubComponentState {
             let item = item_rc.borrow();
             // Sub-components don't have an entry in the item tree themselves, but we propagate their tree offsets through the constructors.
             if component_state.is_empty() {
-                todo!()
+                let field_name = ident(&item.id);
+                let sub_component_id = self::inner_component_id(sub_component);
+
+                self.sub_component_names.push(field_name);
+                self.sub_component_initializers.push(quote!(#sub_component_id::new()));
+                self.sub_component_types.push(sub_component_id);
             }
 
             let inner_component_id =
                 self::inner_component_id(&item.enclosing_component.upgrade().unwrap());
-            let field_name =
-                ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id);
+            let field_name = ident(&item.id);
             let field = access_component_field_offset(&inner_component_id, &field_name);
             quote!(#component_state #field +)
         }
 
         fn enter_component_children(
             &mut self,
-            _item_rc: &ElementRc,
+            item_rc: &ElementRc,
             _repeater_count: u32,
-            _component_state: &Self::SubComponentState,
+            component_state: &Self::SubComponentState,
             _sub_component_state: &Self::SubComponentState,
         ) {
-            todo!()
+            let item = item_rc.borrow();
+            if component_state.is_empty() {
+                let sub_component = item.sub_component().unwrap();
+
+                let sub_component_repeater_count = sub_component.repeater_count();
+                if sub_component_repeater_count > 0 {
+                    todo!()
+                }
+            }
         }
     }
 
@@ -700,6 +717,9 @@ fn generate_component(
         tree_array: vec![],
         item_names: vec![],
         item_types: vec![],
+        sub_component_names: vec![],
+        sub_component_types: vec![],
+        sub_component_initializers: vec![],
         extra_components: &mut extra_components,
         init: vec![],
         repeated_element_names: vec![],
@@ -718,6 +738,9 @@ fn generate_component(
         tree_array: item_tree_array,
         item_names,
         item_types,
+        sub_component_names,
+        sub_component_types,
+        sub_component_initializers,
         mut init,
         repeated_element_names,
         repeated_visit_branch,
@@ -764,7 +787,7 @@ fn generate_component(
         ));
         window_field_init = Some(quote!(window: parent_window.clone().into()));
         window_parent_param = Some(quote!(, parent_window: &sixtyfps::re_exports::WindowRc))
-    } else if !component.is_global() {
+    } else if !component.is_global() && !component.is_sub_component() {
         // FIXME: This field is public for testing.
         window_field = Some(quote!(pub window: sixtyfps::Window));
         window_field_init = Some(quote!(window: sixtyfps::create_window().into()));
@@ -791,6 +814,8 @@ fn generate_component(
 
     let (drop_impl, pin) = if component.is_global() {
         (None, quote!(#[pin]))
+    } else if component.is_sub_component() {
+        (None, quote!(#[pin]))
     } else {
         (
             Some(quote!(impl sixtyfps::re_exports::PinnedDrop for #inner_component_id {
@@ -807,6 +832,8 @@ fn generate_component(
     }
 
     let (item_tree_impl, component_impl) = if component.is_global() {
+        (None, None)
+    } else if component.is_sub_component() {
         (None, None)
     } else {
         let item_tree_array_len = item_tree_array.len();
@@ -894,7 +921,11 @@ fn generate_component(
             let _self = self_rc.as_ref();
         }
     };
-    let self_weak = if !component.is_global() { Some(quote!(self_weak)) } else { None };
+    let self_weak = if !component.is_global() && !component.is_sub_component() {
+        Some(quote!(self_weak))
+    } else {
+        None
+    };
     let self_weak = self_weak.into_iter().collect::<Vec<_>>();
     let component_handle = if !component.is_global() {
         quote!(vtable::VRc<sixtyfps::re_exports::ComponentVTable, Self>)
@@ -903,12 +934,17 @@ fn generate_component(
     };
 
     let public_component_id = public_component_id(component);
-    let public_interface = if !component.is_global() && component.visible_in_public_api() {
+    let public_interface = if !component.is_global()
+        && !component.is_sub_component()
+        && component.visible_in_public_api()
+    {
         let parent_name =
             if !parent_component_type.is_empty() { Some(quote!(parent)) } else { None };
         let window_parent_name = window_parent_param.as_ref().map(|_| quote!(, parent_window));
 
-        let component_handle_impl = if component.parent_element.upgrade().is_none() {
+        let component_handle_impl = if component.parent_element.upgrade().is_none()
+            && !component.is_sub_component()
+        {
             Some(quote!(
                 impl sixtyfps::ComponentHandle for #public_component_id {
                     type Inner = #inner_component_id;
@@ -1005,6 +1041,44 @@ fn generate_component(
         None
     };
 
+    let create_self = quote!(
+        let mut self_ = Self {
+            #(#item_names : ::core::default::Default::default(),)*
+            #(#sub_component_names : #sub_component_initializers,)*
+            #(#declared_property_vars : ::core::default::Default::default(),)*
+            #(#declared_callbacks : ::core::default::Default::default(),)*
+            #(#repeated_element_names : ::core::default::Default::default(),)*
+            #(#self_weak : ::core::default::Default::default(),)*
+            #(parent : parent as sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
+            #(#global_name : #global_type::new(),)*
+            #window_field_init
+        };
+    );
+
+    let new_fn = if component.is_sub_component() {
+        quote!(
+        pub fn new() -> Self {
+            #![allow(unused)]
+                use sixtyfps::re_exports::*;
+                #create_self
+                self_
+        }
+        )
+    } else {
+        quote!(
+        pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param)
+                -> #component_handle
+            {
+                #![allow(unused)]
+                use sixtyfps::re_exports::*;
+                #create_self
+                #new_code
+                #(#init)*
+                self_rc
+            }
+        )
+    };
+
     Some(quote!(
         #(#resource_symbols)*
 
@@ -1014,6 +1088,7 @@ fn generate_component(
         #pin
         #visibility struct #inner_component_id {
             #(#item_names : sixtyfps::re_exports::#item_types,)*
+            #(#sub_component_names : #sub_component_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_callbacks : sixtyfps::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
@@ -1026,25 +1101,7 @@ fn generate_component(
         #component_impl
 
         impl #inner_component_id{
-            pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param)
-                -> #component_handle
-            {
-                #![allow(unused)]
-                use sixtyfps::re_exports::*;
-                let mut self_ = Self {
-                    #(#item_names : ::core::default::Default::default(),)*
-                    #(#declared_property_vars : ::core::default::Default::default(),)*
-                    #(#declared_callbacks : ::core::default::Default::default(),)*
-                    #(#repeated_element_names : ::core::default::Default::default(),)*
-                    #(#self_weak : ::core::default::Default::default(),)*
-                    #(parent : parent as sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
-                    #(#global_name : #global_type::new(),)*
-                    #window_field_init
-                };
-                #new_code
-                #(#init)*
-                self_rc
-            }
+            #new_fn
             #item_tree_impl
 
         }
@@ -1151,6 +1208,25 @@ fn access_member(
                 + sixtyfps::re_exports::Rectangle::FIELD_OFFSETS.#name_ident)
                     .apply_pin(#component_rust)
             )
+        } else if let Some(sub_component) = e.sub_component() {
+            if sub_component.root_element.borrow().property_declarations.contains_key(name) {
+                todo!()
+            } else {
+                let subcomp_ident = ident(&e.id);
+                let subcomp_id = self::inner_component_id(sub_component);
+                let subcomp_field =
+                    access_component_field_offset(&inner_component_id, &subcomp_ident);
+
+                // FIXME: this only exposes the root item's built-in properties
+                let root_item_ty =
+                    ident(&sub_component.root_element.borrow().base_type.as_native().class_name);
+                let root_item_name = ident(&sub_component.root_element.borrow().id);
+                let root_item_offset = quote!(#subcomp_id::FIELD_OFFSETS.#root_item_name);
+
+                quote!((#subcomp_field + #root_item_offset + #root_item_ty::FIELD_OFFSETS.#name_ident)
+                    .apply_pin(#component_rust)
+                )
+            }
         } else {
             let elem_ident = ident(&e.id);
             let elem_ty = ident(&e.base_type.as_native().class_name);
