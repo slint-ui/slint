@@ -259,6 +259,38 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
             relative_parent_index,
             parent_item.borrow().item_index.get().map(|x| *x as u32).unwrap_or(parent_index)
         );
+
+        // Suppose we have this:
+        // ```
+        // Button := Rectangle { /* some repeater here*/ }
+        // StandardButton := Button { /* no children */ }
+        // App := Dialog { StandardButton { /* no children */ }}
+        // ```
+        // The inlining pass ensures that *if* `StandardButton` had children, `Button` would be inlined, but that's not the case here.
+        //
+        // We are in the stage of visiting the Dialog's children and we'll end up visiting the Button's Rectangle because visit_item()
+        // on the StandardButton - a Dialog's child - follows all the way to the Rectangle as native item. We've also determine that
+        // StandardButton is a sub-component and we'll call visit_children() on it. Now we are here. However as `StandardButton` has no children,
+        // and therefore we would never recurse into `Button`'s children and thus miss the repeater. That is what this condition attempts to
+        // detect and chain the children visitation.
+        if children.is_empty() {
+            if let Some(nested_subcomponent) = parent_item.borrow().sub_component() {
+                visit_children(
+                    state,
+                    &nested_subcomponent.root_element.borrow().children,
+                    &nested_subcomponent,
+                    &nested_subcomponent.root_element,
+                    parent_index,
+                    relative_parent_index,
+                    children_offset,
+                    relative_children_offset,
+                    repeater_count,
+                    builder,
+                );
+                return;
+            }
+        }
+
         let mut offset = children_offset + children.len() as u32;
 
         let mut sub_component_states = VecDeque::new();
