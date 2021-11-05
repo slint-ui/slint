@@ -436,6 +436,17 @@ fn generate_component(
                 ));
             }
 
+            if component.is_sub_component() {
+                let offset_getter_ident = format_ident!("get_{}_offset", prop_ident);
+                let prop_ref = access_component_field_offset(&inner_component_id, &prop_ident);
+                property_and_callback_accessors.push(quote!(
+                    #[allow(dead_code)]
+                    pub const fn #offset_getter_ident() -> FieldOffset<Self, Property<#rust_property_type>, AllowPin> {
+                        #prop_ref
+                    }
+                ));
+            }
+
             if property_decl.is_alias.is_none() {
                 declared_property_vars.push(prop_ident.clone());
                 declared_property_types.push(rust_property_type.clone());
@@ -1067,7 +1078,7 @@ fn generate_component(
         };
     );
 
-    let new_fn = if component.is_sub_component() {
+    let inner_impl = if component.is_sub_component() {
         quote!(
         pub fn new() -> Self {
             #![allow(unused)]
@@ -1080,6 +1091,8 @@ fn generate_component(
             let _self = self_rc.as_pin_ref();
             #(#init)*
         }
+
+        #(#property_and_callback_accessors)*
         )
     } else {
         quote!(
@@ -1118,9 +1131,8 @@ fn generate_component(
         #component_impl
 
         impl #inner_component_id{
-            #new_fn
+            #inner_impl
             #item_tree_impl
-
         }
 
         #public_interface
@@ -1227,7 +1239,13 @@ fn access_member(
             )
         } else if let Some(sub_component) = e.sub_component() {
             if sub_component.root_element.borrow().property_declarations.contains_key(name) {
-                todo!()
+                let subcomp_ident = ident(&e.id);
+                let subcomp_field =
+                    access_component_field_offset(&inner_component_id, &subcomp_ident);
+
+                let sub_comp_id = self::inner_component_id(&sub_component);
+                let prop_offset_getter = ident(&format!("get_{}_offset", name));
+                quote!((#subcomp_field + #sub_comp_id::#prop_offset_getter()).apply_pin(#component_rust))
             } else {
                 let subcomp_ident = ident(&e.id);
                 let subcomp_field =
