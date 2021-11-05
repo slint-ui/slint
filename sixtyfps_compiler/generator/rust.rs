@@ -151,8 +151,10 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
 
     Some(quote! {
         #[allow(non_snake_case)]
+        #[allow(non_camel_case_types)]
         #[allow(clippy::style)]
         #[allow(clippy::complexity)]
+        #[allow(unused_braces)]
         mod #compo_module {
             use sixtyfps::re_exports::*;
             #(#structs)*
