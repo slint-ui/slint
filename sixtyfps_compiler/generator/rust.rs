@@ -457,6 +457,7 @@ fn generate_component(
         repeated_element_names: Vec<Ident>,
         repeated_visit_branch: Vec<TokenStream>,
         repeated_element_components: Vec<Ident>,
+        generating_component: &'a Rc<Component>,
         diag: &'a mut BuildDiagnostics,
     }
     impl<'a> super::ItemTreeBuilder for TreeBuilder<'a> {
@@ -543,8 +544,13 @@ fn generate_component(
                 let field_name = ident(&item.id);
                 let sub_component_id = self::inner_component_id(sub_component);
 
-                // TODO: Use VRcMapped::map for sub-components
-                self.init.push(quote!(#sub_component_id::init(VRc::map(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)));));
+                let map_fn = if self.generating_component.is_sub_component() {
+                    quote!(VRcMapped::map)
+                } else {
+                    quote!(VRc::map)
+                };
+
+                self.init.push(quote!(#sub_component_id::init(#map_fn(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)));));
 
                 self.sub_component_names.push(field_name);
                 self.sub_component_initializers.push(quote!(#sub_component_id::new()));
@@ -728,6 +734,7 @@ fn generate_component(
         repeated_element_names: vec![],
         repeated_visit_branch: vec![],
         repeated_element_components: vec![],
+        generating_component: &component,
         diag,
     };
     if !component.is_global() {
