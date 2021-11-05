@@ -193,10 +193,20 @@ fn rc_map_test() {
 
     let some_struct_ref =
         VRc::map(app_rc.clone(), |app| AppStruct::FIELD_OFFSETS.some.apply_pin(app));
+
+    // check clone() compiles
+    {
+        let _some_clone = some_struct_ref.clone();
+    }
+
     let other_struct_ref =
         VRc::map(app_rc.clone(), |app| AppStruct::FIELD_OFFSETS.another_struct.apply_pin(app));
 
     let weak_struct_ref = VRcMapped::downgrade(&some_struct_ref);
+
+    {
+        let _weak_clone = weak_struct_ref.clone();
+    }
 
     {
         let strong_struct_ref = weak_struct_ref.upgrade().unwrap();
