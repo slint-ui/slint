@@ -311,6 +311,16 @@ pub mod internal {
         }
     }
 
+    impl<C: 'static> StrongComponentRef for VRcMapped<ComponentVTable, C> {
+        type Weak = VWeakMapped<ComponentVTable, C>;
+        fn to_weak(&self) -> Self::Weak {
+            VRcMapped::downgrade(self)
+        }
+        fn from_weak(weak: &Self::Weak) -> Option<Self> {
+            weak.upgrade()
+        }
+    }
+
     impl<C: 'static> StrongComponentRef for Pin<Rc<C>> {
         type Weak = PinWeak<C>;
         fn to_weak(&self) -> Self::Weak {
