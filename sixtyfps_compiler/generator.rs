@@ -221,8 +221,14 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         // detect and chain the children visitation.
         if children.is_empty() {
             if let Some(nested_subcomponent) = parent_item.borrow().sub_component() {
-                visit_children(
+                let sub_component_state = builder.enter_component(
+                    parent_item,
+                    nested_subcomponent,
+                    children_offset,
                     state,
+                );
+                visit_children(
+                    &sub_component_state,
                     &nested_subcomponent.root_element.borrow().children,
                     &nested_subcomponent,
                     &nested_subcomponent.root_element,
