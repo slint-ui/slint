@@ -103,7 +103,7 @@ pub fn generate(
 /// It can be used to build the array for the item tree.
 pub trait ItemTreeBuilder {
     /// Some state that contains the code on how to access some particular component
-    type SubComponentState;
+    type SubComponentState: Clone;
 
     fn push_repeated_item(
         &mut self,
@@ -318,13 +318,20 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
             return;
         } else {
             let mut item = item.clone();
-            while let Some(base) = {
-                let base = item.borrow().sub_component().map(|c| c.root_element.clone());
+            let mut component_state = component_state.clone();
+            while let Some((base, state)) = {
+                let base = item.borrow().sub_component().map(|c| {
+                    (
+                        c.root_element.clone(),
+                        builder.enter_component(&item, &c, children_offset, &component_state),
+                    )
+                });
                 base
             } {
                 item = base;
+                component_state = state;
             }
-            builder.push_native_item(&item, children_offset, parent_index, component_state)
+            builder.push_native_item(&item, children_offset, parent_index, &component_state)
         }
     }
 }
