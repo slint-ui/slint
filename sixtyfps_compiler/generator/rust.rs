@@ -1228,18 +1228,15 @@ fn access_member(
                 todo!()
             } else {
                 let subcomp_ident = ident(&e.id);
-                let subcomp_id = self::inner_component_id(sub_component);
                 let subcomp_field =
                     access_component_field_offset(&inner_component_id, &subcomp_ident);
 
-                // FIXME: this only exposes the root item's built-in properties
-                let root_item_ty =
-                    ident(&sub_component.root_element.borrow().base_type.as_native().class_name);
-                let root_item_name = ident(&sub_component.root_element.borrow().id);
-                let root_item_offset = quote!(#subcomp_id::FIELD_OFFSETS.#root_item_name);
-
-                quote!((#subcomp_field + #root_item_offset + #root_item_ty::FIELD_OFFSETS.#name_ident)
-                    .apply_pin(#component_rust)
+                access_member(
+                    &sub_component.root_element,
+                    name,
+                    sub_component,
+                    quote!(#subcomp_field.apply_pin(#component_rust)),
+                    is_special,
                 )
             }
         } else {
