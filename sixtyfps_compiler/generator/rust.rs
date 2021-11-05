@@ -543,6 +543,9 @@ fn generate_component(
                 let field_name = ident(&item.id);
                 let sub_component_id = self::inner_component_id(sub_component);
 
+                // TODO: Use VRcMapped::map for sub-components
+                self.init.push(quote!(#sub_component_id::init(VRc::map(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)));));
+
                 self.sub_component_names.push(field_name);
                 self.sub_component_initializers.push(quote!(#sub_component_id::new()));
                 self.sub_component_types.push(sub_component_id);
@@ -1059,9 +1062,14 @@ fn generate_component(
         quote!(
         pub fn new() -> Self {
             #![allow(unused)]
-                use sixtyfps::re_exports::*;
-                #create_self
-                self_
+            use sixtyfps::re_exports::*;
+            #create_self
+            self_
+        }
+        pub fn init(self_rc: sixtyfps::re_exports::VRcMapped<sixtyfps::re_exports::ComponentVTable, Self>) {
+            #![allow(unused)]
+            let _self = self_rc.as_pin_ref();
+            #(#init)*
         }
         )
     } else {
