@@ -116,10 +116,10 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
 
     let mut sub_compos = Vec::new();
     for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
-        sub_compos.push(generate_component(&sub_comp, diag)?);
+        sub_compos.push(generate_component(&sub_comp, &doc.root_component, diag)?);
     }
 
-    let compo = generate_component(&doc.root_component, diag)?;
+    let compo = generate_component(&doc.root_component, &doc.root_component, diag)?;
     let compo_id = public_component_id(&doc.root_component);
     let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
     let version_check = format_ident!(
@@ -132,7 +132,10 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
     let globals = used_types
         .globals
         .iter()
-        .filter_map(|glob| glob.requires_code_generation().then(|| generate_component(glob, diag)))
+        .filter_map(|glob| {
+            glob.requires_code_generation()
+                .then(|| generate_component(glob, &doc.root_component, diag))
+        })
         .collect::<Vec<_>>();
     let globals_ids = used_types
         .globals
@@ -316,6 +319,7 @@ fn handle_property_binding(
 /// Fill the diagnostic in case of error.
 fn generate_component(
     component: &Rc<Component>,
+    root_component: &Rc<Component>,
     diag: &mut BuildDiagnostics,
 ) -> Option<TokenStream> {
     let inner_component_id = inner_component_id(component);
@@ -324,7 +328,7 @@ fn generate_component(
         .popup_windows
         .borrow()
         .iter()
-        .filter_map(|c| generate_component(&c.component, diag))
+        .filter_map(|c| generate_component(&c.component, &root_component, diag))
         .collect::<Vec<_>>();
 
     let self_init = if !component.is_global() {
@@ -471,6 +475,7 @@ fn generate_component(
         repeated_visit_branch: Vec<TokenStream>,
         repeated_element_components: Vec<Ident>,
         generating_component: &'a Rc<Component>,
+        root_component: &'a Rc<Component>,
         diag: &'a mut BuildDiagnostics,
     }
     impl<'a> super::ItemTreeBuilder for TreeBuilder<'a> {
@@ -488,10 +493,11 @@ fn generate_component(
                 let item = item_rc.borrow();
                 let base_component = item.base_type.as_component();
                 self.extra_components.push(
-                    generate_component(&*base_component, self.diag).unwrap_or_else(|| {
-                        assert!(self.diag.has_error());
-                        Default::default()
-                    }),
+                    generate_component(&*base_component, &self.root_component, self.diag)
+                        .unwrap_or_else(|| {
+                            assert!(self.diag.has_error());
+                            Default::default()
+                        }),
                 );
                 let repeated = item.repeated.as_ref().unwrap();
                 self.handle_repeater(repeated, base_component, repeater_index);
@@ -563,7 +569,7 @@ fn generate_component(
                     quote!(VRc::map)
                 };
 
-                self.init.push(quote!(#sub_component_id::init(#map_fn(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)));));
+                self.init.push(quote!(#sub_component_id::init(#map_fn(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)), &self_rc);));
 
                 self.sub_component_names.push(field_name);
                 self.sub_component_initializers.push(quote!(#sub_component_id::new()));
@@ -748,6 +754,7 @@ fn generate_component(
         repeated_visit_branch: vec![],
         repeated_element_components: vec![],
         generating_component: &component,
+        root_component: &root_component,
         diag,
     };
     if !component.is_global() {
@@ -1064,6 +1071,18 @@ fn generate_component(
         None
     };
 
+    let root_component_id = self::inner_component_id(&root_component);
+    let (root_field, root_initializer) = if component.is_sub_component() {
+        (
+            Some(
+                quote!(root : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #root_component_id>>),
+            ),
+            Some(quote!(root: Default::default())),
+        )
+    } else {
+        (None, None)
+    };
+
     let create_self = quote!(
         let mut self_ = Self {
             #(#item_names : ::core::default::Default::default(),)*
@@ -1075,6 +1094,7 @@ fn generate_component(
             #(parent : parent as sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
             #(#global_name : #global_type::new(),)*
             #window_field_init
+            #root_initializer
         };
     );
 
@@ -1086,9 +1106,10 @@ fn generate_component(
             #create_self
             self_
         }
-        pub fn init(self_rc: sixtyfps::re_exports::VRcMapped<sixtyfps::re_exports::ComponentVTable, Self>) {
+        pub fn init(self_rc: sixtyfps::re_exports::VRcMapped<sixtyfps::re_exports::ComponentVTable, Self>, root : &sixtyfps::re_exports::VRc<sixtyfps::re_exports::ComponentVTable, #root_component_id>) {
             #![allow(unused)]
             let _self = self_rc.as_pin_ref();
+            _self.root.set(VRc::downgrade(root));
             #(#init)*
         }
 
@@ -1126,6 +1147,7 @@ fn generate_component(
             #(parent : sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
             #window_field
+            #root_field
         }
 
         #component_impl
@@ -1269,11 +1291,15 @@ fn access_member(
             )
         }
     } else if enclosing_component.is_global() {
-        let mut root_component = component.clone();
+        let mut top_level_component = component.clone();
         let mut component_rust = component_rust;
-        while let Some(p) = root_component.parent_element.upgrade() {
-            root_component = p.borrow().enclosing_component.upgrade().unwrap();
+        while let Some(p) = top_level_component.parent_element.upgrade() {
+            top_level_component = p.borrow().enclosing_component.upgrade().unwrap();
             component_rust = quote!(#component_rust.parent.upgrade().unwrap().as_pin_ref());
+        }
+        if top_level_component.is_sub_component() {
+            component_rust =
+                quote!(#component_rust.root.get().unwrap().upgrade().unwrap().as_pin_ref());
         }
         let global_id = format_ident!("global_{}", public_component_id(&enclosing_component));
         let global_comp = quote!(#component_rust.#global_id.as_ref());
