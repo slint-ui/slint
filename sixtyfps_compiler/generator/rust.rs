@@ -697,6 +697,7 @@ fn generate_component(
                     }
                 });
             });
+            let window_tokens = access_window_field(&base_component, quote!(_self));
             if let Some(listview) = &repeated.is_listview {
                 let vp_y =
                     access_named_reference(&listview.viewport_y, &parent_compo, quote!(_self));
@@ -711,7 +712,7 @@ fn generate_component(
 
                 let ensure_updated = quote! {
                     #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
-                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into() },
+                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &#window_tokens.window_handle()).into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
                 };
@@ -725,7 +726,7 @@ fn generate_component(
             } else {
                 let ensure_updated = quote! {
                     #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
-                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into() }
+                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &#window_tokens.window_handle()).into() }
                     );
                 };
 
@@ -831,6 +832,9 @@ fn generate_component(
                 }
             }
         ))
+    } else if component.is_sub_component() {
+        window_field = Some(quote!(pub window: sixtyfps::re_exports::OnceCell<sixtyfps::Window>,));
+        window_field_init = Some(quote!(window: Default::default(),));
     } else {
         window_field = None;
     };
@@ -1110,10 +1114,13 @@ fn generate_component(
             #![allow(unused)]
             let _self = self_rc.as_pin_ref();
             _self.root.set(VRc::downgrade(root));
+            _self.window.set(root.window.window_handle().clone().into());
             #(#init)*
         }
 
         #(#property_and_callback_accessors)*
+
+        #layouts
         )
     } else {
         quote!(
@@ -1411,7 +1418,8 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
         }
         Expression::BuiltinFunctionReference(funcref, _) => match funcref {
             BuiltinFunction::GetWindowScaleFactor => {
-                quote!(_self.window.window_handle().scale_factor)
+                let window_tokens = access_window_field(component, quote!(_self));
+                quote!(#window_tokens.window_handle().scale_factor)
             }
             BuiltinFunction::Debug => quote!((|x| println!("{:?}", x))),
             BuiltinFunction::Mod => quote!((|a1, a2| (a1 as i32) % (a2 as i32))),
@@ -1528,8 +1536,9 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let component_ref = access_element_component(&focus_item, component, quote!(_self));
                         let focus_item = focus_item.borrow();
                         let item_index = focus_item.item_index.get().unwrap();
+                        let window_tokens = access_window_field(component, quote!(_self));
                         quote!(
-                            _self.window.window_handle().clone().set_focus_item(&ItemRc::new(VRc::into_dyn(#component_ref.self_weak.get().unwrap().upgrade().unwrap()), #item_index));
+                            #window_tokens.window_handle().clone().set_focus_item(&ItemRc::new(VRc::into_dyn(#component_ref.self_weak.get().unwrap().upgrade().unwrap()), #item_index));
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")
@@ -1550,9 +1559,10 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let y = access_named_reference(&popup.y, component, quote!(_self));
                         let parent_component_ref = access_element_component(&popup.parent_element, component, quote!(_self));
                         let parent_index = *popup.parent_element.borrow().item_index.get().unwrap();
+                        let window_tokens = access_window_field(component, quote!(_self));
                         quote!(
-                            _self.window.window_handle().show_popup(
-                                &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into()),
+                            #window_tokens.window_handle().show_popup(
+                                &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone(), &#window_tokens.window_handle()).into()),
                                 Point::new(#x.get(), #y.get()),
                                 &ItemRc::new(VRc::into_dyn(#parent_component_ref.self_weak.get().unwrap().upgrade().unwrap()), #parent_index)
                             );
@@ -1570,8 +1580,9 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let item = item.borrow();
                         let item_id = ident(&item.id);
                         let item_field = access_component_field_offset(&format_ident!("Self"), &item_id);
+                        let window_tokens = access_window_field(component, quote!(_self));
                         quote!(
-                            #item_field.apply_pin(_self).layouting_info(#orient, &_self.window.window_handle())
+                            #item_field.apply_pin(_self).layouting_info(#orient, &#window_tokens.window_handle())
                         )
                     } else {
                         panic!("internal error: argument to ImplicitLayoutInfo must be an element")
@@ -2077,10 +2088,11 @@ fn box_layout_data(
                     )
                 });
                 repeater_idx += 1;
+                let window_tokens = access_window_field(component, quote!(_self));
                 push_code = quote! {
                     #push_code
                     #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
-                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &_self.window.window_handle()).into() }
+                        || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone(), &#window_tokens.window_handle()).into() }
                     );
                     let internal_vec = _self.#repeater_id.components_vec();
                     #ri
@@ -2150,8 +2162,17 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let constraints = component.root_constraints.borrow();
     let layout_info_h = get_layout_info(elem, component, &constraints, Orientation::Horizontal);
     let layout_info_v = get_layout_info(elem, component, &constraints, Orientation::Vertical);
+    let func_signature = if component.is_sub_component() {
+        quote!(
+            fn layouting_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation, _: &sixtyfps::re_exports::WindowRc) -> sixtyfps::re_exports::LayoutInfo
+        )
+    } else {
+        quote!(
+            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation) -> sixtyfps::re_exports::LayoutInfo
+        )
+    };
     quote! {
-        fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation) -> sixtyfps::re_exports::LayoutInfo {
+        #func_signature {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let _self = self;
@@ -2175,7 +2196,8 @@ fn get_layout_info(
     } else {
         let elem_id = ident(&elem.borrow().id);
         let inner_component_id = inner_component_id(component);
-        quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(#orientation, &_self.window.window_handle()))
+        let window_tokens = access_window_field(component, quote!(_self));
+        quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(#orientation, &#window_tokens.window_handle()))
     };
 
     if constraints.has_explicit_restrictions() {
@@ -2301,6 +2323,14 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
 // components ends up large amounts of stack space (see issue #133)
 fn access_component_field_offset(component_id: &Ident, field: &Ident) -> TokenStream {
     quote!({ *&#component_id::FIELD_OFFSETS.#field })
+}
+
+fn access_window_field(component: &Rc<Component>, self_tokens: TokenStream) -> TokenStream {
+    if component.is_sub_component() {
+        quote!(#self_tokens.window.get().unwrap())
+    } else {
+        quote!(#self_tokens.window)
+    }
 }
 
 fn embedded_file_tokens(path: &str) -> TokenStream {
