@@ -1161,8 +1161,8 @@ fn generate_component(
                 fn visit_dynamic_children(self: ::core::pin::Pin<&Self>, dyn_index: usize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
                     -> sixtyfps::re_exports::VisitChildrenResult
                 {
-                    use sixtyfps::re_exports::*;
                     #[allow(unused)]
+                    use sixtyfps::re_exports::*;
                     let _self = self;
                     match dyn_index {
                         #(#repeated_visit_branch)*
