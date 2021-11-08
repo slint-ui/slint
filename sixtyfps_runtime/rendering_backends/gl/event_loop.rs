@@ -253,6 +253,7 @@ fn process_window_event(
                     winit::event::VirtualKeyCode::End => Some(InternalKeyCode::End),
                     winit::event::VirtualKeyCode::Back => Some(InternalKeyCode::Back),
                     winit::event::VirtualKeyCode::Delete => Some(InternalKeyCode::Delete),
+                    winit::event::VirtualKeyCode::Tab => Some(InternalKeyCode::Tab),
                     winit::event::VirtualKeyCode::Return
                     | winit::event::VirtualKeyCode::NumpadEnter => Some(InternalKeyCode::Return),
                     winit::event::VirtualKeyCode::Escape => Some(InternalKeyCode::Escape),
