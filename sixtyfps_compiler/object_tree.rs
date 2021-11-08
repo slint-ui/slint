@@ -279,7 +279,7 @@ impl Component {
         if self.is_global() {
             !self.exported_global_names.borrow().is_empty()
         } else {
-            self.parent_element.upgrade().is_none()
+            self.parent_element.upgrade().is_none() && self.is_root_component.get()
         }
     }
 
