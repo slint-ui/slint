@@ -355,6 +355,7 @@ fn generate_component(
             }
         };
 
+        let property_or_callback_ref_type;
         let prop = make_prop_getter(quote!(_self));
 
         if let Type::Callback { args, return_type } = &property_decl.property_type {
@@ -397,6 +398,11 @@ fn generate_component(
                     ,
                 );
             }
+
+            property_or_callback_ref_type = quote!(
+                sixtyfps::re_exports::Callback<(#(#callback_args,)*), #return_type>
+            );
+
             if property_decl.is_alias.is_none() {
                 declared_callbacks.push(prop_ident.clone());
                 declared_callbacks_types.push(callback_args);
@@ -405,8 +411,8 @@ fn generate_component(
         } else {
             let rust_property_type =
                 get_rust_type(&property_decl.property_type, &property_decl.type_node(), diag);
-            let getter_ident = format_ident!("get_{}", prop_ident);
             if property_decl.expose_in_public_api {
+                let getter_ident = format_ident!("get_{}", prop_ident);
                 let setter_ident = format_ident!("set_{}", prop_ident);
 
                 property_and_callback_accessors.push(quote!(
@@ -445,22 +451,27 @@ fn generate_component(
                 ));
             }
 
-            if component.is_sub_component() {
-                let prop = make_prop_getter(quote!(self));
-
-                property_and_callback_accessors.push(quote!(
-                    #[allow(dead_code)]
-
-                    pub fn #getter_ident(self: core::pin::Pin<&Self>) -> core::pin::Pin<&Property<#rust_property_type>> {
-                        #prop
-                    }
-                ));
-            }
-
             if property_decl.is_alias.is_none() {
                 declared_property_vars.push(prop_ident.clone());
                 declared_property_types.push(rust_property_type.clone());
             }
+
+            property_or_callback_ref_type = quote!(
+                Property<#rust_property_type>
+            );
+        }
+
+        if component.is_sub_component() {
+            let getter_ident = format_ident!("get_{}", prop_ident);
+            let prop = make_prop_getter(quote!(self));
+
+            property_and_callback_accessors.push(quote!(
+                #[allow(dead_code)]
+
+                pub fn #getter_ident(self: core::pin::Pin<&Self>) -> core::pin::Pin<&#property_or_callback_ref_type> {
+                    #prop
+                }
+            ));
         }
     }
 
