@@ -345,12 +345,17 @@ fn generate_component(
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
     for (prop_name, property_decl) in component.root_element.borrow().property_declarations.iter() {
         let prop_ident = ident(prop_name);
-        let prop = if let Some(alias) = &property_decl.is_alias {
-            access_named_reference(alias, component, quote!(_self))
-        } else {
-            let field = access_component_field_offset(&inner_component_id, &prop_ident);
-            quote!(#field.apply_pin(_self))
+
+        let make_prop_getter = |self_accessor| {
+            if let Some(alias) = &property_decl.is_alias {
+                access_named_reference(alias, component, self_accessor)
+            } else {
+                let field = access_component_field_offset(&inner_component_id, &prop_ident);
+                quote!(#field.apply_pin(#self_accessor))
+            }
         };
+
+        let prop = make_prop_getter(quote!(_self));
 
         if let Type::Callback { args, return_type } = &property_decl.property_type {
             let callback_args = args
@@ -400,8 +405,8 @@ fn generate_component(
         } else {
             let rust_property_type =
                 get_rust_type(&property_decl.property_type, &property_decl.type_node(), diag);
+            let getter_ident = format_ident!("get_{}", prop_ident);
             if property_decl.expose_in_public_api {
-                let getter_ident = format_ident!("get_{}", prop_ident);
                 let setter_ident = format_ident!("set_{}", prop_ident);
 
                 property_and_callback_accessors.push(quote!(
@@ -441,12 +446,13 @@ fn generate_component(
             }
 
             if component.is_sub_component() {
-                let offset_getter_ident = format_ident!("get_{}_offset", prop_ident);
-                let prop_ref = access_component_field_offset(&inner_component_id, &prop_ident);
+                let prop = make_prop_getter(quote!(self));
+
                 property_and_callback_accessors.push(quote!(
                     #[allow(dead_code)]
-                    pub const fn #offset_getter_ident() -> FieldOffset<Self, Property<#rust_property_type>, AllowPin> {
-                        #prop_ref
+
+                    pub fn #getter_ident(self: core::pin::Pin<&Self>) -> core::pin::Pin<&Property<#rust_property_type>> {
+                        #prop
                     }
                 ));
             }
@@ -1272,9 +1278,8 @@ fn access_member(
                 let subcomp_field =
                     access_component_field_offset(&inner_component_id, &subcomp_ident);
 
-                let sub_comp_id = self::inner_component_id(&sub_component);
-                let prop_offset_getter = ident(&format!("get_{}_offset", name));
-                quote!((#subcomp_field + #sub_comp_id::#prop_offset_getter()).apply_pin(#component_rust))
+                let prop_getter = ident(&format!("get_{}", name));
+                quote!(#subcomp_field.apply_pin(#component_rust).#prop_getter())
             } else {
                 let subcomp_ident = ident(&e.id);
                 let subcomp_field =
