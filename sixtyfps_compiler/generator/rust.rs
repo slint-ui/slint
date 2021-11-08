@@ -493,6 +493,7 @@ fn generate_component(
         repeated_element_components: Vec<Ident>,
         generating_component: &'a Rc<Component>,
         root_component: &'a Rc<Component>,
+        root_ref_tokens: TokenStream,
         diag: &'a mut BuildDiagnostics,
     }
     impl<'a> super::ItemTreeBuilder for TreeBuilder<'a> {
@@ -586,7 +587,8 @@ fn generate_component(
                     quote!(VRc::map)
                 };
 
-                self.init.push(quote!(#sub_component_id::init(#map_fn(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)), &self_rc);));
+                let root_ref_tokens = &self.root_ref_tokens;
+                self.init.push(quote!(#sub_component_id::init(#map_fn(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)), #root_ref_tokens);));
 
                 self.sub_component_names.push(field_name);
                 self.sub_component_initializers.push(quote!(#sub_component_id::new()));
@@ -777,6 +779,18 @@ fn generate_component(
         }
     }
 
+    let root_ref_tokens = if component.is_sub_component() {
+        quote!(&_self.root.unwrap().upgrade())
+    } else if component.parent_element.upgrade().map_or(false, |c| {
+        c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
+    }) {
+        quote!(&_self.parent.upgrade().unwrap())
+    } else if component.parent_element.upgrade().is_some() {
+        quote!(&_self.parent.upgrade().unwrap().root.get().unwrap().upgrade().unwrap())
+    } else {
+        quote!(&self_rc)
+    };
+
     let mut builder = TreeBuilder {
         tree_array: vec![],
         item_names: vec![],
@@ -791,6 +805,7 @@ fn generate_component(
         repeated_element_components: vec![],
         generating_component: &component,
         root_component: &root_component,
+        root_ref_tokens,
         diag,
     };
     if !component.is_global() {
