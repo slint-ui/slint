@@ -1568,6 +1568,7 @@ fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedStr
         key_generated::Qt_Key_Key_Home => Some(InternalKeyCode::Home),
         key_generated::Qt_Key_Key_Return => Some(InternalKeyCode::Return),
         key_generated::Qt_Key_Key_Enter => Some(InternalKeyCode::Return),
+        key_generated::Qt_Key_Key_Tab => Some(InternalKeyCode::Tab),
         _ => None,
     } {
         return special_key_code.encode_to_string();
