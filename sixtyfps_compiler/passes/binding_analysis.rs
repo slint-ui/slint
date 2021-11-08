@@ -145,8 +145,15 @@ fn analyse_binding(
     {
         let elem = element.borrow();
         let b = &elem.bindings[name];
-        let is_const =
+        let mut is_const =
             b.expression.is_constant() && b.two_way_bindings.iter().all(|n| n.is_constant());
+
+        if is_const && matches!(b.expression, Expression::Invalid) {
+            // check the base
+            if let Some(base) = elem.sub_component() {
+                is_const = NamedReference::new(&base.root_element, name).is_constant();
+            }
+        }
 
         let mut analysis = b.analysis.borrow_mut();
         let mut analysis = analysis.get_or_insert(Default::default());
