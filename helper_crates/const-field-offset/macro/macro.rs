@@ -186,6 +186,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     }
 
     let struct_name = input.ident;
+    let struct_vis = input.vis;
     let field_struct_name = quote::format_ident!("{}FieldsOffsets", struct_name);
 
     let (fields, types, vis) = if let syn::Data::Struct(s) = &input.data {
@@ -255,7 +256,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         ///
         /// Generated from the derive macro `const-field-offset::FieldOffsets`
         #[allow(missing_docs, non_camel_case_types)]
-        pub struct #field_struct_name {
+        #struct_vis struct #field_struct_name {
             #(#vis #fields : #crate_::FieldOffset<#struct_name, #types, #pin_flag>,)*
         }
 

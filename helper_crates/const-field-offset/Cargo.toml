@@ -1,6 +1,6 @@
 [package]
 name = "const-field-offset"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -12,7 +12,7 @@ homepage = "https://sixtyfps.io"
 field-offset-trait = ["const-field-offset-macro/field-offset-trait"]
 
 [dependencies]
-const-field-offset-macro = { version = "=0.1.1", path = "./macro" }
+const-field-offset-macro = { version = "=0.1.2", path = "./macro" }
 field-offset = "0.3.2"
 
 [dev-dependencies]

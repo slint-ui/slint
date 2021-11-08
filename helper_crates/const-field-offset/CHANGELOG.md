@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.1.2]
+
+### Changed
+ - Fixed `FieldOffsets` derive macro on non-pub structs when one of its pub field expose a private type
+
+
 ## [0.1.1] - 2021-08-16
 
 ### Changed

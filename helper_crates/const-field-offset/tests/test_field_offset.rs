@@ -30,6 +30,7 @@ struct MyStruct2 {
 
 #[derive(FieldOffsets)]
 #[repr(C)]
+#[allow(unused)]
 struct MyStruct3 {
     ms2: MyStruct2,
 }
@@ -78,7 +79,7 @@ fn test_module() {
 #[pin]
 struct MyStructPin {
     phantom: core::marker::PhantomPinned,
-    a: u8,
+    pub a: u8,
     b: u16,
     c: u8,
     d: u16,
@@ -134,4 +135,22 @@ fn test_pin_drop() {
         let _instance = Box::pin(MyPinnedStructWithDrop { x: 42 });
     }
     assert!(DROP_CALLED.load(SeqCst));
+}
+
+mod priv_mod {
+    #[derive(const_field_offset::FieldOffsets)]
+    #[repr(C)]
+    struct PrivStruct {
+        pub a: u32,
+        pub b: Vec<PrivStruct>,
+    }
+
+    #[allow(unused)]
+    #[derive(const_field_offset::FieldOffsets)]
+    #[repr(C)]
+    pub struct PubStruct {
+        pub a: u32,
+        b: Vec<PrivStruct>,
+        pub r#mod: Vec<PubStruct>,
+    }
 }
