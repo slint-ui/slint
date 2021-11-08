@@ -132,6 +132,8 @@ pub enum InternalKeyCode {
     Back,
     /// Code corresponding to the delete key -- encoded as 0x7F ASCII (delete)
     Delete,
+    /// Code corresponding to the tab key -- encoded as 0x9 ASCII (horizontal tab)
+    Tab,
     /// Code corresponding to the return key -- encoded as 0xA ASCII (newline)
     Return,
     /// Code corresponding to the return key -- encoded as 0x1b ASCII (escape)
@@ -144,6 +146,7 @@ const HOME_CODE: char = '\u{0002}'; // start of text
 const END_CODE: char = '\u{0003}'; // end of text
 const BACK_CODE: char = '\u{0007}'; // backspace \b
 const DELETE_CODE: char = '\u{007F}'; // cancel
+const TAB_CODE: char = '\u{0009}'; // \t
 const RETURN_CODE: char = '\u{000A}'; // \n
 const ESCAPE_CODE: char = '\u{001B}'; // esc
 
@@ -157,6 +160,7 @@ impl InternalKeyCode {
             InternalKeyCode::End => END_CODE,
             InternalKeyCode::Back => BACK_CODE,
             InternalKeyCode::Delete => DELETE_CODE,
+            InternalKeyCode::Tab => TAB_CODE,
             InternalKeyCode::Return => RETURN_CODE,
             InternalKeyCode::Escape => ESCAPE_CODE,
         }
@@ -176,6 +180,7 @@ impl InternalKeyCode {
                 END_CODE => Self::End,
                 BACK_CODE => Self::Back,
                 DELETE_CODE => Self::Delete,
+                TAB_CODE => Self::Tab,
                 RETURN_CODE => Self::Return,
                 ESCAPE_CODE => Self::Escape,
                 _ => return None,
