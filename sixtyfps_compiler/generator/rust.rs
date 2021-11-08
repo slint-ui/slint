@@ -592,7 +592,7 @@ fn generate_component(
         fn enter_component_children(
             &mut self,
             item_rc: &ElementRc,
-            _repeater_count: u32,
+            repeater_count: u32,
             component_state: &Self::SubComponentState,
             _sub_component_state: &Self::SubComponentState,
         ) {
@@ -600,9 +600,20 @@ fn generate_component(
             if component_state.is_empty() {
                 let sub_component = item.sub_component().unwrap();
 
-                let sub_component_repeater_count = sub_component.repeater_count();
+                let inner_component_id =
+                    self::inner_component_id(&item.enclosing_component.upgrade().unwrap());
+                let field_name = ident(&item.id);
+                let field = access_component_field_offset(&inner_component_id, &field_name);
+
+                let sub_component_repeater_count: usize = sub_component.repeater_count() as _;
                 if sub_component_repeater_count > 0 {
-                    todo!()
+                    let repeater_count: usize = repeater_count as _;
+                    let last_repeater: usize = repeater_count + sub_component_repeater_count - 1;
+                    self.repeated_visit_branch.push(quote!(
+                        #repeater_count..=#last_repeater => {
+                            #field.apply_pin(_self).visit_dynamic_children(dyn_index, order, visitor)
+                        }
+                    ));
                 }
             }
         }
@@ -693,9 +704,16 @@ fn generate_component(
                 model =
                     quote!(sixtyfps::re_exports::ModelHandle::new(std::rc::Rc::<bool>::new(#model)))
             }
+
+            let self_weak_downgrade = if self.generating_component.is_sub_component() {
+                quote!(sixtyfps::re_exports::VRcMapped::downgrade(&self_rc))
+            } else {
+                quote!(sixtyfps::re_exports::VRc::downgrade(&self_rc))
+            };
+
             self.init.push(quote! {
                 _self.#repeater_id.set_model_binding({
-                    let self_weak = sixtyfps::re_exports::VRc::downgrade(&self_rc);
+                    let self_weak = #self_weak_downgrade;
                     move || {
                         let self_rc = self_weak.upgrade().unwrap();
                         let _self = self_rc.as_pin_ref();
@@ -703,7 +721,7 @@ fn generate_component(
                     }
                 });
             });
-            let window_tokens = access_window_field(&base_component, quote!(_self));
+            let window_tokens = access_window_field(&parent_compo, quote!(_self));
             if let Some(listview) = &repeated.is_listview {
                 let vp_y =
                     access_named_reference(&listview.viewport_y, &parent_compo, quote!(_self));
@@ -819,9 +837,13 @@ fn generate_component(
             ));
         }
 
-        parent_component_type = Some(self::inner_component_id(
-            &parent_element.borrow().enclosing_component.upgrade().unwrap(),
-        ));
+        let parent_component = parent_element.borrow().enclosing_component.upgrade().unwrap();
+        let parent_component_id = self::inner_component_id(&parent_component);
+        parent_component_type = Some(if parent_component.is_sub_component() {
+            quote!(sixtyfps::re_exports::VWeakMapped::<sixtyfps::re_exports::ComponentVTable, #parent_component_id>)
+        } else {
+            quote!(sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_id>)
+        });
         window_field_init = Some(quote!(window: parent_window.clone().into()));
         window_parent_param = Some(quote!(, parent_window: &sixtyfps::re_exports::WindowRc))
     } else if !component.is_global() && !component.is_sub_component() {
@@ -877,9 +899,28 @@ fn generate_component(
         (None, None)
     } else {
         let item_tree_array_len = item_tree_array.len();
-        let parent_item_index =
-            component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().copied());
+        let (parent_item_index, parent_vrc_getter) =
+            if let Some(parent_element) = component.parent_element.upgrade() {
+                let parent_index = parent_element.borrow().item_index.get().copied();
+
+                let parent_vrc_getter = if parent_element
+                    .borrow()
+                    .enclosing_component
+                    .upgrade()
+                    .unwrap()
+                    .is_sub_component()
+                {
+                    quote!(self.parent.clone().upgrade().map(|sc| VRcMapped::origin(&sc)))
+                } else {
+                    quote!(self.parent.clone().into_dyn().upgrade())
+                };
+
+                (Some(parent_index), Some(parent_vrc_getter))
+            } else {
+                (None, None)
+            };
         let parent_item_index = parent_item_index.iter();
+        let parent_vrc_getter = parent_vrc_getter.iter();
         init.insert(0, quote!(sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), &_self.window.window_handle());));
         (
             Some(quote! {
@@ -922,7 +963,7 @@ fn generate_component(
                     fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut sixtyfps::re_exports::ItemWeak) {
                         if index == 0 {
                             #(
-                                if let Some(parent) = self.parent.clone().into_dyn().upgrade() {
+                                if let Some(parent) = #parent_vrc_getter {
                                     *result = sixtyfps::re_exports::ItemRc::new(parent, #parent_item_index).parent_item();
                                 }
                             )*
@@ -961,12 +1002,18 @@ fn generate_component(
             let _self = self_rc.as_ref();
         }
     };
-    let self_weak = if !component.is_global() && !component.is_sub_component() {
-        Some(quote!(self_weak))
+    let (self_weak, self_weak_type) = if !component.is_global() {
+        let weak_ty = if component.is_sub_component() {
+            quote!(sixtyfps::re_exports::VWeakMapped<sixtyfps::re_exports::ComponentVTable, #inner_component_id>)
+        } else {
+            quote!(sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #inner_component_id>)
+        };
+        (Some(quote!(self_weak)), Some(weak_ty))
     } else {
-        None
+        (None, None)
     };
     let self_weak = self_weak.into_iter().collect::<Vec<_>>();
+    let self_weak_type = self_weak_type.into_iter().collect::<Vec<_>>();
     let component_handle = if !component.is_global() {
         quote!(vtable::VRc<sixtyfps::re_exports::ComponentVTable, Self>)
     } else {
@@ -1048,7 +1095,7 @@ fn generate_component(
             #visibility struct #public_component_id(vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>);
 
             impl #public_component_id {
-                pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param) -> Self {
+                pub fn new(#(parent: #parent_component_type)* #window_parent_param) -> Self {
                     Self(#inner_component_id::new(#parent_name #window_parent_name))
                 }
                 #(#property_and_callback_accessors)*
@@ -1101,7 +1148,7 @@ fn generate_component(
             #(#declared_callbacks : ::core::default::Default::default(),)*
             #(#repeated_element_names : ::core::default::Default::default(),)*
             #(#self_weak : ::core::default::Default::default(),)*
-            #(parent : parent as sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
+            #(parent : parent as #parent_component_type,)*
             #(#global_name : #global_type::new(),)*
             #window_field_init
             #root_initializer
@@ -1109,6 +1156,24 @@ fn generate_component(
     );
 
     let inner_impl = if component.is_sub_component() {
+        let visit_dynamic_children = if !repeated_visit_branch.is_empty() {
+            Some(quote!(
+                fn visit_dynamic_children(self: ::core::pin::Pin<&Self>, dyn_index: usize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
+                    -> sixtyfps::re_exports::VisitChildrenResult
+                {
+                    use sixtyfps::re_exports::*;
+                    #[allow(unused)]
+                    let _self = self;
+                    match dyn_index {
+                        #(#repeated_visit_branch)*
+                        _ => panic!("invalid dyn_index {}", dyn_index),
+                    }
+                }
+            ))
+        } else {
+            None
+        };
+
         quote!(
         pub fn new() -> Self {
             #![allow(unused)]
@@ -1119,6 +1184,7 @@ fn generate_component(
         pub fn init(self_rc: sixtyfps::re_exports::VRcMapped<sixtyfps::re_exports::ComponentVTable, Self>, root : &sixtyfps::re_exports::VRc<sixtyfps::re_exports::ComponentVTable, #root_component_id>) {
             #![allow(unused)]
             let _self = self_rc.as_pin_ref();
+            _self.self_weak.set(VRcMapped::downgrade(&self_rc));
             _self.root.set(VRc::downgrade(root));
             _self.window.set(root.window.window_handle().clone().into());
             #(#init)*
@@ -1127,10 +1193,12 @@ fn generate_component(
         #(#property_and_callback_accessors)*
 
         #layouts
+
+        #visit_dynamic_children
         )
     } else {
         quote!(
-        pub fn new(#(parent: sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_type>)* #window_parent_param)
+        pub fn new(#(parent: #parent_component_type)* #window_parent_param)
                 -> #component_handle
             {
                 #![allow(unused)]
@@ -1156,8 +1224,8 @@ fn generate_component(
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
             #(#declared_callbacks : sixtyfps::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
-            #(#self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #inner_component_id>>,)*
-            #(parent : sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #parent_component_type>,)*
+            #(#self_weak : sixtyfps::re_exports::OnceCell<#self_weak_type>,)*
+            #(parent : #parent_component_type,)*
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
             #window_field
             #root_field
