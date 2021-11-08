@@ -780,7 +780,7 @@ fn generate_component(
     }
 
     let root_ref_tokens = if component.is_sub_component() {
-        quote!(&_self.root.unwrap().upgrade())
+        quote!(&_self.root.get().unwrap().upgrade().unwrap())
     } else if component.parent_element.upgrade().map_or(false, |c| {
         c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
     }) {
