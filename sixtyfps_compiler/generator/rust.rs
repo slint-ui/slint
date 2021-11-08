@@ -1582,7 +1582,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let item_field = access_component_field_offset(&format_ident!("Self"), &item_id);
                         let window_tokens = access_window_field(component, quote!(_self));
                         quote!(
-                            #item_field.apply_pin(_self).layouting_info(#orient, &#window_tokens.window_handle())
+                            #item_field.apply_pin(_self).layout_info(#orient, &#window_tokens.window_handle())
                         )
                     } else {
                         panic!("internal error: argument to ImplicitLayoutInfo must be an element")
@@ -2162,17 +2162,13 @@ fn compute_layout(component: &Rc<Component>) -> TokenStream {
     let constraints = component.root_constraints.borrow();
     let layout_info_h = get_layout_info(elem, component, &constraints, Orientation::Horizontal);
     let layout_info_v = get_layout_info(elem, component, &constraints, Orientation::Vertical);
-    let func_signature = if component.is_sub_component() {
-        quote!(
-            fn layouting_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation, _: &sixtyfps::re_exports::WindowRc) -> sixtyfps::re_exports::LayoutInfo
-        )
+    let optional_window_parameter = if component.is_sub_component() {
+        Some(quote!(, _: &sixtyfps::re_exports::WindowRc))
     } else {
-        quote!(
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation) -> sixtyfps::re_exports::LayoutInfo
-        )
+        None
     };
     quote! {
-        #func_signature {
+        fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation #optional_window_parameter) -> sixtyfps::re_exports::LayoutInfo {
             #![allow(unused)]
             use sixtyfps::re_exports::*;
             let _self = self;
@@ -2197,7 +2193,7 @@ fn get_layout_info(
         let elem_id = ident(&elem.borrow().id);
         let inner_component_id = inner_component_id(component);
         let window_tokens = access_window_field(component, quote!(_self));
-        quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layouting_info(#orientation, &#window_tokens.window_handle()))
+        quote!(#inner_component_id::FIELD_OFFSETS.#elem_id.apply_pin(_self).layout_info(#orientation, &#window_tokens.window_handle()))
     };
 
     if constraints.has_explicit_restrictions() {

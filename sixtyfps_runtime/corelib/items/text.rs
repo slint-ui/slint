@@ -118,7 +118,7 @@ impl Item for Text {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let implicit_size = |max_width| {
             window.text_size(self.unresolved_font_request(), self.text().as_str(), max_width)
         };
@@ -263,7 +263,7 @@ impl Item for TextInput {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let text = self.text();
         let implicit_size = |max_width| {
             window.text_size(

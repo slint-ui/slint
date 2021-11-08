@@ -124,11 +124,7 @@ impl Item for NativeGroupBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo {
             min: match orientation {
                 Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),

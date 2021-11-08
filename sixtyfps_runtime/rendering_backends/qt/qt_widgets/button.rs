@@ -188,11 +188,7 @@ impl Item for NativeButton {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         let standard_button_kind = self.actual_standard_button_kind();
         let mut text: qttypes::QString = self.actual_text(standard_button_kind);
         let icon: qttypes::QPixmap = self.actual_icon(standard_button_kind);

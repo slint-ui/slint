@@ -64,11 +64,7 @@ impl Item for NativeSpinBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         //let value: i32 = self.value();
         let data = self.data();
         let active_controls = data.active_controls;

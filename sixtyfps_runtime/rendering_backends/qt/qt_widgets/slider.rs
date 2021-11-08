@@ -70,11 +70,7 @@ impl Item for NativeSlider {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         let enabled = self.enabled();
         let value = self.value() as i32;
         let min = self.minimum() as i32;

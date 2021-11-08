@@ -93,7 +93,7 @@ pub struct ItemVTable {
     pub cached_rendering_data_offset: usize,
 
     /// We would need max/min/preferred size, and all layout info
-    pub layouting_info: extern "C" fn(
+    pub layout_info: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
         window: &WindowRc,
@@ -211,11 +211,7 @@ impl Item for Rectangle {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
@@ -282,11 +278,7 @@ impl Item for BorderRectangle {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
@@ -367,11 +359,7 @@ impl Item for TouchArea {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -524,11 +512,7 @@ impl Item for FocusScope {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -618,11 +602,7 @@ impl Item for Clip {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
@@ -699,11 +679,7 @@ impl Item for Opacity {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
@@ -767,11 +743,7 @@ impl Item for Rotate {
         euclid::rect(0., 0., 0., 0.)
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
@@ -860,11 +832,7 @@ impl Item for Path {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -973,11 +941,7 @@ impl Item for Flickable {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
@@ -1118,11 +1082,7 @@ impl Item for WindowItem {
         euclid::rect(0., 0., self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo::default()
     }
 
@@ -1221,11 +1181,7 @@ impl Item for BoxShadow {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        _orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 

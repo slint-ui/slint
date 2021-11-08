@@ -36,11 +36,7 @@ impl Item for NativeCheckBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         let text: qttypes::QString = self.text().as_str().into();
         let size = cpp!(unsafe [
             text as "QString"

@@ -31,11 +31,7 @@ impl Item for NativeStandardListViewItem {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         let index: i32 = self.index();
         let item = self.item();
         let text: qttypes::QString = item.text.as_str().into();

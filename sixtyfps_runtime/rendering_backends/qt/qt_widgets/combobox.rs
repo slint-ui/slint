@@ -33,11 +33,7 @@ impl Item for NativeComboBox {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layouting_info(
-        self: Pin<&Self>,
-        orientation: Orientation,
-        _window: &WindowRc,
-    ) -> LayoutInfo {
+    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         let size = cpp!(unsafe [] -> qttypes::QSize as "QSize" {
             ensure_initialized();
             QStyleOptionComboBox option;

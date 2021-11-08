@@ -361,7 +361,7 @@ pub(crate) fn fill_layout_info_constraints(
     }
 }
 
-/// Get the layout info for an element based on the layout_info_prop or the builtin item layouting_info
+/// Get the layout info for an element based on the layout_info_prop or the builtin item layout_info
 pub(crate) fn get_layout_info(
     elem: &ElementRc,
     component: InstanceRef,
@@ -380,7 +380,7 @@ pub(crate) fn get_layout_info(
         unsafe {
             item.item_from_component(component.as_ptr())
                 .as_ref()
-                .layouting_info(to_runtime(orientation), window)
+                .layout_info(to_runtime(orientation), window)
         }
     }
 }

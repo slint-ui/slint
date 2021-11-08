@@ -2146,7 +2146,7 @@ fn compile_expression(
                         )
                     } else {
                         let native_item = item.base_type.as_native();
-                        format!("{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &m_window.window_handle())",
+                        format!("{vt}->layout_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &m_window.window_handle())",
                             vt = native_item.cpp_vtable_getter,
                             ty = native_item.class_name,
                             id = ident(&item.id),
@@ -2632,7 +2632,7 @@ fn get_layout_info(
         )
     } else {
         format!(
-            "{vt}->layouting_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, {window_handle})",
+            "{vt}->layout_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, {window_handle})",
             vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
             ty = elem.borrow().base_type.as_native().class_name,
             id = ident(&elem.borrow().id),
