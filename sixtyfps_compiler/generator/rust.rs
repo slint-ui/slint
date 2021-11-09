@@ -779,17 +779,7 @@ fn generate_component(
         }
     }
 
-    let root_ref_tokens = if component.is_sub_component() {
-        quote!(&_self.root.get().unwrap().upgrade().unwrap())
-    } else if component.parent_element.upgrade().map_or(false, |c| {
-        c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
-    }) {
-        quote!(&_self.parent.upgrade().unwrap())
-    } else if component.parent_element.upgrade().is_some() {
-        quote!(&_self.parent.upgrade().unwrap().root.get().unwrap().upgrade().unwrap())
-    } else {
-        quote!(&self_rc)
-    };
+    let root_ref_tokens = access_root_tokens(component);
 
     let mut builder = TreeBuilder {
         tree_array: vec![],
@@ -1272,6 +1262,29 @@ fn generate_component(
 
         #(#extra_components)*
     ))
+}
+
+/// Retruns the tokens needed to access the root component (where global singletons are located).
+/// This is needed for the `init()` calls on sub-components, that take the root as a parameter.
+fn access_root_tokens(component: &Rc<Component>) -> TokenStream {
+    if component.is_root_component.get() {
+        return quote!(&self_rc);
+    }
+    let mut compo = component.clone();
+    let mut tokens = quote!(&_self);
+    loop {
+        if compo.is_sub_component() {
+            tokens.extend(quote!(.root.get().unwrap().upgrade().unwrap()));
+            break tokens;
+        }
+        if let Some(parent_elem) = compo.parent_element.upgrade() {
+            let enclosing_component = parent_elem.borrow().enclosing_component.upgrade().unwrap();
+            tokens.extend(quote!(.parent.upgrade().unwrap()));
+            compo = enclosing_component.clone();
+            continue;
+        }
+        break tokens;
+    }
 }
 
 /// Return an identifier suitable for this component for internal use
