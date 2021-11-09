@@ -19,7 +19,8 @@ Label := Text {
 SubCompo := Rectangle {
     for x in 1: Rectangle {
         for y in 1: Label {
-
+            for z in 1: Label {
+            }
         }
     }
 }

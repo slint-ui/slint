@@ -1130,7 +1130,7 @@ fn generate_component(
         tree_array: Vec<String>,
         children_visitor_cases: Vec<String>,
         constructor_member_initializers: &'a mut Vec<String>,
-        root_ptr: &'static str,
+        root_ptr: String,
         item_index_base: &'static str,
         field_access: Access,
         component_struct: &'a mut Struct,
@@ -1296,22 +1296,11 @@ fn generate_component(
         }
     }
 
-    let root_ptr = if is_sub_component {
-        "root"
-    } else if component.parent_element.upgrade().map_or(false, |c| {
-        c.borrow().enclosing_component.upgrade().unwrap().is_root_component.get()
-    }) {
-        "parent"
-    } else if is_child_component {
-        "parent->m_root"
-    } else {
-        "this"
-    };
     let mut builder = TreeBuilder {
         tree_array: vec![],
         children_visitor_cases: vec![],
         constructor_member_initializers: &mut constructor_member_initializers,
-        root_ptr,
+        root_ptr: access_root_tokens(component),
         item_index_base: if is_sub_component { "tree_index_of_first_child + " } else { "" },
         field_access,
         component_struct: &mut component_struct,
@@ -1751,6 +1740,38 @@ fn generate_component_vtable(
         ),
         ..Default::default()
     }));
+}
+
+/// Retruns the tokens needed to access the root component (where global singletons are located).
+/// This is needed for the `init()` calls on sub-components, that take the root as a parameter.
+fn access_root_tokens(component: &Rc<Component>) -> String {
+    if component.is_global() {
+        return "\n#error can't access root from globals\n".into();
+    } else if component.is_root_component.get() {
+        return "this".into();
+    } else if component.is_sub_component() {
+        return "root".into();
+    }
+    let mut tokens = "parent".into();
+    let mut compo = component.clone();
+    loop {
+        let parent_compo = compo
+            .parent_element
+            .upgrade()
+            .expect("not the root and not a sub_component must have a parent")
+            .borrow()
+            .enclosing_component
+            .upgrade()
+            .unwrap();
+        if parent_compo.is_root_component.get() {
+            return tokens;
+        } else if parent_compo.is_sub_component() {
+            tokens += "->m_root";
+            return tokens;
+        }
+        compo = parent_compo;
+        tokens += "->parent";
+    }
 }
 
 fn component_id(component: &Rc<Component>) -> String {
