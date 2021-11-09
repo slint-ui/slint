@@ -624,7 +624,7 @@ fn generate_component(
                     let last_repeater: usize = repeater_count + sub_component_repeater_count - 1;
                     self.repeated_visit_branch.push(quote!(
                         #repeater_count..=#last_repeater => {
-                            #field.apply_pin(_self).visit_dynamic_children(dyn_index, order, visitor)
+                            #field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_count, order, visitor)
                         }
                     ));
                 }
