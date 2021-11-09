@@ -572,7 +572,7 @@ fn generate_component(
             &mut self,
             item_rc: &ElementRc,
             sub_component: &Rc<Component>,
-            _children_offset: u32,
+            children_offset: u32,
             component_state: &Self::SubComponentState,
         ) -> Self::SubComponentState {
             let item = item_rc.borrow();
@@ -588,7 +588,9 @@ fn generate_component(
                 };
 
                 let root_ref_tokens = &self.root_ref_tokens;
-                self.init.push(quote!(#sub_component_id::init(#map_fn(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)), #root_ref_tokens);));
+                let tree_index: u32 = *item.item_index.get().unwrap() as _;
+                let tree_index_of_first_child: u32 = children_offset as _;
+                self.init.push(quote!(#sub_component_id::init(#map_fn(self_rc.clone(), |self_| Self::FIELD_OFFSETS.#field_name.apply_pin(self_)), #root_ref_tokens, #tree_index, #tree_index_of_first_child);));
 
                 self.sub_component_names.push(field_name);
                 self.sub_component_initializers.push(quote!(#sub_component_id::new()));
@@ -1150,12 +1152,28 @@ fn generate_component(
     let (root_field, root_initializer) = if component.is_sub_component() {
         (
             Some(
-                quote!(root : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #root_component_id>>),
+                quote!(root : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #root_component_id>>,),
             ),
-            Some(quote!(root: ::core::default::Default::default())),
+            Some(quote!(root: ::core::default::Default::default(),)),
         )
     } else {
         (None, None)
+    };
+
+    let (
+        item_tree_index_init,
+        item_tree_index_field,
+        tree_index_of_first_child_init,
+        tree_index_of_first_child_field,
+    ) = if component.is_sub_component() {
+        (
+            Some(quote!(tree_index: ::core::default::Default::default(),)),
+            Some(quote!(tree_index: core::cell::Cell<u32>,)),
+            Some(quote!(tree_index_of_first_child: ::core::default::Default::default(),)),
+            Some(quote!(tree_index_of_first_child: core::cell::Cell<u32>,)),
+        )
+    } else {
+        (None, None, None, None)
     };
 
     let create_self = quote!(
@@ -1170,6 +1188,8 @@ fn generate_component(
             #(#global_name : #global_type::new(),)*
             #window_field_init
             #root_initializer
+            #item_tree_index_init
+            #tree_index_of_first_child_init
         };
     );
 
@@ -1199,12 +1219,16 @@ fn generate_component(
             #create_self
             self_
         }
-        pub fn init(self_rc: sixtyfps::re_exports::VRcMapped<sixtyfps::re_exports::ComponentVTable, Self>, root : &sixtyfps::re_exports::VRc<sixtyfps::re_exports::ComponentVTable, #root_component_id>) {
+        pub fn init(self_rc: sixtyfps::re_exports::VRcMapped<sixtyfps::re_exports::ComponentVTable, Self>,
+                    root : &sixtyfps::re_exports::VRc<sixtyfps::re_exports::ComponentVTable, #root_component_id>,
+                    tree_index: u32, tree_index_of_first_child: u32) {
             #![allow(unused)]
             let _self = self_rc.as_pin_ref();
             _self.self_weak.set(VRcMapped::downgrade(&self_rc));
             _self.root.set(VRc::downgrade(root));
             _self.window.set(root.window.window_handle().clone().into());
+            _self.tree_index.set(tree_index);
+            _self.tree_index_of_first_child.set(tree_index_of_first_child);
             #(#init)*
         }
 
@@ -1247,6 +1271,8 @@ fn generate_component(
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
             #window_field
             #root_field
+            #item_tree_index_field
+            #tree_index_of_first_child_field
         }
 
         #component_impl
@@ -1478,6 +1504,28 @@ fn element_component_vrc(element: &ElementRc, component: &Rc<Component>) -> Toke
     }
 }
 
+// Returns an expression that will compute the absolute item index in the item tree for a
+// given element. For elements of a child component or the root component, the item_index
+// is already absolute within the corresponding item tree. For sub-components we return an
+// expression that computes the value at run-time.
+fn absolute_element_item_index_expression(element: &ElementRc) -> TokenStream {
+    let element = element.borrow();
+    let local_index = element.item_index.get().unwrap();
+    let enclosing_component = element.enclosing_component.upgrade().unwrap();
+    if enclosing_component.is_sub_component() {
+        if *local_index == 0 {
+            quote!(_self.tree_index.get() as usize)
+        } else if *local_index == 1 {
+            quote!(_self.tree_index_of_first_child.get() as usize)
+        } else {
+            let child_index = local_index - 1;
+            quote!(_self.tree_index_of_first_child.get() as usize + #child_index)
+        }
+    } else {
+        quote!(#local_index)
+    }
+}
+
 fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStream {
     match expr {
         Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
@@ -1647,11 +1695,10 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                     if let Expression::ElementReference(focus_item) = &arguments[0] {
                         let focus_item = focus_item.upgrade().unwrap();
                         let component_vrc = element_component_vrc(&focus_item, component);
-                        let focus_item = focus_item.borrow();
-                        let item_index = focus_item.item_index.get().unwrap();
+                        let item_index_tokens = absolute_element_item_index_expression(&focus_item);
                         let window_tokens = access_window_field(component, quote!(_self));
                         quote!(
-                            #window_tokens.window_handle().clone().set_focus_item(&ItemRc::new(#component_vrc, #item_index));
+                            #window_tokens.window_handle().clone().set_focus_item(&ItemRc::new(#component_vrc, #item_index_tokens));
                         )
                     } else {
                         panic!("internal error: argument to SetFocusItem must be an element")
@@ -1671,13 +1718,13 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                         let x = access_named_reference(&popup.x, component, quote!(_self));
                         let y = access_named_reference(&popup.y, component, quote!(_self));
                         let parent_component_vrc = element_component_vrc(&popup.parent_element, component);
-                        let parent_index = *popup.parent_element.borrow().item_index.get().unwrap();
+                        let parent_index_tokens = absolute_element_item_index_expression(&popup.parent_element);
                         let window_tokens = access_window_field(component, quote!(_self));
                         quote!(
                             #window_tokens.window_handle().show_popup(
                                 &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone(), &#window_tokens.window_handle()).into()),
                                 Point::new(#x.get(), #y.get()),
-                                &ItemRc::new(#parent_component_vrc, #parent_index)
+                                &ItemRc::new(#parent_component_vrc, #parent_index_tokens)
                             );
                         )
                     } else {
