@@ -287,7 +287,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     let module_name = quote::format_ident!("{}_field_offsets", struct_name);
 
     #[cfg(feature = "field-offset-trait")]
-    let in_mod_vis = vis.iter().map(|vis| match vis {
+    let in_mod_vis = vis.iter().map(|vis| min_vis(vis, &struct_vis)).map(|vis| match vis {
         Visibility::Public(_) => quote! {#vis},
         Visibility::Crate(_) => quote! {#vis},
         Visibility::Restricted(VisRestricted { pub_token, path, .. }) => {
@@ -305,7 +305,7 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
         #[allow(non_camel_case_types)]
         #[allow(non_snake_case)]
         #[allow(missing_docs)]
-        pub mod #module_name {
+        #struct_vis mod #module_name {
             #(
                 #[derive(Clone, Copy, Default)]
                 #in_mod_vis struct #fields;
@@ -337,6 +337,21 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
 
     // Hand the output tokens back to the compiler
     TokenStream::from(expanded)
+}
+
+#[cfg(feature = "field-offset-trait")]
+/// Returns the most restricted visibility
+fn min_vis<'a>(a: &'a Visibility, b: &'a Visibility) -> &'a Visibility {
+    match (a, b) {
+        (Visibility::Public(_), _) => b,
+        (_, Visibility::Public(_)) => a,
+        (Visibility::Crate(_), _) => b,
+        (_, Visibility::Crate(_)) => a,
+        (Visibility::Inherited, _) => a,
+        (_, Visibility::Inherited) => b,
+        // FIXME: compare two paths
+        _ => a,
+    }
 }
 
 /**
