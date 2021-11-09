@@ -93,10 +93,10 @@ impl CompilerConfiguration {
             }
         };
 
-        let inline_all_elements = match std::env::var("SIXTYFPS_DISABLE_INLINING") {
+        let inline_all_elements = match std::env::var("SIXTYFPS_INLINING") {
             Ok(var) => {
-                !var.parse::<bool>().unwrap_or_else(|_|{
-                    panic!("SIXTYFPS_DISABLE_INLINING has incorrect value. Must be either unset, 'true' or 'false'")
+                var.parse::<bool>().unwrap_or_else(|_|{
+                    panic!("SIXTYFPS_INLINING has incorrect value. Must be either unset, 'true' or 'false'")
                 })
             }
             // Currently, the interpreter needs the inlining to be on.
