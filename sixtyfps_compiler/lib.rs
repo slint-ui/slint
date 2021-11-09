@@ -68,6 +68,12 @@ pub struct CompilerConfiguration {
     pub open_import_fallback: Option<
         Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>,
     >,
+
+    /// Run the pass that inlines all the elements.
+    ///
+    /// This may help optimization to optimize the runtime resources usages,
+    /// but at the cost of much more generated code and binary size.
+    pub inline_all_elements: bool,
 }
 
 impl CompilerConfiguration {
@@ -87,11 +93,22 @@ impl CompilerConfiguration {
             }
         };
 
+        let inline_all_elements = match std::env::var("SIXTYFPS_DISABLE_INLINING") {
+            Ok(var) => {
+                !var.parse::<bool>().unwrap_or_else(|_|{
+                    panic!("SIXTYFPS_DISABLE_INLINING has incorrect value. Must be either unset, 'true' or 'false'")
+                })
+            }
+            // Currently, the interpreter needs the inlining to be on.
+            Err(_) => output_format == crate::generator::OutputFormat::Interpreter,
+        };
+
         Self {
             embed_resources,
             include_paths: Default::default(),
             style: Default::default(),
             open_import_fallback: Default::default(),
+            inline_all_elements,
         }
     }
 }

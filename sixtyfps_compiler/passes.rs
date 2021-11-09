@@ -117,13 +117,7 @@ pub async fn run_passes(
     }
     collect_globals::collect_globals(&doc, diag);
 
-    let disable_inlining = match std::env::var("SIXTYFPS_DISABLE_INLINING") {
-        Ok(var) => var.parse().unwrap_or_else(|_| {
-            panic!("SIXTYFPS_DISABLE_INLINING has incorrect value. Must be either unset, 'true' or 'false'")
-        }),
-        Err(_) => false,
-    };
-    if !disable_inlining {
+    if compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
         root_component.used_types.borrow_mut().sub_components.clear();
     }
