@@ -41,11 +41,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
                 if match inline_selection {
                     InlineSelection::InlineAllComponents => true,
                     InlineSelection::InlineOnlyRequiredComponents => {
-                        component_requires_inlining(&c)
-                            // otherwise the children of the clipped items won't get moved as child of the Clip element
-                            || elem.borrow().bindings.contains_key("clip")
-                            // the generators assume that the children list is complete, which sub-components may break
-                            || !elem.borrow().children.is_empty()
+                        component_requires_inlining(&c) || element_require_inlining(elem)
                     }
                 } {
                     inline_element(elem, &c, component);
@@ -462,6 +458,31 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
                 // percentage size in the root element might not make sense anyway.
                 return true;
             }
+        }
+        if binding.animation.is_some() {
+            // If there is an animation, we currently inline so that if this property
+            // is set with a binding, it is merged
+            return true;
+        }
+    }
+
+    false
+}
+
+fn element_require_inlining(elem: &ElementRc) -> bool {
+    if !elem.borrow().children.is_empty() {
+        // the generators assume that the children list is complete, which sub-components may break
+        return true;
+    }
+    for (prop, binding) in &elem.borrow().bindings {
+        if prop == "clip" {
+            // otherwise the children of the clipped items won't get moved as child of the Clip element
+            return true;
+        }
+
+        if binding.animation.is_some() && matches!(binding.expression, Expression::Invalid) {
+            // If there is an animation but no binding, we must merge the binding with its animation.
+            return true;
         }
     }
 
