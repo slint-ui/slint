@@ -1,9 +1,9 @@
 /*!
-This crate expose the `FieldOffsets` derive macro and the types it uses.
+This crate expose the [`FieldOffsets`] derive macro and the types it uses.
 
 The macro allows to get const FieldOffset for member of a `#[repr(C)]` struct.
 
-The `FieldOffset` type is re-exported from the `field-offset` crate.
+The [`FieldOffset`] type is re-exported from the `field-offset` crate.
 */
 #![no_std]
 

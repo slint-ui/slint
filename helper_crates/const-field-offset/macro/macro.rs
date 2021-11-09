@@ -203,8 +203,9 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     };
 
     let doc = format!(
-        "Helper struct containing the offsets of the fields of the struct `{}`",
-        struct_name
+        "Helper struct containing the offsets of the fields of the struct [`{}`]\n\n\
+        Generated from the `#[derive(FieldOffsets)]` macro from the [`const-field-offset`]({}) crate",
+        struct_name, crate_
     );
 
     let (ensure_pin_safe, ensure_no_unpin, pin_flag, new_from_offset) = if !pin {
@@ -253,8 +254,6 @@ pub fn const_field_offset(input: TokenStream) -> TokenStream {
     // Build the output, possibly using quasi-quotation
     let expanded = quote! {
         #[doc = #doc]
-        ///
-        /// Generated from the derive macro `const-field-offset::FieldOffsets`
         #[allow(missing_docs, non_camel_case_types)]
         #struct_vis struct #field_struct_name {
             #(#vis #fields : #crate_::FieldOffset<#struct_name, #types, #pin_flag>,)*

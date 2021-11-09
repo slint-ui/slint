@@ -12,11 +12,11 @@ This crate allows you to create ffi-friendly virtual tables.
 
 ## Features
 
- - A `#[vtable]` macro to annotate a VTable struct to generate the traits and structure
+ - A [`#[vtable]`](macro@vtable) macro to annotate a VTable struct to generate the traits and structure
    to safely work with it.
- - `VRef`/`VRefMut`/`VBox` types. They are fat reference/box types which wrap a pointer to
+ - [`VRef`]/[`VRefMut`]/[`VBox`] types. They are fat reference/box types which wrap a pointer to
    the vtable, and a pointer to the object.
- - `VRc`/`VWeak` types: equivalent to `std::rc::{Rc, Weak}` types but works with a vtable pointer.
+ - [`VRc`]/[`VWeak`] types: equivalent to `std::rc::{Rc, Weak}` types but works with a vtable pointer.
  - Ability to store constants in a vtable.
  - These constants can even be a field offset.
 
@@ -56,9 +56,9 @@ let animal_box = VBox::<AnimalVTable>::new(Dog(42));
 assert_eq!(animal_box.make_noise(2), 42 * 2);
 ```
 
-The `#[vtable]` macro created the "Animal" trait.
+The [`#[vtable]`](macro@vtable) macro created the "Animal" trait.
 
-Note that the `#[vtable]` macro is applied to the VTable struct so
+Note that the [`#[vtable]`](macro@vtable) macro is applied to the VTable struct so
 that `cbindgen` can see the actual vtable.
 
 */
@@ -76,7 +76,7 @@ pub use vtable_macro::*;
 mod vrc;
 pub use vrc::*;
 
-/// Internal trait that is implemented by the `#[vtable]` macro.
+/// Internal trait that is implemented by the [`#[vtable]`](macro@vtable) macro.
 ///
 /// Safety: The Target object needs to be implemented correctly.
 /// And there should be a VTable::VTable::new<T> function that returns a
@@ -93,12 +93,12 @@ pub unsafe trait VTableMeta {
     type VTable: 'static;
 }
 
-/// This trait is implemented by the `#[vtable]` macro.
+/// This trait is implemented by the [`#[vtable]`](macro@vtable) macro.
 ///
 /// It is implemented if the macro has a "drop" function.
 ///
 /// # Safety
-/// Only the `#[vtable]` macro should implement this trait.
+/// Only the [`#[vtable]`](macro@vtable) macro should implement this trait.
 pub unsafe trait VTableMetaDrop: VTableMeta {
     /// # Safety
     /// `ptr` needs to be pointing to a valid allocated pointer
@@ -152,7 +152,7 @@ impl Inner {
 ///
 /// The VBox implements Deref so one can access all the members of the vtable.
 ///
-/// This is only valid if the VTable has a `drop` function (so that the `#[vtable]` macro
+/// This is only valid if the VTable has a `drop` function (so that the [`#[vtable]`](macro@vtable) macro
 /// implements the `VTableMetaDrop` trait for it)
 #[repr(transparent)]
 pub struct VBox<T: ?Sized + VTableMetaDrop> {
@@ -391,9 +391,9 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     }
 }
 
-/** Creates a `VRef` or a `VRefMut` suitable for an instance that implements the trait
+/** Creates a [`VRef`] or a [`VRefMut`] suitable for an instance that implements the trait
 
-When possible, `VRef::new` or `VRefMut::new` should be preferred, as they use a static vtable.
+When possible, [`VRef::new`] or [`VRefMut::new`] should be preferred, as they use a static vtable.
 But when using the generated `XxxVTable_static!` macro that is not possible and this macro can be
 used instead.
 Note that the `downcast` will not work with references created with this macro.

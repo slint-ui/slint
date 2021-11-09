@@ -15,7 +15,7 @@ use core::convert::TryInto;
 use core::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
-/// This trait is implemented by the `#[vtable]` macro.
+/// This trait is implemented by the [`#[vtable]`](macro@vtable) macro.
 ///
 /// It is implemented if the macro has a "drop_in_place" function.
 ///
@@ -91,11 +91,11 @@ impl<'vt, VTable: VTableMeta, X> VRcInner<'vt, VTable, X> {
 /// A reference counted pointer to an object matching the virtual table `T`
 ///
 /// Similar to [`std::rc::Rc`] where the `VTable` type parameter is a VTable struct
-/// annotated with `#[vtable]`, and the `X` type parameter is the actual instance.
+/// annotated with [`#[vtable]`](macro@vtable), and the `X` type parameter is the actual instance.
 /// When `X` is the [`Dyn`] type marker, this means that the X is not known and the only
 /// thing that can be done is to get a [`VRef<VTable>`] through the [`Self::borrow()`] function.
 ///
-/// Other differences with the `std::rc::Rc` types are:
+/// Other differences with the [`std::rc::Rc`] types are:
 /// - It does not allow to access mutable reference. (No `get_mut` or `make_mut`), meaning it is
 /// safe to get a Pin reference with `borrow_pin`.
 /// - It is safe to pass it across ffi boundaries.

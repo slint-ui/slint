@@ -98,7 +98,7 @@ For the other fields:
 
 The VRef/VRefMut/VBox structure will dereference to a type which has the following associated items:
  - The functions from the vtable that have a VRef or VRefMut first parameter for self.
- - For each `#[field_offset] attributes, a corresponding getter returns a reference
+ - For each `#[field_offset]` attributes, a corresponding getter returns a reference
    to that field, and mutable accessor that ends with `_mut` returns a mutable reference.
  - `as_ptr` returns a `*mut u8`
  - `get_vtable` Return a reference to the VTable so one can access the associated consts.
@@ -218,8 +218,10 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         items: Default::default(),
     };
 
-    let additional_doc =
-        format!("\nNote: Was generated from the `#[vtable]` macro on `{}`", vtable_name);
+    let additional_doc = format!(
+        "\nNote: Was generated from the [`#[vtable]`](vtable) macro on [`{}`]",
+        vtable_name
+    );
     generated_trait
         .attrs
         .append(&mut Attribute::parse_outer.parse2(quote!(#[doc = #additional_doc])).unwrap());
