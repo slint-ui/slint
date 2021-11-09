@@ -866,7 +866,7 @@ fn generate_component(
         window_parent_param = Some(quote!(, parent_window: &sixtyfps::re_exports::WindowRc))
     } else if !component.is_global() && !component.is_sub_component() {
         // FIXME: This field is public for testing.
-        window_field = Some(quote!(pub window: sixtyfps::Window));
+        window_field = Some(quote!(window: sixtyfps::Window));
         window_field_init = Some(quote!(window: sixtyfps::create_window().into()));
 
         init.push(quote!(_self.window.window_handle().set_component(&VRc::into_dyn(_self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));));
@@ -879,7 +879,7 @@ fn generate_component(
             }
         ))
     } else if component.is_sub_component() {
-        window_field = Some(quote!(pub window: sixtyfps::re_exports::OnceCell<sixtyfps::Window>,));
+        window_field = Some(quote!(window: sixtyfps::re_exports::OnceCell<sixtyfps::Window>,));
         window_field_init = Some(quote!(window: Default::default(),));
     } else {
         window_field = None;
