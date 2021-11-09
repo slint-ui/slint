@@ -1150,7 +1150,7 @@ fn generate_component(
             Some(
                 quote!(root : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #root_component_id>>),
             ),
-            Some(quote!(root: Default::default())),
+            Some(quote!(root: ::core::default::Default::default())),
         )
     } else {
         (None, None)
