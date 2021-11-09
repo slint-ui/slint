@@ -905,8 +905,10 @@ fn generate_component(
         )
     };
 
-    for extra_init_code in component.setup_code.borrow().iter() {
-        init.push(compile_expression(extra_init_code, component));
+    if !component.is_sub_component() {
+        for extra_init_code in component.setup_code.borrow().iter() {
+            init.push(compile_expression(extra_init_code, component));
+        }
     }
 
     let (item_tree_impl, component_impl) = if component.is_global() {
