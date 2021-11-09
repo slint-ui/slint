@@ -181,7 +181,7 @@ pub trait Model {
     /// If the model cannot support data changes, then it is ok to do nothing.
     /// The default implementation will print a warning to stderr.
     ///
-    /// If the model can update the data, it should also call [`ModelNofity::row_changed`] on its
+    /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
     /// internal [`ModelNotify`].
     fn set_row_data(&self, _row: usize, _data: Self::Data) {
         eprintln!(
