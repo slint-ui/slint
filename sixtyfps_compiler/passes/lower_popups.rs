@@ -14,6 +14,7 @@ use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn lower_popups(
@@ -110,13 +111,16 @@ fn create_coordinate(
         .borrow()
         .bindings
         .get(coord)
-        .map(|e| e.expression.clone())
+        .map(|e| e.borrow().expression.clone())
         .unwrap_or(Expression::NumberLiteral(0., crate::expression_tree::Unit::Phx));
     let property_name = format!("{}-popup-{}", popup_comp.root_element.borrow().id, coord);
     parent_element
         .borrow_mut()
         .property_declarations
         .insert(property_name.clone(), Type::LogicalLength.into());
-    parent_element.borrow_mut().bindings.insert(property_name.clone(), expression.into());
+    parent_element
+        .borrow_mut()
+        .bindings
+        .insert(property_name.clone(), RefCell::new(expression.into()));
     NamedReference::new(parent_element, &property_name)
 }

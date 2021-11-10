@@ -55,7 +55,9 @@ pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
     let make_two_way = |name: &str| {
         new_root.borrow_mut().bindings.insert(
             name.into(),
-            BindingExpression::new_two_way(NamedReference::new(&win_elem, name)),
+            RefCell::new(BindingExpression::new_two_way(
+                NamedReference::new(&win_elem, name).into(),
+            )),
         );
     };
     make_two_way("width");

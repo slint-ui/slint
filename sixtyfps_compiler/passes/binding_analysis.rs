@@ -47,7 +47,7 @@ fn perform_binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnosti
 
 fn analyze_element(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     for (name, binding) in &elem.borrow().bindings {
-        if binding.analysis.borrow().is_some() {
+        if binding.borrow().analysis.is_some() {
             continue;
         }
         let mut set = PropertySet::default();
@@ -63,7 +63,7 @@ fn analyse_binding(
 ) {
     let nr = NamedReference::new(element, name);
     if currently_analysing.back().map_or(false, |r| *r == nr)
-        && !element.borrow().bindings[name].two_way_bindings.is_empty()
+        && !element.borrow().bindings[name].borrow().two_way_bindings.is_empty()
     {
         // This is already reported as an error by the remove_alias pass.
         // FIXME: maybe we should report it there instead
@@ -74,21 +74,13 @@ fn analyse_binding(
         for p in currently_analysing.iter().rev() {
             let elem = p.element();
             let elem = elem.borrow();
-            if std::mem::replace(
-                &mut elem.bindings[p.name()]
-                    .analysis
-                    .borrow_mut()
-                    .get_or_insert(Default::default())
-                    .is_in_binding_loop,
-                true,
-            ) {
+            let binding = elem.bindings[p.name()].borrow();
+            if binding.analysis.as_ref().unwrap().is_in_binding_loop.replace(true) {
                 break;
             }
 
-            let span = elem.bindings[p.name()]
-                .span
-                .clone()
-                .or_else(|| elem.node.as_ref().map(|n| n.to_source_location()));
+            let span =
+                binding.span.clone().or_else(|| elem.node.as_ref().map(|n| n.to_source_location()));
             diag.push_error(
                 format!("The binding for the property '{}' is part of a binding loop", p.name()),
                 &span,
@@ -100,6 +92,12 @@ fn analyse_binding(
         }
         return;
     }
+
+    let binding = &element.borrow().bindings[name];
+    if binding.borrow().analysis.is_some() {
+        return;
+    }
+    binding.borrow_mut().analysis = Some(Default::default());
     currently_analysing.insert(nr.clone());
 
     let mut process_prop = |prop: &NamedReference| {
@@ -113,11 +111,9 @@ fn analyse_binding(
             .is_read = true;
 
         loop {
-            if let Some(binding) = element.borrow().bindings.get(prop.name()) {
-                if binding.analysis.borrow().is_none() {
-                    analyse_binding(&element, prop.name(), currently_analysing, diag);
-                }
-            };
+            if element.borrow().bindings.contains_key(prop.name()) {
+                analyse_binding(&element, prop.name(), currently_analysing, diag);
+            }
             let next = if let Type::Component(base) = &element.borrow().base_type {
                 if element.borrow().property_declarations.contains_key(prop.name()) {
                     break;
@@ -136,31 +132,28 @@ fn analyse_binding(
                 .is_read_externally = true;
         }
     };
-    let binding = &element.borrow().bindings[name];
-    for nr in &binding.two_way_bindings {
-        process_prop(nr);
-    }
-    recurse_expression(&binding.expression, &mut process_prop);
 
     {
-        let elem = element.borrow();
-        let b = &elem.bindings[name];
+        let b = binding.borrow();
+        for nr in &b.two_way_bindings {
+            process_prop(nr);
+        }
+        recurse_expression(&b.expression, &mut process_prop);
+
         let mut is_const =
             b.expression.is_constant() && b.two_way_bindings.iter().all(|n| n.is_constant());
 
         if is_const && matches!(b.expression, Expression::Invalid) {
             // check the base
-            if let Some(base) = elem.sub_component() {
+            if let Some(base) = element.borrow().sub_component() {
                 is_const = NamedReference::new(&base.root_element, name).is_constant();
             }
         }
-
-        let mut analysis = b.analysis.borrow_mut();
-        let mut analysis = analysis.get_or_insert(Default::default());
-        analysis.is_const = is_const;
+        drop(b);
+        binding.borrow_mut().analysis.as_mut().unwrap().is_const = is_const;
     }
 
-    match &binding.animation {
+    match &binding.borrow().animation {
         Some(PropertyAnimation::Static(e)) => analyze_element(e, diag),
         Some(PropertyAnimation::Transition { animations, state_ref }) => {
             recurse_expression(state_ref, &mut process_prop);
@@ -300,8 +293,8 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
         &(),
         &mut |e, _| {
             for (name, binding) in &e.borrow().bindings {
-                if !binding.two_way_bindings.is_empty() {
-                    check_alias(e, name, binding);
+                if !binding.borrow().two_way_bindings.is_empty() {
+                    check_alias(e, name, &binding.borrow());
                 }
             }
             for (_, decl) in &e.borrow().property_declarations {
@@ -333,7 +326,7 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
         if !alias.is_externally_modified() {
             alias.mark_as_set();
             if let Some(bind) = alias.element().borrow().bindings.get(alias.name()) {
-                propagate_alias(bind)
+                propagate_alias(&bind.borrow())
             }
         }
     }
@@ -356,7 +349,7 @@ fn mark_used_base_properties(component: &Rc<Component>) {
                 return;
             }
             for (name, binding) in &element.borrow().bindings {
-                if binding.has_binding() {
+                if binding.borrow().has_binding() {
                     crate::namedreference::mark_property_set_derived_in_base(element.clone(), name);
                 }
             }

@@ -237,8 +237,7 @@ fn handle_property_binding(
         }
 
         let tokens_for_expression = compile_expression(binding_expression, component);
-        let is_constant =
-            binding_expression.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
+        let is_constant = binding_expression.analysis.as_ref().map_or(false, |a| a.is_const);
         init.push(if is_constant {
             let t = rust_type(&prop_type).unwrap_or(quote!(_));
 
@@ -1360,7 +1359,7 @@ fn property_animation_tokens(
     let animation = animation.borrow();
     let bindings = animation.bindings.iter().map(|(prop, initializer)| {
         let prop_ident = ident(prop);
-        let initializer = compile_expression(initializer, component);
+        let initializer = compile_expression(&initializer.borrow(), component);
         quote!(#prop_ident: #initializer as _)
     });
 
@@ -1376,13 +1375,15 @@ fn property_set_value_tokens(
     property_name: &str,
     value_tokens: TokenStream,
 ) -> TokenStream {
-    match element.borrow().bindings.get(property_name).and_then(|b| b.animation.as_ref()) {
-        Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
+    if let Some(binding) = element.borrow().bindings.get(property_name) {
+        if let Some(crate::object_tree::PropertyAnimation::Static(animation)) =
+            binding.borrow().animation.as_ref()
+        {
             let animation_tokens = property_animation_tokens(component, animation);
-            quote!(set_animated_value(#value_tokens, #animation_tokens))
+            return quote!(set_animated_value(#value_tokens, #animation_tokens));
         }
-        _ => quote!(set(#value_tokens)),
     }
+    quote!(set(#value_tokens))
 }
 
 /// Returns the code that can access the given property or callback (but without the set or get)
@@ -2445,7 +2446,7 @@ fn compile_path(path: &Path, component: &Rc<Component>) -> TokenStream {
                         .iter()
                         .map(|(property, expr)| {
                             let prop_ident = ident(property);
-                            let binding_expr = compile_expression(expr, component);
+                            let binding_expr = compile_expression(&expr.borrow(), component);
 
                             quote!(#prop_ident: #binding_expr as _).to_string()
                         })

@@ -13,6 +13,7 @@ use crate::layout::Orientation;
 use crate::object_tree::*;
 use crate::parser::{NodeOrToken, SyntaxNode};
 use core::cell::RefCell;
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
@@ -653,7 +654,7 @@ impl Expression {
             Expression::PathElements { elements } => {
                 if let Path::Elements(elements) = elements {
                     for element in elements {
-                        element.bindings.values().for_each(|binding| visitor(binding))
+                        element.bindings.values().for_each(|binding| visitor(&binding.borrow()))
                     }
                 }
             }
@@ -735,7 +736,10 @@ impl Expression {
             Expression::PathElements { elements } => {
                 if let Path::Elements(elements) = elements {
                     for element in elements {
-                        element.bindings.values_mut().for_each(|binding| visitor(binding))
+                        element
+                            .bindings
+                            .values_mut()
+                            .for_each(|binding| visitor(&mut binding.borrow_mut()))
                     }
                 }
             }
@@ -809,7 +813,7 @@ impl Expression {
                 if let Path::Elements(elements) = elements {
                     elements
                         .iter()
-                        .all(|element| element.bindings.values().all(|v| v.is_constant()))
+                        .all(|element| element.bindings.values().all(|v| v.borrow().is_constant()))
                 } else {
                     true
                 }
@@ -1073,7 +1077,7 @@ pub struct BindingExpression {
     pub animation: Option<PropertyAnimation>,
 
     /// The analysis information. None before it is computed
-    pub analysis: RefCell<Option<BindingAnalysis>>,
+    pub analysis: Option<BindingAnalysis>,
 
     /// The properties this expression is aliased with using two way bindings
     pub two_way_bindings: Vec<NamedReference>,
@@ -1165,7 +1169,7 @@ impl Spanned for BindingExpression {
 #[derive(Default, Debug, Clone)]
 pub struct BindingAnalysis {
     /// true if that binding is part of a binding loop that already has been reported.
-    pub is_in_binding_loop: bool,
+    pub is_in_binding_loop: Cell<bool>,
 
     /// true if the binding is a constant value that can be set without creating a binding at runtime
     pub is_const: bool,

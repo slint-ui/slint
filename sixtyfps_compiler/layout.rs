@@ -14,6 +14,7 @@ use crate::expression_tree::*;
 use crate::langtype::{PropertyLookupResult, Type};
 use crate::object_tree::ElementRc;
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
@@ -369,7 +370,7 @@ fn find_binding<R>(
     let mut depth = 0;
     loop {
         if let Some(b) = element.borrow().bindings.get(name) {
-            return Some(f(b, depth));
+            return Some(f(&b.borrow(), depth));
         }
         let e = match &element.borrow().base_type {
             Type::Component(base) => base.root_element.clone(),
@@ -401,7 +402,7 @@ fn init_fake_property(
             grid_layout_element
                 .borrow_mut()
                 .bindings
-                .insert(name.to_owned(), Expression::PropertyReference(e).into());
+                .insert(name.to_owned(), RefCell::new(Expression::PropertyReference(e).into()));
         }
     }
 }

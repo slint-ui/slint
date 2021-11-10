@@ -351,13 +351,13 @@ fn remove_parentheses_test() {
 
 fn new_struct_with_bindings(
     type_name: &str,
-    bindings: &BTreeMap<String, BindingExpression>,
+    bindings: &crate::object_tree::BindingsMap,
     component: &Rc<Component>,
 ) -> String {
     let bindings_initialization: Vec<String> = bindings
         .iter()
         .map(|(prop, initializer)| {
-            let initializer = compile_expression(initializer, component);
+            let initializer = compile_expression(&initializer.borrow(), component);
             format!("var.{} = {};", ident(prop), initializer)
         })
         .collect();
@@ -387,17 +387,19 @@ fn property_set_value_code(
     property_name: &str,
     value_expr: &str,
 ) -> String {
-    match element.borrow().bindings.get(property_name).and_then(|b| b.animation.as_ref()) {
-        Some(crate::object_tree::PropertyAnimation::Static(animation)) => {
+    if let Some(binding) = element.borrow().bindings.get(property_name) {
+        if let Some(crate::object_tree::PropertyAnimation::Static(animation)) =
+            binding.borrow().animation.as_ref()
+        {
             let animation_code = property_animation_code(component, animation);
-            format!(
+            return format!(
                 "set_animated_value({value}, {animation})",
                 value = value_expr,
                 animation = animation_code
-            )
+            );
         }
-        _ => format!("set({})", value_expr),
     }
+    format!("set({})", value_expr)
 }
 
 fn handle_property_binding(
@@ -445,8 +447,7 @@ fn handle_property_binding(
 
         let init_expr = compile_expression_wrap_return(binding_expression, component);
 
-        let is_constant =
-            binding_expression.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
+        let is_constant = binding_expression.analysis.as_ref().map_or(false, |a| a.is_const);
         init.push(if is_constant {
             format!("{}.set({});", prop_access, init_expr)
         } else {

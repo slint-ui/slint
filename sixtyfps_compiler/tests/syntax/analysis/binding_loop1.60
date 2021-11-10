@@ -31,8 +31,8 @@ Test := Rectangle {
     //               ^error{The binding for the property 'c' is part of a binding loop}
     property <int> d: root.a + root.e;
     //               ^error{The binding for the property 'd' is part of a binding loop}
-    property <int> e: root.b; // FIXME: should we report an error here as well?
-
+    property <int> e: root.b;
+//                   ^error{The binding for the property 'e' is part of a binding loop}
     property <int> w: root.a + root.b; // This id not part of a loopµ
 
     property<bool> cond: xx.x == 0;

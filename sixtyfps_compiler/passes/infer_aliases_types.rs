@@ -72,7 +72,7 @@ fn resolve_alias(
         None => panic!("called with not an alias?"),
     };
 
-    let nr = match &elem.borrow().bindings[prop].expression {
+    let nr = match &elem.borrow().bindings[prop].borrow().expression {
         Expression::Uncompiled(node) => {
             let node = syntax_nodes::TwoWayBinding::new(node.clone())
                 .expect("The parser only avoid missing types for two way bindings");

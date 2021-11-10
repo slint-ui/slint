@@ -71,10 +71,10 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     let mut property_sets = PropertySets::default();
     recurse_elem_including_sub_components(component, &(), &mut |e, _| {
         'bindings: for (name, binding) in &e.borrow().bindings {
-            for nr in &binding.two_way_bindings {
+            for nr in &binding.borrow().two_way_bindings {
                 let other_e = nr.element();
                 if name == nr.name() && Rc::ptr_eq(e, &other_e) {
-                    diag.push_error("Property cannot alias to itself".into(), binding);
+                    diag.push_error("Property cannot alias to itself".into(), &*binding.borrow());
                     continue 'bindings;
                 }
                 property_sets.add_link(NamedReference::new(e, name), nr.clone());
@@ -115,22 +115,23 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
 
         // adjust the bindings
         let old_binding = elem.borrow_mut().bindings.remove(remove.name());
-        let must_simplify = if let Some(mut binding) = old_binding {
+        let must_simplify = if let Some(mut binding) = old_binding.map(RefCell::into_inner) {
             remove_from_binding_expression(&mut binding, &to);
             if binding.has_binding() {
                 let to_elem = to.element();
                 match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
                     Entry::Occupied(mut e) => {
-                        remove_from_binding_expression(e.get_mut(), &to);
-                        if e.get().priority < binding.priority || !e.get().has_binding() {
-                            e.get_mut().merge_with(&binding);
+                        let b = e.get_mut().get_mut();
+                        remove_from_binding_expression(b, &to);
+                        if b.priority < binding.priority || !b.has_binding() {
+                            b.merge_with(&binding);
                         } else {
-                            binding.merge_with(e.get());
-                            *e.get_mut() = binding;
+                            binding.merge_with(b);
+                            *b = binding;
                         }
                     }
                     Entry::Vacant(e) => {
-                        e.insert(binding);
+                        e.insert(binding.into());
                     }
                 };
                 false
@@ -145,8 +146,8 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             let to_elem = to.element();
             let mut to_elem = to_elem.borrow_mut();
             if let Some(b) = to_elem.bindings.get_mut(to.name()) {
-                remove_from_binding_expression(b, &to);
-                if !b.has_binding() {
+                remove_from_binding_expression(b.get_mut(), &to);
+                if !b.get_mut().has_binding() {
                     to_elem.bindings.remove(to.name());
                 }
             }
@@ -182,7 +183,8 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 }
             } else {
                 // This is not a declaration, we must re-create the binding
-                elem.bindings.insert(remove.name().to_owned(), BindingExpression::new_two_way(to));
+                elem.bindings
+                    .insert(remove.name().to_owned(), BindingExpression::new_two_way(to).into());
             }
         }
     }

@@ -49,7 +49,7 @@ fn create_box_shadow_element(
         bindings: shadow_property_bindings
             .into_iter()
             .map(|(shadow_prop_name, expr)| {
-                (shadow_prop_name.strip_prefix("drop-shadow-").unwrap().to_string(), expr)
+                (shadow_prop_name.strip_prefix("drop-shadow-").unwrap().to_string(), expr.into())
             })
             .collect(),
         ..Default::default()
@@ -59,8 +59,13 @@ fn create_box_shadow_element(
     if sibling_element.borrow().bindings.contains_key("border-radius") {
         element.bindings.insert(
             "border-radius".to_string(),
-            Expression::PropertyReference(NamedReference::new(sibling_element, "border-radius"))
+            RefCell::new(
+                Expression::PropertyReference(NamedReference::new(
+                    sibling_element,
+                    "border-radius",
+                ))
                 .into(),
+            ),
         );
     }
 
@@ -122,7 +127,7 @@ fn take_shadow_property_bindings(element: &ElementRc) -> HashMap<String, Binding
             element.bindings.remove(&shadow_property_name).map(|binding| {
                 // Remove the drop-shadow property that was also materialized as a fake property by now.
                 element.property_declarations.remove(&shadow_property_name);
-                (shadow_property_name, binding)
+                (shadow_property_name, binding.into_inner())
             })
         })
         .collect()
@@ -192,7 +197,7 @@ pub fn lower_shadow_properties(
                     shadow_elem.bindings.entry(prop.clone()).or_insert_with(|| {
                         let binding_ref =
                             Expression::PropertyReference(NamedReference::new(&child, &prop));
-                        binding_ref.into()
+                        RefCell::new(binding_ref.into())
                     });
                 }
 

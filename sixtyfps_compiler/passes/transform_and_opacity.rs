@@ -28,7 +28,7 @@ pub(crate) fn handle_transform_and_opacity(
         diag.push_warning(
             "The opacity property cannot be used on the root element, it will not be applied"
                 .to_string(),
-            b,
+            &*b.borrow(),
         );
     }
 
@@ -80,7 +80,7 @@ fn create_opacity_element(child: &ElementRc, type_register: &TypeRegister) -> El
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: std::iter::once((
             "opacity".to_owned(),
-            BindingExpression::new_two_way(NamedReference::new(child, "opacity")),
+            BindingExpression::new_two_way(NamedReference::new(child, "opacity")).into(),
         ))
         .collect(),
         ..Default::default()

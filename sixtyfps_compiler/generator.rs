@@ -362,7 +362,7 @@ pub fn handle_property_bindings_init(
             return;
         }
         processed.insert(nr);
-        if binding_expression.analysis.borrow().as_ref().map_or(false, |a| a.is_const) {
+        if binding_expression.analysis.as_ref().map_or(false, |a| a.is_const) {
             // We must first handle all dependent properties in case it is a constant property
 
             binding_expression.expression.visit_recursive(&mut |e| {
@@ -374,7 +374,7 @@ pub fn handle_property_bindings_init(
                                 component,
                                 &elem,
                                 nr.name(),
-                                be,
+                                &be.borrow(),
                                 handle_property,
                                 processed,
                             );
@@ -393,7 +393,7 @@ pub fn handle_property_bindings_init(
                 &Rc::downgrade(component),
                 elem,
                 prop_name,
-                binding_expression,
+                &binding_expression.borrow(),
                 &mut handle_property,
                 &mut processed,
             );
