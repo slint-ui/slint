@@ -48,9 +48,6 @@ instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
 web_sys = { version = "0.3", package = "web-sys", features=["console", "CanvasRenderingContext2d", "TextMetrics", "HtmlSpanElement"] }
 wasm-bindgen = { version = "0.2" }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-pathfinder_geometry = "0.5.1"
-
 [dev-dependencies]
 pin-weak = "1"
 image = { version = "0.23.14", default-features = false, features = [ "png" ] }
