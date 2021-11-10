@@ -24,14 +24,15 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
+use event_loop::WinitWindow;
 use sixtyfps_corelib::graphics::{Brush, Color, Image, IntRect, Point, Rect, RenderingCache, Size};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{FillRule, ImageFit, ImageRendering};
 use sixtyfps_corelib::properties::Property;
 use sixtyfps_corelib::window::{Window, WindowRc};
 
-mod graphics_window;
-use graphics_window::*;
+mod glwindow;
+use glwindow::*;
 pub(crate) mod event_loop;
 mod images;
 mod svg;
@@ -349,7 +350,7 @@ pub struct GLItemRenderer {
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
     layer_images_to_delete_after_flush: Vec<CachedImage>,
-    graphics_window: Rc<GraphicsWindow>,
+    graphics_window: Rc<GLWindow>,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
@@ -1021,7 +1022,7 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn window(&self) -> WindowRc {
-        self.graphics_window.self_weak.upgrade().unwrap()
+        self.graphics_window.runtime_window()
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {
@@ -1394,7 +1395,7 @@ fn to_femtovg_color(col: &Color) -> femtovg::Color {
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<Window> {
-    sixtyfps_corelib::window::Window::new(|window| GraphicsWindow::new(window, canvas_id))
+    sixtyfps_corelib::window::Window::new(|window| GLWindow::new(window, canvas_id))
 }
 
 #[doc(hidden)]
@@ -1435,7 +1436,7 @@ pub struct Backend;
 impl sixtyfps_corelib::backend::Backend for Backend {
     fn create_window(&'static self) -> Rc<Window> {
         sixtyfps_corelib::window::Window::new(|window| {
-            GraphicsWindow::new(
+            GLWindow::new(
                 window,
                 #[cfg(target_arch = "wasm32")]
                 "canvas".into(),

@@ -16,10 +16,11 @@ use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use super::{ImageCache, ItemGraphicsCache};
+use crate::event_loop::WinitWindow;
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::*;
-use corelib::input::{KeyboardModifiers, MouseEvent};
+use corelib::input::KeyboardModifiers;
 use corelib::items::ItemRef;
 use corelib::layout::Orientation;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
@@ -31,11 +32,11 @@ use crate::CanvasRc;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
-pub struct GraphicsWindow {
-    pub(crate) self_weak: Weak<corelib::window::Window>,
+pub struct GLWindow {
+    self_weak: Weak<corelib::window::Window>,
     map_state: RefCell<GraphicsWindowBackendState>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
-    pub(crate) currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
+    currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
 
     pub(crate) graphics_cache: RefCell<ItemGraphicsCache>,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
@@ -45,7 +46,7 @@ pub struct GraphicsWindow {
     canvas_id: String,
 }
 
-impl GraphicsWindow {
+impl GLWindow {
     /// Creates a new reference-counted instance.
     ///
     /// Arguments:
@@ -218,10 +219,40 @@ impl GraphicsWindow {
     pub fn default_font_properties(&self) -> FontRequest {
         self.self_weak.upgrade().unwrap().default_font_properties()
     }
+}
+
+impl WinitWindow for GLWindow {
+    fn runtime_window(&self) -> Rc<corelib::window::Window> {
+        self.self_weak.upgrade().unwrap()
+    }
+
+    /// Sets the size of the window. This method is typically called in response to receiving a
+    /// window resize event from the windowing system.
+    /// Size is in logical pixels.
+    fn set_geometry(&self, width: f32, height: f32) {
+        if let Some(component_rc) = self.self_weak.upgrade().unwrap().try_component() {
+            let component = ComponentRc::borrow_pin(&component_rc);
+            let root_item = component.as_ref().get_item_ref(0);
+            if let Some(window_item) =
+                ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
+            {
+                window_item.width.set(width);
+                window_item.height.set(height);
+            }
+        }
+    }
+    fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
+        &self.currently_pressed_key_code
+    }
+
+    fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers> {
+        &self.keyboard_modifiers
+    }
 
     /// Draw the items of the specified `component` in the given window.
-    pub fn draw(self: Rc<Self>) {
+    fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
+        let scale_factor = runtime_window.scale_factor();
         runtime_window.draw_contents(|components| {
             let window = match self.borrow_mapped_window() {
                 Some(window) => window,
@@ -252,7 +283,7 @@ impl GraphicsWindow {
                 canvas: window.canvas.clone(),
                 layer_images_to_delete_after_flush: Default::default(),
                 graphics_window: self.clone(),
-                scale_factor: self.scale_factor(),
+                scale_factor,
                 state: vec![crate::State {
                     scissor: Rect::new(
                         Point::default(),
@@ -283,43 +314,9 @@ impl GraphicsWindow {
             window.opengl_context.make_not_current();
         });
     }
-
-    pub fn process_mouse_input(self: Rc<Self>, event: MouseEvent) {
-        self.self_weak.upgrade().unwrap().process_mouse_input(event);
-    }
-
-    /// Returns the currently active keyboard notifiers.
-    pub fn current_keyboard_modifiers(&self) -> KeyboardModifiers {
-        self.keyboard_modifiers.get()
-    }
-    /// Sets the currently active keyboard notifiers. This is used only for testing or directly
-    /// from the event loop implementation.
-    pub fn set_current_keyboard_modifiers(&self, state: KeyboardModifiers) {
-        self.keyboard_modifiers.set(state)
-    }
-
-    pub fn scale_factor(&self) -> f32 {
-        self.self_weak.upgrade().unwrap().scale_factor()
-    }
-
-    /// Sets the size of the window. This method is typically called in response to receiving a
-    /// window resize event from the windowing system.
-    /// Size is in logical pixels.
-    pub fn set_geometry(&self, width: f32, height: f32) {
-        if let Some(component_rc) = self.self_weak.upgrade().unwrap().try_component() {
-            let component = ComponentRc::borrow_pin(&component_rc);
-            let root_item = component.as_ref().get_item_ref(0);
-            if let Some(window_item) =
-                ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
-            {
-                window_item.width.set(width);
-                window_item.height.set(height);
-            }
-        }
-    }
 }
 
-impl PlatformWindow for GraphicsWindow {
+impl PlatformWindow for GLWindow {
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
@@ -418,7 +415,7 @@ impl PlatformWindow for GraphicsWindow {
                     winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
                 );
             };
-            winit_window.inner_size().to_logical(self.scale_factor() as f64)
+            winit_window.inner_size().to_logical(winit_window.scale_factor() as f64)
         };
         let mut must_resize = false;
         let mut w = width;
@@ -550,7 +547,7 @@ impl PlatformWindow for GraphicsWindow {
         text_input: Pin<&sixtyfps_corelib::items::TextInput>,
         pos: Point,
     ) -> usize {
-        let scale_factor = self.scale_factor();
+        let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
         let pos = pos * scale_factor;
         let text = text_input.text();
 
@@ -606,7 +603,7 @@ impl PlatformWindow for GraphicsWindow {
         text_input: Pin<&corelib::items::TextInput>,
         byte_offset: usize,
     ) -> Point {
-        let scale_factor = self.scale_factor();
+        let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
         let text = text_input.text();
 
         let mut result = Point::default();

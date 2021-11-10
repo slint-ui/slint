@@ -20,12 +20,20 @@ use corelib::graphics::Point;
 use corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use corelib::window::*;
 use corelib::SharedString;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 use winit::event::WindowEvent;
 
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::run_return::EventLoopExtRunReturn;
+
+pub trait WinitWindow: PlatformWindow {
+    fn runtime_window(&self) -> Rc<corelib::window::Window>;
+    fn set_geometry(&self, width: f32, height: f32);
+    fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
+    fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
+    fn draw(self: Rc<Self>);
+}
 
 struct NotRunningEventLoop {
     instance: winit::event_loop::EventLoop<CustomEvent>,
@@ -71,7 +79,7 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
 }
 
 thread_local! {
-    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<crate::graphics_window::GraphicsWindow>>> = RefCell::new(std::collections::HashMap::new());
+    static ALL_WINDOWS: RefCell<std::collections::HashMap<winit::window::WindowId, Weak<dyn WinitWindow>>> = RefCell::new(std::collections::HashMap::new());
     static MAYBE_LOOP_INSTANCE: RefCell<Option<NotRunningEventLoop>> = RefCell::new(Some(NotRunningEventLoop::new()));
 }
 
@@ -132,10 +140,7 @@ pub(crate) fn with_window_target<T>(callback: impl FnOnce(&dyn EventLoopInterfac
     }
 }
 
-pub fn register_window(
-    id: winit::window::WindowId,
-    window: Rc<crate::graphics_window::GraphicsWindow>,
-) {
+pub fn register_window(id: winit::window::WindowId, window: Rc<dyn WinitWindow>) {
     ALL_WINDOWS.with(|windows| {
         windows.borrow_mut().insert(id, Rc::downgrade(&window));
     })
@@ -147,7 +152,7 @@ pub fn unregister_window(id: winit::window::WindowId) {
     })
 }
 
-fn window_by_id(id: winit::window::WindowId) -> Option<Rc<crate::graphics_window::GraphicsWindow>> {
+fn window_by_id(id: winit::window::WindowId) -> Option<Rc<dyn WinitWindow>> {
     ALL_WINDOWS.with(|windows| windows.borrow().get(&id).and_then(|weakref| weakref.upgrade()))
 }
 
@@ -186,17 +191,17 @@ fn redraw_all_windows() {
 }
 
 fn process_window_event(
-    window: Rc<crate::graphics_window::GraphicsWindow>,
+    window: Rc<dyn WinitWindow>,
     event: WindowEvent,
     quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
     control_flow: &mut winit::event_loop::ControlFlow,
     cursor_pos: &mut Point,
     pressed: &mut bool,
 ) {
-    let runtime_window = window.self_weak.upgrade().unwrap();
+    let runtime_window = window.runtime_window();
     match event {
         WindowEvent::Resized(size) => {
-            let size = size.to_logical(window.scale_factor() as f64);
+            let size = size.to_logical(runtime_window.scale_factor() as f64);
             window.set_geometry(size.width, size.height);
         }
         WindowEvent::CloseRequested => {
@@ -216,7 +221,7 @@ fn process_window_event(
             // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
             // with a control character. We choose not to forward those but try to use the current key code instead.
             let text: Option<SharedString> = if ch.is_control() {
-                window.currently_pressed_key_code.take().and_then(winit_key_code_to_string)
+                window.currently_pressed_key_code().take().and_then(winit_key_code_to_string)
             } else {
                 Some(ch.to_string().into())
             };
@@ -226,7 +231,7 @@ fn process_window_event(
                 None => return,
             };
 
-            let modifiers = window.current_keyboard_modifiers();
+            let modifiers = window.current_keyboard_modifiers().get();
 
             let mut event = KeyEvent { event_type: KeyEventType::KeyPressed, text, modifiers };
             runtime_window.clone().process_key_input(&event);
@@ -241,7 +246,7 @@ fn process_window_event(
         }
         WindowEvent::KeyboardInput { ref input, .. } => {
             corelib::animations::update_animations();
-            window.currently_pressed_key_code.set(match input.state {
+            window.currently_pressed_key_code().set(match input.state {
                 winit::event::ElementState::Pressed => input.virtual_keycode.clone(),
                 _ => None,
             });
@@ -267,7 +272,7 @@ fn process_window_event(
                         winit::event::ElementState::Released => KeyEventType::KeyReleased,
                     },
                     text,
-                    modifiers: window.current_keyboard_modifiers(),
+                    modifiers: window.current_keyboard_modifiers().get(),
                 };
                 runtime_window.process_key_input(&event);
             };
@@ -281,13 +286,13 @@ fn process_window_event(
             let (control, meta) = (state.ctrl(), state.logo());
             let modifiers =
                 KeyboardModifiers { shift: state.shift(), alt: state.alt(), control, meta };
-            window.set_current_keyboard_modifiers(modifiers);
+            window.current_keyboard_modifiers().set(modifiers);
         }
         WindowEvent::CursorMoved { position, .. } => {
             corelib::animations::update_animations();
-            let position = position.to_logical(window.scale_factor() as f64);
+            let position = position.to_logical(runtime_window.scale_factor() as f64);
             *cursor_pos = euclid::point2(position.x, position.y);
-            window.process_mouse_input(MouseEvent::MouseMoved { pos: *cursor_pos });
+            runtime_window.process_mouse_input(MouseEvent::MouseMoved { pos: *cursor_pos });
         }
         WindowEvent::CursorLeft { .. } => {
             // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
@@ -295,7 +300,7 @@ fn process_window_event(
             if *pressed {
                 corelib::animations::update_animations();
                 *pressed = false;
-                window.process_mouse_input(MouseEvent::MouseExit);
+                runtime_window.process_mouse_input(MouseEvent::MouseExit);
             }
         }
         WindowEvent::MouseWheel { delta, .. } => {
@@ -305,11 +310,11 @@ fn process_window_event(
                     euclid::point2(lx * 60., ly * 60.)
                 }
                 winit::event::MouseScrollDelta::PixelDelta(d) => {
-                    let d = d.to_logical(window.scale_factor() as f64);
+                    let d = d.to_logical(runtime_window.scale_factor() as f64);
                     euclid::point2(d.x, d.y)
                 }
             };
-            window.process_mouse_input(MouseEvent::MouseWheel { pos: *cursor_pos, delta });
+            runtime_window.process_mouse_input(MouseEvent::MouseWheel { pos: *cursor_pos, delta });
         }
         WindowEvent::MouseInput { state, button, .. } => {
             corelib::animations::update_animations();
@@ -329,11 +334,11 @@ fn process_window_event(
                     MouseEvent::MouseReleased { pos: *cursor_pos, button }
                 }
             };
-            window.process_mouse_input(ev);
+            runtime_window.process_mouse_input(ev);
         }
         WindowEvent::Touch(touch) => {
             corelib::animations::update_animations();
-            let location = touch.location.to_logical(window.scale_factor() as f64);
+            let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
             let pos = euclid::point2(location.x, location.y);
             let ev = match touch.phase {
                 winit::event::TouchPhase::Started => {
@@ -346,7 +351,7 @@ fn process_window_event(
                 }
                 winit::event::TouchPhase::Moved => MouseEvent::MouseMoved { pos },
             };
-            window.process_mouse_input(ev);
+            runtime_window.process_mouse_input(ev);
         }
         WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size: size } => {
             let size = size.to_logical(scale_factor);
@@ -414,7 +419,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
 
                 winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
                     if let Some(window) = window_by_id(window_id) {
-                        window.self_weak.upgrade().unwrap().update_window_properties();
+                        window.runtime_window().update_window_properties();
                     }
                 }
 
