@@ -1504,8 +1504,7 @@ pub fn visit_element_expressions(
         elem: &ElementRc,
         vis: &mut impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
     ) {
-        let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
-        for (name, expr) in &mut bindings {
+        for (name, expr) in &elem.borrow().bindings {
             vis(&mut *expr.borrow_mut(), Some(name.as_str()), &|| {
                 elem.borrow().lookup_property(name).property_type
             });
@@ -1521,7 +1520,6 @@ pub fn visit_element_expressions(
                 None => (),
             }
         }
-        elem.borrow_mut().bindings = bindings;
     }
 
     let repeated = std::mem::take(&mut elem.borrow_mut().repeated);
@@ -1610,13 +1608,11 @@ pub fn visit_all_named_references_in_element(
     elem.borrow_mut().layout_info_prop = layout_info_prop;
 
     // visit two way bindings
-    let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
-    for (_, expr) in &mut bindings {
-        for nr in &mut expr.get_mut().two_way_bindings {
+    for (_, expr) in &elem.borrow().bindings {
+        for nr in &mut expr.borrow_mut().two_way_bindings {
             vis(nr);
         }
     }
-    elem.borrow_mut().bindings = bindings;
 
     let mut property_declarations = std::mem::take(&mut elem.borrow_mut().property_declarations);
     for pd in property_declarations.values_mut() {
