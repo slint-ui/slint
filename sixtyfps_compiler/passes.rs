@@ -18,6 +18,7 @@ mod collect_globals;
 mod collect_structs;
 mod collect_subcomponents;
 mod compile_paths;
+mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
 mod embed_images;
@@ -132,6 +133,12 @@ pub async fn run_passes(
         optimize_useless_rectangles::optimize_useless_rectangles(component);
         move_declarations::move_declarations(component, diag);
         remove_aliases::remove_aliases(component, diag);
+        const_propagation::const_propagation(component);
+    }
+
+    for component in (root_component.used_types.borrow().sub_components.iter())
+        .chain(std::iter::once(root_component))
+    {
         resolve_native_classes::resolve_native_classes(component);
         remove_unused_properties::remove_unused_properties(component);
     }
