@@ -30,11 +30,10 @@ fn simplify_expression(expr: &mut Expression) -> bool {
                 // Inline the constant value
                 if let Some(result) = extract_constant_property_reference(nr) {
                     *expr = result;
-                } else {
-                    return false;
+                    return true;
                 }
             }
-            true
+            false
         }
         Expression::CallbackReference { .. } => false,
         Expression::ElementReference { .. } => false,
@@ -69,12 +68,15 @@ fn extract_constant_property_reference(nr: &NamedReference) -> Option<Expression
                 break binding.expression.clone();
             }
         };
-        if let Type::Component(c) = &element.clone().borrow().base_type {
-            if !element.borrow().property_declarations.contains_key(nr.name()) {
-                element = c.root_element.clone();
-                continue;
+        if let Some(decl) = element.clone().borrow().property_declarations.get(nr.name()) {
+            if let Some(alias) = &decl.is_alias {
+                return extract_constant_property_reference(alias);
             }
+        } else if let Type::Component(c) = &element.clone().borrow().base_type {
+            element = c.root_element.clone();
+            continue;
         }
+
         // There is no binding for this property, return the default value
         return Some(Expression::default_value_for_type(&nr.ty()));
     };
