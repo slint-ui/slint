@@ -108,10 +108,6 @@ impl GLWindow {
         }
     }
 
-    fn component(&self) -> ComponentRc {
-        self.self_weak.upgrade().unwrap().component()
-    }
-
     pub fn default_font_properties(&self) -> FontRequest {
         self.self_weak.upgrade().unwrap().default_font_properties()
     }
@@ -419,8 +415,8 @@ impl PlatformWindow for GLWindow {
             return;
         }
 
-        let component = self.component();
-        let component = ComponentRc::borrow_pin(&component);
+        let component_rc = self.self_weak.upgrade().unwrap().component();
+        let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
 
         let (window_title, no_frame, is_resizable) = if let Some(window_item) =
@@ -442,8 +438,6 @@ impl PlatformWindow for GLWindow {
         let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
             window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         } else {
-            let component_rc = self.component();
-            let component = ComponentRc::borrow_pin(&component_rc);
             let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
             let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
             let s = LogicalSize::new(
