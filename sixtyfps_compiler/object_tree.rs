@@ -26,7 +26,6 @@ use crate::typeregister::TypeRegister;
 use std::cell::{Cell, RefCell};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap};
-use std::iter::FromIterator;
 use std::rc::{Rc, Weak};
 
 macro_rules! unwrap_or_continue {
@@ -411,45 +410,7 @@ impl Clone for PropertyAnimation {
     }
 }
 
-// Wrapper around BindingsMap to offer an animation-preserving "insert" variant.
-#[derive(Debug, Clone, Default, derive_more::Deref, derive_more::DerefMut)]
-pub struct BindingsMap(BTreeMap<String, BindingExpression>);
-
-impl IntoIterator for BindingsMap {
-    type Item = (String, BindingExpression);
-
-    type IntoIter = std::collections::btree_map::IntoIter<String, BindingExpression>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a BindingsMap {
-    type Item = (&'a String, &'a BindingExpression);
-
-    type IntoIter = std::collections::btree_map::Iter<'a, String, BindingExpression>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        (&self.0).iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut BindingsMap {
-    type Item = (&'a String, &'a mut BindingExpression);
-
-    type IntoIter = std::collections::btree_map::IterMut<'a, String, BindingExpression>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter_mut()
-    }
-}
-
-impl FromIterator<(String, BindingExpression)> for BindingsMap {
-    fn from_iter<T: IntoIterator<Item = (String, BindingExpression)>>(iter: T) -> Self {
-        Self(BTreeMap::from_iter(iter))
-    }
-}
+pub type BindingsMap = BTreeMap<String, RefCell<BindingExpression>>;
 
 /// An Element is an instantiation of a Component
 #[derive(Default)]
@@ -541,10 +502,11 @@ pub fn pretty_print(
         }
     }
     for (name, expr) in &e.bindings {
+        let expr = expr.borrow();
         indent!();
         write!(f, "{}: ", name)?;
         expression_tree::pretty_print(f, &expr.expression)?;
-        if expr.analysis.borrow().as_ref().map_or(false, |a| a.is_const) {
+        if expr.analysis.as_ref().map_or(false, |a| a.is_const) {
             write!(f, "/*const*/")?;
         }
         writeln!(f, ";")?;
@@ -743,7 +705,10 @@ impl Element {
 
             if let Some(csn) = prop_decl.BindingExpression() {
                 if r.bindings
-                    .insert(prop_name.to_string(), BindingExpression::new_uncompiled(csn.into()))
+                    .insert(
+                        prop_name.to_string(),
+                        BindingExpression::new_uncompiled(csn.into()).into(),
+                    )
                     .is_some()
                 {
                     diag.push_error(
@@ -754,7 +719,7 @@ impl Element {
             }
             if let Some(csn) = prop_decl.TwoWayBinding() {
                 if r.bindings
-                    .insert(prop_name.into(), BindingExpression::new_uncompiled(csn.into()))
+                    .insert(prop_name.into(), BindingExpression::new_uncompiled(csn.into()).into())
                     .is_some()
                 {
                     diag.push_error(
@@ -780,7 +745,9 @@ impl Element {
         if let Type::Builtin(builtin_base) = &r.base_type {
             for (prop, info) in &builtin_base.properties {
                 if let Some(expr) = &info.default_value {
-                    r.bindings.entry(prop.clone()).or_insert_with(|| expr.clone().into());
+                    r.bindings
+                        .entry(prop.clone())
+                        .or_insert_with(|| RefCell::new(expr.clone().into()));
                 }
             }
         }
@@ -790,7 +757,8 @@ impl Element {
                 unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
 
             if let Some(csn) = sig_decl.TwoWayBinding() {
-                r.bindings.insert(name.clone(), BindingExpression::new_uncompiled(csn.into()));
+                r.bindings
+                    .insert(name.clone(), BindingExpression::new_uncompiled(csn.into()).into());
                 r.property_declarations.insert(
                     name,
                     PropertyDeclaration {
@@ -845,7 +813,7 @@ impl Element {
             if r.bindings
                 .insert(
                     resolved_name.into_owned(),
-                    BindingExpression::new_uncompiled(con_node.clone().into()),
+                    BindingExpression::new_uncompiled(con_node.clone().into()).into(),
                 )
                 .is_some()
             {
@@ -888,9 +856,10 @@ impl Element {
                                     let mut r = BindingExpression::from(Expression::Invalid);
                                     r.priority = 1;
                                     r.span = Some(prop_name_token.to_source_location());
-                                    r
+                                    r.into()
                                 });
                             if expr_binding
+                                .get_mut()
                                 .animation
                                 .replace(PropertyAnimation::Static(anim_element))
                                 .is_some()
@@ -1154,7 +1123,7 @@ impl Element {
 
             if self
                 .bindings
-                .insert(resolved_name.to_string(), BindingExpression::new_uncompiled(b))
+                .insert(resolved_name.to_string(), BindingExpression::new_uncompiled(b).into())
                 .is_some()
             {
                 diag.push_error("Duplicated property binding".into(), &name_token);
@@ -1210,11 +1179,9 @@ impl Element {
     /// If `need_explicit` is true, then only consider binding set in the code, not the ones set
     /// by the compiler later.
     pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
-        if self
-            .bindings
-            .get(property_name)
-            .map_or(false, |b| b.has_binding() && (!need_explicit || b.priority > 0))
-        {
+        if self.bindings.get(property_name).map_or(false, |b| {
+            b.borrow().has_binding() && (!need_explicit || b.borrow().priority > 0)
+        }) {
             true
         } else if let Type::Component(base) = &self.base_type {
             base.root_element.borrow().is_binding_set(property_name, need_explicit)
@@ -1238,12 +1205,12 @@ impl Element {
             Entry::Vacant(vacant_entry) => {
                 let mut binding: BindingExpression = expression_fn().into();
                 binding.priority = i32::MAX;
-                vacant_entry.insert(binding);
+                vacant_entry.insert(binding.into());
             }
             Entry::Occupied(mut existing_entry) => {
                 let mut binding: BindingExpression = expression_fn().into();
                 binding.priority = i32::MAX;
-                existing_entry.get_mut().merge_with(&binding);
+                existing_entry.get_mut().get_mut().merge_with(&binding);
             }
         };
     }
@@ -1539,9 +1506,11 @@ pub fn visit_element_expressions(
     ) {
         let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
         for (name, expr) in &mut bindings {
-            vis(expr, Some(name.as_str()), &|| elem.borrow().lookup_property(name).property_type);
+            vis(&mut *expr.borrow_mut(), Some(name.as_str()), &|| {
+                elem.borrow().lookup_property(name).property_type
+            });
 
-            match &mut expr.animation {
+            match &mut expr.borrow_mut().animation {
                 Some(PropertyAnimation::Static(e)) => visit_element_expressions_simple(e, vis),
                 Some(PropertyAnimation::Transition { animations, state_ref }) => {
                     vis(state_ref, None, &|| Type::Int32);
@@ -1643,7 +1612,7 @@ pub fn visit_all_named_references_in_element(
     // visit two way bindings
     let mut bindings = std::mem::take(&mut elem.borrow_mut().bindings);
     for (_, expr) in &mut bindings {
-        for nr in &mut expr.two_way_bindings {
+        for nr in &mut expr.get_mut().two_way_bindings {
             vis(nr);
         }
     }

@@ -19,6 +19,7 @@ use crate::layout::*;
 use crate::object_tree::*;
 use crate::typeloader::TypeLoader;
 use crate::typeregister::TypeRegister;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -170,14 +171,16 @@ fn lower_grid_layout(
         BindingExpression::new_with_span(
             Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Horizontal),
             span.clone(),
-        ),
+        )
+        .into(),
     );
     layout_cache_prop_v.element().borrow_mut().bindings.insert(
         layout_cache_prop_v.name().into(),
         BindingExpression::new_with_span(
             Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Vertical),
             span.clone(),
-        ),
+        )
+        .into(),
     );
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().into(),
@@ -187,14 +190,16 @@ fn lower_grid_layout(
                 Orientation::Horizontal,
             ),
             span.clone(),
-        ),
+        )
+        .into(),
     );
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().into(),
         BindingExpression::new_with_span(
             Expression::ComputeLayoutInfo(Layout::GridLayout(grid), Orientation::Vertical),
             span,
-        ),
+        )
+        .into(),
     );
     grid_layout_element.borrow_mut().layout_info_prop =
         Some((layout_info_prop_h, layout_info_prop_v));
@@ -214,7 +219,7 @@ impl GridLayout {
                 .borrow_mut()
                 .bindings
                 .remove(name)
-                .and_then(|e| eval_const_expr(&e.expression, name, &e, diag))
+                .and_then(|e| eval_const_expr(&e.borrow().expression, name, &*e.borrow(), diag))
         };
         let colspan = get_const_value("colspan").unwrap_or(1);
         let rowspan = get_const_value("rowspan").unwrap_or(1);
@@ -344,10 +349,13 @@ fn lower_box_layout(
                 );
             }
             if let Some(pad_expr) = pad_expr.clone() {
-                actual_elem.borrow_mut().bindings.insert(pad.into(), pad_expr.into());
+                actual_elem.borrow_mut().bindings.insert(pad.into(), RefCell::new(pad_expr.into()));
             }
             if !fixed_ortho {
-                actual_elem.borrow_mut().bindings.insert(ortho.into(), size_expr.clone().into());
+                actual_elem
+                    .borrow_mut()
+                    .bindings
+                    .insert(ortho.into(), RefCell::new(size_expr.clone().into()));
             }
             layout.elems.push(item.item);
         }
@@ -359,7 +367,8 @@ fn lower_box_layout(
         BindingExpression::new_with_span(
             Expression::SolveLayout(Layout::BoxLayout(layout.clone()), orientation),
             span.clone(),
-        ),
+        )
+        .into(),
     );
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().into(),
@@ -369,14 +378,16 @@ fn lower_box_layout(
                 Orientation::Horizontal,
             ),
             span.clone(),
-        ),
+        )
+        .into(),
     );
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().into(),
         BindingExpression::new_with_span(
             Expression::ComputeLayoutInfo(Layout::BoxLayout(layout), Orientation::Vertical),
             span,
-        ),
+        )
+        .into(),
     );
     layout_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
 }
@@ -412,6 +423,7 @@ fn lower_dialog_layout(
         let dialog_button_role_binding =
             layout_child.borrow_mut().bindings.remove("dialog-button-role");
         let is_button = if let Some(role_binding) = dialog_button_role_binding {
+            let role_binding = role_binding.into_inner();
             if let Expression::EnumerationValue(val) = &role_binding.expression {
                 let en = &val.enumeration;
                 debug_assert_eq!(en.name, "DialogButtonRole");
@@ -438,6 +450,7 @@ fn lower_dialog_layout(
                     &*layout_child.borrow(),
                 ),
                 Some(binding) => {
+                    let binding = &*binding.borrow();
                     if let Expression::EnumerationValue(val) = &binding.expression {
                         let en = &val.enumeration;
                         debug_assert_eq!(en.name, "StandardButtonKind");
@@ -471,11 +484,9 @@ fn lower_dialog_layout(
                             let clicked_ty =
                                 layout_child.borrow().lookup_property("clicked").property_type;
                             if matches!(&clicked_ty, Type::Callback { .. })
-                                && layout_child
-                                    .borrow()
-                                    .bindings
-                                    .get("clicked")
-                                    .map_or(true, |c| matches!(c.expression, Expression::Invalid))
+                                && layout_child.borrow().bindings.get("clicked").map_or(true, |c| {
+                                    matches!(c.borrow().expression, Expression::Invalid)
+                                })
                             {
                                 dialog_element
                                     .borrow_mut()
@@ -549,14 +560,16 @@ fn lower_dialog_layout(
         BindingExpression::new_with_span(
             Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Horizontal),
             span.clone(),
-        ),
+        )
+        .into(),
     );
     layout_cache_prop_v.element().borrow_mut().bindings.insert(
         layout_cache_prop_v.name().into(),
         BindingExpression::new_with_span(
             Expression::SolveLayout(Layout::GridLayout(grid.clone()), Orientation::Vertical),
             span.clone(),
-        ),
+        )
+        .into(),
     );
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().into(),
@@ -566,14 +579,16 @@ fn lower_dialog_layout(
                 Orientation::Horizontal,
             ),
             span.clone(),
-        ),
+        )
+        .into(),
     );
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().into(),
         BindingExpression::new_with_span(
             Expression::ComputeLayoutInfo(Layout::GridLayout(grid), Orientation::Vertical),
             span,
-        ),
+        )
+        .into(),
     );
     dialog_element.borrow_mut().layout_info_prop = Some((layout_info_prop_h, layout_info_prop_v));
 }
@@ -581,7 +596,12 @@ fn lower_dialog_layout(
 fn lower_path_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
     let layout_cache_prop = create_new_prop(layout_element, "layout-cache", Type::LayoutCache);
 
-    let path_elements_expr = match layout_element.borrow_mut().bindings.remove("elements") {
+    let path_elements_expr = match layout_element
+        .borrow_mut()
+        .bindings
+        .remove("elements")
+        .map(RefCell::into_inner)
+    {
         Some(BindingExpression { expression: Expression::PathElements { elements }, .. }) => {
             elements
         }
@@ -619,7 +639,7 @@ fn lower_path_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
                     rhs: Box::new(Expression::NumberLiteral(2., Unit::None)),
                 }),
             };
-            actual_elem.borrow_mut().bindings.insert(prop.into(), expression.into());
+            actual_elem.borrow_mut().bindings.insert(prop.into(), RefCell::new(expression.into()));
         };
         set_prop_from_cache("x", 0, "width");
         set_prop_from_cache("y", 1, "height");
@@ -643,7 +663,7 @@ fn lower_path_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
         .element()
         .borrow_mut()
         .bindings
-        .insert(layout_cache_prop.name().into(), binding);
+        .insert(layout_cache_prop.name().into(), binding.into());
 }
 
 struct CreateLayoutItemResult {
@@ -658,7 +678,7 @@ fn create_layout_item(
     diag: &mut BuildDiagnostics,
 ) -> Option<CreateLayoutItemResult> {
     let fix_explicit_percent = |prop: &str, item: &ElementRc| {
-        if !item.borrow().bindings.get(prop).map_or(false, |b| b.ty() == Type::Percent) {
+        if !item.borrow().bindings.get(prop).map_or(false, |b| b.borrow().ty() == Type::Percent) {
             return;
         }
         let mut item = item.borrow_mut();
@@ -723,9 +743,10 @@ fn set_prop_from_cache(
                 repeater_index: repeater_index.as_ref().map(|x| Box::new(x.clone())),
             },
             layout_cache_prop.element().borrow().to_source_location(),
-        ),
+        )
+        .into(),
     );
-    if let Some(old) = old {
+    if let Some(old) = old.map(RefCell::into_inner) {
         diag.push_error(
             format!("The property '{}' cannot be set for elements placed in a layout, because the layout is already setting it", prop),
             &old,
@@ -781,10 +802,10 @@ pub fn create_new_prop(elem: &ElementRc, tentative_name: &str, ty: Type) -> Name
 fn check_no_layout_properties(item: &ElementRc, diag: &mut BuildDiagnostics) {
     for (prop, expr) in item.borrow().bindings.iter() {
         if matches!(prop.as_ref(), "col" | "row" | "colspan" | "rowspan") {
-            diag.push_error(format!("{} used outside of a GridLayout", prop), expr);
+            diag.push_error(format!("{} used outside of a GridLayout", prop), &*expr.borrow());
         }
         if matches!(prop.as_ref(), "dialog-button-role") {
-            diag.push_error(format!("{} used outside of a Dialog", prop), expr);
+            diag.push_error(format!("{} used outside of a Dialog", prop), &*expr.borrow());
         }
     }
 }

@@ -7,17 +7,20 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+//! This pass converts the verbose markup used for paths, such as
+//!    Path {
+//!        LineTo { ... } ArcTo { ... }
+//!    }
+//! to a vector of path elements (PathData) that is assigned to the
+//! elements property of the Path element. That way the generators have to deal
+//! with path embedding only as part of the property assignment.
+
 use crate::diagnostics::BuildDiagnostics;
-/// This pass converts the verbose markup used for paths, such as
-///    Path {
-///        LineTo { ... } ArcTo { ... }
-///    }
-/// to a vector of path elements (PathData) that is assigned to the
-/// elements property of the Path element. That way the generators have to deal
-/// with path embedding only as part of the property assignment.
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 pub fn compile_paths(
@@ -49,7 +52,9 @@ pub fn compile_paths(
 
         let mut elem = elem_.borrow_mut();
 
-        let path_data = if let Some(commands_expr) = elem.bindings.remove("commands") {
+        let path_data = if let Some(commands_expr) =
+            elem.bindings.remove("commands").map(RefCell::into_inner)
+        {
             if let Some(path_child) = elem.children.iter().find(|child| {
                 element_types
                     .contains_key(&child.borrow().base_type.as_builtin().native_class.class_name)
@@ -109,7 +114,9 @@ pub fn compile_paths(
             crate::expression_tree::Path::Elements(path_data)
         };
 
-        elem.bindings
-            .insert("elements".into(), Expression::PathElements { elements: path_data }.into());
+        elem.bindings.insert(
+            "elements".into(),
+            RefCell::new(Expression::PathElements { elements: path_data }.into()),
+        );
     });
 }

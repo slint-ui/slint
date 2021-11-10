@@ -133,7 +133,7 @@ pub fn resolve_expressions(
                 }
             });
             for (prop, nr) in two_ways {
-                elem.borrow_mut().bindings.get_mut(&prop).unwrap().two_way_bindings.push(nr);
+                elem.borrow().bindings.get(&prop).unwrap().borrow_mut().two_way_bindings.push(nr);
             }
             new_scope.0.pop();
             new_scope

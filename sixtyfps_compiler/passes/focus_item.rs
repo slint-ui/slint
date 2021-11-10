@@ -25,7 +25,7 @@ enum FocusCheckResult {
 
 pub fn get_explicit_forward_focus(
     element: &ElementRc,
-) -> Option<std::cell::Ref<BindingExpression>> {
+) -> Option<std::cell::Ref<std::cell::RefCell<BindingExpression>>> {
     let element = element.borrow();
     if element.bindings.contains_key("forward-focus") {
         Some(std::cell::Ref::map(element, |elem| &elem.bindings["forward-focus"]))
@@ -36,6 +36,7 @@ pub fn get_explicit_forward_focus(
 
 fn element_focus_check(element: &ElementRc) -> FocusCheckResult {
     if let Some(forwarded_focus_binding) = get_explicit_forward_focus(element) {
+        let forwarded_focus_binding = forwarded_focus_binding.borrow();
         if let Expression::ElementReference(target) = &forwarded_focus_binding.expression {
             return FocusCheckResult::FocusForwarded(
                 target.upgrade().unwrap(),

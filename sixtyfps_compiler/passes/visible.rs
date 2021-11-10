@@ -77,11 +77,15 @@ fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: std::iter::once((
             "clip".to_owned(),
-            Expression::UnaryOp {
-                sub: Box::new(Expression::PropertyReference(NamedReference::new(child, "visible"))),
-                op: '!',
-            }
-            .into(),
+            RefCell::new(
+                Expression::UnaryOp {
+                    sub: Box::new(Expression::PropertyReference(NamedReference::new(
+                        child, "visible",
+                    ))),
+                    op: '!',
+                }
+                .into(),
+            ),
         ))
         .collect(),
         ..Default::default()

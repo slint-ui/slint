@@ -157,12 +157,12 @@ fn inline_element(
     for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
         match elem_mut.bindings.entry(k.clone()) {
             std::collections::btree_map::Entry::Vacant(entry) => {
-                let priority = &mut entry.insert(val.clone()).priority;
+                let priority = &mut entry.insert(val.clone()).get_mut().priority;
                 *priority = priority.saturating_add(1);
             }
             std::collections::btree_map::Entry::Occupied(mut entry) => {
-                let entry = entry.get_mut();
-                if entry.merge_with(val) {
+                let entry = entry.get_mut().get_mut();
+                if entry.merge_with(&val.borrow()) {
                     entry.priority = entry.priority.saturating_add(1);
                 }
             }
@@ -319,10 +319,11 @@ fn duplicate_popup(
 /// Clone and increase the priority of a binding
 /// and duplicate its animation
 fn duplicate_binding(
-    (k, b): (&String, &BindingExpression),
+    (k, b): (&String, &RefCell<BindingExpression>),
     mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
     root_component: &Rc<Component>,
-) -> (String, BindingExpression) {
+) -> (String, RefCell<BindingExpression>) {
+    let b = b.borrow();
     let b = BindingExpression {
         expression: b.expression.clone(),
         span: b.span.clone(),
@@ -334,7 +335,7 @@ fn duplicate_binding(
         analysis: b.analysis.clone(),
         two_way_bindings: b.two_way_bindings.clone(),
     };
-    (k.clone(), b)
+    (k.clone(), b.into())
 }
 
 fn duplicate_property_animation(
@@ -448,6 +449,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
     }
 
     for (prop, binding) in &root_element.borrow().bindings {
+        let binding = binding.borrow();
         // The passes that dp the drop shadow or the opacity currently won't allow this property
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-") || prop == "opacity" {
@@ -480,6 +482,7 @@ fn element_require_inlining(elem: &ElementRc) -> bool {
             return true;
         }
 
+        let binding = binding.borrow();
         if binding.animation.is_some() && matches!(binding.expression, Expression::Invalid) {
             // If there is an animation but no binding, we must merge the binding with its animation.
             return true;

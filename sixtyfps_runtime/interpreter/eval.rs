@@ -17,13 +17,12 @@ use corelib::rtti::AnimatedBindingKind;
 use corelib::window::{WindowHandleAccess, WindowRc};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use sixtyfps_compilerlib::expression_tree::{
-    BindingExpression, BuiltinFunction, EasingCurve, Expression, Path as ExprPath,
-    PathElement as ExprPathElement,
+    BuiltinFunction, EasingCurve, Expression, Path as ExprPath, PathElement as ExprPathElement,
 };
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_corelib as corelib;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 pub trait ErasedPropertyInfo {
@@ -759,10 +758,13 @@ pub fn store_property(
 ) -> Result<(), SetPropertyError> {
     generativity::make_guard!(guard);
     let enclosing_component = enclosing_component_for_element(element, component_instance, guard);
-    let maybe_animation = crate::dynamic_component::animation_for_property(
-        enclosing_component,
-        element.borrow().bindings.get(name).map_or(&None, |b| &b.animation),
-    );
+    let maybe_animation = match element.borrow().bindings.get(name) {
+        Some(b) => crate::dynamic_component::animation_for_property(
+            enclosing_component,
+            &b.borrow().animation,
+        ),
+        None => crate::dynamic_component::animation_for_property(enclosing_component, &None),
+    };
 
     let component = element.borrow().enclosing_component.upgrade().unwrap();
     if element.borrow().id == component.root_element.borrow().id {
@@ -993,13 +995,13 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
 }
 
 pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::BuiltinItem>(
-    bindings: &BTreeMap<String, BindingExpression>,
+    bindings: &sixtyfps_compilerlib::object_tree::BindingsMap,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();
     for (prop, info) in ElementType::fields::<Value>().into_iter() {
         if let Some(binding) = &bindings.get(prop) {
-            let value = eval_expression(binding, local_context);
+            let value = eval_expression(&binding.borrow(), local_context);
             info.set_field(&mut element, value).unwrap();
         }
     }

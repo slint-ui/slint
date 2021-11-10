@@ -1170,7 +1170,7 @@ pub fn instantiate(
             continue;
         }
         if let Some(b) = component_type.original.root_element.borrow().bindings.get(prop_name) {
-            if b.two_way_bindings.is_empty() {
+            if b.borrow().two_way_bindings.is_empty() {
                 continue;
             }
         }
@@ -1189,7 +1189,7 @@ pub fn instantiate(
                 &elem.borrow().enclosing_component.upgrade().unwrap().root_element,
             );
             let elem = elem.borrow();
-            let is_const = binding.analysis.borrow().as_ref().map_or(false, |a| a.is_const);
+            let is_const = binding.analysis.as_ref().map_or(false, |a| a.is_const);
 
             let property_type = elem.lookup_property(prop_name).property_type;
             if let Type::Callback { .. } = property_type {

@@ -14,6 +14,7 @@ use crate::diagnostics::SourceLocation;
 use crate::expression_tree::*;
 use crate::langtype::Type;
 use crate::object_tree::*;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::{collections::HashMap, rc::Rc};
 
@@ -86,10 +87,10 @@ fn lower_state_in_element(
             };
             match e.borrow_mut().bindings.entry(ne.name().to_owned()) {
                 std::collections::btree_map::Entry::Occupied(mut e) => {
-                    e.get_mut().expression = new_expr
+                    e.get_mut().get_mut().expression = new_expr
                 }
                 std::collections::btree_map::Entry::Vacant(e) => {
-                    e.insert(new_expr.into());
+                    e.insert(RefCell::new(new_expr.into()));
                 }
             };
         }
@@ -103,7 +104,10 @@ fn lower_state_in_element(
             ..PropertyDeclaration::default()
         },
     );
-    root_element.borrow_mut().bindings.insert(state_property_name, state_value.into());
+    root_element
+        .borrow_mut()
+        .bindings
+        .insert(state_property_name, RefCell::new(state_value.into()));
 
     lower_transitions_in_element(
         root_element,
@@ -153,7 +157,7 @@ fn lower_transitions_in_element(
     for (ne, (span, animations)) in props {
         let e = ne.element();
         // We check earlier that the property is in the set of changed properties, so a binding bust have been assigned
-        let old_anim = e.borrow_mut().bindings.get_mut(ne.name()).unwrap().animation.replace(
+        let old_anim = e.borrow().bindings.get(ne.name()).unwrap().borrow_mut().animation.replace(
             PropertyAnimation::Transition { state_ref: state_property.clone(), animations },
         );
         if old_anim.is_some() {
@@ -189,6 +193,7 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
     let mut element_it = Some(element.clone());
     while let Some(element) = element_it {
         if let Some(e) = element.borrow().bindings.get(name) {
+            let e = e.borrow();
             if !e.two_way_bindings.is_empty() {
                 return ExpressionForProperty::TwoWayBinding;
             }

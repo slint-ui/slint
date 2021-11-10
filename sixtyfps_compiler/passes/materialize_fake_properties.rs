@@ -53,10 +53,10 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
             let span = elem_mut.to_source_location();
             match elem_mut.bindings.entry(nr.name().into()) {
                 std::collections::btree_map::Entry::Vacant(e) => {
-                    e.insert(BindingExpression::new_with_span(init_expr, span));
+                    e.insert(BindingExpression::new_with_span(init_expr, span).into());
                 }
                 std::collections::btree_map::Entry::Occupied(mut e) => {
-                    e.get_mut().expression = init_expr;
+                    e.get_mut().get_mut().expression = init_expr;
                 }
             }
         }
@@ -67,7 +67,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 fn must_initialize(elem: &Element, prop: &str) -> bool {
     match elem.bindings.get(prop) {
         None => true,
-        Some(b) => matches!(b.expression, Expression::Invalid),
+        Some(b) => matches!(b.borrow().expression, Expression::Invalid),
     }
 }
 

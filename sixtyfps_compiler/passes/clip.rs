@@ -45,7 +45,7 @@ pub fn handle_clip(
                     _ => {
                         diag.push_error(
                             "The 'clip' property can only be applied to a Rectangle or a Path for now".into(),
-                            &elem.bindings.get("clip").and_then(|x| x.span.clone()).or_else(|| elem.node.as_ref().map(|e| e.to_source_location())),
+                            &elem.bindings.get("clip").and_then(|x| x.borrow().span.clone()).or_else(|| elem.node.as_ref().map(|e| e.to_source_location())),
                         );
                         return;
                     }
@@ -71,10 +71,12 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     drop(parent); // NamedReference::new will borrow() the parent, so we can't hold a mutable ref
     clip.borrow_mut().bindings = ["width", "height"]
         .iter()
-        .map(|prop| -> (String, BindingExpression) {
+        .map(|prop| {
             (
                 (*prop).to_owned(),
-                Expression::PropertyReference(NamedReference::new(parent_elem, prop)).into(),
+                RefCell::new(
+                    Expression::PropertyReference(NamedReference::new(parent_elem, prop)).into(),
+                ),
             )
         })
         .collect();
@@ -82,13 +84,18 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
         if parent_elem.borrow().bindings.contains_key(*optional_binding) {
             clip.borrow_mut().bindings.insert(
                 optional_binding.to_string(),
-                Expression::PropertyReference(NamedReference::new(parent_elem, optional_binding))
+                RefCell::new(
+                    Expression::PropertyReference(NamedReference::new(
+                        parent_elem,
+                        optional_binding,
+                    ))
                     .into(),
+                ),
             );
         }
     }
     clip.borrow_mut().bindings.insert(
         "clip".to_owned(),
-        BindingExpression::new_two_way(NamedReference::new(parent_elem, "clip")),
+        BindingExpression::new_two_way(NamedReference::new(parent_elem, "clip")).into(),
     );
 }

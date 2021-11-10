@@ -60,12 +60,15 @@ fn create_repeater_components(component: &Rc<Component>) {
                     &comp.root_element,
                     "preferred-height",
                 ));
-                comp.root_element.borrow_mut().bindings.insert("height".into(), preferred.into());
+                comp.root_element
+                    .borrow_mut()
+                    .bindings
+                    .insert("height".into(), RefCell::new(preferred.into()));
             }
             if !comp.root_element.borrow().bindings.contains_key("width") {
                 comp.root_element.borrow_mut().bindings.insert(
                     "width".into(),
-                    Expression::PropertyReference(listview.listview_width).into(),
+                    RefCell::new(Expression::PropertyReference(listview.listview_width).into()),
                 );
             }
         }

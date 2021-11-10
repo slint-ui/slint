@@ -16,6 +16,7 @@ LICENSE END */
     This pass must be run after lower_layout
 */
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
@@ -157,9 +158,9 @@ fn gen_layout_info_prop(elem: &ElementRc) {
     }
 
     let expr_v = BindingExpression::new_with_span(expr_v, elem.borrow().to_source_location());
-    li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v);
+    li_v.element().borrow_mut().bindings.insert(li_v.name().into(), expr_v.into());
     let expr_h = BindingExpression::new_with_span(expr_h, elem.borrow().to_source_location());
-    li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h);
+    li_h.element().borrow_mut().bindings.insert(li_h.name().into(), expr_h.into());
 }
 
 /// Replace expression such as  `"width: 30%;` with `width: 0.3 * parent.width;`
@@ -169,11 +170,16 @@ fn fix_percent_size(
     property: &str,
     diag: &mut BuildDiagnostics,
 ) {
-    if !elem.borrow().bindings.get(property).map_or(false, |b| b.ty() == Type::Percent) {
+    let elem = elem.borrow();
+    let binding = match elem.bindings.get(property) {
+        Some(b) => b,
+        None => return,
+    };
+
+    if binding.borrow().ty() != Type::Percent {
         return;
     }
-    let mut elem = elem.borrow_mut();
-    let b = elem.bindings.get_mut(property).unwrap();
+    let mut b = binding.borrow_mut();
     if let Some(parent) = parent {
         debug_assert_eq!(
             parent.borrow().lookup_property(property),
@@ -271,5 +277,7 @@ fn make_default_aspect_ratio_preserving_binding(
         },
     ]);
 
-    elem.borrow_mut().bindings.insert(missing_size_property.to_string(), binding.into());
+    elem.borrow_mut()
+        .bindings
+        .insert(missing_size_property.to_string(), RefCell::new(binding.into()));
 }

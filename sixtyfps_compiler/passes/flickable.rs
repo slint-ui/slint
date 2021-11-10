@@ -68,10 +68,10 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
             flickable.property_declarations.insert(prop.to_owned(), info.ty.clone().into());
             match flickable.bindings.entry(prop.to_owned()) {
                 std::collections::btree_map::Entry::Occupied(entry) => {
-                    entry.into_mut().two_way_bindings.push(nr);
+                    entry.into_mut().get_mut().two_way_bindings.push(nr);
                 }
                 std::collections::btree_map::Entry::Vacant(entry) => {
-                    entry.insert(BindingExpression::new_two_way(nr));
+                    entry.insert(BindingExpression::new_two_way(nr).into());
                 }
             }
         }
@@ -157,7 +157,7 @@ fn set_binding_if_not_explicit(
     expression: impl FnOnce() -> Option<Expression>,
 ) {
     // we can't use `set_binding_if_not_set` directly because `expression()` may borrow `elem`
-    if elem.borrow().bindings.get(property).map_or(true, |b| !b.has_binding()) {
+    if elem.borrow().bindings.get(property).map_or(true, |b| !b.borrow().has_binding()) {
         if let Some(e) = expression() {
             elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
         }
