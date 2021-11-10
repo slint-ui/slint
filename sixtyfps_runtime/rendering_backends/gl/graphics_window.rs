@@ -93,26 +93,21 @@ impl GraphicsWindow {
         let component = ComponentRc::borrow_pin(&component);
         let root_item = component.as_ref().get_item_ref(0);
 
-        let (window_title, no_frame, w_height, w_width) = if let Some(window_item) =
+        let (window_title, no_frame, is_resizable) = if let Some(window_item) =
             ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
         {
             (
                 window_item.title().to_string(),
                 window_item.no_frame(),
-                window_item.height(),
-                window_item.width(),
+                window_item.height() == 0. && window_item.width() == 0.,
             )
         } else {
-            ("SixtyFPS Window".to_string(), false, 0., 0.)
+            ("SixtyFPS Window".to_string(), false, true)
         };
 
-        let window_builder = winit::window::WindowBuilder::new().with_title(window_title);
-
-        let window_builder = if w_height > 0. && w_width > 0. {
-            window_builder.with_resizable(false)
-        } else {
-            window_builder
-        };
+        let window_builder = winit::window::WindowBuilder::new()
+            .with_title(window_title)
+            .with_resizable(is_resizable);
 
         let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
             window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
