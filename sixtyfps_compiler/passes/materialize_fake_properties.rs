@@ -15,33 +15,47 @@ use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, Expression, Unit};
 use crate::langtype::Type;
 use crate::layout::Orientation;
+use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
 pub fn materialize_fake_properties(component: &Rc<Component>) {
-    let mut to_initialize = std::collections::HashSet::new();
+    let mut to_materialize = std::collections::HashMap::new();
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         visit_all_named_references_in_element(elem, |nr| {
             let elem = nr.element();
-            let mut elem = elem.borrow_mut();
-            let elem = &mut *elem;
-            if maybe_materialize(&mut elem.property_declarations, &elem.base_type, nr.name())
-                && must_initialize(elem, nr.name())
-            {
-                to_initialize.insert(nr.clone());
+            let elem = elem.borrow();
+            if !to_materialize.contains_key(nr) {
+                if let Some(ty) =
+                    should_materialize(&elem.property_declarations, &elem.base_type, nr.name())
+                {
+                    to_materialize.insert(nr.clone(), ty);
+                }
             }
         });
-        let mut elem = elem.borrow_mut();
-        let elem = &mut *elem;
-        for prop in elem.bindings.keys() {
-            maybe_materialize(&mut elem.property_declarations, &elem.base_type, prop);
+        for prop in elem.borrow().bindings.keys() {
+            let nr = NamedReference::new(&elem, &prop);
+            if !to_materialize.contains_key(&nr) {
+                let elem = elem.borrow();
+                if let Some(ty) =
+                    should_materialize(&elem.property_declarations, &elem.base_type, prop)
+                {
+                    to_materialize.insert(nr, ty);
+                }
+            }
         }
     });
 
-    for nr in to_initialize {
+    for (nr, ty) in to_materialize {
         let elem = nr.element();
+
+        elem.borrow_mut().property_declarations.insert(
+            nr.name().to_owned(),
+            PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
+        );
+
         if !must_initialize(&elem.borrow(), nr.name()) {
             // One must check again if one really need to be initialized, because when
             // we checked the first time, the element's binding were temporarily moved
@@ -71,13 +85,14 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
     }
 }
 
-fn maybe_materialize(
-    property_declarations: &mut BTreeMap<String, PropertyDeclaration>,
+/// Returns a type if the property needs to be materialized, false otherwise
+fn should_materialize(
+    property_declarations: &BTreeMap<String, PropertyDeclaration>,
     base_type: &Type,
     prop: &str,
-) -> bool {
+) -> Option<Type> {
     if property_declarations.contains_key(prop) {
-        return false;
+        return None;
     }
     let has_declared_property = match &base_type {
         Type::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
@@ -91,14 +106,10 @@ fn maybe_materialize(
     if !has_declared_property {
         let ty = crate::typeregister::reserved_property(prop).property_type;
         if ty != Type::Invalid {
-            property_declarations.insert(
-                prop.to_owned(),
-                PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
-            );
-            return true;
+            return Some(ty);
         }
     }
-    false
+    None
 }
 
 /// Returns true if the property is declared in this element or parent
