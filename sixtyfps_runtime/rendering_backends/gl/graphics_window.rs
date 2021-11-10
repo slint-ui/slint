@@ -117,7 +117,7 @@ impl GraphicsWindow {
                 // Make sure that the window's inner size is in sync with the root window item's
                 // width/height.
                 self.set_geometry(s.width, s.height);
-                window_builder.with_inner_size(s)
+                window_builder.with_inner_size(s).with_resizable(false)
             } else {
                 window_builder
             }
