@@ -525,6 +525,21 @@ impl Window {
             })
             .unwrap_or_default()
     }
+
+    /// Sets the size of the window item. This method is typically called in response to receiving a
+    /// window resize event from the windowing system.
+    /// Size is in logical pixels.
+    pub fn set_window_item_geometry(&self, width: f32, height: f32) {
+        if let Some(component_rc) = self.try_component() {
+            let component = ComponentRc::borrow_pin(&component_rc);
+            let root_item = component.as_ref().get_item_ref(0);
+            if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+            {
+                window_item.width.set(width);
+                window_item.height.set(height);
+            }
+        }
+    }
 }
 
 impl core::ops::Deref for Window {

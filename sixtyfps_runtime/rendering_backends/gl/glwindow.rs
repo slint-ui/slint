@@ -118,21 +118,6 @@ impl WinitWindow for GLWindow {
         self.self_weak.upgrade().unwrap()
     }
 
-    /// Sets the size of the window. This method is typically called in response to receiving a
-    /// window resize event from the windowing system.
-    /// Size is in logical pixels.
-    fn set_geometry(&self, width: f32, height: f32) {
-        if let Some(component_rc) = self.self_weak.upgrade().unwrap().try_component() {
-            let component = ComponentRc::borrow_pin(&component_rc);
-            let root_item = component.as_ref().get_item_ref(0);
-            if let Some(window_item) =
-                ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
-            {
-                window_item.width.set(width);
-                window_item.height.set(height);
-            }
-        }
-    }
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
         &self.currently_pressed_key_code
     }
@@ -347,7 +332,7 @@ impl PlatformWindow for GLWindow {
             }
         }
         if must_resize {
-            self.set_geometry(size.width as _, size.height as _)
+            self.runtime_window().set_window_item_geometry(size.width as _, size.height as _)
         }
     }
 
@@ -415,7 +400,8 @@ impl PlatformWindow for GLWindow {
             return;
         }
 
-        let component_rc = self.self_weak.upgrade().unwrap().component();
+        let runtime_window = self.runtime_window();
+        let component_rc = runtime_window.component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
 
@@ -447,7 +433,7 @@ impl PlatformWindow for GLWindow {
             if s.width > 0. && s.height > 0. {
                 // Make sure that the window's inner size is in sync with the root window item's
                 // width/height.
-                self.set_geometry(s.width, s.height);
+                runtime_window.set_window_item_geometry(s.width, s.height);
                 window_builder.with_inner_size(s)
             } else {
                 window_builder

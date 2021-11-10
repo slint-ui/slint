@@ -1163,13 +1163,10 @@ impl QtWindow {
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
-        let component_rc = self.self_weak.upgrade().unwrap().component();
-        let component = ComponentRc::borrow_pin(&component_rc);
-        let root_item = component.as_ref().get_item_ref(0);
-        if let Some(window_item) = ItemRef::downcast_pin::<items::WindowItem>(root_item) {
-            window_item.width.set(size.width as _);
-            window_item.height.set(size.height as _);
-        }
+        self.self_weak
+            .upgrade()
+            .unwrap()
+            .set_window_item_geometry(size.width as _, size.height as _);
     }
 
     fn mouse_event(&self, event: MouseEvent) {

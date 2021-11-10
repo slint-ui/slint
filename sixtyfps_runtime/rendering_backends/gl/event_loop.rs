@@ -29,7 +29,6 @@ use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub trait WinitWindow: PlatformWindow {
     fn runtime_window(&self) -> Rc<corelib::window::Window>;
-    fn set_geometry(&self, width: f32, height: f32);
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
     fn draw(self: Rc<Self>);
@@ -202,7 +201,7 @@ fn process_window_event(
     match event {
         WindowEvent::Resized(size) => {
             let size = size.to_logical(runtime_window.scale_factor() as f64);
-            window.set_geometry(size.width, size.height);
+            runtime_window.set_window_item_geometry(size.width, size.height);
         }
         WindowEvent::CloseRequested => {
             window.hide();
@@ -355,7 +354,7 @@ fn process_window_event(
         }
         WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size: size } => {
             let size = size.to_logical(scale_factor);
-            window.set_geometry(size.width, size.height);
+            runtime_window.set_window_item_geometry(size.width, size.height);
             runtime_window.set_scale_factor(scale_factor as f32);
         }
         _ => {}
