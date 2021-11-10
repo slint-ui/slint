@@ -85,7 +85,7 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
     }
 }
 
-/// Returns a type if the property needs to be materialized, false otherwise
+/// Returns a type if the property needs to be materialized.
 fn should_materialize(
     property_declarations: &BTreeMap<String, PropertyDeclaration>,
     base_type: &Type,

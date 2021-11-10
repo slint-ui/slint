@@ -97,7 +97,10 @@ impl NamedReference {
                     check_binding = false;
                 }
             }
-            if e.property_declarations.contains_key(self.name()) {
+            if let Some(decl) = e.property_declarations.get(self.name()) {
+                if let Some(alias) = &decl.is_alias {
+                    return alias.is_constant();
+                }
                 return true;
             }
             match &e.base_type {
