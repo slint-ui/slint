@@ -32,6 +32,70 @@ pub trait WinitWindow: PlatformWindow {
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
     fn draw(self: Rc<Self>);
+    fn with_window_handle(&self, callback: &dyn Fn(&winit::window::Window));
+    fn constraints(&self) -> (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo);
+    fn set_constraints(
+        &self,
+        constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
+    );
+
+    fn apply_constraints(
+        &self,
+        constraints_horizontal: corelib::layout::LayoutInfo,
+        constraints_vertical: corelib::layout::LayoutInfo,
+    ) {
+        self.with_window_handle(&|winit_window| {
+            // If we're in fullscreen state, don't try to resize the window but maintain the surface
+            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
+            // when we create a surface that's bigger than the screen due to constraints (#532).
+            if winit_window.fullscreen().is_some() {
+                return;
+            }
+
+            if (constraints_horizontal, constraints_vertical) != self.constraints() {
+                let min_width = constraints_horizontal.min.min(constraints_horizontal.max);
+                let min_height = constraints_vertical.min.min(constraints_vertical.max);
+                let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
+                let max_height = constraints_vertical.max.max(constraints_vertical.min);
+
+                winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
+                    Some(winit::dpi::LogicalSize::new(min_width, min_height))
+                } else {
+                    None
+                });
+                winit_window.set_max_inner_size(if max_width < f32::MAX || max_height < f32::MAX {
+                    Some(winit::dpi::LogicalSize::new(
+                        max_width.min(65535.),
+                        max_height.min(65535.),
+                    ))
+                } else {
+                    None
+                });
+                self.set_constraints((constraints_horizontal, constraints_vertical));
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
+                    let existing_size = winit_window.inner_size();
+                    if !(min_width..=max_width).contains(&(existing_size.width as f32))
+                        || !(min_height..=max_height).contains(&(existing_size.height as f32))
+                    {
+                        let new_size = winit::dpi::LogicalSize::new(
+                            existing_size
+                                .width
+                                .min(max_width.ceil() as u32)
+                                .max(min_width.ceil() as u32),
+                            existing_size
+                                .height
+                                .min(max_height.ceil() as u32)
+                                .max(min_height.ceil() as u32),
+                        );
+                        winit_window.set_inner_size(new_size);
+                    }
+                }
+            }
+        });
+    }
 }
 
 struct NotRunningEventLoop {
