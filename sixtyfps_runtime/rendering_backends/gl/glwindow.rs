@@ -78,110 +78,6 @@ impl GLWindow {
         }
     }
 
-    /// Requests for the window to be mapped to the screen.
-    ///
-    /// Arguments:
-    /// * `component`: The component that holds the root item of the scene. If the item is a [`corelib::items::WindowItem`], then
-    ///   the `width` and `height` properties are read and the values are passed to the windowing system as request
-    ///   for the initial size of the window. Then bindings are installed on these properties to keep them up-to-date
-    ///   with the size as it may be changed by the user or the windowing system in general.
-    fn map_window(self: Rc<Self>) {
-        if self.is_mapped() {
-            return;
-        }
-
-        let component = self.component();
-        let component = ComponentRc::borrow_pin(&component);
-        let root_item = component.as_ref().get_item_ref(0);
-
-        let (window_title, no_frame, is_resizable) = if let Some(window_item) =
-            ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
-        {
-            (
-                window_item.title().to_string(),
-                window_item.no_frame(),
-                window_item.height() == 0. && window_item.width() == 0.,
-            )
-        } else {
-            ("SixtyFPS Window".to_string(), false, true)
-        };
-
-        let window_builder = winit::window::WindowBuilder::new()
-            .with_title(window_title)
-            .with_resizable(is_resizable);
-
-        let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
-            window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
-        } else {
-            let component_rc = self.component();
-            let component = ComponentRc::borrow_pin(&component_rc);
-            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-            let s = LogicalSize::new(
-                layout_info_h.preferred_bounded(),
-                layout_info_v.preferred_bounded(),
-            );
-            if s.width > 0. && s.height > 0. {
-                // Make sure that the window's inner size is in sync with the root window item's
-                // width/height.
-                self.set_geometry(s.width, s.height);
-                window_builder.with_inner_size(s)
-            } else {
-                window_builder
-            }
-        };
-
-        let window_builder =
-            if no_frame { window_builder.with_decorations(false) } else { window_builder };
-
-        #[cfg(target_arch = "wasm32")]
-        let (opengl_context, renderer) =
-            crate::OpenGLContext::new_context_and_renderer(window_builder, &self.canvas_id);
-        #[cfg(not(target_arch = "wasm32"))]
-        let (opengl_context, renderer) =
-            crate::OpenGLContext::new_context_and_renderer(window_builder);
-
-        let canvas = femtovg::Canvas::new_with_text_context(
-            renderer,
-            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
-        )
-        .unwrap();
-
-        opengl_context.make_not_current();
-
-        let canvas = Rc::new(RefCell::new(canvas));
-
-        let platform_window = opengl_context.window();
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.set_scale_factor(platform_window.scale_factor() as _);
-        let id = platform_window.id();
-        drop(platform_window);
-
-        self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-            canvas,
-            opengl_context,
-            clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
-            constraints: Default::default(),
-        }));
-
-        crate::event_loop::register_window(id, self);
-    }
-    /// Removes the window from the screen. The window is not destroyed though, it can be show (mapped) again later
-    /// by calling [`PlatformWindow::map_window`].
-    fn unmap_window(self: Rc<Self>) {
-        // Release GL textures and other GPU bound resources.
-        self.with_current_context(|| {
-            self.graphics_cache.borrow_mut().clear();
-            self.texture_cache.borrow_mut().remove_textures();
-        });
-
-        self.map_state.replace(GraphicsWindowBackendState::Unmapped);
-        /* FIXME:
-        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
-            existing_blinker.stop();
-        }*/
-    }
-
     fn is_mapped(&self) -> bool {
         matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped { .. })
     }
@@ -519,11 +415,99 @@ impl PlatformWindow for GLWindow {
     }
 
     fn show(self: Rc<Self>) {
-        self.map_window();
+        if self.is_mapped() {
+            return;
+        }
+
+        let component = self.component();
+        let component = ComponentRc::borrow_pin(&component);
+        let root_item = component.as_ref().get_item_ref(0);
+
+        let (window_title, no_frame, is_resizable) = if let Some(window_item) =
+            ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
+        {
+            (
+                window_item.title().to_string(),
+                window_item.no_frame(),
+                window_item.height() == 0. && window_item.width() == 0.,
+            )
+        } else {
+            ("SixtyFPS Window".to_string(), false, true)
+        };
+
+        let window_builder = winit::window::WindowBuilder::new()
+            .with_title(window_title)
+            .with_resizable(is_resizable);
+
+        let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+            window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+        } else {
+            let component_rc = self.component();
+            let component = ComponentRc::borrow_pin(&component_rc);
+            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+            let s = LogicalSize::new(
+                layout_info_h.preferred_bounded(),
+                layout_info_v.preferred_bounded(),
+            );
+            if s.width > 0. && s.height > 0. {
+                // Make sure that the window's inner size is in sync with the root window item's
+                // width/height.
+                self.set_geometry(s.width, s.height);
+                window_builder.with_inner_size(s)
+            } else {
+                window_builder
+            }
+        };
+
+        let window_builder =
+            if no_frame { window_builder.with_decorations(false) } else { window_builder };
+
+        #[cfg(target_arch = "wasm32")]
+        let (opengl_context, renderer) =
+            crate::OpenGLContext::new_context_and_renderer(window_builder, &self.canvas_id);
+        #[cfg(not(target_arch = "wasm32"))]
+        let (opengl_context, renderer) =
+            crate::OpenGLContext::new_context_and_renderer(window_builder);
+
+        let canvas = femtovg::Canvas::new_with_text_context(
+            renderer,
+            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .unwrap();
+
+        opengl_context.make_not_current();
+
+        let canvas = Rc::new(RefCell::new(canvas));
+
+        let platform_window = opengl_context.window();
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        runtime_window.set_scale_factor(platform_window.scale_factor() as _);
+        let id = platform_window.id();
+        drop(platform_window);
+
+        self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
+            canvas,
+            opengl_context,
+            clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
+            constraints: Default::default(),
+        }));
+
+        crate::event_loop::register_window(id, self);
     }
 
     fn hide(self: Rc<Self>) {
-        self.unmap_window();
+        // Release GL textures and other GPU bound resources.
+        self.with_current_context(|| {
+            self.graphics_cache.borrow_mut().clear();
+            self.texture_cache.borrow_mut().remove_textures();
+        });
+
+        self.map_state.replace(GraphicsWindowBackendState::Unmapped);
+        /* FIXME:
+        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
+            existing_blinker.stop();
+        }*/
     }
 
     fn text_size(
