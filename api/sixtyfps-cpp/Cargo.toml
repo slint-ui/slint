@@ -26,6 +26,7 @@ backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl"
 backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt"]
 # Enable some function used by the integration tests
 testing = ["sixtyfps-rendering-backend-testing"]
+default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.5", path="../../sixtyfps_runtime/corelib", features = ["ffi"] }
