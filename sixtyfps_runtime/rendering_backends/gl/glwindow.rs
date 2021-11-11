@@ -192,7 +192,7 @@ impl WinitWindow for GLWindow {
         });
     }
 
-    fn with_window_handle(&self, callback: &dyn Fn(&winit::window::Window)) {
+    fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
             callback(&*mapped_window.opengl_context.window())
         }
@@ -208,6 +208,12 @@ impl WinitWindow for GLWindow {
     ) {
         if let Some(window) = self.borrow_mapped_window() {
             window.constraints.set(constraints);
+        }
+    }
+
+    fn set_background_color(&self, color: Color) {
+        if let Some(mut window) = self.borrow_mapped_window_mut() {
+            window.clear_color = color;
         }
     }
 }
@@ -279,80 +285,12 @@ impl PlatformWindow for GLWindow {
     }
 
     fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
-        let background = window_item.background();
-        let title = window_item.title();
-        let no_frame = window_item.no_frame();
-        let icon = window_item.icon();
-        let width = window_item.width();
-        let height = window_item.height();
-
         // Make the unwrap() calls on self.borrow_mapped_window*() safe
         if !self.is_mapped() {
             return;
         }
 
-        self.borrow_mapped_window_mut().unwrap().clear_color = background;
-
-        let mut size: LogicalSize<f64> = {
-            let window = self.borrow_mapped_window().unwrap();
-            let winit_window = window.opengl_context.window();
-            winit_window.set_title(&title);
-            if no_frame && winit_window.fullscreen().is_none() {
-                winit_window.set_decorations(false);
-            } else {
-                winit_window.set_decorations(true);
-            }
-            if let Some(rgba) = crate::IMAGE_CACHE
-                .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
-                .and_then(|i| i.to_rgba())
-            {
-                let (width, height) = rgba.dimensions();
-                winit_window.set_window_icon(
-                    winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
-                );
-            };
-            winit_window.inner_size().to_logical(winit_window.scale_factor() as f64)
-        };
-        let mut must_resize = false;
-        let mut w = width;
-        let mut h = height;
-        if (size.width as f32 - w).abs() < 1. || (size.height as f32 - h).abs() < 1. {
-            return;
-        }
-        if w <= 0. || h <= 0. {
-            if let Some(component_rc) = self.self_weak.upgrade().unwrap().try_component() {
-                let component = ComponentRc::borrow_pin(&component_rc);
-                if w <= 0. {
-                    let info = component.as_ref().layout_info(Orientation::Horizontal);
-                    w = info.preferred_bounded();
-                    must_resize = true;
-                }
-                if h <= 0. {
-                    let info = component.as_ref().layout_info(Orientation::Vertical);
-                    h = info.preferred_bounded();
-                    must_resize = true;
-                }
-            }
-        };
-        if w > 0. {
-            size.width = w as _;
-        }
-        if h > 0. {
-            size.height = h as _;
-        }
-        {
-            let mapped_window = self.borrow_mapped_window().unwrap();
-            let winit_window = mapped_window.opengl_context.window();
-            // If we're in fullscreen state, don't try to resize the window but maintain the surface
-            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
-            // when we create a surface that's bigger than the screen due to constraints (#532).
-            if winit_window.fullscreen().is_none() {
-                winit_window.set_inner_size(size);
-            }
-        }
-        if must_resize {
-            self.runtime_window().set_window_item_geometry(size.width as _, size.height as _)
-        }
+        WinitWindow::apply_window_properties(self as &dyn WinitWindow, window_item);
     }
 
     fn apply_geometry_constraint(

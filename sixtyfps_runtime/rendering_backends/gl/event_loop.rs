@@ -13,13 +13,15 @@ LICENSE END */
     [PlatformWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
+use corelib::component::ComponentRc;
 use corelib::items::PointerEventButton;
+use corelib::layout::Orientation;
 use sixtyfps_corelib as corelib;
 
 use corelib::graphics::Point;
 use corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
-use corelib::window::*;
 use corelib::SharedString;
+use corelib::{window::*, Color};
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 use winit::event::WindowEvent;
@@ -32,19 +34,20 @@ pub trait WinitWindow: PlatformWindow {
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
     fn draw(self: Rc<Self>);
-    fn with_window_handle(&self, callback: &dyn Fn(&winit::window::Window));
+    fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window));
     fn constraints(&self) -> (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo);
     fn set_constraints(
         &self,
         constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
     );
+    fn set_background_color(&self, color: Color);
 
     fn apply_constraints(
         &self,
         constraints_horizontal: corelib::layout::LayoutInfo,
         constraints_vertical: corelib::layout::LayoutInfo,
     ) {
-        self.with_window_handle(&|winit_window| {
+        self.with_window_handle(&mut |winit_window| {
             // If we're in fullscreen state, don't try to resize the window but maintain the surface
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
@@ -95,6 +98,80 @@ pub trait WinitWindow: PlatformWindow {
                 }
             }
         });
+    }
+
+    fn apply_window_properties(
+        &self,
+        window_item: core::pin::Pin<&sixtyfps_corelib::items::WindowItem>,
+    ) {
+        let background = window_item.background();
+        let title = window_item.title();
+        let no_frame = window_item.no_frame();
+        let icon = window_item.icon();
+        let width = window_item.width();
+        let height = window_item.height();
+
+        self.set_background_color(background);
+
+        let mut size: winit::dpi::LogicalSize<f64> = Default::default();
+        self.with_window_handle(&mut |winit_window| {
+            winit_window.set_title(&title);
+            if no_frame && winit_window.fullscreen().is_none() {
+                winit_window.set_decorations(false);
+            } else {
+                winit_window.set_decorations(true);
+            }
+            if let Some(rgba) = crate::IMAGE_CACHE
+                .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
+                .and_then(|i| i.to_rgba())
+            {
+                let (width, height) = rgba.dimensions();
+                winit_window.set_window_icon(
+                    winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
+                );
+            };
+            size = winit_window.inner_size().to_logical(winit_window.scale_factor() as f64);
+        });
+
+        let mut must_resize = false;
+        let mut w = width;
+        let mut h = height;
+        if (size.width as f32 - w).abs() < 1. || (size.height as f32 - h).abs() < 1. {
+            return;
+        }
+        if w <= 0. || h <= 0. {
+            if let Some(component_rc) = self.runtime_window().try_component() {
+                let component = ComponentRc::borrow_pin(&component_rc);
+                if w <= 0. {
+                    let info = component.as_ref().layout_info(Orientation::Horizontal);
+                    w = info.preferred_bounded();
+                    must_resize = true;
+                }
+                if h <= 0. {
+                    let info = component.as_ref().layout_info(Orientation::Vertical);
+                    h = info.preferred_bounded();
+                    must_resize = true;
+                }
+            }
+        };
+        if w > 0. {
+            size.width = w as _;
+        }
+        if h > 0. {
+            size.height = h as _;
+        }
+        self.with_window_handle(&mut |winit_window| {
+            // If we're in fullscreen state, don't try to resize the window but maintain the surface
+            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
+            // when we create a surface that's bigger than the screen due to constraints (#532).
+            if winit_window.fullscreen().is_none() {
+                winit_window.set_inner_size(size);
+            }
+        });
+
+        if must_resize {
+            self.runtime_window().set_window_item_geometry(size.width as _, size.height as _)
+        }
     }
 }
 
