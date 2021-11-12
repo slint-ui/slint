@@ -1225,9 +1225,9 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         #[cfg(not(target_arch = "wasm32"))]
         crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
         #[cfg(target_arch = "wasm32")]
-        crate::event_loop::with_window_target(|event_loop| {
-            event_loop.event_loop_proxy().send_event(e).ok();
-        })
+        crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
+            global_proxy.borrow_mut().get_or_insert_with(Default::default).send_event(e)
+        });
     }
 
     fn image_size(&'static self, image: &Image) -> Size {

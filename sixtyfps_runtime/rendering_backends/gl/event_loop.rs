@@ -223,13 +223,11 @@ thread_local! {
 
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_WINDOW_TARGET : for<'a> &'a RunningEventLoop<'a>);
 
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) enum GlobalEventLoopProxyOrEventQueue {
     Proxy(winit::event_loop::EventLoopProxy<CustomEvent>),
     Queue(Vec<CustomEvent>),
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl GlobalEventLoopProxyOrEventQueue {
     pub(crate) fn send_event(&mut self, event: CustomEvent) {
         match self {
@@ -253,7 +251,6 @@ impl GlobalEventLoopProxyOrEventQueue {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl Default for GlobalEventLoopProxyOrEventQueue {
     fn default() -> Self {
         Self::Queue(Vec::new())
@@ -264,6 +261,11 @@ impl Default for GlobalEventLoopProxyOrEventQueue {
 pub(crate) static GLOBAL_PROXY: once_cell::sync::OnceCell<
     std::sync::Mutex<GlobalEventLoopProxyOrEventQueue>,
 > = once_cell::sync::OnceCell::new();
+
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    pub(crate) static GLOBAL_PROXY: RefCell<Option<GlobalEventLoopProxyOrEventQueue>> = RefCell::new(None)
+}
 
 pub(crate) fn with_window_target<T>(callback: impl FnOnce(&dyn EventLoopInterface) -> T) -> T {
     if CURRENT_WINDOW_TARGET.is_set() {
@@ -513,13 +515,14 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
 
     let event_loop_proxy = not_running_loop_instance.event_loop_proxy;
     #[cfg(not(target_arch = "wasm32"))]
-    {
-        GLOBAL_PROXY
-            .get_or_init(Default::default)
-            .lock()
-            .unwrap()
-            .set_proxy(event_loop_proxy.clone());
-    }
+    GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().set_proxy(event_loop_proxy.clone());
+    #[cfg(target_arch = "wasm32")]
+    GLOBAL_PROXY.with(|global_proxy| {
+        global_proxy
+            .borrow_mut()
+            .get_or_insert_with(Default::default)
+            .set_proxy(event_loop_proxy.clone())
+    });
 
     let mut winit_loop = not_running_loop_instance.instance;
 
