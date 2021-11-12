@@ -134,6 +134,7 @@ pub trait WinitWindow: PlatformWindow {
         });
 
         let mut must_resize = false;
+        let mut resizable = None;
         let mut w = width;
         let mut h = height;
         if (size.width as f32 - w).abs() < 1. || (size.height as f32 - h).abs() < 1. {
@@ -142,16 +143,17 @@ pub trait WinitWindow: PlatformWindow {
         if w <= 0. || h <= 0. {
             if let Some(component_rc) = self.runtime_window().try_component() {
                 let component = ComponentRc::borrow_pin(&component_rc);
+                let hor_info = component.as_ref().layout_info(Orientation::Horizontal);
                 if w <= 0. {
-                    let info = component.as_ref().layout_info(Orientation::Horizontal);
-                    w = info.preferred_bounded();
+                    w = hor_info.preferred_bounded();
                     must_resize = true;
                 }
+                let ver_info = component.as_ref().layout_info(Orientation::Vertical);
                 if h <= 0. {
-                    let info = component.as_ref().layout_info(Orientation::Vertical);
-                    h = info.preferred_bounded();
+                    h = ver_info.preferred_bounded();
                     must_resize = true;
                 }
+                resizable = Some(hor_info.min != hor_info.max && ver_info.min != ver_info.max);
             }
         };
         if w > 0. {
@@ -166,6 +168,9 @@ pub trait WinitWindow: PlatformWindow {
             // when we create a surface that's bigger than the screen due to constraints (#532).
             if winit_window.fullscreen().is_none() {
                 winit_window.set_inner_size(size);
+                if let Some(resizable) = resizable {
+                    winit_window.set_resizable(resizable)
+                }
             }
         });
 
