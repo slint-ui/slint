@@ -11,6 +11,7 @@ LICENSE END */
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
+use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::SimulatorDisplay;
 use rgb::FromSlice;
@@ -38,6 +39,7 @@ pub struct SimulatorWindow {
     opengl_context: OpenGLContext,
     constraints: Cell<(sixtyfps_corelib::layout::LayoutInfo, sixtyfps_corelib::layout::LayoutInfo)>,
     visible: Cell<bool>,
+    background_color: Cell<Color>,
 }
 
 impl SimulatorWindow {
@@ -64,6 +66,7 @@ impl SimulatorWindow {
             opengl_context,
             constraints: Default::default(),
             visible: Default::default(),
+            background_color: Color::from_rgb_u8(0, 0, 0).into(),
         });
 
         let runtime_window = window_weak.upgrade().unwrap();
@@ -239,10 +242,11 @@ impl WinitWindow for SimulatorWindow {
                 let mut display: SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888> =
                     SimulatorDisplay::new(Size { width: size.width, height: size.height });
 
+                display.clear(to_rgb888_color_discard_alpha(self.background_color.get())).unwrap();
+
                 // Debug
                 {
                     use embedded_graphics::{
-                        pixelcolor::Rgb888,
                         prelude::*,
                         primitives::{PrimitiveStyleBuilder, Rectangle},
                     };
@@ -325,6 +329,12 @@ impl WinitWindow for SimulatorWindow {
         self.constraints.set(constraints)
     }
 
-    fn set_background_color(&self, _color: Color) {}
+    fn set_background_color(&self, color: Color) {
+        self.background_color.set(color);
+    }
     fn set_icon(&self, _icon: sixtyfps_corelib::graphics::Image) {}
+}
+
+fn to_rgb888_color_discard_alpha(col: Color) -> Rgb888 {
+    Rgb888::new(col.red(), col.green(), col.blue())
 }
