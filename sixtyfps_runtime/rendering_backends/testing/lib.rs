@@ -70,7 +70,7 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
 
     fn image_size(&'static self, image: &Image) -> Size {
         let inner: &ImageInner = image.into();
-        match &inner {
+        match inner {
             ImageInner::None => Default::default(),
             ImageInner::EmbeddedImage(buffer) => {
                 Size::new(buffer.width() as _, buffer.height() as _)
@@ -91,6 +91,7 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
                 Size::new(dim.0 as _, dim.1 as _)
             })
             .unwrap_or_default(),
+            ImageInner::StaticTextures { size, .. } => size.cast(),
         }
     }
 }

@@ -1145,7 +1145,7 @@ pub fn instantiate(
             .embedded_file_resources
             .borrow()
             .iter()
-            .map(|(path, id)| (*id, path.clone()))
+            .map(|(path, er)| (er.id, path.clone()))
             .collect();
     }
     *component_type.window_offset.apply_mut(instance.as_mut()) =

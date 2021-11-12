@@ -203,9 +203,9 @@ pub struct Component {
     pub optimized_elements: RefCell<Vec<ElementRc>>,
 
     /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
-    /// disk on the build system and valued by a unique integer id, that can be used by the
-    /// generator for symbol generation.
-    pub embedded_file_resources: RefCell<HashMap<String, usize>>,
+    /// disk on the build system
+    pub embedded_file_resources:
+        RefCell<HashMap<String, crate::embedded_resources::EmbeddedResources>>,
 
     /// The layout constraints of the root item
     pub root_constraints: RefCell<LayoutConstraints>,

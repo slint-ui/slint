@@ -1211,6 +1211,7 @@ pub enum ImageReference {
     None,
     AbsolutePath(String),
     EmbeddedData { resource_id: usize, extension: String },
+    EmbeddedTexture { resource_id: usize },
 }
 
 /// Print the expression as a .60 code (not necessarily valid .60)

@@ -212,12 +212,13 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
                 "ImageInner",
                 "Image",
                 "Size",
+                "IntSize",
                 "sixtyfps_image_size",
                 "sixtyfps_image_path",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
             ],
-            vec![],
+            vec!["Color"],
             "sixtyfps_image_internal.h",
         ),
         (
@@ -335,8 +336,8 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .with_include("sixtyfps_sharedvector.h")
         .with_include("sixtyfps_properties.h")
         .with_include("sixtyfps_callbacks.h")
-        .with_include("sixtyfps_image.h")
         .with_include("sixtyfps_color.h")
+        .with_include("sixtyfps_image.h")
         .with_include("sixtyfps_pathdata.h")
         .with_include("sixtyfps_brush.h")
         .with_after_include(format!(

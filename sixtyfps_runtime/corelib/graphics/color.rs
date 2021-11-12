@@ -116,13 +116,13 @@ impl Color {
     }
 
     /// Construct a color from the alpha, red, green and blue color channel parameters.
-    pub fn from_argb_u8(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
+    pub const fn from_argb_u8(alpha: u8, red: u8, green: u8, blue: u8) -> Self {
         Self { red, green, blue, alpha }
     }
 
     /// Construct a color from the red, green and blue color channel parameters. The alpha
     /// channel will have the value 255.
-    pub fn from_rgb_u8(red: u8, green: u8, blue: u8) -> Self {
+    pub const fn from_rgb_u8(red: u8, green: u8, blue: u8) -> Self {
         Self::from_argb_u8(255, red, green, blue)
     }
 

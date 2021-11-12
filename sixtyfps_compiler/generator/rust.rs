@@ -46,6 +46,18 @@ impl quote::ToTokens for Orientation {
     }
 }
 
+impl quote::ToTokens for crate::embedded_resources::PixelFormat {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        use crate::embedded_resources::PixelFormat::*;
+        let tks = match self {
+            Rgb => quote!(sixtyfps::re_exports::PixelFormat::Rgb),
+            Rgba => quote!(sixtyfps::re_exports::PixelFormat::Rgba),
+            AlphaMap(_) => quote!(sixtyfps::re_exports::PixelFormat::AlphaMap),
+        };
+        tokens.extend(tks);
+    }
+}
+
 fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::Int32 => Some(quote!(i32)),
@@ -839,10 +851,36 @@ fn generate_component(
         .embedded_file_resources
         .borrow()
         .iter()
-        .map(|(path, id)| {
-            let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", id);
-            let data = embedded_file_tokens(path);
-            quote!(const #symbol: &'static [u8] = #data;)
+        .map(|(path, er)| {
+            let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", er.id);
+            match &er.kind {
+                crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+                    let data = embedded_file_tokens(path);
+                    quote!(const #symbol: &'static [u8] = #data;)
+                }
+                crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture { data, format, rect, total_size: crate::embedded_resources::Size{width, height} }) => {
+                    let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
+                    let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
+                        quote!(sixtyfps::re_exports::Color::from_rgb_u8(#r, #g, #b))
+                    } else {
+                        quote!(sixtyfps::re_exports::Color::from_argb_encoded(0))
+                    };
+                    quote!(
+                        const #symbol: sixtyfps::re_exports::ImageInner = sixtyfps::re_exports::ImageInner::StaticTextures {
+                            size: sixtyfps::re_exports::IntSize::new(#width as _, #height as _),
+                            data: Slice::from_slice(&[#(#data),*]),
+                            textures: Slice::from_slice(&[
+                                sixtyfps::re_exports::StaticTexture {
+                                    rect: sixtyfps::re_exports::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
+                                    format: #format,
+                                    color: #color,
+                                    index: 0,
+                                }
+                            ])
+                        };
+                    )
+                },
+            }
         })
         .collect();
 
@@ -1871,13 +1909,19 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
                 crate::expression_tree::ImageReference::AbsolutePath(path) => {
                      quote!(sixtyfps::re_exports::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
                 },
-                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension,  } => {
                     let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
                     let format = proc_macro2::Literal::byte_string(extension.as_bytes());
                     quote!(
                         sixtyfps::re_exports::Image::from(
                             sixtyfps::re_exports::ImageInner::EmbeddedData{ data: #symbol.into(), format: Slice::from_slice(#format) }
                         )
+                    )
+                }
+                crate::expression_tree::ImageReference::EmbeddedTexture { resource_id, } => {
+                    let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
+                    quote!(
+                        sixtyfps::re_exports::Image::from(#symbol)
                     )
                 }
             }
