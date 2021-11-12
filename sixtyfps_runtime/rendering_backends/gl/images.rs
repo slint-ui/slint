@@ -173,6 +173,7 @@ impl CachedImage {
             ImageInner::EmbeddedImage(buffer) => {
                 Some(Self(RefCell::new(ImageData::EmbeddedImage(buffer.clone()))))
             }
+            ImageInner::StaticTextures { .. } => todo!(),
         }
     }
 
@@ -453,6 +454,7 @@ impl ImageCacheKey {
                 gpu_image_flags: gpu_image_flags.unwrap_or_default(),
             },
             ImageInner::EmbeddedImage { .. } => return None,
+            ImageInner::StaticTextures { .. } => return None,
         })
     }
 }

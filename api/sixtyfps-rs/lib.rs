@@ -257,11 +257,7 @@ pub mod re_exports {
         free_component_item_graphics_resources, init_component_items, Component, ComponentRefPin,
         ComponentVTable,
     };
-    pub use sixtyfps_corelib::graphics::{
-        Brush, GradientStop, Image, ImageInner, LinearGradientBrush, PathArcTo, PathCubicTo,
-        PathData, PathElement, PathEvent, PathLineTo, PathMoveTo, PathQuadraticTo, Point, Rect,
-        Size,
-    };
+    pub use sixtyfps_corelib::graphics::*;
     pub use sixtyfps_corelib::input::{
         FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     };

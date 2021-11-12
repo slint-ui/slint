@@ -71,14 +71,19 @@ impl<'a, T> Slice<'a, T> {
     }
 
     /// Create from a native slice
-    pub fn from_slice(x: &'a [T]) -> Self {
-        x.into()
+    pub const fn from_slice(slice: &'a [T]) -> Self {
+        Slice {
+            // Safety: a slice is never null
+            ptr: unsafe { NonNull::new_unchecked(slice.as_ptr() as *mut T) },
+            len: slice.len(),
+            phantom: PhantomData,
+        }
     }
 }
 
 impl<'a, T> From<&'a [T]> for Slice<'a, T> {
     fn from(slice: &'a [T]) -> Self {
-        Slice { ptr: NonNull::from(slice).cast(), len: slice.len(), phantom: PhantomData }
+        Self::from_slice(slice)
     }
 }
 

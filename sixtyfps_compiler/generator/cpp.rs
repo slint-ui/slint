@@ -606,30 +606,35 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<sixtyfps.h>".into());
 
     file.declarations.extend(doc.root_component.embedded_file_resources.borrow().iter().map(
-        |(path, id)| {
-            let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
-            let data = file.read();
+        |(path, er)| {
+            match &er.kind {
+                crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+                    let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+                    let data = file.read();
 
-            let mut init = "{ ".to_string();
+                    let mut init = "{ ".to_string();
 
-            for (index, byte) in data.iter().enumerate() {
-                if index > 0 {
-                    init.push(',');
+                    for (index, byte) in data.iter().enumerate() {
+                        if index > 0 {
+                            init.push(',');
+                        }
+                        write!(&mut init, "0x{:x}", byte).unwrap();
+                        if index % 16 == 0 {
+                            init.push('\n');
+                        }
+                    }
+
+                    init.push_str("}");
+
+                    Declaration::Var(Var {
+                        ty: "inline uint8_t".into(),
+                        name: format!("sfps_embedded_resource_{}", er.id),
+                        array_size: Some(data.len()),
+                        init: Some(init),
+                    })
                 }
-                write!(&mut init, "0x{:x}", byte).unwrap();
-                if index % 16 == 0 {
-                    init.push('\n');
-                }
+                crate::embedded_resources::EmbeddedResourcesKind::TextureData(_) => todo!(),
             }
-
-            init.push_str("}");
-
-            Declaration::Var(Var {
-                ty: "inline uint8_t".into(),
-                name: format!("sfps_embedded_resource_{}", id),
-                array_size: Some(data.len()),
-                init: Some(init),
-            })
         },
     ));
 
@@ -2247,6 +2252,7 @@ fn compile_expression(
                         symbol, symbol, escape_string(extension), extension.as_bytes().len()
                     )
                 }
+                crate::expression_tree::ImageReference::EmbeddedTexture{..} => todo!(),
             }
         }
         Expression::Condition { condition, true_expr, false_expr } => {

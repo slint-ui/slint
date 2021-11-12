@@ -531,6 +531,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
 
                     }
                 }
+                sixtyfps_compilerlib::expression_tree::ImageReference::EmbeddedTexture { .. } => {
+                    todo!()
+                }
             }.unwrap_or_else(|_| {
                 eprintln!("Could not load image {:?}",resource_ref );
                 Default::default()

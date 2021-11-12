@@ -22,6 +22,7 @@ use crate::rtti::*;
 use crate::SharedString;
 use auto_enums::auto_enum;
 
+pub use euclid;
 /// 2D Rectangle
 pub type Rect = euclid::default::Rect<f32>;
 /// 2D Rectangle with integer coordinates
@@ -30,6 +31,8 @@ pub type IntRect = euclid::default::Rect<i32>;
 pub type Point = euclid::default::Point2D<f32>;
 /// 2D Size
 pub type Size = euclid::default::Size2D<f32>;
+/// 2D Size in integer coordinates
+pub type IntSize = euclid::default::Size2D<u32>;
 /// 2D Transform
 pub type Transform = euclid::default::Transform2D<f32>;
 
@@ -188,6 +191,14 @@ pub(crate) mod ffi {
     struct Size {
         width: f32,
         height: f32,
+    }
+
+    /// Expand Size so that cbindgen can see it. ( is in fact euclid::default::Size2D<u32>)
+    #[cfg(cbindgen)]
+    #[repr(C)]
+    struct IntSize {
+        width: u32,
+        height: u32,
     }
 
     pub use super::path::ffi::*;

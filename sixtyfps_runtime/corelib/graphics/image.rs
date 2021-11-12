@@ -11,6 +11,8 @@ LICENSE END */
 use crate::slice::Slice;
 use crate::{SharedString, SharedVector};
 
+use super::{IntRect, IntSize};
+
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
@@ -179,6 +181,32 @@ impl PartialEq for SharedImageBuffer {
     }
 }
 
+#[repr(u8)]
+#[derive(Clone, PartialEq, Debug, Copy)]
+/// The pixel format of a StaticTexture
+pub enum PixelFormat {
+    /// red, green, blue
+    Rgb,
+    /// Red, green, blue, alpha
+    Rgba,
+    /// A map
+    AlphaMap,
+}
+
+#[repr(C)]
+#[derive(Clone, PartialEq, Debug)]
+/// Some raw pixel data which is typically stored in the binary
+pub struct StaticTexture {
+    /// The position and size of the texture within the image
+    pub rect: IntRect,
+    /// The pixel format of this texture
+    pub format: PixelFormat,
+    /// The color, for the alpha map ones
+    pub color: crate::Color,
+    /// index in the data array
+    pub index: usize,
+}
+
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
@@ -196,6 +224,15 @@ pub enum ImageInner {
         format: Slice<'static, u8>,
     },
     EmbeddedImage(SharedImageBuffer),
+    StaticTextures {
+        /// The total size of the image (this might not be the size of the full image
+        /// as some transparent part are not part of any texture)
+        size: IntSize,
+        /// The pixel data referenced by the textures
+        data: Slice<'static, u8>,
+        /// The list of textures
+        textures: Slice<'static, StaticTexture>,
+    },
 }
 
 impl Default for ImageInner {
@@ -302,6 +339,8 @@ impl Image {
                 }
             },
             ImageInner::EmbeddedImage(buffer) => [buffer.width() as _, buffer.height() as _].into(),
+            ImageInner::StaticTextures{size, ..} => size.cast(),
+
         }
     }
 

@@ -33,6 +33,7 @@ use std::rc::Rc;
 
 pub mod builtin_macros;
 pub mod diagnostics;
+pub mod embedded_resources;
 pub mod expression_tree;
 pub mod fileaccess;
 pub mod generator;

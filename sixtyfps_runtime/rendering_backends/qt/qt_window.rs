@@ -875,6 +875,7 @@ pub(crate) fn load_image_from_resource(
             } };
             return Some(pixmap);
         }
+        ImageInner::StaticTextures { .. } => todo!(),
     };
     let size_requested = is_svg(resource) && source_size.is_some();
     let source_size = source_size.unwrap_or_default();
@@ -964,6 +965,7 @@ fn is_svg(resource: &ImageInner) -> bool {
             format.as_slice() == b"svg" || format.as_slice() == b"svgz"
         }
         ImageInner::EmbeddedImage { .. } => false,
+        ImageInner::StaticTextures { .. } => false,
     }
 }
 

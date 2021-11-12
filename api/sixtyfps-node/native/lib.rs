@@ -257,9 +257,9 @@ fn to_js_value<'cx>(
             &ImageInner::AbsoluteFilePath(ref path) => {
                 JsString::new(cx, path.as_str()).as_value(cx)
             }
-            &ImageInner::EmbeddedData { .. } | &ImageInner::EmbeddedImage { .. } => {
-                JsNull::new().as_value(cx)
-            } // TODO: maybe pass around node buffers?
+            &ImageInner::EmbeddedData { .. }
+            | &ImageInner::EmbeddedImage { .. }
+            | &ImageInner::StaticTextures { .. } => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
         },
         Value::Array(a) => {
             let js_array = JsArray::new(cx, a.len() as _);

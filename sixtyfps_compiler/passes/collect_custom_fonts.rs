@@ -41,10 +41,16 @@ pub fn collect_custom_fonts<'a>(
                 {
                     let mut resources = root_component.embedded_file_resources.borrow_mut();
                     let resource_id = match resources.get(font_path) {
-                        Some(id) => *id,
+                        Some(r) => r.id,
                         None => {
                             let id = resources.len();
-                            resources.insert(font_path.clone(), id);
+                            resources.insert(
+                                font_path.clone(),
+                                crate::embedded_resources::EmbeddedResources {
+                                    id,
+                                    kind: crate::embedded_resources::EmbeddedResourcesKind::RawData,
+                                },
+                            );
                             id
                         }
                     };
