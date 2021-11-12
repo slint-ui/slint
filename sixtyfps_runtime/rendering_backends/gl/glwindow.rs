@@ -216,6 +216,20 @@ impl WinitWindow for GLWindow {
             window.clear_color = color;
         }
     }
+
+    fn set_icon(&self, icon: corelib::graphics::Image) {
+        if let Some(rgba) = crate::IMAGE_CACHE
+            .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
+            .and_then(|i| i.to_rgba())
+        {
+            let (width, height) = rgba.dimensions();
+            if let Some(window) = self.borrow_mapped_window() {
+                window.opengl_context.window().set_window_icon(
+                    winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
+                );
+            }
+        };
+    }
 }
 
 impl PlatformWindow for GLWindow {

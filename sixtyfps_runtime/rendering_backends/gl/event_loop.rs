@@ -41,6 +41,7 @@ pub trait WinitWindow: PlatformWindow {
         constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
     );
     fn set_background_color(&self, color: Color);
+    fn set_icon(&self, icon: corelib::graphics::Image);
 
     fn apply_constraints(
         &self,
@@ -112,6 +113,7 @@ pub trait WinitWindow: PlatformWindow {
         let height = window_item.height();
 
         self.set_background_color(background);
+        self.set_icon(icon);
 
         let mut size: winit::dpi::LogicalSize<f64> = Default::default();
         self.with_window_handle(&mut |winit_window| {
@@ -121,15 +123,6 @@ pub trait WinitWindow: PlatformWindow {
             } else {
                 winit_window.set_decorations(true);
             }
-            if let Some(rgba) = crate::IMAGE_CACHE
-                .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
-                .and_then(|i| i.to_rgba())
-            {
-                let (width, height) = rgba.dimensions();
-                winit_window.set_window_icon(
-                    winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
-                );
-            };
             size = winit_window.inner_size().to_logical(winit_window.scale_factor() as f64);
         });
 
