@@ -1226,11 +1226,31 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
         let e = crate::event_loop::CustomEvent::UserEvent(event);
         #[cfg(not(target_arch = "wasm32"))]
-        crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
-        #[cfg(target_arch = "wasm32")]
-        crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
-            global_proxy.borrow_mut().get_or_insert_with(Default::default).send_event(e)
-        });
+            crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
+        #[cfg(target_arch = "wasm32")] {
+            use wasm_bindgen::closure::Closure;
+            use wasm_bindgen::JsCast;
+
+            let window = web_sys::window().expect("Failed to obtain window");
+            let send_event = || {
+                crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
+                    global_proxy.borrow_mut().get_or_insert_with(Default::default).send_event(e)
+                });
+            };
+
+            // Calling send_event is usually done by winit at the bottom of the stack,
+            // in event handlers, and thus winit might decide to process the event
+            // immediately within that stack.
+            // To prevent re-entrancy issues that might happen by getting the application
+            // event processed on top of the current stack, mimic the event handling
+            // use case and make sure that our event is processed on top of a clean stack.
+            window
+                .set_timeout_with_callback_and_timeout_and_arguments_0(
+                    &Closure::once_into_js(send_event).as_ref().unchecked_ref(),
+                    0,
+                )
+                .expect("Failed to set timeout");
+        }
     }
 
     fn image_size(&'static self, image: &Image) -> Size {
