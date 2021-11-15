@@ -8,6 +8,7 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+#[cfg(not(target_arch = "wasm32"))]
 pub use tiny_skia::IntRect as Rect;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -26,6 +27,7 @@ pub enum PixelFormat {
     AlphaMap([u8; 3]),
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone)]
 pub struct Texture {
     pub total_size: Size,
@@ -34,6 +36,7 @@ pub struct Texture {
     pub format: PixelFormat,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl Texture {
     pub fn new_empty() -> Self {
         Self {
@@ -50,7 +53,7 @@ pub enum EmbeddedResourcesKind {
     /// Just put the file content as a resource
     RawData,
     /// The data has been processed in a texture
-    TextureData(Texture),
+    TextureData(#[cfg(not(target_arch = "wasm32"))] Texture),
 }
 
 #[derive(Debug, Clone)]
