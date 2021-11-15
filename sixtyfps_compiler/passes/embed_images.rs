@@ -7,10 +7,14 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+#![cfg_attr(target_arch = "wasm32", allow(unused))]
+
 use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
 use crate::expression_tree::{Expression, ImageReference};
 use crate::object_tree::*;
+#[cfg(not(target_arch = "wasm32"))]
 use image::GenericImageView;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -73,9 +77,11 @@ fn embed_image(
         std::collections::hash_map::Entry::Vacant(e) => {
             // Check that the file exists, so that later we can unwrap safely in the generators, etc.
             if let Some(file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
-                let kind = if std::env::var("SIXTYFPS_PROCESS_IMAGES").is_ok() {
+                let mut kind = EmbeddedResourcesKind::RawData;
+                #[cfg(not(target_arch = "wasm32"))]
+                if std::env::var("SIXTYFPS_PROCESS_IMAGES").is_ok() {
                     match load_image(file) {
-                        Ok(img) => EmbeddedResourcesKind::TextureData(generate_texture(img)),
+                        Ok(img) => kind = EmbeddedResourcesKind::TextureData(generate_texture(img)),
                         Err(err) => {
                             diag.push_error(
                                 format!("Cannot load image file {}: {}", path, err),
@@ -84,10 +90,7 @@ fn embed_image(
                             return ImageReference::None;
                         }
                     }
-                } else {
-                    EmbeddedResourcesKind::RawData
-                };
-
+                }
                 e.insert(EmbeddedResources { id: maybe_id, kind })
             } else {
                 diag.push_warning(format!("Cannot find image file {}", path), source_location);
@@ -115,6 +118,7 @@ trait Pixel {
     //fn rgb(&self) -> (u8, u8, u8);
     fn is_transparent(&self) -> bool;
 }
+#[cfg(not(target_arch = "wasm32"))]
 impl Pixel for image::Rgba<u8> {
     /*fn alpha(&self) -> f32 { self[3] as f32 / 255. }
     fn rgb(&self) -> (u8, u8, u8) { (self[0], self[1], self[2]) }*/
@@ -123,6 +127,7 @@ impl Pixel for image::Rgba<u8> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn generate_texture(image: image::RgbaImage) -> Texture {
     // Analyze each pixels
     let mut top = 0;
@@ -219,6 +224,7 @@ pub fn generate_texture(image: image::RgbaImage) -> Texture {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn convert_image(image: image::RgbaImage, format: PixelFormat, rect: Rect) -> Vec<u8> {
     let i = image::SubImage::new(&image, rect.x() as _, rect.y() as _, rect.width(), rect.height());
     match format {
@@ -232,6 +238,7 @@ fn convert_image(image: image::RgbaImage, format: PixelFormat, rect: Rect) -> Ve
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn load_image(file: crate::fileaccess::VirtualFile) -> image::ImageResult<image::RgbaImage> {
     if file.path.ends_with(".svg") || file.path.ends_with(".svgz") {
         let options = usvg::Options::default();
