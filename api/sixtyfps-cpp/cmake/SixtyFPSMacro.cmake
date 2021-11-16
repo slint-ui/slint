@@ -23,6 +23,7 @@ function(SIXTYFPS_TARGET_60_SOURCES target)
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
                 COMMAND SixtyFPS::sixtyfps-compiler ${_60_ABSOLUTE}
                     -o ${_60_BASE_NAME_REL}.h  --depfile ${_60_BASE_NAME_REL}.d
+                    --style ${SIXTYFPS_STYLE}
                 DEPENDS SixtyFPS::sixtyfps-compiler ${_60_ABSOLUTE}
                 COMMENT "Generating ${_60_BASE_NAME}.h"
                 DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.d
@@ -35,6 +36,7 @@ function(SIXTYFPS_TARGET_60_SOURCES target)
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
                 COMMAND SixtyFPS::sixtyfps-compiler ${_60_ABSOLUTE}
                     -o ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
+                    --style ${SIXTYFPS_STYLE}
                 DEPENDS SixtyFPS::sixtyfps-compiler ${_60_ABSOLUTE} ${ALL_60S}
                 COMMENT "Generating ${_60_BASE_NAME}.h"
             )
