@@ -26,6 +26,10 @@ struct Cli {
     #[structopt(name = "file", parse(from_os_str))]
     path: std::path::PathBuf,
 
+    /// The style name ('native', 'fluent', or 'ugly')
+    #[structopt(long, name = "style name")]
+    style: Option<String>,
+
     /// Generate a dependency file
     #[structopt(
         name = "dependency file",
@@ -52,6 +56,9 @@ fn main() -> std::io::Result<()> {
     }
     let mut compiler_config = CompilerConfiguration::new(args.format);
     compiler_config.include_paths = args.include_paths;
+    if let Some(style) = args.style {
+        compiler_config.style = Some(style);
+    }
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
     let (doc, diag) = spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
