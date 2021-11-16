@@ -125,6 +125,14 @@ exists under the `language` server section:
 }
 ```
 
+### Vim syntax highlithing 
+
+https://github.com/RustemB/sixtyfps-vim
+
+### Neovim
+
+https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#sixtyfps
+
 ## Sublime Text
 
 To setup the lsp:
