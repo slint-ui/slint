@@ -27,28 +27,6 @@ find_package(Rust 1.54 REQUIRED MODULE)
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
     CRATES sixtyfps-compiler sixtyfps-cpp)
 
-# For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
-# means usually CMAKE_PREFIX_PATH is set.
-find_package(Qt6 6.0 QUIET COMPONENTS Core Widgets)
-if (NOT TARGET Qt::qmake)
-    find_package(Qt5 5.15 QUIET COMPONENTS Core Widgets)
-endif()
-if (TARGET Qt::qmake)
-    set_property(
-        TARGET sixtyfps-cpp
-        APPEND
-        PROPERTY CORROSION_ENVIRONMENT_VARIABLES
-        QMAKE=$<TARGET_PROPERTY:Qt::qmake,LOCATION>
-    )
-else()
-    set_property(
-        TARGET sixtyfps-cpp
-        APPEND
-        PROPERTY CORROSION_ENVIRONMENT_VARIABLES
-        SIXTYFPS_NO_QT=1
-    )
-endif()
-
 set_property(
     TARGET sixtyfps-cpp
     APPEND
@@ -112,6 +90,35 @@ set_property(
     PROPERTY CORROSION_NO_DEFAULT_FEATURES
     ${features}
 )
+
+
+if (SIXTYFPS_FEATURE_BACKEND_QT)
+    # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
+    # means usually CMAKE_PREFIX_PATH is set.
+    find_package(Qt6 6.0 QUIET COMPONENTS Core Widgets)
+    if (NOT TARGET Qt::qmake)
+        find_package(Qt5 5.15 QUIET COMPONENTS Core Widgets)
+    endif()
+endif (SIXTYFPS_FEATURE_BACKEND_QT)
+if (TARGET Qt::qmake)
+    set_property(
+        TARGET sixtyfps-cpp
+        APPEND
+        PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+        QMAKE=$<TARGET_PROPERTY:Qt::qmake,LOCATION>
+    )
+    set(SIXTYFPS_STYLE_DEFAULT "native")
+else()
+    set_property(
+        TARGET sixtyfps-cpp
+        APPEND
+        PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+        SIXTYFPS_NO_QT=1
+    )
+    set(SIXTYFPS_STYLE_DEFAULT "fluent")
+endif()
+
+set(SIXTYFPS_STYLE ${SIXTYFPS_STYLE_DEFAULT} CACHE STRING "The SixtyFPS widget style" FORCE)
 
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
