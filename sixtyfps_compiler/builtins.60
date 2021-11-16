@@ -595,19 +595,19 @@ export NativeTab := _ {
 }
 
 export global NativeStyleMetrics := {
-    property <length> layout-spacing;
-    property <length> layout-padding;
-    property <length> text-cursor-width;
-    property <color> window-background;
-    property <color> default-text-color;
-    property <color> textedit-background;
-    property <color> textedit-text-color;
-    property <color> textedit-background-disabled;
-    property <color> textedit-text-color-disabled;
+    property <length> layout-spacing : native_output;
+    property <length> layout-padding : native_output;
+    property <length> text-cursor-width : native_output;
+    property <color> window-background : native_output;
+    property <color> default-text-color : native_output;
+    property <color> textedit-background : native_output;
+    property <color> textedit-text-color : native_output;
+    property <color> textedit-background-disabled : native_output;
+    property <color> textedit-text-color-disabled : native_output;
 
     // specific to the Native one
-    property <color> placeholder-color;
-    property <color> placeholder-color-disabled;
+    property <color> placeholder-color : native_output;
+    property <color> placeholder-color-disabled : native_output;
 
     //-is_non_item_type
     //-is_internal
