@@ -25,7 +25,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v2
         with:
-          version: 5.15.2
+          version: 6.2.1
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/install@v0.1
         with:
@@ -43,16 +43,19 @@ jobs:
             mkdir sixtyfps-viewer
             cd sixtyfps-viewer
             cp ..\..\target/release/sixtyfps-viewer.exe ./
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Core.dll ./
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Gui.dll ./
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\bin/Qt5Widgets.dll ./
+            cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Core.dll ./
+            cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Gui.dll ./
+            cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Widgets.dll ./
+            cp ..\..\..\Qt\6.2.1\msvc2019_64\bin/Qt6Svg.dll ./
             mkdir .\plugins\platforms
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\platforms\qwindows.dll ./plugins/platforms
+            cp ..\..\..\Qt\6.2.1\msvc2019_64\plugins\platforms\qwindows.dll ./plugins/platforms
             mkdir .\plugins\styles
-            cp ..\..\..\Qt\5.15.2\msvc2019_64\plugins\styles\qwindowsvistastyle.dll ./plugins/styles
+            cp ..\..\..\Qt\6.2.1\msvc2019_64\plugins\styles\qwindowsvistastyle.dll ./plugins/styles
+            mkdir .\plugins\imageformats
+            cp ..\..\..\Qt\6.2.1\msvc2019_64\plugins\imageformats\qsvg.dll ./plugins/imageformats
             cd ..
             cd ..
-            bash -x ./scripts/prepare_binary_package.sh pkg\sixtyfps-viewer ..\Qt 5.15.2
+            bash -x ./scripts/prepare_binary_package.sh pkg\sixtyfps-viewer ..\Qt 6.2.1
 
       - name: Upload artifact
         uses: actions/upload-artifact@v2
@@ -133,7 +136,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v2
         with:
-          version: 6.2.0 # for Apple Silicon support
+          version: 6.2.1 # for Apple Silicon support
           cached: ${{ steps.cache-qt.outputs.cache-hit }}
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/install@v0.1
@@ -156,14 +159,16 @@ jobs:
             cd sixtyfps-viewer
             lipo -create -output ./sixtyfps-viewer ../target/x86_64-apple-darwin/release/sixtyfps-viewer ../target/aarch64-apple-darwin/release/sixtyfps-viewer
             install_name_tool -add_rpath @executable_path/. ./sixtyfps-viewer
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtCore.framework ./
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtGui.framework ./
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtWidgets.framework ./
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/lib/QtDBus.framework ./
-            mkdir -p ./plugins/platforms
-            cp -a ~/work/sixtyfps/Qt/6.2.0/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
+            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtCore.framework ./
+            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtGui.framework ./
+            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtWidgets.framework ./
+            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtDBus.framework ./
+            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtSvg.framework ./
+            mkdir -p ./plugins/platforms ./plugins/imageformats
+            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
+            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/plugins/imageformats/libqsvg.dylib ./plugins/imageformats
             cd ..
-            ./scripts/prepare_binary_package.sh sixtyfps-viewer ~/work/sixtyfps/Qt 6.2.0
+            ./scripts/prepare_binary_package.sh sixtyfps-viewer ~/work/sixtyfps/Qt 6.2.1
       - name: Tar artifacts to preserve permissions
         run: tar czvf sixtyfps-viewer-macos.tar.gz sixtyfps-viewer
       - name: Upload artifact
