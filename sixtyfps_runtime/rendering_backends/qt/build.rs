@@ -41,6 +41,9 @@ fn main() {
     config.flag_if_supported("/std:c++17");
     // Make sure that MSVC reports the correct value for __cplusplus
     config.flag_if_supported("/Zc:__cplusplus");
+    // Make sure that MSVC is using utf-8 for source encoding
+    // Ref: https://docs.microsoft.com/en-us/cpp/build/reference/utf-8-set-source-and-executable-character-sets-to-utf-8
+    config.flag_if_supported("/utf-8");
 
     if cfg!(target_os = "macos") {
         config.flag("-F");
