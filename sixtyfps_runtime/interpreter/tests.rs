@@ -23,6 +23,7 @@ fn reuse_window() {
     "#;
     let handle = {
         let mut compiler = ComponentCompiler::default();
+        compiler.set_style("fluent".into());
         let definition =
             spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
         assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
@@ -36,6 +37,7 @@ fn reuse_window() {
 
     let _handle2 = {
         let mut compiler = ComponentCompiler::default();
+        compiler.set_style("fluent".into());
         let definition =
             spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
         assert!(compiler.diagnostics().is_empty(), "{:?}", compiler.diagnostics());
