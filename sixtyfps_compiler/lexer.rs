@@ -123,6 +123,9 @@ pub fn lex_string(text: &str, state: &mut LexState) -> usize {
                 return stop + 1;
             }
             b'\\' => {
+                if text.as_bytes().len() == stop + 1 {
+                    return stop + 1;
+                }
                 if text.as_bytes()[stop + 1] == b'{' {
                     state.template_string_stack.push(0);
                     return stop + 2;
@@ -320,4 +323,5 @@ fn basic_lexer_test() {
             (crate::parser::SyntaxKind::Star, "*"),
         ],
     );
+    compare(r#""\"#, &[(crate::parser::SyntaxKind::StringLiteral, "\"\\")]);
 }
