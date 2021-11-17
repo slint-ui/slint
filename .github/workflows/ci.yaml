@@ -247,7 +247,7 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSIXTYFPS_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release -DSIXTYFPS_PACKAGE_BUNDLE_QT=ON'
+        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSIXTYFPS_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSIXTYFPS_PACKAGE_BUNDLE_QT=ON'
         buildDirectory: ${{ runner.workspace }}/cppbuild
         buildWithCMakeArgs: '--config Release'
     - name: ctest
