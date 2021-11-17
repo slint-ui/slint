@@ -240,8 +240,9 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSIXTYFPS_BUILD_EXAMPLES=ON'
+        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSIXTYFPS_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Release'
         buildDirectory: ${{ runner.workspace }}/cppbuild
+        buildWithCMakeArgs: '--config Release'
     - name: ctest
       working-directory: ${{ runner.workspace }}/cppbuild
       run: ctest --verbose
