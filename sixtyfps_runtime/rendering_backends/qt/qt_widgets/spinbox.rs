@@ -83,9 +83,15 @@ impl Item for NativeSpinBox {
             QStyleOptionSpinBox option;
             initQSpinBoxOptions(option, pressed, enabled, active_controls);
 
+            QStyleOptionFrame frame;
+            frame.state = option.state;
+            frame.lineWidth = style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, &option, nullptr) ? 0
+                : style->pixelMetric(QStyle::PM_DefaultFrameWidth, &option, nullptr);
+            frame.midLineWidth = 0;
             auto content = option.fontMetrics.boundingRect("0000");
-
-            return style->sizeFromContents(QStyle::CT_SpinBox, &option, content.size(), nullptr);
+            const QSize margins(2 * 2, 2 * 1); // QLineEditPrivate::verticalMargin and QLineEditPrivate::horizontalMargin
+            auto line_edit_size = style->sizeFromContents(QStyle::CT_LineEdit, &frame, content.size() + margins, nullptr);
+            return style->sizeFromContents(QStyle::CT_SpinBox, &option, line_edit_size, nullptr);
         });
         match orientation {
             Orientation::Horizontal => {
@@ -209,9 +215,18 @@ impl Item for NativeSpinBox {
             option.state |= QStyle::State(initial_state);
             option.rect = QRect(QPoint(), size / dpr);
             initQSpinBoxOptions(option, pressed, enabled, active_controls);
-            style->drawComplexControl(QStyle::CC_SpinBox, &option, painter, nullptr);
+            style->drawComplexControl(QStyle::CC_SpinBox, &option, painter, widget);
 
-            auto text_rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, widget);
+            QStyleOptionFrame frame;
+            frame.state = option.state;
+            frame.palette = option.palette;
+            frame.lineWidth = style->styleHint(QStyle::SH_SpinBox_ButtonsInsideFrame, &option, widget) ? 0
+                : style->pixelMetric(QStyle::PM_DefaultFrameWidth, &option, widget);
+            frame.midLineWidth = 0;
+            frame.rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, widget);
+            style->drawPrimitive(QStyle::PE_PanelLineEdit, &frame, painter, widget);
+            QRect text_rect = qApp->style()->subElementRect(QStyle::SE_LineEditContents, &frame, widget);
+            text_rect.adjust(1, 2, 1, 2);
             painter->setPen(option.palette.color(QPalette::Text));
             painter->drawText(text_rect, QString::number(value));
         });
