@@ -186,7 +186,7 @@ jobs:
 
   cpp_cmake:
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/6.2.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
     strategy:
@@ -203,11 +203,18 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/work/sixtyfps/Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt5.15.2
+        key: ${{ runner.os }}-${{ github.job }}-cpp
     - name: Install Qt
       uses: jurplel/install-qt-action@v2
+      if: matrix.os == 'ubuntu-20.04'
       with:
-        version: '5.15.2'
+        version: 5.15.2
+        cached: ${{ steps.cache-qt.outputs.cache-hit }}
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v2
+      if: matrix.os != 'ubuntu-20.04'
+      with:
+        version: 6.2.1
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
     - name: Cache cargo registry
       uses: actions/cache@v2
