@@ -58,6 +58,7 @@ type KeyEventArg = (KeyEvent,);
 type PointerEventArg = (PointerEvent,);
 type PointArg = (Point,);
 
+#[cfg(all(feature = "ffi", windows))]
 #[macro_export]
 macro_rules! declare_item_vtable {
     (fn $getter:ident() -> $item_vtable_ty:ident for $item_ty:ty) => {
@@ -66,10 +67,19 @@ macro_rules! declare_item_vtable {
             pub static $item_vtable_ty for $item_ty
         }
         #[no_mangle]
-        #[cfg(all(feature = "ffi", windows))]
         pub extern "C" fn $getter() -> *const ItemVTable {
             use vtable::HasStaticVTable;
             <$item_ty>::static_vtable()
+        }
+    };
+}
+#[cfg(not(all(feature = "ffi", windows)))]
+#[macro_export]
+macro_rules! declare_item_vtable {
+    (fn $getter:ident() -> $item_vtable_ty:ident for $item_ty:ty) => {
+        ItemVTable_static! {
+            #[no_mangle]
+            pub static $item_vtable_ty for $item_ty
         }
     };
 }
