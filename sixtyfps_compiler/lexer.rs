@@ -111,6 +111,7 @@ pub fn lex_string(text: &str, state: &mut LexState) -> usize {
     } else if !text.starts_with('"') {
         return 0;
     }
+    let text_len = text.as_bytes().len();
     let mut end = 1; // skip the '"'
     loop {
         let stop = match text[end..].find(&['"', '\\'][..]) {
@@ -123,14 +124,21 @@ pub fn lex_string(text: &str, state: &mut LexState) -> usize {
                 return stop + 1;
             }
             b'\\' => {
-                if text.as_bytes().len() == stop + 1 {
-                    return stop + 1;
+                if text_len <= stop + 1 {
+                    return text_len;
                 }
                 if text.as_bytes()[stop + 1] == b'{' {
                     state.template_string_stack.push(0);
                     return stop + 2;
                 }
-                end = stop + 2;
+                end = stop + 1;
+                while end < text_len && text.as_bytes()[end] > 127u8 {
+                    // Iterate till end of UTF8 sequence started at stop + 1
+                    end += 1;
+                }
+                if end < text_len {
+                    end = end + 1 // begin of next UTF8 sequence
+                }
             }
             _ => unreachable!(),
         }
@@ -324,4 +332,5 @@ fn basic_lexer_test() {
         ],
     );
     compare(r#""\"#, &[(crate::parser::SyntaxKind::StringLiteral, "\"\\")]);
+    compare(r#""\ޱ"#, &[(crate::parser::SyntaxKind::Error, "\"\\ޱ")]);
 }
