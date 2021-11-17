@@ -10,10 +10,6 @@ LICENSE END */
 
 use super::*;
 
-declare_item_vtable! {
-    fn sixtyfps_get_NativeButtonVTable() -> NativeButtonVTable for NativeButton
-}
-
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
