@@ -1112,6 +1112,7 @@ pub mod testing {
 
 #[test]
 fn component_definition_properties() {
+    sixtyfps_rendering_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
@@ -1158,6 +1159,7 @@ fn component_definition_properties() {
 
 #[test]
 fn component_definition_properties2() {
+    sixtyfps_rendering_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
@@ -1186,6 +1188,7 @@ fn component_definition_properties2() {
 
 #[test]
 fn globals() {
+    sixtyfps_rendering_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     let definition = spin_on::spin_on(
         compiler.build_from_source(
@@ -1302,6 +1305,7 @@ fn globals() {
 
 #[test]
 fn component_definition_struct_properties() {
+    sixtyfps_rendering_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     let comp_def = spin_on::spin_on(
         compiler.build_from_source(
