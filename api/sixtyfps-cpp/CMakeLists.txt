@@ -206,6 +206,30 @@ install(FILES
     DESTINATION lib/cmake/SixtyFPS
 )
 
+option(SIXTYFPS_PACKAGE_BUNDLE_QT "Internal setting to install Qt binary in the packages" OFF)
+if(SIXTYFPS_PACKAGE_BUNDLE_QT)
+    if(WIN32)
+        find_package(Qt6 6.0 COMPONENTS Core Gui Widgets Svg)
+        install(
+            FILES
+                $<TARGET_FILE:Qt6::Core>
+                $<TARGET_FILE:Qt6::Gui>
+                $<TARGET_FILE:Qt6::Widgets>
+                $<TARGET_FILE:Qt6::Svg>
+            TYPE LIB)
+
+        install(
+            FILES ${Qt6_DIR}/../../../plugins/platforms/qwindows.dll
+            DESTINATION lib/plugins/platforms)
+        install(
+            FILES ${Qt6_DIR}/../../../plugins/styles/qwindowsvistastyle.dll
+            DESTINATION lib/plugins/styles)
+        install(
+            FILES ${Qt6_DIR}/../../../plugins/imageformats/qsvg.dll
+            DESTINATION lib/plugins/imageformats)
+    endif()
+endif(SIXTYFPS_PACKAGE_BUNDLE_QT)
+
 set(CPACK_PACKAGE_NAME "SixtyFPS")
 set(CPACK_PACKAGE_VENDOR "SixtyFPS")
 set(CPACK_VERBATIM_VARIABLES true)
