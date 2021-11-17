@@ -220,13 +220,13 @@ if(SIXTYFPS_PACKAGE_BUNDLE_QT)
 
         install(
             FILES ${Qt6_DIR}/../../../plugins/platforms/qwindows.dll
-            DESTINATION lib/plugins/platforms)
+            DESTINATION plugins/platforms)
         install(
             FILES ${Qt6_DIR}/../../../plugins/styles/qwindowsvistastyle.dll
-            DESTINATION lib/plugins/styles)
+            DESTINATION plugins/styles)
         install(
             FILES ${Qt6_DIR}/../../../plugins/imageformats/qsvg.dll
-            DESTINATION lib/plugins/imageformats)
+            DESTINATION plugins/imageformats)
     endif()
 endif(SIXTYFPS_PACKAGE_BUNDLE_QT)
 
