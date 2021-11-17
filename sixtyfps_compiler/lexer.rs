@@ -72,7 +72,7 @@ pub fn lex_comment(text: &str, _: &mut LexState) -> usize {
                 if star > offset && bytes[star - 1] == b'/' {
                     nested += 1;
                     offset = star + 1;
-                } else if bytes[star + 1] == b'/' {
+                } else if star < bytes.len() - 1 && bytes[star + 1] == b'/' {
                     if nested == 0 {
                         return star + 2;
                     }
@@ -308,6 +308,16 @@ fn basic_lexer_test() {
             (crate::parser::SyntaxKind::Identifier, "h"),
             (crate::parser::SyntaxKind::StringLiteral, r#"}i""#),
             (crate::parser::SyntaxKind::Identifier, "j"),
+        ],
+    );
+
+    // Fuzzer tests:
+    compare(
+        r#"/**"#,
+        &[
+            (crate::parser::SyntaxKind::Div, "/"),
+            (crate::parser::SyntaxKind::Star, "*"),
+            (crate::parser::SyntaxKind::Star, "*"),
         ],
     );
 }
