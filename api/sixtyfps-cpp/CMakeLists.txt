@@ -273,6 +273,10 @@ if(BUILD_TESTING)
         else()
             target_compile_options(test_${NAME} PRIVATE -Wall -Wextra -Werror)
         endif()
+        if (CMAKE_CXX_COMPILER_ID STREQUAL GNU)
+            # that warning has false positives
+            target_compile_options(test_${NAME} PRIVATE -Wno-maybe-uninitialized)
+        endif()
 
     endmacro(sixtyfps_test)
     sixtyfps_test(datastructures)
