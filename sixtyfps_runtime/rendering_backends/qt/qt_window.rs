@@ -52,7 +52,7 @@ cpp! {{
     #include <QtCore/QEvent>
     #include <QtCore/QFileInfo>
     #include <memory>
-    void ensure_initialized();
+    void ensure_initialized(bool from_qt_backend);
 
     struct TimerHandler : QObject {
         QBasicTimer timer;
@@ -1102,7 +1102,7 @@ pub struct QtWindow {
 impl QtWindow {
     pub fn new(window_weak: &Weak<sixtyfps_corelib::window::Window>) -> Rc<Self> {
         let widget_ptr = cpp! {unsafe [] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
-            ensure_initialized();
+            ensure_initialized(true);
             return std::make_unique<SixtyFPSWidget>();
         }};
         let rc = Rc::new(QtWindow {
@@ -1544,7 +1544,7 @@ pub(crate) fn timer_event() {
     };
     if let Some(timeout) = timeout {
         cpp! { unsafe [timeout as "int"] {
-            ensure_initialized();
+            ensure_initialized(true);
             TimerHandler::instance().timer.start(timeout, &TimerHandler::instance());
         }}
     }

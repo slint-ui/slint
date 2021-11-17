@@ -138,7 +138,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             crate::qt_window::timer_event();
             use cpp::cpp;
             cpp! {unsafe [quit_on_last_window_closed as "bool"] {
-                ensure_initialized();
+                ensure_initialized(true);
                 qApp->setQuitOnLastWindowClosed(quit_on_last_window_closed);
                 qApp->exec();
             } }
@@ -168,7 +168,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             use cpp::cpp;
             let data = qttypes::QByteArray::from(_data);
             cpp! {unsafe [data as "QByteArray"] {
-                ensure_initialized();
+                ensure_initialized(true);
                 QFontDatabase::addApplicationFontFromData(data);
             } }
         };
@@ -184,7 +184,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             use cpp::cpp;
             let encoded_path: qttypes::QByteArray = _path.to_string_lossy().as_bytes().into();
             cpp! {unsafe [encoded_path as "QByteArray"] {
-                ensure_initialized();
+                ensure_initialized(true);
 
                 QString requested_path = QFileInfo(QFile::decodeName(encoded_path)).canonicalFilePath();
                 static QSet<QString> loaded_app_fonts;

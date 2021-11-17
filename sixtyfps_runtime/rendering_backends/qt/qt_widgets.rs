@@ -149,20 +149,25 @@ cpp! {{
     #include <QtCore/QDebug>
     #include <QtCore/QScopeGuard>
 
-    void ensure_initialized()
+    /// Make sure there is an instance of QApplication.
+    /// The `from_qt_backend` argument specifies if we know that we are running
+    /// the Qt backend, or if we are just drawing widgets
+    void ensure_initialized(bool from_qt_backend = false)
     {
-        static auto app [[maybe_unused]]  = []{
-            if (qApp) {
-                return qApp;
-            }
+        if (qApp) {
+            return;
+        }
+        if (!from_qt_backend) {
+            // When not using the Qt backend, Qt is not in control of the event loop
+            // so we should set this flag.
             QCoreApplication::setAttribute(Qt::AA_PluginApplication, true);
-            static int argc  = 1;
-            static char argv[] = "sixtyfps";
-            static char *argv2[] = { argv };
-            // Leak the QApplication, otherwise it crashes on exit
-            // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)
-            return new QApplication(argc, argv2);
-        }();
+        }
+        static int argc  = 1;
+        static char argv[] = "sixtyfps";
+        static char *argv2[] = { argv };
+        // Leak the QApplication, otherwise it crashes on exit
+        // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)
+        new QApplication(argc, argv2);
     }
 }}
 
