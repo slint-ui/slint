@@ -168,10 +168,14 @@ if(WIN32)
     install(FILES $<TARGET_LINKER_FILE:sixtyfps-cpp-shared> TYPE LIB)
     # Copy the dll to the top-level bin directory, where the examples will
     # will also be located, so that they can find the dll.
+    get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+    if(GENERATOR_IS_MULTI_CONFIG)
+        set(config_subdir_genex "$<CONFIG>/")
+    endif()
     add_custom_target(SixtyFPS_dll_convenience ALL DEPENDS sixtyfps-cpp-shared
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:sixtyfps-cpp-shared>
-            ${CMAKE_BINARY_DIR}/bin/$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
+	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
 endif()
 
 install(PROGRAMS $<TARGET_FILE:sixtyfps-compiler> TYPE BIN)
