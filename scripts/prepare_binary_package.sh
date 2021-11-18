@@ -15,7 +15,7 @@ if [ $# != 3 ]; then
     echo "This prepares the specified binary_package folder for distribution"
     echo "by adding the legal copyright and license notices."
     echo
-    echo "All files will be copied/created under the 3rdparty-licenses folder"
+    echo "All files will be copied/created under the licenses folder"
     echo "along with an index.html"
     echo
     echo "(The path to Qt could be for example ~/Qt/ where the qt installer placed"
@@ -23,7 +23,7 @@ if [ $# != 3 ]; then
     exit 1
 fi
 
-target_path=$1/3rdparty-licenses
+target_path=$1/licenses
 qt_path=$2
 qt_version=$3
 
