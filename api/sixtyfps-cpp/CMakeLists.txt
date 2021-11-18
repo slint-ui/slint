@@ -231,6 +231,8 @@ if(SIXTYFPS_PACKAGE_BUNDLE_QT)
         install(
             FILES ${Qt6_DIR}/../../../plugins/imageformats/qsvg.dll
             DESTINATION plugins/imageformats)
+
+        install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../licenses/ DESTINATION licenses)
     endif()
 endif(SIXTYFPS_PACKAGE_BUNDLE_QT)
 

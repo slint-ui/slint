@@ -207,7 +207,7 @@ jobs:
         key: ${{ runner.os }}-${{ github.job }}-cpp-qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2
-      if: matrix.os == 'ubuntu-20.04' 
+      if: matrix.os == 'ubuntu-20.04'
       with:
         version: 5.15.2
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
@@ -222,22 +222,20 @@ jobs:
       with:
         version: 6.2.1
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
           toolchain: stable
           override: true
-          components: rustfmt, clippy
+    - uses: Swatinem/rust-cache@v1
+    - uses: actions-rs/install@v0.1
+      if: matrix.os == 'windows-latest'
+      with:
+        crate: cargo-about
+        use-tool-cache: true
+    - name: Prepare licenses
+      if: matrix.os == 'windows-latest'
+      run: bash -x ./scripts/prepare_binary_package.sh . ..\Qt 6.2.1
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
       run: |
