@@ -20,6 +20,12 @@ on:
 jobs:
   sixtyfps-viewer-binary:
     uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_viewer_binary.yaml@master
+    with:
+      program: "sixtyfps-viewer"
+  sixtyfps-lsp-binary:
+    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_viewer_binary.yaml@master
+    with:
+      program: "sixtyfps-lsp"
   docs:
     uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@master
   wasm_demo:

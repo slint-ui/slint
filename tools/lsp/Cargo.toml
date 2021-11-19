@@ -16,9 +16,16 @@ icon = ["../../vscode_extension/extension-logo.png"]
 name = "sixtyfps-lsp"
 path = "main.rs"
 
+[features]
+sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]
+sixtyfps-backend-gl = ["sixtyfps-interpreter/backend-gl"]
+x11 = ["sixtyfps-interpreter/x11"]
+wayland = ["sixtyfps-interpreter/wayland"]
+default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
+
 [dependencies]
 sixtyfps-compilerlib = { version = "=0.1.5", path = "../../sixtyfps_compiler"}
-sixtyfps-interpreter = { version = "=0.1.5", path = "../../sixtyfps_runtime/interpreter"}
+sixtyfps-interpreter = { version = "=0.1.5", path = "../../sixtyfps_runtime/interpreter", default-features = false }
 sixtyfps-corelib = { version = "=0.1.5", path = "../../sixtyfps_runtime/corelib"}
 sixtyfps-rendering-backend-default = { version = "=0.1.5", path="../../sixtyfps_runtime/rendering_backends/default" }
 lsp-types = "0.91.0"
