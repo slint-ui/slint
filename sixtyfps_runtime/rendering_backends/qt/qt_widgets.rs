@@ -44,7 +44,7 @@ use std::rc::Rc;
 
 type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 
-use crate::qt_window::QPainter;
+use qttypes::QPainter;
 
 /// Helper macro to get the size from the width and height property,
 /// and return Default::default in case the size is too small
@@ -78,13 +78,13 @@ macro_rules! fn_render {
             if let Some(painter) = <dyn std::any::Any>::downcast_mut::<QPainter>(backend.as_any()) {
                 let $size: qttypes::QSize = get_size!(self);
                 let $this = self;
-                painter.save_state();
+                painter.save();
                 let $widget = cpp!(unsafe [painter as "QPainter*"] -> * const () as "QWidget*" {
                     return painter->device()->devType() == QInternal::Widget ? static_cast<QWidget *>(painter->device()) : nullptr;
                 });
                 let $painter = painter;
                 $($tt)*
-                $painter.restore_state();
+                $painter.restore();
             } else {
                 // Fallback: this happen when the Qt backend is not used and the gl backend is used instead
                 backend.draw_cached_pixmap(

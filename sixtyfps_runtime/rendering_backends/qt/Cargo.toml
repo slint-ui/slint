@@ -28,7 +28,7 @@ once_cell = "1"
 lyon_path = "0.17"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-qttypes = { version = "0.2", default-features = false }
+qttypes = { version = "0.2.5", default-features = false }
 
 [build-dependencies]
 cpp_build = "0.5.5"

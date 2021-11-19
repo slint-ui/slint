@@ -13,6 +13,7 @@ LICENSE END */
 use cpp::*;
 use euclid::approxeq::ApproxEq;
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
+use qttypes::QPainter;
 use sixtyfps_corelib::graphics::{
     Brush, FontRequest, Image, Point, Rect, RenderingCache, SharedImageBuffer, Size,
 };
@@ -234,22 +235,6 @@ cpp! {{
     }
 }}
 
-cpp_class! {pub unsafe struct QPainter as "QPainter"}
-
-impl QPainter {
-    pub fn save_state(&mut self) {
-        cpp! { unsafe [self as "QPainter*"] {
-            self->save();
-        }}
-    }
-
-    pub fn restore_state(&mut self) {
-        cpp! { unsafe [self as "QPainter*"] {
-            self->restore();
-        }}
-    }
-}
-
 cpp_class! {pub unsafe struct QPainterPath as "QPainterPath"}
 
 impl QPainterPath {
@@ -299,44 +284,38 @@ impl QPainterPath {
     }
 }
 
-cpp_class!(
-    pub unsafe struct QBrush as "QBrush"
-);
-
-impl std::convert::From<sixtyfps_corelib::Brush> for QBrush {
-    fn from(brush: sixtyfps_corelib::Brush) -> Self {
-        match brush {
-            sixtyfps_corelib::Brush::SolidColor(color) => {
-                let color: u32 = color.as_argb_encoded();
-                cpp!(unsafe [color as "QRgb"] -> QBrush as "QBrush" {
-                    return QBrush(QColor::fromRgba(color));
-                })
-            }
-            sixtyfps_corelib::Brush::LinearGradient(g) => {
-                let (start, end) = sixtyfps_corelib::graphics::line_for_angle(g.angle());
-                let p1 = qttypes::QPointF { x: start.x as _, y: start.y as _ };
-                let p2 = qttypes::QPointF { x: end.x as _, y: end.y as _ };
-                cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
-                let mut qlg = cpp! {
-                    unsafe [p1 as "QPointF", p2 as "QPointF"] -> QLinearGradient as "QLinearGradient" {
-                        QLinearGradient qlg(p1, p2);
-                        qlg.setCoordinateMode(QGradient::ObjectMode);
-                        return qlg;
-                    }
-                };
-                for s in g.stops() {
-                    let pos: f32 = s.position;
-                    let color: u32 = s.color.as_argb_encoded();
-                    cpp! {unsafe [mut qlg as "QLinearGradient", pos as "float", color as "QRgb"] {
-                        qlg.setColorAt(pos, QColor::fromRgba(color));
-                    }};
-                }
-                cpp! {unsafe [qlg as "QLinearGradient"] -> QBrush as "QBrush" {
-                    return QBrush(qlg);
-                }}
-            }
-            _ => QBrush::default(),
+fn into_qbrush(brush: sixtyfps_corelib::Brush) -> qttypes::QBrush {
+    match brush {
+        sixtyfps_corelib::Brush::SolidColor(color) => {
+            let color: u32 = color.as_argb_encoded();
+            cpp!(unsafe [color as "QRgb"] -> qttypes::QBrush as "QBrush" {
+                return QBrush(QColor::fromRgba(color));
+            })
         }
+        sixtyfps_corelib::Brush::LinearGradient(g) => {
+            let (start, end) = sixtyfps_corelib::graphics::line_for_angle(g.angle());
+            let p1 = qttypes::QPointF { x: start.x as _, y: start.y as _ };
+            let p2 = qttypes::QPointF { x: end.x as _, y: end.y as _ };
+            cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
+            let mut qlg = cpp! {
+                unsafe [p1 as "QPointF", p2 as "QPointF"] -> QLinearGradient as "QLinearGradient" {
+                    QLinearGradient qlg(p1, p2);
+                    qlg.setCoordinateMode(QGradient::ObjectMode);
+                    return qlg;
+                }
+            };
+            for s in g.stops() {
+                let pos: f32 = s.position;
+                let color: u32 = s.color.as_argb_encoded();
+                cpp! {unsafe [mut qlg as "QLinearGradient", pos as "float", color as "QRgb"] {
+                    qlg.setColorAt(pos, QColor::fromRgba(color));
+                }};
+            }
+            cpp! {unsafe [qlg as "QLinearGradient"] -> qttypes::QBrush as "QBrush" {
+                return QBrush(qlg);
+            }}
+        }
+        _ => qttypes::QBrush::default(),
     }
 }
 
@@ -396,7 +375,7 @@ struct QtItemRenderer<'a> {
 
 impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>) {
-        let brush: QBrush = rect.background().into();
+        let brush: qttypes::QBrush = into_qbrush(rect.background());
         let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect);
         let painter: &mut QPainter = &mut *self.painter;
         cpp! { unsafe [painter as "QPainter*", brush as "QBrush", rect as "QRectF"] {
@@ -453,7 +432,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_text(&mut self, text: std::pin::Pin<&items::Text>) {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
-        let fill_brush: QBrush = text.color().into();
+        let fill_brush: qttypes::QBrush = into_qbrush(text.color());
         let mut string: qttypes::QString = text.text().as_str().into();
         let font: QFont =
             get_font(text.unresolved_font_request().merge(&self.default_font_properties));
@@ -532,7 +511,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>) {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
-        let fill_brush: QBrush = text_input.color().into();
+        let fill_brush: qttypes::QBrush = into_qbrush(text_input.color());
         let selection_foreground_color: u32 =
             text_input.selection_foreground_color().as_argb_encoded();
         let selection_background_color: u32 =
@@ -625,8 +604,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
         // FIXME: handle width/height
         //let rect: qttypes::QRectF = get_geometry!(pos, items::Path, path);
-        let fill_brush: QBrush = path.fill().into();
-        let stroke_brush: QBrush = path.stroke().into();
+        let fill_brush: qttypes::QBrush = into_qbrush(path.fill());
+        let stroke_brush: qttypes::QBrush = into_qbrush(path.stroke());
         let stroke_width: f32 = path.stroke_width();
         let (offset, path_events) = path.fitted_path_events();
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
@@ -804,11 +783,11 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn save_state(&mut self) {
-        self.painter.save_state()
+        self.painter.save()
     }
 
     fn restore_state(&mut self) {
-        self.painter.restore_state()
+        self.painter.restore()
     }
 
     fn scale_factor(&self) -> f32 {
@@ -1028,7 +1007,7 @@ impl QtItemRenderer<'_> {
                 .map_or(QtRenderingCacheItem::Invalid, |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
                     if !colorize.is_transparent() {
-                        let brush: QBrush = colorize.into();
+                        let brush: qttypes::QBrush = into_qbrush(colorize);
                         cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
                             QPainter p(&pixmap);
                             p.setCompositionMode(QPainter::CompositionMode_SourceIn);
@@ -1075,8 +1054,8 @@ impl QtItemRenderer<'_> {
         mut border_width: f32,
         border_radius: f32,
     ) {
-        let brush: QBrush = brush.into();
-        let border_color: QBrush = border_color.into();
+        let brush: qttypes::QBrush = into_qbrush(brush);
+        let border_color: qttypes::QBrush = into_qbrush(border_color);
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
         cpp! { unsafe [painter as "QPainter*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {
             painter->setPen(border_width > 0 ? QPen(border_color, border_width) : Qt::NoPen);
