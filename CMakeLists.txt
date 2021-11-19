@@ -17,6 +17,9 @@ option(BUILD_TESTING "Build tests" OFF)
 add_feature_info(BUILD_TESTING BUILD_TESTING "configure whether to build the test suite")
 include(CTest)
 
+# We're building SixtyFPS as a standalone package, not embedded into another project via FetchContent
+set(SIXTYFPS_STANDALONE_BUILD ON)
+
 add_subdirectory(api/sixtyfps-cpp/)
 
 option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" OFF)

@@ -166,8 +166,14 @@ include(GNUInstallDirs)
 install(FILES $<TARGET_FILE:sixtyfps-cpp-shared> TYPE LIB)
 if(WIN32)
     install(FILES $<TARGET_LINKER_FILE:sixtyfps-cpp-shared> TYPE LIB)
-    # Copy the dll to the top-level bin directory, where the examples will
-    # will also be located, so that they can find the dll.
+    # For our "own" build, copy the dll into the bin directory, where we collect
+    # all the example binaries. Otherwise copy to the top-level build directory, as
+    # then simple projects that just use `add_executable()` will end up with executables
+    # that run out of the box.
+    set(dll_destdir "${CMAKE_BINARY_DIR}")
+    if(SIXTYFPS_STANDALONE_BUILD)
+        set(dll_destdir "${dll_destdir}/bin")
+    endif()
     get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
     if(GENERATOR_IS_MULTI_CONFIG)
         set(config_subdir_genex "$<CONFIG>/")
@@ -175,7 +181,7 @@ if(WIN32)
     add_custom_target(SixtyFPS_dll_convenience ALL DEPENDS sixtyfps-cpp-shared
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:sixtyfps-cpp-shared>
-	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
+	    ${dll_destdir}/${config_subdir_genex}$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
 endif()
 
 install(PROGRAMS $<TARGET_FILE:sixtyfps-compiler> TYPE BIN)
