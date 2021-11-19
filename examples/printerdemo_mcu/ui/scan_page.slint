@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton } from "./common.slint";
+import { PrinterQueue } from "./printer_queue.slint";
+
+export ScanPage := Page {
+    has-back-button: true;
+    header: "Scan";
+
+    GridLayout {
+        padding-top: 46px /* header line height in design */
+                     + /* extra top-padding in design */ 27px;
+        spacing: 24px;
+        Row {
+            Text {
+                text: "Choose Settings";
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
+                font-weight: 800;
+            }
+        }
+        /*
+        FIXME: these make us run out of memory/stack on the pico
+        Row {
+            Label { text: "Copies"; }
+            SpinBox {
+                value: 1;
+                minimum: 1;
+            }
+
+            Rectangle {}
+
+            Label { text: "Size"; }
+            ComboBox {
+                value: "Original";
+                choices: ["Original", "A4"];
+            }
+        }
+        Row {
+            Label { text: "Quality"; }
+            ComboBox {
+                value: "Best";
+                choices: ["Best", "Medium", "Draft"];
+            }
+
+            Rectangle {}
+
+            Label { text: "Format"; }
+            ComboBox {
+                value: "PDF";
+                choices: ["PDF", "JPEG", "PNG"];
+            }
+        }
+        Row {
+            Label { text: "Color"; }
+            ComboBox {
+                value: "Grayscale";
+                choices: ["Grayscale", "RGB", "YCMB"];
+            }
+
+            Rectangle {}
+
+            Label { text: "Save to"; }
+            ComboBox {
+                value: "Desktop";
+                choices: ["Desktop"];
+            }
+        }
+         Row {
+            Rectangle {
+                colspan: 3;
+            }
+            HorizontalLayout {
+                col: 3;
+                colspan: 2;
+
+                Rectangle {
+                    horizontal-stretch: 0;
+                    width: 10%;
+                }
+                PushButton {
+                    icon: @image-url("images/scan.svg");
+                    text: "Start scanning";
+                    clicked => {
+                        PrinterQueue.start-job("Scan");
+                    }
+                }
+                Rectangle {
+                    horizontal-stretch: 0;
+                    width: 10%;
+                }
+            }
+        }
+        Row { Rectangle {} }
+        */
+    }
+}

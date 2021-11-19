@@ -1,0 +1,44 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "printerdemo_mcu"
+version = "0.2.1"
+authors = ["Slint Developers <info@slint-ui.com>"]
+edition = "2021"
+build = "build.rs"
+publish = false
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+
+[[bin]]
+path = "main.rs"
+name = "printerdemo"
+
+[features]
+
+mcu-simulator = ["i-slint-backend-mcu/simulator", "slint/std"]
+mcu-pico-st7789 = ["i-slint-backend-mcu/pico-st7789"]
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
+i-slint-core = { path = "../../internal/core", default-features = false, features = ["libm"] }
+i-slint-backend-mcu = { path = "../../internal/backends/mcu", optional = true, default-features = false }
+
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"], optional = true }
+once_cell = { version="1.9", features = ["atomic-polyfill"], default-features = false }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
+# Remove the `#wasm#` to uncomment the wasm build.
+# This is commented out by default because we don't want to build it as a library by default
+# The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
+
+#wasm# [lib]
+#wasm# path = "main.rs"
+#wasm# crate-type = ["cdylib"]
+
+#wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
+#wasm# wasm-bindgen = { version = "0.2" }
+#wasm# web-sys = { version = "0.3", features=["console"] }
+#wasm# console_error_panic_hook = "0.1.5"
