@@ -80,6 +80,24 @@ resolver="2"
 lto = true
 panic = "abort"
 
+[profile.dev-mcu]
+inherits = "dev"
+codegen-units = 1
+debug = 2
+debug-assertions = true
+incremental = false
+opt-level = 3
+
+[profile.release-mcu]
+inherits = "release"
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 3
+overflow-checks = false
+
 [profile.dev]
 panic = "abort"
 
