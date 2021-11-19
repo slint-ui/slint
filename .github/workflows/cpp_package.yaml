@@ -1,0 +1,90 @@
+# LICENSE BEGIN
+# This file is part of the SixtyFPS Project -- https://sixtyfps.io
+# Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+# Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+# This file is also available under commercial licensing terms.
+# Please contact info@sixtyfps.io for more information.
+# LICENSE END
+name: Build the C++ binary package
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  cmake_package:
+    env:
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/6.2.1/clang_64/lib
+      QT_QPA_PLATFORM: offscreen
+      CARGO_INCREMENTAL: false
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Linux Dependencies
+      if: matrix.os == 'ubuntu-20.04'
+      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+    - name: Cache Qt
+      if: matrix.os != 'windows-latest'
+      id: cache-qt
+      uses: actions/cache@v2
+      with:
+        path: ~/work/sixtyfps/Qt
+        key: ${{ runner.os }}-${{ github.job }}-cpp-qt
+    - name: Install Qt (Ubuntu)
+      uses: jurplel/install-qt-action@v2
+      if: matrix.os == 'ubuntu-20.04'
+      with:
+        version: 5.15.2
+        cached: ${{ steps.cache-qt.outputs.cache-hit }}
+    - name: Install Qt (Windows, uncached)
+      if: matrix.os == 'windows-latest'
+      uses: jurplel/install-qt-action@v2
+      with:
+        version: 6.2.1
+    - name: Install Qt (cached)
+      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-latest'
+      uses: jurplel/install-qt-action@v2
+      with:
+        version: 6.2.1
+        cached: ${{ steps.cache-qt.outputs.cache-hit }}
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+    - uses: Swatinem/rust-cache@v1
+    - uses: actions-rs/install@v0.1
+      if: matrix.os == 'windows-latest'
+      with:
+        crate: cargo-about
+        use-tool-cache: true
+    - name: Prepare licenses
+      if: matrix.os == 'windows-latest'
+      run: bash -x ./scripts/prepare_binary_package.sh . ..\Qt 6.2.1
+    - uses: ilammy/msvc-dev-cmd@v1
+    - name: Select MSVC (windows)
+      run: |
+        echo "CC=cl.exe" >> $GITHUB_ENV
+        echo "CXX=cl.exe" >> $GITHUB_ENV
+      if: matrix.os == 'windows-latest'
+    - name: C++ Build
+      uses: lukka/run-cmake@v3.4
+      with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsTxtPath: CMakeLists.txt
+        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo -DSIXTYFPS_PACKAGE_BUNDLE_QT=ON'
+        buildDirectory: ${{ runner.workspace }}/cppbuild
+        buildWithCMakeArgs: '--config Release'
+    - name: cpack
+      working-directory: ${{ runner.workspace }}/cppbuild
+      run: cmake --build . --config Release --target package
+    - name: "Upload C++ packages"
+      uses: actions/upload-artifact@v2
+      with:
+          name: cpp_bin
+          path: ${{ runner.workspace }}/cppbuild/SixtyFPS-*
