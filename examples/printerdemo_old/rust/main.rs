@@ -1,13 +1,46 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+#![no_std]
+#![cfg_attr(feature = "mcu-pico-st7789", no_main)]
+
+extern crate alloc;
+
+use alloc::string::ToString;
+
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 slint::include_modules!();
 
+#[cfg(not(feature = "mcu-pico-st7789"))]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
+    #[cfg(feature = "sixtyfps-rendering-backend-mcu")]
+    {
+        #[cfg(feature = "mcu-simulator")]
+        sixtyfps_rendering_backend_mcu::init_simulator();
+        #[cfg(not(feature = "mcu-simulator"))]
+        sixtyfps_rendering_backend_mcu::init_with_mock_display();
+    }
+
+    // This provides better error messages in debug mode.
+    // It's disabled in release mode so it doesn't bloat up the file size.
+    #[cfg(all(debug_assertions, target_arch = "wasm32"))]
+    console_error_panic_hook::set_once();
+
+    printerdemo_main();
+}
+
+#[cfg(feature = "mcu-pico-st7789")]
+#[sixtyfps_rendering_backend_mcu::entry]
+fn main() -> ! {
+    sixtyfps_rendering_backend_mcu::init_board();
+    printerdemo_main();
+    loop {}
+}
+
+fn printerdemo_main() {
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
@@ -32,13 +65,16 @@ pub fn main() {
     let main_weak = main_window.as_weak();
     main_window.on_fax_send(move || {
         let main_window = main_weak.upgrade().unwrap();
-        let fax_number = main_window.get_fax_number().to_string();
-        println!("Sending a fax to {}", fax_number);
+        #[cfg(feature = "std")]
+        {
+            let fax_number = main_window.get_fax_number().to_string();
+            println!("Sending a fax to {}", fax_number);
+        }
         main_window.set_fax_number(slint::SharedString::default());
     });
 
     main_window.on_quit(move || {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
         std::process::exit(0);
     });
 
