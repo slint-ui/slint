@@ -125,7 +125,8 @@ pub fn lex_string(text: &str, state: &mut LexState) -> usize {
             }
             b'\\' => {
                 if text_len <= stop + 1 {
-                    return text_len;
+                    // FIXME: report an error for unterminated string
+                    return 0;
                 }
                 if text.as_bytes()[stop + 1] == b'{' {
                     state.template_string_stack.push(0);
