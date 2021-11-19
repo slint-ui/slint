@@ -132,7 +132,7 @@ pub fn lex_string(text: &str, state: &mut LexState) -> usize {
                     state.template_string_stack.push(0);
                     return stop + 2;
                 }
-                end = stop + 1 + text[stop + 1 ..].chars().next().map_or(0, |c| c.len_utf8())
+                end = stop + 1 + text[stop + 1..].chars().next().map_or(0, |c| c.len_utf8())
             }
             _ => unreachable!(),
         }
@@ -325,6 +325,6 @@ fn basic_lexer_test() {
             (crate::parser::SyntaxKind::Star, "*"),
         ],
     );
-    compare(r#""\"#, &[(crate::parser::SyntaxKind::StringLiteral, "\"\\")]);
+    compare(r#""\"#, &[(crate::parser::SyntaxKind::Error, "\"\\")]);
     compare(r#""\ޱ"#, &[(crate::parser::SyntaxKind::Error, "\"\\ޱ")]);
 }
