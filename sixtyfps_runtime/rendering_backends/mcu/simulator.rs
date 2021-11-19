@@ -225,91 +225,78 @@ impl WinitWindow for SimulatorWindow {
 
     fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.clone().draw_contents(|components| {
-            let size = self.opengl_context.window().inner_size();
 
-            self.opengl_context.with_current_context(|| {
-                self.opengl_context.ensure_resized();
+        let size = self.opengl_context.window().inner_size();
 
-                {
-                    let mut canvas = self.canvas.borrow_mut();
-                    // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
-                    // text metrics. Since we do the entire translation from logical pixels to physical
-                    // pixels on our end, we don't need femtovg to scale a second time.
-                    canvas.set_size(size.width, size.height, 1.0);
-                }
+        self.opengl_context.with_current_context(|| {
+            self.opengl_context.ensure_resized();
 
-                let mut display: SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888> =
-                    SimulatorDisplay::new(Size { width: size.width, height: size.height });
+            {
+                let mut canvas = self.canvas.borrow_mut();
+                // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
+                // text metrics. Since we do the entire translation from logical pixels to physical
+                // pixels on our end, we don't need femtovg to scale a second time.
+                canvas.set_size(size.width, size.height, 1.0);
+            }
 
-                display.clear(to_rgb888_color_discard_alpha(self.background_color.get())).unwrap();
+            let mut display: SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888> =
+                SimulatorDisplay::new(Size { width: size.width, height: size.height });
 
-                // Debug
-                {
-                    use embedded_graphics::{
-                        prelude::*,
-                        primitives::{PrimitiveStyleBuilder, Rectangle},
-                    };
+            display.clear(to_rgb888_color_discard_alpha(self.background_color.get())).unwrap();
 
-                    let style = PrimitiveStyleBuilder::new()
-                        .stroke_color(Rgb888::RED)
-                        .stroke_width(3)
-                        .fill_color(Rgb888::GREEN)
-                        .build();
-
-                    Rectangle::new(Point::new(30, 20), Size::new(10, 15))
-                        .into_styled(style)
-                        .draw(&mut display)
-                        .unwrap();
-                }
-
-                let mut renderer = crate::renderer::SoftwareRenderer {
-                    draw_target: &mut display,
-                    window: runtime_window.clone(),
+            // Debug
+            {
+                use embedded_graphics::{
+                    prelude::*,
+                    primitives::{PrimitiveStyleBuilder, Rectangle},
                 };
 
-                for (component, origin) in components {
-                    sixtyfps_corelib::item_rendering::render_component_items(
-                        &component,
-                        &mut renderer,
-                        origin.clone(),
-                    );
-                }
+                let style = PrimitiveStyleBuilder::new()
+                    .stroke_color(Rgb888::RED)
+                    .stroke_width(3)
+                    .fill_color(Rgb888::GREEN)
+                    .build();
 
-                let output_image = display
-                    .to_rgb_output_image(&embedded_graphics_simulator::OutputSettings::default());
-                let image_buffer = output_image.as_image_buffer();
-                let image_ref: imgref::ImgRef<rgb::RGB8> = imgref::ImgRef::new(
-                    image_buffer.as_rgb(),
-                    image_buffer.width() as usize,
-                    image_buffer.height() as usize,
-                )
-                .into();
+                Rectangle::new(Point::new(30, 20), Size::new(10, 15))
+                    .into_styled(style)
+                    .draw(&mut display)
+                    .unwrap();
+            }
 
-                let mut canvas = self.canvas.borrow_mut();
-                let image_id =
-                    canvas.create_image(image_ref, femtovg::ImageFlags::empty()).unwrap();
+            crate::renderer::render_window_frame(runtime_window, &mut display);
 
-                let mut path = femtovg::Path::new();
-                path.rect(0., 0., image_ref.width() as _, image_ref.height() as _);
+            let output_image = display
+                .to_rgb_output_image(&embedded_graphics_simulator::OutputSettings::default());
+            let image_buffer = output_image.as_image_buffer();
+            let image_ref: imgref::ImgRef<rgb::RGB8> = imgref::ImgRef::new(
+                image_buffer.as_rgb(),
+                image_buffer.width() as usize,
+                image_buffer.height() as usize,
+            )
+            .into();
 
-                let fill_paint = femtovg::Paint::image(
-                    image_id,
-                    0.,
-                    0.,
-                    image_ref.width() as _,
-                    image_ref.height() as _,
-                    0.0,
-                    1.0,
-                );
+            let mut canvas = self.canvas.borrow_mut();
+            let image_id = canvas.create_image(image_ref, femtovg::ImageFlags::empty()).unwrap();
 
-                canvas.fill_path(&mut path, fill_paint);
+            let mut path = femtovg::Path::new();
+            path.rect(0., 0., image_ref.width() as _, image_ref.height() as _);
 
-                canvas.flush();
-                canvas.delete_image(image_id);
+            let fill_paint = femtovg::Paint::image(
+                image_id,
+                0.,
+                0.,
+                image_ref.width() as _,
+                image_ref.height() as _,
+                0.0,
+                1.0,
+            );
 
-                self.opengl_context.swap_buffers();
-            });
+            canvas.fill_path(&mut path, fill_paint);
+
+            canvas.flush();
+            canvas.delete_image(image_id);
+
+            self.opengl_context.swap_buffers();
         });
     }
 
