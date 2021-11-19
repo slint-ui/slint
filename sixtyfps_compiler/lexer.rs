@@ -131,14 +131,7 @@ pub fn lex_string(text: &str, state: &mut LexState) -> usize {
                     state.template_string_stack.push(0);
                     return stop + 2;
                 }
-                end = stop + 1;
-                while end < text_len && text.as_bytes()[end] > 127u8 {
-                    // Iterate till end of UTF8 sequence started at stop + 1
-                    end += 1;
-                }
-                if end < text_len {
-                    end = end + 1 // begin of next UTF8 sequence
-                }
+                end = stop + 1 + text[stop + 1 ..].chars().next().map_or(0, |c| c.len_utf8())
             }
             _ => unreachable!(),
         }
