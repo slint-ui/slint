@@ -55,7 +55,8 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         &'static self,
         _data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        //TODO
+        Err("Not implemented".into())
     }
 
     fn register_font_from_path(
@@ -82,11 +83,11 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         let inner: &ImageInner = image.into();
         match inner {
             ImageInner::None => Default::default(),
-            ImageInner::AbsoluteFilePath(_) => todo!(),
-            ImageInner::EmbeddedData { .. } => todo!(),
+            ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => unimplemented!(),
             ImageInner::EmbeddedImage(buffer) => {
                 [buffer.width() as f32, buffer.height() as f32].into()
             }
+            ImageInner::StaticTextures { size, .. } => size.cast(),
         }
     }
 }
