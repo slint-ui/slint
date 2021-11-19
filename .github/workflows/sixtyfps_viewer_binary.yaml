@@ -11,6 +11,7 @@ name: Build sixtyfps-viewer binary
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build_windows:

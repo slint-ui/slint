@@ -12,11 +12,87 @@ name: Nightly snapshot
 
 on:
   workflow_dispatch:
-
+    inputs:
+      publish:
+        type: boolean
+        default: "false"
+        required: false
 jobs:
+  sixtyfps-viewer-binary:
+    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_viewer_binary.yaml@master
+  docs:
+    uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@master
+  wasm_demo:
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@master   
+  wasm:
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@master   
+  cpp_package:
+    uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@master   
 
   publish:
+    if: github.event.inputs.publish && github.ref == 'refs/heads/master'
+    needs: [docs, wasm_demo, wasm]
     runs-on: ubuntu-20.04
     steps:
-      - name: Dummy
-        run: echo ok
+      - uses: actions/download-artifact@v2
+        with:
+          name: docs
+      - uses: actions/download-artifact@v2
+        with:
+          name: wasm
+      - uses: actions/download-artifact@v2
+        with:
+          name: wasm_demo
+      - name: Publish Docs and Demos
+        run: |
+            git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+            git config --global user.name "${GITHUB_ACTOR}"
+            git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/sixtyfpsui/www" --depth 1
+            cd www
+
+            target_branch=${GITHUB_REF##*/}
+
+            rm -rf snapshots/$target_branch/demos
+            mkdir -p snapshots/$target_branch/demos
+
+            for demo_subdir in gallery, printerdemo,rust printerdemo_old,rust todo,rust slide_puzzle, memory, imagefilter, plotter,; do
+                IFS=',' read demo subdir <<< "${demo_subdir}"
+
+                mkdir -p snapshots/$target_branch/demos/$demo
+                cp -a ../$demo/$subdir/{pkg,index.html} snapshots/$target_branch/demos/$demo/
+                rm snapshots/$target_branch/demos/$demo/pkg/.gitignore
+            done
+
+            git add snapshots/$target_branch/demos
+            git add -u snapshots/$target_branch/demos
+
+            rm -rf snapshots/$target_branch/wasm-interpreter
+            mkdir -p snapshots/$target_branch/wasm-interpreter
+            cp -a ../api/sixtyfps-wasm-interpreter/pkg/* ./snapshots/$target_branch/wasm-interpreter/
+            git add snapshots/$target_branch/wasm-interpreter
+            git add -u snapshots/$target_branch/wasm-interpreter
+
+            rm -rf snapshots/$target_branch/editor
+            mkdir -p snapshots/$target_branch/editor
+            cp -a ../tools/online_editor/dist/* snapshots/$target_branch/editor/
+            git add snapshots/$target_branch/editor
+            git add -u snapshots/$target_branch/editor
+
+            rm -rf snapshots/$target_branch/docs
+            mkdir -p snapshots/$target_branch/docs
+            mkdir -p snapshots/$target_branch/docs/cpp
+            cp -a ../target/cppdocs/html/* snapshots/$target_branch/docs/cpp/
+            mkdir -p snapshots/$target_branch/docs/rust
+            cp -a ../target/doc/* snapshots/$target_branch/docs/rust/
+            mkdir -p snapshots/$target_branch/docs/tutorial/rust
+            cp -a ../docs/tutorial/rust/book/html/* snapshots/$target_branch/docs/tutorial/rust
+            mkdir -p snapshots/$target_branch/docs/tutorial/cpp
+            cp -a ../docs/tutorial/cpp/book/html/* snapshots/$target_branch/docs/tutorial/cpp
+            mkdir -p snapshots/$target_branch/docs/node
+            cp -a ../api/sixtyfps-node/docs/* snapshots/$target_branch/docs/node/
+            git add snapshots/$target_branch/docs
+            git add -u snapshots/$target_branch/docs
+
+            git commit --message "Update $NAME from $GITHUB_REPOSITORY" --message "Pull web demos and C++/Rust reference docs from commit $GITHUB_SHA ($GITHUB_REF)"
+            git push origin master
+

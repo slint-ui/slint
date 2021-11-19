@@ -17,6 +17,95 @@ on:
 jobs:
   docs:
     runs-on: ubuntu-20.04
+    env:
+      # allow deprecated warning because we are using nightly and some things might be deprecated in nightly
+      # for which the stable alternative is not yet available
+      RUSTFLAGS: -D warnings -W deprecated
+      RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/docs/resources/sixtyfps-docs-preview.html --html-in-header=/home/runner/work/sixtyfps/sixtyfps/docs/resources/sixtyfps-docs-highlight.html -D warnings -W deprecated
+      SIXTYFPS_NO_QT: 1
+      CARGO_INCREMENTAL: false
+      MDBOOK_VERSION: 0.4.10
+      MDBOOK_LINKCHECK_VERSION: 0.7.4
     steps:
-    - name: Dummy
-      run: echo ok
+    - uses: actions/checkout@v2
+    - name: Set up rgb crate rustdoc link
+      run: |
+        rgb_version=`grep 'rgb = '  sixtyfps_runtime/corelib/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
+        echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+    - name: Cache mdbook and mdbook-linkcheck
+      uses: actions/cache@v2
+      with:
+        path: |
+           ~/.cargo/bin/mdbook
+           ~/.cargo/bin/mdbook-linkcheck
+        key: ${{ runner.os }}-${{ github.job }}-mdbook-${{ env.MDBOOK_VERSION }}-${{ env.MDBOOK_LINKCHECK_VERSION }}
+    - name: Install nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+    - uses: Swatinem/rust-cache@v1
+    - name: Install mdbook
+      run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }} || true
+    - name: Install mdbook-linkcheck
+      run: cargo install mdbook-linkcheck --version ${{ env.MDBOOK_LINKCHECK_VERSION }} || true
+    - name: Install doxygen
+      run: sudo apt-get install doxygen
+    - name: Upgrade pip and install pipenv
+      run: |
+        python -m pip install --upgrade pip
+        pip install --user pipenv
+    - name: Cache Pipenv virtualenv
+      uses: actions/cache@v2
+      id: pipenv-cache
+      with:
+        path: ~/.local/share/virtualenvs
+        key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile') }}
+        restore-keys: |
+          ${{ runner.os }}-pipenv-
+    - name: Remove docs from cache # Avoid stale docs
+      run: |
+          rm -rf target/doc target/cppdocs api/sixtyfps-node/docs
+    - name: Check formatting
+      uses: actions-rs/cargo@v1
+      with:
+          command: fmt
+          args: -- --check
+    - name: Check license headers
+      run: cargo xtask check_license_headers --show-all
+    - name: Build Cpp docs
+      run: cargo xtask cppdocs --show-warnings
+    - name: "Rust docs"
+      uses: actions-rs/cargo@v1
+      with:
+          command: doc
+          toolchain: nightly
+          args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps --all-features
+    - name: "Rust Tutorial Docs"
+      run: mdbook build
+      working-directory: docs/tutorial/rust
+    - name: "C++ Tutorial Docs"
+      run: mdbook build
+      working-directory: docs/tutorial/cpp
+    - name: "Node docs"
+      run: |
+          npm install --ignore-scripts
+          npm run docs
+      working-directory: api/sixtyfps-node
+    - name: "Upload Docs Artifacts"
+      uses: actions/upload-artifact@v2
+      with:
+          name: docs
+          path: |
+              target/doc
+              target/cppdocs/html
+              api/sixtyfps-node/docs
+              docs/tutorial/rust/book/html
+              docs/tutorial/cpp/book/html
+    - name: Clean cache # Don't cache docs to avoid them including removed classes being published
+      run: |
+          rm -rf target/doc target/cppdocs api/sixtyfps-node/docs docs/tutorial/rust/book docs/tutorial/cpp/book
+
