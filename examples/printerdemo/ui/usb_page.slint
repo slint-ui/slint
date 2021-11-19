@@ -13,10 +13,12 @@ export UsbPage := Page {
 
     property <[File]> files: [
         { name: ".." },
+        /*
         { name: "cat.jpg", preview: @image-url("images/cat.jpg") },
         { name: "dog.jpg", preview: @image-url("images/dog.jpg") },
         { name: "elephant.jpg",preview: @image-url("images/elephant.jpg") },
         { name: "snake.jpg", preview: @image-url("images/snake.jpg") },
+        */
     ];
 
     GridLayout {
@@ -24,6 +26,8 @@ export UsbPage := Page {
                      + /* extra top-padding in design */ 27px;
         spacing: 24px;
 
+        /*
+        FIXME: this makes us exceed flash space on the pico
         Rectangle {
             width: 50%;
             rowspan: 5;
@@ -37,6 +41,7 @@ export UsbPage := Page {
             }
 
         }
+        */
 
         Label {
             col: 1;
