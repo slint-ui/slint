@@ -14,8 +14,16 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 path = "main.rs"
 name = "printerdemo_old"
 
+[features]
+
+mcu-simulator = ["i-slint-backend-mcu/simulator"]
+mcu-pico-st7789 = ["i-slint-backend-mcu/pico-st7789", "slint-build/mcu-pico-st7789"]
+
 [dependencies]
 slint = { path = "../../../api/rs/slint" }
+i-slint-core = { path = "../../../internal/core", default-features = false, features = ["libm"] }
+i-slint-backend-mcu = { path = "../../../internal/backends/mcu", optional = true, default-features = false }
+once_cell = { version="1.9", features = ["atomic-polyfill"], default-features = false }
 
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }

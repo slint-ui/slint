@@ -24,6 +24,8 @@ export UsbPage := Page {
                      + /* extra top-padding in design */ 27px;
         spacing: 24px;
 
+        /*
+        FIXME: this makes us exceed flash space on the pico
         Rectangle {
             width: 50%;
             rowspan: 5;
@@ -37,6 +39,7 @@ export UsbPage := Page {
             }
 
         }
+        */
 
         Label {
             col: 1;
