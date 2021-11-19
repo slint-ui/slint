@@ -43,7 +43,7 @@ jobs:
       publish: ${{ github.event.inputs.publish }}
 
   publish:
-    if: github.event.inputs.publish && github.ref == 'refs/heads/master'
+    if: github.event.inputs.publish == "true" && github.ref == 'refs/heads/master'
     needs: [docs, wasm_demo, wasm]
     runs-on: ubuntu-20.04
     steps:
