@@ -36,7 +36,7 @@ jobs:
     uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@master   
 
   vscode_extension:
-    needs: [publish] # Only publish the vs code extension if the rest worked
+    needs: [docs, wasm_demo, wasm] # Only publish the vs code extension if the rest worked
     uses: sixtyfpsui/sixtyfps/.github/workflows/vscode_extension.yaml@master
     with:
       nightly: true
