@@ -310,7 +310,7 @@ fn parse_template_string(p: &mut impl Parser) {
 fn parse_at_linear_gradient(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtLinearGradient);
     p.expect(SyntaxKind::At);
-    debug_assert_eq!(p.peek().as_str(), "linear-gradient");
+    debug_assert!(p.peek().as_str() == "linear-gradient" || p.peek().as_str() == "linear_gradient");
     p.consume(); //"linear-gradient"
 
     p.expect(SyntaxKind::LParent);
