@@ -19,11 +19,11 @@ on:
         required: false
 jobs:
   sixtyfps-viewer-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_viewer_binary.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@master
     with:
       program: "sixtyfps-viewer"
   sixtyfps-lsp-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_viewer_binary.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@master
     with:
       program: "sixtyfps-lsp"
   docs:
