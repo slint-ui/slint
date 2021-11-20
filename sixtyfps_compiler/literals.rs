@@ -92,6 +92,7 @@ pub fn unescape_string(string: &str) -> Option<String> {
             b'"' => result += "\"",
             b'\\' => result += "\\",
             b'n' => result += "\n",
+            b't' => result += "\t",
             b'u' => {
                 if string.as_bytes().get(pos)? != &b'{' {
                     return None;
@@ -115,6 +116,7 @@ fn test_unescape_string() {
     assert_eq!(unescape_string(r#""fo\xa""#), None);
     assert_eq!(unescape_string(r#""fooo\""#), None);
     assert_eq!(unescape_string(r#""f\n\n\nf""#), Some("f\n\n\nf".into()));
+    assert_eq!(unescape_string(r#""f\t\t\tf""#), Some("f\t\t\tf".into()));
     assert_eq!(unescape_string(r#""music\♪xx""#), None);
     assert_eq!(unescape_string(r#""music\"♪\"🎝""#), Some("music\"♪\"🎝".into()));
     assert_eq!(unescape_string(r#""foo_bar"#), None);
