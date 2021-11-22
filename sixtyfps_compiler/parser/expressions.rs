@@ -20,6 +20,7 @@ use super::prelude::*;
 /// #aabbcc
 /// (something)
 /// @image-url("something")
+/// @image_url("something")
 /// some_id.some_property
 /// function_call()
 /// function_call(hello, world)
@@ -306,6 +307,7 @@ fn parse_template_string(p: &mut impl Parser) {
 /// @linear-gradient(0.25turn, #3f87a6, #ebf8e1, #f69d3c)
 /// @linear-gradient(to left, #333, #333 50%, #eee 75%, #333 75%)
 /// @linear-gradient(217deg, rgba(255,0,0,0.8), rgba(255,0,0,0) 70.71%)
+/// @linear_gradient(217deg, rgba(255,0,0,0.8), rgba(255,0,0,0) 70.71%)
 /// ```
 fn parse_at_linear_gradient(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtLinearGradient);
