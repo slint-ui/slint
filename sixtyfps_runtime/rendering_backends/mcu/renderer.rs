@@ -9,6 +9,7 @@
 LICENSE END */
 
 use core::pin::Pin;
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 use embedded_graphics::pixelcolor::Rgb888;
@@ -21,15 +22,15 @@ use sixtyfps_corelib::{Color, ImageInner};
 
 pub fn render_window_frame<T: DrawTarget<Color = Rgb888>>(
     runtime_window: Rc<sixtyfps_corelib::window::Window>,
+    background: Rgb888,
     display: &mut T,
 ) where
     T::Error: std::fmt::Debug,
 {
     let size = display.bounding_box().size;
-    let scene = prepare_scene(runtime_window, SizeF::new(size.width as _, size.height as _));
-    // TODO: process the scene to render line by line.
-    // for now, just draw them
-    for item in scene.items {
+    let mut scene = prepare_scene(runtime_window, SizeF::new(size.width as _, size.height as _));
+
+    /*for item in scene.future_items {
         match item.command {
             SceneCommand::Rectangle { color } => {
                 embedded_graphics::primitives::Rectangle {
@@ -67,23 +68,199 @@ pub fn render_window_frame<T: DrawTarget<Color = Rgb888>>(
                 }
             }
         }
+    }*/
+
+    let mut line_buffer = vec![background; size.width as usize];
+    while scene.current_line < size.height as u16 {
+        line_buffer.fill(background);
+        let line = scene.process_line();
+        for span in line.spans.iter().rev() {
+            match span.command {
+                SceneCommand::Rectangle { color } => {
+                    let alpha = color.alpha();
+                    if alpha == u8::MAX {
+                        line_buffer[(span.x) as usize..(span.x + span.width) as usize]
+                            .fill(to_rgb888_color_discard_alpha(color))
+                    } else {
+                        for pix in
+                            &mut line_buffer[(span.x) as usize..(span.x + span.width) as usize]
+                        {
+                            let a = (u8::MAX - alpha) as u16;
+                            let b = alpha as u16;
+                            *pix = Rgb888::new(
+                                ((pix.r() as u16 * a + color.red() as u16 * b) >> 8) as u8,
+                                ((pix.g() as u16 * a + color.green() as u16 * b) >> 8) as u8,
+                                ((pix.b() as u16 * a + color.blue() as u16 * b) >> 8) as u8,
+                            );
+                        }
+                    }
+                }
+                SceneCommand::Texture {
+                    data,
+                    format,
+                    stride,
+                    source_width,
+                    source_height,
+                    color,
+                } => {
+                    let sx = span.width as f32 / source_width as f32;
+                    let sy = span.height as f32 / source_height as f32;
+                    let bpp = bpp(format) as usize;
+                    let y = line.line - span.y;
+
+                    for (x, pix) in line_buffer[(span.x) as usize..(span.x + span.width) as usize]
+                        .iter_mut()
+                        .enumerate()
+                    {
+                        let pos = ((y as f32 / sy) as usize * stride as usize)
+                            + (x as f32 / sx) as usize * bpp;
+                        *pix = match format {
+                            PixelFormat::Rgb => {
+                                Rgb888::new(data[pos + 0], data[pos + 1], data[pos + 2])
+                            }
+                            PixelFormat::Rgba => {
+                                if color.alpha() == 0 {
+                                    let a = (u8::MAX - data[pos + 3]) as u16;
+                                    let b = data[pos + 3] as u16;
+                                    Rgb888::new(
+                                        ((pix.r() as u16 * a + data[pos + 0] as u16 * b) >> 8)
+                                            as u8,
+                                        ((pix.g() as u16 * a + data[pos + 1] as u16 * b) >> 8)
+                                            as u8,
+                                        ((pix.b() as u16 * a + data[pos + 2] as u16 * b) >> 8)
+                                            as u8,
+                                    )
+                                } else {
+                                    let a = (u8::MAX - data[pos + 3]) as u16;
+                                    let b = data[pos + 3] as u16;
+                                    Rgb888::new(
+                                        ((pix.r() as u16 * a + color.red() as u16 * b) >> 8) as u8,
+                                        ((pix.g() as u16 * a + color.green() as u16 * b) >> 8)
+                                            as u8,
+                                        ((pix.b() as u16 * a + color.blue() as u16 * b) >> 8) as u8,
+                                    )
+                                }
+                            }
+                            PixelFormat::AlphaMap => {
+                                let a = (u8::MAX - data[pos]) as u16;
+                                let b = data[pos] as u16;
+                                Rgb888::new(
+                                    ((pix.r() as u16 * a + color.red() as u16 * b) >> 8) as u8,
+                                    ((pix.g() as u16 * a + color.green() as u16 * b) >> 8) as u8,
+                                    ((pix.b() as u16 * a + color.blue() as u16 * b) >> 8) as u8,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        display
+            .fill_contiguous(
+                &embedded_graphics::primitives::Rectangle::new(
+                    Point::new(0, line.line as i32),
+                    Size::new(size.width, 1),
+                ),
+                line_buffer.iter().copied(),
+            )
+            .unwrap()
     }
 }
 
 struct Scene {
-    items: Vec<SceneItem>,
+    /// the next line to be processed
+    current_line: u16,
+
+    /// Element that have `y > current_line`
+    /// They must be sorted by `y` in reverse order (bottom to top)
+    /// then by `z` top to bottom
+    future_items: Vec<SceneItem>,
+
+    /// The items that overlap with the current line, sorted by z top to bottom
+    current_items: VecDeque<SceneItem>,
+
+    /// Some staging buffer of scene item
+    next_items: VecDeque<SceneItem>,
 }
 
+impl Scene {
+    fn new(mut items: Vec<SceneItem>) -> Self {
+        items.sort_by(|a, b| compare_scene_item(a, b).reverse());
+        Self {
+            future_items: items,
+            current_line: 0,
+            current_items: Default::default(),
+            next_items: Default::default(),
+        }
+    }
+
+    /// Will generate a LineCommand for the current_line, remove all items that are done from the items
+    fn process_line(&mut self) -> LineCommand {
+        let mut command = vec![];
+        // Take the next element from current_items or future_items
+        loop {
+            let a_next_z =
+                self.future_items.last().filter(|i| i.y == self.current_line).map(|i| i.z);
+            let b_next_z = self.current_items.front().map(|i| i.z);
+            let item = match (a_next_z, b_next_z) {
+                (Some(a), Some(b)) => {
+                    if a > b {
+                        self.future_items.pop()
+                    } else {
+                        self.current_items.pop_front()
+                    }
+                }
+                (Some(_), None) => self.future_items.pop(),
+                (None, Some(_)) => self.current_items.pop_front(),
+                _ => break,
+            };
+            let item = item.unwrap();
+            if item.y + item.height > self.current_line + 1 {
+                self.next_items.push_back(item.clone());
+            }
+            command.push(item);
+        }
+        core::mem::swap(&mut self.next_items, &mut self.current_items);
+        let line = self.current_line;
+        self.current_line += 1;
+        LineCommand { spans: command, line }
+    }
+}
+
+#[derive(Clone, Copy)]
 struct SceneItem {
     x: u16,
     y: u16,
     width: u16,
     height: u16,
     // this is the order of the item from which it is in the item tree
-    // z: u16,
+    z: u16,
     command: SceneCommand,
 }
 
+struct LineCommand {
+    line: u16,
+    // Fixme: we need to process these so we do not draw items under opaque regions
+    spans: Vec<SceneItem>,
+}
+
+fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> std::cmp::Ordering {
+    // First, order by line (top to bottom)
+    match a.y.partial_cmp(&b.y) {
+        None | Some(core::cmp::Ordering::Equal) => {}
+        Some(ord) => return ord,
+    }
+    // Then by the reverse z (front to back)
+    match a.z.partial_cmp(&b.z) {
+        None | Some(core::cmp::Ordering::Equal) => {}
+        Some(ord) => return ord.reverse(),
+    }
+
+    // anything else, we don't care
+    core::cmp::Ordering::Equal
+}
+
+#[derive(Clone, Copy)]
 enum SceneCommand {
     Rectangle {
         color: Color,
@@ -109,7 +286,7 @@ fn prepare_scene(runtime_window: Rc<sixtyfps_corelib::window::Window>, size: Siz
             );
         }
     });
-    Scene { items: prepare_scene.items }
+    Scene::new(prepare_scene.items)
 }
 
 struct PrepareScene {
@@ -228,10 +405,11 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
             // FIXME: gradients
             let color = rect.background().color();
             if color.alpha() > 0 {
-                self.new_scene_item(
-                    geom.inflate(-border, -border),
-                    SceneCommand::Rectangle { color },
-                );
+                if let Some(r) =
+                    geom.inflate(-border, -border).intersection(&self.current_state.clip)
+                {
+                }
+                self.new_scene_item(r, SceneCommand::Rectangle { color });
             }
             if border > 0.01 {
                 // FIXME: radius
@@ -373,7 +551,7 @@ fn bpp(format: PixelFormat) -> u16 {
         PixelFormat::AlphaMap => 1,
     }
 }
-
+/*
 fn to_color(data: &[u8], format: PixelFormat, color: Color) -> Rgb888 {
     match format {
         PixelFormat::Rgba if color.alpha() > 0 => Rgb888::new(
@@ -389,4 +567,8 @@ fn to_color(data: &[u8], format: PixelFormat, color: Color) -> Rgb888 {
             ((color.blue() as u16 * data[0] as u16) >> 8) as u8,
         ),
     }
+}*/
+
+pub fn to_rgb888_color_discard_alpha(col: Color) -> Rgb888 {
+    Rgb888::new(col.red(), col.green(), col.blue())
 }

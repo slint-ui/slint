@@ -242,7 +242,9 @@ impl WinitWindow for SimulatorWindow {
             let mut display: SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888> =
                 SimulatorDisplay::new(Size { width: size.width, height: size.height });
 
-            display.clear(to_rgb888_color_discard_alpha(self.background_color.get())).unwrap();
+            let background =
+                crate::renderer::to_rgb888_color_discard_alpha(self.background_color.get());
+            display.clear(background).unwrap();
 
             // Debug
             {
@@ -263,7 +265,7 @@ impl WinitWindow for SimulatorWindow {
                     .unwrap();
             }
 
-            crate::renderer::render_window_frame(runtime_window, &mut display);
+            crate::renderer::render_window_frame(runtime_window, background, &mut display);
 
             let output_image = display
                 .to_rgb_output_image(&embedded_graphics_simulator::OutputSettings::default());
@@ -320,8 +322,4 @@ impl WinitWindow for SimulatorWindow {
         self.background_color.set(color);
     }
     fn set_icon(&self, _icon: sixtyfps_corelib::graphics::Image) {}
-}
-
-fn to_rgb888_color_discard_alpha(col: Color) -> Rgb888 {
-    Rgb888::new(col.red(), col.green(), col.blue())
 }
