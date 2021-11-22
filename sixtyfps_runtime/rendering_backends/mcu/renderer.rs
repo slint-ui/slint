@@ -80,7 +80,7 @@ struct SceneItem {
     width: u16,
     height: u16,
     // this is the order of the item from which it is in the item tree
-    z: u16,
+    // z: u16,
     command: SceneCommand,
 }
 
@@ -138,13 +138,13 @@ impl PrepareScene {
     }
 
     fn new_scene_item(&mut self, geometry: RectF, command: SceneCommand) {
-        let z = self.items.len() as u16;
+        // let z = self.items.len() as u16;
         self.items.push(SceneItem {
             x: (self.current_state.offset.x + geometry.origin.x) as _,
             y: (self.current_state.offset.y + geometry.origin.y) as _,
             width: geometry.size.width as _,
             height: geometry.size.height as _,
-            z,
+            // z,
             command,
         });
     }
