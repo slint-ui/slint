@@ -17,6 +17,13 @@ on:
         type: boolean
         default: "false"
         required: false
+        description: "Option whether to publish the artefacts (docs, vscode extension) to the web/marketplace or not"
+      release:
+        type: boolean
+        default: "false"
+        required: false
+        description: "Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
+
 jobs:
   sixtyfps-viewer-binary:
     uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@master
@@ -35,11 +42,231 @@ jobs:
   cpp_package:
     uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@master
 
-  vscode_extension_build:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/vscode_extension.yaml@master
-    with:
-      nightly: true
-      publish: ${{ github.event.inputs.publish }}
+  build_vscode_lsp_linux_windows:
+    env:
+      SIXTYFPS_NO_QT: 1
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: x86_64-unknown-linux-gnu
+            binary_built: sixtyfps-lsp
+            target_dir:
+            artifact_name: sixtyfps-lsp-x86_64-unknown-linux-gnu
+          - os: windows-latest
+            toolchain: x86_64-pc-windows-gnu
+            binary_built: sixtyfps-lsp.exe
+            target_dir:
+            artifact_name: sixtyfps-lsp-x86_64-pc-windows-gnu.exe
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          target: ${{ matrix.toolchain }}
+    - name: Install Linux Dependencies
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+    - name: Build LSP
+      uses: actions-rs/cargo@v1
+      with:
+          command: build
+          toolchain: stable
+          args: --target ${{ matrix.toolchain }} --release -p sixtyfps-lsp
+    - name: Create artifact directory
+      run: |
+          mkdir bin
+          cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
+    - name: "Upload LSP Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: vscode-lsp-binary-${{ matrix.toolchain }}
+          path: |
+              bin
+
+  build_vscode_lsp_macos_x86_64:
+    env:
+      SIXTYFPS_NO_QT: 1
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          target: x86_64-apple-darwin
+    - name: Select XCode version
+      run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
+    - name: Select SDK
+      run: |
+          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
+    - name: Install cargo-bundle
+      run: cargo install cargo-bundle
+    - name: Build Main LSP Bundle
+      working-directory: tools/lsp
+      run: cargo bundle --release
+    - name: Create artifact directory
+      run: |
+          mkdir bin
+          cp -a target/release/bundle/osx/SixtyFPS\ Live\ Preview.app bin
+    - name: "Upload LSP Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: vscode-lsp-binary-x86_64-apple-darwin
+          path: |
+              bin
+
+  build_vscode_lsp_macos_aarch64:
+    env:
+      SIXTYFPS_NO_QT: 1
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          target: aarch64-apple-darwin
+    - name: Select XCode version
+      run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
+    - name: Select SDK
+      run: |
+          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
+          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
+    - name: Build AArch64 LSP
+      uses: actions-rs/cargo@v1
+      with:
+          command: build
+          toolchain: stable
+          args: --target aarch64-apple-darwin --release -p sixtyfps-lsp
+    - name: Create artifact directory
+      run: |
+          mkdir bin
+          cp -a target/aarch64-apple-darwin/release/sixtyfps-lsp bin/sixtyfps-lsp-aarch64-apple-darwin
+    - name: "Upload LSP Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: vscode-lsp-binary-aarch64-apple-darwin
+          path: |
+              bin
+
+  build_vscode_lsp_macos_bundle:
+    needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
+    runs-on: macos-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        name: vscode-lsp-binary-x86_64-apple-darwin
+    - uses: actions/download-artifact@v2
+      with:
+        name: vscode-lsp-binary-aarch64-apple-darwin
+        path: bin
+    - name: Add macOS AArch64 binary to bundle
+      run: |
+        lipo -create -output tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/sixtyfps-lsp bin/sixtyfps-lsp-aarch64-apple-darwin
+        mv tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/sixtyfps-lsp
+        rm -rf bin
+    - name: "Upload LSP macOS bundle Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: vscode-lsp-binary-darwin
+          path: .
+
+  build_vscode_cross_linux_lsp:
+    env:
+      SIXTYFPS_NO_QT: 1
+    strategy:
+      matrix:
+        target:
+          - armv7-unknown-linux-gnueabihf
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          override: true
+          target: ${{ matrix.target }}
+    - name: Build LSP
+      uses: actions-rs/cargo@v1
+      with:
+          use-cross: true
+          command: build
+          args: --target ${{ matrix.target }} --release -p sixtyfps-lsp
+    - name: Create artifact directory
+      run: |
+          mkdir bin
+          cp target/${{ matrix.target }}/release/sixtyfps-lsp bin/sixtyfps-lsp-${{ matrix.target }}
+    - name: "Upload LSP Artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: vscode-lsp-binary-${{ matrix.target }}
+          path: |
+              bin
+
+  build_vscode_extension:
+    needs: [build_vscode_lsp_linux_windows, build_vscode_lsp_macos_bundle, build_vscode_cross_linux_lsp]
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/download-artifact@v2
+      with:
+        name: vscode-lsp-binary-x86_64-unknown-linux-gnu
+        path: vscode_extension/bin
+    - uses: actions/download-artifact@v2
+      with:
+        name: vscode-lsp-binary-x86_64-pc-windows-gnu
+        path: vscode_extension/bin
+    - uses: actions/download-artifact@v2
+      with:
+        name: vscode-lsp-binary-darwin
+        path: vscode_extension/bin
+    - uses: actions/download-artifact@v2
+      with:
+        name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
+        path: vscode_extension/bin
+    - name: Fix permissions
+      run: chmod 755 vscode_extension/bin/* vscode_extension/bin/*.app/Contents/MacOS/*
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: '12'
+    - name: "Prepare meta-data files for nightly package"
+      env:
+        RELEASE_INPUT: ${{ github.event.inputs.release }}
+      working-directory: vscode_extension
+      run: |
+        if [ "$RELEASE_INPUT" != "true" ]; then
+          ../scripts/prepare_vscode_nightly.sh
+        fi
+    - name: "npm install"
+      working-directory: vscode_extension
+      run: npm install
+    - name: Build package and optionally publish to Open VSX Registry
+      id: publishToOpenVSX
+      uses: HaaLeo/publish-vscode-extension@v0
+      with:
+        pat: ${{ secrets.OPENVSX_PAT }}
+        dryRun: ${{ github.event.inputs.publish != 'true' }}
+        packagePath: vscode_extension
+    - name: Publish to Visual Studio Marketplace
+      if: ${{ github.event.inputs.publish == 'true' }}
+      uses: HaaLeo/publish-vscode-extension@v0
+      with:
+        pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
+        registryUrl: https://marketplace.visualstudio.com
+        extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+        packagePath: ''
+    - name: "Upload extension artifact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: sixtyfps-vscode.zip
+          path: |
+              ${{ steps.publishToOpenVSX.outputs.vsixPath }}
 
   publish_artifacts:
     if: github.event.inputs.publish == 'true' && github.ref == 'refs/heads/master'
