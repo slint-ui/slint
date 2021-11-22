@@ -62,7 +62,6 @@ jobs:
       if: matrix.os == 'windows-latest'
       with:
         crate: cargo-about
-        use-tool-cache: true
     - name: Prepare licenses
       if: matrix.os == 'windows-latest'
       run: bash -x ./scripts/prepare_binary_package.sh . ..\Qt 6.2.1
