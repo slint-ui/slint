@@ -233,6 +233,10 @@ if(SIXTYFPS_PACKAGE_BUNDLE_QT)
             DESTINATION plugins/imageformats)
 
         install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../licenses/ DESTINATION licenses)
+
+        set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
+        include(InstallRequiredSystemLibraries)
+        install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} TYPE LIB)
     endif()
 endif(SIXTYFPS_PACKAGE_BUNDLE_QT)
 
