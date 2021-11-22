@@ -225,10 +225,11 @@ jobs:
         node-version: '12'
     - name: "Prepare meta-data files for nightly package"
       env:
-        NIGHTLY: ${{ github.event.inputs.nightly }}
+        NIGHTLY_DISPATCH_INPUT: ${{ github.event.inputs.nightly }}
+        NIGHTLY_CALL_INPUT: ${{ inputs.nightly }}
       working-directory: vscode_extension
       run: |
-        if [ "$NIGHTLY" = "true" ]; then
+        if [ "$NIGHTLY_DISPATCH_INPUT" = "true" || "$NIGHTLY_CALL_INPUT" = "true" ]; then
           ../scripts/prepare_vscode_nightly.sh
         fi
     - name: "npm install"
@@ -239,10 +240,10 @@ jobs:
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
-        dryRun: ${{ github.event.inputs.publish != 'true' }}
+        dryRun: ${{ github.event.inputs.publish == 'false' || inputs.publish == 'false' }}
         packagePath: vscode_extension
     - name: Publish to Visual Studio Marketplace
-      if: ${{ github.event.inputs.publish == 'true' }}
+      if: ${{ github.event.inputs.publish == 'true' || inputs.publish == 'true' }}
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
