@@ -89,7 +89,7 @@ jobs:
   build_vscode_lsp_macos_x86_64:
     env:
       SIXTYFPS_NO_QT: 1
-    runs-on: macos-latest
+    runs-on: macOS-11
     steps:
     - uses: actions/checkout@v2
     - name: Install latest stable
@@ -97,12 +97,6 @@ jobs:
       with:
           toolchain: stable
           target: x86_64-apple-darwin
-    - name: Select XCode version
-      run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
-    - name: Select SDK
-      run: |
-          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
-          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
     - name: Install cargo-bundle
       run: cargo install cargo-bundle
     - name: Build Main LSP Bundle
@@ -122,7 +116,7 @@ jobs:
   build_vscode_lsp_macos_aarch64:
     env:
       SIXTYFPS_NO_QT: 1
-    runs-on: macos-latest
+    runs-on: macOS-11
     steps:
     - uses: actions/checkout@v2
     - name: Install latest stable
@@ -130,12 +124,6 @@ jobs:
       with:
           toolchain: stable
           target: aarch64-apple-darwin
-    - name: Select XCode version
-      run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
-    - name: Select SDK
-      run: |
-          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
-          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
     - name: Build AArch64 LSP
       uses: actions-rs/cargo@v1
       with:
@@ -155,7 +143,7 @@ jobs:
 
   build_vscode_lsp_macos_bundle:
     needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
-    runs-on: macos-latest
+    runs-on: macOS-11
     steps:
     - uses: actions/download-artifact@v2
       with:
@@ -210,7 +198,7 @@ jobs:
 
   build_vscode_extension:
     needs: [build_vscode_lsp_linux_windows, build_vscode_lsp_macos_bundle, build_vscode_cross_linux_lsp]
-    runs-on: macos-latest
+    runs-on: macOS-11
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2

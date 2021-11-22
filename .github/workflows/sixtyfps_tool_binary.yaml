@@ -118,7 +118,7 @@ jobs:
             path: ${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
 
   build_macos:
-    runs-on: macos-latest
+    runs-on: macOS-11
     steps:
       - uses: actions/checkout@v2
       - name: Install latest stable Rust
@@ -131,12 +131,6 @@ jobs:
         with:
           toolchain: stable
           target: aarch64-apple-darwin
-      - name: Select XCode version
-        run: sudo xcode-select -s "/Applications/Xcode_12.2.app"
-      - name: Select SDK
-        run: |
-          echo "SDKROOT=$(xcrun -sdk macosx11.0 --show-sdk-path)" >> $GITHUB_ENV
-          echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.0 --show-sdk-platform-version)" >> $GITHUB_ENV
       - name: Cache Qt
         id: cache-qt
         uses: actions/cache@v2

@@ -21,7 +21,7 @@ jobs:
       CARGO_INCREMENTAL: false
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-latest, windows-latest]
+        os: [ubuntu-20.04, macOS-11, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
