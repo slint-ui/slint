@@ -11,12 +11,15 @@ LICENSE END */
 use core::pin::Pin;
 use std::rc::Rc;
 
+use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
-use sixtyfps_corelib::graphics::{Point as PointF, Rect as RectF, Size as SizeF};
+use sixtyfps_corelib::graphics::{
+    IntRect, PixelFormat, Point as PointF, Rect as RectF, Size as SizeF,
+};
 use sixtyfps_corelib::items::Item;
-use sixtyfps_corelib::Color;
+use sixtyfps_corelib::{Color, ImageInner};
 
-pub fn render_window_frame<T: DrawTarget<Color = embedded_graphics::pixelcolor::Rgb888>>(
+pub fn render_window_frame<T: DrawTarget<Color = Rgb888>>(
     runtime_window: Rc<sixtyfps_corelib::window::Window>,
     display: &mut T,
 ) where
@@ -35,15 +38,33 @@ pub fn render_window_frame<T: DrawTarget<Color = embedded_graphics::pixelcolor::
                 }
                 .into_styled(
                     embedded_graphics::primitives::PrimitiveStyleBuilder::new()
-                        .fill_color(embedded_graphics::pixelcolor::Rgb888::new(
-                            color.red(),
-                            color.green(),
-                            color.blue(),
-                        ))
+                        .fill_color(Rgb888::new(color.red(), color.green(), color.blue()))
                         .build(),
                 )
                 .draw(display)
                 .unwrap();
+            }
+            SceneCommand::Texture { data, format, stride, source_width, source_height, color } => {
+                let sx = item.width as f32 / source_width as f32;
+                let sy = item.height as f32 / source_height as f32;
+                let bpp = bpp(format) as usize;
+                for y in 0..item.height {
+                    let pixel_iter = (0..item.width).into_iter().map(|x| {
+                        let pos = ((y as f32 / sy) as usize * stride as usize)
+                            + (x as f32 / sx) as usize * bpp;
+                        to_color(&data[pos..], format, color)
+                    });
+
+                    display
+                        .fill_contiguous(
+                            &embedded_graphics::primitives::Rectangle::new(
+                                Point::new(item.x as i32, (item.y + y) as i32),
+                                Size::new(item.width as u32, 1),
+                            ),
+                            pixel_iter,
+                        )
+                        .unwrap()
+                }
             }
         }
     }
@@ -64,7 +85,17 @@ struct SceneItem {
 }
 
 enum SceneCommand {
-    Rectangle { color: Color },
+    Rectangle {
+        color: Color,
+    },
+    Texture {
+        data: &'static [u8],
+        format: PixelFormat,
+        stride: u16,
+        source_width: u16,
+        source_height: u16,
+        color: Color,
+    },
 }
 
 fn prepare_scene(runtime_window: Rc<sixtyfps_corelib::window::Window>, size: SizeF) -> Scene {
@@ -107,20 +138,61 @@ impl PrepareScene {
     }
 
     fn new_scene_item(&mut self, geometry: RectF, command: SceneCommand) {
-        match geometry.intersection(&self.current_state.clip) {
-            Some(geometry) => {
-                let z = self.items.len() as u16;
-                self.items.push(SceneItem {
-                    x: (self.current_state.offset.x + geometry.origin.x) as _,
-                    y: (self.current_state.offset.y + geometry.origin.y) as _,
-                    width: geometry.size.width as _,
-                    height: geometry.size.height as _,
-                    z,
-                    command,
-                });
+        let z = self.items.len() as u16;
+        self.items.push(SceneItem {
+            x: (self.current_state.offset.x + geometry.origin.x) as _,
+            y: (self.current_state.offset.y + geometry.origin.y) as _,
+            width: geometry.size.width as _,
+            height: geometry.size.height as _,
+            z,
+            command,
+        });
+    }
+
+    fn draw_image_impl(
+        &mut self,
+        geom: RectF,
+        source: &sixtyfps_corelib::graphics::Image,
+        source_clip: IntRect,
+        colorize: Color,
+    ) {
+        let image_inner: &ImageInner = source.into();
+        match image_inner {
+            ImageInner::None => return,
+            ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => {
+                unimplemented!()
             }
-            None => (),
-        }
+            ImageInner::EmbeddedImage(_) => todo!(),
+            ImageInner::StaticTextures { size, data, textures } => {
+                let sx = geom.width() / (size.width as f32);
+                let sy = geom.height() / (size.height as f32);
+                for t in textures.as_slice() {
+                    if let Some(dest_rect) = t
+                        .rect
+                        .intersection(&source_clip)
+                        .and_then(|r| r.cast().scale(sx, sy).intersection(&self.current_state.clip))
+                    {
+                        let actual_x = (dest_rect.origin.x / sx) as i32 - t.rect.origin.x;
+                        let actual_y = (dest_rect.origin.y / sy) as i32 - t.rect.origin.y;
+                        let stride = t.rect.width() as u16 * bpp(t.format);
+
+                        self.new_scene_item(
+                            dest_rect,
+                            SceneCommand::Texture {
+                                data: &data.as_slice()[(t.index
+                                    + (stride as usize) * (actual_y as usize)
+                                    + (bpp(t.format) as usize) * (actual_x as usize))..],
+                                stride,
+                                source_height: (dest_rect.height() / sy) as u16,
+                                source_width: (dest_rect.width() / sx) as u16,
+                                format: t.format,
+                                color: if colorize.alpha() > 0 { colorize } else { t.color },
+                            },
+                        );
+                    }
+                }
+            }
+        };
     }
 }
 
@@ -135,6 +207,11 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
     fn draw_rectangle(&mut self, rect: Pin<&sixtyfps_corelib::items::Rectangle>) {
         let geom = RectF::new(PointF::default(), rect.geometry().size);
         if self.should_draw(&geom) {
+            let geom = match geom.intersection(&self.current_state.clip) {
+                Some(geom) => geom,
+                None => return,
+            };
+
             // FIXME: gradients
             let color = rect.background().color();
             if color.alpha() == 0 {
@@ -161,8 +238,10 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
                 // FIXME: gradients
                 let border_color = rect.border_color().color();
                 if border_color.alpha() > 0 {
-                    let mut add_border = |r| {
-                        self.new_scene_item(r, SceneCommand::Rectangle { color: border_color });
+                    let mut add_border = |r: RectF| {
+                        if let Some(r) = r.intersection(&self.current_state.clip) {
+                            self.new_scene_item(r, SceneCommand::Rectangle { color: border_color });
+                        }
                     };
                     add_border(euclid::rect(0., 0., geom.width(), border));
                     add_border(euclid::rect(0., geom.height() - border, geom.width(), border));
@@ -178,12 +257,36 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_image(&mut self, _image: Pin<&sixtyfps_corelib::items::ImageItem>) {
-        // TODO
+    fn draw_image(&mut self, image: Pin<&sixtyfps_corelib::items::ImageItem>) {
+        let geom = RectF::new(PointF::default(), image.geometry().size);
+        if self.should_draw(&geom) {
+            self.draw_image_impl(
+                geom,
+                &image.source(),
+                euclid::rect(0, 0, i32::MAX, i32::MAX),
+                Default::default(),
+            );
+        }
     }
 
-    fn draw_clipped_image(&mut self, _image: Pin<&sixtyfps_corelib::items::ClippedImage>) {
-        // TODO
+    fn draw_clipped_image(&mut self, image: Pin<&sixtyfps_corelib::items::ClippedImage>) {
+        // when the source_clip size is empty, make it full
+        let a = |v| if v == 0 { i32::MAX } else { v };
+
+        let geom = RectF::new(PointF::default(), image.geometry().size);
+        if self.should_draw(&geom) {
+            self.draw_image_impl(
+                geom,
+                &image.source(),
+                euclid::rect(
+                    image.source_clip_x(),
+                    image.source_clip_y(),
+                    a(image.source_clip_width()),
+                    a(image.source_clip_height()),
+                ),
+                image.colorize().color(),
+            );
+        }
     }
 
     fn draw_text(&mut self, _text: Pin<&sixtyfps_corelib::items::Text>) {
@@ -259,5 +362,31 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
 
     fn as_any(&mut self) -> &mut dyn core::any::Any {
         self
+    }
+}
+
+/// bytes per pixels
+fn bpp(format: PixelFormat) -> u16 {
+    match format {
+        PixelFormat::Rgb => 3,
+        PixelFormat::Rgba => 4,
+        PixelFormat::AlphaMap => 1,
+    }
+}
+
+fn to_color(data: &[u8], format: PixelFormat, color: Color) -> Rgb888 {
+    match format {
+        PixelFormat::Rgba if color.alpha() > 0 => Rgb888::new(
+            ((color.red() as u16 * data[3] as u16) >> 8) as u8,
+            ((color.green() as u16 * data[3] as u16) >> 8) as u8,
+            ((color.blue() as u16 * data[3] as u16) >> 8) as u8,
+        ),
+        PixelFormat::Rgb => Rgb888::new(data[0], data[1], data[2]),
+        PixelFormat::Rgba => Rgb888::new(data[0], data[1], data[2]),
+        PixelFormat::AlphaMap => Rgb888::new(
+            ((color.red() as u16 * data[0] as u16) >> 8) as u8,
+            ((color.green() as u16 * data[0] as u16) >> 8) as u8,
+            ((color.blue() as u16 * data[0] as u16) >> 8) as u8,
+        ),
     }
 }
