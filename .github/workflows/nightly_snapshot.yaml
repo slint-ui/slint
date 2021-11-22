@@ -29,17 +29,17 @@ jobs:
   docs:
     uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@master
   wasm_demo:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@master   
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@master
   wasm:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@master   
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@master
   cpp_package:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@master   
+    uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@master
 
-  vscode_extension_build:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/vscode_extension.yaml@master
-    with:
-      nightly: true
-      publish: ${{ github.event.inputs.publish }}
+#  vscode_extension_build:
+#    uses: sixtyfpsui/sixtyfps/.github/workflows/vscode_extension.yaml@master
+#    with:
+#      nightly: true
+#      publish: ${{ github.event.inputs.publish }}
 
   publish:
     if: github.event.inputs.publish == 'true' && github.ref == 'refs/heads/master'
