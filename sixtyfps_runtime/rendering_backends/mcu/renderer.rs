@@ -315,13 +315,13 @@ impl PrepareScene {
     }
 
     fn new_scene_item(&mut self, geometry: RectF, command: SceneCommand) {
-        // let z = self.items.len() as u16;
+        let z = self.items.len() as u16;
         self.items.push(SceneItem {
             x: (self.current_state.offset.x + geometry.origin.x) as _,
             y: (self.current_state.offset.y + geometry.origin.y) as _,
             width: geometry.size.width as _,
             height: geometry.size.height as _,
-            // z,
+            z,
             command,
         });
     }
@@ -408,8 +408,8 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
                 if let Some(r) =
                     geom.inflate(-border, -border).intersection(&self.current_state.clip)
                 {
+                    self.new_scene_item(r, SceneCommand::Rectangle { color });
                 }
-                self.new_scene_item(r, SceneCommand::Rectangle { color });
             }
             if border > 0.01 {
                 // FIXME: radius
