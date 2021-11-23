@@ -9,14 +9,18 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 
-if [ $# != 1 ]; then
-    echo "usage: $0 path/to/target/binary_package"
+if [ $# -lt 1 ]; then
+    echo "usage: $0 path/to/target/binary_package --with-qt"
     echo
     echo "This prepares the specified binary_package folder for distribution"
     echo "by adding the legal copyright and license notices."
     echo
     echo "All files will be copied/created under the licenses folder"
     echo "along with an index.html"
+    echo
+    echo "If the --with-qt option is specified, it is assumed that Qt is bundled"
+    echo "with the binary package and license attribution is also copied into the"
+    echo "target path"
     exit 1
 fi
 
@@ -105,4 +109,6 @@ EOT
 
 cargo about generate about.hbs -o $target_path/index.html
 
-cp sixtyfps_runtime/rendering_backends/qt/LICENSE.QT sixtyfps_runtime/rendering_backends/qt/QtThirdPartySoftware_Listing.txt $target_path/
+if [ "$2x" == "--with-qtx" ]; then
+    cp sixtyfps_runtime/rendering_backends/qt/LICENSE.QT sixtyfps_runtime/rendering_backends/qt/QtThirdPartySoftware_Listing.txt $target_path/
+fi
