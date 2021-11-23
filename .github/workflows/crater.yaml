@@ -17,14 +17,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  updater_test:
+  crater:
     env:
       SIXTYFPS_NO_QT: 1
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
     strategy:
+      fail-fast: false
       matrix:
-        git_url: 
+        git_url:
           - "https://github.com/sixtyfpsui/cargo-ui"
           - "https://github.com/Futsch1/image-sieve"
           - "https://github.com/samyak-jain/nitroshot"
@@ -35,7 +36,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libpango1.0-dev libatk1.0-dev libgtk-3-dev
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
@@ -45,15 +48,15 @@ jobs:
     - name: setup patch
       run: |
           echo "" >> ~/.cargo/config
-          echo [patch.crates-io]' >> ~/.cargo/config
-          echo sixtyfps = { path = \"$GITHUB_WORKSPACE/sixtyfps/api/sixtyfps-rs/\" } >> ~/.cargo/config
-          echo sixtyfps-build = { path = \"$GITHUB_WORKSPACE/sixtyfps/api/sixtyfps-rs/sixtyfps-build\" }  >> ~/.cargo/config
+          echo [patch.crates-io] >> ~/.cargo/config
+          echo sixtyfps = { path = \"$GITHUB_WORKSPACE/api/sixtyfps-rs/\" } >> ~/.cargo/config
+          echo sixtyfps-build = { path = \"$GITHUB_WORKSPACE/api/sixtyfps-rs/sixtyfps-build\" }  >> ~/.cargo/config
     - name: Checkout the repo
       run: |
-          cd $GITHUB_WORKSPACE
+          cd $HOME
           git clone ${{ matrix.git_url }}  the_repo --depth 1
     - name: build
       run: |
-        cd $GITHUB_WORKSPACE/the_repo
+        cd $HOME/the_repo
         cargo update
         cargo build
