@@ -12,10 +12,10 @@ LICENSE END */
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
 use crate::langtype::{PropertyLookupResult, Type};
-use crate::object_tree::ElementRc;
+use crate::object_tree::{Component, ElementRc};
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum Orientation {
@@ -156,36 +156,46 @@ impl LayoutConstraints {
             fixed_height: false,
         };
         let mut apply_size_constraint =
-            |prop, binding: &BindingExpression, depth, op: &mut Option<NamedReference>| {
+            |prop,
+             binding: &BindingExpression,
+             enclosing1: &Weak<Component>,
+             depth,
+             op: &mut Option<NamedReference>| {
                 if let Some(other_prop) = op {
-                    find_binding(&other_prop.element(), other_prop.name(), |old, d2| {
-                        let old_priority = old.priority.saturating_add(d2);
-                        if old_priority <= binding.priority.saturating_add(depth) {
-                            diag.push_error(
-                                format!(
-                                    "Cannot specify both '{}' and '{}'",
-                                    prop,
-                                    other_prop.name()
-                                ),
-                                binding,
-                            )
-                        }
-                    });
+                    find_binding(
+                        &other_prop.element(),
+                        other_prop.name(),
+                        |old, enclosing2, d2| {
+                            if Weak::ptr_eq(enclosing1, enclosing2)
+                                && old.priority.saturating_add(d2)
+                                    <= binding.priority.saturating_add(depth)
+                            {
+                                diag.push_error(
+                                    format!(
+                                        "Cannot specify both '{}' and '{}'",
+                                        prop,
+                                        other_prop.name()
+                                    ),
+                                    binding,
+                                )
+                            }
+                        },
+                    );
                 }
                 *op = Some(NamedReference::new(element, prop))
             };
-        find_binding(element, "height", |s, depth| {
+        find_binding(element, "height", |s, enclosing, depth| {
             constraints.fixed_height = true;
-            apply_size_constraint("height", s, depth, &mut constraints.min_height);
-            apply_size_constraint("height", s, depth, &mut constraints.max_height);
+            apply_size_constraint("height", s, enclosing, depth, &mut constraints.min_height);
+            apply_size_constraint("height", s, enclosing, depth, &mut constraints.max_height);
         });
-        find_binding(element, "width", |s, depth| {
+        find_binding(element, "width", |s, enclosing, depth| {
             if s.expression.ty() == Type::Percent {
-                apply_size_constraint("width", s, depth, &mut constraints.min_width);
+                apply_size_constraint("width", s, enclosing, depth, &mut constraints.min_width);
             } else {
                 constraints.fixed_width = true;
-                apply_size_constraint("width", s, depth, &mut constraints.min_width);
-                apply_size_constraint("width", s, depth, &mut constraints.max_width);
+                apply_size_constraint("width", s, enclosing, depth, &mut constraints.min_width);
+                apply_size_constraint("width", s, enclosing, depth, &mut constraints.max_width);
             }
         });
 
@@ -364,13 +374,13 @@ impl LayoutGeometry {
 fn find_binding<R>(
     element: &ElementRc,
     name: &str,
-    f: impl FnOnce(&BindingExpression, i32) -> R,
+    f: impl FnOnce(&BindingExpression, &Weak<Component>, i32) -> R,
 ) -> Option<R> {
     let mut element = element.clone();
     let mut depth = 0;
     loop {
         if let Some(b) = element.borrow().bindings.get(name) {
-            return Some(f(&b.borrow(), depth));
+            return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
         }
         let e = match &element.borrow().base_type {
             Type::Component(base) => base.root_element.clone(),
@@ -383,7 +393,7 @@ fn find_binding<R>(
 
 /// Return a named reference to a property if a binding is set on that property
 fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
-    find_binding(element, name, |_, _| NamedReference::new(&element, name))
+    find_binding(element, name, |_, _, _| NamedReference::new(&element, name))
 }
 
 fn init_fake_property(
