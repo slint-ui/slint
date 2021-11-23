@@ -9,23 +9,18 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 
-if [ $# != 3 ]; then
-    echo "usage: $0 path/to/target/binary_package path/to/binary/Qt qt_version"
+if [ $# != 1 ]; then
+    echo "usage: $0 path/to/target/binary_package"
     echo
     echo "This prepares the specified binary_package folder for distribution"
     echo "by adding the legal copyright and license notices."
     echo
     echo "All files will be copied/created under the licenses folder"
     echo "along with an index.html"
-    echo
-    echo "(The path to Qt could be for example ~/Qt/ where the qt installer placed"
-    echo " the binaries and sources under)"
     exit 1
 fi
 
 target_path=$1/licenses
-qt_path=$2
-qt_version=$3
 
 mkdir -p $target_path
 cp -a `dirname $0`/../LICENSE.md $target_path
