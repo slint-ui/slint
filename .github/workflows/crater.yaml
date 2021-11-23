@@ -1,0 +1,61 @@
+# LICENSE BEGIN
+# This file is part of the SixtyFPS Project -- https://sixtyfps.io
+# Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+# Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+#
+# SPDX-License-Identifier: GPL-3.0-only
+# This file is also available under commercial licensing terms.
+# Please contact info@sixtyfps.io for more information.
+# LICENSE END
+
+# This workflow checks out and build a bunch of crates that uses SixtyFPS,
+# with the current branch
+
+name: Crater
+
+on:
+  workflow_dispatch:
+
+jobs:
+  updater_test:
+    env:
+      SIXTYFPS_NO_QT: 1
+      CARGO_INCREMENTAL: false
+      RUST_BACKTRACE: 1
+    strategy:
+      matrix:
+        # These are just projects found on GitHub using SixtyFPS
+        git_url: [
+          "https://github.com/sixtyfpsui/cargo-ui",
+          "https://github.com/Futsch1/image-sieve",
+          "https://github.com/samyak-jain/nitroshot",
+          "https://github.com/lukas-jung/sixty-mines",
+          "https://github.com/getsentry/hackweek-rust-gui",
+          "https://github.com/Vuenc/SixtyFPS-Str8ts",
+        ]
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Linux Dependencies
+      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+    - name: Install latest stable
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: stable
+          profile: minimal
+    - uses: Swatinem/rust-cache@v1
+    - name: setup patch
+    - run: |
+          echo "" >> ~/.cargo/config
+          echo [patch.crates-io]' >> ~/.cargo/config
+          echo sixtyfps = { path = \"$GITHUB_WORKSPACE/sixtyfps/api/sixtyfps-rs/\" } >> ~/.cargo/config
+          echo sixtyfps-build = { path = \"$GITHUB_WORKSPACE/sixtyfps/api/sixtyfps-rs/sixtyfps-build\" }  >> ~/.cargo/config
+    - name: Checkout the repo
+      run: |
+          cd $GITHUB_WORKSPACE
+          git clone ${{ matrix.git_url }}  the_repo --depth 1
+    - name: build
+      run: |
+        cd $GITHUB_WORKSPACE/the_repo
+        cargo update
+        cargo build
