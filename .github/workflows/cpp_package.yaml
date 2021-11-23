@@ -59,11 +59,13 @@ jobs:
           override: true
     - uses: Swatinem/rust-cache@v1
     - uses: actions-rs/install@v0.1
-      if: matrix.os == 'windows-latest'
       with:
         crate: cargo-about
-    - name: Prepare licenses
-      if: matrix.os == 'windows-latest'
+    - name: Prepare licenses (with Qt)
+      if: matrix.os == 'windows-latest' || matrix.os == 'macOS-11'
+      run: bash -x ./scripts/prepare_binary_package.sh . --with-qt
+    - name: Prepare licenses (without Qt)
+      if: matrix.os != 'windows-latest' && matrix.os != 'macOS-11'
       run: bash -x ./scripts/prepare_binary_package.sh .
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
