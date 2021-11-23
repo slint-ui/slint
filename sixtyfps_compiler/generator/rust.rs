@@ -888,7 +888,7 @@ fn generate_component(
     let mut visibility = if component.visible_in_public_api() { Some(quote!(pub)) } else { None };
     let mut parent_component_type = None;
     let mut has_window_impl = None;
-    let mut window_field = Some(quote!(window: sixtyfps::Window));
+    let mut window_field = Some(quote!(window: sixtyfps::Window,));
     if let Some(parent_element) = component.parent_element.upgrade() {
         visibility = None;
         if parent_element.borrow().repeated.as_ref().map_or(false, |r| !r.is_conditional_element) {
@@ -910,12 +910,12 @@ fn generate_component(
         } else {
             quote!(sixtyfps::re_exports::VWeak::<sixtyfps::re_exports::ComponentVTable, #parent_component_id>)
         });
-        window_field_init = Some(quote!(window: parent_window.clone().into()));
+        window_field_init = Some(quote!(window: parent_window.clone().into(),));
         window_parent_param = Some(quote!(, parent_window: &sixtyfps::re_exports::WindowRc))
     } else if !component.is_global() && !component.is_sub_component() {
         // FIXME: This field is public for testing.
-        window_field = Some(quote!(window: sixtyfps::Window));
-        window_field_init = Some(quote!(window: sixtyfps::create_window().into()));
+        window_field = Some(quote!(window: sixtyfps::Window,));
+        window_field_init = Some(quote!(window: sixtyfps::create_window().into(),));
 
         init.push(quote!(_self.window.window_handle().set_component(&VRc::into_dyn(_self.as_ref().self_weak.get().unwrap().upgrade().unwrap()));));
 
@@ -1226,6 +1226,7 @@ fn generate_component(
 
     let create_self = quote!(
         let mut self_ = Self {
+            #window_field_init
             #(#item_names : ::core::default::Default::default(),)*
             #(#sub_component_names : #sub_component_initializers,)*
             #(#declared_property_vars : ::core::default::Default::default(),)*
@@ -1234,7 +1235,6 @@ fn generate_component(
             #(#self_weak : ::core::default::Default::default(),)*
             #(parent : parent as #parent_component_type,)*
             #(#global_name : #global_type::new(),)*
-            #window_field_init
             #root_initializer
             #item_tree_index_init
             #tree_index_of_first_child_init
@@ -1309,6 +1309,7 @@ fn generate_component(
         #[repr(C)]
         #pin
         #visibility struct #inner_component_id {
+            #window_field
             #(#item_names : sixtyfps::re_exports::#item_types,)*
             #(#sub_component_names : #sub_component_types,)*
             #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
@@ -1317,7 +1318,6 @@ fn generate_component(
             #(#self_weak : sixtyfps::re_exports::OnceCell<#self_weak_type>,)*
             #(parent : #parent_component_type,)*
             #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
-            #window_field
             #root_field
             #item_tree_index_field
             #tree_index_of_first_child_field
