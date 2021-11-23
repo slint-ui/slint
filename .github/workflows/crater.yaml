@@ -24,15 +24,13 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        # These are just projects found on GitHub using SixtyFPS
-        git_url: [
-          "https://github.com/sixtyfpsui/cargo-ui",
-          "https://github.com/Futsch1/image-sieve",
-          "https://github.com/samyak-jain/nitroshot",
-          "https://github.com/lukas-jung/sixty-mines",
-          "https://github.com/getsentry/hackweek-rust-gui",
-          "https://github.com/Vuenc/SixtyFPS-Str8ts",
-        ]
+        git_url: 
+          - "https://github.com/sixtyfpsui/cargo-ui"
+          - "https://github.com/Futsch1/image-sieve"
+          - "https://github.com/samyak-jain/nitroshot"
+          - "https://github.com/lukas-jung/sixty-mines"
+          - "https://github.com/getsentry/hackweek-rust-gui"
+          - "https://github.com/Vuenc/SixtyFPS-Str8ts"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
@@ -45,7 +43,7 @@ jobs:
           profile: minimal
     - uses: Swatinem/rust-cache@v1
     - name: setup patch
-    - run: |
+      run: |
           echo "" >> ~/.cargo/config
           echo [patch.crates-io]' >> ~/.cargo/config
           echo sixtyfps = { path = \"$GITHUB_WORKSPACE/sixtyfps/api/sixtyfps-rs/\" } >> ~/.cargo/config
