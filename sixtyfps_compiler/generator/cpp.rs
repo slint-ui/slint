@@ -1789,6 +1789,8 @@ fn component_id(component: &Rc<Component>) -> String {
         ident(&component.root_element.borrow().id).into_owned()
     } else if component.id.is_empty() {
         format!("Component_{}", ident(&component.root_element.borrow().id))
+    } else if component.is_sub_component() {
+        ident(&format!("{}_{}", component.id, component.root_element.borrow().id)).into_owned()
     } else {
         ident(&component.id).into_owned()
     }
