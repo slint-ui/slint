@@ -1385,6 +1385,8 @@ fn public_component_id(component: &Component) -> proc_macro2::Ident {
         let id =
             it.next().map(|c| c.to_ascii_uppercase()).into_iter().chain(it).collect::<String>();
         ident(&id)
+    } else if component.is_sub_component() {
+        ident(&format!("{}_{}", component.id, component.root_element.borrow().id))
     } else {
         ident(&component.id)
     }
