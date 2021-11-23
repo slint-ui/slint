@@ -64,7 +64,7 @@ jobs:
         crate: cargo-about
     - name: Prepare licenses
       if: matrix.os == 'windows-latest'
-      run: bash -x ./scripts/prepare_binary_package.sh . ..\Qt 6.2.1
+      run: bash -x ./scripts/prepare_binary_package.sh .
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
       run: |
