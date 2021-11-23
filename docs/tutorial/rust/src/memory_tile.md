@@ -14,8 +14,10 @@ We copy the following code inside of the `sixtyfps!` macro:
 ```
 
 Inside the <span class="hljs-built_in">Rectangle</span> we place an <span class="hljs-built_in">Image</span> element that
-loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. The path is relative to the folder in which 
-the .60 file is located. This icon and others we're going to use later need to be installed first. You can download a
+loads an icon with the <span class="hljs-built_in">@image-url()</span> macro.
+When using the `sixtyfps!` macro, the path is relative to the folder in which the Cargo.toml is located.
+When using .60 files, it is relative to the folder of the .60 file containing it.
+This icon and others we're going to use later need to be installed first. You can download a
 [Zip archive](https://sixtyfps.io/blog/memory-game-tutorial/icons.zip) that we have prepared and extract it with the
 following two commands:
 
