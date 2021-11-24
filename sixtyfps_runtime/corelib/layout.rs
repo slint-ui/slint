@@ -411,7 +411,7 @@ pub fn grid_layout_info(
 }
 
 /// Enum representing the alignment property of a BoxLayout or HorizontalLayout
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum LayoutAlignment {

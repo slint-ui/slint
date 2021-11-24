@@ -213,7 +213,7 @@ pub struct KeyboardModifiers {
     pub shift: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(Debug, Clone, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 /// This enum defines the different kinds of key events that can happen.
 pub enum KeyEventType {

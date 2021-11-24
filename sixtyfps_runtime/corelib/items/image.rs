@@ -29,7 +29,7 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum ImageFit {
@@ -44,9 +44,7 @@ impl Default for ImageFit {
     }
 }
 
-#[derive(
-    Copy, Clone, Debug, Eq, PartialEq, Hash, strum_macros::EnumString, strum_macros::Display,
-)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum ImageRendering {
