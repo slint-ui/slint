@@ -11,11 +11,11 @@ LICENSE END */
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 use core::fmt::Debug;
+use core::iter::FromIterator;
 use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr::NonNull;
 use core::sync::atomic;
-use std::{alloc, iter::FromIterator};
 
 #[repr(C)]
 struct SharedVectorHeader {
@@ -30,9 +30,9 @@ struct SharedVectorInner<T> {
     data: MaybeUninit<T>,
 }
 
-fn compute_inner_layout<T>(capacity: usize) -> alloc::Layout {
-    alloc::Layout::new::<SharedVectorHeader>()
-        .extend(alloc::Layout::array::<T>(capacity).unwrap())
+fn compute_inner_layout<T>(capacity: usize) -> core::alloc::Layout {
+    core::alloc::Layout::new::<SharedVectorHeader>()
+        .extend(core::alloc::Layout::array::<T>(capacity).unwrap())
         .unwrap()
         .0
 }
@@ -43,7 +43,7 @@ unsafe fn drop_inner<T>(mut inner: NonNull<SharedVectorInner<T>>) {
     for x in 0..inner.as_ref().header.size {
         core::ptr::drop_in_place(data_ptr.add(x));
     }
-    alloc::dealloc(
+    alloc::alloc::dealloc(
         inner.as_ptr() as *mut u8,
         compute_inner_layout::<T>(inner.as_ref().header.capacity),
     )
@@ -51,7 +51,7 @@ unsafe fn drop_inner<T>(mut inner: NonNull<SharedVectorInner<T>>) {
 
 /// Allocate the memory for the SharedVector with the given capacity. Return the inner with size and refcount set to 1
 fn alloc_with_capacity<T>(capacity: usize) -> NonNull<SharedVectorInner<T>> {
-    let ptr = unsafe { alloc::alloc(compute_inner_layout::<T>(capacity)) };
+    let ptr = unsafe { ::alloc::alloc::alloc(compute_inner_layout::<T>(capacity)) };
     assert!(!ptr.is_null(), "allocation of {:?} bytes failed", capacity);
     unsafe {
         core::ptr::write(
@@ -377,7 +377,7 @@ impl<T: Clone> Extend<T> for SharedVector<T> {
 }
 
 static SHARED_NULL: SharedVectorHeader =
-    SharedVectorHeader { refcount: std::sync::atomic::AtomicIsize::new(-1), size: 0, capacity: 0 };
+    SharedVectorHeader { refcount: core::sync::atomic::AtomicIsize::new(-1), size: 0, capacity: 0 };
 
 impl<T> Default for SharedVector<T> {
     fn default() -> Self {
@@ -386,7 +386,7 @@ impl<T> Default for SharedVector<T> {
 }
 
 impl<T: Debug> Debug for SharedVector<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.as_slice().fmt(f)
     }
 }
@@ -417,7 +417,7 @@ impl<T: Clone> IntoIterator for SharedVector<T> {
         IntoIter(unsafe {
             if self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) == 1 {
                 let inner = self.inner;
-                std::mem::forget(self);
+                core::mem::forget(self);
                 inner.as_ref().header.refcount.store(0, atomic::Ordering::Relaxed);
                 IntoIterInner::UnShared(inner, 0)
             } else {
@@ -443,7 +443,7 @@ impl<T> Drop for IntoIterInner<T> {
                 for x in (*begin)..inner.as_ref().header.size {
                     core::ptr::drop_in_place(data_ptr.add(x));
                 }
-                alloc::dealloc(
+                ::alloc::alloc::dealloc(
                     inner.as_ptr() as *mut u8,
                     compute_inner_layout::<T>(inner.as_ref().header.capacity),
                 )
@@ -590,13 +590,13 @@ pub(crate) mod ffi {
     #[no_mangle]
     /// This function is used for the low-level C++ interface to allocate the backing vector of a SharedVector.
     pub unsafe extern "C" fn sixtyfps_shared_vector_allocate(size: usize, align: usize) -> *mut u8 {
-        std::alloc::alloc(std::alloc::Layout::from_size_align(size, align).unwrap())
+        alloc::alloc::alloc(alloc::alloc::Layout::from_size_align(size, align).unwrap())
     }
 
     #[no_mangle]
     /// This function is used for the low-level C++ interface to deallocate the backing vector of a SharedVector
     pub unsafe extern "C" fn sixtyfps_shared_vector_free(ptr: *mut u8, size: usize, align: usize) {
-        std::alloc::dealloc(ptr, std::alloc::Layout::from_size_align(size, align).unwrap())
+        alloc::alloc::dealloc(ptr, alloc::alloc::Layout::from_size_align(size, align).unwrap())
     }
 
     #[no_mangle]

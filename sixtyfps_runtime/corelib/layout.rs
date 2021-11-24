@@ -12,6 +12,7 @@ LICENSE END */
 // cspell:ignore coord
 
 use crate::{items::DialogButtonRole, slice::Slice, SharedVector};
+use alloc::vec::Vec;
 
 /// Vertical or Horizontal orientation
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -86,7 +87,7 @@ impl core::ops::Add for LayoutInfo {
 mod grid_internal {
     use super::*;
 
-    fn order_coord(a: &Coord, b: &Coord) -> std::cmp::Ordering {
+    fn order_coord(a: &Coord, b: &Coord) -> core::cmp::Ordering {
         a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal)
     }
 
@@ -243,8 +244,7 @@ mod grid_internal {
         if num < 1 {
             return Default::default();
         }
-        let mut layout_data =
-            vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num as usize];
+        let mut layout_data = alloc::vec![grid_internal::LayoutData { stretch: 1., ..Default::default() }; num as usize];
         let mut has_spans = false;
         for cell in data {
             let constraint = &cell.constraint;
@@ -738,6 +738,17 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
         }
     }
 
+    #[cfg(feature = "std")]
+    fn is_kde() -> bool {
+        // assume some unix check if XDG_CURRENT_DESKTOP stats with K
+        std::env::var("XDG_CURRENT_DESKTOP")
+            .ok()
+            .and_then(|v| v.as_bytes().get(0).copied())
+            .map_or(false, |x| x.to_ascii_uppercase() == b'K')
+    }
+    #[cfg(not(feature = "std"))]
+    let is_kde = || true;
+
     let mut idx = 0;
 
     if cfg!(windows) {
@@ -756,13 +767,7 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
         idx += 1;
         add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
         add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
-
-        // assume some unix check if XDG_CURRENT_DESKTOP stats with K
-    } else if std::env::var("XDG_CURRENT_DESKTOP")
-        .ok()
-        .and_then(|v| v.as_bytes().get(0).copied())
-        .map_or(false, |x| x.to_ascii_uppercase() == b'K')
-    {
+    } else if is_kde() {
         // KDE variant
         add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
         add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);

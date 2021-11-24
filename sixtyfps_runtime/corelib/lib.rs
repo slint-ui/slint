@@ -21,6 +21,8 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 */
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![deny(unsafe_code)]
+//TODO #![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 
 pub mod animations;
 pub mod backend;

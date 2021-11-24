@@ -10,12 +10,11 @@ LICENSE END */
 
 //! Model and Repeater
 
-use core::cell::RefCell;
+use alloc::boxed::Box;
+use alloc::rc::{Rc, Weak};
+use alloc::vec::Vec;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-use std::{
-    cell::Cell,
-    rc::{Rc, Weak},
-};
 
 use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
@@ -184,6 +183,7 @@ pub trait Model {
     /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
     /// internal [`ModelNotify`].
     fn set_row_data(&self, _row: usize, _data: Self::Data) {
+        #[cfg(feature = "std")]
         eprintln!(
             "Model::set_row_data called on a model of type {} which does not re-implement this method. \
             This happens when trying to modify a read-only model",
@@ -361,8 +361,8 @@ impl Model for bool {
 #[derive(derive_more::Deref, derive_more::DerefMut, derive_more::From, derive_more::Into)]
 pub struct ModelHandle<T>(pub Option<Rc<dyn Model<Data = T>>>);
 
-impl<T> std::fmt::Debug for ModelHandle<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T> core::fmt::Debug for ModelHandle<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "ModelHandle({:?})", self.0.as_ref().map(|_| "dyn Model"))
     }
 }
@@ -384,7 +384,7 @@ impl<T> core::cmp::PartialEq for ModelHandle<T> {
             (None, None) => true,
             (None, Some(_)) => false,
             (Some(_), None) => false,
-            (Some(a), Some(b)) => std::ptr::eq(
+            (Some(a), Some(b)) => core::ptr::eq(
                 (&**a) as *const dyn Model<Data = T> as *const u8,
                 (&**b) as *const dyn Model<Data = T> as *const u8,
             ),

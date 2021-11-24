@@ -10,7 +10,8 @@ LICENSE END */
 #![warn(missing_docs)]
 //! The animation system
 
-use std::cell::Cell;
+use alloc::boxed::Box;
+use core::cell::Cell;
 
 /// The representation of an easing curve, for animations
 #[repr(C, u32)]
@@ -188,13 +189,11 @@ fn easing_test() {
 /// Update the global animation time to the current time
 pub fn update_animations() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
-        let duration = instant::Instant::now() - driver.initial_instant;
-        let duration = match std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
-            Err(_) => duration,
-            Ok(val) => {
-                let factor = val.parse().unwrap_or(2);
-                duration / factor
-            }
+        let mut duration = instant::Instant::now() - driver.initial_instant;
+        #[cfg(feature = "std")]
+        if let Ok(val) = std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
+            let factor = val.parse().unwrap_or(2);
+            duration /= factor;
         };
         driver.update_animations(Instant(duration.as_millis() as u64))
     });

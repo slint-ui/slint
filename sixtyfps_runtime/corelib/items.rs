@@ -37,6 +37,7 @@ use crate::layout::{LayoutInfo, Orientation};
 use crate::rtti::*;
 use crate::window::WindowRc;
 use crate::{Callback, Property, SharedString};
+use alloc::boxed::Box;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -1045,14 +1046,14 @@ impl core::ops::Deref for FlickableDataBox {
 /// hold a FlickableDataBox
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_flickable_data_init(data: *mut FlickableDataBox) {
-    std::ptr::write(data, FlickableDataBox::default());
+    core::ptr::write(data, FlickableDataBox::default());
 }
 
 /// # Safety
 /// This must be called using a non-null pointer pointing to an initialized FlickableDataBox
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBox) {
-    std::ptr::drop_in_place(data);
+    core::ptr::drop_in_place(data);
 }
 
 /// The implementation of the `PropertyAnimation` element

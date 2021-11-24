@@ -112,7 +112,7 @@ pub struct GradientStop {
 pub fn line_for_angle(angle: f32) -> (Point, Point) {
     let angle = angle.to_radians();
     let r = (angle.sin().abs() + angle.cos().abs()) / 2.;
-    let (y, x) = (angle - std::f32::consts::PI / 2.).sin_cos();
+    let (y, x) = (angle - core::f32::consts::PI / 2.).sin_cos();
     let (y, x) = (y * r, x * r);
     let start = Point::new(0.5 - x, 0.5 - y);
     let end = Point::new(0.5 + x, 0.5 + y);

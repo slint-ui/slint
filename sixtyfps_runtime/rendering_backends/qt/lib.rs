@@ -21,6 +21,8 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![recursion_limit = "1024"]
 
+extern crate alloc;
+
 use sixtyfps_corelib::graphics::{Image, Size};
 #[cfg(not(no_qt))]
 use sixtyfps_corelib::items::ImageFit;

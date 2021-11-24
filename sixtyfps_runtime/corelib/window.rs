@@ -15,10 +15,10 @@ use crate::graphics::{Point, Size};
 use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak};
 use crate::properties::{Property, PropertyTracker};
-use core::cell::Cell;
+use alloc::boxed::Box;
+use alloc::rc::{Rc, Weak};
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-use std::cell::RefCell;
-use std::rc::{Rc, Weak};
 
 /// This trait represents the interface that the generated code and the run-time
 /// require in order to implement functionality such as device-independent pixels,
@@ -553,12 +553,12 @@ impl core::ops::Deref for Window {
 /// Internal trait used by generated code to access window internals.
 pub trait WindowHandleAccess {
     /// Returns a reference to the window implementation.
-    fn window_handle(&self) -> &std::rc::Rc<Window>;
+    fn window_handle(&self) -> &Rc<Window>;
 }
 
 /// Internal alias for Rc<Window> so that it can be used in the vtable
 /// functions and generate a good signature.
-pub type WindowRc = std::rc::Rc<Window>;
+pub type WindowRc = Rc<Window>;
 
 /// Internal module to define the public Window API, for re-export in the regular Rust crate
 /// and the interpreter crate.
@@ -567,7 +567,7 @@ pub mod api {
     /// scene of a component. It provides API to control windowing system specific aspects such
     /// as the position on the screen.
     #[repr(transparent)]
-    pub struct Window(pub(super) std::rc::Rc<super::Window>);
+    pub struct Window(pub(super) super::WindowRc);
 
     #[doc(hidden)]
     impl From<super::WindowRc> for Window {
@@ -590,7 +590,7 @@ pub mod api {
 }
 
 impl WindowHandleAccess for api::Window {
-    fn window_handle(&self) -> &std::rc::Rc<Window> {
+    fn window_handle(&self) -> &Rc<Window> {
         &self.0
     }
 }

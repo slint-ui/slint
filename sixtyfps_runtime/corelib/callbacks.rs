@@ -16,6 +16,7 @@ but then it should also be renamed everywhere, including in the language grammar
 
 #![warn(missing_docs)]
 
+use alloc::boxed::Box;
 use core::cell::Cell;
 
 /// A Callback that can be connected to a handler.
@@ -83,8 +84,8 @@ pub(crate) mod ffi {
 
     static_assertions::assert_eq_align!(CallbackOpaque, Callback<()>);
     static_assertions::assert_eq_size!(CallbackOpaque, Callback<()>);
-    static_assertions::assert_eq_align!(CallbackOpaque, Callback<(String,)>);
-    static_assertions::assert_eq_size!(CallbackOpaque, Callback<(String,)>);
+    static_assertions::assert_eq_align!(CallbackOpaque, Callback<(alloc::string::String,)>);
+    static_assertions::assert_eq_size!(CallbackOpaque, Callback<(alloc::string::String,)>);
 
     /// Initialize the callback.
     /// sixtyfps_callback_drop must be called.

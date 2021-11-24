@@ -12,8 +12,10 @@ LICENSE END */
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 
+use alloc::string::String;
+use core::fmt::{Debug, Display};
 use core::mem::MaybeUninit;
-use std::{fmt::Debug, fmt::Display, ops::Deref};
+use core::ops::Deref;
 use triomphe::{Arc, HeaderWithLength, ThinArc};
 
 /// A string type used by the SixtyFPS run-time.
@@ -203,13 +205,13 @@ impl From<&str> for SharedString {
 }
 
 impl Debug for SharedString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         Debug::fmt(self.as_str(), f)
     }
 }
 
 impl Display for SharedString {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         Display::fmt(self.as_str(), f)
     }
 }
@@ -221,6 +223,7 @@ impl AsRef<str> for SharedString {
     }
 }
 
+#[cfg(feature = "std")]
 impl AsRef<std::ffi::CStr> for SharedString {
     #[inline]
     fn as_ref(&self) -> &std::ffi::CStr {
@@ -254,12 +257,12 @@ impl<T> PartialOrd<T> for SharedString
 where
     T: ?Sized + AsRef<str>,
 {
-    fn partial_cmp(&self, other: &T) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &T) -> Option<core::cmp::Ordering> {
         PartialOrd::partial_cmp(self.as_str(), other.as_ref())
     }
 }
 impl Ord for SharedString {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         Ord::cmp(self.as_str(), other.as_str())
     }
 }
@@ -278,13 +281,13 @@ impl From<&String> for SharedString {
 
 impl From<SharedString> for String {
     fn from(s: SharedString) -> String {
-        s.as_str().to_string()
+        s.as_str().into()
     }
 }
 
 impl From<&SharedString> for String {
     fn from(s: &SharedString) -> String {
-        s.as_str().to_string()
+        s.as_str().into()
     }
 }
 
@@ -302,8 +305,8 @@ impl core::ops::Add<&str> for SharedString {
     }
 }
 
-impl std::hash::Hash for SharedString {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl core::hash::Hash for SharedString {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state)
     }
 }

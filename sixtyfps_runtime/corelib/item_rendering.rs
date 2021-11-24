@@ -15,8 +15,8 @@ use super::items::*;
 use crate::component::ComponentRc;
 use crate::graphics::Rect;
 use crate::item_tree::ItemVisitorResult;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-use std::cell::{Cell, RefCell};
 
 /// This structure must be present in items that are Rendered and contains information.
 /// Used by the backend.
