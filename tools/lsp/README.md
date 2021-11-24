@@ -6,21 +6,35 @@ completion, goto definition, and more importantly, live-preview
 
 ## Generic usage
 
-1. Build or install the lsp binary:
+The LSP server consists of a binary, `sixtyfps-lsp` (or `sixtyfps-lsp.exe` on Windows). It provides all the functionality and allows any programming editor that also implements the standardized LSP protocol to communicate with it.
+
+
+
+If you have Rust installed, you can install the binary by running the following command:
 
 ```sh
 cargo install sixtyfps-lsp
 ```
+
+This makes the latest released version available in `$HOME/.cargo/bin`. If you would like to try a development version, you can also point `cargo install` to the git repository:
 for the released version. Or, to install the develoment version:
 
 ```sh
 cargo install sixtyfps-lsp --git https://github.com/sixtyfpsui/sixtyfps --force
 ```
 
-2. Configure your editor to use the `$HOME/.cargo/bin/sixtyfps-lsp` binary (path may vary depending on the platform),
-no arguments required
 
-Bellow is a list of editors which have been tested
+Alternatively, you can download one of our pre-built binaries for Linux or Windows:
+
+1. Open <https://github.com/sixtyfpsui/sixtyfps/releases>
+2. Click on the latest release
+3. From "Assets" download either `sixtyfps-lsp-linux.tar.gz` for a Linux x86-64 binary
+   or `sixtyfps-lsp-windows.zip` for a Windows x86-64 binary.
+4. Uncompress the downloaded archive into a location of your choice.
+
+As the next step, configure your editor to use the binary, no arguments are required
+
+Bellow is a list of editors which have been tested.
 
 ## Usage with Visual Studio Code
 
