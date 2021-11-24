@@ -7,6 +7,13 @@
     This file is also available under commercial licensing terms.
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
+
+#![no_std]
+extern crate alloc;
+use crate::alloc::borrow::ToOwned;
+use alloc::boxed::Box;
+use alloc::string::String;
+
 use core::pin::Pin;
 use vtable::*;
 #[vtable]
@@ -181,11 +188,11 @@ fn pin() {
     #[vtable]
     struct PinnedVTable {
         my_func: fn(core::pin::Pin<VRef<PinnedVTable>>, u32) -> u32,
-        my_func2: fn(std::pin::Pin<VRef<'_, PinnedVTable>>) -> u32,
+        my_func2: fn(::core::pin::Pin<VRef<'_, PinnedVTable>>) -> u32,
         my_func3: fn(Pin<VRefMut<PinnedVTable>>, u32) -> u32,
     }
 
-    struct P(String, std::marker::PhantomPinned);
+    struct P(String, core::marker::PhantomPinned);
     impl Pinned for P {
         fn my_func(self: Pin<&Self>, p: u32) -> u32 {
             self.0.len() as u32 + p
@@ -199,7 +206,7 @@ fn pin() {
     }
     PinnedVTable_static!(static PVT for P);
 
-    let b = Box::pin(P("hello".to_owned(), std::marker::PhantomPinned));
+    let b = Box::pin(P("hello".to_owned(), core::marker::PhantomPinned));
     let r = VRef::new_pin(b.as_ref());
     assert_eq!(r.as_ref().my_func(44), 44 + 5);
     assert_eq!(r.as_ref().my_func2(), 5);

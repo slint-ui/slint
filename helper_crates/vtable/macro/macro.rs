@@ -479,7 +479,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 vtable_ctor.push(quote!(#ident: {
                     unsafe extern "C" fn #ident(_: &#vtable_name, ptr: *mut u8, layout: vtable::Layout) {
                         use ::core::convert::TryInto;
-                        ::std::alloc::dealloc(ptr, layout.try_into().unwrap())
+                        vtable::internal::dealloc(ptr, layout.try_into().unwrap())
                     }
                     #ident
                 },));
@@ -705,7 +705,7 @@ and implements HasStaticVTable for it.
             #[allow(unused)]
             use super::*;
             use ::vtable::*;
-            use ::std::boxed::Box; // make sure `Box` was not overridden in super
+            use ::vtable::internal::*;
             #input
 
             impl #vtable_name {
