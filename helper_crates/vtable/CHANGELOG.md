@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.1.4] - Unreleased
+## [0.1.4] - 2021-11-24
 
  - Added `VrcMapped` and `VWeakMapped` to allow for references to objects that are reachable via VRc
  - Used intra-doc link in the generated documentation
