@@ -4,7 +4,8 @@
 -->
 <script type="module">
     "use strict";
-    import * as sixtyfps from 'https://sixtyfps.io/releases/0.1.5/wasm-interpreter/sixtyfps_wasm_interpreter.js';
+    //import * as sixtyfps from 'https://sixtyfps.io/releases/0.x.0/wasm-interpreter/sixtyfps_wasm_interpreter.js';
+    import * as sixtyfps from 'https://sixtyfps.io/snapshots/master/wasm-interpreter/sixtyfps_wasm_interpreter.js';
 
     async function render_or_error(source, div) {
         let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
