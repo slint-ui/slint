@@ -5,8 +5,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
- - The Slider's changed callback not being called with the fluent style (#621)
- - C++: Fixed compilation error in `sixtyfps::blocking_invoke_from_main_loop` when the callable returns `void` (#623)
+ - The Slider's changed callback was not being called with the fluent style (#621).
+ - Fixed compilation error in C++'s `sixtyfps::blocking_invoke_from_main_loop` when the callable returns `void` (#623).
+ - Improve rendering quality on High-DPI screens on Windows when using Qt.
+ - Fixed linking errors when selecting the native style on Windows with C++.
+ - Fixed the maximization button in the window decoration when a window has a fixed size.
 
 ## [0.1.4] - 2021-10-22
 
