@@ -67,11 +67,11 @@ resolver = "2" # avoid dependency conflicts on some platforms
 edition = "2018"
 
 [dependencies]
-sixtyfps = "0.1.4"
+sixtyfps = "0.1.5"
 ...
 
 [build-dependencies]
-sixtyfps-build = "0.1.4"
+sixtyfps-build = "0.1.5"
 ```
 
 In the `build.rs` file:
