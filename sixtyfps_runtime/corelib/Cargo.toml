@@ -30,19 +30,19 @@ sixtyfps-corelib-macros = { version = "=0.1.6", path = "../corelib_macros" }
 lyon_path = { version = "0.17.3" }
 lyon_algorithms = { version = "0.17.1" }
 lyon_geom = { version = "0.17.0" }
-euclid = "0.22.1"
-triomphe = "0.1.1"
+euclid = { version = "0.22.1", default-features = false }
+triomphe = { version = "0.1.1", default-features = false }
 once_cell = { version = "1.5", default-features = false }
 instant = { version = "0.1", features = [ "now" ] }
 derive_more = "0.99.5"
 scoped-tls-hkt = "0.1"
 static_assertions = "1.1"
 strum = { version = "0.23.0", default-features = false, features = ["derive"] }
-slab = "0.4.3"
+slab = { version = "0.4.3", default-features = false }
 pin-weak = "1"
 auto_enums = "0.7"
 weak-table =  "0.3"
-scopeguard = "1.1.0"
+scopeguard =  { version = "1.1.0", default-features = false }
 cfg-if = "1"
 unicode-segmentation = "1.8.0"
 # Note: the rgb version is extracted in ci.yaml for rustdoc builds
