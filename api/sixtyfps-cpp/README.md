@@ -87,11 +87,11 @@ cmake --install .
 
 We also provide binary packages of SixtyFPS for use with C++, which eliminates the need to have Rust installed in your development environment.
 
-You can download one of our pre-built binaries for Linux or Windows:
+You can download one of our pre-built binaries for Linux or Windows on x86-64 architectures:
 
 1. Open <https://github.com/sixtyfpsui/sixtyfps/releases>
 2. Click on the latest release
-3. From "Assets" download either `sixtyfps-cpp-XXX-Linux.tar.gz` for a Linux x86-64 archive
+3. From "Assets" download either `sixtyfps-cpp-XXX-Linux-x86_64.tar.gz` for a Linux x86-64 archive
    or `sixtyfps-cpp-XXX-win64.exe` for a Windows x86-64 installer. ("XXX" refers to the version of the latest release)
 4. Uncompress the downloaded archive or run the installer.
 
