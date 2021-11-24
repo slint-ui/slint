@@ -12,8 +12,7 @@ LICENSE END */
 
 use super::*;
 use core::convert::TryInto;
-use core::sync::atomic::AtomicU32;
-use std::sync::atomic::Ordering;
+use core::sync::atomic::{AtomicU32, Ordering};
 
 /// This trait is implemented by the [`#[vtable]`](macro@vtable) macro.
 ///
@@ -148,7 +147,7 @@ impl<VTable: VTableMetaDropInPlace, X: HasStaticVTable<VTable>> VRc<VTable, X> {
             layout.align().max(layout_with_layout.align()),
         )
         .unwrap();
-        let mem = unsafe { std::alloc::alloc(layout) as *mut VRcInner<VTable, X> };
+        let mem = unsafe { alloc::alloc::alloc(layout) as *mut VRcInner<VTable, X> };
         let inner = NonNull::new(mem).unwrap();
         assert!(!mem.is_null());
 

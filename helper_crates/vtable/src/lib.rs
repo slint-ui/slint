@@ -64,6 +64,8 @@ that `cbindgen` can see the actual vtable.
 */
 
 #![warn(missing_docs)]
+#![no_std]
+extern crate alloc;
 
 #[doc(no_inline)]
 pub use const_field_offset::*;
@@ -552,3 +554,10 @@ impl<Base, T: ?Sized + VTableMeta, Flag> Clone for VOffset<Base, T, Flag> {
 
 #[cfg(doctest)]
 mod compile_fail_tests;
+
+/// re-export for the macro
+#[doc(hidden)]
+pub mod internal {
+    pub use alloc::alloc::dealloc;
+    pub use alloc::boxed::Box;
+}
