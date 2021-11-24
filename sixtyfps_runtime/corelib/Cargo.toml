@@ -37,8 +37,7 @@ instant = { version = "0.1", features = [ "now" ] }
 derive_more = "0.99.5"
 scoped-tls-hkt = "0.1"
 static_assertions = "1.1"
-strum = "0.23.0"
-strum_macros = "0.23.0"
+strum = { version = "0.23.0", default-features = false, features = ["derive"] }
 slab = "0.4.3"
 pin-weak = "1"
 auto_enums = "0.7"

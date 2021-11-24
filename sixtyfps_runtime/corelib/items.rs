@@ -485,7 +485,7 @@ declare_item_vtable! {
     fn sixtyfps_get_TouchAreaVTable() -> TouchAreaVTable for TouchArea
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 /// What is returned from the event handler
@@ -800,7 +800,7 @@ declare_item_vtable! {
     fn sixtyfps_get_RotateVTable() -> RotateVTable for Rotate
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum FillRule {
@@ -1250,7 +1250,7 @@ declare_item_vtable! {
     fn sixtyfps_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum StandardButtonKind {
@@ -1273,9 +1273,7 @@ impl Default for StandardButtonKind {
     }
 }
 
-#[derive(
-    Copy, Clone, Eq, PartialEq, Hash, Debug, strum_macros::EnumString, strum_macros::Display,
-)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum DialogButtonRole {
@@ -1294,7 +1292,7 @@ impl Default for DialogButtonRole {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum PointerEventKind {
@@ -1309,7 +1307,7 @@ impl Default for PointerEventKind {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, strum_macros::EnumString, strum_macros::Display)]
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum PointerEventButton {
