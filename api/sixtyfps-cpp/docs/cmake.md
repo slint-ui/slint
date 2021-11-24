@@ -8,13 +8,17 @@ You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAK
 
 ## Binary Packages
 
-The SixtyFPS continuous integration system is building binary packages to use with C++ so that you do not need to install a rust compiler.
-These binaries can be found by clicking on the last
-[successful build of the master branch](https://github.com/sixtyfpsui/sixtyfps/actions?query=workflow%3ACI+is%3Asuccess+branch%3Amaster)
-and downloading the `cpp_bin` artifact.
+We also provide binary packages of SixtyFPS for use with C++, which eliminates the need to have Rust installed in your development environment.
 
-After extracting the artifact you can place the `lib` directory into your `CMAKE_PREFIX_PATH` and `find_package(SixtyFPS)` should succeed
-in locating the package.
+You can download one of our pre-built binaries for Linux or Windows:
+
+1. Open <https://github.com/sixtyfpsui/sixtyfps/releases>
+2. Click on the latest release
+3. From "Assets" download either `sixtyfps-cpp-XXX-Linux.tar.gz` for a Linux x86-64 archive
+   or `sixtyfps-cpp-XXX-win64.exe` for a Windows x86-64 installer. ("XXX" refers to the version of the latest release)
+4. Uncompress the downloaded archive or run the installer.
+
+After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(SixtyFPS)` should succeed in locating the package.
 
 In the next section you will learn how to use the installed library in your application
 and load `.60` UI files.

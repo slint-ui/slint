@@ -88,4 +88,4 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
           name: cpp_bin
-          path: ${{ runner.workspace }}/cppbuild/SixtyFPS-*
+          path: ${{ runner.workspace }}/cppbuild/SixtyFPS-cpp-*

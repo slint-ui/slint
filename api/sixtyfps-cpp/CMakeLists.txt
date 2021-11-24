@@ -8,7 +8,7 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 cmake_minimum_required(VERSION 3.19)
-project(SixtyFPS LANGUAGES CXX)
+project(SixtyFPS HOMEPAGE_URL "https://sixtyfps.io/" LANGUAGES CXX)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -240,7 +240,7 @@ if(SIXTYFPS_PACKAGE_BUNDLE_QT)
     endif()
 endif(SIXTYFPS_PACKAGE_BUNDLE_QT)
 
-set(CPACK_PACKAGE_NAME "SixtyFPS")
+set(CPACK_PACKAGE_NAME "SixtyFPS-cpp")
 set(CPACK_PACKAGE_VENDOR "SixtyFPS")
 set(CPACK_VERBATIM_VARIABLES true)
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
