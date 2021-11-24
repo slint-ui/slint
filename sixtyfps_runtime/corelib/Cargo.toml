@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-corelib"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -20,7 +20,7 @@ ffi = []
 [dependencies]
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version="0.1.1", path = "../../helper_crates/vtable" }
-sixtyfps-corelib-macros = { version = "=0.1.5", path = "../corelib_macros" }
+sixtyfps-corelib-macros = { version = "=0.1.6", path = "../corelib_macros" }
 lyon_path = { version = "0.17.3" }
 lyon_algorithms = { version = "0.17.1" }
 lyon_geom = { version = "0.17.0" }

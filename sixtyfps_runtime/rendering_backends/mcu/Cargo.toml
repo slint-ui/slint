@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-rendering-backend-mcu"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "GPL-3.0-only"
@@ -16,7 +16,7 @@ simulator = ["winit", "glutin", "femtovg", "embedded-graphics-simulator"]
 default = ["simulator"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.1.5", path = "../../corelib" }
+sixtyfps-corelib = { version = "=0.1.6", path = "../../corelib" }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 rgb = "0.8.27"
 imgref = "1.6.1"

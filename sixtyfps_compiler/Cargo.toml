@@ -1,6 +1,6 @@
 [package]
 name = "sixtyfps-compilerlib"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 build = "build.rs"

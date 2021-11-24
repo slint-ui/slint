@@ -102,7 +102,7 @@ export AboutSixtyFPS := Rectangle {
             preferred-width: 128px;
         }
         Text {
-            text: "Version 0.1.5\nhttps://sixtyfps.io/";
+            text: "Version 0.1.6\nhttps://sixtyfps.io/";
             font-size: 10px;
             horizontal-alignment: center;
         }

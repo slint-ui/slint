@@ -1,6 +1,6 @@
 [package]
 name = "plotter"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 publish = false
