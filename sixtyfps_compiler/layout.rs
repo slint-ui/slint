@@ -492,13 +492,42 @@ pub fn layout_info_type() -> Type {
 
 /// Get the implicit layout info of a particular element
 pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> Expression {
-    match &elem.borrow().base_type {
-        Type::Component(base_comp) => match &base_comp.root_element.borrow().layout_info_prop {
-            Some((hor, vert)) => Expression::PropertyReference(match orientation {
-                Orientation::Horizontal => hor.clone(),
-                Orientation::Vertical => vert.clone(),
-            }),
-            None => Expression::FunctionCall {
+    let mut elem_it = elem.clone();
+    loop {
+        return match &elem_it.clone().borrow().base_type {
+            Type::Component(base_comp) => {
+                match base_comp.root_element.borrow().layout_info_prop(orientation) {
+                    Some(nr) => {
+                        // We cannot take nr as is because it is relative to the elem's component. We therefore need to
+                        // use `elem` as an element for the PropertyReference, not `root` within the base of elem
+                        debug_assert!(Rc::ptr_eq(&nr.element(), &base_comp.root_element));
+                        Expression::PropertyReference(NamedReference::new(elem, nr.name()))
+                    }
+                    None => {
+                        elem_it = base_comp.root_element.clone();
+                        continue;
+                    }
+                }
+            }
+            Type::Builtin(base_type) if base_type.name == "Rectangle" => {
+                // hard-code the value for rectangle because many rectangle end up optimized away and we
+                // don't want to depend on the element.
+                Expression::Struct {
+                    ty: layout_info_type(),
+                    values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
+                        .iter()
+                        .map(|(s, v)| (s.to_string(), Expression::NumberLiteral(*v as _, Unit::Px)))
+                        .chain(
+                            [("min_percent", 0.), ("max_percent", 100.), ("stretch", 1.)]
+                                .iter()
+                                .map(|(s, v)| {
+                                    (s.to_string(), Expression::NumberLiteral(*v, Unit::None))
+                                }),
+                        )
+                        .collect(),
+                }
+            }
+            _ => Expression::FunctionCall {
                 function: Box::new(Expression::BuiltinFunctionReference(
                     BuiltinFunction::ImplicitLayoutInfo(orientation),
                     None,
@@ -506,30 +535,6 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                 arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
                 source_location: None,
             },
-        },
-        Type::Builtin(base_type) if base_type.name == "Rectangle" => {
-            // hard-code the value for rectangle because many rectangle end up optimized away and we
-            // don't want to depend on the element.
-            Expression::Struct {
-                ty: layout_info_type(),
-                values: [("min", 0.), ("max", f32::MAX), ("preferred", 0.)]
-                    .iter()
-                    .map(|(s, v)| (s.to_string(), Expression::NumberLiteral(*v as _, Unit::Px)))
-                    .chain(
-                        [("min_percent", 0.), ("max_percent", 100.), ("stretch", 1.)].iter().map(
-                            |(s, v)| (s.to_string(), Expression::NumberLiteral(*v, Unit::None)),
-                        ),
-                    )
-                    .collect(),
-            }
-        }
-        _ => Expression::FunctionCall {
-            function: Box::new(Expression::BuiltinFunctionReference(
-                BuiltinFunction::ImplicitLayoutInfo(orientation),
-                None,
-            )),
-            arguments: vec![Expression::ElementReference(Rc::downgrade(elem))],
-            source_location: None,
-        },
+        };
     }
 }
