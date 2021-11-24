@@ -1015,9 +1015,8 @@ impl Expression {
             Type::PhysicalLength => Expression::NumberLiteral(0., Unit::Phx),
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
             Type::Percent => Expression::NumberLiteral(100., Unit::Percent),
-            // FIXME: Is that correct?
             Type::Image => Expression::ImageReference {
-                resource_ref: ImageReference::AbsolutePath(String::new()),
+                resource_ref: ImageReference::None,
                 source_location: None,
             },
             Type::Bool => Expression::BoolLiteral(false),
