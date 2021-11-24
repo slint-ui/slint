@@ -19,9 +19,10 @@ LICENSE END */
 
 mod single_linked_list_pin {
     #![allow(unsafe_code)]
-
+    use alloc::boxed::Box;
     ///! A singled linked list whose nodes are pinned
     use core::pin::Pin;
+
     type NodePtr<T> = Option<Pin<Box<SingleLinkedListPinNode<T>>>>;
     struct SingleLinkedListPinNode<T> {
         next: NodePtr<T>,
@@ -40,7 +41,7 @@ mod single_linked_list_pin {
             // Use a loop instead of relying on the Drop of NodePtr to avoid recursion
             while let Some(mut x) = core::mem::take(&mut self.0) {
                 // Safety: we don't touch the `x.value` which is the one protected by the Pin
-                self.0 = std::mem::take(unsafe { &mut Pin::get_unchecked_mut(x.as_mut()).next });
+                self.0 = core::mem::take(unsafe { &mut Pin::get_unchecked_mut(x.as_mut()).next });
             }
         }
     }
@@ -93,9 +94,11 @@ mod single_linked_list_pin {
     }
 }
 
+use alloc::boxed::Box;
+use alloc::rc::Rc;
 use core::cell::{Cell, RefCell, UnsafeCell};
-use core::{marker::PhantomPinned, pin::Pin};
-use std::rc::Rc;
+use core::marker::PhantomPinned;
+use core::pin::Pin;
 
 use crate::items::PropertyAnimation;
 
@@ -329,8 +332,8 @@ impl DependencyNode {
                 next.debug_assert_valid();
             }
         }
-        self.prev.set(std::ptr::null());
-        self.next.set(std::ptr::null());
+        self.prev.set(core::ptr::null());
+        self.next.set(core::ptr::null());
     }
 }
 
@@ -528,8 +531,8 @@ pub struct Property<T> {
     pinned: PhantomPinned,
 }
 
-impl<T: std::fmt::Debug + Clone> std::fmt::Debug for Property<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T: core::fmt::Debug + Clone> core::fmt::Debug for Property<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "Property({:?}{})",

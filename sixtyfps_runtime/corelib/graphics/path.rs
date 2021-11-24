@@ -161,8 +161,8 @@ pub enum PathEvent {
 }
 
 struct ToLyonPathEventIterator<'a> {
-    events_it: std::slice::Iter<'a, PathEvent>,
-    coordinates_it: std::slice::Iter<'a, Point>,
+    events_it: core::slice::Iter<'a, PathEvent>,
+    coordinates_it: core::slice::Iter<'a, Point>,
     first: Option<&'a Point>,
     last: Option<&'a Point>,
 }
@@ -322,7 +322,7 @@ impl PathData {
         }
     }
 
-    fn build_path(element_it: std::slice::Iter<PathElement>) -> lyon_path::Path {
+    fn build_path(element_it: core::slice::Iter<PathElement>) -> lyon_path::Path {
         use lyon_geom::SvgArc;
         use lyon_path::math::{Angle, Point, Vector};
         use lyon_path::traits::SvgPathBuilder;
@@ -410,7 +410,7 @@ pub(crate) mod ffi {
         first_element: *const PathElement,
         count: usize,
     ) {
-        let arr = crate::SharedVector::from(std::slice::from_raw_parts(first_element, count));
+        let arr = crate::SharedVector::from(core::slice::from_raw_parts(first_element, count));
         core::ptr::write(out as *mut crate::SharedVector<PathElement>, arr);
     }
 
@@ -425,9 +425,9 @@ pub(crate) mod ffi {
         coordinate_count: usize,
     ) {
         let events =
-            crate::SharedVector::from(std::slice::from_raw_parts(first_event, event_count));
+            crate::SharedVector::from(core::slice::from_raw_parts(first_event, event_count));
         core::ptr::write(out_events as *mut crate::SharedVector<PathEvent>, events);
-        let coordinates = crate::SharedVector::from(std::slice::from_raw_parts(
+        let coordinates = crate::SharedVector::from(core::slice::from_raw_parts(
             first_coordinate,
             coordinate_count,
         ));

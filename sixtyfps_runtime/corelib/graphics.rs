@@ -20,6 +20,7 @@ extern crate alloc;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::SharedString;
+use alloc::boxed::Box;
 use auto_enums::auto_enum;
 
 pub use euclid;

@@ -11,8 +11,9 @@ LICENSE END */
 The backend is the abstraction for crates that need to do the actual drawing and event loop
 */
 
-use std::path::Path;
-use std::rc::Rc;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::string::String;
 
 use crate::graphics::{Image, Size};
 use crate::window::Window;
@@ -38,6 +39,7 @@ pub trait Backend: Send + Sync {
     /// Exits the event loop.
     fn quit_event_loop(&'static self);
 
+    #[cfg(feature = "std")] // FIXME: just because of the Error
     /// This function can be used to register a custom TrueType font with SixtyFPS,
     /// for use with the `font-family` property. The provided slice must be a valid TrueType
     /// font.
@@ -46,12 +48,13 @@ pub trait Backend: Send + Sync {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>>;
 
+    #[cfg(feature = "std")]
     /// This function can be used to register a custom TrueType font with SixtyFPS,
     /// for use with the `font-family` property. The provided path must refer to a valid TrueType
     /// font.
     fn register_font_from_path(
         &'static self,
-        path: &Path,
+        path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>>;
 
     fn set_clipboard_text(&'static self, text: String);
@@ -67,13 +70,13 @@ static PRIVATE_BACKEND_INSTANCE: once_cell::sync::OnceCell<Box<dyn Backend + 'st
     once_cell::sync::OnceCell::new();
 
 pub fn instance() -> Option<&'static dyn Backend> {
-    use std::ops::Deref;
+    use core::ops::Deref;
     PRIVATE_BACKEND_INSTANCE.get().map(|backend_box| backend_box.deref())
 }
 
 pub fn instance_or_init(
     factory_fn: impl FnOnce() -> Box<dyn Backend + 'static>,
 ) -> &'static dyn Backend {
-    use std::ops::Deref;
+    use core::ops::Deref;
     PRIVATE_BACKEND_INSTANCE.get_or_init(factory_fn).deref()
 }

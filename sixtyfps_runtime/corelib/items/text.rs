@@ -27,6 +27,7 @@ use crate::layout::{LayoutInfo, Orientation};
 use crate::rtti::*;
 use crate::window::WindowRc;
 use crate::{Callback, Property, SharedString};
+use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
@@ -250,7 +251,7 @@ pub struct TextInput {
     pub accepted: Callback<VoidArg>,
     pub cursor_position_changed: Callback<PointArg>,
     pub edited: Callback<VoidArg>,
-    pub pressed: std::cell::Cell<bool>,
+    pub pressed: core::cell::Cell<bool>,
     pub single_line: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -349,7 +350,7 @@ impl Item for TextInput {
     }
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &WindowRc) -> KeyEventResult {
-        use std::convert::TryFrom;
+        use core::convert::TryFrom;
 
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
@@ -458,7 +459,7 @@ enum TextCursorDirection {
     EndOfText,
 }
 
-impl std::convert::TryFrom<InternalKeyCode> for TextCursorDirection {
+impl core::convert::TryFrom<InternalKeyCode> for TextCursorDirection {
     type Error = ();
 
     fn try_from(value: InternalKeyCode) -> Result<Self, Self::Error> {
@@ -616,7 +617,7 @@ impl TextInput {
     fn selected_text(self: Pin<&Self>) -> String {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         let text: String = self.text().into();
-        text.split_at(anchor).1.split_at(cursor - anchor).0.to_string()
+        text.split_at(anchor).1.split_at(cursor - anchor).0.into()
     }
 
     fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowRc) {

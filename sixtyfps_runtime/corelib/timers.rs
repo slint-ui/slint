@@ -14,7 +14,9 @@ LICENSE END */
 */
 
 #![warn(missing_docs)]
-use std::cell::{Cell, RefCell};
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::cell::{Cell, RefCell};
 
 type TimerCallback = Box<dyn Fn()>;
 type SingleShotTimerCallback = Box<dyn FnOnce()>;
@@ -48,7 +50,7 @@ impl Timer {
     pub fn start(
         &self,
         mode: TimerMode,
-        duration: std::time::Duration,
+        duration: core::time::Duration,
         callback: impl Fn() + 'static,
     ) {
         CURRENT_TIMERS.with(|timers| {
@@ -69,7 +71,7 @@ impl Timer {
     /// Arguments:
     /// * `duration`: The duration from now until when the timer should fire.
     /// * `callback`: The function to call when the time has been reached or exceeded.
-    pub fn single_shot(duration: std::time::Duration, callback: impl FnOnce() + 'static) {
+    pub fn single_shot(duration: core::time::Duration, callback: impl FnOnce() + 'static) {
         CURRENT_TIMERS.with(|timers| {
             let mut timers = timers.borrow_mut();
             let id = timers.start_or_restart_timer(
@@ -144,7 +146,7 @@ impl CallbackVariant {
 }
 
 struct TimerData {
-    duration: std::time::Duration,
+    duration: core::time::Duration,
     mode: TimerMode,
     running: bool,
     /// Set to true when it is removed when the callback is still running
@@ -197,13 +199,13 @@ impl TimerList {
 
             // The active timer list is cleared here and not-yet-fired ones are inserted below, in order to allow
             // timer callbacks to register their own timers.
-            let timers_to_process = std::mem::take(&mut timers.borrow_mut().active_timers);
+            let timers_to_process = core::mem::take(&mut timers.borrow_mut().active_timers);
             for active_timer in timers_to_process.into_iter() {
                 if active_timer.timeout <= now {
                     any_activated = true;
 
                     timers.borrow_mut().callback_active = Some(active_timer.id);
-                    let callback = std::mem::replace(
+                    let callback = core::mem::replace(
                         &mut timers.borrow_mut().timers[active_timer.id].callback,
                         CallbackVariant::Empty,
                     );
@@ -230,7 +232,7 @@ impl TimerList {
         &mut self,
         id: Option<usize>,
         mode: TimerMode,
-        duration: std::time::Duration,
+        duration: core::time::Duration,
         callback: CallbackVariant,
     ) -> usize {
         let timer_data = TimerData { duration, mode, running: false, removed: false, callback };

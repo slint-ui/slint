@@ -17,10 +17,11 @@ use crate::items::{ItemRc, ItemRef, ItemWeak, PointerEventButton};
 use crate::window::WindowRc;
 use crate::Property;
 use crate::{component::ComponentRc, SharedString};
+use alloc::rc::Rc;
+use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
+use core::pin::Pin;
 use euclid::default::Vector2D;
-use std::pin::Pin;
-use std::rc::Rc;
 
 /// A Mouse event
 #[repr(C)]
@@ -153,19 +154,21 @@ const ESCAPE_CODE: char = '\u{001B}'; // esc
 impl InternalKeyCode {
     /// Encodes the internal key code as string
     pub fn encode_to_string(&self) -> SharedString {
-        match self {
-            InternalKeyCode::Left => LEFT_CODE,
-            InternalKeyCode::Right => RIGHT_CODE,
-            InternalKeyCode::Home => HOME_CODE,
-            InternalKeyCode::End => END_CODE,
-            InternalKeyCode::Back => BACK_CODE,
-            InternalKeyCode::Delete => DELETE_CODE,
-            InternalKeyCode::Tab => TAB_CODE,
-            InternalKeyCode::Return => RETURN_CODE,
-            InternalKeyCode::Escape => ESCAPE_CODE,
-        }
-        .to_string()
-        .into()
+        let mut buffer = [0; 6];
+        SharedString::from(
+            match self {
+                InternalKeyCode::Left => LEFT_CODE,
+                InternalKeyCode::Right => RIGHT_CODE,
+                InternalKeyCode::Home => HOME_CODE,
+                InternalKeyCode::End => END_CODE,
+                InternalKeyCode::Back => BACK_CODE,
+                InternalKeyCode::Delete => DELETE_CODE,
+                InternalKeyCode::Tab => TAB_CODE,
+                InternalKeyCode::Return => RETURN_CODE,
+                InternalKeyCode::Escape => ESCAPE_CODE,
+            }
+            .encode_utf8(&mut buffer) as &str,
+        )
     }
     /// Tries to see if the provided string corresponds to a single special
     /// encoded key.
@@ -497,7 +500,7 @@ impl TextCursorBlinker {
             };
             self.cursor_blink_timer.start(
                 crate::timers::TimerMode::Repeated,
-                std::time::Duration::from_millis(500),
+                core::time::Duration::from_millis(500),
                 toggle_cursor,
             );
         }

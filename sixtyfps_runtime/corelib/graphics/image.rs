@@ -87,7 +87,7 @@ impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
             width,
             height,
             stride: width,
-            data: std::iter::repeat(Pixel::default()).take(width * height).collect(),
+            data: core::iter::repeat(Pixel::default()).take(width * height).collect(),
         }
     }
 }
@@ -302,6 +302,7 @@ pub struct LoadImageError(());
 pub struct Image(ImageInner);
 
 impl Image {
+    #[cfg(feature = "std")]
     /// Load an Image from a path to a file containing an image
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
         Ok(Image(ImageInner::AbsoluteFilePath(path.to_str().ok_or(LoadImageError(()))?.into())))
@@ -344,6 +345,7 @@ impl Image {
         }
     }
 
+    #[cfg(feature = "std")]
     /// Returns the path of the image on disk, if it was constructed via [`Self::load_from_path`].
     ///
     /// For example:
