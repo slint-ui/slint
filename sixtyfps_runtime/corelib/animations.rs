@@ -139,6 +139,7 @@ pub fn current_tick() -> Instant {
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {
         EasingCurve::Linear => value,
+        #[cfg(feature = "std")]
         EasingCurve::CubicBezier([a, b, c, d]) => {
             if !(0.0..=1.0).contains(a) && !(0.0..=1.0).contains(c) {
                 return value;
@@ -151,6 +152,10 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
             };
             let curve = curve.assume_monotonic();
             curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.01))
+        }
+        #[cfg(not(feature = "std"))]
+        EasingCurve::CubicBezier(_) => {
+            todo!("bezier curve not implemented when no_std")
         }
     }
 }
@@ -189,6 +194,7 @@ fn easing_test() {
 /// Update the global animation time to the current time
 pub fn update_animations() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
+        #[allow(unused_mut)]
         let mut duration = instant::Instant::now() - driver.initial_instant;
         #[cfg(feature = "std")]
         if let Ok(val) = std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
