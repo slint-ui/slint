@@ -11,12 +11,12 @@ LICENSE END */
 This module contains path related types and functions for the run-time library.
 */
 
+use super::{Point, Rect, Size};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
+use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
 use sixtyfps_corelib_macros::*;
-
-use super::*;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]

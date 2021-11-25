@@ -145,6 +145,7 @@ pub trait ItemRenderer {
     fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>);
     fn draw_text(&mut self, text: Pin<&Text>);
     fn draw_text_input(&mut self, text_input: Pin<&TextInput>);
+    #[cfg(feature = "std")]
     fn draw_path(&mut self, path: Pin<&Path>);
     fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
     /// Clip the further call until restore_state.

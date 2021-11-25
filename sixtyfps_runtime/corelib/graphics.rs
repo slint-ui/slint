@@ -17,11 +17,8 @@ LICENSE END */
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
-#[cfg(feature = "rtti")]
-use crate::rtti::*;
 use crate::SharedString;
 use alloc::boxed::Box;
-use auto_enums::auto_enum;
 
 pub use euclid;
 /// 2D Rectangle
@@ -40,7 +37,9 @@ pub type Transform = euclid::default::Transform2D<f32>;
 pub(crate) mod color;
 pub use color::*;
 
+#[cfg(feature = "std")]
 mod path;
+#[cfg(feature = "std")]
 pub use path::*;
 
 mod brush;

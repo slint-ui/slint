@@ -601,6 +601,7 @@ pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding)
     fold
 }
 
+#[cfg(feature = "std")]
 #[repr(C)]
 pub struct PathLayoutData<'a> {
     pub elements: &'a crate::graphics::PathData,
@@ -612,13 +613,7 @@ pub struct PathLayoutData<'a> {
     pub offset: f32,
 }
 
-#[repr(C)]
-#[derive(Default)]
-pub struct PathLayoutItemData {
-    pub width: Coord,
-    pub height: Coord,
-}
-
+#[cfg(feature = "std")]
 pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) -> SharedVector<f32> {
     use lyon_geom::*;
     use lyon_path::iterator::PathIterator;
