@@ -18,7 +18,7 @@ rtti = []
 # Expose C ABI
 ffi = []
 # Use the standard library
-std = ["euclid/std", "lyon_path", "lyon_algorithms", "lyon_geom"]
+std = ["euclid/std", "once_cell/std", "lyon_path", "lyon_algorithms", "lyon_geom"]
 
 default = ["std"]
 
