@@ -175,7 +175,7 @@ private:
     void drop()
     {
         if (inner->refcount > 0 && (--inner->refcount) == 0) {
-            auto b = begin(), e = end();
+            auto b = cbegin(), e = cend();
             for (auto it = b; it < e; ++it) {
                 it->~T();
             }
