@@ -3,7 +3,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+ - Memory leak in C++
+
 ## [0.1.5] - 2021-11-24
+
+### Changed
+
+ - The sixtyfps compiler no longer "inline" all the elements, resulting in faster compilation
+   time and smaller binaries.
+ - Implemented basic constant propagation in the sixtyfps compiler
 
 ### Fixed
 
