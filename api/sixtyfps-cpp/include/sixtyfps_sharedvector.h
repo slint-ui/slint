@@ -133,7 +133,7 @@ struct SharedVector
         if (inner->refcount != 1) {
             *this = SharedVector();
         } else {
-            auto b = begin(), e = end();
+            auto b = cbegin(), e = cend();
             inner->size = 0;
             for (auto it = b; it < e; ++it) {
                 it->~T();
