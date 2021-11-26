@@ -27,9 +27,9 @@ Alternatively, you can set the `QMAKE` environment variable to point to the `qma
 
 ### Linux
 
-Many distributions may contains Qt 5.15 in the distribution package. In that case you can simply install these packages
-and there is not much more to do. On many distribution, you also need the **-dev** packages. For distributions that
-splits the packages in different module, you just need `qtbase` (for QtWidgets) and `qtsvg` for the SVG plugin.
+Many distributions may provide Qt 5.15 in the distribution package. In that case you can install these packages
+and there is not much more to do. On many distributions, you also need the **-dev** packages. For distributions that
+split the packages in different modules, you just need `qtbase` (for QtWidgets) and `qtsvg` for the SVG plugin.
 
 If when running your SixtyFPS application you get an error that libQt5Core.so.5 or such cannot be found, you need to
 adjust the `LD_LIBRARY_PATH` environment variable to contain a path that contains the Qt libraries.
