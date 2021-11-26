@@ -20,7 +20,7 @@ You will need the Qt >= 5.15
 
 You can just download and install Qt 5.15 from https://www.qt.io/download-qt-installer or any other sources
 
-Then simply make sure that `qmake` executable is in the `PATH` when you build SixtyFP.
+Then simply make sure that `qmake` executable is in the `PATH` when you build SixtyFPS.
 Alternatively, you can set the `QMAKE` environment variable to point to the `qmake` executable.
 (more info: https://docs.rs/qttypes/0.2.2/qttypes/#finding-qt )
 
