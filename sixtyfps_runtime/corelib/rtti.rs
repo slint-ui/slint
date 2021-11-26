@@ -14,6 +14,7 @@ LICENSE END */
 
 pub type FieldOffset<T, U> = const_field_offset::FieldOffset<T, U, const_field_offset::AllowPin>;
 use crate::items::PropertyAnimation;
+use alloc::rc::Rc;
 use core::convert::{TryFrom, TryInto};
 use core::pin::Pin;
 
@@ -331,4 +332,9 @@ pub trait BuiltinItem: Sized {
     fn properties<Value: ValueType>() -> Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)>;
     fn fields<Value: ValueType>() -> Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)>;
     fn callbacks<Value: ValueType>() -> Vec<(&'static str, &'static dyn CallbackInfo<Self, Value>)>;
+}
+
+/// Trait implemented by builtin globals
+pub trait BuiltinGlobal: BuiltinItem {
+    fn new() -> Pin<Rc<Self>>;
 }

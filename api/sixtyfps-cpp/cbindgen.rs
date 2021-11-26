@@ -382,10 +382,10 @@ fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
 
     config.export.include = items.iter().map(|x| x.to_string()).collect();
 
-    config
-        .export
-        .body
-        .insert("NativeStyleMetrics".to_owned(), "    inline NativeStyleMetrics();".to_owned());
+    config.export.body.insert(
+        "NativeStyleMetrics".to_owned(),
+        "    inline NativeStyleMetrics(); inline ~NativeStyleMetrics();".to_owned(),
+    );
 
     let mut crate_dir = root_dir.to_owned();
     crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "qt"].iter());

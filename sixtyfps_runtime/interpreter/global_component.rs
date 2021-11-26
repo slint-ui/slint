@@ -105,10 +105,10 @@ pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalCo
                 }
             }
             impl Helper for () {}
-            impl<T: rtti::BuiltinItem + Default + 'static, Next: Helper> Helper for (T, Next) {
+            impl<T: rtti::BuiltinGlobal + 'static, Next: Helper> Helper for (T, Next) {
                 fn instantiate(name: &str) -> Pin<Rc<dyn GlobalComponent>> {
                     if name == T::name() {
-                        Rc::pin(T::default())
+                        T::new()
                     } else {
                         Next::instantiate(name)
                     }
