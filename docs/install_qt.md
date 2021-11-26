@@ -18,17 +18,18 @@ In the future, we plan to have native backend using the native API, which will a
 
 You will need the Qt >= 5.15
 
-You can just download and install Qt 5.15 from https://www.qt.io/download-qt-installer or any other sources
+You can just download and install the latest version of Qt from https://www.qt.io/download-qt-installer or any other sources
 
 Then simply make sure that `qmake` executable is in the `PATH` when you build SixtyFPS. The executable is
 typically located in the `bin` sub-directory of a Qt installation that was produced by the Qt installer.
 Alternatively, you can set the `QMAKE` environment variable to point to the `qmake` executable.
-(more info: https://docs.rs/qttypes/0.2.2/qttypes/#finding-qt )
+(more info: <https://docs.rs/qttypes/*/qttypes/#finding-qt> )
 
 ### Linux
 
 Many distributions may contains Qt 5.15 in the distribution package. In that case you can simply install these packages
-and there is not much more to do.
+and there is not much more to do. On many distribution, you also need the **-dev** packages. For distributions that
+splits the packages in different module, you just need `qtbase` (for QtWidgets) and `qtsvg` for the SVG plugin.
 
 If when running your SixtyFPS application you get an error that libQt5Core.so.5 or such cannot be found, you need to
 adjust the `LD_LIBRARY_PATH` environment variable to contain a path that contains the Qt libraries.
@@ -38,6 +39,7 @@ adjust the `LD_LIBRARY_PATH` environment variable to contain a path that contain
 In addition to either having `qmake` in your `PATH` or setting `QMAKE`, you also need to modify the `DYLD_FRAMEWORK_PATH`
 environment variable. It needs to be set to the `lib` directory of your Qt installation, for example `$HOME/Qt/6.2.0/macos/lib`,
 in order for the dynamic linker to find the Qt libraries when starting an application.
+
 ### Windows
 
 For Windows it is necessary to have the `bin` directory of your Qt installation in the list of paths in the `PATH`
