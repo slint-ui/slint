@@ -61,6 +61,7 @@ fn main() {
     println!("cargo:rerun-if-changed=qt_widgets/scrollview.rs");
     println!("cargo:rerun-if-changed=qt_widgets/slider.rs");
     println!("cargo:rerun-if-changed=qt_widgets/spinbox.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/stylemetrics.rs");
     println!("cargo:rerun-if-changed=qt_widgets/tabwidget.rs");
     println!("cargo:rerun-if-changed=lib.rs");
     println!("cargo:SUPPORTS_NATIVE_STYLE=1");
