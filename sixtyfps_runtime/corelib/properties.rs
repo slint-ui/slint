@@ -94,6 +94,130 @@ mod single_linked_list_pin {
     }
 }
 
+mod dependency_tracker {
+    //! This module contains an implementation of a double linked list that can be used
+    //! to track dependency, such that when a node is dropped, the nodes are automatically
+    //! removed from the list.
+    //! This is unsafe to use for various reason, so it is kept internal.
+
+    use core::cell::Cell;
+    use core::marker::PhantomData;
+    use core::pin::Pin;
+
+    #[repr(transparent)]
+    pub struct DependencyListHead<T>(Cell<usize>, PhantomData<T>);
+
+    impl<T> DependencyListHead<T> {
+        pub unsafe fn mem_move(from: *mut Self, to: *mut Self) {
+            (*to).0.set((*from).0.get());
+            if let Some(next) = ((*from).0.get() as *const DependencyNode<T>).as_ref() {
+                debug_assert_eq!(from as *const _, next.prev.get() as *const _);
+                next.debug_assert_valid();
+                next.prev.set(to as *const _);
+                next.debug_assert_valid();
+            }
+        }
+        pub unsafe fn drop(_self: *mut Self) {
+            if let Some(next) = ((*_self).0.get() as *const DependencyNode<T>).as_ref() {
+                debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
+                next.debug_assert_valid();
+                next.prev.set(core::ptr::null());
+                next.debug_assert_valid();
+            }
+        }
+        pub unsafe fn append(_self: *mut Self, node: *const DependencyNode<T>) {
+            (*node).debug_assert_valid();
+            let old = (*_self).0.get() as *const DependencyNode<T>;
+            if let Some(x) = old.as_ref() {
+                x.debug_assert_valid();
+            }
+            (*_self).0.set(node as usize);
+            let node = &*node;
+            node.next.set(old);
+            node.prev.set(_self as *const _);
+            if let Some(old) = old.as_ref() {
+                old.prev.set((&node.next) as *const _);
+                old.debug_assert_valid();
+            }
+            (*node).debug_assert_valid();
+        }
+
+        pub(super) unsafe fn for_each(_self: *mut Self, mut f: impl FnMut(*const T)) {
+            let mut next = (*_self).0.get() as *const DependencyNode<T>;
+            while let Some(node) = next.as_ref() {
+                node.debug_assert_valid();
+                next = node.next.get();
+                f(node.binding);
+            }
+        }
+    }
+
+    /// The node is owned by the binding; so the binding is always valid
+    /// The next and pref
+    pub struct DependencyNode<T> {
+        next: Cell<*const DependencyNode<T>>,
+        /// This is either null, or a pointer to a pointer to ourself
+        prev: Cell<*const Cell<*const DependencyNode<T>>>,
+        binding: *const T,
+    }
+
+    impl<T> DependencyNode<T> {
+        pub fn for_binding(binding: Pin<&T>) -> Self {
+            Self {
+                next: Cell::new(core::ptr::null()),
+                prev: Cell::new(core::ptr::null()),
+                binding: binding.get_ref() as *const _,
+            }
+        }
+
+        /// Assert that the invariant of `next` and `prev` are met.
+        pub fn debug_assert_valid(&self) {
+            unsafe {
+                debug_assert!(
+                    self.prev.get().is_null()
+                        || (*self.prev.get()).get() == self as *const DependencyNode<T>
+                );
+                debug_assert!(
+                    self.next.get().is_null()
+                        || (*self.next.get()).prev.get()
+                            == (&self.next) as *const Cell<*const DependencyNode<T>>
+                );
+                // infinite loop?
+                debug_assert_ne!(self.next.get(), self as *const DependencyNode<T>);
+                debug_assert_ne!(
+                    self.prev.get(),
+                    (&self.next) as *const Cell<*const DependencyNode<T>>
+                );
+            }
+        }
+
+        fn remove(&self) {
+            self.debug_assert_valid();
+            unsafe {
+                if let Some(prev) = self.prev.get().as_ref() {
+                    prev.set(self.next.get());
+                }
+                if let Some(next) = self.next.get().as_ref() {
+                    next.debug_assert_valid();
+                    next.prev.set(self.prev.get());
+                    next.debug_assert_valid();
+                }
+            }
+            self.prev.set(core::ptr::null());
+            self.next.set(core::ptr::null());
+        }
+    }
+
+    impl<T> Drop for DependencyNode<T> {
+        fn drop(&mut self) {
+            self.remove();
+        }
+    }
+}
+
+type DependencyListHead = dependency_tracker::DependencyListHead<BindingHolder>;
+type DependencyNode = dependency_tracker::DependencyNode<BindingHolder>;
+
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::{Cell, RefCell, UnsafeCell};
@@ -246,104 +370,6 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
 }
 
 #[repr(transparent)]
-struct DependencyListHead(Cell<usize>);
-
-impl DependencyListHead {
-    unsafe fn mem_move(from: *mut Self, to: *mut Self) {
-        (*to).0.set((*from).0.get());
-        if let Some(next) = ((*from).0.get() as *const DependencyNode).as_ref() {
-            debug_assert_eq!(from as *const _, next.prev.get() as *const _);
-            next.debug_assert_valid();
-            next.prev.set(to as *const _);
-            next.debug_assert_valid();
-        }
-    }
-    unsafe fn drop(_self: *mut Self) {
-        if let Some(next) = ((*_self).0.get() as *const DependencyNode).as_ref() {
-            debug_assert_eq!(_self as *const _, next.prev.get() as *const _);
-            next.debug_assert_valid();
-            next.prev.set(core::ptr::null());
-            next.debug_assert_valid();
-        }
-    }
-    unsafe fn append(_self: *mut Self, node: *const DependencyNode) {
-        (*node).debug_assert_valid();
-        let old = (*_self).0.get() as *const DependencyNode;
-        if let Some(x) = old.as_ref() {
-            x.debug_assert_valid();
-        }
-        (*_self).0.set(node as usize);
-        let node = &*node;
-        node.next.set(old);
-        node.prev.set(_self as *const _);
-        if let Some(old) = old.as_ref() {
-            old.prev.set((&node.next) as *const _);
-            old.debug_assert_valid();
-        }
-        (*node).debug_assert_valid();
-    }
-}
-
-/// The node is owned by the binding; so the binding is always valid
-/// The next and pref
-struct DependencyNode {
-    next: Cell<*const DependencyNode>,
-    /// This is either null, or a pointer to a pointer to ourself
-    prev: Cell<*const Cell<*const DependencyNode>>,
-    binding: *const BindingHolder,
-}
-
-impl DependencyNode {
-    fn for_binding(binding: Pin<&BindingHolder>) -> Self {
-        Self {
-            next: Cell::new(core::ptr::null()),
-            prev: Cell::new(core::ptr::null()),
-            binding: binding.get_ref() as *const _,
-        }
-    }
-
-    /// Assert that the invariant of `next` and `prev` are met.
-    fn debug_assert_valid(&self) {
-        unsafe {
-            debug_assert!(
-                self.prev.get().is_null()
-                    || (*self.prev.get()).get() == self as *const DependencyNode
-            );
-            debug_assert!(
-                self.next.get().is_null()
-                    || (*self.next.get()).prev.get()
-                        == (&self.next) as *const Cell<*const DependencyNode>
-            );
-            // infinite loop?
-            debug_assert_ne!(self.next.get(), self as *const DependencyNode);
-            debug_assert_ne!(self.prev.get(), (&self.next) as *const Cell<*const DependencyNode>);
-        }
-    }
-
-    fn remove(&self) {
-        self.debug_assert_valid();
-        unsafe {
-            if let Some(prev) = self.prev.get().as_ref() {
-                prev.set(self.next.get());
-            }
-            if let Some(next) = self.next.get().as_ref() {
-                next.debug_assert_valid();
-                next.prev.set(self.prev.get());
-                next.debug_assert_valid();
-            }
-        }
-        self.prev.set(core::ptr::null());
-        self.next.set(core::ptr::null());
-    }
-}
-
-impl Drop for DependencyNode {
-    fn drop(&mut self) {
-        self.remove();
-    }
-}
-
-#[repr(transparent)]
 #[derive(Debug, Default)]
 struct PropertyHandle {
     /// The handle can either be a pointer to a binding, or a pointer to the list of dependent properties.
@@ -491,15 +517,12 @@ impl Drop for PropertyHandle {
 
 /// Safety: the dependency list must be valid and consistent
 unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
-    let mut next = (*dependencies).0.get() as *const DependencyNode;
-    while let Some(node) = next.as_ref() {
-        node.debug_assert_valid();
-        next = node.next.get();
-        let binding = &*node.binding;
+    DependencyListHead::for_each(dependencies, |b| {
+        let binding = &*b;
         let was_dirty = binding.dirty.replace(true);
-        (binding.vtable.mark_dirty)(node.binding, was_dirty);
+        (binding.vtable.mark_dirty)(b, was_dirty);
         mark_dependencies_dirty(binding.dependencies.as_ptr() as *mut DependencyListHead)
-    }
+    });
 }
 
 /// Types that can be set as bindings for a Property<T>
