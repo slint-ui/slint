@@ -32,6 +32,83 @@ mod simulator;
 use simulator::*;
 
 mod renderer;
+
+#[cfg(not(feature = "simulator"))]
+mod dummy {
+    use super::*;
+    use alloc::rc::Weak;
+    use core::pin::Pin;
+    use sixtyfps_corelib::component::ComponentRc;
+    use sixtyfps_corelib::graphics::Point;
+    use sixtyfps_corelib::window::Window;
+
+    #[derive(Default)]
+    pub struct SimulatorWindow {
+        self_weak: Weak<Window>,
+    }
+    impl SimulatorWindow {
+        pub fn new(self_weak: &Weak<Window>) -> Rc<Self> {
+            Self { self_weak: self_weak.clone() }.into()
+        }
+    }
+    impl sixtyfps_corelib::window::PlatformWindow for SimulatorWindow {
+        fn show(self: Rc<Self>) {
+            let runtime_window = self.self_weak.upgrade().unwrap();
+            let mut display = embedded_graphics::mock_display::MockDisplay::new();
+            crate::renderer::render_window_frame(runtime_window, Default::default(), &mut display);
+        }
+        fn hide(self: Rc<Self>) {}
+        fn request_redraw(&self) {}
+        fn free_graphics_resources<'a>(
+            &self,
+            _items: &mut dyn Iterator<Item = Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
+        ) {
+        }
+        fn show_popup(&self, _popup: &ComponentRc, _position: sixtyfps_corelib::graphics::Point) {
+            todo!()
+        }
+        fn request_window_properties_update(&self) {}
+        fn apply_window_properties(&self, _window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
+            //todo!()
+        }
+        fn apply_geometry_constraint(
+            &self,
+            _constraints_horizontal: sixtyfps_corelib::layout::LayoutInfo,
+            _constraints_vertical: sixtyfps_corelib::layout::LayoutInfo,
+        ) {
+        }
+        fn set_mouse_cursor(&self, _cursor: sixtyfps_corelib::items::MouseCursor) {}
+        fn text_size(
+            &self,
+            _font_request: sixtyfps_corelib::graphics::FontRequest,
+            text: &str,
+            _max_width: Option<f32>,
+        ) -> Size {
+            Size::new(text.len() as f32 * 10., 10.)
+        }
+
+        fn text_input_byte_offset_for_position(
+            &self,
+            _text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+            _pos: Point,
+        ) -> usize {
+            0
+        }
+        fn text_input_position_for_byte_offset(
+            &self,
+            _text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+            _byte_offset: usize,
+        ) -> Point {
+            Default::default()
+        }
+        fn as_any(&self) -> &dyn core::any::Any {
+            self
+        }
+    }
+}
+#[cfg(not(feature = "simulator"))]
+use dummy::*;
+
 pub struct Backend;
 
 impl sixtyfps_corelib::backend::Backend for Backend {
@@ -40,11 +117,13 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     }
 
     fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+        #[cfg(feature = "simulator")]
         simulator::event_loop::run(behavior);
     }
 
     fn quit_event_loop(&'static self) {
-        crate::event_loop::with_window_target(|event_loop| {
+        #[cfg(feature = "simulator")]
+        simulator::event_loop::with_window_target(|event_loop| {
             event_loop.event_loop_proxy().send_event(simulator::event_loop::CustomEvent::Exit).ok();
         })
     }
@@ -75,8 +154,12 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     }
 
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
-        let e = crate::event_loop::CustomEvent::UserEvent(event);
-        crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
+        #[cfg(feature = "simulator")]
+        simulator::event_loop::GLOBAL_PROXY
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap()
+            .send_event(simulator::event_loop::CustomEvent::UserEvent(event));
     }
 
     fn image_size(&'static self, image: &Image) -> Size {
@@ -89,6 +172,11 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             }
             ImageInner::StaticTextures { size, .. } => size.cast(),
         }
+    }
+
+    #[cfg(not(feature = "simulator"))]
+    fn duration_since_start(&'static self) -> core::time::Duration {
+        todo!()
     }
 }
 
