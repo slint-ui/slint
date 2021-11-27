@@ -396,6 +396,10 @@ impl Item for TextInput {
                     } else if event.text == "v" {
                         self.paste(window);
                         return KeyEventResult::EventAccepted;
+                    } else if event.text == "x" {
+                        self.copy();
+                        self.delete_selection(window);
+                        return KeyEventResult::EventAccepted;
                     }
                     return KeyEventResult::EventIgnored;
                 }
