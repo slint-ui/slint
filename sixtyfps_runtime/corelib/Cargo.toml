@@ -18,10 +18,14 @@ rtti = []
 # Expose C ABI
 ffi = []
 # Use the standard library
-std = ["euclid/std", "once_cell/std", "lyon_path", "lyon_algorithms", "lyon_geom"]
+std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom"]
 
 default = ["std"]
 
+# Unsafe feature meaning that there is only one core running and all thread_local are static.
+# You can only enable this feature if you are sure that any API of this crate is only called
+# from a single core, and not in a interrupt or signal handler.
+unsafe_single_core = []
 
 [dependencies]
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
@@ -35,11 +39,11 @@ triomphe = { version = "0.1.1", default-features = false }
 once_cell = { version = "1.5", default-features = false }
 instant = { version = "0.1", features = [ "now" ] }
 derive_more = "0.99.5"
-scoped-tls-hkt = "0.1"
+scoped-tls-hkt = { version = "0.1", optional = true }
 static_assertions = "1.1"
 strum = { version = "0.23.0", default-features = false, features = ["derive"] }
 slab = { version = "0.4.3", default-features = false }
-pin-weak = "1.1"
+pin-weak = { version = "1.1", default-features = false }
 auto_enums = "0.7"
 scopeguard =  { version = "1.1.0", default-features = false }
 cfg-if = "1"
