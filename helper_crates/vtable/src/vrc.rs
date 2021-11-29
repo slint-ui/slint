@@ -185,19 +185,10 @@ impl<VTable: VTableMetaDropInPlace + 'static, X: HasStaticVTable<VTable> + 'stat
         this: Self,
         map_fn: impl for<'r> FnOnce(Pin<&'r X>) -> Pin<&'r MappedType>,
     ) -> VRcMapped<VTable, MappedType> {
-        let r = owning_ref::OwningRef::new(Self::into_dyn(this)).map(|owner| {
-            let owner_pinned = unsafe {
-                // Safety:
-                // We know that the owner parameter had its type erased, but it *is* a VRc<VT, X>.
-                let typed_owner = &*(owner as *const vrc::Dyn as *const X);
-                // Safety:
-                // VRc offers `as_pin_ref` and we know that `owner` is behind a VRc, so we can create the Pin
-                // safely here.
-                Pin::new_unchecked(typed_owner)
-            };
-            map_fn(owner_pinned).get_ref()
-        });
-        VRcMapped(r)
+        VRcMapped {
+            parent_strong: Self::into_dyn(this.clone()),
+            object: map_fn(this.as_pin_ref()).get_ref(),
+        }
     }
 }
 
@@ -342,14 +333,14 @@ impl<VTable: VTableMetaDropInPlace + 'static, X: HasStaticVTable<VTable> + 'stat
 
 /// Safety: The data VRc manages is held by `VRcInner`, which maintains its address when the VRc
 /// is moved.
-unsafe impl<VTable: VTableMetaDropInPlace + 'static, X> owning_ref::StableAddress
+unsafe impl<VTable: VTableMetaDropInPlace + 'static, X> stable_deref_trait::StableDeref
     for VRc<VTable, X>
 {
 }
 
 /// Safety: The data VRc manages is held by `VRcInner`, and a clone of a VRc merely clones the pointer
 /// *to* the `VRcInner`.
-unsafe impl<VTable: VTableMetaDropInPlace + 'static, X> owning_ref::CloneStableAddress
+unsafe impl<VTable: VTableMetaDropInPlace + 'static, X> stable_deref_trait::CloneStableDeref
     for VRc<VTable, X>
 {
 }
@@ -357,15 +348,16 @@ unsafe impl<VTable: VTableMetaDropInPlace + 'static, X> owning_ref::CloneStableA
 /// VRcMapped allows bundling a VRc of a type along with a reference to an object that's
 /// reachable through the data the VRc owns and that satisfies the requirements of a Pin.
 /// VRCMapped is constructed using [`VRc::map`] and, like VRc, has a weak counterpart, [`VWeakMapped`].
-pub struct VRcMapped<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized>(
-    owning_ref::OwningRef<VRc<VTable, Dyn>, MappedType>,
-);
+pub struct VRcMapped<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> {
+    parent_strong: VRc<VTable, Dyn>,
+    object: *const MappedType,
+}
 
 impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> Clone
     for VRcMapped<VTable, MappedType>
 {
     fn clone(&self) -> Self {
-        Self(self.0.clone())
+        Self { parent_strong: self.parent_strong.clone(), object: self.object.clone() }
     }
 }
 
@@ -374,8 +366,8 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> VRcMapped<VTab
     /// a [`Self`] as long as a `VRc`/`VMapped` exists.
     pub fn downgrade(this: &Self) -> VWeakMapped<VTable, MappedType> {
         VWeakMapped {
-            parent_weak: VRc::downgrade(this.0.as_owner()),
-            object: this.deref() as *const MappedType,
+            parent_weak: VRc::downgrade(&this.parent_strong),
+            object: this.object.clone(),
         }
     }
 
@@ -396,21 +388,16 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> VRcMapped<VTab
         this: Self,
         map_fn: impl for<'r> FnOnce(Pin<&'r MappedType>) -> Pin<&'r ReMappedType>,
     ) -> VRcMapped<VTable, ReMappedType> {
-        VRcMapped(this.0.map(|this_ref| {
-            let this_pinned = unsafe {
-                // Safety:
-                // VRc offers `as_pin_ref` and we know that `owner` is behind a VRc, so we can create the Pin
-                // safely here.
-                Pin::new_unchecked(this_ref)
-            };
-            map_fn(this_pinned).get_ref()
-        }))
+        VRcMapped {
+            parent_strong: this.parent_strong.clone(),
+            object: map_fn(this.as_pin_ref()).get_ref(),
+        }
     }
 
     /// Returns a strong reference to the object that the mapping originates
     /// from.
     pub fn origin(this: &Self) -> VRc<VTable> {
-        this.0.as_owner().clone()
+        this.parent_strong.clone()
     }
 }
 
@@ -419,7 +406,9 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> Deref
 {
     type Target = MappedType;
     fn deref(&self) -> &Self::Target {
-        self.0.deref()
+        // Safety: self.object was mapped from self.parent_strong, which the VRc
+        // keeps alive *and* pinned.
+        unsafe { &*self.object }
     }
 }
 
@@ -435,13 +424,9 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> VWeakMapped<VT
     /// Returns a new `VRcMapped` if some other instance still holds a strong reference to the owned
     /// object. Otherwise, returns None.
     pub fn upgrade(&self) -> Option<VRcMapped<VTable, MappedType>> {
-        self.parent_weak.upgrade().map(|parent| {
-            VRcMapped(owning_ref::OwningRef::new(parent).map(|_| {
-                // Safety: The `VWeakMapped` was previously created from a correctly created `VrcMapped`,
-                // so if the Vrc is still valid, so is this pointer.
-                unsafe { &*self.object }
-            }))
-        })
+        self.parent_weak
+            .upgrade()
+            .map(|parent| VRcMapped { parent_strong: parent, object: self.object.clone() })
     }
 }
 
