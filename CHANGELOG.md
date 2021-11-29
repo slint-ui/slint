@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 
  - Memory leak in C++
  - Properly change all the colors when switching dark mode on or of (#687)
+ - Ctrl/Command+X in text fields copies the selected text to the clipboard and deletes it (cut).
 
 ## [0.1.5] - 2021-11-24
 
