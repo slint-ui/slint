@@ -4,6 +4,8 @@ All notable changes to this crate will be documented in this file.
 ## [0.1.5]
 
  - Make it `#[no_std]`
+ - Use `atomic-polyfill` to support compiling to architectures where a polyfill
+   using critical sections is needed.
 
 ## [0.1.4] - 2021-11-24
 

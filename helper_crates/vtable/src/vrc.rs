@@ -11,8 +11,8 @@ LICENSE END */
 //! implementation of vtable::Vrc
 
 use super::*;
+use atomic_polyfill::{AtomicU32, Ordering};
 use core::convert::TryInto;
-use core::sync::atomic::{AtomicU32, Ordering};
 
 /// This trait is implemented by the [`#[vtable]`](macro@vtable) macro.
 ///
