@@ -21,8 +21,35 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 */
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![deny(unsafe_code)]
-//TODO #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
+
+/// Unsafe module that is only enabled when the unsafe_single_core feature is on.
+/// It re-implements the thread_local macro with statics
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+pub(crate) mod unsafe_single_core {
+    #![allow(unsafe_code)]
+    macro_rules! thread_local_ {
+        ($(#[$($meta:tt)*])* $vis:vis static $ident:ident : $ty:ty = $expr:expr) => {
+            $vis static $ident: crate::unsafe_single_core::FakeThreadStorage<$ty> =
+                crate::unsafe_single_core::FakeThreadStorage::new(|| $expr);
+        };
+    }
+    pub(crate) struct FakeThreadStorage<T>(once_cell::unsync::Lazy<T>);
+    impl<T> FakeThreadStorage<T> {
+        pub fn new(f: fn() -> T) {
+            Self(once_cell::unsync::Lazy::new(f))
+        }
+        pub fn with<R>(&self, f: impl FnOnce(&T) -> R) {
+            f(self.0.get())
+        }
+    }
+    // Safety: the unsafe_single_core feature means we will only be called from a single thread
+    unsafe impl<T> Send for FakeThreadStorage<T> {}
+    unsafe impl<T> Sync for FakeThreadStorage<T> {}
+
+    pub(crate) use thread_local_ as thread_local;
+}
 
 pub mod animations;
 pub mod backend;

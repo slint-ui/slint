@@ -286,6 +286,9 @@ impl TimerList {
     }
 }
 
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use crate::unsafe_single_core::thread_local;
+
 thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
 
 fn lower_bound<T>(vec: &[T], mut less_than: impl FnMut(&T) -> bool) -> usize {

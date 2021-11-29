@@ -288,7 +288,43 @@ impl<F: Fn(*mut ()) -> BindingResult> BindingCallable for F {
     }
 }
 
+#[cfg(feature = "std")]
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_BINDING : for<'a> Pin<&'a BindingHolder>);
+
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+mod unsafe_single_core {
+    use super::BindingHolder;
+    use core::cell::Cell;
+    use core::pin::Pin;
+    pub(super) struct FakeThreadStorage(Cell<*const BindingHolder>);
+    impl FakeThreadStorage {
+        pub const fn new() -> Self {
+            Self(Cell::new(core::ptr::null()))
+        }
+        pub fn set<T>(&self, value: Pin<&BindingHolder>, f: impl FnOnce() -> T) -> T {
+            let old = self.0.replace(value.get_ref() as *const BindingHolder);
+            let res = f();
+            let new = self.0.replace(old);
+            assert_eq!(new, value.get_ref() as *const BindingHolder);
+            res
+        }
+        pub fn is_set(&self) -> bool {
+            !self.0.get().is_null()
+        }
+        pub fn with<T>(&self, f: impl FnOnce(Pin<&BindingHolder>) -> T) -> T {
+            let local = unsafe { Pin::new_unchecked(self.0.get().as_ref().unwrap()) };
+            let res = f(local);
+            assert_eq!(self.0.get(), local.get_ref() as *const BindingHolder);
+            res
+        }
+    }
+    // Safety: the unsafe_single_core feature means we will only be called from a single thread
+    unsafe impl Send for FakeThreadStorage {}
+    unsafe impl Sync for FakeThreadStorage {}
+}
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+static CURRENT_BINDING: unsafe_single_core::FakeThreadStorage =
+    unsafe_single_core::FakeThreadStorage::new();
 
 #[repr(C)]
 struct BindingHolder<B = ()> {
