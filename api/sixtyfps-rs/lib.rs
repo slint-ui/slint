@@ -249,6 +249,11 @@ pub fn register_font_from_path<P: AsRef<std::path::Path>>(
 /// internal re_exports used by the macro generated
 #[doc(hidden)]
 pub mod re_exports {
+    pub use alloc::boxed::Box;
+    pub use alloc::format;
+    pub use alloc::rc::{Rc, Weak};
+    pub use alloc::string::String;
+    pub use alloc::{vec, vec::Vec};
     pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
     pub use core::iter::FromIterator;
     pub use once_cell::race::OnceBox;
