@@ -25,7 +25,7 @@ on:
         description: "Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
 
   schedule:
-    - cron: '0 12 * * *'
+    - cron: '0 4 * * *'
 
 jobs:
   sixtyfps-viewer-binary:
