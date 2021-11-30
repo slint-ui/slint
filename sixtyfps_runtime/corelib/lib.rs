@@ -31,15 +31,20 @@ pub(crate) mod unsafe_single_core {
     #![allow(unsafe_code)]
     macro_rules! thread_local_ {
         ($(#[$($meta:tt)*])* $vis:vis static $ident:ident : $ty:ty = $expr:expr) => {
-            $vis static $ident: crate::unsafe_single_core::FakeThreadStorage<$ty> =
-                crate::unsafe_single_core::FakeThreadStorage::new(|| $expr);
+            $(#[$($meta)*])*
+            pub(crate) static $ident: crate::unsafe_single_core::FakeThreadStorage<$ty> = {
+                fn init() -> $ty { $expr }
+                crate::unsafe_single_core::FakeThreadStorage::new(init)
+            };
         };
     }
-    pub(crate) struct FakeThreadStorage<T>(once_cell::unsync::OnceCell<T>, fn() -> T);
-    impl<T> FakeThreadStorage<T> {
-        pub fn new(f: fn() -> T) -> Self {
+    pub(crate) struct FakeThreadStorage<T, F = fn() -> T>(once_cell::unsync::OnceCell<T>, F);
+    impl<T, F> FakeThreadStorage<T, F> {
+        pub const fn new(f: F) -> Self {
             Self(once_cell::unsync::OnceCell::new(), f)
         }
+    }
+    impl<T> FakeThreadStorage<T> {
         pub fn with<R>(&self, f: impl FnOnce(&T) -> R) -> R {
             f(self.0.get_or_init(self.1))
         }
@@ -48,8 +53,8 @@ pub(crate) mod unsafe_single_core {
         }
     }
     // Safety: the unsafe_single_core feature means we will only be called from a single thread
-    unsafe impl<T> Send for FakeThreadStorage<T> {}
-    unsafe impl<T> Sync for FakeThreadStorage<T> {}
+    unsafe impl<T, F> Send for FakeThreadStorage<T, F> {}
+    unsafe impl<T, F> Sync for FakeThreadStorage<T, F> {}
 
     pub(crate) use thread_local_ as thread_local;
 
