@@ -17,7 +17,7 @@ on:
         type: boolean
         default: "true"
         required: false
-        description: "Option whether this is an internal build. A non-private build publishes the artefacts (docs, vscode extension) to the web/marketplace"
+        description: "Private build? True means artefacts are only built. False means the artefacts are published (docs, vscode extension) to the web/marketplace"
       release:
         type: boolean
         default: "false"
