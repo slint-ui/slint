@@ -27,6 +27,8 @@ default = ["std"]
 # from a single core, and not in a interrupt or signal handler.
 unsafe_single_core = []
 
+libm = ["num-traits/libm", "euclid/libm"]
+
 [dependencies]
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version="0.1.1", path = "../../helper_crates/vtable" }
@@ -52,6 +54,7 @@ unicode-segmentation = "1.8.0"
 rgb = "0.8.27"
 pin-project = "1"
 atomic-polyfill = { version = "0.1.5" }
+num-traits = { version = "0.2", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
