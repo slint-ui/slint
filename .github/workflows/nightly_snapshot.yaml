@@ -24,6 +24,9 @@ on:
         required: false
         description: "Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
 
+  schedule:
+    - cron: '0 10 * * *'
+
 jobs:
   sixtyfps-viewer-binary:
     uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@master
