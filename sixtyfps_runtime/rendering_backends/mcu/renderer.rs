@@ -475,6 +475,7 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         // TODO
     }
 
+    #[cfg(feature = "simulator")]
     fn draw_path(&mut self, _path: Pin<&sixtyfps_corelib::items::Path>) {
         // TODO
     }
