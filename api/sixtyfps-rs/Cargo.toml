@@ -12,20 +12,21 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [features]
-x11 = ["sixtyfps-rendering-backend-default/x11"]
-wayland = ["sixtyfps-rendering-backend-default/wayland"]
-backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl"]
-backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt"]
+x11 = ["sixtyfps-rendering-backend-default/x11", "std"]
+wayland = ["sixtyfps-rendering-backend-default/wayland", "std"]
+backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl", "std"]
+backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt", "std"]
 default = ["backend-gl", "x11", "backend-qt"]
+std = ["sixtyfps-corelib/std"]
 
 [dependencies]
-once_cell = "1.5"
+once_cell = { version = "1.5", default-features = false }
 sixtyfps-macros = { version = "=0.1.6", path = "sixtyfps-macros" }
 const-field-offset = { version = "0.1.2", path = "../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.4", path = "../../helper_crates/vtable" }
-sixtyfps-corelib = { version = "=0.1.6", path="../../sixtyfps_runtime/corelib" }
+sixtyfps-corelib = { version = "=0.1.6", path="../../sixtyfps_runtime/corelib", default-features = false }
 sixtyfps-rendering-backend-default = { version = "=0.1.6", path="../../sixtyfps_runtime/rendering_backends/default" }
-pin-weak = "1"
+pin-weak = { version = "1.1", default-features = false }
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/resources/sixtyfps-docs-preview.html", "--html-in-header", "docs/resources/sixtyfps-docs-highlight.html" ]

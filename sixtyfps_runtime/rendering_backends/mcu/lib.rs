@@ -51,6 +51,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         })
     }
 
+    #[cfg(feature = "simulator")]
     fn register_font_from_memory(
         &'static self,
         _data: &'static [u8],
@@ -59,6 +60,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         Err("Not implemented".into())
     }
 
+    #[cfg(feature = "simulator")]
     fn register_font_from_path(
         &'static self,
         _path: &std::path::Path,
