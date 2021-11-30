@@ -1291,7 +1291,6 @@ impl PlatformWindow for QtWindow {
             #endif
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
             widget_ptr->setPalette(pal);
-            widget_ptr->show();
         }};
     }
 
