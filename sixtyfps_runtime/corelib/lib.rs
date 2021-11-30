@@ -35,13 +35,16 @@ pub(crate) mod unsafe_single_core {
                 crate::unsafe_single_core::FakeThreadStorage::new(|| $expr);
         };
     }
-    pub(crate) struct FakeThreadStorage<T>(once_cell::unsync::Lazy<T>);
+    pub(crate) struct FakeThreadStorage<T>(once_cell::unsync::OnceCell<T>, fn() -> T);
     impl<T> FakeThreadStorage<T> {
-        pub fn new(f: fn() -> T) {
-            Self(once_cell::unsync::Lazy::new(f))
+        pub fn new(f: fn() -> T) -> Self {
+            Self(once_cell::unsync::OnceCell::new(), f)
         }
-        pub fn with<R>(&self, f: impl FnOnce(&T) -> R) {
-            f(self.0.get())
+        pub fn with<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+            f(self.0.get_or_init(self.1))
+        }
+        pub fn try_with<R>(&self, f: impl FnOnce(&T) -> R) -> Result<R, ()> {
+            Ok(f(self.0.get().ok_or(())?))
         }
     }
     // Safety: the unsafe_single_core feature means we will only be called from a single thread
@@ -49,6 +52,23 @@ pub(crate) mod unsafe_single_core {
     unsafe impl<T> Sync for FakeThreadStorage<T> {}
 
     pub(crate) use thread_local_ as thread_local;
+
+    pub(crate) struct OnceCell<T>(once_cell::unsync::OnceCell<T>);
+    impl<T> OnceCell<T> {
+        pub const fn new() -> Self {
+            Self(once_cell::unsync::OnceCell::new())
+        }
+        pub fn get(&self) -> Option<&T> {
+            self.0.get()
+        }
+        pub fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
+            self.0.get_or_init(f)
+        }
+    }
+
+    // Safety: the unsafe_single_core feature means we will only be called from a single thread
+    unsafe impl<T> Send for OnceCell<T> {}
+    unsafe impl<T> Sync for OnceCell<T> {}
 }
 
 pub mod animations;

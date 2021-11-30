@@ -148,16 +148,22 @@ impl Deref for SharedString {
 
 impl Default for SharedString {
     fn default() -> Self {
-        // Unfortunately, the Arc constructor is not const, so we must use a Lazy static for that
-        static NULL: once_cell::sync::Lazy<ThinArc<usize, MaybeUninit<u8>>> =
-            once_cell::sync::Lazy::new(|| {
-                Arc::into_thin(Arc::from_header_and_iter(
-                    HeaderWithLength::new(0, core::mem::align_of::<usize>()),
-                    [MaybeUninit::new(0); core::mem::align_of::<usize>()].iter().cloned(),
-                ))
-            });
+        #[cfg(feature = "std")]
+        use once_cell::sync::OnceCell;
 
-        SharedString { inner: NULL.clone() }
+        #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+        use crate::unsafe_single_core::OnceCell;
+
+        // Unfortunately, the Arc constructor is not const, so we must use a OnceCell for that
+        static NULL: OnceCell<ThinArc<usize, MaybeUninit<u8>>> = OnceCell::new();
+
+        let null = NULL.get_or_init(|| {
+            Arc::into_thin(Arc::from_header_and_iter(
+                HeaderWithLength::new(0, core::mem::align_of::<usize>()),
+                [MaybeUninit::new(0); core::mem::align_of::<usize>()].iter().cloned(),
+            ))
+        });
+        SharedString { inner: null.clone() }
     }
 }
 

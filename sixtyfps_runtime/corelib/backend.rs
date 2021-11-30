@@ -18,6 +18,12 @@ use alloc::string::String;
 use crate::graphics::{Image, Size};
 use crate::window::Window;
 
+#[cfg(feature = "std")]
+use once_cell::sync::OnceCell;
+
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use crate::unsafe_single_core::OnceCell;
+
 #[derive(Copy, Clone)]
 /// Behavior describing how the event loop should terminate.
 pub enum EventLoopQuitBehavior {
@@ -66,8 +72,7 @@ pub trait Backend: Send + Sync {
     fn image_size(&'static self, image: &Image) -> Size;
 }
 
-static PRIVATE_BACKEND_INSTANCE: once_cell::sync::OnceCell<Box<dyn Backend + 'static>> =
-    once_cell::sync::OnceCell::new();
+static PRIVATE_BACKEND_INSTANCE: OnceCell<Box<dyn Backend + 'static>> = OnceCell::new();
 
 pub fn instance() -> Option<&'static dyn Backend> {
     use core::ops::Deref;
