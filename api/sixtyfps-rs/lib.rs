@@ -212,7 +212,8 @@ See the [documentation of the `Global` trait](Global) for an example.
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
-
+#![cfg_attr(not(feature = "std"), no_std)]
+extern crate alloc;
 pub use sixtyfps_macros::sixtyfps;
 
 pub use sixtyfps_corelib::graphics::{
@@ -229,6 +230,7 @@ pub use sixtyfps_corelib::timers::{Timer, TimerMode};
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
     sixtyfps_rendering_backend_default::backend().register_font_from_memory(data)
 }
@@ -237,6 +239,7 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
 /// for use with the `font-family` property. The provided path must refer to a valid TrueType
 /// font.
 #[doc(hidden)]
+#[cfg(feature = "std")]
 pub fn register_font_from_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -248,6 +251,7 @@ pub fn register_font_from_path<P: AsRef<std::path::Path>>(
 pub mod re_exports {
     pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
     pub use core::iter::FromIterator;
+    #[cfg(feature = "std")]
     pub use once_cell::sync::Lazy;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::PinWeak;
@@ -284,8 +288,8 @@ pub mod re_exports {
 #[doc(hidden)]
 pub mod internal {
     use crate::re_exports::*;
+    use alloc::rc::Rc;
     use core::pin::Pin;
-    use std::rc::Rc;
 
     // Helper functions called from generated code to reduce code bloat from
     // extra copies of the original functions for each call site due to
@@ -455,7 +459,7 @@ pub fn quit_event_loop() {
 /// handle.run();
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
-    sixtyfps_rendering_backend_default::backend().post_event(Box::new(func))
+    sixtyfps_rendering_backend_default::backend().post_event(alloc::boxed::Box::new(func))
 }
 
 /// This trait is used to obtain references to global singletons exported in `.60`
@@ -560,19 +564,28 @@ mod weak_handle {
     /// This is useful to use with [`invoke_from_event_loop()`] or [`Self::upgrade_in_event_loop()`].
     pub struct Weak<T: ComponentHandle> {
         inner: vtable::VWeak<re_exports::ComponentVTable, T::Inner>,
+        #[cfg(feature = "std")]
         thread: std::thread::ThreadId,
     }
 
     impl<T: ComponentHandle> Clone for Weak<T> {
         fn clone(&self) -> Self {
-            Self { inner: self.inner.clone(), thread: self.thread }
+            Self {
+                inner: self.inner.clone(),
+                #[cfg(feature = "std")]
+                thread: self.thread,
+            }
         }
     }
 
     impl<T: ComponentHandle> Weak<T> {
         #[doc(hidden)]
         pub fn new(rc: &vtable::VRc<re_exports::ComponentVTable, T::Inner>) -> Self {
-            Self { inner: vtable::VRc::downgrade(rc), thread: std::thread::current().id() }
+            Self {
+                inner: vtable::VRc::downgrade(rc),
+                #[cfg(feature = "std")]
+                thread: std::thread::current().id(),
+            }
         }
 
         /// Returns a new strongly referenced component if some other instance still
@@ -584,6 +597,7 @@ mod weak_handle {
         where
             T: ComponentHandle,
         {
+            #[cfg(feature = "std")]
             if std::thread::current().id() != self.thread {
                 return None;
             }
@@ -621,6 +635,7 @@ mod weak_handle {
         /// # thread.join().unwrap(); return; // don't run the event loop in examples
         /// handle.run();
         /// ```
+        #[cfg(feature = "std")]
         pub fn upgrade_in_event_loop(self, func: impl FnOnce(T) + Send + 'static)
         where
             T: 'static,
@@ -636,6 +651,7 @@ mod weak_handle {
     // Safety: we make sure in upgrade that the thread is the proper one,
     // and the VWeak only use atomic pointer so it is safe to clone and drop in another thread
     #[allow(unsafe_code)]
+    #[cfg(feature = "std")]
     unsafe impl<T: ComponentHandle> Send for Weak<T> {}
 }
 
@@ -644,6 +660,7 @@ pub use weak_handle::*;
 pub use sixtyfps_corelib::window::api::Window;
 
 /// This module contains functions useful for unit tests
+#[cfg(feature = "std")]
 pub mod testing {
     use core::cell::Cell;
     thread_local!(static KEYBOARD_MODIFIERS : Cell<crate::re_exports::KeyboardModifiers> = Default::default());
