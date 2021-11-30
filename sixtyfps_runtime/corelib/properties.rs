@@ -1010,7 +1010,8 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             if self.loop_iteration < self.details.loop_count || self.details.loop_count < 0 {
                 self.loop_iteration += (time_progress / duration) as i32;
                 time_progress %= duration;
-                self.start_time = new_tick - std::time::Duration::from_millis(time_progress as u64);
+                self.start_time =
+                    new_tick - core::time::Duration::from_millis(time_progress as u64);
             } else {
                 return (self.to_value.clone(), true);
             }
