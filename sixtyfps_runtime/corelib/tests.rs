@@ -23,7 +23,7 @@ use crate::SharedString;
 pub extern "C" fn sixtyfps_mock_elapsed_time(time_in_ms: u64) {
     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
         let mut tick = driver.current_tick();
-        tick += instant::Duration::from_millis(time_in_ms);
+        tick += core::time::Duration::from_millis(time_in_ms);
         driver.update_animations(tick)
     })
 }
