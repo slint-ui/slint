@@ -51,6 +51,7 @@ unicode-segmentation = "1.8.0"
 # Note: the rgb version is extracted in ci.yaml for rustdoc builds
 rgb = "0.8.27"
 pin-project = "1"
+atomic-polyfill = { version = "0.1.5" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
