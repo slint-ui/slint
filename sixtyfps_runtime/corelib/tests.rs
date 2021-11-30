@@ -72,7 +72,8 @@ pub extern "C" fn send_keyboard_string_sequence(
         if ch.is_ascii_uppercase() {
             modifiers.shift = true;
         }
-        let text: SharedString = ch.to_string().into();
+        let mut buffer = [0; 6];
+        let text = SharedString::from(ch.encode_utf8(&mut buffer) as &str);
 
         window.clone().process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyPressed,
