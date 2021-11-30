@@ -75,6 +75,16 @@ impl Instant {
     pub fn duration_since(self, earlier: Instant) -> core::time::Duration {
         self - earlier
     }
+
+    /// Wrapper around [`std::time::Instant::now()`] that delegates to the backend
+    /// and allows working in no_std environments.
+    pub fn now() -> Self {
+        Self(Self::duration_since_start().as_millis() as u64)
+    }
+
+    fn duration_since_start() -> core::time::Duration {
+        crate::backend::instance().map(|backend| backend.duration_since_start()).unwrap_or_default()
+    }
 }
 
 /// The AnimationDriver
@@ -82,8 +92,6 @@ pub struct AnimationDriver {
     /// Indicate whether there are any active animations that require a future call to update_animations.
     active_animations: Cell<bool>,
     global_instant: core::pin::Pin<Box<crate::Property<Instant>>>,
-    /// Time at which the AnimationDriver was created. global_instant is relative to that
-    initial_instant: instant::Instant,
 }
 
 impl Default for AnimationDriver {
@@ -91,7 +99,6 @@ impl Default for AnimationDriver {
         AnimationDriver {
             active_animations: Cell::default(),
             global_instant: Box::pin(crate::Property::new(Instant::default())),
-            initial_instant: instant::Instant::now(),
         }
     }
 }
@@ -198,12 +205,12 @@ fn easing_test() {
 pub fn update_animations() {
     CURRENT_ANIMATION_DRIVER.with(|driver| {
         #[allow(unused_mut)]
-        let mut duration = instant::Instant::now() - driver.initial_instant;
+        let mut duration = Instant::duration_since_start().as_millis() as u64;
         #[cfg(feature = "std")]
         if let Ok(val) = std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
             let factor = val.parse().unwrap_or(2);
             duration /= factor;
         };
-        driver.update_animations(Instant(duration.as_millis() as u64))
+        driver.update_animations(Instant(duration))
     });
 }

@@ -589,7 +589,7 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
 
             if *control_flow == winit::event_loop::ControlFlow::Wait {
                 if let Some(next_timer) = corelib::timers::TimerList::next_timeout() {
-                    *control_flow = winit::event_loop::ControlFlow::WaitUntil(next_timer);
+                    *control_flow = winit::event_loop::ControlFlow::WaitUntil(next_timer.into());
                 }
             }
         })

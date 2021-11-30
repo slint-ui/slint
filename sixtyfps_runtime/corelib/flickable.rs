@@ -9,7 +9,7 @@
 LICENSE END */
 //! The implementation details behind the Flickable
 
-use instant::Duration;
+use core::time::Duration;
 
 use crate::animations::EasingCurve;
 use crate::animations::Instant;

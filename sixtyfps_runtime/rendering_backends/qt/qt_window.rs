@@ -1523,6 +1523,7 @@ pub(crate) fn timer_event() {
 
     let mut timeout = sixtyfps_corelib::timers::TimerList::next_timeout().map(|instant| {
         let now = std::time::Instant::now();
+        let instant: std::time::Instant = instant.into();
         if instant > now {
             instant.duration_since(now).as_millis() as i32
         } else {
