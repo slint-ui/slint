@@ -13,11 +13,11 @@ name: Nightly snapshot
 on:
   workflow_dispatch:
     inputs:
-      publish:
+      private:
         type: boolean
-        default: "false"
+        default: "true"
         required: false
-        description: "Option whether to publish the artefacts (docs, vscode extension) to the web/marketplace or not"
+        description: "Option whether this is an internal build. A non-private build publishes the artefacts (docs, vscode extension) to the web/marketplace"
       release:
         type: boolean
         default: "false"
@@ -242,10 +242,10 @@ jobs:
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
-        dryRun: ${{ github.event.inputs.publish != 'true' }}
+        dryRun: ${{ github.event.inputs.private == 'true' }}
         packagePath: vscode_extension
     - name: Publish to Visual Studio Marketplace
-      if: ${{ github.event.inputs.publish == 'true' }}
+      if: ${{ github.event.inputs.private != 'true' }}
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
@@ -260,7 +260,7 @@ jobs:
               ${{ steps.publishToOpenVSX.outputs.vsixPath }}
 
   publish_artifacts:
-    if: github.event.inputs.publish == 'true' && github.ref == 'refs/heads/master'
+    if: github.event.inputs.private != 'true' && github.ref == 'refs/heads/master'
     needs: [docs, wasm_demo, wasm]
     runs-on: ubuntu-20.04
     steps:
