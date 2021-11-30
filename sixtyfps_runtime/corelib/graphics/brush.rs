@@ -15,6 +15,9 @@ use super::{Color, Point};
 use crate::properties::InterpolatedPropertyValue;
 use crate::SharedVector;
 
+#[cfg(not(feature = "std"))]
+use num_traits::float::Float;
+
 /// A brush is a data structure that is used to describe how
 /// a shape, such as a rectangle, path or even text, shall be filled.
 /// A brush can also be applied to the outline of a shape, that means

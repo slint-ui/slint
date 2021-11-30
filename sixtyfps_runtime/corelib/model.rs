@@ -27,6 +27,9 @@ use once_cell::unsync::OnceCell;
 use pin_project::pin_project;
 use pin_weak::rc::{PinWeak, Rc};
 
+#[cfg(not(feature = "std"))]
+use num_traits::float::Float;
+
 type DependencyListHead =
     crate::properties::dependency_tracker::DependencyListHead<*const dyn ErasedRepeater>;
 type ComponentRc<C> = vtable::VRc<crate::component::ComponentVTable, C>;
