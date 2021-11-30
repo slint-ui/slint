@@ -18,13 +18,18 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 
 */
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
+#![cfg_attr(not(feature = "simulator"), no_std)]
 
+extern crate alloc;
+
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::string::String;
 use sixtyfps_corelib::{
     graphics::{Image, Size},
     window::Window,
     ImageInner,
 };
-use std::rc::Rc;
 
 #[cfg(feature = "simulator")]
 mod simulator;
@@ -33,7 +38,6 @@ mod simulator;
 use simulator::*;
 
 mod renderer;
-
 pub struct Backend;
 
 impl sixtyfps_corelib::backend::Backend for Backend {
@@ -101,5 +105,5 @@ pub const HAS_NATIVE_STYLE: bool = false;
 pub const IS_AVAILABLE: bool = true;
 
 pub fn init() {
-    sixtyfps_corelib::backend::instance_or_init(|| Box::new(Backend));
+    sixtyfps_corelib::backend::instance_or_init(|| alloc::boxed::Box::new(Backend));
 }

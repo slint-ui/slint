@@ -25,6 +25,13 @@ In order for the crate to be available at runtime, they need to be added as feat
 
 */
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
+#![cfg_attr(
+    not(any(
+        feature = "sixtyfps-rendering-backend-qt",
+        feature = "sixtyfps-rendering-backend-gl"
+    )),
+    no_std
+)]
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "sixtyfps-rendering-backend-qt")] {

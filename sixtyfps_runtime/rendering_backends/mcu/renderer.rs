@@ -8,9 +8,10 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
 
+use alloc::collections::VecDeque;
+use alloc::rc::Rc;
+use alloc::{vec, vec::Vec};
 use core::pin::Pin;
-use std::collections::VecDeque;
-use std::rc::Rc;
 
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
@@ -25,7 +26,7 @@ pub fn render_window_frame<T: DrawTarget<Color = Rgb888>>(
     background: Rgb888,
     display: &mut T,
 ) where
-    T::Error: std::fmt::Debug,
+    T::Error: core::fmt::Debug,
 {
     let size = display.bounding_box().size;
     let mut scene = prepare_scene(runtime_window, SizeF::new(size.width as _, size.height as _));
@@ -244,7 +245,7 @@ struct LineCommand {
     spans: Vec<SceneItem>,
 }
 
-fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> std::cmp::Ordering {
+fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
     // First, order by line (top to bottom)
     match a.y.partial_cmp(&b.y) {
         None | Some(core::cmp::Ordering::Equal) => {}
