@@ -995,10 +995,11 @@ fn generate_component(
                 fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
                     use sixtyfps::re_exports::*;
                     ComponentVTable_static!(static VT for #inner_component_id);
-                    // FIXME: ideally this should be a const
-                    static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]>  =
-                        Lazy::new(|| [#(#item_tree_array),*]);
-                    &*ITEM_TREE
+                    // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
+                    static ITEM_TREE : sixtyfps::re_exports::OnceBox<
+                        [sixtyfps::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]
+                    > = sixtyfps::re_exports::OnceBox::new();
+                    &*ITEM_TREE.get_or_init(|| Box::new([#(#item_tree_array),*]))
                 }
             }),
             Some(quote! {
