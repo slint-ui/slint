@@ -20,6 +20,9 @@ SCENARIO("SharedString API")
     sixtyfps::SharedString str;
 
     REQUIRE(str.empty());
+    REQUIRE(str == "");
+    REQUIRE(std::string_view(str.data()) == ""); // this test null termination of data()
+
 
     SECTION("Construct from string_view")
     {
@@ -27,6 +30,7 @@ SCENARIO("SharedString API")
         std::string_view foo_view(foo);
         str = foo_view;
         REQUIRE(str == "Foo");
+        REQUIRE(std::string_view(str.data()) == "Foo");
     }
 
     SECTION("Construct from char*")
@@ -34,6 +38,16 @@ SCENARIO("SharedString API")
         str = "Bar";
         REQUIRE(str == "Bar");
     }
+
+    SECTION("concatenate")
+    {
+        str = "Hello";
+        str += " ";
+        str += sixtyfps::SharedString("🦊") + sixtyfps::SharedString("!");
+        REQUIRE(str == "Hello 🦊!");
+        REQUIRE(std::string_view(str.data()) == "Hello 🦊!");
+    }
+
 }
 
 TEST_CASE("Basic SharedVector API", "[vector]")

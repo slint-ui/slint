@@ -371,6 +371,15 @@ impl<T> FromIterator<T> for SharedVector<T> {
 
 impl<T: Clone> Extend<T> for SharedVector<T> {
     fn extend<X: IntoIterator<Item = T>>(&mut self, iter: X) {
+        let iter = iter.into_iter();
+        let hint = iter.size_hint().0;
+        if hint > 0 {
+            self.detach(capacity_for_grow(
+                self.capacity(),
+                self.len() + hint,
+                core::mem::size_of::<T>(),
+            ));
+        }
         for item in iter {
             self.push(item);
         }

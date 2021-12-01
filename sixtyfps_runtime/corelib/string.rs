@@ -12,11 +12,11 @@ LICENSE END */
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 
+use crate::SharedVector;
 use alloc::string::String;
 use core::fmt::{Debug, Display};
-use core::mem::MaybeUninit;
+use core::iter::FromIterator;
 use core::ops::Deref;
-use triomphe::{Arc, HeaderWithLength, ThinArc};
 
 /// A string type used by the SixtyFPS run-time.
 ///
@@ -25,22 +25,21 @@ use triomphe::{Arc, HeaderWithLength, ThinArc};
 /// when modifying it, for example using [push_str](#method.push_str). This is also called copy-on-write.
 ///
 /// Under the hood the string data is UTF-8 encoded and it is always terminated with a null character.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 #[repr(C)]
 pub struct SharedString {
-    /// Invariant: The usize header is the `len` of the vector, the contained buffer is `[MaybeUninit<u8>]`
-    /// `buffer[0..=len]` is initialized and valid utf8, and `buffer[len]` is '\0'
-    inner: ThinArc<usize, MaybeUninit<u8>>,
+    // Invariant: valid utf-8, `\0` terminated
+    inner: SharedVector<u8>,
 }
 
 impl SharedString {
     fn as_ptr(&self) -> *const u8 {
-        self.inner.slice.as_ptr() as *const u8
+        self.inner.as_ptr()
     }
 
     /// Size of the string, in bytes. This excludes the terminating null character.
     pub fn len(&self) -> usize {
-        self.inner.header.header
+        self.inner.len().saturating_sub(1)
     }
 
     /// Return true if the String is empty
@@ -50,6 +49,7 @@ impl SharedString {
 
     /// Return a slice to the string
     pub fn as_str(&self) -> &str {
+        // Safety: self.as_ptr is a pointer from the inner which has utf-8
         unsafe {
             core::str::from_utf8_unchecked(core::slice::from_raw_parts(self.as_ptr(), self.len()))
         }
@@ -66,76 +66,18 @@ impl SharedString {
     /// assert_eq!(hello, "Hello, World!");
     /// ```
     pub fn push_str(&mut self, x: &str) {
-        let new_len = self.inner.header.header + x.len();
-        if new_len + 1 < self.inner.slice.len() {
-            let mut arc = Arc::from_thin(self.inner.clone());
-            if let Some(inner) = Arc::get_mut(&mut arc) {
-                unsafe {
-                    core::ptr::copy_nonoverlapping(
-                        x.as_ptr(),
-                        inner.slice.as_mut_ptr().add(inner.header.header) as *mut u8,
-                        x.len(),
-                    );
-                }
-                inner.slice[new_len] = MaybeUninit::new(0);
-                inner.header.header = new_len;
-                return;
-            }
+        let mut iter = x.as_bytes().iter().copied();
+        if self.inner.is_empty() {
+            self.inner.extend(iter.chain(core::iter::once(0)));
+            return;
+        } else if let Some(first) = iter.next() {
+            // We skip the `first` from `iter` because we will write it at the
+            // location of the previous `\0`, after extend did the re-alloc of the
+            // right size
+            let prev_len = self.len();
+            self.inner.extend(iter.chain(core::iter::once(0)));
+            self.inner.make_mut_slice()[prev_len] = first;
         }
-        // re-alloc
-
-        struct ReallocIter<'a> {
-            pos: usize,
-            new_alloc: usize,
-            first: &'a [MaybeUninit<u8>],
-            second: &'a [u8],
-        }
-
-        impl<'a> Iterator for ReallocIter<'a> {
-            type Item = MaybeUninit<u8>;
-            fn next(&mut self) -> Option<MaybeUninit<u8>> {
-                let mut pos = self.pos;
-                if pos >= self.new_alloc {
-                    return None;
-                }
-
-                self.pos += 1;
-
-                if pos < self.first.len() {
-                    return Some(self.first[pos]);
-                }
-                pos -= self.first.len();
-                if pos < self.second.len() {
-                    return Some(MaybeUninit::new(self.second[pos]));
-                }
-                pos -= self.second.len();
-                if pos == 0 {
-                    return Some(MaybeUninit::new(0));
-                }
-                // I don't know if the compiler will be smart enough to exit the loop here.
-                // It would be nice if triomphe::Arc would allow to leave uninitialized memory
-                Some(MaybeUninit::uninit())
-            }
-            fn size_hint(&self) -> (usize, Option<usize>) {
-                (self.new_alloc, Some(self.new_alloc))
-            }
-        }
-        impl<'a> core::iter::ExactSizeIterator for ReallocIter<'a> {}
-
-        let align = core::mem::align_of::<usize>();
-        let new_alloc = new_len + new_len / 2; // add some growing factor
-        let new_alloc = (new_alloc + align) & !(align - 1);
-        let iter = ReallocIter {
-            pos: 0,
-            first: &self.inner.slice[0..self.inner.header.header],
-            second: x.as_bytes(),
-            new_alloc,
-        };
-
-        self.inner = Arc::into_thin(Arc::from_header_and_iter(
-            HeaderWithLength::new(new_len, new_alloc),
-            iter,
-        ));
     }
 }
 
@@ -146,66 +88,12 @@ impl Deref for SharedString {
     }
 }
 
-impl Default for SharedString {
-    fn default() -> Self {
-        #[cfg(feature = "std")]
-        use once_cell::sync::OnceCell;
-
-        #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-        use crate::unsafe_single_core::OnceCell;
-
-        // Unfortunately, the Arc constructor is not const, so we must use a OnceCell for that
-        static NULL: OnceCell<ThinArc<usize, MaybeUninit<u8>>> = OnceCell::new();
-
-        let null = NULL.get_or_init(|| {
-            Arc::into_thin(Arc::from_header_and_iter(
-                HeaderWithLength::new(0, core::mem::align_of::<usize>()),
-                [MaybeUninit::new(0); core::mem::align_of::<usize>()].iter().cloned(),
-            ))
-        });
-        SharedString { inner: null.clone() }
-    }
-}
-
 impl From<&str> for SharedString {
     fn from(value: &str) -> Self {
-        struct AddNullIter<'a> {
-            pos: usize,
-            str: &'a [u8],
-        }
-
-        impl<'a> Iterator for AddNullIter<'a> {
-            type Item = MaybeUninit<u8>;
-            fn next(&mut self) -> Option<MaybeUninit<u8>> {
-                let pos = self.pos;
-                self.pos += 1;
-                let align = core::mem::align_of::<usize>();
-                if pos < self.str.len() {
-                    Some(MaybeUninit::new(self.str[pos]))
-                } else if pos < (self.str.len() + align) & !(align - 1) {
-                    Some(MaybeUninit::new(0))
-                } else {
-                    None
-                }
-            }
-            fn size_hint(&self) -> (usize, Option<usize>) {
-                let l = self.str.len() + 1;
-                // add some padding at the end since the size of the inner will anyway have to be padded
-                let align = core::mem::align_of::<usize>();
-                let l = (l + align - 1) & !(align - 1);
-                let l = l - self.pos;
-                (l, Some(l))
-            }
-        }
-        impl<'a> core::iter::ExactSizeIterator for AddNullIter<'a> {}
-
-        let iter = AddNullIter { str: value.as_bytes(), pos: 0 };
-
         SharedString {
-            inner: Arc::into_thin(Arc::from_header_and_iter(
-                HeaderWithLength::new(value.len(), iter.size_hint().0),
-                iter,
-            )),
+            inner: SharedVector::from_iter(
+                value.as_bytes().iter().cloned().chain(core::iter::once(0)),
+            ),
         }
     }
 }
@@ -233,12 +121,12 @@ impl AsRef<str> for SharedString {
 impl AsRef<std::ffi::CStr> for SharedString {
     #[inline]
     fn as_ref(&self) -> &std::ffi::CStr {
-        unsafe {
-            std::ffi::CStr::from_bytes_with_nul_unchecked(core::slice::from_raw_parts(
-                self.as_ptr(),
-                self.len() + 1,
-            ))
+        if self.inner.is_empty() {
+            return Default::default();
         }
+        // Safety: we ensure that there is always a terminated \0
+        debug_assert_eq!(self.inner.as_slice()[self.inner.len() - 1], 0);
+        unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(self.inner.as_slice()) }
     }
 }
 
@@ -349,7 +237,11 @@ pub(crate) mod ffi {
     /// The returned value is owned by the string, and should not be used after any
     /// mutable function have been called on the string, and must not be freed.
     pub extern "C" fn sixtyfps_shared_string_bytes(ss: &SharedString) -> *const c_char {
-        ss.as_ptr()
+        if ss.is_empty() {
+            "\0".as_ptr()
+        } else {
+            ss.as_ptr()
+        }
     }
 
     #[no_mangle]
@@ -405,7 +297,7 @@ pub(crate) mod ffi {
             assert_eq!(s.assume_init(), "-1325466");
 
             let mut s = core::mem::MaybeUninit::uninit();
-            sixtyfps_shared_string_from_number(s.as_mut_ptr(), -0.);
+            sixtyfps_shared_string_from_number(s.as_mut_ptr(), 0.);
             assert_eq!(s.assume_init(), "0");
         }
     }
@@ -431,6 +323,7 @@ pub(crate) mod ffi {
         append("Hello");
         append(", ");
         append("world");
+        append("");
         append("!");
         assert_eq!(s.as_str(), "Hello, world!");
     }
