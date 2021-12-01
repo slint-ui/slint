@@ -61,6 +61,7 @@ vtable = { version = "0.1.5", path = "../../../helper_crates/vtable" }
 
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
+num-traits = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 slint-build = { path = "../build" }
