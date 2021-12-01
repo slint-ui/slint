@@ -251,8 +251,7 @@ pub fn register_font_from_path<P: AsRef<std::path::Path>>(
 pub mod re_exports {
     pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
     pub use core::iter::FromIterator;
-    #[cfg(feature = "std")]
-    pub use once_cell::sync::Lazy;
+    pub use once_cell::race::OnceBox;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::PinWeak;
     pub use sixtyfps_corelib::animations::EasingCurve;
