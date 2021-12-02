@@ -13,6 +13,9 @@ This module contains color related types for the run-time library.
 
 use crate::properties::InterpolatedPropertyValue;
 
+#[cfg(not(feature = "std"))]
+use num_traits::float::Float;
+
 /// RgbaColor stores the red, green, blue and alpha components of a color
 /// with the precision of the generic parameter T. For example if T is f32,
 /// the values are normalized between 0 and 1. If T is u8, they values range

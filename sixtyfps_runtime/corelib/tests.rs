@@ -23,7 +23,7 @@ use crate::SharedString;
 pub extern "C" fn sixtyfps_mock_elapsed_time(time_in_ms: u64) {
     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
         let mut tick = driver.current_tick();
-        tick += instant::Duration::from_millis(time_in_ms);
+        tick += core::time::Duration::from_millis(time_in_ms);
         driver.update_animations(tick)
     })
 }
@@ -72,7 +72,8 @@ pub extern "C" fn send_keyboard_string_sequence(
         if ch.is_ascii_uppercase() {
             modifiers.shift = true;
         }
-        let text: SharedString = ch.to_string().into();
+        let mut buffer = [0; 6];
+        let text = SharedString::from(ch.encode_utf8(&mut buffer) as &str);
 
         window.clone().process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyPressed,

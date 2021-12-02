@@ -732,7 +732,12 @@ cbindgen_private::Flickable::~Flickable()
 
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics()
 {
-    sixtyfps_init_native_style_metrics(this);
+    sixtyfps_native_style_metrics_init(this);
+}
+
+cbindgen_private::NativeStyleMetrics::~NativeStyleMetrics()
+{
+    sixtyfps_native_style_metrics_deinit(this);
 }
 #endif // !defined(DOXYGEN)
 

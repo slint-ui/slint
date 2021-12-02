@@ -15,7 +15,8 @@ use core::iter::FromIterator;
 use core::mem::MaybeUninit;
 use core::ops::Deref;
 use core::ptr::NonNull;
-use core::sync::atomic;
+
+use atomic_polyfill as atomic;
 
 #[repr(C)]
 struct SharedVectorHeader {
@@ -38,7 +39,7 @@ fn compute_inner_layout<T>(capacity: usize) -> core::alloc::Layout {
 }
 
 unsafe fn drop_inner<T>(mut inner: NonNull<SharedVectorInner<T>>) {
-    debug_assert_eq!(inner.as_ref().header.refcount.load(core::sync::atomic::Ordering::Relaxed), 0);
+    debug_assert_eq!(inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed), 0);
     let data_ptr = inner.as_mut().data.as_mut_ptr();
     for x in 0..inner.as_ref().header.size {
         core::ptr::drop_in_place(data_ptr.add(x));
@@ -377,7 +378,7 @@ impl<T: Clone> Extend<T> for SharedVector<T> {
 }
 
 static SHARED_NULL: SharedVectorHeader =
-    SharedVectorHeader { refcount: core::sync::atomic::AtomicIsize::new(-1), size: 0, capacity: 0 };
+    SharedVectorHeader { refcount: atomic::AtomicIsize::new(-1), size: 0, capacity: 0 };
 
 impl<T> Default for SharedVector<T> {
     fn default() -> Self {

@@ -18,6 +18,12 @@ use alloc::string::String;
 use crate::graphics::{Image, Size};
 use crate::window::Window;
 
+#[cfg(feature = "std")]
+use once_cell::sync::OnceCell;
+
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use crate::unsafe_single_core::OnceCell;
+
 #[derive(Copy, Clone)]
 /// Behavior describing how the event loop should terminate.
 pub enum EventLoopQuitBehavior {
@@ -64,10 +70,31 @@ pub trait Backend: Send + Sync {
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>);
 
     fn image_size(&'static self, image: &Image) -> Size;
+
+    fn duration_since_start(&'static self) -> core::time::Duration {
+        #[cfg(feature = "std")]
+        {
+            let the_beginning = *INITIAL_INSTANT.get_or_init(|| instant::Instant::now());
+            return instant::Instant::now() - the_beginning;
+        }
+        #[cfg(not(feature = "std"))]
+        return core::time::Duration::ZERO;
+    }
 }
 
-static PRIVATE_BACKEND_INSTANCE: once_cell::sync::OnceCell<Box<dyn Backend + 'static>> =
+#[cfg(feature = "std")]
+static INITIAL_INSTANT: once_cell::sync::OnceCell<instant::Instant> =
     once_cell::sync::OnceCell::new();
+
+#[cfg(feature = "std")]
+impl std::convert::From<crate::animations::Instant> for instant::Instant {
+    fn from(our_instant: crate::animations::Instant) -> Self {
+        let the_beginning = *INITIAL_INSTANT.get_or_init(|| instant::Instant::now());
+        the_beginning + core::time::Duration::from_millis(our_instant.0)
+    }
+}
+
+static PRIVATE_BACKEND_INSTANCE: OnceCell<Box<dyn Backend + 'static>> = OnceCell::new();
 
 pub fn instance() -> Option<&'static dyn Backend> {
     use core::ops::Deref;

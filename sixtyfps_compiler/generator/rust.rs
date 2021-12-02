@@ -729,8 +729,7 @@ fn generate_component(
             });
             let mut model = compile_expression(&repeated.model, &parent_compo);
             if repeated.is_conditional_element {
-                model =
-                    quote!(sixtyfps::re_exports::ModelHandle::new(std::rc::Rc::<bool>::new(#model)))
+                model = quote!(sixtyfps::re_exports::ModelHandle::new(sixtyfps::re_exports::Rc::<bool>::new(#model)))
             }
 
             let self_weak_downgrade = if self.generating_component.is_sub_component() {
@@ -921,7 +920,7 @@ fn generate_component(
 
         has_window_impl = Some(quote!(
             impl sixtyfps::re_exports::WindowHandleAccess for #inner_component_id {
-                fn window_handle(&self) -> &std::rc::Rc<sixtyfps::re_exports::Window> {
+                fn window_handle(&self) -> &sixtyfps::re_exports::Rc<sixtyfps::re_exports::Window> {
                     self.window.window_handle()
                 }
             }
@@ -995,10 +994,11 @@ fn generate_component(
                 fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
                     use sixtyfps::re_exports::*;
                     ComponentVTable_static!(static VT for #inner_component_id);
-                    // FIXME: ideally this should be a const
-                    static ITEM_TREE : Lazy<[sixtyfps::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]>  =
-                        Lazy::new(|| [#(#item_tree_array),*]);
-                    &*ITEM_TREE
+                    // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
+                    static ITEM_TREE : sixtyfps::re_exports::OnceBox<
+                        [sixtyfps::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]
+                    > = sixtyfps::re_exports::OnceBox::new();
+                    &*ITEM_TREE.get_or_init(|| Box::new([#(#item_tree_array),*]))
                 }
             }),
             Some(quote! {
@@ -1066,7 +1066,7 @@ fn generate_component(
         }
     } else {
         quote! {
-            let self_rc = ::std::rc::Rc::pin(self_);
+            let self_rc = sixtyfps::re_exports::Rc::pin(self_);
             let _self = self_rc.as_ref();
         }
     };
@@ -1085,7 +1085,7 @@ fn generate_component(
     let component_handle = if !component.is_global() {
         quote!(vtable::VRc<sixtyfps::re_exports::ComponentVTable, Self>)
     } else {
-        quote!(::core::pin::Pin<::std::rc::Rc<Self>>)
+        quote!(::core::pin::Pin<sixtyfps::re_exports::Rc<Self>>)
     };
 
     let public_component_id = public_component_id(component);
@@ -1184,7 +1184,7 @@ fn generate_component(
             component.global_aliases().into_iter().map(|name| ident(&name)).collect::<Vec<_>>();
 
         Some(quote!(
-            #visibility struct #public_component_id<'a>(&'a ::core::pin::Pin<::std::rc::Rc<#inner_component_id>>);
+            #visibility struct #public_component_id<'a>(&'a ::core::pin::Pin<sixtyfps::re_exports::Rc<#inner_component_id>>);
 
             impl<'a> #public_component_id<'a> {
                 #(#property_and_callback_accessors)*
@@ -1317,7 +1317,7 @@ fn generate_component(
             #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
             #(#self_weak : sixtyfps::re_exports::OnceCell<#self_weak_type>,)*
             #(parent : #parent_component_type,)*
-            #(#global_name : ::core::pin::Pin<::std::rc::Rc<#global_type>>,)*
+            #(#global_name : ::core::pin::Pin<sixtyfps::re_exports::Rc<#global_type>>,)*
             #root_field
             #item_tree_index_field
             #tree_index_of_first_child_field
@@ -1589,10 +1589,10 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let f = compile_expression(&*from, component);
             match (from.ty(), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
-                    quote!(sixtyfps::re_exports::SharedString::from(format!("{}", #f).as_str()))
+                    quote!(sixtyfps::re_exports::SharedString::from(sixtyfps::re_exports::format!("{}", #f).as_str()))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sixtyfps::re_exports::ModelHandle::new(std::rc::Rc::<usize>::new(#f as usize)))
+                    quote!(sixtyfps::re_exports::ModelHandle::new(sixtyfps::re_exports::Rc::<usize>::new(#f as usize)))
                 }
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
@@ -1948,7 +1948,9 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             let rust_element_ty = rust_type(element_ty).unwrap();
             let val = values.iter().map(|e| compile_expression(e, component));
             quote!(sixtyfps::re_exports::ModelHandle::new(
-                std::rc::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(vec![#(#val as _),*]))
+                sixtyfps::re_exports::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(
+                    sixtyfps::re_exports::vec![#(#val as _),*]
+                ))
             ))
         }
         Expression::Struct { ty, values } => {
@@ -2329,7 +2331,7 @@ fn box_layout_data(
         }
         (
             quote! { {
-                let mut items_vec = Vec::with_capacity(#fixed_count #repeated_count);
+                let mut items_vec = sixtyfps::re_exports::Vec::with_capacity(#fixed_count #repeated_count);
                 #push_code
                 items_vec
             } },

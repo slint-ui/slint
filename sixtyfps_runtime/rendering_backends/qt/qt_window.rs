@@ -1278,9 +1278,20 @@ impl PlatformWindow for QtWindow {
             }
             widget_ptr->setWindowTitle(title);
             auto pal = widget_ptr->palette();
+
+            #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            // If the background color is the same as what NativeStyleMetrics supplied from QGuiApplication::palette().color(QPalette::Window),
+            // then the setColor (implicitly setBrush) call will not detach the palette. However it will set the resolveMask, which due to the
+            // lack of a detach changes QGuiApplicationPrivate::app_pal's resolve mask and thus breaks future theme based palette changes.
+            // Therefore we force a detach.
+            // https://bugreports.qt.io/browse/QTBUG-98762
+            {
+                pal.setResolveMask(~pal.resolveMask());
+                pal.setResolveMask(~pal.resolveMask());
+            }
+            #endif
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
             widget_ptr->setPalette(pal);
-            widget_ptr->show();
         }};
     }
 
@@ -1513,6 +1524,7 @@ pub(crate) fn timer_event() {
 
     let mut timeout = sixtyfps_corelib::timers::TimerList::next_timeout().map(|instant| {
         let now = std::time::Instant::now();
+        let instant: std::time::Instant = instant.into();
         if instant > now {
             instant.duration_since(now).as_millis() as i32
         } else {

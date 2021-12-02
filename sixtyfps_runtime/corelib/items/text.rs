@@ -32,6 +32,9 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use sixtyfps_corelib_macros::*;
 
+#[cfg(not(feature = "std"))]
+use num_traits::float::Float;
+
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -395,6 +398,10 @@ impl Item for TextInput {
                         return KeyEventResult::EventAccepted;
                     } else if event.text == "v" {
                         self.paste(window);
+                        return KeyEventResult::EventAccepted;
+                    } else if event.text == "x" {
+                        self.copy();
+                        self.delete_selection(window);
                         return KeyEventResult::EventAccepted;
                     }
                     return KeyEventResult::EventIgnored;

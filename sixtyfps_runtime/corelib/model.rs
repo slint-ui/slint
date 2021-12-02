@@ -10,24 +10,37 @@ LICENSE END */
 
 //! Model and Repeater
 
-use alloc::boxed::Box;
-use alloc::rc::{Rc, Weak};
-use alloc::vec::Vec;
-use core::cell::{Cell, RefCell};
-use core::pin::Pin;
+// Safety: we use pointer to Repeater in the DependencyList, bue the Drop of the Repeater
+// will remove them from the list so it will not be accessed after it is dropped
+#![allow(unsafe_code)]
 
 use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
+use crate::properties::dependency_tracker::DependencyNode;
 use crate::Property;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::cell::{Cell, RefCell};
+use core::pin::Pin;
+use once_cell::unsync::OnceCell;
+use pin_project::pin_project;
+use pin_weak::rc::{PinWeak, Rc};
 
-type ModelPeerInner = dyn ViewAbstraction;
+#[cfg(not(feature = "std"))]
+use num_traits::float::Float;
+
+type DependencyListHead =
+    crate::properties::dependency_tracker::DependencyListHead<*const dyn ErasedRepeater>;
 type ComponentRc<C> = vtable::VRc<crate::component::ComponentVTable, C>;
 
-/// Represent a handle to a view that listens to changes to a model. See [`Model::attach_peer`] and [`ModelNotify`]
+/// Represent a handle to a view that listens to changes to a model.
+///
+/// See [`Model::attach_peer`] and [`ModelNotify`]
 #[derive(Clone)]
 pub struct ModelPeer {
-    inner: Weak<RefCell<ModelPeerInner>>,
+    // FIXME: add a lifetime to ModelPeer so we can put the DependencyNode directly in the Repeater
+    inner: PinWeak<DependencyNode<*const dyn ErasedRepeater>>,
 }
 
 /// This trait defines the interface that users of a model can use to track changes
@@ -47,37 +60,49 @@ impl ModelTracker for () {
     fn track_row_count_changes(&self) {}
 }
 
+#[pin_project]
+#[derive(Default)]
+struct ModelNotifyInner {
+    #[pin]
+    model_dirty_property: Property<()>,
+    #[pin]
+    peers: DependencyListHead,
+}
+
 /// Dispatch notifications from a [`Model`] to one or several [`ModelPeer`].
 /// Typically, you would want to put this in the implementation of the Model
 #[derive(Default)]
 pub struct ModelNotify {
-    inner: RefCell<weak_table::PtrWeakHashSet<Weak<RefCell<ModelPeerInner>>>>,
-    model_dirty_property: RefCell<Option<Pin<Rc<Property<()>>>>>,
+    inner: OnceCell<Pin<Box<ModelNotifyInner>>>,
 }
 
 impl ModelNotify {
+    fn inner(&self) -> Pin<&ModelNotifyInner> {
+        self.inner.get_or_init(|| Box::pin(ModelNotifyInner::default())).as_ref()
+    }
+
     /// Notify the peers that a specific row was changed
     pub fn row_changed(&self, row: usize) {
-        for peer in self.inner.borrow().iter() {
-            peer.borrow_mut().row_changed(row)
+        if let Some(inner) = self.inner.get() {
+            inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.row_changed(row))
         }
     }
     /// Notify the peers that rows were added
     pub fn row_added(&self, index: usize, count: usize) {
-        if let Some(model_dirty_tracker) = self.model_dirty_property.borrow().as_ref() {
-            model_dirty_tracker.mark_dirty()
-        }
-        for peer in self.inner.borrow().iter() {
-            peer.borrow_mut().row_added(index, count)
+        if let Some(inner) = self.inner.get() {
+            inner.model_dirty_property.mark_dirty();
+            inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.row_added(index, count))
         }
     }
     /// Notify the peers that rows were removed
     pub fn row_removed(&self, index: usize, count: usize) {
-        if let Some(model_dirty_tracker) = self.model_dirty_property.borrow().as_ref() {
-            model_dirty_tracker.mark_dirty()
-        }
-        for peer in self.inner.borrow().iter() {
-            peer.borrow_mut().row_removed(index, count)
+        if let Some(inner) = self.inner.get() {
+            inner.model_dirty_property.mark_dirty();
+            inner
+                .as_ref()
+                .project_ref()
+                .peers
+                .for_each(|p| unsafe { &**p }.row_removed(index, count))
         }
     }
     /// Attach one peer. The peer will be notified when the model changes
@@ -92,15 +117,13 @@ impl ModelNotify {
 impl ModelTracker for ModelNotify {
     /// Attach one peer. The peer will be notified when the model changes
     fn attach_peer(&self, peer: ModelPeer) {
-        peer.inner.upgrade().map(|rc| self.inner.borrow_mut().insert(rc));
+        if let Some(peer) = peer.inner.upgrade() {
+            self.inner().project_ref().peers.append(peer.as_ref())
+        }
     }
 
     fn track_row_count_changes(&self) {
-        self.model_dirty_property
-            .borrow_mut()
-            .get_or_insert_with(|| Rc::pin(Default::default()))
-            .as_ref()
-            .get();
+        self.inner().project_ref().model_dirty_property.get();
     }
 }
 
@@ -474,7 +497,6 @@ enum RepeatedComponentState {
 }
 struct RepeaterInner<C: RepeatedComponent> {
     components: Vec<(RepeatedComponentState, Option<ComponentRc<C>>)>,
-    is_dirty: Pin<Box<Property<bool>>>,
     /// The model row (index) of the first component in the `components` vector.
     /// Only used for ListView
     offset: usize,
@@ -484,75 +506,67 @@ struct RepeaterInner<C: RepeatedComponent> {
 
 impl<C: RepeatedComponent> Default for RepeaterInner<C> {
     fn default() -> Self {
-        RepeaterInner {
-            components: Default::default(),
-            is_dirty: Box::pin(Property::new(true)),
-            offset: 0,
-            cached_item_height: 0.,
-        }
+        RepeaterInner { components: Default::default(), offset: 0, cached_item_height: 0. }
     }
 }
-
-impl<C: RepeatedComponent> Clone for RepeaterInner<C> {
-    fn clone(&self) -> Self {
-        panic!("Clone is there so we can make_mut the RepeaterInner, to dissociate the weak refs, but there should only be one inner")
-    }
+trait ErasedRepeater {
+    fn row_changed(&self, row: usize);
+    fn row_added(&self, index: usize, count: usize);
+    fn row_removed(&self, index: usize, count: usize);
 }
 
-trait ViewAbstraction {
-    fn row_changed(&mut self, row: usize);
-    fn row_added(&mut self, index: usize, count: usize);
-    fn row_removed(&mut self, index: usize, count: usize);
-}
-
-impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
+impl<C: RepeatedComponent> ErasedRepeater for Repeater<C> {
     /// Notify the peers that a specific row was changed
-    fn row_changed(&mut self, row: usize) {
-        self.is_dirty.as_ref().set(true);
-        if let Some(c) = self.components.get_mut(row.wrapping_sub(self.offset)) {
+    fn row_changed(&self, row: usize) {
+        self.is_dirty.set(true);
+        let mut inner = self.inner.borrow_mut();
+        let inner = &mut *inner;
+        if let Some(c) = inner.components.get_mut(row.wrapping_sub(inner.offset)) {
             c.0 = RepeatedComponentState::Dirty;
         }
     }
     /// Notify the peers that rows were added
-    fn row_added(&mut self, mut index: usize, mut count: usize) {
-        if index < self.offset {
-            if index + count < self.offset {
+    fn row_added(&self, mut index: usize, mut count: usize) {
+        let mut inner = self.inner.borrow_mut();
+        if index < inner.offset {
+            if index + count < inner.offset {
                 return;
             }
-            count -= self.offset - index;
+            count -= inner.offset - index;
             index = 0;
         } else {
-            index -= self.offset;
+            index -= inner.offset;
         }
-        if count == 0 || index > self.components.len() {
+        if count == 0 || index > inner.components.len() {
             return;
         }
-        self.is_dirty.as_ref().set(true);
-        self.components.splice(
+        self.is_dirty.set(true);
+        inner.components.splice(
             index..index,
             core::iter::repeat((RepeatedComponentState::Dirty, None)).take(count),
         );
     }
     /// Notify the peers that rows were removed
-    fn row_removed(&mut self, mut index: usize, mut count: usize) {
-        if index < self.offset {
-            if index + count < self.offset {
+    fn row_removed(&self, mut index: usize, mut count: usize) {
+        let mut inner = self.inner.borrow_mut();
+        if index < inner.offset {
+            if index + count < inner.offset {
                 return;
             }
-            count -= self.offset - index;
+            count -= inner.offset - index;
             index = 0;
         } else {
-            index -= self.offset;
+            index -= inner.offset;
         }
-        if count == 0 || index >= self.components.len() {
+        if count == 0 || index >= inner.components.len() {
             return;
         }
-        if (index + count) > self.components.len() {
-            count = self.components.len() - index;
+        if (index + count) > inner.components.len() {
+            count = inner.components.len() - index;
         }
-        self.is_dirty.as_ref().set(true);
-        self.components.drain(index..(index + count));
-        for c in self.components[index..].iter_mut() {
+        self.is_dirty.set(true);
+        inner.components.drain(index..(index + count));
+        for c in inner.components[index..].iter_mut() {
             // Because all the indexes are dirty
             c.0 = RepeatedComponentState::Dirty;
         }
@@ -561,13 +575,20 @@ impl<C: RepeatedComponent> ViewAbstraction for RepeaterInner<C> {
 
 /// This field is put in a component when using the `for` syntax
 /// It helps instantiating the components `C`
+#[pin_project(PinnedDrop)]
 pub struct Repeater<C: RepeatedComponent> {
-    /// The Rc is shared between ModelPeer. The outer RefCell make it possible to re-initialize a new Rc when
-    /// The model is changed. The inner RefCell make it possible to change the RepeaterInner when shared
-    inner: RefCell<Rc<RefCell<RepeaterInner<C>>>>,
+    inner: RefCell<RepeaterInner<C>>,
+    #[pin]
     model: Property<ModelHandle<C::Data>>,
+    #[pin]
+    is_dirty: Property<bool>,
     /// Only used for the list view to track if the scrollbar has changed and item needs to be layed out again.
+    #[pin]
     listview_geometry_tracker: crate::properties::PropertyTracker,
+
+    /// Will be initialized when the ModelPeer is initialized.
+    /// The DependencyNode points to self
+    peer: OnceCell<Pin<Rc<DependencyNode<*const dyn ErasedRepeater>>>>,
 }
 
 impl<C: RepeatedComponent> Default for Repeater<C> {
@@ -575,7 +596,22 @@ impl<C: RepeatedComponent> Default for Repeater<C> {
         Repeater {
             inner: Default::default(),
             model: Default::default(),
+            is_dirty: Default::default(),
             listview_geometry_tracker: Default::default(),
+            peer: Default::default(),
+        }
+    }
+}
+
+#[pin_project::pinned_drop]
+impl<C: RepeatedComponent> PinnedDrop for Repeater<C> {
+    fn drop(self: Pin<&mut Self>) {
+        if let Some(peer) = self.peer.get() {
+            peer.remove();
+            // We should be the only one still holding a ref count to it, so that
+            // it cannot be re-added in any list, and the pointer to self will not
+            // be accessed anymore
+            debug_assert_eq!(PinWeak::downgrade(peer.clone()).strong_count(), 1);
         }
     }
 }
@@ -583,16 +619,21 @@ impl<C: RepeatedComponent> Default for Repeater<C> {
 impl<C: RepeatedComponent + 'static> Repeater<C> {
     fn model(self: Pin<&Self>) -> ModelHandle<C::Data> {
         // Safety: Repeater does not implement drop and never let access model as mutable
-        #[allow(unsafe_code)]
-        let model = unsafe { self.map_unchecked(|s| &s.model) };
+        let model = self.project_ref().model;
 
         if model.is_dirty() {
-            // Invalidate previous weeks on the previous models
-            (*Rc::make_mut(&mut self.inner.borrow_mut()).get_mut()) = RepeaterInner::default();
+            *self.inner.borrow_mut() = RepeaterInner::default();
+            self.is_dirty.set(true);
             if let ModelHandle(Some(m)) = model.get() {
-                let peer: Rc<RefCell<dyn ViewAbstraction>> = self.inner.borrow().clone();
+                let peer = self.peer.get_or_init(|| {
+                    //Safety: we will reset it when we Drop the Repeater
+                    Rc::pin(DependencyNode::new(
+                        self.get_ref() as &dyn ErasedRepeater as *const dyn ErasedRepeater
+                    ))
+                });
+
                 #[allow(deprecated)]
-                m.attach_peer(ModelPeer { inner: Rc::downgrade(&peer) });
+                m.attach_peer(ModelPeer { inner: PinWeak::downgrade(peer.clone()) });
             }
         }
         model.get()
@@ -602,11 +643,11 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     /// The init function is the function to create a component
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ComponentRc<C>) {
         if let ModelHandle(Some(model)) = self.model() {
-            if self.inner.borrow().borrow().is_dirty.as_ref().get() {
+            if self.project_ref().is_dirty.get() {
                 self.ensure_updated_impl(init, &model, model.row_count());
             }
         } else {
-            self.inner.borrow().borrow_mut().components.clear();
+            self.inner.borrow_mut().components.clear();
         }
     }
 
@@ -617,8 +658,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         model: &Rc<dyn Model<Data = C::Data>>,
         count: usize,
     ) -> bool {
-        let inner = self.inner.borrow();
-        let mut inner = inner.borrow_mut();
+        let mut inner = self.inner.borrow_mut();
         inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
         let offset = inner.offset;
         let mut created = false;
@@ -632,7 +672,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 c.0 = RepeatedComponentState::Clean;
             }
         }
-        inner.is_dirty.as_ref().set(false);
+        self.is_dirty.set(false);
         created
     }
 
@@ -647,7 +687,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         listview_height: Pin<&Property<f32>>,
     ) {
         let empty_model = || {
-            self.inner.borrow().borrow_mut().components.clear();
+            self.inner.borrow_mut().components.clear();
             viewport_height.set(0.);
             viewport_y.set(0.);
         };
@@ -662,19 +702,16 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             return empty_model();
         }
 
-        #[allow(unsafe_code)]
-        // Safety: Repeater does not implement drop and never let access model as mutable
-        let listview_geometry_tracker =
-            unsafe { self.map_unchecked(|s| &s.listview_geometry_tracker) };
         let init = &init;
 
+        let listview_geometry_tracker = self.project_ref().listview_geometry_tracker;
         let geometry_updated = listview_geometry_tracker
             .evaluate_if_dirty(|| {
                 // Fetch the model again to make sure that it is a dependency of this geometry tracker.
                 // invariant: model existence was checked earlier, so unwrap() should be safe.
                 let model = self.model().0.unwrap();
                 // Also register a dependency to "is_dirty"
-                let _ = self.inner.borrow().borrow().is_dirty.as_ref().get();
+                let _ = self.project_ref().is_dirty.get();
 
                 let listview_height = listview_height.get();
                 // Compute the element height
@@ -688,7 +725,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     total_height.set(total_height.get() + height);
                     min_height.set(min_height.get().min(height))
                 };
-                for c in self.inner.borrow().borrow().components.iter() {
+                for c in self.inner.borrow().components.iter() {
                     if let Some(x) = c.1.as_ref() {
                         get_height_visitor(x.as_pin_ref().get_item_ref(0));
                     }
@@ -700,13 +737,12 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     // There seems to be currently no items. Just instantiate one item.
 
                     {
-                        let inner = self.inner.borrow();
-                        let mut inner = inner.borrow_mut();
+                        let mut inner = self.inner.borrow_mut();
                         inner.offset = inner.offset.min(row_count - 1);
                     }
 
                     self.ensure_updated_impl(&init, &model, 1);
-                    if let Some(c) = self.inner.borrow().borrow().components.get(0) {
+                    if let Some(c) = self.inner.borrow().components.get(0) {
                         if let Some(x) = c.1.as_ref() {
                             get_height_visitor(x.as_pin_ref().get_item_ref(0));
                         }
@@ -726,13 +762,13 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 }
                 let mut count = ((listview_height / min_height).ceil() as usize)
                     // count never decreases to avoid too much flickering if items have different size
-                    .max(self.inner.borrow().borrow().components.len())
+                    .max(self.inner.borrow().components.len())
                     .min(row_count);
                 let mut offset =
                     ((offset_y / element_height).floor() as usize).min(row_count - count);
-                self.inner.borrow().borrow_mut().cached_item_height = element_height;
+                self.inner.borrow_mut().cached_item_height = element_height;
                 loop {
-                    self.inner.borrow().borrow_mut().cached_item_height = element_height;
+                    self.inner.borrow_mut().cached_item_height = element_height;
                     self.set_offset(offset, count);
                     self.ensure_updated_impl(init, &model, count);
                     let end = self.compute_layout_listview(viewport_width, listview_width);
@@ -758,22 +794,20 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             })
             .is_some();
 
-        if !geometry_updated && self.inner.borrow().borrow().is_dirty.as_ref().get() {
+        if !geometry_updated && self.project_ref().is_dirty.get() {
             let count = self
                 .inner
                 .borrow()
-                .borrow()
                 .components
                 .len()
-                .min(row_count.saturating_sub(self.inner.borrow().borrow().offset));
+                .min(row_count.saturating_sub(self.inner.borrow().offset));
             self.ensure_updated_impl(init, &model, count);
             self.compute_layout_listview(viewport_width, listview_width);
         }
     }
 
     fn set_offset(&self, offset: usize, count: usize) {
-        let inner = self.inner.borrow();
-        let mut inner = inner.borrow_mut();
+        let mut inner = self.inner.borrow_mut();
         let old_offset = inner.offset;
         // Remove the items before the offset, or add items until the old offset
         let to_remove = offset.saturating_sub(old_offset);
@@ -788,14 +822,14 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         }
         inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
         inner.offset = offset;
-        inner.is_dirty.as_ref().set(true);
+        self.is_dirty.set(true);
     }
 
     /// Sets the data directly in the model
     pub fn model_set_row_data(self: Pin<&Self>, row: usize, data: C::Data) {
         if let ModelHandle(Some(model)) = self.model() {
             model.set_row_data(row, data);
-            if let Some(c) = self.inner.borrow().borrow_mut().components.get_mut(row) {
+            if let Some(c) = self.inner.borrow_mut().components.get_mut(row) {
                 if c.0 == RepeatedComponentState::Dirty {
                     if let Some(comp) = c.1.as_ref() {
                         comp.update(row, model.row_data(row));
@@ -820,10 +854,10 @@ impl<C: RepeatedComponent> Repeater<C> {
         mut visitor: crate::item_tree::ItemVisitorRefMut,
     ) -> crate::item_tree::VisitChildrenResult {
         // We can't keep self.inner borrowed because the event might modify the model
-        let count = self.inner.borrow().borrow().components.len();
+        let count = self.inner.borrow().components.len();
         for i in 0..count {
             let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };
-            let c = self.inner.borrow().borrow().components.get(i).and_then(|c| c.1.clone());
+            let c = self.inner.borrow().components.get(i).and_then(|c| c.1.clone());
             if let Some(c) = c {
                 if c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
                 {
@@ -836,7 +870,7 @@ impl<C: RepeatedComponent> Repeater<C> {
 
     /// Return the amount of item currently in the component
     pub fn len(&self) -> usize {
-        self.inner.borrow().borrow().components.len()
+        self.inner.borrow().components.len()
     }
 
     /// Return true if the Repeater is empty
@@ -846,7 +880,7 @@ impl<C: RepeatedComponent> Repeater<C> {
 
     /// Returns a vector containing all components
     pub fn components_vec(&self) -> Vec<ComponentRc<C>> {
-        self.inner.borrow().borrow().components.iter().flat_map(|x| x.1.clone()).collect()
+        self.inner.borrow().components.iter().flat_map(|x| x.1.clone()).collect()
     }
 
     /// Set the position of all the element in the listview
@@ -858,10 +892,9 @@ impl<C: RepeatedComponent> Repeater<C> {
         listview_width: f32,
     ) -> f32 {
         let inner = self.inner.borrow();
-        let inner = inner.borrow();
         let mut y_offset = inner.offset as f32 * inner.cached_item_height;
         viewport_width.set(listview_width);
-        for c in self.inner.borrow().borrow().components.iter() {
+        for c in self.inner.borrow().components.iter() {
             if let Some(x) = c.1.as_ref() {
                 x.as_pin_ref().listview_layout(&mut y_offset, viewport_width);
             }

@@ -18,10 +18,16 @@ rtti = []
 # Expose C ABI
 ffi = []
 # Use the standard library
-std = ["euclid/std", "lyon_path", "lyon_algorithms", "lyon_geom"]
+std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algorithms", "lyon_geom", "instant"]
 
 default = ["std"]
 
+# Unsafe feature meaning that there is only one core running and all thread_local are static.
+# You can only enable this feature if you are sure that any API of this crate is only called
+# from a single core, and not in a interrupt or signal handler.
+unsafe_single_core = []
+
+libm = ["num-traits/libm", "euclid/libm"]
 
 [dependencies]
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
@@ -33,20 +39,22 @@ lyon_geom = { version = "0.17.0", optional = true  }
 euclid = { version = "0.22.1", default-features = false }
 triomphe = { version = "0.1.1", default-features = false }
 once_cell = { version = "1.5", default-features = false }
-instant = { version = "0.1", features = [ "now" ] }
+instant = { version = "0.1", features = [ "now" ], optional = true }
 derive_more = "0.99.5"
-scoped-tls-hkt = "0.1"
+scoped-tls-hkt = { version = "0.1", optional = true }
 static_assertions = "1.1"
 strum = { version = "0.23.0", default-features = false, features = ["derive"] }
 slab = { version = "0.4.3", default-features = false }
-pin-weak = "1"
+pin-weak = { version = "1.1", default-features = false }
 auto_enums = "0.7"
-weak-table =  "0.3"
 scopeguard =  { version = "1.1.0", default-features = false }
 cfg-if = "1"
 unicode-segmentation = "1.8.0"
 # Note: the rgb version is extracted in ci.yaml for rustdoc builds
 rgb = "0.8.27"
+pin-project = "1"
+atomic-polyfill = { version = "0.1.5" }
+num-traits = { version = "0.2", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }

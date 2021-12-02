@@ -18,6 +18,8 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 
+use crate::animations::Instant;
+
 type TimerCallback = Box<dyn Fn()>;
 type SingleShotTimerCallback = Box<dyn FnOnce()>;
 
@@ -157,7 +159,7 @@ struct TimerData {
 #[derive(Clone, Copy)]
 struct ActiveTimer {
     id: usize,
-    timeout: instant::Instant,
+    timeout: Instant,
 }
 
 /// TimerList provides the interface to the event loop for activating times and
@@ -173,7 +175,7 @@ pub struct TimerList {
 impl TimerList {
     /// Returns the timeout of the timer that should fire the soonest, or None if there
     /// is no timer active.
-    pub fn next_timeout() -> Option<instant::Instant> {
+    pub fn next_timeout() -> Option<Instant> {
         CURRENT_TIMERS.with(|timers| {
             timers
                 .borrow()
@@ -186,7 +188,7 @@ impl TimerList {
     /// Activates any expired timers by calling their callback function. Returns true if any timers were
     /// activated; false otherwise.
     pub fn maybe_activate_timers() -> bool {
-        let now = instant::Instant::now();
+        let now = Instant::now();
         // Shortcut: Is there any timer worth activating?
         if TimerList::next_timeout().map(|timeout| now < timeout).unwrap_or(false) {
             return false;
@@ -263,7 +265,7 @@ impl TimerList {
     fn activate_timer(&mut self, timer_id: usize) {
         self.register_active_timer(ActiveTimer {
             id: timer_id,
-            timeout: instant::Instant::now() + self.timers[timer_id].duration,
+            timeout: Instant::now() + self.timers[timer_id].duration,
         });
     }
 
@@ -285,6 +287,9 @@ impl TimerList {
         }
     }
 }
+
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use crate::unsafe_single_core::thread_local;
 
 thread_local!(static CURRENT_TIMERS : RefCell<TimerList> = RefCell::default());
 

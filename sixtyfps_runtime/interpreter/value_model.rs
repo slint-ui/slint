@@ -26,13 +26,18 @@ impl ValueModel {
 impl ModelTracker for ValueModel {
     fn attach_peer(&self, peer: sixtyfps_corelib::model::ModelPeer) {
         if let Value::Model(ref model_ptr) = *self.value.borrow() {
-            model_ptr.model_tracker().attach_peer(peer.clone())
+            model_ptr.model_tracker().attach_peer(peer)
+        } else {
+            self.notify.attach_peer(peer)
         }
-        self.notify.attach_peer(peer)
     }
 
     fn track_row_count_changes(&self) {
-        self.notify.track_row_count_changes()
+        if let Value::Model(ref model_ptr) = *self.value.borrow() {
+            model_ptr.model_tracker().track_row_count_changes()
+        } else {
+            self.notify.track_row_count_changes()
+        }
     }
 }
 
