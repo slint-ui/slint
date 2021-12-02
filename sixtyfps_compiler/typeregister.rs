@@ -194,6 +194,10 @@ impl TypeRegister {
         declare_enum("EventResult", &["reject", "accept"]);
         declare_enum("FillRule", &["nonzero", "evenodd"]);
         declare_enum(
+            "CursorStyle",
+            &["pointer", "help", "wait", "crosshair", "not-allowed", "zoom-in", "grab"],
+        );
+        declare_enum(
             "StandardButtonKind",
             &[
                 "ok", "cancel", "apply", "close", "reset", "help", "yes", "no", "abort", "retry",

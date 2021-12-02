@@ -115,6 +115,7 @@ export TouchArea := _ {
     property <length> mouse_y: native_output;
     property <length> pressed_x: native_output;
     property <length> pressed_y: native_output;
+    property <image> cursor_style;
     callback clicked;
     callback moved;
     callback pointer-event(PointerEvent);

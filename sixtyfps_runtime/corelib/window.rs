@@ -142,6 +142,7 @@ pub struct Window {
 
     focus_item: RefCell<ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
+    cursor_style: Cell<crate::items::CursorStyle>,
 
     scale_factor: Pin<Box<Property<f32>>>,
     active: Pin<Box<Property<bool>>>,
@@ -170,6 +171,7 @@ impl Window {
             meta_properties_tracker: Rc::pin(Default::default()),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
+            cursor_style: Default::default(),
             scale_factor: Box::pin(Property::new(1.)),
             active: Box::pin(Property::new(false)),
             active_popup: Default::default(),

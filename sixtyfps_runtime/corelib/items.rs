@@ -40,6 +40,7 @@ use alloc::boxed::Box;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
+use std::slice::SliceIndex;
 use sixtyfps_corelib_macros::*;
 use vtable::*;
 
@@ -357,6 +358,7 @@ pub struct TouchArea {
     /// FIXME: should maybe be as parameter to the mouse event instead. Or at least just one property
     pub mouse_x: Property<f32>,
     pub mouse_y: Property<f32>,
+    pub cursor_style: Property<CursorStyle>,
     pub clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
     pub pointer_event: Callback<PointerEventArg>,
@@ -391,6 +393,7 @@ impl Item for TouchArea {
             Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y);
         }
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::MouseExit));
+        Self::FIELD_OFFSETS.cursor_style.apply_pin(self).set(CursorStyle::grab);
         InputEventFilterResult::ForwardAndInterceptGrab
     }
 
@@ -401,6 +404,7 @@ impl Item for TouchArea {
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::MouseExit) {
+            Self::FIELD_OFFSETS.cursor_style.apply_pin(self).set(CursorStyle::default());
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false)
         }
         if !self.enabled() {
@@ -501,6 +505,25 @@ impl Default for EventResult {
     fn default() -> Self {
         Self::reject
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum CursorStyle {
+    pointer,
+    help,
+    wait,
+    crosshair,
+    not_allowed,
+    zoom_in,
+    grab,
+}
+
+impl Default for CursorStyle {
+     fn default() -> Self {
+         Self::pointer
+     }
 }
 
 /// A runtime item that exposes key

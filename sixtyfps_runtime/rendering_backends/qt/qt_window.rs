@@ -125,7 +125,8 @@ cpp! {{
         }
         void mouseMoveEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
-            rust!(SFPS_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+            rust!(SFPS_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", cursor: qttypes::QCursor as "QCursor"] {
+                rust_window.setCursor(cursor);
                 let pos = Point::new(pos.x as _, pos.y as _);
                 rust_window.mouse_event(MouseEvent::MouseMoved{pos})
             });
