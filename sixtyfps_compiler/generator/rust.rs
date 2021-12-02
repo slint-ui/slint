@@ -576,6 +576,20 @@ fn generate_component(
                 if component_state.is_empty() {
                     self.item_names.push(field_name);
                     self.item_types.push(ident(&item.base_type.as_native().class_name));
+                    #[cfg(sixtyfps_debug_property)]
+                    for (prop, ty) in &item.base_type.as_native().properties {
+                        if ty.is_property_type()
+                            && !prop.starts_with("viewport")
+                            && prop != "commands"
+                        {
+                            let name = format!("{}::{}.{}", self.root_component.id, item.id, prop);
+                            let elem_name = ident(&item.id);
+                            let prop = ident(&prop);
+                            self.init.push(
+                                quote!(self_rc.#elem_name.#prop.debug_name.replace(#name.into());),
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -821,6 +835,13 @@ fn generate_component(
         item_index_base_tokens,
         diag,
     };
+
+    #[cfg(sixtyfps_debug_property)]
+    builder.init.push(quote!(
+        #(self_rc.#declared_property_vars.debug_name.replace(
+            concat!(stringify!(#inner_component_id), ".", stringify!(#declared_property_vars)).into());)*
+    ));
+
     if !component.is_global() {
         super::build_item_tree(component, &TokenStream::new(), &mut builder);
     }
