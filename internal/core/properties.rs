@@ -11,6 +11,50 @@
 #![allow(unsafe_code)]
 #![warn(missing_docs)]
 
+#[cfg(slint_debug_property)]
+mod heap_tracker {
+    //! The [`HeapTracker`] struct is counting itself and prints all its instance currently live when there is a peak.
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+
+    use once_cell::sync::OnceCell;
+
+    #[derive(Default)]
+    struct HeapTrackerData {
+        peak: usize,
+        counter: usize,
+        tracked: HashMap<usize, String>,
+    }
+
+    static DATA: OnceCell<Mutex<HeapTrackerData>> = OnceCell::new();
+    pub struct HeapTracker(usize);
+    impl HeapTracker {
+        pub fn new(descr: String) -> Self {
+            let mut data = DATA.get_or_init(Default::default).lock().unwrap();
+            let data = &mut *data;
+            data.counter += 1;
+            data.tracked.insert(data.counter, descr);
+            HeapTracker(data.counter)
+        }
+    }
+    impl Drop for HeapTracker {
+        fn drop(&mut self) {
+            let mut data = DATA.get_or_init(Default::default).lock().unwrap();
+            let data = &mut *data;
+            if data.tracked.len() > data.peak {
+                eprintln!("========== new peak of {}", data.tracked.len());
+                data.peak = data.tracked.len();
+                for x in data.tracked.values() {
+                    eprintln!(" {}", x);
+                }
+                eprintln!("===========");
+            }
+            // check with peak
+            data.tracked.remove(&self.0);
+        }
+    }
+}
+
 mod single_linked_list_pin {
     #![allow(unsafe_code)]
     use alloc::boxed::Box;
@@ -330,7 +374,15 @@ struct BindingHolder<B = ()> {
     dependencies: Cell<usize>,
     /// The binding own the nodes used in the dependencies lists of the properties
     /// From which we depend.
+    #[cfg(not(slint_debug_property))]
     dep_nodes: RefCell<single_linked_list_pin::SingleLinkedListPinHead<DependencyNode>>,
+    #[cfg(slint_debug_property)]
+    dep_nodes: RefCell<
+        single_linked_list_pin::SingleLinkedListPinHead<(
+            DependencyNode,
+            heap_tracker::HeapTracker,
+        )>,
+    >,
     vtable: &'static BindingVTable,
     /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
@@ -349,7 +401,21 @@ impl BindingHolder {
     ) {
         let node = DependencyNode::new(self.get_ref() as *const _);
         let mut dep_nodes = self.dep_nodes.borrow_mut();
+        #[cfg(not(slint_debug_property))]
         let node = dep_nodes.push_front(node);
+        #[cfg(slint_debug_property)]
+        let node = unsafe {
+            Pin::map_unchecked(
+                dep_nodes.push_front((
+                    node,
+                    heap_tracker::HeapTracker::new(format!(
+                        "{} -> {}",
+                        other_debug_name, self.debug_name
+                    )),
+                )),
+                |x| &x.0,
+            )
+        };
         unsafe { DependencyListHead::append(&*property_that_will_notify, node) }
     }
 }
