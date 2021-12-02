@@ -337,6 +337,9 @@ struct BindingHolder<B = ()> {
     /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
     pinned: PhantomPinned,
+    #[cfg(sixtyfps_debug_property)]
+    pub debug_name: String,
+
     binding: B,
 }
 
@@ -344,6 +347,7 @@ impl BindingHolder {
     fn register_self_as_dependency(
         self: Pin<&Self>,
         property_that_will_notify: *mut DependencyListHead,
+        #[cfg(sixtyfps_debug_property)] other_debug_name: &str,
     ) {
         let node = DependencyNode::new(self.get_ref() as *const _);
         let mut dep_nodes = self.dep_nodes.borrow_mut();
@@ -410,6 +414,8 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         vtable: <B as HasBindingVTable>::VT,
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
         pinned: PhantomPinned,
+        #[cfg(sixtyfps_debug_property)]
+        debug_name: Default::default(),
         binding,
     };
     Box::into_raw(Box::new(holder)) as *mut BindingHolder
@@ -473,8 +479,16 @@ impl PropertyHandle {
     }
 
     /// Safety: the BindingCallable must be valid for the type of this property
-    unsafe fn set_binding<B: BindingCallable + 'static>(&self, binding: B) {
+    unsafe fn set_binding<B: BindingCallable + 'static>(
+        &self,
+        binding: B,
+        #[cfg(sixtyfps_debug_property)] debug_name: &str,
+    ) {
         let binding = alloc_binding_holder::<B>(binding);
+        #[cfg(sixtyfps_debug_property)]
+        {
+            (*binding).debug_name = debug_name.into();
+        }
         self.set_binding_impl(binding);
     }
 
@@ -538,10 +552,17 @@ impl PropertyHandle {
     }
 
     /// Register this property as a dependency to the current binding being evaluated
-    fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
+    fn register_as_dependency_to_current_binding(
+        self: Pin<&Self>,
+        #[cfg(sixtyfps_debug_property)] debug_name: &str,
+    ) {
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
-                cur_binding.register_self_as_dependency(self.dependencies());
+                cur_binding.register_self_as_dependency(
+                    self.dependencies(),
+                    #[cfg(sixtyfps_debug_property)]
+                    debug_name,
+                );
             });
         }
     }
@@ -598,10 +619,17 @@ pub struct Property<T> {
     /// This is only safe to access when the lock flag is not set on the handle.
     value: UnsafeCell<T>,
     pinned: PhantomPinned,
+    /// Enabled only if compiled with `RUSTFLAGS='--cfg sixtyfps_debug_property'`
+    /// Note that adding this flag will also tell the rust compiler to set this
+    /// and that this will not work with C++ because of binary incompatibility
+    #[cfg(sixtyfps_debug_property)]
+    pub debug_name: RefCell<String>,
 }
 
 impl<T: core::fmt::Debug + Clone> core::fmt::Debug for Property<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        #[cfg(sixtyfps_debug_property)]
+        write!(f, "[{}]=", self.debug_name.borrow())?;
         write!(
             f,
             "Property({:?}{})",
@@ -613,14 +641,26 @@ impl<T: core::fmt::Debug + Clone> core::fmt::Debug for Property<T> {
 
 impl<T: Default> Default for Property<T> {
     fn default() -> Self {
-        Self { handle: Default::default(), value: Default::default(), pinned: PhantomPinned }
+        Self {
+            handle: Default::default(),
+            value: Default::default(),
+            pinned: PhantomPinned,
+            #[cfg(sixtyfps_debug_property)]
+            debug_name: Default::default(),
+        }
     }
 }
 
 impl<T: Clone> Property<T> {
     /// Create a new property with this value
     pub fn new(value: T) -> Self {
-        Self { handle: Default::default(), value: UnsafeCell::new(value), pinned: PhantomPinned }
+        Self {
+            handle: Default::default(),
+            value: UnsafeCell::new(value),
+            pinned: PhantomPinned,
+            #[cfg(sixtyfps_debug_property)]
+            debug_name: Default::default(),
+        }
     }
 
     /// Get the value of the property
@@ -635,7 +675,10 @@ impl<T: Clone> Property<T> {
     pub fn get(self: Pin<&Self>) -> T {
         unsafe { self.handle.update(self.value.get()) };
         let handle = unsafe { Pin::new_unchecked(&self.handle) };
-        handle.register_as_dependency_to_current_binding();
+        handle.register_as_dependency_to_current_binding(
+            #[cfg(sixtyfps_debug_property)]
+            self.debug_name.borrow().as_str(),
+        );
         self.get_internal()
     }
 
@@ -733,11 +776,15 @@ impl<T: Clone> Property<T> {
     pub fn set_binding(&self, binding: impl Binding<T> + 'static) {
         // Safety: This will make a binding callable for the type T
         unsafe {
-            self.handle.set_binding(move |val: *mut ()| {
-                let val = &mut *(val as *mut T);
-                *val = binding.evaluate(val);
-                BindingResult::KeepBinding
-            });
+            self.handle.set_binding(
+                move |val: *mut ()| {
+                    let val = &mut *(val as *mut T);
+                    *val = binding.evaluate(val);
+                    BindingResult::KeepBinding
+                },
+                #[cfg(sixtyfps_debug_property)]
+                self.debug_name.borrow().as_str(),
+            )
         }
         self.handle.mark_dirty();
     }
@@ -771,17 +818,21 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         ));
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
-            self.handle.set_binding(move |val: *mut ()| {
-                let (value, finished) = d.borrow_mut().compute_interpolated_value();
-                *(val as *mut T) = value;
-                if finished {
-                    BindingResult::RemoveBinding
-                } else {
-                    crate::animations::CURRENT_ANIMATION_DRIVER
-                        .with(|driver| driver.set_has_active_animations());
-                    BindingResult::KeepBinding
-                }
-            });
+            self.handle.set_binding(
+                move |val: *mut ()| {
+                    let (value, finished) = d.borrow_mut().compute_interpolated_value();
+                    *(val as *mut T) = value;
+                    if finished {
+                        BindingResult::RemoveBinding
+                    } else {
+                        crate::animations::CURRENT_ANIMATION_DRIVER
+                            .with(|driver| driver.set_has_active_animations());
+                        BindingResult::KeepBinding
+                    }
+                },
+                #[cfg(sixtyfps_debug_property)]
+                self.debug_name.borrow().as_str(),
+            );
         }
         self.handle.mark_dirty();
     }
@@ -814,7 +865,13 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         };
 
         // Safety: the `AnimatedBindingCallable`'s type match the property type
-        unsafe { self.handle.set_binding(binding_callable) };
+        unsafe {
+            self.handle.set_binding(
+                binding_callable,
+                #[cfg(sixtyfps_debug_property)]
+                self.debug_name.borrow().as_str(),
+            )
+        };
         self.handle.mark_dirty();
     }
 
@@ -847,7 +904,13 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         };
 
         // Safety: the `AnimatedBindingCallable`'s type match the property type
-        unsafe { self.handle.set_binding(binding_callable) };
+        unsafe {
+            self.handle.set_binding(
+                binding_callable,
+                #[cfg(sixtyfps_debug_property)]
+                self.debug_name.borrow().as_str(),
+            )
+        };
         self.handle.mark_dirty();
     }
 }
@@ -926,12 +989,27 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         } else {
             PropertyHandle::default()
         };
-        let common_property =
-            Rc::pin(Property { handle, value: UnsafeCell::new(value), pinned: PhantomPinned });
+        #[cfg(sixtyfps_debug_property)]
+        let debug_name = format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
+        let common_property = Rc::pin(Property {
+            handle,
+            value: UnsafeCell::new(value),
+            pinned: PhantomPinned,
+            #[cfg(sixtyfps_debug_property)]
+            debug_name: debug_name.clone().into(),
+        });
         // Safety: TwoWayBinding's T is the same as the type for both properties
         unsafe {
-            prop1.handle.set_binding(TwoWayBinding { common_property: common_property.clone() });
-            prop2.handle.set_binding(TwoWayBinding { common_property });
+            prop1.handle.set_binding(
+                TwoWayBinding { common_property: common_property.clone() },
+                #[cfg(sixtyfps_debug_property)]
+                debug_name.as_str(),
+            );
+            prop2.handle.set_binding(
+                TwoWayBinding { common_property },
+                #[cfg(sixtyfps_debug_property)]
+                debug_name.as_str(),
+            );
         }
         prop1.handle.mark_dirty();
     }
@@ -1045,7 +1123,10 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
 {
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
         let original_binding = Pin::new_unchecked(&self.original_binding);
-        original_binding.register_as_dependency_to_current_binding();
+        original_binding.register_as_dependency_to_current_binding(
+            #[cfg(sixtyfps_debug_property)]
+            "<AnimatedBindingCallable>",
+        );
         match self.state.get() {
             AnimatedBindingState::Animating => {
                 let (val, finished) = self.animation_data.borrow_mut().compute_interpolated_value();
@@ -1450,7 +1531,13 @@ impl<F: Fn() -> i32> crate::properties::BindingCallable for StateInfoBinding<F> 
 pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn() -> i32 + 'static) {
     let bind_callable = StateInfoBinding { dirty_time: Cell::new(None), binding };
     // Safety: The StateInfoBinding is a BindingCallable for type StateInfo
-    unsafe { property.handle.set_binding(bind_callable) }
+    unsafe {
+        property.handle.set_binding(
+            bind_callable,
+            #[cfg(sixtyfps_debug_property)]
+            property.debug_name.borrow().as_str(),
+        )
+    }
 }
 
 #[doc(hidden)]
@@ -1491,6 +1578,8 @@ impl Default for PropertyTracker<()> {
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             pinned: PhantomPinned,
             binding: (),
+            #[cfg(sixtyfps_debug_property)]
+            debug_name: "<PropertyTracker<()>>".into(),
         };
         Self { holder }
     }
@@ -1510,7 +1599,9 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
                 cur_binding.register_self_as_dependency(
-                    self.holder.dependencies.as_ptr() as *mut DependencyListHead
+                    self.holder.dependencies.as_ptr() as *mut DependencyListHead,
+                    #[cfg(sixtyfps_debug_property)]
+                    "<PropertyTracker>",
                 );
             });
         }
@@ -1594,6 +1685,8 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             pinned: PhantomPinned,
             binding: handler,
+            #[cfg(sixtyfps_debug_property)]
+            debug_name: "<PtopertyTracker>".into(),
         };
         Self { holder }
     }
