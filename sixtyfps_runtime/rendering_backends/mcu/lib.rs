@@ -16,46 +16,78 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 
 extern crate alloc;
 
-use alloc::boxed::Box;
-use alloc::rc::Rc;
-use alloc::string::String;
-use sixtyfps_corelib::{
-    graphics::{Image, Size},
-    window::Window,
-    ImageInner,
-};
-
 #[cfg(feature = "simulator")]
 mod simulator;
 
 #[cfg(feature = "simulator")]
-use simulator::*;
+use simulator::event_loop;
 
 mod renderer;
 
-#[cfg(not(feature = "simulator"))]
-mod dummy {
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use sixtyfps_corelib::unsafe_single_core;
+
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use sixtyfps_corelib::thread_local_ as thread_local;
+
+#[cfg(feature = "snapshot_renderer")]
+// Backend to render one snapshot frame
+mod snapshotbackend {
     use super::*;
-    use alloc::rc::Weak;
+    use alloc::boxed::Box;
+    use alloc::rc::{Rc, Weak};
+    use alloc::string::String;
+    use core::cell::{Cell, RefCell};
     use core::pin::Pin;
     use sixtyfps_corelib::component::ComponentRc;
-    use sixtyfps_corelib::graphics::Point;
+    use sixtyfps_corelib::graphics::{Color, Image, Point, Size};
+    use sixtyfps_corelib::window::PlatformWindow;
     use sixtyfps_corelib::window::Window;
+    use sixtyfps_corelib::ImageInner;
 
-    #[derive(Default)]
-    pub struct SimulatorWindow {
-        self_weak: Weak<Window>,
+    thread_local! {
+        static CUSTOM_WINDOW: RefCell<Option<Box<dyn FnOnce(&Weak<sixtyfps_corelib::window::Window>) -> Rc<dyn PlatformWindow>>>> = RefCell::new(None)
     }
-    impl SimulatorWindow {
-        pub fn new(self_weak: &Weak<Window>) -> Rc<Self> {
-            Self { self_weak: self_weak.clone() }.into()
+
+    pub struct SingleFrameWindow<Display: 'static> {
+        self_weak: Weak<Window>,
+        display: RefCell<Display>,
+        background_color: Cell<Color>,
+    }
+    impl<Display: 'static> SingleFrameWindow<Display> {
+        pub fn new(self_weak: &Weak<Window>, display: Display) -> Rc<Self> {
+            Self {
+                self_weak: self_weak.clone(),
+                display: RefCell::new(display),
+                background_color: Color::from_rgb_u8(0, 0, 0).into(),
+            }
+            .into()
         }
     }
-    impl sixtyfps_corelib::window::PlatformWindow for SimulatorWindow {
+    impl<Display, DisplayColor, DisplayError> sixtyfps_corelib::window::PlatformWindow
+        for SingleFrameWindow<Display>
+    where
+        Display:
+            embedded_graphics::draw_target::DrawTarget<Color = DisplayColor, Error = DisplayError>,
+        DisplayColor: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
+        DisplayError: core::fmt::Debug,
+    {
         fn show(self: Rc<Self>) {
+            use embedded_graphics::draw_target::DrawTargetExt;
             let runtime_window = self.self_weak.upgrade().unwrap();
-            let mut display = embedded_graphics::mock_display::MockDisplay::new();
-            crate::renderer::render_window_frame(runtime_window, Default::default(), &mut display);
+
+            runtime_window.update_window_properties();
+
+            let mut display = self.display.borrow_mut();
+
+            let size = display.bounding_box().size;
+            runtime_window.set_window_item_geometry(size.width as _, size.height as _);
+
+            let background =
+                crate::renderer::to_rgb888_color_discard_alpha(self.background_color.get());
+
+            let mut display = display.color_converted();
+            crate::renderer::render_window_frame(runtime_window, background, &mut display);
         }
         fn hide(self: Rc<Self>) {}
         fn request_redraw(&self) {}
@@ -68,8 +100,9 @@ mod dummy {
             todo!()
         }
         fn request_window_properties_update(&self) {}
-        fn apply_window_properties(&self, _window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
+        fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
             //todo!()
+            self.background_color.set(window_item.background());
         }
         fn apply_geometry_constraint(
             &self,
@@ -105,78 +138,77 @@ mod dummy {
             self
         }
     }
-}
-#[cfg(not(feature = "simulator"))]
-use dummy::*;
 
-pub struct Backend;
+    pub struct SnapshotBackend;
 
-impl sixtyfps_corelib::backend::Backend for Backend {
-    fn create_window(&'static self) -> Rc<Window> {
-        sixtyfps_corelib::window::Window::new(|window| SimulatorWindow::new(window))
-    }
+    impl SnapshotBackend {
+        pub fn new_with_display<Display, DisplayColor, DisplayError>(display: Display) -> Self
+        where
+            Display: embedded_graphics::draw_target::DrawTarget<
+                    Color = DisplayColor,
+                    Error = DisplayError,
+                > + 'static,
+            DisplayColor: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
+            DisplayError: core::fmt::Debug,
+        {
+            CUSTOM_WINDOW.with(|window_factory| {
+                *window_factory.borrow_mut() =
+                    Some(Box::new(move |window| SingleFrameWindow::new(window, display)))
+            });
 
-    fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
-        #[cfg(feature = "simulator")]
-        simulator::event_loop::run(behavior);
-    }
-
-    fn quit_event_loop(&'static self) {
-        #[cfg(feature = "simulator")]
-        simulator::event_loop::with_window_target(|event_loop| {
-            event_loop.event_loop_proxy().send_event(simulator::event_loop::CustomEvent::Exit).ok();
-        })
-    }
-
-    #[cfg(feature = "simulator")]
-    fn register_font_from_memory(
-        &'static self,
-        _data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        //TODO
-        Err("Not implemented".into())
-    }
-
-    #[cfg(feature = "simulator")]
-    fn register_font_from_path(
-        &'static self,
-        _path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
-    }
-
-    fn set_clipboard_text(&'static self, _text: String) {
-        unimplemented!()
-    }
-
-    fn clipboard_text(&'static self) -> Option<String> {
-        unimplemented!()
-    }
-
-    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
-        #[cfg(feature = "simulator")]
-        simulator::event_loop::GLOBAL_PROXY
-            .get_or_init(Default::default)
-            .lock()
-            .unwrap()
-            .send_event(simulator::event_loop::CustomEvent::UserEvent(event));
-    }
-
-    fn image_size(&'static self, image: &Image) -> Size {
-        let inner: &ImageInner = image.into();
-        match inner {
-            ImageInner::None => Default::default(),
-            ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => unimplemented!(),
-            ImageInner::EmbeddedImage(buffer) => {
-                [buffer.width() as f32, buffer.height() as f32].into()
-            }
-            ImageInner::StaticTextures { size, .. } => size.cast(),
+            Self
         }
     }
 
-    #[cfg(not(feature = "simulator"))]
-    fn duration_since_start(&'static self) -> core::time::Duration {
-        todo!()
+    impl sixtyfps_corelib::backend::Backend for SnapshotBackend {
+        fn create_window(&'static self) -> Rc<Window> {
+            sixtyfps_corelib::window::Window::new(|window| {
+                CUSTOM_WINDOW.with(|window_factory| match window_factory.borrow_mut().take() {
+                    Some(f) => f(window),
+                    None => {
+                        todo!()
+                    }
+                })
+            })
+        }
+
+        fn run_event_loop(
+            &'static self,
+            _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
+        ) {
+        }
+
+        fn quit_event_loop(&'static self) {}
+
+        fn set_clipboard_text(&'static self, _text: String) {
+            unimplemented!()
+        }
+
+        fn clipboard_text(&'static self) -> Option<String> {
+            unimplemented!()
+        }
+
+        fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
+            unimplemented!()
+        }
+
+        fn image_size(&'static self, image: &Image) -> Size {
+            let inner: &ImageInner = image.into();
+            match inner {
+                ImageInner::None => Default::default(),
+                ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => {
+                    unimplemented!()
+                }
+                ImageInner::EmbeddedImage(buffer) => {
+                    [buffer.width() as f32, buffer.height() as f32].into()
+                }
+                ImageInner::StaticTextures { size, .. } => size.cast(),
+            }
+        }
+
+        fn duration_since_start(&'static self) -> core::time::Duration {
+            todo!()
+        }
     }
 }
 
@@ -186,6 +218,29 @@ pub mod native_widgets {}
 pub const HAS_NATIVE_STYLE: bool = false;
 pub const IS_AVAILABLE: bool = true;
 
-pub fn init() {
-    sixtyfps_corelib::backend::instance_or_init(|| alloc::boxed::Box::new(Backend));
+#[cfg(feature = "simulator")]
+pub fn init_simulator() {
+    sixtyfps_corelib::backend::instance_or_init(|| {
+        alloc::boxed::Box::new(simulator::SimulatorBackend)
+    });
+}
+
+#[cfg(feature = "snapshot_renderer")]
+pub fn init_with_display<Display, DisplayColor, DisplayError>(display: Display)
+where
+    Display: embedded_graphics::draw_target::DrawTarget<Color = DisplayColor, Error = DisplayError>
+        + 'static,
+    DisplayColor: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
+    DisplayError: core::fmt::Debug,
+{
+    sixtyfps_corelib::backend::instance_or_init(|| {
+        alloc::boxed::Box::new(snapshotbackend::SnapshotBackend::new_with_display(display))
+    });
+}
+
+#[cfg(not(feature = "simulator"))]
+pub fn init_with_mock_display() {
+    init_with_display(embedded_graphics::mock_display::MockDisplay::<
+        embedded_graphics::pixelcolor::Rgb888,
+    >::new());
 }

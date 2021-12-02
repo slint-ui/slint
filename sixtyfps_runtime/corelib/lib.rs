@@ -20,9 +20,10 @@ extern crate alloc;
 
 /// Unsafe module that is only enabled when the unsafe_single_core feature is on.
 /// It re-implements the thread_local macro with statics
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-pub(crate) mod unsafe_single_core {
+#[cfg(feature = "unsafe_single_core")]
+pub mod unsafe_single_core {
     #![allow(unsafe_code)]
+    #[macro_export]
     macro_rules! thread_local_ {
         ($(#[$($meta:tt)*])* $vis:vis static $ident:ident : $ty:ty = $expr:expr) => {
             $(#[$($meta)*])*
@@ -32,7 +33,7 @@ pub(crate) mod unsafe_single_core {
             };
         };
     }
-    pub(crate) struct FakeThreadStorage<T, F = fn() -> T>(once_cell::unsync::OnceCell<T>, F);
+    pub struct FakeThreadStorage<T, F = fn() -> T>(once_cell::unsync::OnceCell<T>, F);
     impl<T, F> FakeThreadStorage<T, F> {
         pub const fn new(f: F) -> Self {
             Self(once_cell::unsync::OnceCell::new(), f)
@@ -50,9 +51,9 @@ pub(crate) mod unsafe_single_core {
     unsafe impl<T, F> Send for FakeThreadStorage<T, F> {}
     unsafe impl<T, F> Sync for FakeThreadStorage<T, F> {}
 
-    pub(crate) use thread_local_ as thread_local;
+    pub use thread_local_ as thread_local;
 
-    pub(crate) struct OnceCell<T>(once_cell::unsync::OnceCell<T>);
+    pub struct OnceCell<T>(once_cell::unsync::OnceCell<T>);
     impl<T> OnceCell<T> {
         pub const fn new() -> Self {
             Self(once_cell::unsync::OnceCell::new())
