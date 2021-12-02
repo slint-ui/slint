@@ -9,10 +9,11 @@ use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::SimulatorDisplay;
 use rgb::FromSlice;
 use sixtyfps_corelib::component::ComponentRc;
+use sixtyfps_corelib::graphics::{Image, ImageInner};
 use sixtyfps_corelib::input::KeyboardModifiers;
 use sixtyfps_corelib::items::ItemRef;
 use sixtyfps_corelib::layout::Orientation;
-use sixtyfps_corelib::window::PlatformWindow;
+use sixtyfps_corelib::window::{PlatformWindow, Window};
 use sixtyfps_corelib::Color;
 
 use self::event_loop::WinitWindow;
@@ -317,4 +318,65 @@ impl WinitWindow for SimulatorWindow {
         self.background_color.set(color);
     }
     fn set_icon(&self, _icon: sixtyfps_corelib::graphics::Image) {}
+}
+
+pub struct SimulatorBackend;
+
+impl sixtyfps_corelib::backend::Backend for SimulatorBackend {
+    fn create_window(&'static self) -> Rc<Window> {
+        sixtyfps_corelib::window::Window::new(|window| SimulatorWindow::new(window))
+    }
+
+    fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+        event_loop::run(behavior);
+    }
+
+    fn quit_event_loop(&'static self) {
+        self::event_loop::with_window_target(|event_loop| {
+            event_loop.event_loop_proxy().send_event(self::event_loop::CustomEvent::Exit).ok();
+        })
+    }
+
+    fn register_font_from_memory(
+        &'static self,
+        _data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        //TODO
+        Err("Not implemented".into())
+    }
+
+    fn register_font_from_path(
+        &'static self,
+        _path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        unimplemented!()
+    }
+
+    fn set_clipboard_text(&'static self, _text: String) {
+        unimplemented!()
+    }
+
+    fn clipboard_text(&'static self) -> Option<String> {
+        unimplemented!()
+    }
+
+    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
+        self::event_loop::GLOBAL_PROXY
+            .get_or_init(Default::default)
+            .lock()
+            .unwrap()
+            .send_event(self::event_loop::CustomEvent::UserEvent(event));
+    }
+
+    fn image_size(&'static self, image: &Image) -> sixtyfps_corelib::graphics::Size {
+        let inner: &ImageInner = image.into();
+        match inner {
+            ImageInner::None => Default::default(),
+            ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => unimplemented!(),
+            ImageInner::EmbeddedImage(buffer) => {
+                [buffer.width() as f32, buffer.height() as f32].into()
+            }
+            ImageInner::StaticTextures { size, .. } => size.cast(),
+        }
+    }
 }
