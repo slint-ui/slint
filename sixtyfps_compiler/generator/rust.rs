@@ -866,6 +866,10 @@ fn generate_component(
     super::handle_property_bindings_init(component, |elem, prop, binding| {
         handle_property_binding(component, elem, prop, binding, &mut init)
     });
+    super::for_each_const_properties(component, |elem, prop| {
+        let rust_property = access_member(elem, prop, component, quote!(_self), false);
+        init.push(quote!(#rust_property.set_constant();))
+    });
 
     let resource_symbols: Vec<proc_macro2::TokenStream> = component
         .embedded_file_resources
