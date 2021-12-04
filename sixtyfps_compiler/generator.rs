@@ -13,7 +13,7 @@ The module responsible for the code generation.
 There is one sub module for every language
 */
 
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::diagnostics::BuildDiagnostics;
@@ -397,6 +397,51 @@ pub fn handle_property_bindings_init(
                 &mut handle_property,
                 &mut processed,
             );
+        }
+    });
+}
+
+/// Call the given function for each constant property in the Component so one can set
+/// `set_constant` on it.
+pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&ElementRc, &str)) {
+    crate::object_tree::recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, ()| {
+        if elem.borrow().repeated.is_some() {
+            return;
+        }
+        let mut e = elem.clone();
+        let mut all_prop = BTreeSet::new();
+        loop {
+            all_prop.extend(
+                e.borrow()
+                    .property_declarations
+                    .iter()
+                    .filter(|(_, x)| x.property_type.is_property_type())
+                    .map(|(k, _)| k.clone()),
+            );
+            match &e.clone().borrow().base_type {
+                Type::Component(c) => {
+                    e = c.root_element.clone();
+                }
+                Type::Native(n) => {
+                    all_prop.extend(
+                        n.properties
+                            .iter()
+                            .filter(|(k, x)| {
+                                x.ty.is_property_type()
+                                    && !k.starts_with("viewport-")
+                                    && k.as_str() != "commands"
+                            })
+                            .map(|(k, _)| k.clone()),
+                    );
+                    break;
+                }
+                _ => break,
+            }
+        }
+        for c in all_prop {
+            if NamedReference::new(elem, &c).is_constant() {
+                f(elem, &c);
+            }
         }
     });
 }

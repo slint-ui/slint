@@ -236,6 +236,10 @@ use core::pin::Pin;
 
 use crate::items::PropertyAnimation;
 
+/// if a DependencyListHead points to that value, it is because the property is actually
+/// constant and cannot have dependencies
+static CONSTANT_PROPERTY_SENTINEL: u32 = 0;
+
 /// The return value of a binding
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum BindingResult {
@@ -557,18 +561,47 @@ impl PropertyHandle {
         #[cfg(sixtyfps_debug_property)] debug_name: &str,
     ) {
         if CURRENT_BINDING.is_set() {
-            CURRENT_BINDING.with(|cur_binding| {
-                cur_binding.register_self_as_dependency(
-                    self.dependencies(),
-                    #[cfg(sixtyfps_debug_property)]
-                    debug_name,
-                );
-            });
+            let dependencies = self.dependencies();
+            if !core::ptr::eq(
+                unsafe { *(dependencies as *mut *const u32) },
+                (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+            ) {
+                CURRENT_BINDING.with(|cur_binding| {
+                    cur_binding.register_self_as_dependency(
+                        dependencies,
+                        #[cfg(sixtyfps_debug_property)]
+                        debug_name,
+                    );
+                });
+            }
         }
     }
 
     fn mark_dirty(&self) {
-        unsafe { mark_dependencies_dirty(self.dependencies()) };
+        unsafe {
+            let dependencies = self.dependencies();
+            assert!(
+                !core::ptr::eq(
+                    *(dependencies as *mut *const u32),
+                    (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+                ),
+                "Constant property being changed"
+            );
+            mark_dependencies_dirty(dependencies)
+        };
+    }
+
+    fn set_constant(&self) {
+        unsafe {
+            let dependencies = self.dependencies();
+            if !core::ptr::eq(
+                *(dependencies as *mut *const u32),
+                (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
+            ) {
+                DependencyListHead::drop(dependencies);
+                *(dependencies as *mut *const u32) = (&CONSTANT_PROPERTY_SENTINEL) as *const u32
+            }
+        }
     }
 }
 
@@ -576,8 +609,10 @@ impl Drop for PropertyHandle {
     fn drop(&mut self) {
         self.remove_binding();
         debug_assert!(self.handle.get() & 0b11 == 0);
-        unsafe {
-            DependencyListHead::drop(self.handle.as_ptr() as *mut _);
+        if self.handle.get() as *const u32 != (&CONSTANT_PROPERTY_SENTINEL) as *const u32 {
+            unsafe {
+                DependencyListHead::drop(self.handle.as_ptr() as *mut _);
+            }
         }
     }
 }
@@ -799,6 +834,11 @@ impl<T: Clone> Property<T> {
     /// whether the property value has actually changed or not.
     pub fn mark_dirty(&self) {
         self.handle.mark_dirty()
+    }
+
+    /// Mark that this property will never be modified again and that no tracking should be done
+    pub fn set_constant(&self) {
+        self.handle.set_constant();
     }
 }
 
