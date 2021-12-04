@@ -76,6 +76,20 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
             }
         }
     }
+    viewport
+        .borrow()
+        .property_analysis
+        .borrow_mut()
+        .entry("y".into())
+        .or_default()
+        .is_set_externally = true;
+    viewport
+        .borrow()
+        .property_analysis
+        .borrow_mut()
+        .entry("x".into())
+        .or_default()
+        .is_set_externally = true;
     flickable.children.push(viewport);
 }
 
