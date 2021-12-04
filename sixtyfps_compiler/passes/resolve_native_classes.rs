@@ -91,14 +91,15 @@ fn select_minimal_class_based_on_property_usage<'a>(
 
 #[test]
 fn test_select_minimal_class_based_on_property_usage() {
+    use crate::langtype::BuiltinPropertyInfo;
     let first = Rc::new(NativeClass::new_with_properties(
         "first_class",
-        [("first_prop".to_owned(), Type::Int32)].iter().cloned(),
+        [("first_prop".to_owned(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
     ));
 
     let mut second = NativeClass::new_with_properties(
         "second_class",
-        [("second_prop".to_owned(), Type::Int32)].iter().cloned(),
+        [("second_prop".to_owned(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
     );
     second.parent = Some(first.clone());
     let second = Rc::new(second);
