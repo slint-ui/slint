@@ -83,19 +83,31 @@ pub fn load_builtins(register: &mut TypeRegister) {
             e.PropertyDeclaration()
                 .filter(|p| p.TwoWayBinding().is_none()) // aliases are handled further down
                 .map(|p| {
-                    (
-                        identifier_text(&p.DeclaredIdentifier()).unwrap(),
-                        object_tree::type_from_node(
-                            p.Type().unwrap(),
-                            *diag.borrow_mut(),
-                            register,
-                        ),
-                    )
+                    let mut info = BuiltinPropertyInfo::new(object_tree::type_from_node(
+                        p.Type().unwrap(),
+                        *diag.borrow_mut(),
+                        register,
+                    ));
+
+                    if let Some(e) = p.BindingExpression() {
+                        if e.Expression()
+                            .and_then(|e| e.QualifiedName())
+                            .and_then(|q| q.child_text(SyntaxKind::Identifier))
+                            .map(|s| s == "native_output")
+                            == Some(true)
+                        {
+                            info.is_native_output = true;
+                        } else {
+                            let ty = info.ty.clone();
+                            info.default_value = Some(compiled(e, register, ty));
+                        }
+                    }
+                    (identifier_text(&p.DeclaredIdentifier()).unwrap(), info)
                 })
                 .chain(e.CallbackDeclaration().map(|s| {
                     (
                         identifier_text(&s.DeclaredIdentifier()).unwrap(),
-                        Type::Callback {
+                        BuiltinPropertyInfo::new(Type::Callback {
                             args: s
                                 .Type()
                                 .map(|a| {
@@ -109,7 +121,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
                                     register,
                                 ))
                             }),
-                        },
+                        }),
                     )
                 })),
         );
@@ -153,32 +165,9 @@ pub fn load_builtins(register: &mut TypeRegister) {
         if let Base::NativeParent(parent) = &base {
             properties.extend(parent.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
         }
-        properties.extend(
-            builtin
-                .native_class
-                .properties
-                .iter()
-                .map(|(k, v)| (k.clone(), BuiltinPropertyInfo::new(v.clone()))),
-        );
+        properties
+            .extend(builtin.native_class.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
 
-        for p in e.PropertyDeclaration() {
-            if let (Some(name), Some(e)) =
-                (identifier_text(&p.DeclaredIdentifier()), p.BindingExpression())
-            {
-                let info = properties.get_mut(&name).unwrap();
-                if e.Expression()
-                    .and_then(|e| e.QualifiedName())
-                    .and_then(|q| q.child_text(SyntaxKind::Identifier))
-                    .map(|s| s == "native_output")
-                    == Some(true)
-                {
-                    info.is_native_output = true;
-                } else {
-                    let ty = info.ty.clone();
-                    info.default_value = Some(compiled(e, register, ty));
-                }
-            }
-        }
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();

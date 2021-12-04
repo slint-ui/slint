@@ -577,8 +577,8 @@ fn generate_component(
                     self.item_names.push(field_name);
                     self.item_types.push(ident(&item.base_type.as_native().class_name));
                     #[cfg(sixtyfps_debug_property)]
-                    for (prop, ty) in &item.base_type.as_native().properties {
-                        if ty.is_property_type()
+                    for (prop, info) in &item.base_type.as_native().properties {
+                        if info.ty.is_property_type()
                             && !prop.starts_with("viewport")
                             && prop != "commands"
                         {

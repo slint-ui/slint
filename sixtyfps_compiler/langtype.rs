@@ -291,7 +291,9 @@ impl Type {
             Type::Builtin(b) => {
                 b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
             }
-            Type::Native(n) => n.properties.iter().map(|(k, t)| (k.clone(), t.clone())).collect(),
+            Type::Native(n) => {
+                n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
+            }
             _ => Vec::new(),
         }
     }
@@ -537,7 +539,7 @@ pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
     pub class_name: String,
     pub cpp_vtable_getter: String,
-    pub properties: HashMap<String, Type>,
+    pub properties: HashMap<String, BuiltinPropertyInfo>,
     pub deprecated_aliases: HashMap<String, String>,
     pub cpp_type: Option<String>,
     pub rust_type_constructor: Option<String>,
@@ -556,7 +558,7 @@ impl NativeClass {
 
     pub fn new_with_properties(
         class_name: &str,
-        properties: impl IntoIterator<Item = (String, Type)>,
+        properties: impl IntoIterator<Item = (String, BuiltinPropertyInfo)>,
     ) -> Self {
         let mut class = Self::new(class_name);
         class.properties = properties.into_iter().collect();
@@ -568,8 +570,8 @@ impl NativeClass {
     }
 
     pub fn lookup_property(&self, name: &str) -> Option<Type> {
-        if let Some(ty) = self.properties.get(name) {
-            Some(ty.clone())
+        if let Some(bty) = self.properties.get(name) {
+            Some(bty.ty.clone())
         } else if let Some(parent_class) = &self.parent {
             parent_class.lookup_property(name)
         } else {
