@@ -71,6 +71,14 @@ fn create_repeater_components(component: &Rc<Component>) {
                     RefCell::new(Expression::PropertyReference(listview.listview_width).into()),
                 );
             }
+
+            comp.root_element
+                .borrow()
+                .property_analysis
+                .borrow_mut()
+                .entry("y".into())
+                .or_default()
+                .is_set_externally = true;
         }
 
         let weak = Rc::downgrade(&comp);
