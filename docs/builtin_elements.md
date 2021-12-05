@@ -576,21 +576,42 @@ FIXME: write docs
 
 ## `Flickable`
 
-FIXME: write docs
-
 The `Flickable` is a lower-level item that is the base for scrollable
 elements, such as the ScrollView widget. When the viewport-width or the
 viewport-height is greater than the parent width or parent height
 respectively the element becomes scrollable although the `Flickable`
-does not create a scrollbar. When using a for loop to populate the
-elements, the viewport-width and viewport-height are not automatically
-calculated and scrolling will not work properly until the viewport-width
-or viewport-height are set manually for the horizontal and vertical
-scrolling respectively. The ability to automatically calculate the
-viewport-width and viewport-height when using for loops may be added in
-the future and is tracked in issue #407.
-
+does not create a scrollbar. The viewport-width and viewport-height are
+calculated automatically except for when using a for loop to populate
+the elements. In that case they are not automatically calculated. The
+ability to automatically calculate the viewport-width and
+viewport-height when using for loops may be added in the future and is
+tracked in issue #407.
 When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
+
+### Properties
+
+* **`viewport-height`** (*length*): The total scrollable height
+* **`viewport-width`** (*length*): The total scrollable width
+* **`viewport-x: native_output`** (*length*): 
+* **`viewport-y: native_output`** (*length*): 
+* **`interactive: true (*bool*):
+
+### Example
+
+```60
+Example := Window {
+    width: 270px;
+    height: 100px;
+
+    Flickable {
+        viewport-height: 300px;
+        Text {
+            y: 150px;
+            text: "This is some text that you have to scroll to see";
+        }
+    }
+}
+```
 
 ## `TextInput`
 
