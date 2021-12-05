@@ -227,6 +227,13 @@ Example := Window {
 
 A Scrollview contains a viewport that is bigger than the view and can be scrolled.
 It has scrollbar to interact with.
+When using a for loop to populate the elements, the viewport-width and
+viewport-height are not automatically calculated and scrolling will not
+work properly until the viewport-width or viewport-height are set
+manually for the horizontal and vertical scrolling respectively. 
+The ability to automatically calculate the viewport-width and
+viewport-height when using for loops may be added in the future and is 
+tracked in issue #407.
 
 ### Properties
 
