@@ -340,21 +340,30 @@ fn gen_corelib(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         .with_include("sixtyfps_image.h")
         .with_include("sixtyfps_pathdata.h")
         .with_include("sixtyfps_brush.h")
-        .with_after_include(format!(
+        .with_header(format!(
             r"
-namespace sixtyfps {{
-    namespace private_api {{ enum class VersionCheck {{ Major = {}, Minor = {}, Patch = {} }}; class WindowRc; }}
-    namespace cbindgen_private {{
+#define SIXTYFPS_VERSION_MAJOR {}
+#define SIXTYFPS_VERSION_MINOR {}
+#define SIXTYFPS_VERSION_PATCH {}
+",
+            env!("CARGO_PKG_VERSION_MAJOR"),
+            env!("CARGO_PKG_VERSION_MINOR"),
+            env!("CARGO_PKG_VERSION_PATCH"),
+        ))
+        .with_after_include(
+            r"
+namespace sixtyfps {
+    namespace private_api { class WindowRc; }
+    namespace cbindgen_private {
         using sixtyfps::private_api::WindowRc;
         using namespace vtable;
         struct KeyEvent; struct PointerEvent;
         using private_api::Property;
         using private_api::PathData;
         using private_api::Point;
-    }}
-}}",
-            env!("CARGO_PKG_VERSION_MAJOR"), env!("CARGO_PKG_VERSION_MINOR"), env!("CARGO_PKG_VERSION_PATCH"),
-        ))
+    }
+}",
+        )
         .with_trailer(gen_item_declarations(&items))
         .generate()
         .expect("Unable to generate bindings")

@@ -702,7 +702,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
             env!("CARGO_PKG_VERSION_MINOR"),
             env!("CARGO_PKG_VERSION_PATCH")),
         name: "THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME".into(),
-        init: Some("sixtyfps::private_api::VersionCheckHelper<int(sixtyfps::private_api::VersionCheck::Major), int(sixtyfps::private_api::VersionCheck::Minor), int(sixtyfps::private_api::VersionCheck::Patch)>()".into()),
+        init: Some("sixtyfps::private_api::VersionCheckHelper<SIXTYFPS_VERSION_MAJOR, SIXTYFPS_VERSION_MINOR, SIXTYFPS_VERSION_PATCH>()".into()),
         ..Default::default()
     }));
 
