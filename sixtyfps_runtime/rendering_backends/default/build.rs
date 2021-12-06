@@ -25,9 +25,7 @@ fn main() {
     //    Qt availability
     // 4a. When using the sixtyfps-build crate from a build script, it will be able to read this file
     //     from `sixtyfps_build::compile_with_config`
-    // 4b. When using the `sixtyfps!` macro, the macro itself can read the file. But in order to know
-    //     the location of that file, the build script of sixtyfps-macros had to save the path in an env
-    //     variable
+    // 4b. Same when using the `sixtyfps!` macro,
 
     let has_native_style = std::env::var("DEP_SIXTYFPS_RENDERING_BACKEND_QT_SUPPORTS_NATIVE_STYLE")
         .unwrap_or_default()

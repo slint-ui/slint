@@ -24,6 +24,8 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 extern crate proc_macro;
+use std::path::Path;
+
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::quote;
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
@@ -345,9 +347,37 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Rust);
 
     if std::env::var_os("SIXTYFPS_STYLE").is_none() {
-        compiler_config.style = std::fs::read_to_string(env!("SIXTYFPS_DEFAULT_STYLE_PATH"))
-            .map(|style| style.trim().into())
-            .ok()
+        // This file is written by the sixtyfps-rendering-backend-default's built script.
+        // It is in the target/xxx/build directory
+        let target_path = match std::env::var_os("OUT_DIR") {
+            Some(out_dir) => Some(
+                Path::new(&out_dir)
+                    .parent()
+                    .unwrap()
+                    .parent()
+                    .unwrap()
+                    .join("SIXTYFPS_DEFAULT_STYLE.txt"),
+            ),
+            None => {
+                // OUT_DIR is only defined when the crate having the macro has a build.rs script
+                // as a fallback, try to parse the rustc arguments
+                // https://stackoverflow.com/questions/60264534/getting-the-target-folder-from-inside-a-rust-proc-macro
+                let mut args = std::env::args();
+                let mut out_dir = None;
+                while let Some(arg) = args.next() {
+                    if arg == "--out-dir" {
+                        out_dir = args.next();
+                    }
+                }
+                out_dir.map(|out_dir| {
+                    Path::new(&out_dir).parent().unwrap().join("build/SIXTYFPS_DEFAULT_STYLE.txt")
+                })
+            }
+        };
+        if let Some(target_path) = target_path {
+            compiler_config.style =
+                std::fs::read_to_string(target_path).map(|style| style.trim().into()).ok()
+        }
     }
 
     compiler_config.include_paths = include_paths;
