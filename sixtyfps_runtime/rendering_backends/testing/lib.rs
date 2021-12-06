@@ -135,6 +135,8 @@ impl PlatformWindow for TestingWindow {
     ) {
     }
 
+    fn set_mouse_cursor(&self, _cursor: sixtyfps_corelib::items::MouseCursor) {}
+
     fn text_size(
         &self,
         _font_request: sixtyfps_corelib::graphics::FontRequest,
