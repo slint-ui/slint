@@ -760,46 +760,59 @@ pub fn store_property(
     value: Value,
 ) -> Result<(), SetPropertyError> {
     generativity::make_guard!(guard);
-    let enclosing_component = enclosing_component_for_element(element, component_instance, guard);
-    let maybe_animation = match element.borrow().bindings.get(name) {
-        Some(b) => crate::dynamic_component::animation_for_property(
-            enclosing_component,
-            &b.borrow().animation,
-        ),
-        None => crate::dynamic_component::animation_for_property(enclosing_component, &None),
-    };
-
-    let component = element.borrow().enclosing_component.upgrade().unwrap();
-    if element.borrow().id == component.root_element.borrow().id {
-        if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
-            if let Some(orig_decl) = enclosing_component
-                .component_type
-                .original
-                .root_element
-                .borrow()
-                .property_declarations
-                .get(name)
-            {
-                // Do an extra type checking because PropertyInfo::set won't do it for custom structures or array
-                if !check_value_type(&value, &orig_decl.property_type) {
-                    return Err(SetPropertyError::WrongType);
+    match enclosing_component_instance_for_element(
+        element,
+        ComponentInstance::InstanceRef(component_instance),
+        guard,
+    ) {
+        ComponentInstance::InstanceRef(enclosing_component) => {
+            let maybe_animation = match element.borrow().bindings.get(name) {
+                Some(b) => crate::dynamic_component::animation_for_property(
+                    enclosing_component,
+                    &b.borrow().animation,
+                ),
+                None => {
+                    crate::dynamic_component::animation_for_property(enclosing_component, &None)
                 }
-            }
-            unsafe {
-                let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
-                return x
-                    .prop
-                    .set(p, value, maybe_animation.as_animation())
-                    .map_err(|()| SetPropertyError::WrongType);
-            }
-        } else if enclosing_component.component_type.original.is_global() {
-            return Err(SetPropertyError::NoSuchProperty);
+            };
+
+            let component = element.borrow().enclosing_component.upgrade().unwrap();
+            if element.borrow().id == component.root_element.borrow().id {
+                if let Some(x) = enclosing_component.component_type.custom_properties.get(name) {
+                    if let Some(orig_decl) = enclosing_component
+                        .component_type
+                        .original
+                        .root_element
+                        .borrow()
+                        .property_declarations
+                        .get(name)
+                    {
+                        // Do an extra type checking because PropertyInfo::set won't do it for custom structures or array
+                        if !check_value_type(&value, &orig_decl.property_type) {
+                            return Err(SetPropertyError::WrongType);
+                        }
+                    }
+                    unsafe {
+                        let p = Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset));
+                        return x
+                            .prop
+                            .set(p, value, maybe_animation.as_animation())
+                            .map_err(|()| SetPropertyError::WrongType);
+                    }
+                } else if enclosing_component.component_type.original.is_global() {
+                    return Err(SetPropertyError::NoSuchProperty);
+                }
+            };
+            let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
+            let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
+            let p = &item_info.rtti.properties.get(name).ok_or(SetPropertyError::NoSuchProperty)?;
+            p.set(item, value, maybe_animation.as_animation())
+                .map_err(|()| SetPropertyError::WrongType)?;
         }
-    };
-    let item_info = &enclosing_component.component_type.items[element.borrow().id.as_str()];
-    let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-    let p = &item_info.rtti.properties.get(name).ok_or(SetPropertyError::NoSuchProperty)?;
-    p.set(item, value, maybe_animation.as_animation()).map_err(|()| SetPropertyError::WrongType)?;
+        ComponentInstance::GlobalComponent(glob) => {
+            glob.as_ref().set_property(name, value)?;
+        }
+    }
     Ok(())
 }
 

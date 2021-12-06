@@ -366,7 +366,6 @@ fn generate_component(
             }
         };
 
-        let property_or_callback_ref_type;
         let prop = make_prop_getter(quote!(_self));
 
         if let Type::Callback { args, return_type } = &property_decl.property_type {
@@ -409,10 +408,6 @@ fn generate_component(
                     ,
                 );
             }
-
-            property_or_callback_ref_type = quote!(
-                sixtyfps::re_exports::Callback<(#(#callback_args,)*), #return_type>
-            );
 
             if property_decl.is_alias.is_none() {
                 declared_callbacks.push(prop_ident.clone());
@@ -466,23 +461,6 @@ fn generate_component(
                 declared_property_vars.push(prop_ident.clone());
                 declared_property_types.push(rust_property_type.clone());
             }
-
-            property_or_callback_ref_type = quote!(
-                Property<#rust_property_type>
-            );
-        }
-
-        if component.is_sub_component() {
-            let getter_ident = format_ident!("get_{}", prop_ident);
-            let prop = make_prop_getter(quote!(self));
-
-            property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
-
-                pub fn #getter_ident(self: core::pin::Pin<&Self>) -> core::pin::Pin<&#property_or_callback_ref_type> {
-                    #prop
-                }
-            ));
         }
     }
 
@@ -1485,25 +1463,19 @@ fn access_member(
                     .apply_pin(#component_rust)
             )
         } else if let Some(sub_component) = e.sub_component() {
-            if sub_component.root_element.borrow().property_declarations.contains_key(name) {
-                let subcomp_ident = ident(&e.id);
-                let subcomp_field =
-                    access_component_field_offset(&inner_component_id, &subcomp_ident);
-
-                let prop_getter = ident(&format!("get_{}", name));
-                quote!(#subcomp_field.apply_pin(#component_rust).#prop_getter())
+            let subcomp_ident = ident(&e.id);
+            let subcomp_field = access_component_field_offset(&inner_component_id, &subcomp_ident);
+            let subcomp = quote!(#subcomp_field.apply_pin(#component_rust));
+            if let Some(alias) = sub_component
+                .root_element
+                .borrow()
+                .property_declarations
+                .get(name)
+                .and_then(|d| d.is_alias.as_ref())
+            {
+                access_named_reference(alias, sub_component, subcomp)
             } else {
-                let subcomp_ident = ident(&e.id);
-                let subcomp_field =
-                    access_component_field_offset(&inner_component_id, &subcomp_ident);
-
-                access_member(
-                    &sub_component.root_element,
-                    name,
-                    sub_component,
-                    quote!(#subcomp_field.apply_pin(#component_rust)),
-                    is_special,
-                )
+                access_member(&sub_component.root_element, name, sub_component, subcomp, is_special)
             }
         } else {
             let elem_ident = ident(&e.id);

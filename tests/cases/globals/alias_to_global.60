@@ -12,6 +12,11 @@ import { StyleMetrics } from "sixtyfps_widgets.60";
 
 global Glop := {
     property <int> hello: 42;
+    property <int> second: 88;
+}
+
+Widget := Rectangle {
+    property second <=> Glop.second;
 }
 
 TestCase := Rectangle {
@@ -19,13 +24,24 @@ TestCase := Rectangle {
     // Unfortunately, this is only a native global with the Qt backend and not with the Test backend
     property <length> alias_to_native <=> StyleMetrics.text_cursor_width;
     property <int> alias_to_global <=> Glop.hello;
-    property <bool> test: alias_to_native == StyleMetrics.text_cursor_width && alias_to_global == 42;
+    property <bool> test: alias_to_native == StyleMetrics.text_cursor_width && alias_to_global == 42 && indirect == 88;
+    property <int> indirect <=> widget.second;
+    property <int> direct: Glop.second;
+
+    widget := Widget { }
 }
 
 /*
 ```rust
 let instance = TestCase::new();
 assert!(instance.get_test());
+assert_eq!(instance.get_alias_to_global(), 42);
+instance.set_alias_to_global(123);
+assert_eq!(instance.get_alias_to_global(), 123);
+assert_eq!(instance.get_indirect(), 88);
+instance.set_indirect(99);
+assert_eq!(instance.get_direct(), 99);
+
 ```
 
 ```cpp
@@ -37,6 +53,12 @@ assert(instance.get_test());
 ```js
 let instance = new sixtyfps.TestCase({});
 assert(instance.test);
+assert.equal(instance.alias_to_global, 42);
+instance.alias_to_global = 123;
+assert.equal(instance.alias_to_global, 123);
+assert.equal(instance.indirect, 88);
+instance.indirect = 99;
+assert.equal(instance.direct, 99);
 ```
 
 */
