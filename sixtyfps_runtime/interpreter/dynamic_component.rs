@@ -950,6 +950,7 @@ pub(crate) fn generate_component<'id>(
                 "TextOverflow" => property_info::<sixtyfps_corelib::items::TextOverflow>(),
                 "ImageFit" => property_info::<sixtyfps_corelib::items::ImageFit>(),
                 "FillRule" => property_info::<sixtyfps_corelib::items::FillRule>(),
+                "MouseCursor" => property_info::<sixtyfps_corelib::items::MouseCursor>(),
                 "StandardButtonKind" => {
                     property_info::<sixtyfps_corelib::items::StandardButtonKind>()
                 }

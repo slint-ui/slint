@@ -48,6 +48,7 @@ declare_ValueType![
     crate::items::EventResult,
     crate::Brush,
     crate::items::FillRule,
+    crate::items::MouseCursor,
     crate::items::DialogButtonRole,
     crate::items::StandardButtonKind,
     crate::graphics::Point,
