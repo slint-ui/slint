@@ -1269,12 +1269,7 @@ impl PlatformWindow for QtWindow {
             if (size != widget_ptr->size()) {
                 widget_ptr->resize(size.expandedTo({1, 1}));
             }
-            if (no_frame) {
-                widget_ptr->setWindowFlags(Qt::FramelessWindowHint);
-            } else {
-                auto flags = widget_ptr->windowFlags();
-                widget_ptr->setWindowFlags(flags & (~Qt::FramelessWindowHint));
-            }
+            widget_ptr->setWindowFlag(Qt::FramelessWindowHint, no_frame);
             widget_ptr->setWindowTitle(title);
             auto pal = widget_ptr->palette();
 
