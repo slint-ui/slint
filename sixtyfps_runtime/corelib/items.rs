@@ -336,6 +336,53 @@ declare_item_vtable! {
     fn sixtyfps_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum MouseCursor {
+    default,
+    none,
+    //context_menu,
+    help,
+    pointer,
+    progress,
+    wait,
+    //cell,
+    crosshair,
+    text,
+    //vertical_text,
+    alias,
+    copy,
+    r#move,
+    no_drop,
+    not_allowed,
+    grab,
+    grabbing,
+    //all_scroll,
+    col_resize,
+    row_resize,
+    n_resize,
+    e_resize,
+    s_resize,
+    w_resize,
+    ne_resize,
+    nw_resize,
+    se_resize,
+    sw_resize,
+    ew_resize,
+    ns_resize,
+    nesw_resize,
+    nwse_resize,
+    //zoom_in,
+    //zoom_out,
+}
+
+impl Default for MouseCursor {
+    fn default() -> Self {
+        Self::default
+    }
+}
+
 /// The implementation of the `TouchArea` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
@@ -357,6 +404,7 @@ pub struct TouchArea {
     /// FIXME: should maybe be as parameter to the mouse event instead. Or at least just one property
     pub mouse_x: Property<f32>,
     pub mouse_y: Property<f32>,
+    pub mouse_cursor: Property<MouseCursor>,
     pub clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
     pub pointer_event: Callback<PointerEventArg>,
