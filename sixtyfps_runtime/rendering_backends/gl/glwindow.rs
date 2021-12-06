@@ -21,7 +21,7 @@ use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::*;
 use corelib::input::KeyboardModifiers;
-use corelib::items::ItemRef;
+use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
@@ -408,6 +408,44 @@ impl PlatformWindow for GLWindow {
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
             existing_blinker.stop();
         }*/
+    }
+
+    fn set_mouse_cursor(&self, cursor: MouseCursor) {
+        let winit_cursor = match cursor {
+            MouseCursor::default => winit::window::CursorIcon::Default,
+            MouseCursor::none => winit::window::CursorIcon::Default,
+            MouseCursor::help => winit::window::CursorIcon::Help,
+            MouseCursor::pointer => winit::window::CursorIcon::Hand,
+            MouseCursor::progress => winit::window::CursorIcon::Progress,
+            MouseCursor::wait => winit::window::CursorIcon::Wait,
+            MouseCursor::crosshair => winit::window::CursorIcon::Crosshair,
+            MouseCursor::text => winit::window::CursorIcon::Text,
+            MouseCursor::alias => winit::window::CursorIcon::Alias,
+            MouseCursor::copy => winit::window::CursorIcon::Copy,
+            MouseCursor::r#move => winit::window::CursorIcon::Move,
+            MouseCursor::no_drop => winit::window::CursorIcon::NoDrop,
+            MouseCursor::not_allowed => winit::window::CursorIcon::NotAllowed,
+            MouseCursor::grab => winit::window::CursorIcon::Grab,
+            MouseCursor::grabbing => winit::window::CursorIcon::Grabbing,
+            MouseCursor::col_resize => winit::window::CursorIcon::ColResize,
+            MouseCursor::row_resize => winit::window::CursorIcon::RowResize,
+            MouseCursor::n_resize => winit::window::CursorIcon::NResize,
+            MouseCursor::e_resize => winit::window::CursorIcon::EResize,
+            MouseCursor::s_resize => winit::window::CursorIcon::SResize,
+            MouseCursor::w_resize => winit::window::CursorIcon::WResize,
+            MouseCursor::ne_resize => winit::window::CursorIcon::NeResize,
+            MouseCursor::nw_resize => winit::window::CursorIcon::NwResize,
+            MouseCursor::se_resize => winit::window::CursorIcon::SeResize,
+            MouseCursor::sw_resize => winit::window::CursorIcon::SwResize,
+            MouseCursor::ew_resize => winit::window::CursorIcon::EwResize,
+            MouseCursor::ns_resize => winit::window::CursorIcon::NsResize,
+            MouseCursor::nesw_resize => winit::window::CursorIcon::NeswResize,
+            MouseCursor::nwse_resize => winit::window::CursorIcon::NwseResize,
+        };
+        self.with_window_handle(& mut |winit_window| {
+            winit_window.set_cursor_visible(cursor != MouseCursor::none);
+            winit_window.set_cursor_icon(winit_cursor);
+        });
     }
 
     fn text_size(
