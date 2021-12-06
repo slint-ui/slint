@@ -428,7 +428,7 @@ impl Item for TouchArea {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &WindowRc,
+        window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if !self.enabled() {
@@ -438,18 +438,23 @@ impl Item for TouchArea {
             Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x);
             Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y);
         }
-        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(!matches!(event, MouseEvent::MouseExit));
+        let hovering = !matches!(event, MouseEvent::MouseExit);
+        Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(hovering);
+        if hovering {
+            window.set_mouse_cursor(self.mouse_cursor());
+        }
         InputEventFilterResult::ForwardAndInterceptGrab
     }
 
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &WindowRc,
+        window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::MouseExit) {
-            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false)
+            Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
+            window.set_mouse_cursor(MouseCursor::default);
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
