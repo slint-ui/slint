@@ -557,6 +557,14 @@ export NativeComboBox := _ {
     //-is_internal
 }
 
+export NativeComboBoxPopup := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    //-is_internal
+}
+
 export NativeTabWidget := _ {
     property <length> x;
     property <length> y;

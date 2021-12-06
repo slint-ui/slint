@@ -94,9 +94,10 @@ pub type NativeWidgets =
     (qt_widgets::NativeScrollView,
     (qt_widgets::NativeStandardListViewItem,
     (qt_widgets::NativeComboBox,
+    (qt_widgets::NativeComboBoxPopup,
     (qt_widgets::NativeTabWidget,
     (qt_widgets::NativeTab,
-            ())))))))))));
+            ()))))))))))));
 
 #[cfg(not(no_qt))]
 #[rustfmt::skip]

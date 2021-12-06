@@ -385,6 +385,7 @@ fn gen_backend_qt(root_dir: &Path, include_dir: &Path) -> anyhow::Result<()> {
         "NativeScrollView",
         "NativeStandardListViewItem",
         "NativeComboBox",
+        "NativeComboBoxPopup",
         "NativeTabWidget",
         "NativeTab",
     ];

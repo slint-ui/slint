@@ -84,9 +84,8 @@ export ComboBox := NativeComboBox {
     callback selected(string);
 
     popup := PopupWindow {
-        // FIXME: the popup should have a native background
-        Rectangle {
-            background: lightgray;
+        Rectangle { background: NativeStyleMetrics.window-background; }
+        NativeComboBoxPopup {
             width: 100%;
             height: 100%;
         }
@@ -98,7 +97,6 @@ export ComboBox := NativeComboBox {
                 item: { text: value };
                 is-selected: current-index == i;
                 TouchArea {
-                    height: 25px;
                     has-hover <=> parent.has-hover;
                     clicked => {
                         if (root.enabled) {
