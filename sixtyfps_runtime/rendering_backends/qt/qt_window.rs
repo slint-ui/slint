@@ -20,7 +20,7 @@ use sixtyfps_corelib::graphics::{
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
-    self, FillRule, ImageRendering, ItemRef, PointerEventButton, TextOverflow, TextWrap,
+    self, FillRule, ImageRendering, ItemRef, PointerEventButton, TextOverflow, TextWrap, MouseCursor,
 };
 use sixtyfps_corelib::layout::Orientation;
 use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
@@ -46,6 +46,7 @@ cpp! {{
     #include <QtGui/QResizeEvent>
     #include <QtGui/QTextLayout>
     #include <QtGui/QImageReader>
+    #include <QtGui/QCursor>
     #include <QtCore/QBasicTimer>
     #include <QtCore/QTimer>
     #include <QtCore/QPointer>
@@ -1338,6 +1339,45 @@ impl PlatformWindow for QtWindow {
             popup_ptr->setParent(widget_ptr, Qt::Popup);
             popup_ptr->setGeometry(QRect(pos + widget_ptr->geometry().topLeft(), size));
             popup_ptr->show();
+        }};
+    }
+
+    fn set_mouse_cursor(&self, cursor: MouseCursor) {
+        let widget_ptr = self.widget_ptr();
+        //unidirectional resize cursors are replaced with bidirectional ones
+        let cursor_shape = match cursor {
+            MouseCursor::default => key_generated::Qt_CursorShape_ArrowCursor,
+            MouseCursor::none => key_generated::Qt_CursorShape_BlankCursor,
+            MouseCursor::help => key_generated::Qt_CursorShape_WhatsThisCursor,
+            MouseCursor::pointer => key_generated::Qt_CursorShape_PointingHandCursor,
+            MouseCursor::progress => key_generated::Qt_CursorShape_BusyCursor,
+            MouseCursor::wait => key_generated::Qt_CursorShape_WaitCursor,
+            MouseCursor::crosshair => key_generated::Qt_CursorShape_CrossCursor,
+            MouseCursor::text => key_generated::Qt_CursorShape_IBeamCursor,
+            MouseCursor::alias => key_generated::Qt_CursorShape_DragLinkCursor,
+            MouseCursor::copy => key_generated::Qt_CursorShape_DragCopyCursor,
+            MouseCursor::r#move => key_generated::Qt_CursorShape_SizeAllCursor,
+            MouseCursor::no_drop => key_generated::Qt_CursorShape_ForbiddenCursor,
+            MouseCursor::not_allowed => key_generated::Qt_CursorShape_ForbiddenCursor,
+            MouseCursor::grab => key_generated::Qt_CursorShape_OpenHandCursor,
+            MouseCursor::grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
+            MouseCursor::col_resize => key_generated::Qt_CursorShape_SplitHCursor,
+            MouseCursor::row_resize => key_generated::Qt_CursorShape_SplitVCursor,
+            MouseCursor::n_resize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::e_resize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::s_resize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::w_resize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::ne_resize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::nw_resize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            MouseCursor::se_resize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            MouseCursor::sw_resize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::ew_resize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::ns_resize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::nesw_resize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::nwse_resize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+        };
+        cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
+            widget_ptr->setCursor(QCursor{cursor_shape});
         }};
     }
 
