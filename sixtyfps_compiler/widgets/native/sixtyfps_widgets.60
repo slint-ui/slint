@@ -70,6 +70,7 @@ export StandardListView := ListView {
         is-selected: current-item == i;
         TouchArea {
             clicked => { current-item = i; }
+            has-hover <=> parent.has-hover;
         }
     }
 }
@@ -96,17 +97,16 @@ export ComboBox := NativeComboBox {
             for value[i] in root.model: NativeStandardListViewItem {
                 item: { text: value };
                 is-selected: current-index == i;
-                VerticalLayout {  // FIXME: ideally this layout shouldn't be required
-                    TouchArea {
-                        height: 25px;
-                        clicked => {
-                            if (root.enabled) {
-                                current-index = i;
-                                current-value = value;
-                                selected(current-value);
-                            }
-                            //is-open = false;
+                TouchArea {
+                    height: 25px;
+                    has-hover <=> parent.has-hover;
+                    clicked => {
+                        if (root.enabled) {
+                            current-index = i;
+                            current-value = value;
+                            selected(current-value);
                         }
+                        //is-open = false;
                     }
                 }
             }

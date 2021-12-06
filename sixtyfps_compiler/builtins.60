@@ -541,6 +541,7 @@ export NativeStandardListViewItem := _ {
     property <int> index;
     property <StandardListViewItem> item;
     property <bool> is_selected: native_output;
+    property <bool> has_hover;
     //-is_internal
 }
 

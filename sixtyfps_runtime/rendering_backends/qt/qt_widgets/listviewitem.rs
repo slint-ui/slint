@@ -22,6 +22,7 @@ pub struct NativeStandardListViewItem {
     pub index: Property<i32>,
     pub is_selected: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+    pub has_hover: Property<bool>,
 }
 
 impl Item for NativeStandardListViewItem {
@@ -88,6 +89,7 @@ impl Item for NativeStandardListViewItem {
     fn_render! { this dpr size painter widget initial_state =>
         let index: i32 = this.index();
         let is_selected: bool = this.is_selected();
+        let has_hover: bool = this.has_hover();
         let item = this.item();
         let text: qttypes::QString = item.text.as_str().into();
         cpp!(unsafe [
@@ -97,6 +99,7 @@ impl Item for NativeStandardListViewItem {
             dpr as "float",
             index as "int",
             is_selected as "bool",
+            has_hover as "bool",
             text as "QString",
             initial_state as "int"
         ] {
@@ -106,6 +109,9 @@ impl Item for NativeStandardListViewItem {
             option.state = QStyle::State_Enabled;
             if (is_selected) {
                 option.state |= QStyle::State_Selected;
+            }
+            if (has_hover) {
+                option.state |= QStyle::State_MouseOver;
             }
             option.decorationPosition = QStyleOptionViewItem::Left;
             option.decorationAlignment = Qt::AlignCenter;
