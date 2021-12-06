@@ -577,24 +577,21 @@ FIXME: write docs
 ## `Flickable`
 
 The `Flickable` is a lower-level item that is the base for scrollable
-elements, such as the ScrollView widget. When the viewport-width or the
-viewport-height is greater than the parent width or parent height
+elements, such as the ScrollView widget. When the `viewport-width` or the
+`viewport-height` is greater than the parent width or parent height
 respectively the element becomes scrollable although the `Flickable`
-does not create a scrollbar. The viewport-width and viewport-height are
-calculated automatically except for when using a for loop to populate
-the elements. In that case they are not automatically calculated. The
-ability to automatically calculate the viewport-width and
-viewport-height when using for loops may be added in the future and is
-tracked in issue #407.
+does not create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
+calculated automatically based on the content. Excepted when using a `for` loop to populate
+the elements, that is tracked in issue #407.
+The maximum and preferred size of the Flickable are based on those of the viewport.
+
 When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
 
 ### Properties
 
-* **`viewport-height`** (*length*): The total scrollable height
-* **`viewport-width`** (*length*): The total scrollable width
-* **`viewport-x: native_output`** (*length*): 
-* **`viewport-y: native_output`** (*length*): 
-* **`interactive: true (*bool*):
+* **`viewport-height`**, **`viewport-width`** (*length*): The total size of the scrollable element
+* **`viewport-x`**, **`viewport-y`** (*length*): The position of the scrollable element relative to the Flickable.  This is usually a negative value.
+* **`interactive`** (*bool*): When true, the viewport can be scrolled by clicking on it and dragging it with the cursor. (default: true)
 
 ### Example
 
