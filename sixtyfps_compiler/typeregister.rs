@@ -82,7 +82,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone()))
-        .chain(std::array::IntoIter::new([
+        .chain(IntoIterator::into_iter([
             ("forward-focus", Type::ElementReference),
             ("focus", BuiltinFunction::SetFocusItem.ty()),
             ("dialog-button-role", DIALOG_BUTTON_ROLE_ENUM.with(|e| e.clone())),

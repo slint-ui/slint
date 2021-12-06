@@ -377,7 +377,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 }
                 if let Value::Image(img) = eval_expression(&arguments[0], local_context) {
                     let size = img.size();
-                    let values = std::array::IntoIter::new([
+                    let values = IntoIterator::into_iter([
                         ("width".to_string(), Value::Number(size.width as f64)),
                         ("height".to_string(), Value::Number(size.height as f64)),
                     ]).collect();

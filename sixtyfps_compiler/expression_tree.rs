@@ -117,7 +117,7 @@ impl BuiltinFunction {
             },
             BuiltinFunction::ImageSize => Type::Function {
                 return_type: Box::new(Type::Struct {
-                    fields: std::array::IntoIter::new([
+                    fields: IntoIterator::into_iter([
                         ("width".to_string(), Type::Int32),
                         ("height".to_string(), Type::Int32),
                     ])
