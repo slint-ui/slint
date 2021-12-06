@@ -13,7 +13,7 @@ LICENSE END */
 use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::{Point, Size};
 use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
-use crate::items::{ItemRc, ItemRef, ItemWeak};
+use crate::items::{ItemRc, ItemRef, ItemWeak, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
@@ -51,6 +51,9 @@ pub trait PlatformWindow {
         constraints_horizontal: crate::layout::LayoutInfo,
         constraints_vertical: crate::layout::LayoutInfo,
     );
+
+    /// Set the mouse cursor
+    fn set_mouse_cursor(&self, cursor: MouseCursor);
 
     /// Returns the size of the given text in logical pixels.
     /// When set, `max_width` means that one need to wrap the text so it does not go further than that
