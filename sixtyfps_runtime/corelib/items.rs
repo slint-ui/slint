@@ -353,7 +353,7 @@ pub enum MouseCursor {
     //vertical_text,
     alias,
     copy,
-    r#move,
+    //r#move,
     no_drop,
     not_allowed,
     grab,
