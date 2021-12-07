@@ -420,6 +420,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 * **`has-hover`** (*bool*): Set to `true` by the TouchArea when the mouse is over it.
 * **`mouse-x`**, **`mouse-y`** (*length*): Set by the TouchArea to the position of the mouse within it.
 * **`pressed-x`**, **`pressed-y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
+* **`mouse-cursor`** (enum *[`MouseCursor`](#mousecursor)*): The mouse cursor type when the mouse is hovering the TouchArea.
 
 ### Callbacks
 
@@ -843,3 +844,40 @@ depends on the role and the platform.
 * **`reset`**: This is the role of the "Reset" button
 * **`help`**: This is the role of the  "Help" button
 * **`action`**: This is the role of any other button that perform another action.
+
+## `MouseCursor`
+
+This enum represents different types of mouse cursors. It is a subset of the mouse cursors available in CSS.
+For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
+Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
+
+### Values
+
+* **`default`**: The systems default cursor.
+* **`none`**: No cursor is displayed.
+* **`help`**: A cursor indicating help information.
+* **`pointer`**: A pointing hand indicating a link.
+* **`progress`**: The program is busy but can still be interacted with.
+* **`wait`**: The program is busy.
+* **`crosshair`**: A crosshair.
+* **`text`**: A cursor indicating selectable text.
+* **`alias`**: An alias or shortcut is being created.
+* **`copy`**: A copy is being created.
+* **`no-drop`**: Something cannot be dropped here.
+* **`not-allowed`**: An action is not allowed
+* **`grab`**: Something is grabbable.
+* **`grabbing`**: Something is being grabbed.
+* **`col-resize`**: Indicating that a column is resizable horizontally.
+* **`row-resize`**: Indicating that a row is resizable vertically.
+* **`n-resize`**: Unidirectional resize north.
+* **`e-resize`**: Unidirectional resize east.
+* **`s-resize`**: Unidirectional resize south.
+* **`w-resize`**: Unidirectional resize west.
+* **`ne-resize`**: Unidirectional resize north-east.
+* **`nw-resize`**: Unidirectional resize north-west.
+* **`se-resize`**: Unidirectional resize south-east.
+* **`sw-resize`**: Unidirectional resize south-west.
+* **`ew-resize`**: Bidirectional resize east-west.
+* **`ns-resize`**: Bidirectional resize north-south.
+* **`nesw-resize`**: Bidirectional resize north-east-south-west.
+* **`nwse-resize`**: Bidirectional resize north-west-south-east.
