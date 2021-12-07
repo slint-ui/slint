@@ -45,15 +45,14 @@ ttf-parser = "0.12.0"
 # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 unicode-script = "0.5.3"
 cfg-if = "1"
+winit = { version = "0.26", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlContextAttributes"] }
 wasm-bindgen = { version = "0.2" }
-winit = { version = "0.25", default-features = false, features = ["web-sys"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-winit = { version = "0.25", default-features = false }
-glutin = { version = "0.27", default-features = false }
+glutin = { version = "0.28", default-features = false }
 fontdb = { version = "0.7.0", features = ["memmap"] }
 usvg = { version= "0.19", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
 
