@@ -111,6 +111,8 @@ pub fn render_component_items(
             // they themselves clip their content.
             if !renderer.borrow().get_current_clip().intersects(&item_geometry)
                 && !is_clipping_item(item)
+                // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
+                && ItemRef::downcast_pin::<BoxShadow>(item).is_none()
             {
                 renderer.borrow_mut().translate(item_origin.x, item_origin.y);
                 return (ItemVisitorResult::Continue(()), ());
