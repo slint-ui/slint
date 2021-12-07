@@ -543,21 +543,15 @@ impl ItemRenderer for GLItemRenderer {
             || {
                 ItemGraphicsCacheEntry::Image({
                     let blur = box_shadow.blur() * self.scale_factor;
-                    let offset_x = box_shadow.offset_x() * self.scale_factor;
-                    let offset_y = box_shadow.offset_y() * self.scale_factor;
                     let width = box_shadow.width() * self.scale_factor;
                     let height = box_shadow.height() * self.scale_factor;
                     let radius = box_shadow.border_radius() * self.scale_factor;
 
-                    let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> = euclid::rect(
-                        offset_x - blur,
-                        offset_y - blur,
-                        width + 2. * blur,
-                        height + 2. * blur,
-                    );
+                    let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> =
+                        euclid::rect(0., 0., width + 2. * blur, height + 2. * blur);
 
-                    let shadow_image_width = shadow_rect.max_x().ceil() as usize;
-                    let shadow_image_height = shadow_rect.max_y().ceil() as usize;
+                    let shadow_image_width = shadow_rect.width().ceil() as usize;
+                    let shadow_image_height = shadow_rect.height().ceil() as usize;
 
                     let shadow_image = CachedImage::new_empty_on_gpu(
                         &self.canvas,
@@ -576,13 +570,13 @@ impl ItemRenderer for GLItemRenderer {
                         canvas.clear_rect(
                             0,
                             0,
-                            shadow_rect.max_x().ceil() as u32,
-                            shadow_rect.max_y().ceil() as u32,
+                            shadow_rect.width().ceil() as u32,
+                            shadow_rect.height().ceil() as u32,
                             femtovg::Color::rgba(0, 0, 0, 0),
                         );
 
                         let mut shadow_path = femtovg::Path::new();
-                        shadow_path.rounded_rect(offset_x, offset_y, width, height, radius);
+                        shadow_path.rounded_rect(blur, blur, width, height, radius);
                         canvas.fill_path(
                             &mut shadow_path,
                             femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
@@ -612,12 +606,7 @@ impl ItemRenderer for GLItemRenderer {
                         canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
 
                         let mut shadow_image_rect = femtovg::Path::new();
-                        shadow_image_rect.rect(
-                            0.,
-                            0.,
-                            shadow_rect.max_x().ceil(),
-                            shadow_rect.max_y().ceil(),
-                        );
+                        shadow_image_rect.rect(0., 0., shadow_rect.width(), shadow_rect.height());
                         canvas.fill_path(
                             &mut shadow_image_rect,
                             femtovg::Paint::color(to_femtovg_color(&box_shadow.color())),
@@ -649,7 +638,13 @@ impl ItemRenderer for GLItemRenderer {
         let mut shadow_image_rect = femtovg::Path::new();
         shadow_image_rect.rect(0., 0., shadow_image_size.width, shadow_image_size.height);
 
-        self.canvas.borrow_mut().fill_path(&mut shadow_image_rect, shadow_image_paint);
+        self.canvas.borrow_mut().save_with(|canvas| {
+            let blur = box_shadow.blur() * self.scale_factor;
+            let offset_x = box_shadow.offset_x() * self.scale_factor;
+            let offset_y = box_shadow.offset_y() * self.scale_factor;
+            canvas.translate(offset_x - blur, offset_y - blur);
+            canvas.fill_path(&mut shadow_image_rect, shadow_image_paint);
+        });
     }
 
     fn combine_clip(&mut self, mut clip_rect: Rect, mut radius: f32, mut border_width: f32) {
