@@ -222,6 +222,15 @@ impl Scene {
 }
 
 #[derive(Clone, Copy)]
+struct ScaleFactor(pub f32);
+impl core::ops::Mul<ScaleFactor> for f32 {
+    type Output = u16;
+    fn mul(self, rhs: ScaleFactor) -> Self::Output {
+        (rhs.0 * self) as _
+    }
+}
+
+#[derive(Clone, Copy)]
 struct SceneItem {
     x: u16,
     y: u16,
@@ -262,6 +271,7 @@ enum SceneCommand {
     Texture {
         data: &'static [u8],
         format: PixelFormat,
+        /// bytes between two lines in the source
         stride: u16,
         source_width: u16,
         source_height: u16,
@@ -270,7 +280,7 @@ enum SceneCommand {
 }
 
 fn prepare_scene(runtime_window: Rc<sixtyfps_corelib::window::Window>, size: SizeF) -> Scene {
-    let mut prepare_scene = PrepareScene::new(size);
+    let mut prepare_scene = PrepareScene::new(size, ScaleFactor(runtime_window.scale_factor()));
     runtime_window.clone().draw_contents(|components| {
         for (component, origin) in components {
             sixtyfps_corelib::item_rendering::render_component_items(
@@ -287,18 +297,20 @@ struct PrepareScene {
     items: Vec<SceneItem>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
+    scale_factor: ScaleFactor,
 }
 
 impl PrepareScene {
-    fn new(size: SizeF) -> Self {
+    fn new(size: SizeF, scale_factor: ScaleFactor) -> Self {
         Self {
             items: vec![],
             state_stack: vec![],
             current_state: RenderState {
                 alpha: 1.,
                 offset: PointF::default(),
-                clip: RectF::new(PointF::default(), size),
+                clip: RectF::new(PointF::default(), size / scale_factor.0),
             },
+            scale_factor,
         }
     }
 
@@ -311,10 +323,10 @@ impl PrepareScene {
     fn new_scene_item(&mut self, geometry: RectF, command: SceneCommand) {
         let z = self.items.len() as u16;
         self.items.push(SceneItem {
-            x: (self.current_state.offset.x + geometry.origin.x) as _,
-            y: (self.current_state.offset.y + geometry.origin.y) as _,
-            width: geometry.size.width as _,
-            height: geometry.size.height as _,
+            x: (self.current_state.offset.x + geometry.origin.x) * self.scale_factor,
+            y: (self.current_state.offset.y + geometry.origin.y) * self.scale_factor,
+            width: geometry.size.width * self.scale_factor,
+            height: geometry.size.height * self.scale_factor,
             z,
             command,
         });
@@ -517,8 +529,7 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
     }
 
     fn scale_factor(&self) -> f32 {
-        // TODO
-        1.0
+        self.scale_factor.0
     }
 
     fn draw_cached_pixmap(

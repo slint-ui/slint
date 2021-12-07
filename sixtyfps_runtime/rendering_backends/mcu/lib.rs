@@ -76,6 +76,9 @@ mod snapshotbackend {
         fn show(self: Rc<Self>) {
             use embedded_graphics::draw_target::DrawTargetExt;
             let runtime_window = self.self_weak.upgrade().unwrap();
+            runtime_window.set_scale_factor(
+                option_env!("SIXTYFPS_SCALE_FACTOR").and_then(|x| x.parse().ok()).unwrap_or(1.),
+            );
 
             runtime_window.update_window_properties();
 
