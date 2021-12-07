@@ -206,7 +206,6 @@ impl TypeRegister {
                 "text",
                 "alias",
                 "copy",
-                "move",
                 "no-drop",
                 "not-allowed",
                 "grab",
