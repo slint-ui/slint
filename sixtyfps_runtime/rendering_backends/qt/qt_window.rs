@@ -20,7 +20,8 @@ use sixtyfps_corelib::graphics::{
 use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
-    self, FillRule, ImageRendering, ItemRef, PointerEventButton, TextOverflow, TextWrap, MouseCursor,
+    self, FillRule, ImageRendering, ItemRef, MouseCursor, PointerEventButton, TextOverflow,
+    TextWrap,
 };
 use sixtyfps_corelib::layout::Orientation;
 use sixtyfps_corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
