@@ -33,6 +33,7 @@ TestCase := Rectangle {
         y: 100phx;
         width: 5phx;
         height: 5phx;
+        mouse-cursor: pointer;
         clicked => {
             pointer-event-test += "click";
             touch2+=1;
