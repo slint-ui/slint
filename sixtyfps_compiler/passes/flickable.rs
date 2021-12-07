@@ -20,8 +20,6 @@ LICENSE END */
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use itertools::Itertools;
-
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::{NativeClass, Type};
 use crate::object_tree::{Component, Element, ElementRc};
@@ -104,7 +102,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 // FIXME: we should ideally add runtime code to merge layout info of all elements that are repeated (#407)
                 .filter(|x| x.borrow().repeated.is_none())
                 .map(|x| Expression::PropertyReference(NamedReference::new(x, prop)))
-                .fold1(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, op))
+                .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, op))
         })
     };
 

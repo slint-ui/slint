@@ -16,7 +16,6 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference, Unit};
 use crate::langtype::Type;
 use crate::object_tree::*;
-use itertools::Itertools;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -152,14 +151,14 @@ fn process_tabwidget(
     if let Some(expr) = children
         .iter()
         .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-width")))
-        .fold1(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'))
+        .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'))
     {
         elem.borrow_mut().bindings.insert("content-min-width".into(), RefCell::new(expr.into()));
     };
     if let Some(expr) = children
         .iter()
         .map(|x| Expression::PropertyReference(NamedReference::new(x, "min-height")))
-        .fold1(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'))
+        .reduce(|lhs, rhs| crate::builtin_macros::min_max_expression(lhs, rhs, '>'))
     {
         elem.borrow_mut().bindings.insert("content-min-height".into(), RefCell::new(expr.into()));
     };
