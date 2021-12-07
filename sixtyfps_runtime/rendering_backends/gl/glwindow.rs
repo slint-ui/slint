@@ -442,7 +442,7 @@ impl PlatformWindow for GLWindow {
             MouseCursor::nesw_resize => winit::window::CursorIcon::NeswResize,
             MouseCursor::nwse_resize => winit::window::CursorIcon::NwseResize,
         };
-        self.with_window_handle(& mut |winit_window| {
+        self.with_window_handle(&mut |winit_window| {
             winit_window.set_cursor_visible(cursor != MouseCursor::none);
             winit_window.set_cursor_icon(winit_cursor);
         });
