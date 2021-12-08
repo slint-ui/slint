@@ -62,15 +62,17 @@ pub trait WinitWindow: PlatformWindow {
                 let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
                 let max_height = constraints_vertical.max.max(constraints_vertical.min);
 
+                let sf = self.runtime_window().scale_factor();
+
                 winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
-                    Some(winit::dpi::LogicalSize::new(min_width, min_height))
+                    Some(winit::dpi::PhysicalSize::new(min_width * sf, min_height * sf))
                 } else {
                     None
                 });
                 winit_window.set_max_inner_size(if max_width < f32::MAX || max_height < f32::MAX {
-                    Some(winit::dpi::LogicalSize::new(
-                        max_width.min(65535.),
-                        max_height.min(65535.),
+                    Some(winit::dpi::PhysicalSize::new(
+                        (max_width * sf).min(65535.),
+                        (max_height * sf).min(65535.),
                     ))
                 } else {
                     None
@@ -123,7 +125,8 @@ pub trait WinitWindow: PlatformWindow {
             } else {
                 winit_window.set_decorations(true);
             }
-            size = winit_window.inner_size().to_logical(winit_window.scale_factor() as f64);
+            size =
+                winit_window.inner_size().to_logical(self.runtime_window().scale_factor() as f64);
         });
 
         let mut must_resize = false;
@@ -492,9 +495,11 @@ fn process_window_event(
             runtime_window.process_mouse_input(ev);
         }
         WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size: size } => {
-            let size = size.to_logical(scale_factor);
-            runtime_window.set_window_item_geometry(size.width, size.height);
-            runtime_window.set_scale_factor(scale_factor as f32);
+            if !std::env::var("SIXTYFPS_SCALE_FACTOR").is_ok() {
+                let size = size.to_logical(scale_factor);
+                runtime_window.set_window_item_geometry(size.width, size.height);
+                runtime_window.set_scale_factor(scale_factor as f32);
+            }
         }
         _ => {}
     }
