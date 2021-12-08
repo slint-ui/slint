@@ -17,7 +17,7 @@ LICENSE END */
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
 use crate::langtype::{PropertyLookupResult, Type};
-use crate::lookup::{LookupCtx, LookupObject};
+use crate::lookup::{LookupCtx, LookupObject, LookupResult};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
@@ -521,49 +521,48 @@ impl Expression {
             Some(x) => x,
         };
 
-        if let Some(depr) = result.deprecated {
+        if let Some(depr) = result.deprecated() {
             ctx.diag.push_property_deprecation_warning(&first_str, &depr, &first);
         }
 
-        match result.expression {
-            Expression::ElementReference(e) => {
+        match result {
+            LookupResult::Expression { expression: Expression::ElementReference(e), .. } => {
                 continue_lookup_within_element(&e.upgrade().unwrap(), &mut it, node, ctx)
             }
-            r @ Expression::CallbackReference(..) => {
+            LookupResult::Expression {
+                expression: r @ Expression::CallbackReference(..), ..
+            } => {
                 if let Some(x) = it.next() {
                     ctx.diag.push_error("Cannot access fields of callback".into(), &x)
                 }
                 r
             }
-            Expression::EnumerationValue(ev) => {
-                // Special meaning for the type itself
-                if ev.value == usize::MAX {
-                    if let Some(next_identifier) = it.next() {
-                        match ev.enumeration.lookup(
-                            ctx,
-                            &crate::parser::normalize_identifier(next_identifier.text()),
-                        ) {
-                            None => {
-                                ctx.diag.push_error(
-                                    format!(
-                                        "'{}' is not a member of the enum {}",
-                                        next_identifier.text(),
-                                        ev.enumeration.name
-                                    ),
-                                    &next_identifier,
-                                );
-                                return Expression::Invalid;
-                            }
-                            Some(r) => return maybe_lookup_object(r.expression, it, ctx),
+            LookupResult::Enumeration(enumeration) => {
+                if let Some(next_identifier) = it.next() {
+                    match enumeration
+                        .lookup(ctx, &crate::parser::normalize_identifier(next_identifier.text()))
+                    {
+                        Some(LookupResult::Expression { expression, .. }) => {
+                            maybe_lookup_object(expression, it, ctx)
                         }
-                    } else {
-                        ctx.diag.push_error("Cannot take reference to an enum".to_string(), &node);
-                        return Expression::Invalid;
+                        _ => {
+                            ctx.diag.push_error(
+                                format!(
+                                    "'{}' is not a member of the enum {}",
+                                    next_identifier.text(),
+                                    enumeration.name
+                                ),
+                                &next_identifier,
+                            );
+                            return Expression::Invalid;
+                        }
                     }
+                } else {
+                    ctx.diag.push_error("Cannot take reference to an enum".to_string(), &node);
+                    return Expression::Invalid;
                 }
-                maybe_lookup_object(Expression::EnumerationValue(ev), it, ctx)
             }
-            other => maybe_lookup_object(other, it, ctx),
+            LookupResult::Expression { expression, .. } => maybe_lookup_object(expression, it, ctx),
         }
     }
 
@@ -1031,10 +1030,10 @@ fn maybe_lookup_object(
         let next_str = crate::parser::normalize_identifier(next.text());
         ctx.current_token = Some(next.clone().into());
         match base.lookup(ctx, &next_str) {
-            Some(result) => {
-                base = result.expression;
+            Some(LookupResult::Expression { expression, .. }) => {
+                base = expression;
             }
-            None => {
+            _ => {
                 if let Some(minus_pos) = next.text().find('-') {
                     if base.lookup(ctx, &next.text()[0..minus_pos]).is_some() {
                         ctx.diag.push_error(format!("Cannot access the field '{}'. Use space before the '-' if you meant a subtraction", next.text()), &next);
