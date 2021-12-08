@@ -939,6 +939,10 @@ the focus the very first time the window receives the focus - it becomes the ini
 
 The debug function take a string as an argument and prints it
 
+### `Math` namespace
+
+These functions are available both in the global scope and in the `Math` namespace.
+
 * **`min`**, **`max`**
 
 Return the arguments with the minimum (or maximum) value. All arguments must be of the same numeric type
@@ -967,6 +971,10 @@ The trigonometry function. Note that the should be typed with `deg` or `rad` uni
 * **`sqrt(float) -> float`**
 
 Square root
+
+### `Colors` namespace
+
+These functions are available both in the global scope, and in the `Colors` namespace.
 
 * **`rgb(int, int, int) -> color`**,  **`rgba(int, int, int, float) -> color`**
 
