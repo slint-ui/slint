@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
  - Colors names can now be accessed through the `Colors` namespace
+ - Math function are now available through the `Math` namespace
 
 ### Fixed
 

@@ -87,6 +87,7 @@ pub enum LookupResult {
 
 pub enum BuiltinNamespace {
     Colors,
+    Math,
 }
 
 impl From<Expression> for LookupResult {
@@ -145,8 +146,9 @@ impl LookupObject for LookupResult {
             LookupResult::Expression { expression, .. } => expression.for_each_entry(ctx, f),
             LookupResult::Enumeration(e) => e.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::Colors) => {
-                ColorSpecific.for_each_entry(ctx, f)
+                (ColorSpecific, ColorFunctions).for_each_entry(ctx, f)
             }
+            LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.for_each_entry(ctx, f),
         }
     }
 
@@ -154,7 +156,10 @@ impl LookupObject for LookupResult {
         match self {
             LookupResult::Expression { expression, .. } => expression.lookup(ctx, name),
             LookupResult::Enumeration(e) => e.lookup(ctx, name),
-            LookupResult::Namespace(BuiltinNamespace::Colors) => ColorSpecific.lookup(ctx, name),
+            LookupResult::Namespace(BuiltinNamespace::Colors) => {
+                (ColorSpecific, ColorFunctions).lookup(ctx, name)
+            }
+            LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
         }
     }
 }
@@ -490,8 +495,8 @@ impl LookupObject for Rc<Enumeration> {
     }
 }
 
-struct BuiltinFunctionLookup;
-impl LookupObject for BuiltinFunctionLookup {
+struct MathFunctions;
+impl LookupObject for MathFunctions {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
@@ -501,15 +506,12 @@ impl LookupObject for BuiltinFunctionLookup {
         let t = &ctx.current_token;
         let sl = || t.as_ref().map(|t| t.to_source_location());
         let mut f = |n, e: Expression| f(n, e.into());
-        None.or_else(|| f("debug", BuiltinMacroReference(BuiltinMacroFunction::Debug, t.clone())))
-            .or_else(|| f("mod", BuiltinFunctionReference(BuiltinFunction::Mod, sl())))
+        None.or_else(|| f("mod", BuiltinFunctionReference(BuiltinFunction::Mod, sl())))
             .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
             .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))
             .or_else(|| f("floor", BuiltinFunctionReference(BuiltinFunction::Floor, sl())))
             .or_else(|| f("abs", BuiltinFunctionReference(BuiltinFunction::Abs, sl())))
             .or_else(|| f("sqrt", BuiltinFunctionReference(BuiltinFunction::Sqrt, sl())))
-            .or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
-            .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
             .or_else(|| f("max", BuiltinMacroReference(BuiltinMacroFunction::Max, t.clone())))
             .or_else(|| f("min", BuiltinMacroReference(BuiltinMacroFunction::Min, t.clone())))
             .or_else(|| f("sin", BuiltinFunctionReference(BuiltinFunction::Sin, sl())))
@@ -521,6 +523,41 @@ impl LookupObject for BuiltinFunctionLookup {
     }
 }
 
+struct ColorFunctions;
+impl LookupObject for ColorFunctions {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        use Expression::BuiltinMacroReference;
+        let t = &ctx.current_token;
+        let mut f = |n, e: Expression| f(n, e.into());
+        None.or_else(|| f("rgb", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
+            .or_else(|| f("rgba", BuiltinMacroReference(BuiltinMacroFunction::Rgb, t.clone())))
+    }
+}
+
+struct BuiltinFunctionLookup;
+impl LookupObject for BuiltinFunctionLookup {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        (MathFunctions, ColorFunctions).for_each_entry(ctx, f).or_else(|| {
+            f(
+                "debug",
+                Expression::BuiltinMacroReference(
+                    BuiltinMacroFunction::Debug,
+                    ctx.current_token.clone(),
+                )
+                .into(),
+            )
+        })
+    }
+}
+
 struct BuiltinNamespaceLookup;
 impl LookupObject for BuiltinNamespaceLookup {
     fn for_each_entry<R>(
@@ -529,6 +566,7 @@ impl LookupObject for BuiltinNamespaceLookup {
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
+            .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
     }
 }
 

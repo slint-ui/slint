@@ -8,8 +8,8 @@
     Please contact info@sixtyfps.io for more information.
 LICENSE END */
  TestCase := Rectangle {
-    property <bool> test_sqrt: sqrt(100) == 10 && sqrt(1) == 1 && sqrt(6.25) == 2.5;
-    property <bool> test_abs: abs(100.5) == 100.5 && abs(-200.5) == 200.5 && abs(0) == 0;
+    property <bool> test_sqrt: sqrt(100) == 10 && Math.sqrt(1) == 1 && sqrt(6.25) == 2.5;
+    property <bool> test_abs: abs(100.5) == 100.5 && Math.abs(-200.5) == 200.5 && abs(0) == 0;
     property <bool> test: test_sqrt && test_abs;
 }
 /*
