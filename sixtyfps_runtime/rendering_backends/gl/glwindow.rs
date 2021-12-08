@@ -164,7 +164,7 @@ impl WinitWindow for GLWindow {
                 state: vec![crate::State {
                     scissor: Rect::new(
                         Point::default(),
-                        Size::new(size.width as _, size.height as _),
+                        Size::new(size.width as f32, size.height as f32) / scale_factor,
                     ),
                     global_alpha: 1.,
                     layer: None,
