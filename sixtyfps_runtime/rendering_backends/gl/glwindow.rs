@@ -341,6 +341,11 @@ impl PlatformWindow for GLWindow {
             .with_title(window_title)
             .with_resizable(is_resizable);
 
+        let scale_factor_override = std::env::var("SIXTYFPS_SCALE_FACTOR")
+            .ok()
+            .and_then(|x| x.parse::<f64>().ok())
+            .filter(|f| *f > 0.);
+
         let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
             window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         } else {
@@ -350,11 +355,16 @@ impl PlatformWindow for GLWindow {
                 layout_info_h.preferred_bounded(),
                 layout_info_v.preferred_bounded(),
             );
+
             if s.width > 0. && s.height > 0. {
                 // Make sure that the window's inner size is in sync with the root window item's
                 // width/height.
                 runtime_window.set_window_item_geometry(s.width, s.height);
-                window_builder.with_inner_size(s)
+                if let Some(f) = scale_factor_override {
+                    window_builder.with_inner_size(s.to_physical::<f32>(f))
+                } else {
+                    window_builder.with_inner_size(s)
+                }
             } else {
                 window_builder
             }
@@ -382,7 +392,9 @@ impl PlatformWindow for GLWindow {
 
         let platform_window = opengl_context.window();
         let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.set_scale_factor(platform_window.scale_factor() as _);
+        runtime_window.set_scale_factor(
+            scale_factor_override.unwrap_or_else(|| platform_window.scale_factor()) as _,
+        );
         let id = platform_window.id();
         drop(platform_window);
 
