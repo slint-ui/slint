@@ -18,7 +18,7 @@ use lsp_types::{
 use sixtyfps_compilerlib::diagnostics::Spanned;
 use sixtyfps_compilerlib::expression_tree::Expression;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::lookup::{LookupCtx, LookupObject};
+use sixtyfps_compilerlib::lookup::{LookupCtx, LookupObject, LookupResult};
 use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 
 pub(crate) fn completion_at(
@@ -180,7 +180,7 @@ pub(crate) fn completion_at(
                     }
                     let first = sixtyfps_compilerlib::parser::normalize_identifier(first?.text());
                     let global = sixtyfps_compilerlib::lookup::global_lookup();
-                    let mut expr_it = global.lookup(ctx, &first)?.expression;
+                    let mut expr_it = global.lookup(ctx, &first)?;
                     let mut has_dot = false;
                     for t in it {
                         has_dot |= t.kind() == SyntaxKind::Dot;
@@ -192,7 +192,7 @@ pub(crate) fn completion_at(
                         }
                         has_dot = false;
                         let str = sixtyfps_compilerlib::parser::normalize_identifier(t.text());
-                        expr_it = expr_it.lookup(ctx, &str)?.expression;
+                        expr_it = expr_it.lookup(ctx, &str)?;
                     }
                     has_dot.then(|| {
                         let mut r = Vec::new();
@@ -306,28 +306,33 @@ fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<Completion
     Some(r)
 }
 
-fn completion_item_from_expression(str: &str, expr: Expression) -> CompletionItem {
-    let mut c = CompletionItem::new_simple(str.to_string(), expr.ty().to_string());
-    c.kind = match expr {
-        Expression::BoolLiteral(_) => Some(CompletionItemKind::CONSTANT),
-        Expression::CallbackReference(_) => Some(CompletionItemKind::METHOD),
-        Expression::PropertyReference(_) => Some(CompletionItemKind::PROPERTY),
-        Expression::BuiltinFunctionReference(..) => Some(CompletionItemKind::FUNCTION),
-        Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::FUNCTION),
-        Expression::ElementReference(_) => Some(CompletionItemKind::CLASS),
-        Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::VARIABLE),
-        Expression::RepeaterModelReference { .. } => Some(CompletionItemKind::VARIABLE),
-        Expression::FunctionParameterReference { .. } => Some(CompletionItemKind::VARIABLE),
-        Expression::Cast { .. } => Some(CompletionItemKind::CONSTANT),
-        Expression::EasingCurve(_) => Some(CompletionItemKind::CONSTANT),
-        Expression::EnumerationValue(ev) => Some(if ev.value == usize::MAX {
-            CompletionItemKind::ENUM
-        } else {
-            CompletionItemKind::ENUM_MEMBER
-        }),
-        _ => None,
-    };
-    c
+fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> CompletionItem {
+    match lookup_result {
+        LookupResult::Expression { expression, .. } => {
+            let mut c = CompletionItem::new_simple(str.to_string(), expression.ty().to_string());
+            c.kind = match expression {
+                Expression::BoolLiteral(_) => Some(CompletionItemKind::CONSTANT),
+                Expression::CallbackReference(_) => Some(CompletionItemKind::METHOD),
+                Expression::PropertyReference(_) => Some(CompletionItemKind::PROPERTY),
+                Expression::BuiltinFunctionReference(..) => Some(CompletionItemKind::FUNCTION),
+                Expression::BuiltinMacroReference(..) => Some(CompletionItemKind::FUNCTION),
+                Expression::ElementReference(_) => Some(CompletionItemKind::CLASS),
+                Expression::RepeaterIndexReference { .. } => Some(CompletionItemKind::VARIABLE),
+                Expression::RepeaterModelReference { .. } => Some(CompletionItemKind::VARIABLE),
+                Expression::FunctionParameterReference { .. } => Some(CompletionItemKind::VARIABLE),
+                Expression::Cast { .. } => Some(CompletionItemKind::CONSTANT),
+                Expression::EasingCurve(_) => Some(CompletionItemKind::CONSTANT),
+                Expression::EnumerationValue(_) => Some(CompletionItemKind::ENUM_MEMBER),
+                _ => None,
+            };
+            c
+        }
+        LookupResult::Enumeration(e) => {
+            let mut c = CompletionItem::new_simple(str.to_string(), e.name.clone());
+            c.kind = Some(CompletionItemKind::ENUM);
+            c
+        }
+    }
 }
 
 fn resolve_type_scope(

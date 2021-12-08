@@ -75,17 +75,27 @@ impl<'a> LookupCtx<'a> {
     }
 }
 
-#[derive(Default)]
-pub struct LookupResult {
-    pub expression: Expression,
-    /// When set, this is deprecated, and the string is the deprecated name
-    /// (the new name can be found in the expression's NamedReference)
-    pub deprecated: Option<String>,
+pub enum LookupResult {
+    Expression {
+        expression: Expression,
+        /// When set, this is deprecated, and the string is the new name
+        deprecated: Option<String>,
+    },
+    Enumeration(Rc<Enumeration>),
+}
+
+impl From<Expression> for LookupResult {
+    fn from(expression: Expression) -> Self {
+        Self::Expression { expression, deprecated: None }
+    }
 }
 
 impl LookupResult {
-    pub fn new(expression: Expression) -> Self {
-        Self { expression, deprecated: None }
+    pub fn deprecated(&self) -> Option<&str> {
+        match self {
+            Self::Expression { deprecated: Some(x), .. } => Some(x.as_str()),
+            _ => None,
+        }
     }
 }
 
@@ -96,13 +106,13 @@ pub trait LookupObject {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R>;
 
     /// Perform a lookup of a given identifier.
     /// One does not have to re-implement unless we can make it faster
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then(|| LookupResult::new(expr)))
+        self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then(|| LookupResult::from(expr)))
     }
 }
 
@@ -110,7 +120,7 @@ impl<T1: LookupObject, T2: LookupObject> LookupObject for (T1, T2) {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         self.0.for_each_entry(ctx, f).or_else(|| self.1.for_each_entry(ctx, f))
     }
@@ -120,12 +130,32 @@ impl<T1: LookupObject, T2: LookupObject> LookupObject for (T1, T2) {
     }
 }
 
+impl LookupObject for LookupResult {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        match self {
+            LookupResult::Expression { expression, .. } => expression.for_each_entry(ctx, f),
+            LookupResult::Enumeration(e) => e.for_each_entry(ctx, f),
+        }
+    }
+
+    fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
+        match self {
+            LookupResult::Expression { expression, .. } => expression.lookup(ctx, name),
+            LookupResult::Enumeration(e) => e.lookup(ctx, name),
+        }
+    }
+}
+
 struct ArgumentsLookup;
 impl LookupObject for ArgumentsLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let args = match &ctx.property_type {
             Type::Callback { args, .. } | Type::Function { args, .. } => args,
@@ -133,7 +163,7 @@ impl LookupObject for ArgumentsLookup {
         };
         for (index, (name, ty)) in ctx.arguments.iter().zip(args.iter()).enumerate() {
             if let Some(r) =
-                f(name, Expression::FunctionParameterReference { index, ty: ty.clone() })
+                f(name, Expression::FunctionParameterReference { index, ty: ty.clone() }.into())
             {
                 return Some(r);
             }
@@ -147,18 +177,19 @@ impl LookupObject for SpecialIdLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         let last = ctx.component_scope.last();
-        None.or_else(|| f("self", Expression::ElementReference(Rc::downgrade(last?))))
+        None.or_else(|| f("self", Expression::ElementReference(Rc::downgrade(last?)).into()))
             .or_else(|| {
                 f(
                     "parent",
-                    Expression::ElementReference(Rc::downgrade(&find_parent_element(last?)?)),
+                    Expression::ElementReference(Rc::downgrade(&find_parent_element(last?)?))
+                        .into(),
                 )
             })
-            .or_else(|| f("true", Expression::BoolLiteral(true)))
-            .or_else(|| f("false", Expression::BoolLiteral(false)))
+            .or_else(|| f("true", Expression::BoolLiteral(true).into()))
+            .or_else(|| f("false", Expression::BoolLiteral(false).into()))
         // "root" is just a normal id
     }
 }
@@ -168,16 +199,16 @@ impl LookupObject for IdLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         fn visit<R>(
             roots: &[ElementRc],
-            f: &mut impl FnMut(&str, Expression) -> Option<R>,
+            f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
         ) -> Option<R> {
             for e in roots.iter().rev() {
                 if !e.borrow().id.is_empty() {
                     if let Some(r) =
-                        f(&e.borrow().id, Expression::ElementReference(Rc::downgrade(e)))
+                        f(&e.borrow().id, Expression::ElementReference(Rc::downgrade(e)).into())
                     {
                         return Some(r);
                     }
@@ -203,14 +234,14 @@ impl LookupObject for InScopeLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for elem in ctx.component_scope.iter().rev() {
             if let Some(repeated) = &elem.borrow().repeated {
                 if !repeated.index_id.is_empty() {
                     if let Some(r) = f(
                         &repeated.index_id,
-                        Expression::RepeaterIndexReference { element: Rc::downgrade(elem) },
+                        Expression::RepeaterIndexReference { element: Rc::downgrade(elem) }.into(),
                     ) {
                         return Some(r);
                     }
@@ -218,7 +249,7 @@ impl LookupObject for InScopeLookup {
                 if !repeated.model_data_id.is_empty() {
                     if let Some(r) = f(
                         &repeated.model_data_id,
-                        Expression::RepeaterIndexReference { element: Rc::downgrade(elem) },
+                        Expression::RepeaterIndexReference { element: Rc::downgrade(elem) }.into(),
                     ) {
                         return Some(r);
                     }
@@ -239,12 +270,12 @@ impl LookupObject for InScopeLookup {
         for elem in ctx.component_scope.iter().rev() {
             if let Some(repeated) = &elem.borrow().repeated {
                 if repeated.index_id == name {
-                    return Some(LookupResult::new(Expression::RepeaterIndexReference {
+                    return Some(LookupResult::from(Expression::RepeaterIndexReference {
                         element: Rc::downgrade(elem),
                     }));
                 }
                 if repeated.model_data_id == name {
-                    return Some(LookupResult::new(Expression::RepeaterModelReference {
+                    return Some(LookupResult::from(Expression::RepeaterModelReference {
                         element: Rc::downgrade(elem),
                     }));
                 }
@@ -262,24 +293,24 @@ impl LookupObject for ElementRc {
     fn for_each_entry<R>(
         &self,
         _ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, prop) in &self.borrow().property_declarations {
             let e = expression_from_reference(NamedReference::new(self, name), &prop.property_type);
-            if let Some(r) = f(name, e) {
+            if let Some(r) = f(name, e.into()) {
                 return Some(r);
             }
         }
         let list = self.borrow().base_type.property_list();
         for (name, ty) in list {
             let e = expression_from_reference(NamedReference::new(self, &name), &ty);
-            if let Some(r) = f(&name, e) {
+            if let Some(r) = f(&name, e.into()) {
                 return Some(r);
             }
         }
         for (name, ty) in crate::typeregister::reserved_properties() {
             let e = expression_from_reference(NamedReference::new(self, name), &ty);
-            if let Some(r) = f(name, e) {
+            if let Some(r) = f(name, e.into()) {
                 return Some(r);
             }
         }
@@ -289,7 +320,7 @@ impl LookupObject for ElementRc {
     fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         let crate::langtype::PropertyLookupResult { resolved_name, property_type } =
             self.borrow().lookup_property(name);
-        (property_type != Type::Invalid).then(|| LookupResult {
+        (property_type != Type::Invalid).then(|| LookupResult::Expression {
             expression: expression_from_reference(
                 NamedReference::new(self, &resolved_name),
                 &property_type,
@@ -314,10 +345,10 @@ impl LookupObject for LookupType {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, ty) in ctx.type_register.all_types() {
-            if let Some(r) = Self::as_expr(ty).and_then(|e| f(&name, e)) {
+            if let Some(r) = Self::as_result(ty).and_then(|e| f(&name, e)) {
                 return Some(r);
             }
         }
@@ -325,19 +356,16 @@ impl LookupObject for LookupType {
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        Self::as_expr(ctx.type_register.lookup(name)).map(LookupResult::new)
+        Self::as_result(ctx.type_register.lookup(name)).map(LookupResult::from)
     }
 }
 impl LookupType {
-    fn as_expr(ty: Type) -> Option<Expression> {
+    fn as_result(ty: Type) -> Option<LookupResult> {
         match ty {
             Type::Component(c) if c.is_global() => {
-                Some(Expression::ElementReference(Rc::downgrade(&c.root_element)))
+                Some(Expression::ElementReference(Rc::downgrade(&c.root_element)).into())
             }
-            Type::Enumeration(e) => Some(Expression::EnumerationValue(EnumerationValue {
-                value: usize::MAX,
-                enumeration: e,
-            })),
+            Type::Enumeration(e) => Some(LookupResult::Enumeration(e)),
             _ => None,
         }
     }
@@ -348,7 +376,7 @@ impl LookupObject for ReturnTypeSpecificLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         match ctx.return_type() {
             Type::Color => ColorSpecific.for_each_entry(ctx, f),
@@ -375,27 +403,28 @@ impl LookupObject for ColorSpecific {
     fn for_each_entry<R>(
         &self,
         _ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, c) in css_color_parser2::NAMED_COLORS.iter() {
-            if let Some(r) = f(name, Self::as_expr(*c)) {
+            if let Some(r) = f(name, Self::as_result(*c)) {
                 return Some(r);
             }
         }
         None
     }
     fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        css_color_parser2::NAMED_COLORS.get(name).map(|c| LookupResult::new(Self::as_expr(*c)))
+        css_color_parser2::NAMED_COLORS.get(name).map(|c| Self::as_result(*c))
     }
 }
 impl ColorSpecific {
-    fn as_expr(c: css_color_parser2::Color) -> Expression {
+    fn as_result(c: css_color_parser2::Color) -> LookupResult {
         let value =
             ((c.a as u32 * 255) << 24) | ((c.r as u32) << 16) | ((c.g as u32) << 8) | (c.b as u32);
         Expression::Cast {
             from: Box::new(Expression::NumberLiteral(value as f64, Unit::None)),
             to: Type::Color,
         }
+        .into()
     }
 }
 
@@ -404,23 +433,30 @@ impl LookupObject for EasingSpecific {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         use EasingCurve::CubicBezier;
-        None.or_else(|| f("linear", Expression::EasingCurve(EasingCurve::Linear)))
-            .or_else(|| f("ease", Expression::EasingCurve(CubicBezier(0.25, 0.1, 0.25, 1.0))))
-            .or_else(|| f("ease-in", Expression::EasingCurve(CubicBezier(0.42, 0.0, 1.0, 1.0))))
+        None.or_else(|| f("linear", Expression::EasingCurve(EasingCurve::Linear).into()))
             .or_else(|| {
-                f("ease-in-out", Expression::EasingCurve(CubicBezier(0.42, 0.0, 0.58, 1.0)))
+                f("ease", Expression::EasingCurve(CubicBezier(0.25, 0.1, 0.25, 1.0)).into())
             })
-            .or_else(|| f("ease-out", Expression::EasingCurve(CubicBezier(0.0, 0.0, 0.58, 1.0))))
+            .or_else(|| {
+                f("ease-in", Expression::EasingCurve(CubicBezier(0.42, 0.0, 1.0, 1.0)).into())
+            })
+            .or_else(|| {
+                f("ease-in-out", Expression::EasingCurve(CubicBezier(0.42, 0.0, 0.58, 1.0)).into())
+            })
+            .or_else(|| {
+                f("ease-out", Expression::EasingCurve(CubicBezier(0.0, 0.0, 0.58, 1.0)).into())
+            })
             .or_else(|| {
                 f(
                     "cubic-bezier",
                     Expression::BuiltinMacroReference(
                         BuiltinMacroFunction::CubicBezier,
                         ctx.current_token.clone(),
-                    ),
+                    )
+                    .into(),
                 )
             })
     }
@@ -430,12 +466,13 @@ impl LookupObject for Rc<Enumeration> {
     fn for_each_entry<R>(
         &self,
         _ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (value, name) in self.values.iter().enumerate() {
             if let Some(r) = f(
                 name,
-                Expression::EnumerationValue(EnumerationValue { value, enumeration: self.clone() }),
+                Expression::EnumerationValue(EnumerationValue { value, enumeration: self.clone() })
+                    .into(),
             ) {
                 return Some(r);
             }
@@ -449,11 +486,12 @@ impl LookupObject for BuiltinFunctionLookup {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         use Expression::{BuiltinFunctionReference, BuiltinMacroReference};
         let t = &ctx.current_token;
         let sl = || t.as_ref().map(|t| t.to_source_location());
+        let mut f = |n, e: Expression| f(n, e.into());
         None.or_else(|| f("debug", BuiltinMacroReference(BuiltinMacroFunction::Debug, t.clone())))
             .or_else(|| f("mod", BuiltinFunctionReference(BuiltinFunction::Mod, sl())))
             .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
@@ -491,17 +529,10 @@ impl LookupObject for Expression {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         match self {
             Expression::ElementReference(e) => e.upgrade().unwrap().for_each_entry(ctx, f),
-            Expression::EnumerationValue(ev) => {
-                if ev.value == usize::MAX {
-                    ev.enumeration.for_each_entry(ctx, f)
-                } else {
-                    None
-                }
-            }
             _ => match self.ty() {
                 Type::Struct { fields, .. } => {
                     for name in fields.keys() {
@@ -510,7 +541,8 @@ impl LookupObject for Expression {
                             Expression::StructFieldAccess {
                                 base: Box::new(self.clone()),
                                 name: name.clone(),
-                            },
+                            }
+                            .into(),
                         ) {
                             return Some(r);
                         }
@@ -530,16 +562,9 @@ impl LookupObject for Expression {
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         match self {
             Expression::ElementReference(e) => e.upgrade().unwrap().lookup(ctx, name),
-            Expression::EnumerationValue(ev) => {
-                if ev.value == usize::MAX {
-                    ev.enumeration.lookup(ctx, name)
-                } else {
-                    None
-                }
-            }
             _ => match self.ty() {
                 Type::Struct { fields, .. } => fields.contains_key(name).then(|| {
-                    LookupResult::new(Expression::StructFieldAccess {
+                    LookupResult::from(Expression::StructFieldAccess {
                         base: Box::new(self.clone()),
                         name: name.to_string(),
                     })
@@ -560,15 +585,17 @@ impl<'a> LookupObject for StringExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = |f: BuiltinFunction| Expression::MemberFunction {
-            base: Box::new(self.0.clone()),
-            base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-            member: Box::new(Expression::BuiltinFunctionReference(
-                f,
-                ctx.current_token.as_ref().map(|t| t.to_source_location()),
-            )),
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::from(Expression::MemberFunction {
+                base: Box::new(self.0.clone()),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: Box::new(Expression::BuiltinFunctionReference(
+                    f,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )),
+            })
         };
         None.or_else(|| f("is-float", member_function(BuiltinFunction::StringIsFloat)))
             .or_else(|| f("to-float", member_function(BuiltinFunction::StringToFloat)))
@@ -579,15 +606,17 @@ impl<'a> LookupObject for ColorExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = |f: BuiltinFunction| Expression::MemberFunction {
-            base: Box::new(self.0.clone()),
-            base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
-            member: Box::new(Expression::BuiltinFunctionReference(
-                f,
-                ctx.current_token.as_ref().map(|t| t.to_source_location()),
-            )),
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::from(Expression::MemberFunction {
+                base: Box::new(self.0.clone()),
+                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                member: Box::new(Expression::BuiltinFunctionReference(
+                    f,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )),
+            })
         };
         None.or_else(|| f("brighter", member_function(BuiltinFunction::ColorBrighter)))
             .or_else(|| f("darker", member_function(BuiltinFunction::ColorDarker)))
@@ -599,18 +628,20 @@ impl<'a> LookupObject for ImageExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let field_access = |f: &str| Expression::StructFieldAccess {
-            base: Box::new(Expression::FunctionCall {
-                function: Box::new(Expression::BuiltinFunctionReference(
-                    BuiltinFunction::ImageSize,
-                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                )),
-                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                arguments: vec![self.0.clone()],
-            }),
-            name: f.into(),
+        let field_access = |f: &str| {
+            LookupResult::from(Expression::StructFieldAccess {
+                base: Box::new(Expression::FunctionCall {
+                    function: Box::new(Expression::BuiltinFunctionReference(
+                        BuiltinFunction::ImageSize,
+                        ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    )),
+                    source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    arguments: vec![self.0.clone()],
+                }),
+                name: f.into(),
+            })
         };
         None.or_else(|| f("width", field_access("width")))
             .or_else(|| f("height", field_access("height")))
@@ -622,15 +653,17 @@ impl<'a> LookupObject for ArrayExpression<'a> {
     fn for_each_entry<R>(
         &self,
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, Expression) -> Option<R>,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = |f: BuiltinFunction| Expression::FunctionCall {
-            function: Box::new(Expression::BuiltinFunctionReference(
-                f,
-                ctx.current_token.as_ref().map(|t| t.to_source_location()),
-            )),
-            source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
-            arguments: vec![self.0.clone()],
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::from(Expression::FunctionCall {
+                function: Box::new(Expression::BuiltinFunctionReference(
+                    f,
+                    ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                )),
+                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                arguments: vec![self.0.clone()],
+            })
         };
         None.or_else(|| f("length", member_function(BuiltinFunction::ArrayLength)))
     }
