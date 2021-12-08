@@ -4,14 +4,20 @@ All notable changes to this project will be documented in this file.
 ## Unreleased
 
 ### Added
+
  - Colors names can now be accessed through the `Colors` namespace
  - Math function are now available through the `Math` namespace
+ - `TouchArea` gained a `mouse-cursor` property to change the mouse cursor
+ - C++: Added version macros
+ - Optimize some property access by doing more constant propagation
 
 ### Fixed
 
  - Memory leak in C++
  - Properly change all the colors when switching dark mode on or of (#687)
  - Ctrl/Command+X in text fields copies the selected text to the clipboard and deletes it (cut).
+ - Improved native ComboBox look
+ - panics or compilation error when using two way bindings on global properties
 
 ## [0.1.5] - 2021-11-24
 
