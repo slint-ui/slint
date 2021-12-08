@@ -39,4 +39,11 @@ X := Rectangle {
         property<color> b: 123;
 //                        ^error{Cannot convert float to color}
     }
+
+    Rectangle {
+        background: Colors;
+//                  ^error{Cannot take reference to a namespace}
+        property<color> xxx: Colors.xxx;
+//                                  ^error{'xxx' is not a member of the namespace Colors}
+    }
 }

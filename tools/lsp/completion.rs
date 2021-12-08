@@ -332,6 +332,11 @@ fn completion_item_from_expression(str: &str, lookup_result: LookupResult) -> Co
             c.kind = Some(CompletionItemKind::ENUM);
             c
         }
+        LookupResult::Namespace(_) => CompletionItem {
+            label: str.to_string(),
+            kind: Some(CompletionItemKind::MODULE),
+            ..CompletionItem::default()
+        },
     }
 }
 

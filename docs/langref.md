@@ -471,14 +471,16 @@ Color literals follow the syntax of CSS:
 Example := Rectangle {
     background: blue;
     property<color> c1: #ffaaff;
+    property<brush> b2: Colors.red;
 }
 ```
-
-(TODO: currently color name are only limited to a handful and only supported in color property)
 
 In addition to plain colors, many elements have properties that are of type `brush` instead of `color`.
 A brush is a type that can be either a color or gradient. The brush is then used to fill an element or
 draw the outline.
+
+CSS Color names are only in scope in expressions of type `color` or `brush`. Otherwise, you can access
+colors from the `Colors` namespace.
 
 #### Methods
 

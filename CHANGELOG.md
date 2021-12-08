@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+ - Colors names can now be accessed through the `Colors` namespace
+
 ### Fixed
 
  - Memory leak in C++
