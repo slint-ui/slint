@@ -563,6 +563,31 @@ impl Expression {
                 }
             }
             LookupResult::Expression { expression, .. } => maybe_lookup_object(expression, it, ctx),
+            LookupResult::Namespace(_) => {
+                if let Some(next_identifier) = it.next() {
+                    match result
+                        .lookup(ctx, &crate::parser::normalize_identifier(next_identifier.text()))
+                    {
+                        Some(LookupResult::Expression { expression, .. }) => {
+                            maybe_lookup_object(expression, it, ctx)
+                        }
+                        _ => {
+                            ctx.diag.push_error(
+                                format!(
+                                    "'{}' is not a member of the namespace {}",
+                                    next_identifier.text(),
+                                    first_str
+                                ),
+                                &next_identifier,
+                            );
+                            return Expression::Invalid;
+                        }
+                    }
+                } else {
+                    ctx.diag.push_error("Cannot take reference to a namespace".to_string(), &node);
+                    return Expression::Invalid;
+                }
+            }
         }
     }
 

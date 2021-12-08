@@ -82,6 +82,11 @@ pub enum LookupResult {
         deprecated: Option<String>,
     },
     Enumeration(Rc<Enumeration>),
+    Namespace(BuiltinNamespace),
+}
+
+pub enum BuiltinNamespace {
+    Colors,
 }
 
 impl From<Expression> for LookupResult {
@@ -139,6 +144,9 @@ impl LookupObject for LookupResult {
         match self {
             LookupResult::Expression { expression, .. } => expression.for_each_entry(ctx, f),
             LookupResult::Enumeration(e) => e.for_each_entry(ctx, f),
+            LookupResult::Namespace(BuiltinNamespace::Colors) => {
+                ColorSpecific.for_each_entry(ctx, f)
+            }
         }
     }
 
@@ -146,6 +154,7 @@ impl LookupObject for LookupResult {
         match self {
             LookupResult::Expression { expression, .. } => expression.lookup(ctx, name),
             LookupResult::Enumeration(e) => e.lookup(ctx, name),
+            LookupResult::Namespace(BuiltinNamespace::Colors) => ColorSpecific.lookup(ctx, name),
         }
     }
 }
@@ -512,6 +521,17 @@ impl LookupObject for BuiltinFunctionLookup {
     }
 }
 
+struct BuiltinNamespaceLookup;
+impl LookupObject for BuiltinNamespaceLookup {
+    fn for_each_entry<R>(
+        &self,
+        _ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
+    }
+}
+
 pub fn global_lookup() -> impl LookupObject {
     (
         ArgumentsLookup,
@@ -519,7 +539,13 @@ pub fn global_lookup() -> impl LookupObject {
             SpecialIdLookup,
             (
                 IdLookup,
-                (InScopeLookup, (LookupType, (ReturnTypeSpecificLookup, BuiltinFunctionLookup))),
+                (
+                    InScopeLookup,
+                    (
+                        LookupType,
+                        (BuiltinNamespaceLookup, (ReturnTypeSpecificLookup, BuiltinFunctionLookup)),
+                    ),
+                ),
             ),
         ),
     )
