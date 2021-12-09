@@ -43,10 +43,10 @@ jobs:
            ~/.cargo/bin/mdbook
            ~/.cargo/bin/mdbook-linkcheck
         key: ${{ runner.os }}-${{ github.job }}-mdbook-${{ env.MDBOOK_VERSION }}-${{ env.MDBOOK_LINKCHECK_VERSION }}
-    - name: Install nightly
+    - name: Install stable
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: nightly
+          toolchain: stable
     - uses: Swatinem/rust-cache@v1
     - name: Install mdbook
       run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }} || true
@@ -82,7 +82,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: doc
-          toolchain: nightly
+          toolchain: stable
           args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps --all-features
     - name: "Rust Tutorial Docs"
       run: mdbook build
