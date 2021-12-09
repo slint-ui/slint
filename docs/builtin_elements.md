@@ -458,6 +458,10 @@ Example := Window {
 
 The FocusScope exposes callback to intercept the pressed key when it has focus.
 
+The KeyEvent has a text property which is a character of the key entered.
+When a non-printable key is pressed, the character will be either a control character,
+or a private unicode character. The special characters are available in the `Keys` namespace
+
 ### Properties
 
 * **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
@@ -481,6 +485,9 @@ Example := Window {
             debug(event.text);
             if (event.modifiers.control) {
                 debug("control was pressed during this event");
+            }
+            if (event.text == Keys.Escape) {
+                debug("Esc key was pressed")
             }
             accept
         }

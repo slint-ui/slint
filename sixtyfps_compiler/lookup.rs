@@ -88,6 +88,7 @@ pub enum LookupResult {
 pub enum BuiltinNamespace {
     Colors,
     Math,
+    Keys,
 }
 
 impl From<Expression> for LookupResult {
@@ -149,6 +150,7 @@ impl LookupObject for LookupResult {
                 (ColorSpecific, ColorFunctions).for_each_entry(ctx, f)
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.for_each_entry(ctx, f),
+            LookupResult::Namespace(BuiltinNamespace::Keys) => KeysLookup.for_each_entry(ctx, f),
         }
     }
 
@@ -160,6 +162,7 @@ impl LookupObject for LookupResult {
                 (ColorSpecific, ColorFunctions).lookup(ctx, name)
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
+            LookupResult::Namespace(BuiltinNamespace::Keys) => KeysLookup.lookup(ctx, name),
         }
     }
 }
@@ -442,6 +445,27 @@ impl ColorSpecific {
     }
 }
 
+struct KeysLookup;
+
+macro_rules! for_each_special_keys {
+    ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
+        use super::*;
+        impl LookupObject for KeysLookup {
+            fn for_each_entry<R>(
+                &self,
+                _ctx: &LookupCtx,
+                f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+            ) -> Option<R> {
+                None
+                $(.or_else(|| {
+                    f(stringify!($name), Expression::StringLiteral($char.into()).into())
+                }))*
+            }
+        }
+    };
+}
+mod key_codes;
+
 struct EasingSpecific;
 impl LookupObject for EasingSpecific {
     fn for_each_entry<R>(
@@ -567,6 +591,7 @@ impl LookupObject for BuiltinNamespaceLookup {
     ) -> Option<R> {
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
             .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
+            .or_else(|| f("Keys", LookupResult::Namespace(BuiltinNamespace::Keys)))
     }
 }
 

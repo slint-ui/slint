@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changed
+
+ - **Breaking:** The internal key code for the keys left, right, home and end
+   has changed. This was undocumented, but if one was handling this in the
+   `FocusScope` event, these keys will now be ignored. Use the `Keys.LeftArrow`
+   and other code exposed in the `Keys` namespace instead
+
 ### Added
 
  - Colors names can now be accessed through the `Colors` namespace
@@ -10,6 +17,8 @@ All notable changes to this project will be documented in this file.
  - `TouchArea` gained a `mouse-cursor` property to change the mouse cursor
  - C++: Added version macros
  - Optimize some property access by doing more constant propagation
+ - More special keyboard key codes are provided in the `FocusScope`, and
+   special keys are handled
 
 ### Fixed
 
