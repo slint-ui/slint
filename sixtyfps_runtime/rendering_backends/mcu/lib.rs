@@ -244,9 +244,24 @@ where
 
 #[cfg(not(feature = "simulator"))]
 pub fn init_with_mock_display() {
-    init_with_display(embedded_graphics::mock_display::MockDisplay::<
-        embedded_graphics::pixelcolor::Rgb888,
-    >::new());
+    struct EmptyDisplay;
+    impl embedded_graphics::draw_target::DrawTarget for EmptyDisplay {
+        type Color = embedded_graphics::pixelcolor::Rgb888;
+        type Error = ();
+        fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
+        where
+            I: IntoIterator<Item = embedded_graphics::Pixel<Self::Color>>,
+        {
+            let _ = pixels.into_iter().count();
+            Ok(())
+        }
+    }
+    impl embedded_graphics::geometry::OriginDimensions for EmptyDisplay {
+        fn size(&self) -> embedded_graphics::geometry::Size {
+            embedded_graphics::geometry::Size::new(320, 240)
+        }
+    }
+    init_with_display(EmptyDisplay);
 }
 
 #[cfg(feature = "pico-st7789")]
