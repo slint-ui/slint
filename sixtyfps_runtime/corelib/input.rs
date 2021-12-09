@@ -117,82 +117,15 @@ impl Default for InputEventFilterResult {
     }
 }
 
-/// InternalKeyCode is used to certain keys to unicode characters, since our
-/// public key event only exposes a string. This enum captures this mapping.
-#[derive(Debug, PartialEq, Clone)]
-pub enum InternalKeyCode {
-    /// Code corresponding to the left cursor key - encoded as 0xE ASCII (shift out)
-    Left,
-    /// Code corresponding to the right cursor key -- encoded as 0xF ASCII (shift in)
-    Right,
-    /// Code corresponding to the home key -- encoded as 0x2 ASCII (start of text)
-    Home,
-    /// Code corresponding to the end key -- encoded as 0x3 ASCII (end of text)
-    End,
-    /// Code corresponding to the backspace key -- encoded as 0x7 ASCII (backspace)
-    Back,
-    /// Code corresponding to the delete key -- encoded as 0x7F ASCII (delete)
-    Delete,
-    /// Code corresponding to the tab key -- encoded as 0x9 ASCII (horizontal tab)
-    Tab,
-    /// Code corresponding to the return key -- encoded as 0xA ASCII (newline)
-    Return,
-    /// Code corresponding to the return key -- encoded as 0x1b ASCII (escape)
-    Escape,
+macro_rules! for_each_special_keys {
+    ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* ;)*) => {
+        $(pub const $name : char = $char;)*
+    };
 }
 
-const LEFT_CODE: char = '\u{000E}'; // shift out
-const RIGHT_CODE: char = '\u{000F}'; // shift in
-const HOME_CODE: char = '\u{0002}'; // start of text
-const END_CODE: char = '\u{0003}'; // end of text
-const BACK_CODE: char = '\u{0007}'; // backspace \b
-const DELETE_CODE: char = '\u{007F}'; // cancel
-const TAB_CODE: char = '\u{0009}'; // \t
-const RETURN_CODE: char = '\u{000A}'; // \n
-const ESCAPE_CODE: char = '\u{001B}'; // esc
-
-impl InternalKeyCode {
-    /// Encodes the internal key code as string
-    pub fn encode_to_string(&self) -> SharedString {
-        let mut buffer = [0; 6];
-        SharedString::from(
-            match self {
-                InternalKeyCode::Left => LEFT_CODE,
-                InternalKeyCode::Right => RIGHT_CODE,
-                InternalKeyCode::Home => HOME_CODE,
-                InternalKeyCode::End => END_CODE,
-                InternalKeyCode::Back => BACK_CODE,
-                InternalKeyCode::Delete => DELETE_CODE,
-                InternalKeyCode::Tab => TAB_CODE,
-                InternalKeyCode::Return => RETURN_CODE,
-                InternalKeyCode::Escape => ESCAPE_CODE,
-            }
-            .encode_utf8(&mut buffer) as &str,
-        )
-    }
-    /// Tries to see if the provided string corresponds to a single special
-    /// encoded key.
-    pub fn try_decode_from_string(str: &SharedString) -> Option<Self> {
-        let mut chars = str.chars();
-        let ch = chars.next();
-        if ch.is_some() && chars.next().is_none() {
-            Some(match ch.unwrap() {
-                LEFT_CODE => Self::Left,
-                RIGHT_CODE => Self::Right,
-                HOME_CODE => Self::Home,
-                END_CODE => Self::End,
-                BACK_CODE => Self::Back,
-                DELETE_CODE => Self::Delete,
-                TAB_CODE => Self::Tab,
-                RETURN_CODE => Self::Return,
-                ESCAPE_CODE => Self::Escape,
-                _ => return None,
-            })
-        } else {
-            None
-        }
-    }
-}
+/// This module contains the constant character code used to represent the keys
+#[allow(missing_docs, non_upper_case_globals)]
+pub mod key_codes;
 
 /// KeyboardModifier provides booleans to indicate possible modifier keys
 /// on a keyboard, such as Shift, Control, etc.

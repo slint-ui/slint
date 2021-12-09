@@ -19,7 +19,7 @@ use corelib::layout::Orientation;
 use sixtyfps_corelib as corelib;
 
 use corelib::graphics::Point;
-use corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
+use corelib::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use corelib::SharedString;
 use corelib::{window::*, Color};
 use std::cell::{Cell, RefCell};
@@ -331,6 +331,22 @@ fn redraw_all_windows() {
     }
 }
 
+macro_rules! for_each_special_keys {
+    ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident)|* ;)*) => {
+        pub fn winit_key_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<sixtyfps_corelib::SharedString> {
+            let char = match(virtual_keycode) {
+                $($(winit::event::VirtualKeyCode::$winit => $char,)*)*
+                _ => return None,
+            };
+            let mut buffer = [0; 6];
+            Some(sixtyfps_corelib::SharedString::from(char.encode_utf8(&mut buffer) as &str))
+        }
+    };
+}
+
+#[path = "key_codes.rs"]
+mod key_codes;
+
 fn process_window_event(
     window: Rc<dyn WinitWindow>,
     event: WindowEvent,
@@ -391,22 +407,7 @@ fn process_window_event(
                 winit::event::ElementState::Pressed => input.virtual_keycode.clone(),
                 _ => None,
             });
-            if let Some(key_code) =
-                input.virtual_keycode.and_then(|virtual_keycode| match virtual_keycode {
-                    winit::event::VirtualKeyCode::Left => Some(InternalKeyCode::Left),
-                    winit::event::VirtualKeyCode::Right => Some(InternalKeyCode::Right),
-                    winit::event::VirtualKeyCode::Home => Some(InternalKeyCode::Home),
-                    winit::event::VirtualKeyCode::End => Some(InternalKeyCode::End),
-                    winit::event::VirtualKeyCode::Back => Some(InternalKeyCode::Back),
-                    winit::event::VirtualKeyCode::Delete => Some(InternalKeyCode::Delete),
-                    winit::event::VirtualKeyCode::Tab => Some(InternalKeyCode::Tab),
-                    winit::event::VirtualKeyCode::Return
-                    | winit::event::VirtualKeyCode::NumpadEnter => Some(InternalKeyCode::Return),
-                    winit::event::VirtualKeyCode::Escape => Some(InternalKeyCode::Escape),
-                    _ => None,
-                })
-            {
-                let text = key_code.encode_to_string();
+            if let Some(text) = input.virtual_keycode.and_then(key_codes::winit_key_to_string) {
                 let event = KeyEvent {
                     event_type: match input.state {
                         winit::event::ElementState::Pressed => KeyEventType::KeyPressed,

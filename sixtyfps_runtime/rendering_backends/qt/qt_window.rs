@@ -17,7 +17,7 @@ use qttypes::QPainter;
 use sixtyfps_corelib::graphics::{
     Brush, FontRequest, Image, Point, Rect, RenderingCache, SharedImageBuffer, Size,
 };
-use sixtyfps_corelib::input::{InternalKeyCode, KeyEvent, KeyEventType, MouseEvent};
+use sixtyfps_corelib::input::{KeyEvent, KeyEventType, MouseEvent};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{
     self, FillRule, ImageRendering, ItemRef, MouseCursor, PointerEventButton, TextOverflow,
@@ -1578,25 +1578,31 @@ pub(crate) fn timer_event() {
     }
 }
 
+macro_rules! for_each_special_keys {
+    ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
+        use crate::key_generated;
+        pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<sixtyfps_corelib::SharedString> {
+
+            let char = match(key) {
+                $($(key_generated::$qt => $char,)*)*
+                _ => return None,
+            };
+            let mut buffer = [0; 6];
+            Some(sixtyfps_corelib::SharedString::from(char.encode_utf8(&mut buffer) as &str))
+        }
+    };
+}
+
+mod key_codes;
+
 fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedString {
     // First try to see if we received one of the non-ascii keys that we have
     // a special representation for. If that fails, try to use the provided
     // text. If that's empty, then try to see if the provided key has an ascii
     // representation. The last step is needed because modifiers may result in
     // the text to be empty otherwise, for example Ctrl+C.
-    if let Some(special_key_code) = match key as key_generated::Qt_Key {
-        key_generated::Qt_Key_Key_Left => Some(InternalKeyCode::Left),
-        key_generated::Qt_Key_Key_Right => Some(InternalKeyCode::Right),
-        key_generated::Qt_Key_Key_Backspace => Some(InternalKeyCode::Back),
-        key_generated::Qt_Key_Key_Delete => Some(InternalKeyCode::Delete),
-        key_generated::Qt_Key_Key_End => Some(InternalKeyCode::End),
-        key_generated::Qt_Key_Key_Home => Some(InternalKeyCode::Home),
-        key_generated::Qt_Key_Key_Return => Some(InternalKeyCode::Return),
-        key_generated::Qt_Key_Key_Enter => Some(InternalKeyCode::Return),
-        key_generated::Qt_Key_Key_Tab => Some(InternalKeyCode::Tab),
-        _ => None,
-    } {
-        return special_key_code.encode_to_string();
+    if let Some(special_key_code) = key_codes::qt_key_to_string(key) {
+        return special_key_code;
     };
 
     // On Windows, X11 and Wayland, Ctrl+C for example sends a terminal control character,
