@@ -28,10 +28,11 @@ jobs:
       MDBOOK_LINKCHECK_VERSION: 0.7.4
     steps:
     - uses: actions/checkout@v2
-    - name: Set up rgb crate rustdoc link
-      run: |
-        rgb_version=`grep 'rgb = '  sixtyfps_runtime/corelib/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
-        echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
+# requires nightly:
+#    - name: Set up rgb crate rustdoc link
+#      run: |
+#        rgb_version=`grep 'rgb = '  sixtyfps_runtime/corelib/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
+#        echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
