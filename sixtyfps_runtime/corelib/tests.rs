@@ -98,6 +98,17 @@ cfg_if::cfg_if! {
         macro_rules! debug_log {
             ($($t:tt)*) => ($crate::tests::log(&format_args!($($t)*).to_string()))
         }
+    } else if #[cfg(feature = "defmt")] {
+        #[doc(hidden)]
+        pub fn log(s: &str) {
+            defmt::println!("{=str}", s);
+        }
+
+        #[macro_export]
+        /// This macro allows producing debug output that will appear on the output of the debug probe
+        macro_rules! debug_log {
+            ($($t:tt)*) => ($crate::tests::log({ use alloc::string::ToString; &format_args!($($t)*).to_string() }))
+        }
     } else {
         /// This macro allows producing debug output that will appear on stderr in regular builds
         /// and in the console log for wasm builds.
