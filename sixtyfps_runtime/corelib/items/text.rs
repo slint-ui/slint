@@ -17,10 +17,9 @@ Lookup the [`crate::items`] module documentation.
 use super::{Item, ItemConsts, ItemRc, PointArg, PointerEventButton, VoidArg};
 use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
-    FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyEventType, KeyboardModifiers,
-    MouseEvent,
+    key_codes, FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult,
+    KeyEventType, KeyboardModifiers, MouseEvent,
 };
-use crate::input::{InputEventFilterResult, InternalKeyCode};
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
@@ -361,7 +360,7 @@ impl Item for TextInput {
 
         match event.event_type {
             KeyEventType::KeyPressed => {
-                if let Some(keycode) = InternalKeyCode::try_decode_from_string(&event.text) {
+                if let Some(keycode) = event.text.chars().next() {
                     if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode.clone())
                     {
                         TextInput::move_cursor(
@@ -371,13 +370,13 @@ impl Item for TextInput {
                             window,
                         );
                         return KeyEventResult::EventAccepted;
-                    } else if keycode == InternalKeyCode::Back {
+                    } else if keycode == key_codes::Backspace {
                         TextInput::delete_previous(self, window);
                         return KeyEventResult::EventAccepted;
-                    } else if keycode == InternalKeyCode::Delete {
+                    } else if keycode == key_codes::Delete {
                         TextInput::delete_char(self, window);
                         return KeyEventResult::EventAccepted;
-                    } else if keycode == InternalKeyCode::Return && self.single_line() {
+                    } else if keycode == key_codes::Return && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
                         return KeyEventResult::EventAccepted;
                     }
@@ -385,7 +384,9 @@ impl Item for TextInput {
 
                 // Only insert/interpreter non-control character strings
                 if event.text.is_empty()
-                    || event.text.as_str().chars().any(|ch| ch.is_control() && ch != '\n')
+                    || event.text.as_str().chars().any(|ch| {
+                        (ch >= '\u{f700}' && ch <= '\u{f7ff}') || (ch.is_control() && ch != '\n')
+                    })
                 {
                     return KeyEventResult::EventIgnored;
                 }
@@ -466,15 +467,15 @@ enum TextCursorDirection {
     EndOfText,
 }
 
-impl core::convert::TryFrom<InternalKeyCode> for TextCursorDirection {
+impl core::convert::TryFrom<char> for TextCursorDirection {
     type Error = ();
 
-    fn try_from(value: InternalKeyCode) -> Result<Self, Self::Error> {
+    fn try_from(value: char) -> Result<Self, Self::Error> {
         Ok(match value {
-            InternalKeyCode::Left => Self::Backward,
-            InternalKeyCode::Right => Self::Forward,
-            InternalKeyCode::Home => Self::StartOfLine,
-            InternalKeyCode::End => Self::EndOfLine,
+            key_codes::LeftArrow => Self::Backward,
+            key_codes::RightArrow => Self::Forward,
+            key_codes::Home => Self::StartOfLine,
+            key_codes::End => Self::EndOfLine,
             _ => return Err(()),
         })
     }
