@@ -386,6 +386,18 @@ export StandardListView := ListView {
             clicked => { current-item = idx; }
         }
     }
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Keys.UpArrow && current-item > 0) {
+                current-item -= 1;
+                return accept;
+            } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
+                current-item += 1;
+                return accept;
+            }
+            reject
+        }
+    }
 }
 
 export ComboBox := FocusScope {
