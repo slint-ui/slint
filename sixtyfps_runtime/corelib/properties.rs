@@ -1634,6 +1634,12 @@ impl<ChangeHandler> Drop for PropertyTracker<ChangeHandler> {
 }
 
 impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
+    #[cfg(sixtyfps_debug_property)]
+    /// set the debug name when `cfg(sixtyfps_debug_property`
+    pub fn set_debug_name(&mut self, debug_name: String) {
+        self.holder.debug_name = debug_name;
+    }
+
     /// Register this property tracker as a dependency to the current binding/property tracker being evaluated
     fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
         if CURRENT_BINDING.is_set() {
@@ -1641,7 +1647,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
                 cur_binding.register_self_as_dependency(
                     self.holder.dependencies.as_ptr() as *mut DependencyListHead,
                     #[cfg(sixtyfps_debug_property)]
-                    "<PropertyTracker>",
+                    &self.holder.debug_name,
                 );
             });
         }
@@ -1726,7 +1732,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
             pinned: PhantomPinned,
             binding: handler,
             #[cfg(sixtyfps_debug_property)]
-            debug_name: "<PtopertyTracker>".into(),
+            debug_name: "<PropertyTracker>".into(),
         };
         Self { holder }
     }

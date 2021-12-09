@@ -164,6 +164,7 @@ impl Window {
     pub fn new(
         platform_window_fn: impl FnOnce(&Weak<Window>) -> Rc<dyn PlatformWindow>,
     ) -> Rc<Self> {
+        #![allow(unused_mut)]
         let window = Rc::new(Self {
             platform_window: Default::default(),
             component: Default::default(),
@@ -180,20 +181,26 @@ impl Window {
         let window_weak = Rc::downgrade(&window);
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
 
-        window
-            .window_properties_tracker
-            .set(Box::pin(PropertyTracker::new_with_change_handler(WindowPropertiesTracker {
+        let mut window_properties_tracker =
+            PropertyTracker::new_with_change_handler(WindowPropertiesTracker {
                 window_weak: window_weak.clone(),
-            })))
-            .ok()
-            .unwrap();
-        window
-            .redraw_tracker
-            .set(Box::pin(PropertyTracker::new_with_change_handler(WindowRedrawTracker {
-                window_weak,
-            })))
-            .ok()
-            .unwrap();
+            });
+
+        let mut redraw_tracker =
+            PropertyTracker::new_with_change_handler(WindowRedrawTracker { window_weak });
+
+        #[cfg(sixtyfps_debug_property)]
+        {
+            window.scale_factor.debug_name.replace("sixtyfps_corelib::Window::scale_factor".into());
+            window.active.debug_name.replace("sixtyfps_corelib::Window::active".into());
+            window.active.debug_name.replace("sixtyfps_corelib::Window::active".into());
+            window_properties_tracker
+                .set_debug_name("sixtyfps_corelib::Window::window_properties_tracker".into());
+            redraw_tracker.set_debug_name("sixtyfps_corelib::Window::redraw_tracker".into());
+        }
+
+        window.window_properties_tracker.set(Box::pin(window_properties_tracker)).ok().unwrap();
+        window.redraw_tracker.set(Box::pin(redraw_tracker)).ok().unwrap();
 
         window
     }
