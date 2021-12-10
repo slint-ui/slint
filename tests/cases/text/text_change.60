@@ -26,8 +26,7 @@ TestCase := Window {
 /*
 ```rust
 
-// from input.rs
-const LEFT_CODE: char = '\u{000E}'; // shift out
+const LEFT_CODE: char = '\u{F702}';
 
 let instance = TestCase::new();
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
