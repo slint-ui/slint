@@ -25,7 +25,9 @@ use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
 use event_loop::WinitWindow;
-use sixtyfps_corelib::graphics::{Brush, Color, Image, IntRect, Point, Rect, RenderingCache, Size};
+use sixtyfps_corelib::graphics::{
+    Brush, Color, Image, ImageInner, IntRect, Point, Rect, RenderingCache, Size,
+};
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{FillRule, ImageFit, ImageRendering};
 use sixtyfps_corelib::properties::Property;
@@ -900,42 +902,48 @@ impl GLItemRenderer {
             let image_cache_entry =
                 item_cache.get_or_update(&self.graphics_window.graphics_cache, || {
                     let image = source_property.get();
-                    let image_inner = (&image).into();
+                    let image_inner: &ImageInner = (&image).into();
 
-                    TextureCacheKey::new(image_inner, image_rendering)
-                        .and_then(|cache_key| {
-                            self.graphics_window
-                                .texture_cache
-                                .borrow_mut()
-                                .lookup_image_in_cache_or_create(cache_key, || {
-                                    crate::IMAGE_CACHE
-                                        .with(|global_cache| {
-                                            global_cache
-                                                .borrow_mut()
-                                                .load_image_resource(image_inner)
-                                        })
-                                        .and_then(|image| {
-                                            image
-                                                .upload_to_gpu(
-                                                    self, // The condition at the entry of the function ensures that width/height are positive
-                                                    [
-                                                        (target_width.get() * self.scale_factor)
-                                                            as u32,
-                                                        (target_height.get() * self.scale_factor)
-                                                            as u32,
-                                                    ]
-                                                    .into(),
-                                                    image_rendering,
-                                                )
-                                                .map(Rc::new)
-                                        })
-                                })
-                        })
-                        .or_else(|| CachedImage::new_from_resource(image_inner).map(Rc::new))
-                        .map(ItemGraphicsCacheEntry::Image)
-                        .map(|cache_entry| {
-                            self.colorize_image(cache_entry, colorize_property, image_rendering)
-                        })
+                    let target_size_for_scalable_source = image_inner.is_svg().then(|| {
+                        // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
+                        let scale_factor = self.window().scale_factor();
+                        [
+                            (target_width.get() * scale_factor) as u32,
+                            (target_height.get() * scale_factor) as u32,
+                        ]
+                        .into()
+                    });
+
+                    TextureCacheKey::new(
+                        image_inner,
+                        target_size_for_scalable_source.clone(),
+                        image_rendering,
+                    )
+                    .and_then(|cache_key| {
+                        self.graphics_window
+                            .texture_cache
+                            .borrow_mut()
+                            .lookup_image_in_cache_or_create(cache_key, || {
+                                crate::IMAGE_CACHE
+                                    .with(|global_cache| {
+                                        global_cache.borrow_mut().load_image_resource(image_inner)
+                                    })
+                                    .and_then(|image| {
+                                        image
+                                            .upload_to_gpu(
+                                                self, // The condition at the entry of the function ensures that width/height are positive
+                                                target_size_for_scalable_source,
+                                                image_rendering,
+                                            )
+                                            .map(Rc::new)
+                                    })
+                            })
+                    })
+                    .or_else(|| CachedImage::new_from_resource(image_inner).map(Rc::new))
+                    .map(ItemGraphicsCacheEntry::Image)
+                    .map(|cache_entry| {
+                        self.colorize_image(cache_entry, colorize_property, image_rendering)
+                    })
                 });
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return

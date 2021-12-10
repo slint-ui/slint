@@ -290,7 +290,8 @@ impl CachedImage {
     pub fn upload_to_gpu(
         &self,
         current_renderer: &GLItemRenderer,
-        target_size: euclid::default::Size2D<u32>,
+        target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
+
         scaling: ImageRendering,
     ) -> Option<Self> {
         use std::convert::TryFrom;
@@ -324,10 +325,13 @@ impl CachedImage {
                 None
             }
             #[cfg(feature = "svg")]
-            ImageData::Svg(svg_tree) => match super::svg::render(svg_tree, target_size) {
+            ImageData::Svg(svg_tree) => match super::svg::render(
+                svg_tree,
+                target_size_for_scalable_source.unwrap_or_default(),
+            ) {
                 Ok(rendered_svg_image) => Self::new_on_cpu(rendered_svg_image).upload_to_gpu(
                     current_renderer,
-                    target_size,
+                    None,
                     scaling,
                 ),
                 Err(err) => {
@@ -493,22 +497,33 @@ impl ImageCache {
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub struct TextureCacheKey {
     source_key: ImageCacheKey,
+    target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
     gpu_image_flags: ImageRendering,
 }
 
 impl TextureCacheKey {
-    pub fn new(resource: &ImageInner, gpu_image_flags: ImageRendering) -> Option<Self> {
+    pub fn new(
+        resource: &ImageInner,
+        target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
+        gpu_image_flags: ImageRendering,
+    ) -> Option<Self> {
         Some(match resource {
             ImageInner::None => return None,
             ImageInner::AbsoluteFilePath(path) => {
                 if path.is_empty() {
                     return None;
                 }
-                Self { source_key: path.to_string().into(), gpu_image_flags }
+                Self {
+                    source_key: path.to_string().into(),
+                    target_size_for_scalable_source,
+                    gpu_image_flags,
+                }
             }
-            ImageInner::EmbeddedData { data, format: _ } => {
-                Self { source_key: by_address::ByAddress(data.as_slice()).into(), gpu_image_flags }
-            }
+            ImageInner::EmbeddedData { data, format: _ } => Self {
+                source_key: by_address::ByAddress(data.as_slice()).into(),
+                target_size_for_scalable_source,
+                gpu_image_flags,
+            },
             ImageInner::EmbeddedImage { .. } => return None,
             ImageInner::StaticTextures { .. } => return None,
         })
