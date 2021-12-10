@@ -472,10 +472,16 @@ impl PropertyHandle {
             unsafe {
                 self.set_lock_flag(true);
                 let binding = (val & !0b11) as *mut BindingHolder;
-                DependencyListHead::mem_move(
-                    (&mut (*binding).dependencies) as *mut _ as *mut _,
-                    self.handle.as_ptr() as *mut _,
-                );
+                let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
+                if (*binding).dependencies.get() == const_sentinel {
+                    self.handle.set(const_sentinel);
+                    (*binding).dependencies.set(0);
+                } else {
+                    DependencyListHead::mem_move(
+                        (&mut (*binding).dependencies) as *mut _ as *mut _,
+                        self.handle.as_ptr() as *mut _,
+                    );
+                }
                 ((*binding).vtable.drop)(binding);
             }
             debug_assert!(self.handle.get() & 0b11 == 0);
@@ -512,13 +518,18 @@ impl PropertyHandle {
         self.remove_binding();
         debug_assert!((binding as usize) & 0b11 == 0);
         debug_assert!(self.handle.get() & 0b11 == 0);
+        let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
         unsafe {
-            DependencyListHead::mem_move(
-                self.handle.as_ptr() as *mut _,
-                (&mut (*binding).dependencies) as *mut _ as *mut _,
-            );
-            self.handle.set((binding as usize) | 0b10);
+            if self.handle.get() == const_sentinel {
+                (*binding).dependencies.set(const_sentinel);
+            } else {
+                DependencyListHead::mem_move(
+                    self.handle.as_ptr() as *mut _,
+                    (&mut (*binding).dependencies) as *mut _ as *mut _,
+                );
+            }
         }
+        self.handle.set((binding as usize) | 0b10);
     }
 
     fn dependencies(&self) -> *mut DependencyListHead {
