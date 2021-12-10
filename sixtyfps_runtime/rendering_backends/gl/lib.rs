@@ -902,7 +902,7 @@ impl GLItemRenderer {
                     let image = source_property.get();
                     let image_inner = (&image).into();
 
-                    ImageCacheKey::new(image_inner, Some(image_rendering))
+                    TextureCacheKey::new(image_inner, image_rendering)
                         .and_then(|cache_key| {
                             self.graphics_window
                                 .texture_cache
