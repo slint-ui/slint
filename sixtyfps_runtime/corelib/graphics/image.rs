@@ -241,6 +241,19 @@ impl Default for ImageInner {
     }
 }
 
+impl ImageInner {
+    /// Returns true if the image is a scalable vector image.
+    pub fn is_svg(&self) -> bool {
+        match self {
+            ImageInner::AbsoluteFilePath(path) => path.ends_with(".svg") || path.ends_with(".svgz"),
+            ImageInner::EmbeddedData { format, .. } => {
+                format.as_slice() == b"svg" || format.as_slice() == b"svgz"
+            }
+            _ => false,
+        }
+    }
+}
+
 impl<'a> From<&'a Image> for &'a ImageInner {
     fn from(other: &'a Image) -> Self {
         &other.0
