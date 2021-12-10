@@ -460,7 +460,7 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 The KeyEvent has a text property which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
-or a private unicode character. The special characters are available in the `Keys` namespace
+or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the `Keys` namespace
 
 ### Properties
 

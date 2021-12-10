@@ -385,6 +385,7 @@ impl Item for TextInput {
                 // Only insert/interpreter non-control character strings
                 if event.text.is_empty()
                     || event.text.as_str().chars().any(|ch| {
+                        // exclude the private use area as we encode special keys into it
                         (ch >= '\u{f700}' && ch <= '\u{f7ff}') || (ch.is_control() && ch != '\n')
                     })
                 {
