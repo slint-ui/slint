@@ -325,7 +325,11 @@ impl CachedImage {
             }
             #[cfg(feature = "svg")]
             ImageData::Svg(svg_tree) => match super::svg::render(svg_tree, target_size) {
-                Ok(rendered_svg_image) => Some(Self::new_on_cpu(rendered_svg_image)),
+                Ok(rendered_svg_image) => Self::new_on_cpu(rendered_svg_image).upload_to_gpu(
+                    current_renderer,
+                    target_size,
+                    scaling,
+                ),
                 Err(err) => {
                     eprintln!("Error rendering SVG: {}", err);
                     None
@@ -425,34 +429,24 @@ impl CachedImage {
 }
 
 #[derive(PartialEq, Eq, Hash, Debug, derive_more::From)]
-enum CachedImageSourceKey {
+pub enum ImageCacheKey {
     Path(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
-pub struct ImageCacheKey {
-    source_key: CachedImageSourceKey,
-    gpu_image_flags: ImageRendering,
-}
-
 impl ImageCacheKey {
-    pub fn new(resource: &ImageInner, gpu_image_flags: Option<ImageRendering>) -> Option<Self> {
+    pub fn new(resource: &ImageInner) -> Option<Self> {
         Some(match resource {
             ImageInner::None => return None,
             ImageInner::AbsoluteFilePath(path) => {
                 if path.is_empty() {
                     return None;
                 }
-                Self {
-                    source_key: path.to_string().into(),
-                    gpu_image_flags: gpu_image_flags.unwrap_or_default(),
-                }
+                path.to_string().into()
             }
-            ImageInner::EmbeddedData { data, format: _ } => Self {
-                source_key: by_address::ByAddress(data.as_slice()).into(),
-                gpu_image_flags: gpu_image_flags.unwrap_or_default(),
-            },
+            ImageInner::EmbeddedData { data, format: _ } => {
+                by_address::ByAddress(data.as_slice()).into()
+            }
             ImageInner::EmbeddedImage { .. } => return None,
             ImageInner::StaticTextures { .. } => return None,
         })
@@ -467,7 +461,7 @@ pub(crate) struct ImageCache(HashMap<ImageCacheKey, Rc<CachedImage>>);
 impl ImageCache {
     // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
     // otherwise a new image is created/loaded from the given callback.
-    pub(crate) fn lookup_image_in_cache_or_create(
+    pub fn lookup_image_in_cache_or_create(
         &mut self,
         cache_key: ImageCacheKey,
         image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
@@ -486,13 +480,65 @@ impl ImageCache {
 
     // Try to load the image the given resource points to
     pub(crate) fn load_image_resource(&mut self, resource: &ImageInner) -> Option<Rc<CachedImage>> {
-        ImageCacheKey::new(resource, None)
+        ImageCacheKey::new(resource)
             .and_then(|cache_key| {
                 self.lookup_image_in_cache_or_create(cache_key, || {
                     CachedImage::new_from_resource(resource).map(Rc::new)
                 })
             })
             .or_else(|| CachedImage::new_from_resource(resource).map(Rc::new))
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Debug)]
+pub struct TextureCacheKey {
+    source_key: ImageCacheKey,
+    gpu_image_flags: ImageRendering,
+}
+
+impl TextureCacheKey {
+    pub fn new(resource: &ImageInner, gpu_image_flags: ImageRendering) -> Option<Self> {
+        Some(match resource {
+            ImageInner::None => return None,
+            ImageInner::AbsoluteFilePath(path) => {
+                if path.is_empty() {
+                    return None;
+                }
+                Self { source_key: path.to_string().into(), gpu_image_flags }
+            }
+            ImageInner::EmbeddedData { data, format: _ } => {
+                Self { source_key: by_address::ByAddress(data.as_slice()).into(), gpu_image_flags }
+            }
+            ImageInner::EmbeddedImage { .. } => return None,
+            ImageInner::StaticTextures { .. } => return None,
+        })
+    }
+}
+
+// Cache used to avoid repeatedly decoding images from disk. Entries with a count
+// of 1 are drained after flushing the renderer commands to the screen.
+#[derive(Default)]
+pub struct TextureCache(HashMap<TextureCacheKey, Rc<CachedImage>>);
+
+impl TextureCache {
+    // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
+    // otherwise a new image is created/loaded from the given callback.
+    pub(crate) fn lookup_image_in_cache_or_create(
+        &mut self,
+        cache_key: TextureCacheKey,
+        image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
+    ) -> Option<Rc<CachedImage>> {
+        Some(match self.0.entry(cache_key) {
+            std::collections::hash_map::Entry::Occupied(existing_entry) => {
+                existing_entry.get().clone()
+            }
+            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
+                let new_image = image_create_fn()?;
+                debug_assert!(new_image.is_on_gpu());
+                vacant_entry.insert(new_image.clone());
+                new_image
+            }
+        })
     }
 
     pub(crate) fn drain(&mut self) {
@@ -509,8 +555,8 @@ impl ImageCache {
         });
     }
 
-    pub(crate) fn remove_textures(&mut self) {
-        self.0.retain(|_, cached_image| !cached_image.is_on_gpu());
+    pub(crate) fn clear(&mut self) {
+        self.0.clear();
     }
 }
 

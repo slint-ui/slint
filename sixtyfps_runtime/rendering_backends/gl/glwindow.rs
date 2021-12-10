@@ -15,7 +15,7 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use super::{ImageCache, ItemGraphicsCache};
+use super::{ItemGraphicsCache, TextureCache};
 use crate::event_loop::WinitWindow;
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
@@ -40,7 +40,7 @@ pub struct GLWindow {
 
     pub(crate) graphics_cache: RefCell<ItemGraphicsCache>,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
-    pub(crate) texture_cache: RefCell<ImageCache>,
+    pub(crate) texture_cache: RefCell<TextureCache>,
 
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
@@ -412,7 +412,7 @@ impl PlatformWindow for GLWindow {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|| {
             self.graphics_cache.borrow_mut().clear();
-            self.texture_cache.borrow_mut().remove_textures();
+            self.texture_cache.borrow_mut().clear();
         });
 
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
