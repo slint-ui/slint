@@ -20,12 +20,11 @@ TestCase := TextInput {
 /*
 ```rust
 
-// from input.rs
-const LEFT_CODE: char = '\u{000E}'; // shift out
-const RIGHT_CODE: char = '\u{000F}'; // shift in
-const HOME_CODE: char = '\u{0002}'; // start of text
-const END_CODE: char = '\u{0003}'; // end of text
-const BACK_CODE: char = '\u{0007}'; // backspace \b
+const LEFT_CODE: char = '\u{F702}';
+const RIGHT_CODE: char = '\u{F703}';
+const HOME_CODE: char = '\u{F729}';
+const END_CODE: char = '\u{F72B}';
+const BACK_CODE: char = '\u{0008}'; // backspace \b
 
 let shift_modifier = sixtyfps::re_exports::KeyboardModifiers {
     shift: true,

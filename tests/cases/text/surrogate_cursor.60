@@ -20,9 +20,8 @@ TestCase := TextInput {
 /*
 ```rust
 
-// from input.rs
-const LEFT_CODE: char = '\u{000E}'; // shift out
-const BACK_CODE: char = '\u{0007}'; // backspace \b
+const LEFT_CODE: char = '\u{F702}';
+const BACK_CODE: char = '\u{0008}'; // backspace \b
 
 let shift_modifier = sixtyfps::re_exports::KeyboardModifiers {
     shift: true,
