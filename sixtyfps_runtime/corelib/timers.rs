@@ -42,17 +42,17 @@ pub struct Timer {
 }
 
 impl Timer {
-    /// Starts the timer with the given mode and duration, in order for the callback to called when the
+    /// Starts the timer with the given mode and interval, in order for the callback to called when the
     /// timer fires. If the timer has been started previously and not fired yet, then it will be restarted.
     ///
     /// Arguments:
     /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
-    /// * `duration`: The duration from now until when the timer should fire.
+    /// * `interval`: The interval between the firing of the timer.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     pub fn start(
         &self,
         mode: TimerMode,
-        duration: core::time::Duration,
+        interval: core::time::Duration,
         callback: impl Fn() + 'static,
     ) {
         CURRENT_TIMERS.with(|timers| {
@@ -60,7 +60,7 @@ impl Timer {
             let id = timers.start_or_restart_timer(
                 self.id.get(),
                 mode,
-                duration,
+                interval,
                 CallbackVariant::MultiFire(Box::new(callback)),
             );
             self.id.set(Some(id));
