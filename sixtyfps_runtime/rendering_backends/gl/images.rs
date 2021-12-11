@@ -507,25 +507,10 @@ impl TextureCacheKey {
         target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
         gpu_image_flags: ImageRendering,
     ) -> Option<Self> {
-        Some(match resource {
-            ImageInner::None => return None,
-            ImageInner::AbsoluteFilePath(path) => {
-                if path.is_empty() {
-                    return None;
-                }
-                Self {
-                    source_key: path.to_string().into(),
-                    target_size_for_scalable_source,
-                    gpu_image_flags,
-                }
-            }
-            ImageInner::EmbeddedData { data, format: _ } => Self {
-                source_key: by_address::ByAddress(data.as_slice()).into(),
-                target_size_for_scalable_source,
-                gpu_image_flags,
-            },
-            ImageInner::EmbeddedImage { .. } => return None,
-            ImageInner::StaticTextures { .. } => return None,
+        ImageCacheKey::new(resource).map(|source_key| Self {
+            source_key,
+            target_size_for_scalable_source,
+            gpu_image_flags,
         })
     }
 }
