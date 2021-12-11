@@ -30,12 +30,31 @@ type SingleShotTimerCallback = Box<dyn FnOnce()>;
 pub enum TimerMode {
     /// A SingleShot timer is fired only once.
     SingleShot,
-    /// A Repeated timer is fired repeatedly until it is stopped.
+    /// A Repeated timer is fired repeatedly until it is stopped or dropped.
     Repeated,
 }
 
 /// Timer is a handle to the timer system that allows triggering a callback to be called
 /// after a specified period of time.
+///
+/// Use [`Timer::default()`] to create a timer that can repeat at frequent interval, or
+/// [`Timer::single_shot`] if you just want to call a function with a delay and do not
+/// need to be able to stop it.
+///
+/// Note: the timer can only be used in the thread that runs the sixtyfps event loop.
+/// They will not fire if used in another thread.
+///
+/// ## Example
+/// ```rust
+/// # mod sixtyfps { pub use sixtyfps_corelib::timers::*; pub fn run_event_loop() {} }
+/// use sixtyfps::{Timer, TimerMode};
+/// let timer = Timer::default();
+/// timer.start(TimerMode::Repeated, std::time::Duration::from_millis(200), move || {
+///    println!("This will be printed every 200ms.");
+/// });
+/// // ... more initialization ...
+/// sixtyfps::run_event_loop();
+/// ```
 #[derive(Default)]
 pub struct Timer {
     id: Cell<Option<usize>>,
@@ -47,7 +66,8 @@ impl Timer {
     ///
     /// Arguments:
     /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
-    /// * `interval`: The interval between the firing of the timer.
+    /// * `interval`: The duration from now until when the timer should fire. And the period of that timer
+    ///    for [`Repeated`](TimerMode::Repeated) timers.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     pub fn start(
         &self,
@@ -73,6 +93,15 @@ impl Timer {
     /// Arguments:
     /// * `duration`: The duration from now until when the timer should fire.
     /// * `callback`: The function to call when the time has been reached or exceeded.
+    ///
+    /// ## Example
+    /// ```rust
+    /// # mod sixtyfps { pub use sixtyfps_corelib::timers::*; }
+    /// use sixtyfps::Timer;
+    /// Timer::single_shot(std::time::Duration::from_millis(200), move || {
+    ///    println!("This will be printed after 200ms.");
+    /// });
+    /// ```
     pub fn single_shot(duration: core::time::Duration, callback: impl FnOnce() + 'static) {
         CURRENT_TIMERS.with(|timers| {
             let mut timers = timers.borrow_mut();
