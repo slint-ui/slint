@@ -20,7 +20,7 @@ use core::cell::{Cell, RefCell};
 
 use crate::animations::Instant;
 
-type TimerCallback = Box<dyn Fn()>;
+type TimerCallback = Box<dyn FnMut()>;
 type SingleShotTimerCallback = Box<dyn FnOnce()>;
 
 /// The TimerMode specifies what should happen after the timer fired.
@@ -73,7 +73,7 @@ impl Timer {
         &self,
         mode: TimerMode,
         interval: core::time::Duration,
-        callback: impl Fn() + 'static,
+        callback: impl FnMut() + 'static,
     ) {
         CURRENT_TIMERS.with(|timers| {
             let mut timers = timers.borrow_mut();
@@ -164,7 +164,7 @@ impl CallbackVariant {
     fn invoke(self) -> Self {
         match self {
             CallbackVariant::Empty => CallbackVariant::Empty,
-            CallbackVariant::MultiFire(cb) => {
+            CallbackVariant::MultiFire(mut cb) => {
                 cb();
                 CallbackVariant::MultiFire(cb)
             }
