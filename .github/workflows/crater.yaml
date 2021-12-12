@@ -39,7 +39,7 @@ jobs:
     - name: Install Linux Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils
+        sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
