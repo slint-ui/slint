@@ -32,6 +32,7 @@ jobs:
           - "https://github.com/lukas-jung/sixty-mines"
           - "https://github.com/getsentry/hackweek-rust-gui"
           - "https://github.com/Vuenc/SixtyFPS-Str8ts"
+          - "https://github.com/jturcotte/chiptrack"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
@@ -55,6 +56,8 @@ jobs:
       run: |
           cd $HOME
           git clone ${{ matrix.git_url }}  the_repo --depth 1
+          cd the_repo
+          git submodule update --init
     - name: build
       run: |
         cd $HOME/the_repo
