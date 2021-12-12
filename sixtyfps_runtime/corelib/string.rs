@@ -224,6 +224,38 @@ fn simple_test() {
     );
 }
 
+#[test]
+fn threading() {
+    let shared_cst = SharedString::from("Hello there!");
+    let shared_mtx = std::sync::Arc::new(std::sync::Mutex::new(SharedString::from("Shared:")));
+    let mut handles = vec![];
+    for _ in 0..20 {
+        let cst = shared_cst.clone();
+        let mtx = shared_mtx.clone();
+        handles.push(std::thread::spawn(move || {
+            assert_eq!(cst, "Hello there!");
+            let mut cst2 = cst.clone();
+            cst2.push_str(" ... or not?");
+            assert_eq!(cst2, "Hello there! ... or not?");
+            assert_eq!(cst.clone(), "Hello there!");
+
+            let shared = {
+                let mut lock = mtx.lock().unwrap();
+                assert!(lock.starts_with("Shared:"));
+                lock.push_str("!");
+                lock.clone()
+            };
+            assert!(shared.clone().starts_with("Shared:"));
+        }));
+    }
+    for j in handles {
+        j.join().unwrap();
+    }
+    assert_eq!(shared_cst.clone(), "Hello there!");
+    assert_eq!(shared_mtx.lock().unwrap().as_str(), "Shared:!!!!!!!!!!!!!!!!!!!!");
+    // 20x"!"
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     use super::*;
