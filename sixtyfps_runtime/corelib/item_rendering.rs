@@ -178,6 +178,10 @@ pub trait ItemRenderer {
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     );
 
+    // Draw the given string with the specified color at current (0, 0) with the default font. Mainly
+    // used by the performance counter overlay.
+    fn draw_string(&mut self, string: &str, color: crate::Color);
+
     fn window(&self) -> crate::window::WindowRc;
 
     /// Return the internal renderer

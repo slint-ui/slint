@@ -48,6 +48,11 @@ pub use brush::*;
 pub(crate) mod image;
 pub use self::image::*;
 
+#[cfg(feature = "std")]
+mod fps_counter;
+#[cfg(feature = "std")]
+pub use fps_counter::*;
+
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow
 /// for a lazy computation. Typically back ends store either compute intensive data or handles that refer to
