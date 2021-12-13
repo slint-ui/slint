@@ -536,6 +536,10 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         todo!()
     }
 
+    fn draw_string(&mut self, _string: &str, _color: Color) {
+        todo!()
+    }
+
     fn window(&self) -> sixtyfps_corelib::window::WindowRc {
         unreachable!("this backend don't query the window")
     }

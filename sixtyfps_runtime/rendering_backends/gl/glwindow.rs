@@ -42,6 +42,8 @@ pub struct GLWindow {
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
     pub(crate) texture_cache: RefCell<TextureCache>,
 
+    fps_counter: Option<Rc<FPSCounter>>,
+
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
 }
@@ -64,6 +66,7 @@ impl GLWindow {
             currently_pressed_key_code: Default::default(),
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
+            fps_counter: FPSCounter::new(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
         })
@@ -177,6 +180,10 @@ impl WinitWindow for GLWindow {
                     &mut renderer,
                     origin.clone(),
                 );
+            }
+
+            if let Some(fps_counter) = &self.fps_counter {
+                fps_counter.measure_frame_rendered(&mut renderer);
             }
 
             renderer.canvas.borrow_mut().flush();
@@ -396,6 +403,42 @@ impl PlatformWindow for GLWindow {
             scale_factor_override.unwrap_or_else(|| platform_window.scale_factor()) as _,
         );
         let id = platform_window.id();
+
+        if let Some(fps_counter) = &self.fps_counter {
+            cfg_if::cfg_if! {
+                if #[cfg(target_arch = "wasm32")] {
+                    let winsys = "HTML Canvas";
+                } else if #[cfg(any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                ))] {
+                    use winit::platform::unix::WindowExtUnix;
+                    let mut winsys = "unknown";
+
+                    #[cfg(feature = "x11")]
+                    if platform_window.xlib_window().is_some() {
+                        winsys = "x11";
+                    }
+
+                    #[cfg(feature = "wayland")]
+                    if platform_window.wayland_surface().is_some() {
+                        winsys = "wayland"
+                    }
+                } else if #[cfg(target_os = "windows")] {
+                    let winsys = "windows";
+                } else if #[cfg(target_os = "macos")] {
+                    let winsys = "macos";
+                } else {
+                    let winsys = "unknown";
+                }
+            }
+
+            fps_counter.start(&format!("GL backend (windowing system: {})", winsys));
+        }
+
         drop(platform_window);
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
