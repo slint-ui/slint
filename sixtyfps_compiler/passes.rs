@@ -133,7 +133,10 @@ pub async fn run_passes(
         optimize_useless_rectangles::optimize_useless_rectangles(component);
         move_declarations::move_declarations(component, diag);
         remove_aliases::remove_aliases(component, diag);
-        const_propagation::const_propagation(component);
+        if !diag.has_error() {
+            // binding loop causes panics in const_propagation
+            const_propagation::const_propagation(component);
+        }
     }
 
     for component in (root_component.used_types.borrow().sub_components.iter())

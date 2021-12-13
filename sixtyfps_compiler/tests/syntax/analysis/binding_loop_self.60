@@ -1,0 +1,27 @@
+/* LICENSE BEGIN
+    This file is part of the SixtyFPS Project -- https://sixtyfps.io
+    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
+    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+
+    SPDX-License-Identifier: GPL-3.0-only
+    This file is also available under commercial licensing terms.
+    Please contact info@sixtyfps.io for more information.
+LICENSE END */
+
+// From issue #737
+
+Key := Rectangle { property <int> pos; property <int> num_elements; }
+
+Test := Rectangle {
+    Rectangle {
+        property <int> num_elements;
+        num-elements: 4;
+        Key { pos: 1; num_elements: num_elements; }
+        //                         ^error{The binding for the property 'num-elements' is part of a binding loop}
+        Key { pos: 2; num_elements: self.num_elements; }
+        //                         ^error{The binding for the property 'num-elements' is part of a binding loop}
+        Key { pos: 3; num_elements: parent.num_elements; }
+        Key { pos: 4; num_elements: num_elements; }
+        //                         ^error{The binding for the property 'num-elements' is part of a binding loop}
+    }
+}
