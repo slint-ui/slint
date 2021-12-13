@@ -1226,8 +1226,9 @@ impl sixtyfps_corelib::backend::Backend for Backend {
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
         let e = crate::event_loop::CustomEvent::UserEvent(event);
         #[cfg(not(target_arch = "wasm32"))]
-            crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
-        #[cfg(target_arch = "wasm32")] {
+        crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
+        #[cfg(target_arch = "wasm32")]
+        {
             use wasm_bindgen::closure::Closure;
             use wasm_bindgen::JsCast;
 
