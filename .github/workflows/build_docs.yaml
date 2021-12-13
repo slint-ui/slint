@@ -28,11 +28,10 @@ jobs:
       MDBOOK_LINKCHECK_VERSION: 0.7.4
     steps:
     - uses: actions/checkout@v2
-# requires nightly:
-#    - name: Set up rgb crate rustdoc link
-#      run: |
-#        rgb_version=`grep 'rgb = '  sixtyfps_runtime/corelib/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
-#        echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
+    - name: Set up rgb crate rustdoc link
+      run: |
+        rgb_version=`grep 'rgb = '  sixtyfps_runtime/corelib/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
+        echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
@@ -44,10 +43,10 @@ jobs:
            ~/.cargo/bin/mdbook
            ~/.cargo/bin/mdbook-linkcheck
         key: ${{ runner.os }}-${{ github.job }}-mdbook-${{ env.MDBOOK_VERSION }}-${{ env.MDBOOK_LINKCHECK_VERSION }}
-    - name: Install stable
+    - name: Install nightly
       uses: actions-rs/toolchain@v1
       with:
-          toolchain: stable
+          toolchain: nightly
     - uses: Swatinem/rust-cache@v1
     - name: Install mdbook
       run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }} || true
@@ -83,7 +82,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: doc
-          toolchain: stable
+          toolchain: nightly
           args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps --all-features
     - name: "Rust Tutorial Docs"
       run: mdbook build
