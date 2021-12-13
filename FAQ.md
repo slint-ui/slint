@@ -54,17 +54,13 @@ SixtyFPS is available under two licenses:
 
 ## What is the commercial licensing model?
 
-We are still in a very early stage of development and are exploring the exact licensing terms. We would
-like to enable the following models for products using our technology, with different price points:
+The basic principle behind our commercial licensing is that you start for free and pay when you're shipping.
 
-- Per product license: When releasing software built with SixtyFPS, you pay a fixed price
-  per product annually, as long as you make new releases.
-- Per seat licensing: You pay depending on the number of developers working on the product.
-- Custom: Some companies have special needs and we'd be happy to work together to find a solution.
+We offer a perpetual license option and we generally deploy a per-product license, regardless of how many developers, designers, Q&A engineers are using SixtyFPS.
 
-Which model you choose depends on what is most advantageous or practical for your use case.
+If this doesn't fit you, don't hesitate to contact us and we'd be happy to work together to find a solution.
 
-Rest assured that we are working on a fair pricing scheme relative to the value that we provide.
+You can find a more detailed overview of our commercial licensing and the pricing at <https://sixtyfps.io/pricing.html>.
 
 ## Can I try SixtyFPS using the GPL version and then switch to the commercial license later?
 
