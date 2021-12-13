@@ -22,6 +22,7 @@ const-field-offset = { version = "0.1", path = "../../../helper_crates/const-fie
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
 sixtyfps-corelib-macros = { version = "=0.1.6", path = "../../corelib_macros" }
 sixtyfps-corelib = { version = "=0.1.6", path = "../../corelib" }
+sixtyfps-common = { version = "=0.1.6", path = "../../common" }
 euclid = "0.22.1"
 pin-weak = "1"
 once_cell = "1"

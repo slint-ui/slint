@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    'sixtyfps_runtime/common',
     'sixtyfps_runtime/corelib',
     'sixtyfps_runtime/corelib_macros',
     'sixtyfps_runtime/interpreter',

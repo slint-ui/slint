@@ -447,9 +447,8 @@ impl ColorSpecific {
 
 struct KeysLookup;
 
-macro_rules! for_each_special_keys {
+macro_rules! special_keys_lookup {
     ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
-        use super::*;
         impl LookupObject for KeysLookup {
             fn for_each_entry<R>(
                 &self,
@@ -464,7 +463,8 @@ macro_rules! for_each_special_keys {
         }
     };
 }
-mod key_codes;
+
+sixtyfps_common::for_each_special_keys!(special_keys_lookup);
 
 struct EasingSpecific;
 impl LookupObject for EasingSpecific {

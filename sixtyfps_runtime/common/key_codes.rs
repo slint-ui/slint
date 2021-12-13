@@ -12,7 +12,11 @@ LICENSE END */
 
 // The key code comes from https://www.unicode.org/Public/MAPPINGS/VENDORS/APPLE/CORPCHAR.TXT
 // the names comes should match with https://www.w3.org/TR/uievents-key/#named-key-attribute-values,
-for_each_special_keys![
+
+#[macro_export]
+macro_rules! for_each_special_keys {
+    ($macro:ident) => {
+        $macro![
 '\u{0008}'  # Backspace   # Qt_Key_Key_Backspace    # Back          ;
 '\u{0009}'  # Tab         # Qt_Key_Key_Tab          # Tab           ;
 '\u{000a}'  # Return      # Qt_Key_Key_Enter|Qt_Key_Key_Return # NumpadEnter|Return ;
@@ -91,5 +95,6 @@ for_each_special_keys![
 //'\u{F745}'	# Find        # Qt_Key_Key_Find         #              ;
 //'\u{F746}'	# Help        # Qt_Key_Key_Help         #              ;
 //'\u{F747}'	# ModeSwitch  # Qt_Key_Key_Mode_switch  #            ;
-
 ];
+    };
+}

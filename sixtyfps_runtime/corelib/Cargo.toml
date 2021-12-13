@@ -54,6 +54,7 @@ rgb = "0.8.27"
 pin-project = "1"
 atomic-polyfill = { version = "0.1.5" }
 num-traits = { version = "0.2", default-features = false }
+sixtyfps-common = { version = "=0.1.6", path = "../common" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }

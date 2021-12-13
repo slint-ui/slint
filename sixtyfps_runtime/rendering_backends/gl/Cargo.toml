@@ -21,6 +21,7 @@ default = ["svg"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.6", path = "../../corelib" }
+sixtyfps-common = { version = "=0.1.6", path = "../../common" }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 image = { version = "0.23.14", default-features = false, features = [ "png", "jpeg" ] }
 rgb = "0.8.27"
