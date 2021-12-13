@@ -1,0 +1,13 @@
+[package]
+name = "sixtyfps-common"
+version = "0.1.6"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2018"
+license = "GPL-3.0-only"
+description = "Helper crate for sharing code & data structures between sixtyfps-corelib and sixtyfps-compiler"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+
+
+[lib]
+path = "lib.rs"

@@ -1578,22 +1578,24 @@ pub(crate) fn timer_event() {
     }
 }
 
-macro_rules! for_each_special_keys {
-    ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
-        use crate::key_generated;
-        pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<sixtyfps_corelib::SharedString> {
+mod key_codes {
+    macro_rules! define_qt_key_to_string_fn {
+        ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
+            use crate::key_generated;
+            pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<sixtyfps_corelib::SharedString> {
 
-            let char = match(key) {
-                $($(key_generated::$qt => $char,)*)*
-                _ => return None,
-            };
-            let mut buffer = [0; 6];
-            Some(sixtyfps_corelib::SharedString::from(char.encode_utf8(&mut buffer) as &str))
-        }
-    };
+                let char = match(key) {
+                    $($(key_generated::$qt => $char,)*)*
+                    _ => return None,
+                };
+                let mut buffer = [0; 6];
+                Some(sixtyfps_corelib::SharedString::from(char.encode_utf8(&mut buffer) as &str))
+            }
+        };
+    }
+
+    sixtyfps_common::for_each_special_keys!(define_qt_key_to_string_fn);
 }
-
-mod key_codes;
 
 fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedString {
     // First try to see if we received one of the non-ascii keys that we have

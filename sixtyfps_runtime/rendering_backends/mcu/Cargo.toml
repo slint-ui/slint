@@ -18,6 +18,7 @@ unsafe_single_core = ["sixtyfps-corelib/unsafe_single_core"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.6", path = "../../corelib", default-features = false }
+sixtyfps-common = { version = "=0.1.6", path = "../../common", default-features = false }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 rgb = "0.8.27"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }

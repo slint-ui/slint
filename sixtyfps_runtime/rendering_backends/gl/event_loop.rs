@@ -331,21 +331,21 @@ fn redraw_all_windows() {
     }
 }
 
-macro_rules! for_each_special_keys {
-    ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident)|* ;)*) => {
-        pub fn winit_key_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<sixtyfps_corelib::SharedString> {
-            let char = match(virtual_keycode) {
-                $($(winit::event::VirtualKeyCode::$winit => $char,)*)*
-                _ => return None,
-            };
-            let mut buffer = [0; 6];
-            Some(sixtyfps_corelib::SharedString::from(char.encode_utf8(&mut buffer) as &str))
-        }
-    };
+mod key_codes {
+    macro_rules! winit_key_to_string_fn {
+        ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident)|* ;)*) => {
+            pub fn winit_key_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<sixtyfps_corelib::SharedString> {
+                let char = match(virtual_keycode) {
+                    $($(winit::event::VirtualKeyCode::$winit => $char,)*)*
+                    _ => return None,
+                };
+                let mut buffer = [0; 6];
+                Some(sixtyfps_corelib::SharedString::from(char.encode_utf8(&mut buffer) as &str))
+            }
+        };
+    }
+    sixtyfps_common::for_each_special_keys!(winit_key_to_string_fn);
 }
-
-#[path = "key_codes.rs"]
-mod key_codes;
 
 fn process_window_event(
     window: Rc<dyn WinitWindow>,

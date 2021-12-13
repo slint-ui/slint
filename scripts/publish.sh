@@ -9,6 +9,7 @@
 # Please contact info@sixtyfps.io for more information.
 # LICENSE END
 cargo publish --manifest-path sixtyfps_runtime/corelib_macros/Cargo.toml
+cargo publish --manifest-path sixtyfps_runtime/common/Cargo.toml
 cargo publish --manifest-path sixtyfps_compiler/Cargo.toml
 cargo publish --manifest-path sixtyfps_runtime/corelib/Cargo.toml
 cargo publish --manifest-path api/sixtyfps-rs/sixtyfps-macros/Cargo.toml

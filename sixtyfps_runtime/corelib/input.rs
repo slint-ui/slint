@@ -117,15 +117,17 @@ impl Default for InputEventFilterResult {
     }
 }
 
-macro_rules! for_each_special_keys {
-    ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* ;)*) => {
-        $(pub const $name : char = $char;)*
-    };
-}
-
 /// This module contains the constant character code used to represent the keys
 #[allow(missing_docs, non_upper_case_globals)]
-pub mod key_codes;
+pub mod key_codes {
+    macro_rules! declare_consts_for_special_keys {
+       ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* ;)*) => {
+            $(pub const $name : char = $char;)*
+        };
+    }
+
+    sixtyfps_common::for_each_special_keys!(declare_consts_for_special_keys);
+}
 
 /// KeyboardModifier provides booleans to indicate possible modifier keys
 /// on a keyboard, such as Shift, Control, etc.
