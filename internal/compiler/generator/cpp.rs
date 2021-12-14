@@ -508,6 +508,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                     })
                 }
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(_) => todo!(),
+                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(_) => todo!(),
             }
         },
     ));
@@ -2188,6 +2189,9 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
             }
+        }
+        BuiltinFunction::RegisterBitmapFont => {
+            todo!()
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {

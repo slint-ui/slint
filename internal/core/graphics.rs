@@ -42,6 +42,9 @@ pub use brush::*;
 pub(crate) mod image;
 pub use self::image::*;
 
+pub(crate) mod bitmapfont;
+pub use self::bitmapfont::*;
+
 #[cfg(feature = "std")]
 mod fps_counter;
 #[cfg(feature = "std")]
