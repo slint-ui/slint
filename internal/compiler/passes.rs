@@ -14,6 +14,7 @@ mod compile_paths;
 mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
+mod embed_glyphs;
 mod embed_images;
 mod ensure_window;
 mod flickable;
@@ -163,13 +164,24 @@ pub async fn run_passes(
         generate_item_indices::generate_item_indices(component);
     }
 
-    collect_custom_fonts::collect_custom_fonts(
-        root_component,
-        std::iter::once(&*doc).chain(type_loader.all_documents()),
-        compiler_config.embed_resources,
-    );
     // collect globals once more: After optimizations we might have less globals
     collect_globals::collect_globals(doc, diag);
+
+    let embedded_fonts = embed_glyphs::embed_glyphs(
+        root_component,
+        std::iter::once(&*doc).chain(type_loader.all_documents()),
+        diag,
+    );
+
+    // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
+    if !embedded_fonts {
+        collect_custom_fonts::collect_custom_fonts(
+            root_component,
+            std::iter::once(&*doc).chain(type_loader.all_documents()),
+            compiler_config.embed_resources,
+        );
+    }
+
     root_component.is_root_component.set(true);
 }
 

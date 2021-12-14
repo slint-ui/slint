@@ -47,6 +47,7 @@ pub enum BuiltinFunction {
     ImplicitLayoutInfo(Orientation),
     RegisterCustomFontByPath,
     RegisterCustomFontByMemory,
+    RegisterBitmapFont,
 }
 
 #[derive(Debug, Clone)]
@@ -140,6 +141,9 @@ impl BuiltinFunction {
             BuiltinFunction::RegisterCustomFontByMemory => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Int32] }
             }
+            BuiltinFunction::RegisterBitmapFont => {
+                Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Int32] }
+            }
         }
     }
 
@@ -179,7 +183,8 @@ impl BuiltinFunction {
             BuiltinFunction::Rgb => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
             BuiltinFunction::RegisterCustomFontByPath
-            | BuiltinFunction::RegisterCustomFontByMemory => false,
+            | BuiltinFunction::RegisterCustomFontByMemory
+            | BuiltinFunction::RegisterBitmapFont => false,
         }
     }
 }

@@ -57,6 +57,10 @@ pub trait Backend: Send + Sync {
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>>;
 
+    fn register_bitmap_font(&'static self, _font_data: &'static crate::graphics::BitmapFont) {
+        unimplemented!()
+    }
+
     fn set_clipboard_text(&'static self, text: String);
     fn clipboard_text(&'static self) -> Option<String>;
 

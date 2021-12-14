@@ -44,7 +44,7 @@ pub struct Document {
     pub local_registry: TypeRegister,
     /// A list of paths to .ttf/.ttc files that are supposed to be registered on
     /// startup for custom font use.
-    pub custom_fonts: Vec<String>,
+    pub custom_fonts: Vec<(String, crate::parser::SyntaxToken)>,
     exports: Exports,
 }
 
@@ -139,7 +139,7 @@ impl Document {
                         || crate::fileaccess::load_file(std::path::Path::new(&import.file))
                             .is_some()
                     {
-                        Some(import.file)
+                        Some((import.file, import.import_token))
                     } else {
                         diag.push_error(
                             format!("File \"{}\" not found", import.file),

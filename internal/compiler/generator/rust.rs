@@ -169,6 +169,43 @@ pub fn generate(doc: &Document) -> TokenStream {
                         };
                     )
                 },
+                crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, glyphs }) => {
+
+                    let character_map = character_map.iter().map(|crate::embedded_resources::CharacterMapEntry{code_point, glyph_index}| quote!(slint::re_exports::CharacterMapEntry { code_point: #code_point, glyph_index: #glyph_index }));
+
+                    let glyphs = glyphs.iter().map(|crate::embedded_resources::BitmapGlyphs{pixel_size, glyph_data}| {
+                        let glyph_data = glyph_data.iter().map(|crate::embedded_resources::BitmapGlyph{x, y, width, height, x_advance, data}|{
+                            quote!(
+                                slint::re_exports::BitmapGlyph {
+                                    x: #x,
+                                    y: #y,
+                                    width: #width,
+                                    height: #height,
+                                    x_advance: #x_advance,
+                                    data: Slice::from_slice(&[#(#data),*]),
+                                }
+                            )
+                        });
+
+                        quote!(
+                            slint::re_exports::BitmapGlyphs {
+                                pixel_size: #pixel_size,
+                                glyph_data: Slice::from_slice(&[#(#glyph_data),*]),
+                            }
+                        )
+                    });
+
+                    quote!(
+                        const #symbol: slint::re_exports::BitmapFont = slint::re_exports::BitmapFont {
+                            family_name: Slice::from_slice(#family_name.as_bytes()),
+                            character_map: Slice::from_slice(&[#(#character_map),*]),
+                            units_per_em: #units_per_em,
+                            ascent: #ascent,
+                            descent: #descent,
+                            glyphs: Slice::from_slice(&[#(#glyphs),*])
+                        };
+                    )
+                },
             }
         }).collect::<Vec<_>>();
 
@@ -1731,6 +1768,15 @@ fn compile_builtin_function_call(
                 quote!(slint::register_font_from_memory(#symbol.into());)
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
+            }
+        }
+        BuiltinFunction::RegisterBitmapFont => {
+            if let [Expression::NumberLiteral(resource_id)] = &arguments {
+                let resource_id: usize = *resource_id as _;
+                let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
+                quote!(slint::register_bitmap_font(&#symbol);)
+            } else {
+                panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
         }
         BuiltinFunction::GetWindowScaleFactor => {

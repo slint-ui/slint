@@ -19,7 +19,7 @@ pub fn collect_custom_fonts<'a>(
     let mut all_fonts = BTreeSet::new();
 
     for doc in all_docs {
-        all_fonts.extend(doc.custom_fonts.iter())
+        all_fonts.extend(doc.custom_fonts.iter().map(|(path, _)| path))
     }
 
     let registration_function = if embed_fonts {
