@@ -19,4 +19,5 @@ SuperSimple := Rectangle {
     for xx[idx] in zz: Hello {
         Rectangle {}
     }
+
 }
