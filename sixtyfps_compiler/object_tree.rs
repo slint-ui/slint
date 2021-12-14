@@ -1862,6 +1862,26 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     debug_assert_eq!(Rc::strong_count(&component), 2);
     let old_root = &component.root_element;
 
+    // The values for properties that affect the geometry may be supplied in two different ways:
+    //
+    //   * When coming from the outside, for example by the repeater being inside a layout, we need
+    //     the values to apply to the new root element and the old root just needs to follow.
+    //   * When coming from the inside, for example when the repeater just creates rectangles that
+    //     calculate their own position, we need to move those bindings as well to the new root.
+    //
+    //  Finally, the default geometry pass lowering following the passes that call this function
+    //  will apply a binding to the width and height of the inner to follow the size of the parent
+    //  (the new root).
+    {
+        let mut old_root = old_root.borrow_mut();
+        for (binding_to_move, _) in crate::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter() {
+            let binding_to_move = binding_to_move.to_string();
+            if let Some(binding) = old_root.bindings.remove(&binding_to_move) {
+                new_root.borrow_mut().bindings.insert(binding_to_move, binding);
+            }
+        }
+    }
+
     // Any elements with a weak reference to the repeater's component will need fixing later.
     let mut elements_with_enclosing_component_reference = Vec::new();
     recurse_elem(old_root, &(), &mut |element: &ElementRc, _| {
