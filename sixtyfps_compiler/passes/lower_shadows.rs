@@ -83,7 +83,7 @@ fn inject_shadow_element_in_repeated_element(
     let element_with_shadow_property =
         &repeated_element.borrow().base_type.as_component().root_element.clone();
 
-    let mut shadow_element = match create_box_shadow_element(
+    let shadow_element = match create_box_shadow_element(
         shadow_property_bindings,
         element_with_shadow_property,
         type_register,
@@ -92,25 +92,6 @@ fn inject_shadow_element_in_repeated_element(
         Some(element) => element,
         None => return,
     };
-
-    // The values for properties that affect the geometry may be supplied in two different ways:
-    //
-    //   * When coming from the outside, for example by the repeater being inside a layout, we need
-    //     the values to apply to the shadow element and the old root just needs to follow.
-    //   * When coming from the inside, for example when the repeater just creates rectangles that
-    //     calculate their own position, we need to move those bindings as well to the shadow.
-    //
-    //  Finally we default geometry pass following this shadow lowering will apply a binding to
-    //  the width and height of the inner to follow the size of the parent (the shadow).
-    {
-        let mut element_with_shadow_property = element_with_shadow_property.borrow_mut();
-        for (binding_to_move, _) in crate::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter() {
-            let binding_to_move = binding_to_move.to_string();
-            if let Some(binding) = element_with_shadow_property.bindings.remove(&binding_to_move) {
-                shadow_element.bindings.insert(binding_to_move, binding);
-            }
-        }
-    }
 
     crate::object_tree::inject_element_as_repeated_element(
         repeated_element,
