@@ -1016,7 +1016,7 @@ instructions the SixtyFPS compiler to include the font and makes the font famili
 
 For example:
 
-```60
+```60,notest
 import "./NotoSans-Regular.ttf";
 
 Example := Window {

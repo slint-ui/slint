@@ -132,7 +132,15 @@ impl Document {
                     || import.file.ends_with(".ttf")
                     || import.file.ends_with(".otf")
                 {
-                    Some(import.file)
+                    if crate::fileaccess::load_file(std::path::Path::new(&import.file)).is_some() {
+                        Some(import.file)
+                    } else {
+                        diag.push_error(
+                            format!("File \"{}\" not found", import.file),
+                            &import.import_token,
+                        );
+                        None
+                    }
                 } else {
                     diag.push_error(
                         format!("Unsupported foreign import \"{}\"", import.file),
