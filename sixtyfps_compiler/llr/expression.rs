@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use std::collections::HashMap;
-
-use crate::langtype::Type;
-
 use super::PropertyReference;
+use crate::expression_tree::{BuiltinFunction, OperatorClass};
+use crate::langtype::Type;
+use itertools::Either;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -64,17 +64,32 @@ pub enum Expression {
     CodeBlock(Vec<Expression>),
 
     /// A function call
-    FunctionCall {
-        function: Box<Expression>,
+    BuiltinFunctionCall {
+        function: BuiltinFunction,
+        arguments: Vec<Expression>,
+    },
+    CallBackCall {
+        callback: PropertyReference,
         arguments: Vec<Expression>,
     },
 
-    /// A SelfAssignment or an Assignment.  When op is '=' this is a signal assignment.
-    SelfAssignment {
-        lhs: Box<Expression>,
-        rhs: Box<Expression>,
-        /// '+', '-', '/', '*', or '='
-        op: char,
+    /// A BuiltinFunctionCall, but the function is not yet in the `BuiltinFunction` enum
+    /// TODO: merge in BuiltinFunctionCall
+    ExtraBuiltinFunctionCall {
+        function: String,
+        arguments: Vec<Expression>,
+    },
+
+    /// An assignment of a value to a property
+    PropertyAssignment {
+        property: PropertyReference,
+        value: Box<Expression>,
+    },
+    /// an assignment of a value to the model data
+    ModelDataAssignment {
+        // how deep in the parent hierarchy we go
+        level: usize,
+        value: Box<Expression>,
     },
 
     BinaryExpression {
@@ -109,9 +124,7 @@ pub enum Expression {
         values: HashMap<String, Expression>,
     },
 
-    PathElements {
-        elements: crate::expression_tree::PathEvents,
-    },
+    PathEvents(crate::expression_tree::PathEvents),
 
     EasingCurve(crate::expression_tree::EasingCurve),
 
@@ -132,55 +145,15 @@ pub enum Expression {
         /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index]`
         repeater_index: Option<Box<Expression>>,
     },
-    //-/ Compute the LayoutInfo for the given layout.
-    //TODO
-    //ComputeLayoutInfo(Layout),
-    //SolveLayout(Layout),
-}
-
-/*
-#[derive(Debug, Default, Clone)]
-pub struct LayoutConstraints {
-    pub min: Option<PropertyReference>,
-    pub max: Option<PropertyReference>,
-    pub preferred: Option<PropertyReference>,
-    pub stretch: Option<PropertyReference>,
-    pub fixed: bool,
-}
-
-#[derive(Debug, Clone)]
-pub struct LayoutItem {
-    pos: Option<PropertyReference>,
-    size: Option<PropertyReference>,
-}
-
-pub struct LayoutGeometry {}
-
-/// An element in a GridLayout
-#[derive(Debug, Clone)]
-pub struct GridLayoutElement {
-    pub col: u16,
-    pub row: u16,
-    pub colspan: u16,
-    pub rowspan: u16,
-    pub item_horiz: LayoutItem,
-    pub item_vert: LayoutItem,
-}
-
-#[derive(Debug, Clone)]
-pub enum Layout {
-    Grid {
-        /// All the elements will be layout within that element.
-        elems: Vec<GridLayoutElement>,
-
-        geometry: LayoutGeometry,
-
-        /// When this GridLyout is actually the layout of a Dialog, then the cells start with all the buttons,
-        /// and this variable contains their roles. The string is actually one of the values from the sixtyfps_corelib::layout::DialogButtonRole
-        dialog_button_roles: Option<Vec<String>>,
+    /// Generate the array of BoxLayoutCellData form elements
+    BoxLayoutCellDataArray {
+        /// Either an expression of type BoxLayoutCellData, or an index to the repeater
+        elements: Vec<Either<Expression, usize>>,
+        /// The name for the local variable that stores the repeater indices
+        /// In other word, this expression has side effect and change that
+        repeater_indices: Option<String>,
     },
 }
-*/
 
 impl Expression {
     pub fn default_value_for_type(ty: &Type) -> Option<Self> {
@@ -213,7 +186,7 @@ impl Expression {
             },
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => return None,
-            Type::PathElements => Expression::PathElements { elements: Default::default() },
+            Type::PathElements => Expression::PathEvents(Default::default()),
             Type::Array(element_ty) => {
                 Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
             }
@@ -233,5 +206,52 @@ impl Expression {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
         })
+    }
+
+    pub fn ty(&self) -> Type {
+        match self {
+            Self::StringLiteral(_) => Type::String,
+            Self::NumberLiteral(_) => Type::Float32,
+            Self::BoolLiteral(_) => Type::Bool,
+            Self::PropertyReference(_) => todo!(),
+            Self::FunctionParameterReference { .. } => todo!(),
+            Self::StoreLocalVariable { .. } => Type::Void,
+            Self::ReadLocalVariable { ty, .. } => ty.clone(),
+            Self::StructFieldAccess { base, name } => match base.ty() {
+                Type::Struct { fields, .. } => fields[name].clone(),
+                _ => unreachable!(),
+            },
+            Self::Cast { to, .. } => to.clone(),
+            Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
+            Self::BuiltinFunctionCall { function, .. } => match function.ty() {
+                Type::Function { return_type, .. } => *return_type,
+                _ => unreachable!(),
+            },
+            Self::CallBackCall { .. } => todo!(),
+            Self::ExtraBuiltinFunctionCall { .. } => todo!(),
+            Self::PropertyAssignment { .. } => Type::Void,
+            Self::ModelDataAssignment { .. } => Type::Void,
+            Self::BinaryExpression { lhs, rhs: _, op } => {
+                if crate::expression_tree::operator_class(*op) != OperatorClass::ArithmeticOp {
+                    Type::Bool
+                } else {
+                    lhs.ty()
+                }
+            }
+            Self::UnaryOp { sub, .. } => sub.ty(),
+            Self::ImageReference { .. } => Type::Image,
+            Self::Condition { true_expr, .. } => true_expr.ty(),
+            Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
+            Self::Struct { ty, .. } => ty.clone(),
+            Self::PathEvents { .. } => todo!(),
+            Self::EasingCurve(_) => Type::Easing,
+            Self::LinearGradient { .. } => Type::Brush,
+            Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
+            Self::ReturnStatement(_) => Type::Invalid,
+            Self::LayoutCacheAccess { .. } => crate::layout::layout_info_type(),
+            Self::BoxLayoutCellDataArray { .. } => {
+                Type::Array(Box::new(crate::layout::layout_info_type()))
+            }
+        }
     }
 }

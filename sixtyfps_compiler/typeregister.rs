@@ -38,8 +38,8 @@ const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 thread_local! {
-    pub static DIALOG_BUTTON_ROLE_ENUM: Type =
-        Type::Enumeration(Rc::new(Enumeration {
+    pub static DIALOG_BUTTON_ROLE_ENUM: Rc<Enumeration> =
+        Rc::new(Enumeration {
             name: "DialogButtonRole".into(),
             values: IntoIterator::into_iter([
                 "none".to_owned(),
@@ -52,7 +52,16 @@ thread_local! {
             ])
             .collect(),
             default_value: 0,
-        }));
+        });
+
+    pub static LAYOUT_ALIGNMENT_ENUM: Rc<Enumeration> =
+        Rc::new(Enumeration {
+            name: "LayoutAlignment".into(),
+            values: IntoIterator::into_iter(
+                ["stretch", "center", "start", "end", "space-between", "space-around"]
+            ).map(String::from).collect(),
+            default_value: 0,
+        });
 }
 
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
@@ -79,7 +88,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(IntoIterator::into_iter([
             ("forward-focus", Type::ElementReference),
             ("focus", BuiltinFunction::SetFocusItem.ty()),
-            ("dialog-button-role", DIALOG_BUTTON_ROLE_ENUM.with(|e| e.clone())),
+            ("dialog-button-role", Type::Enumeration(DIALOG_BUTTON_ROLE_ENUM.with(|e| e.clone()))),
         ]))
 }
 
@@ -179,10 +188,6 @@ impl TypeRegister {
         declare_enum("TextVerticalAlignment", &["top", "center", "bottom"]);
         declare_enum("TextWrap", &["no-wrap", "word-wrap"]);
         declare_enum("TextOverflow", &["clip", "elide"]);
-        declare_enum(
-            "LayoutAlignment",
-            &["stretch", "center", "start", "end", "space-between", "space-around"],
-        );
         declare_enum("ImageFit", &["fill", "contain", "cover"]);
         declare_enum("ImageRendering", &["smooth", "pixelated"]);
         declare_enum("EventResult", &["reject", "accept"]);
@@ -229,7 +234,10 @@ impl TypeRegister {
         );
         declare_enum("PointerEventKind", &["cancel", "down", "up"]);
         declare_enum("PointerEventButton", &["none", "left", "right", "middle"]);
-        register.insert_type(DIALOG_BUTTON_ROLE_ENUM.with(|x| x.clone()));
+        DIALOG_BUTTON_ROLE_ENUM
+            .with(|e| register.insert_type_with_name(Type::Enumeration(e.clone()), e.name.clone()));
+        LAYOUT_ALIGNMENT_ENUM
+            .with(|e| register.insert_type_with_name(Type::Enumeration(e.clone()), e.name.clone()));
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());
