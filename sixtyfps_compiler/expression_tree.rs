@@ -14,7 +14,7 @@ use std::rc::{Rc, Weak};
 // FIXME remove the pub
 pub use crate::namedreference::NamedReference;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 /// A function built into the run-time
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
