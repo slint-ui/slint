@@ -261,7 +261,8 @@ impl Type {
                 } else {
                     Cow::Borrowed(name)
                 };
-                let property_type = n.lookup_property(resolved_name.as_ref()).unwrap_or_default();
+                let property_type =
+                    n.lookup_property(resolved_name.as_ref()).cloned().unwrap_or_default();
                 PropertyLookupResult { resolved_name, property_type }
             }
             _ => PropertyLookupResult {
@@ -566,9 +567,9 @@ impl NativeClass {
         self.properties.len() + self.parent.clone().map(|p| p.property_count()).unwrap_or_default()
     }
 
-    pub fn lookup_property(&self, name: &str) -> Option<Type> {
+    pub fn lookup_property(&self, name: &str) -> Option<&Type> {
         if let Some(bty) = self.properties.get(name) {
-            Some(bty.ty.clone())
+            Some(&bty.ty)
         } else if let Some(parent_class) = &self.parent {
             parent_class.lookup_property(name)
         } else {
