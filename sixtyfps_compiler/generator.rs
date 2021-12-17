@@ -29,6 +29,7 @@ pub enum OutputFormat {
     #[cfg(feature = "rust")]
     Rust,
     Interpreter,
+    Llr,
 }
 
 impl OutputFormat {
@@ -51,6 +52,7 @@ impl std::str::FromStr for OutputFormat {
             "cpp" => Ok(Self::Cpp),
             #[cfg(feature = "rust")]
             "rust" => Ok(Self::Rust),
+            "llr" => Ok(Self::Llr),
             _ => Err(format!("Unknown outpout format {}", s)),
         }
     }
@@ -88,6 +90,13 @@ pub fn generate(
                 std::io::ErrorKind::Other,
                 "Unsupported output format: The interpreter is not a valid output format yet.",
             )); // Perhaps byte code in the future?
+        }
+        OutputFormat::Llr => {
+            writeln!(
+                destination,
+                "{:#?}",
+                crate::llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component)
+            )?;
         }
     }
     Ok(())
