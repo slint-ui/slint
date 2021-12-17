@@ -16,7 +16,7 @@ use super::{IntRect, IntSize};
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
-/// You can construct new a new empty shared pixel buffer with [`SharedPixelBuffer::new`],
+/// You can construct a new empty shared pixel buffer with [`SharedPixelBuffer::new`],
 /// or you can clone it from an existing contiguous buffer that you might already have, using
 /// [`SharedPixelBuffer::clone_from_slice`].
 ///
