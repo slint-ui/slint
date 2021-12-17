@@ -4,6 +4,7 @@
 use super::PropertyReference;
 use crate::expression_tree::{BuiltinFunction, OperatorClass};
 use crate::langtype::Type;
+use crate::layout::Orientation;
 use itertools::Either;
 use std::collections::HashMap;
 
@@ -118,6 +119,8 @@ pub enum Expression {
     Array {
         element_ty: Type,
         values: Vec<Expression>,
+        /// When true, this should be converted to a model. When false, this should stay as a slice
+        as_model: bool,
     },
     Struct {
         ty: Type,
@@ -152,6 +155,7 @@ pub enum Expression {
         /// The name for the local variable that stores the repeater indices
         /// In other word, this expression has side effect and change that
         repeater_indices: Option<String>,
+        orientation: Orientation,
     },
 }
 
@@ -187,9 +191,11 @@ impl Expression {
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => return None,
             Type::PathElements => Expression::PathEvents(Default::default()),
-            Type::Array(element_ty) => {
-                Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
-            }
+            Type::Array(element_ty) => Expression::Array {
+                element_ty: (**element_ty).clone(),
+                values: vec![],
+                as_model: true,
+            },
             Type::Struct { fields, .. } => Expression::Struct {
                 ty: ty.clone(),
                 values: fields
@@ -208,21 +214,21 @@ impl Expression {
         })
     }
 
-    pub fn ty(&self) -> Type {
+    pub fn ty(&self, ctx: &dyn EvaluationContext) -> Type {
         match self {
             Self::StringLiteral(_) => Type::String,
             Self::NumberLiteral(_) => Type::Float32,
             Self::BoolLiteral(_) => Type::Bool,
-            Self::PropertyReference(_) => todo!(),
-            Self::FunctionParameterReference { .. } => todo!(),
+            Self::PropertyReference(prop) => ctx.property_ty(prop).clone(),
+            Self::FunctionParameterReference { index } => ctx.arg_type(*index).clone(),
             Self::StoreLocalVariable { .. } => Type::Void,
             Self::ReadLocalVariable { ty, .. } => ty.clone(),
-            Self::StructFieldAccess { base, name } => match base.ty() {
+            Self::StructFieldAccess { base, name } => match base.ty(ctx) {
                 Type::Struct { fields, .. } => fields[name].clone(),
                 _ => unreachable!(),
             },
             Self::Cast { to, .. } => to.clone(),
-            Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty()),
+            Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty(ctx)),
             Self::BuiltinFunctionCall { function, .. } => match function.ty() {
                 Type::Function { return_type, .. } => *return_type,
                 _ => unreachable!(),
@@ -235,12 +241,12 @@ impl Expression {
                 if crate::expression_tree::operator_class(*op) != OperatorClass::ArithmeticOp {
                     Type::Bool
                 } else {
-                    lhs.ty()
+                    lhs.ty(ctx)
                 }
             }
-            Self::UnaryOp { sub, .. } => sub.ty(),
+            Self::UnaryOp { sub, .. } => sub.ty(ctx),
             Self::ImageReference { .. } => Type::Image,
-            Self::Condition { true_expr, .. } => true_expr.ty(),
+            Self::Condition { true_expr, .. } => true_expr.ty(ctx),
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone(),
             Self::PathEvents { .. } => todo!(),
@@ -253,5 +259,78 @@ impl Expression {
                 Type::Array(Box::new(crate::layout::layout_info_type()))
             }
         }
+    }
+
+    /// Call the visitor for each sub-expression (not recursive)
+    fn visit(&self, mut visitor: impl FnMut(&Self)) {
+        match self {
+            Expression::StringLiteral(_) => {}
+            Expression::NumberLiteral(_) => {}
+            Expression::BoolLiteral(_) => {}
+            Expression::PropertyReference(_) => {}
+            Expression::FunctionParameterReference { .. } => {}
+            Expression::StoreLocalVariable { value, .. } => visitor(&value),
+            Expression::ReadLocalVariable { .. } => {}
+            Expression::StructFieldAccess { base, .. } => visitor(&base),
+            Expression::Cast { from, .. } => visitor(from),
+            Expression::CodeBlock(_) => {}
+            Expression::BuiltinFunctionCall { arguments, .. } => arguments.iter().for_each(visitor),
+            Expression::CallBackCall { arguments, .. } => arguments.iter().for_each(visitor),
+            Expression::ExtraBuiltinFunctionCall { arguments, .. } => {
+                arguments.iter().for_each(visitor)
+            }
+            Expression::PropertyAssignment { value, .. } => visitor(&value),
+            Expression::ModelDataAssignment { value, .. } => visitor(&value),
+            Expression::BinaryExpression { lhs, rhs, .. } => {
+                visitor(lhs);
+                visitor(rhs);
+            }
+            Expression::UnaryOp { sub, .. } => {
+                visitor(sub);
+            }
+            Expression::ImageReference { .. } => {}
+            Expression::Condition { condition, true_expr, false_expr } => {
+                visitor(&condition);
+                visitor(&true_expr);
+                if let Some(false_expr) = false_expr {
+                    visitor(&false_expr);
+                }
+            }
+            Expression::Array { values, .. } => values.iter().for_each(visitor),
+            Expression::Struct { values, .. } => values.values().for_each(visitor),
+            Expression::PathEvents(_) => {}
+            Expression::EasingCurve(_) => {}
+            Expression::LinearGradient { angle, stops } => {
+                visitor(&angle);
+                for (a, b) in stops {
+                    visitor(a);
+                    visitor(b);
+                }
+            }
+            Expression::EnumerationValue(_) => {}
+            Expression::ReturnStatement(_) => {}
+            Expression::LayoutCacheAccess { repeater_index, .. } => {
+                if let Some(repeater_index) = repeater_index {
+                    visitor(&repeater_index);
+                }
+            }
+            Expression::BoxLayoutCellDataArray { elements, .. } => {
+                elements.iter().filter_map(|x| x.as_ref().left()).for_each(visitor);
+            }
+        }
+    }
+
+    /// Visit itself and each sub expression recursively
+    pub fn visit_recursive(&self, visitor: &mut dyn FnMut(&Self)) {
+        visitor(self);
+        self.visit(|e| e.visit_recursive(visitor));
+    }
+}
+
+pub trait EvaluationContext {
+    fn property_ty(&self, _: &PropertyReference) -> &Type;
+    // The type of the specified argument when evaluating a callback
+    fn arg_type(&self, _index: usize) -> &Type {
+        unimplemented!()
     }
 }

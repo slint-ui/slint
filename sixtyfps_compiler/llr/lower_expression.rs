@@ -48,6 +48,12 @@ impl ExpressionContext<'_> {
     }
 }
 
+impl super::EvaluationContext for ExpressionContext<'_> {
+    fn property_ty(&self, _: &PropertyReference) -> &Type {
+        todo!()
+    }
+}
+
 pub fn lower_expression(
     expression: &tree_Expression,
     ctx: &ExpressionContext<'_>,
@@ -156,6 +162,7 @@ pub fn lower_expression(
         tree_Expression::Array { element_ty, values } => Some(llr_Expression::Array {
             element_ty: element_ty.clone(),
             values: values.iter().map(|e| lower_expression(e, ctx)).collect::<Option<_>>()?,
+            as_model: true,
         }),
         tree_Expression::Struct { ty, values } => Some(llr_Expression::Struct {
             ty: ty.clone(),
@@ -304,7 +311,7 @@ fn repeater_special_property(
             .unwrap();
         level += 1;
     }
-    if let Some(level) = NonZeroUsize::new(level) {
+    if let Some(level) = NonZeroUsize::new(level - 1) {
         r = PropertyReference::InParent { level, parent_reference: Box::new(r) };
     }
     Some(llr_Expression::PropertyReference(r))
@@ -349,24 +356,30 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> Op
         ctx: &ExpressionContext<'_>,
     ) -> Option<llr_Expression> {
         Some(llr_Expression::Struct {
-            ty: animation_ty(),
-            values: a
-                .borrow()
-                .bindings
-                .iter()
-                .map(|(k, v)| Some((k.clone(), lower_expression(&v.borrow().expression, ctx)?)))
+            values: animation_fields()
+                .map(|(k, ty)| {
+                    let e = a.borrow().bindings.get(&k).map_or_else(
+                        || llr_Expression::default_value_for_type(&ty),
+                        |v| lower_expression(&v.borrow().expression, ctx),
+                    )?;
+                    Some((k, e))
+                })
                 .collect::<Option<_>>()?,
+            ty: animation_ty(),
         })
+    }
+
+    fn animation_fields() -> impl Iterator<Item = (String, Type)> {
+        IntoIterator::into_iter([
+            ("duration".to_string(), Type::Int32),
+            ("loop-count".to_string(), Type::Int32),
+            ("easing".to_string(), Type::Easing),
+        ])
     }
 
     fn animation_ty() -> Type {
         Type::Struct {
-            fields: IntoIterator::into_iter([
-                ("duration".to_string(), Type::Int32),
-                ("loop-count".to_string(), Type::Int32),
-                ("easing".to_string(), Type::Easing),
-            ])
-            .collect(),
+            fields: animation_fields().collect(),
             name: Some("PropertyAnimation".into()),
             node: None,
         }
@@ -444,7 +457,7 @@ fn solve_layout(
             let size = layout_geometry_size(&layout.geometry.rect, o, ctx)?;
             if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, o)
             {
-                let cells_ty = cells.ty();
+                let cells_ty = cells.ty(ctx);
                 let e = crate::typeregister::DIALOG_BUTTON_ROLE_ENUM.with(|e| e.clone());
                 let roles = button_roles
                     .iter()
@@ -470,6 +483,7 @@ fn solve_layout(
                             llr_Expression::Array {
                                 element_ty: Type::Enumeration(e),
                                 values: roles,
+                                as_model: false,
                             },
                         ],
                     },
@@ -480,7 +494,7 @@ fn solve_layout(
                             [
                                 ("size", Type::Float32, size),
                                 ("spacing", Type::Float32, spacing),
-                                ("padding", padding.ty(), padding),
+                                ("padding", padding.ty(ctx), padding),
                                 (
                                     "cells",
                                     cells_ty.clone(),
@@ -501,8 +515,8 @@ fn solve_layout(
                         [
                             ("size", Type::Float32, size),
                             ("spacing", Type::Float32, spacing),
-                            ("padding", padding.ty(), padding),
-                            ("cells", cells.ty(), cells),
+                            ("padding", padding.ty(ctx), padding),
+                            ("cells", cells.ty(ctx), cells),
                         ],
                     )],
                 })
@@ -518,33 +532,41 @@ fn solve_layout(
                 [
                     ("size", Type::Float32, size),
                     ("spacing", Type::Float32, spacing),
-                    ("padding", padding.ty(), padding),
+                    ("padding", padding.ty(ctx), padding),
                     (
                         "alignment",
                         crate::typeregister::LAYOUT_ALIGNMENT_ENUM
                             .with(|e| Type::Enumeration(e.clone())),
                         alignment,
                     ),
-                    ("cells", cells.ty(), cells),
+                    ("cells", cells.ty(ctx), cells),
                 ],
             );
             if repeated_indices.is_empty() {
                 Some(llr_Expression::ExtraBuiltinFunctionCall {
-                    function: "solve_grid_layout".into(),
+                    function: "solve_box_layout".into(),
                     arguments: vec![
                         data,
-                        llr_Expression::Array { element_ty: Type::Int32, values: vec![] },
+                        llr_Expression::Array {
+                            element_ty: Type::Int32,
+                            values: vec![],
+                            as_model: false,
+                        },
                     ],
                 })
             } else {
                 Some(llr_Expression::CodeBlock(vec![
                     llr_Expression::StoreLocalVariable {
                         name: repeated_indices.clone(),
-                        value: llr_Expression::Array { element_ty: Type::Int32, values: vec![] }
-                            .into(),
+                        value: llr_Expression::Array {
+                            element_ty: Type::Int32,
+                            values: vec![],
+                            as_model: false,
+                        }
+                        .into(),
                     },
                     llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "solve_grid_layout".into(),
+                        function: "solve_box_layout".into(),
                         arguments: vec![
                             data,
                             llr_Expression::ReadLocalVariable {
@@ -576,7 +598,7 @@ fn solve_layout(
                         ("height", Type::Float32, height),
                         ("x", Type::Float32, llr_Expression::NumberLiteral(0.)),
                         ("y", Type::Float32, llr_Expression::NumberLiteral(0.)),
-                        ("elements", elements.ty(), elements),
+                        ("elements", elements.ty(ctx), elements),
                         ("offset", Type::Int32, offset),
                         ("item_count", Type::Int32, llr_Expression::NumberLiteral(count as _)),
                     ],
@@ -630,6 +652,7 @@ fn box_layout_data(
                 })
                 .collect(),
             element_ty,
+            as_model: false,
         };
         Some((cells, alignment))
     } else {
@@ -658,6 +681,7 @@ fn box_layout_data(
                     *ri = "repeater_indices".into();
                     (*ri).clone()
                 }),
+                orientation,
             },
             alignment,
         ))
@@ -690,7 +714,7 @@ fn grid_layout_cell_data(
                         .unwrap();
 
                 make_struct(
-                    "BoxLayoutCellData".into(),
+                    "GridLayoutCellData".into(),
                     [
                         ("constraint", crate::layout::layout_info_type(), layout_info),
                         ("col_or_row", Type::Int32, llr_Expression::NumberLiteral(col_or_row as _)),
@@ -699,6 +723,7 @@ fn grid_layout_cell_data(
                 )
             })
             .collect(),
+        as_model: false,
     })
 }
 
@@ -739,7 +764,7 @@ fn layout_geometry_size(
     }
 }
 
-fn get_layout_info(
+pub fn get_layout_info(
     elem: &ElementRc,
     ctx: &ExpressionContext,
     constraints: &crate::layout::LayoutConstraints,
@@ -752,7 +777,7 @@ fn get_layout_info(
     };
 
     if constraints.has_explicit_restrictions() {
-        llr_Expression::StoreLocalVariable {
+        let store = llr_Expression::StoreLocalVariable {
             name: "layout_info".into(),
             value: layout_info.into(),
         };
@@ -784,7 +809,7 @@ fn get_layout_info(
                 llr_Expression::PropertyReference(ctx.map_property_reference(nr)?),
             );
         }
-        Some(llr_Expression::Struct { ty, values })
+        Some(llr_Expression::CodeBlock([store, llr_Expression::Struct { ty, values }].into()))
     } else {
         Some(layout_info)
     }
@@ -829,6 +854,7 @@ fn compile_path(
                 from: llr_Expression::Array {
                     element_ty: Type::PathElements,
                     values: converted_elements,
+                    as_model: false,
                 }
                 .into(),
                 to: Type::PathElements,
