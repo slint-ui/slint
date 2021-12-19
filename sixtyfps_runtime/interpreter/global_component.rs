@@ -139,7 +139,7 @@ pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalCo
 }
 
 /// For the global components, we don't use the dynamic_type optimization,
-/// and we don't try to to optimize the property to their real type
+/// and we don't try to optimize the property to their real type
 pub struct GlobalComponentInstance(vtable::VRc<ComponentVTable, ErasedComponentBox>);
 
 impl GlobalComponent for GlobalComponentInstance {

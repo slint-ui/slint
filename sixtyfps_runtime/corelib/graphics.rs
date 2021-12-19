@@ -131,7 +131,7 @@ pub struct FontRequest {
     /// The name of the font family to be used, such as "Helvetica". An empty family name means the system
     /// default font family should be used.
     pub family: Option<SharedString>,
-    /// If the weight is None, the the system default font weight should be used.
+    /// If the weight is None, the system default font weight should be used.
     pub weight: Option<i32>,
     /// If the pixel size is None, the system default font size should be used.
     pub pixel_size: Option<f32>,
