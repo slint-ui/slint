@@ -111,7 +111,7 @@ pub unsafe trait VTableMetaDrop: VTableMeta {
 
 /// Allow to associate a VTable with a type.
 ///
-/// Safety: the VTABLE and STATIC_VTABLE need to be a a valid virtual table
+/// Safety: the VTABLE and STATIC_VTABLE need to be a valid virtual table
 /// corresponding to pointer to Self instance.
 pub unsafe trait HasStaticVTable<VT>
 where

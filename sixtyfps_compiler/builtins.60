@@ -382,7 +382,7 @@ Tab := _ {
     property <string> title;
 }
 
-// Note: not a a native class, handled in the lower_tabs pass
+// Note: not a native class, handled in the lower_tabs pass
 export TabWidget := _ {
     property <length> x;
     property <length> y;
@@ -397,7 +397,7 @@ export TabWidget := _ {
     //-is_internal
 }
 
-// Note: not a a native class, handled in the lower_popups pass
+// Note: not a native class, handled in the lower_popups pass
 export PopupWindow := _ {
     //property <length> x;
     //property <length> y;

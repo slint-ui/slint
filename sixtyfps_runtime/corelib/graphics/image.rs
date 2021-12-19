@@ -16,7 +16,7 @@ use super::{IntRect, IntSize};
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
-/// You can construct new a new empty shared pixel buffer with [`SharedPixelBuffer::new`],
+/// You can construct a new empty shared pixel buffer with [`SharedPixelBuffer::new`],
 /// or you can clone it from an existing contiguous buffer that you might already have, using
 /// [`SharedPixelBuffer::clone_from_slice`].
 ///
@@ -269,7 +269,7 @@ pub struct LoadImageError(());
 ///
 /// Another typical use-case is to render the image content with Rust code.
 /// For this it's most efficient to create a new SharedPixelBuffer with the known dimensions
-/// and pass the the mutable slice to your rendering function. Afterwards you can create an
+/// and pass the mutable slice to your rendering function. Afterwards you can create an
 /// Image.
 ///
 /// The following example creates a 320x200 RGB pixel buffer and calls an external

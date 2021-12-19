@@ -571,7 +571,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let generated_trait_assoc_const =
                 generated_trait_assoc_const.get_or_insert_with(|| ItemTrait {
                     attrs: Attribute::parse_outer.parse_str(&format!(
-                        "/** Trait containing the associated constant relative to the the trait {}.\n{} */",
+                        "/** Trait containing the associated constant relative to the trait {}.\n{} */",
                         trait_name, additional_doc
                     )).unwrap(),
                     ident: quote::format_ident!("{}Consts", trait_name),

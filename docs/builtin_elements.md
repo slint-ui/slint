@@ -788,7 +788,7 @@ This enum describes the different types of alignment of text along the horizonta
 
 * **`TextHorizontalAlignment.left`**: The text will be aligned with the left edge of the containing box.
 * **`TextHorizontalAlignment.center`**: The text will be horizontally centered within the containing box.
-* **`TextHorizontalAlignment.right`** The text will be aligned to the right right of the containing box.
+* **`TextHorizontalAlignment.right`** The text will be aligned to the right of the containing box.
 
 ## `TextVerticalAlignment`
 

@@ -223,7 +223,7 @@ fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientat
 
 // For an element with `width`, `height`, `preferred-width` and `preferred-height`, make an aspect
 // ratio preserving binding. This is currently only called for Image elements. For example when for an
-// image the `width` is specified and there is no `height` binding, it is called with with `missing_size_property = height`
+// image the `width` is specified and there is no `height` binding, it is called with `missing_size_property = height`
 // and `given_size_property = width` and install a binding like this:
 //
 //    height: self.width * self.preferred_height / self.preferred_width;
