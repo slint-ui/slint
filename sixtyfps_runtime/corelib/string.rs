@@ -22,9 +22,12 @@ use core::ops::Deref;
 ///
 /// SharedString uses implicit data sharing to make it efficient to pass around copies. When
 /// cloning, a reference to the data is cloned, not the data itself. The data itself is only copied
-/// when modifying it, for example using [push_str](#method.push_str). This is also called copy-on-write.
+/// when modifying it, for example using [push_str](SharedString::push_str). This is also called copy-on-write.
 ///
 /// Under the hood the string data is UTF-8 encoded and it is always terminated with a null character.
+///
+/// `SharedString` implements [`Deref<Target=str>`] so it can be easily passed to any function taking a `&str`.
+/// It also implement `From` such that it an easily be converted to and from the typical rust String type with `.into()`
 #[derive(Clone, Default)]
 #[repr(C)]
 pub struct SharedString {
