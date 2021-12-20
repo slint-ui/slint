@@ -315,9 +315,10 @@ pub struct LoadImageError(());
 /// ```no_run
 /// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
 /// let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
-///
+/// let width = pixel_buffer.width();
+/// let height = pixel_buffer.height();
 /// let mut pixmap = tiny_skia::PixmapMut::from_bytes(
-///     pixel_buffer.make_mut_bytes(), 640, 480
+///     pixel_buffer.make_mut_bytes(), width as _, height as _
 /// ).unwrap();
 /// pixmap.fill(tiny_skia::Color::TRANSPARENT);
 ///
