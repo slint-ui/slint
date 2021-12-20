@@ -267,7 +267,8 @@ impl<'a> LicenseHeader<'a> {
 }
 
 const EXPECTED_SPDX_EXPRESSION: &str = "GPL-3.0-only";
-const EXPECTED_SPDX_ID: &str = "SPDX-License-Identifier: GPL-3.0-only";
+const EXPECTED_SPDX_ID: &str =
+    const_format::concatcp!("SPDX-License-Identifier: ", EXPECTED_SPDX_EXPRESSION);
 
 const EXPECTED_HEADER: LicenseHeader<'static> = LicenseHeader(&[
     "This file is part of the SixtyFPS Project -- https://sixtyfps.io",
