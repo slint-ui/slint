@@ -26,8 +26,8 @@ impl LicenseTagStyle {
     fn c_style_comment_style() -> Self {
         Self {
             tag_start: "/* LICENSE BEGIN\n",
-            line_prefix: "",
-            line_indentation: "    ",
+            line_prefix: "//",
+            line_indentation: " ",
             tag_end: "LICENSE END */\n",
         }
     }
@@ -45,7 +45,7 @@ impl LicenseTagStyle {
         Self {
             tag_start: ".. LICENSE BEGIN\n",
             line_prefix: "..",
-            line_indentation: "    ",
+            line_indentation: " ",
             tag_end: ".. LICENSE END\n",
         }
     }
@@ -127,7 +127,7 @@ blah"#,
         );
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
-            r#"    TEST_LICENSE
+            r#"// TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -137,7 +137,7 @@ blah"#
         let test_source = SourceFileWithTags::new(r#"blah"#, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
-            r#"    TEST_LICENSE
+            r#"// TEST_LICENSE
 blah"#
                 .to_string()
         );
@@ -261,15 +261,8 @@ const EXPECTED_SPDX_EXPRESSION: &str = "GPL-3.0-only";
 const EXPECTED_SPDX_ID: &str =
     const_format::concatcp!("SPDX-License-Identifier: ", EXPECTED_SPDX_EXPRESSION);
 
-const EXPECTED_HEADER: LicenseHeader<'static> = LicenseHeader(&[
-    "This file is part of the SixtyFPS Project -- https://sixtyfps.io",
-    "Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>",
-    "Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>",
-    "",
-    EXPECTED_SPDX_ID,
-    "This file is also available under commercial licensing terms.",
-    "Please contact info@sixtyfps.io for more information.",
-]);
+const EXPECTED_HEADER: LicenseHeader<'static> =
+    LicenseHeader(&["Copyright © SixtyFPS GmbH <info@sixtyfps.io>", EXPECTED_SPDX_ID]);
 
 const EXPECTED_HOMEPAGE: &str = "https://sixtyfps.io";
 const EXPECTED_REPOSITORY: &str = "https://github.com/sixtyfpsui/sixtyfps";
