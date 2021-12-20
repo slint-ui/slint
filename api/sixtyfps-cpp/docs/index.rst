@@ -43,6 +43,8 @@ Welcome to SixtyFPS C++'s documentation!
 
    language.rst
 
+   markdown/debugging_techniques.md
+
 .. image:: https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg
    :target: https://github.com/sixtyfpsui/sixtyfps/actions
    :alt: GitHub CI Build Status
