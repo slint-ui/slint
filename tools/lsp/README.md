@@ -139,7 +139,7 @@ exists under the `language` server section:
 }
 ```
 
-### Vim syntax highlithing 
+### Vim syntax highlighting
 
 https://github.com/RustemB/sixtyfps-vim
 
