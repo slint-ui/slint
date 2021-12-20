@@ -19,28 +19,28 @@ struct LicenseTagStyle {
 impl LicenseTagStyle {
     fn c_style_comment_style() -> Self {
         Self {
-            tag_start: "/* LICENSE BEGIN\n",
+            tag_start: "// Copyright © ",
             line_prefix: "//",
             line_indentation: " ",
-            tag_end: "LICENSE END */\n",
+            tag_end: const_format::concatcp!("// ", EXPECTED_SPDX_ID, '\n'),
         }
     }
 
     fn shell_comment_style() -> Self {
         Self {
-            tag_start: "# LICENSE BEGIN\n",
+            tag_start: "# Copyright © ",
             line_prefix: "#",
             line_indentation: " ",
-            tag_end: "# LICENSE END\n",
+            tag_end: const_format::concatcp!("# ", EXPECTED_SPDX_ID, '\n'),
         }
     }
 
     fn rst_comment_style() -> Self {
         Self {
-            tag_start: ".. LICENSE BEGIN\n",
+            tag_start: ".. Copyright © ",
             line_prefix: "..",
             line_indentation: " ",
-            tag_end: ".. LICENSE END\n",
+            tag_end: const_format::concatcp!(".. ", EXPECTED_SPDX_ID, '\n'),
         }
     }
 }
@@ -123,13 +123,14 @@ impl<'a> SourceFileWithTags<'a> {
 fn test_license_tag_c_style() {
     let style = LicenseTagStyle::c_style_comment_style();
     {
-        let test_source = SourceFileWithTags::new(
-            r#"/* LICENSE BEGIN
-        foobar
-        LICENSE END */
+        let source = format!(
+            r#"// Copyright © something <bar@something.com>
+foobar
+// SPDX-License-Identifier: {}
 blah"#,
-            &style,
+            EXPECTED_SPDX_EXPRESSION
         );
+        let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
             r#"// TEST_LICENSE
@@ -139,11 +140,14 @@ blah"#
         );
     }
     {
-        let source = r#"/* LICENSE BEGIN
-        foobar
-        LICENSE END */
+        let source = format!(
+            r#"// Copyright © something <bar@something.com>
+foobar
+// SPDX-License-Identifier: {}
 
-blah"#;
+blah"#,
+            EXPECTED_SPDX_EXPRESSION
+        );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
@@ -188,14 +192,15 @@ blah"#
 fn test_license_tag_hash() {
     let style = LicenseTagStyle::shell_comment_style();
     {
-        let test_source = SourceFileWithTags::new(
-            r#"# LICENSE BEGIN
-# Some Text
-# LICENSE END
+        let source = format!(
+            r#"# Copyright © something <bar@something.com>
+foobar
+# SPDX-License-Identifier: {}
 
 blah"#,
-            &style,
+            EXPECTED_SPDX_EXPRESSION
         );
+        let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
             r#"# TEST_LICENSE
@@ -209,6 +214,39 @@ blah"#
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
             r#"# TEST_LICENSE
+
+blah"#
+                .to_string()
+        );
+    }
+}
+
+#[test]
+fn test_license_tag_dotdot() {
+    let style = LicenseTagStyle::rst_comment_style();
+    {
+        let source = format!(
+            r#".. Copyright © something <bar@something.com>
+foobar
+.. SPDX-License-Identifier: {}
+
+blah"#,
+            EXPECTED_SPDX_EXPRESSION
+        );
+        let test_source = SourceFileWithTags::new(&source, &style);
+        assert_eq!(
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            r#".. TEST_LICENSE
+
+blah"#
+                .to_string()
+        );
+    }
+    {
+        let test_source = SourceFileWithTags::new(r#"blah"#, &style);
+        assert_eq!(
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            r#".. TEST_LICENSE
 
 blah"#
                 .to_string()
