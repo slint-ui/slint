@@ -64,3 +64,4 @@ wasm-bindgen = { version = "0.2" }
 [dev-dependencies]
 pin-weak = "1"
 image = { version = "0.23.14", default-features = false, features = [ "png" ] }
+tiny-skia = "0.6.1"
