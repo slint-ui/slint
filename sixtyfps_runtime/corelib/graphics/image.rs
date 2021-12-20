@@ -310,6 +310,35 @@ pub struct LoadImageError(());
 /// let image = Image::from_rgba8(buffer);
 /// ```
 ///
+/// A populare software-rendering library in Rust is tiny-skia. The following example shows
+/// how to use tiny-skia to render into a [`SharedPixelBuffer`]:
+/// ```no_run
+/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
+/// let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
+///
+/// let mut pixmap = tiny_skia::PixmapMut::from_bytes(
+///     pixel_buffer.make_mut_bytes(), 640, 480
+/// ).unwrap();
+/// pixmap.fill(tiny_skia::Color::TRANSPARENT);
+///
+/// let circle = tiny_skia::PathBuilder::from_circle(320., 240., 150.).unwrap();
+///
+/// let mut paint = tiny_skia::Paint::default();
+/// paint.shader = tiny_skia::LinearGradient::new(
+///     tiny_skia::Point::from_xy(100.0, 100.0),
+///     tiny_skia::Point::from_xy(400.0, 400.0),
+///     vec![
+///         tiny_skia::GradientStop::new(0.0, tiny_skia::Color::from_rgba8(50, 127, 150, 200)),
+///         tiny_skia::GradientStop::new(1.0, tiny_skia::Color::from_rgba8(220, 140, 75, 180)),
+///     ],
+///     tiny_skia::SpreadMode::Pad,
+///     tiny_skia::Transform::identity(),
+/// ).unwrap();
+///
+/// pixmap.fill_path(&circle, &paint, tiny_skia::FillRule::Winding, Default::default(), None);
+///
+/// let image = Image::from_rgba8_premultiplied(pixel_buffer);
+/// ```
 #[repr(transparent)]
 #[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
 pub struct Image(ImageInner);
