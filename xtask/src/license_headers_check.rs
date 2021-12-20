@@ -566,7 +566,7 @@ impl LicenseHeaderCheck {
         let location = LICENSE_LOCATION_FOR_FILE
             .iter()
             .find_map(|(regex, style)| if regex.is_match(path_str) { Some(style) } else { None })
-            .with_context(|| "Cannot determine the expected license header style. Please the license checking xtask.")?;
+            .with_context(|| "Cannot determine the expected license header style. Please fix the license checking xtask.")?;
 
         match location {
             LicenseLocation::Tag(tag_style) => self.check_file_tags(path, tag_style),
