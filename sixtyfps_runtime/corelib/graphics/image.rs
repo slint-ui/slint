@@ -310,7 +310,7 @@ pub struct LoadImageError(());
 /// let image = Image::from_rgba8(buffer);
 /// ```
 ///
-/// A populare software-rendering library in Rust is tiny-skia. The following example shows
+/// A popular software (CPU) rendering library in Rust is tiny-skia. The following example shows
 /// how to use tiny-skia to render into a [`SharedPixelBuffer`]:
 /// ```no_run
 /// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
