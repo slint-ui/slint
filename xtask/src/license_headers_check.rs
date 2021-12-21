@@ -127,9 +127,7 @@ blah"#,
         );
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
-            r#"/* LICENSE BEGIN
-    TEST_LICENSE
-LICENSE END */
+            r#"    TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -139,9 +137,7 @@ blah"#
         let test_source = SourceFileWithTags::new(r#"blah"#, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
-            r#"/* LICENSE BEGIN
-    TEST_LICENSE
-LICENSE END */
+            r#"    TEST_LICENSE
 blah"#
                 .to_string()
         );
@@ -162,9 +158,7 @@ blah"#,
         );
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
-            r#"# LICENSE BEGIN
-# TEST_LICENSE
-# LICENSE END
+            r#"# TEST_LICENSE
 
 blah"#
                 .to_string()
@@ -174,9 +168,7 @@ blah"#
         let test_source = SourceFileWithTags::new(r#"blah"#, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
-            r#"# LICENSE BEGIN
-# TEST_LICENSE
-# LICENSE END
+            r#"# TEST_LICENSE
 blah"#
                 .to_string()
         );
@@ -252,7 +244,7 @@ pub struct LicenseHeader<'a>(&'a [&'a str]);
 
 impl<'a> LicenseHeader<'a> {
     fn to_string(&self, style: &LicenseTagStyle) -> String {
-        let mut result = style.tag_start.to_string();
+        let mut result = String::new();
         for line in self.0 {
             result += style.line_prefix;
             if !line.is_empty() {
@@ -261,7 +253,6 @@ impl<'a> LicenseHeader<'a> {
             result += line;
             result += "\n";
         }
-        result += style.tag_end;
         result
     }
 }
