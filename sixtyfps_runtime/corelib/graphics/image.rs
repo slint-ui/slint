@@ -312,7 +312,7 @@ pub struct LoadImageError(());
 ///
 /// A popular software (CPU) rendering library in Rust is tiny-skia. The following example shows
 /// how to use tiny-skia to render into a [`SharedPixelBuffer`]:
-/// ```no_run
+/// ```
 /// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
 /// let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
 /// let width = pixel_buffer.width();
