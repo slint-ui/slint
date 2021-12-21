@@ -304,7 +304,7 @@ impl<'a> LicenseHeader<'a> {
     }
 }
 
-const EXPECTED_SPDX_EXPRESSION: &str = "GPL-3.0-only";
+const EXPECTED_SPDX_EXPRESSION: &str = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)";
 const EXPECTED_SPDX_ID: &str =
     const_format::concatcp!("SPDX-License-Identifier: ", EXPECTED_SPDX_EXPRESSION);
 
