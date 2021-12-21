@@ -6,7 +6,7 @@ edition = "2018"
 build = "build.rs"
 # This is not meant to be used as a library from crate.io
 publish = false
-license = "GPL-3.0-only"
+license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 

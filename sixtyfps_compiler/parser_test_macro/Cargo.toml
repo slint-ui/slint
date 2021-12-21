@@ -4,7 +4,7 @@ version = "0.1.6"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 publish = false
-license = "GPL-3.0-only"
+license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 
 [lib]
 proc-macro = true
