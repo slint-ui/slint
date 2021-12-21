@@ -12,6 +12,8 @@ In order to inspect the animations in your application, you can can set the `SIX
 
 The use of logical pixel lengths throughout `.60` files allows SixtyFPS to dynamically compute the correct size of physical pixels, depending on the device-pixel ratio of the screen that is reported by the windowing system. If you want to get an impression of how the individual elements look like when rendered on a screen with a different device-pixel ratio, then you can set the `SIXTYFPS_SCALE_FACTOR` environment variable before running the program. The variable accepts a floating pointer number that is used to convert logical pixel lengths to physical pixel lengths by multiplication. For example `SIXTYFPS_SCALE_FACTOR=2` will render the user interface in a way where every logical pixel will have twice the width and height.
 
+*Note*: At the moment this overriding environment variable is only supported when using the OpenGL rendering backend.
+
 ## Performance Debugging
 
 SixtyFPS tries its best to use hardware-acceleration to ensure that rendering the user interface uses a minimal amount of CPU resources and animations appear smooth. However depending on the complexity of the user interface, the quality of the graphics drivers or the power of the graphics acceleration in your system, you may hit limits and experience a slow down. You can set the `SIXTYFPS_DEBUG_PERFORMANCE` environment variable running the program to inspect at what rate your application is rendering frames to the screen. The variable accepts a few comma-separated options that affect how the frame rate inspection is performed and reported:
