@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
 [package]
 name = "sixtyfps-corelib-macros"
 version = "0.1.6"
