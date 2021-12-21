@@ -1,12 +1,6 @@
-/* LICENSE BEGIN
-    This file is part of the SixtyFPS Project -- https://sixtyfps.io
-    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
-    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-    SPDX-License-Identifier: GPL-3.0-only
-    This file is also available under commercial licensing terms.
-    Please contact info@sixtyfps.io for more information.
-LICENSE END */
 /*!
 This crate serves as a companion crate for the sixtyfps crate.
 It is meant to allow you to compile the `.60` files from your `build.rs`script.

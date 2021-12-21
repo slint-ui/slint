@@ -1,12 +1,6 @@
-/* LICENSE BEGIN
-    This file is part of the SixtyFPS Project -- https://sixtyfps.io
-    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
-    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-    SPDX-License-Identifier: GPL-3.0-only
-    This file is also available under commercial licensing terms.
-    Please contact info@sixtyfps.io for more information.
-LICENSE END */
  TestCase := Rectangle {
     property <bool> test_sqrt: sqrt(100) == 10 && Math.sqrt(1) == 1 && sqrt(6.25) == 2.5;
     property <bool> test_abs: abs(100.5) == 100.5 && Math.abs(-200.5) == 200.5 && abs(0) == 0;
