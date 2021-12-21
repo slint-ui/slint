@@ -102,9 +102,21 @@ impl<'a> SourceFileWithTags<'a> {
     }
 
     fn replace_tag(&self, replacement: &LicenseHeader) -> String {
-        let new_header = replacement.to_string(self.tag_style);
+        let loc = &self.tag_location;
+        let next_char = if let Some(range) = loc {
+            self.source.as_bytes().get(range.end)
+        } else {
+            self.source.as_bytes().get(0)
+        };
 
-        match &self.tag_location {
+        let new_header = replacement.to_string(self.tag_style);
+        let new_header = if next_char == Some(&b'\n') || next_char.is_none() {
+            new_header
+        } else {
+            format!("{}\n", new_header)
+        };
+
+        match loc {
             Some(loc) => {
                 self.source[0..loc.start].to_string() + &new_header + &self.source[loc.end..]
             }
@@ -121,7 +133,6 @@ fn test_license_tag_c_style() {
             r#"/* LICENSE BEGIN
         foobar
         LICENSE END */
-
 blah"#,
             &style,
         );
@@ -134,12 +145,47 @@ blah"#
         );
     }
     {
-        let test_source = SourceFileWithTags::new(r#"blah"#, &style);
+        let source = r#"/* LICENSE BEGIN
+        foobar
+        LICENSE END */
+
+blah"#;
+        let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
             r#"// TEST_LICENSE
+
 blah"#
                 .to_string()
+        );
+    }
+    {
+        let test_source = SourceFileWithTags::new("blah", &style);
+        assert_eq!(
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            r#"// TEST_LICENSE
+
+blah"#
+                .to_string()
+        );
+    }
+    {
+        let test_source = SourceFileWithTags::new("\nblah", &style);
+        assert_eq!(
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            r#"// TEST_LICENSE
+
+blah"#
+                .to_string()
+        );
+    }
+    {
+        let test_source = SourceFileWithTags::new("", &style);
+        assert_eq!(
+            test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
+            r#"// TEST_LICENSE
+"#
+            .to_string()
         );
     }
 }
@@ -169,6 +215,7 @@ blah"#
         assert_eq!(
             test_source.replace_tag(&LicenseHeader(&["TEST_LICENSE"])),
             r#"# TEST_LICENSE
+
 blah"#
                 .to_string()
         );
