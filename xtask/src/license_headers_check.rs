@@ -633,7 +633,10 @@ impl LicenseHeaderCheck {
 
         match location {
             LicenseLocation::Tag(tag_style) => self.check_file_tags(path, tag_style),
-            LicenseLocation::Crate => self.check_cargo_toml(path),
+            LicenseLocation::Crate => {
+                self.check_file_tags(path, &LicenseTagStyle::shell_comment_style())?;
+                self.check_cargo_toml(path)
+            }
             LicenseLocation::NoLicense => {
                 if self.verbose {
                     println!("Skipping {} as configured", path_str);
