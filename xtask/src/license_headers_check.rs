@@ -125,9 +125,9 @@ fn test_license_tag_c_style() {
         let source = format!(
             r#"// Copyright © something <bar@something.com>
 foobar
-// SPDX-License-Identifier: {}
+// SP{}-License-Identifier: {}
 blah"#,
-            EXPECTED_SPDX_EXPRESSION
+            "DX", EXPECTED_SPDX_EXPRESSION
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
@@ -142,10 +142,10 @@ blah"#
         let source = format!(
             r#"// Copyright © something <bar@something.com>
 foobar
-// SPDX-License-Identifier: {}
+// SP{}-License-Identifier: {}
 
 blah"#,
-            EXPECTED_SPDX_EXPRESSION
+            "DX", EXPECTED_SPDX_EXPRESSION
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
@@ -194,10 +194,10 @@ fn test_license_tag_hash() {
         let source = format!(
             r#"# Copyright © something <bar@something.com>
 foobar
-# SPDX-License-Identifier: {}
+# SP{}-License-Identifier: {}
 
 blah"#,
-            EXPECTED_SPDX_EXPRESSION
+            "DX", EXPECTED_SPDX_EXPRESSION
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
@@ -227,10 +227,10 @@ fn test_license_tag_dotdot() {
         let source = format!(
             r#".. Copyright © something <bar@something.com>
 foobar
-.. SPDX-License-Identifier: {}
+.. SP{}-License-Identifier: {}
 
 blah"#,
-            EXPECTED_SPDX_EXPRESSION
+            "DX", EXPECTED_SPDX_EXPRESSION
         );
         let test_source = SourceFileWithTags::new(&source, &style);
         assert_eq!(
@@ -338,7 +338,7 @@ impl<'a> LicenseHeader<'a> {
 
 const EXPECTED_SPDX_EXPRESSION: &str = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)";
 const EXPECTED_SPDX_ID: &str =
-    const_format::concatcp!("SPDX-License-Identifier: ", EXPECTED_SPDX_EXPRESSION);
+    const_format::concatcp!("SP", "DX-License-Identifier: ", EXPECTED_SPDX_EXPRESSION); // Do not confuse the reuse tool
 
 const EXPECTED_HEADER: LicenseHeader<'static> =
     LicenseHeader(&["Copyright © SixtyFPS GmbH <info@sixtyfps.io>", EXPECTED_SPDX_ID]);
