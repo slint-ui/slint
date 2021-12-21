@@ -266,6 +266,7 @@ lazy_static! {
         ("^helper_crates/const-field-offset/src/lib.rs$", LicenseLocation::NoLicense), // Upstream fork
         ("^helper_crates/const-field-offset/Cargo.toml$", LicenseLocation::NoLicense), // Upstream fork
         (".+webpack\\..+\\.js$", LicenseLocation::NoLicense),
+        (".+\\.license$", LicenseLocation::NoLicense),
         (".+\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
