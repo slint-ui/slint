@@ -1,13 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- LICENSE BEGIN
-    This file is part of the SixtyFPS Project ~~ https://sixtyfps.io
-    Copyright (c) 2021 Olivier Goffart <olivier.goffart@sixtyfps.io>
-    Copyright (c) 2021 Simon Hausmann <simon.hausmann@sixtyfps.io>
 
-    SPDX-License-Identifier: GPL-3.0-only
-    This file is also available under commercial licensing terms.
-    Please contact info@sixtyfps.io for more information.
-LICENSE END -->
+<!-- Copyright © SixtyFPS GmbH <info@sixtyfps.io> -->
+<!-- # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial) -->
+
 <language name="SixtyFPS" version="1" kateversion="5.0" section="Sources" extensions="*.60" mimetype="text/sixtyfps" indenter="cstyle" license="GPL" author="info@sixtyfps.io" priority="6">
 <highlighting>
     <list name="types">
