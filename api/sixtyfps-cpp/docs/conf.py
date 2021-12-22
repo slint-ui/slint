@@ -1,3 +1,6 @@
+# Copyright © 2021 SixtyFPS GmbH <info@sixtyfps.io>
+# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
