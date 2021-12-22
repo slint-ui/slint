@@ -1,3 +1,6 @@
+# Copyright © 2021 SixtyFPS GmbH <info@sixtyfps.io>
+# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
 [[source]]
 name = "pypi"
 url = "https://pypi.org/simple"
