@@ -14,4 +14,6 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 
 */
 
+#![no_std]
+
 pub mod key_codes;
