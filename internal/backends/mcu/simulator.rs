@@ -177,12 +177,15 @@ impl PlatformWindow for SimulatorWindow {
 
     fn text_size(
         &self,
-        _font_request: i_slint_core::graphics::FontRequest,
-        _text: &str,
-        _max_width: Option<f32>,
+        font_request: i_slint_core::graphics::FontRequest,
+        text: &str,
+        max_width: Option<f32>,
     ) -> i_slint_core::graphics::Size {
-        // TODO
-        Default::default()
+        crate::fonts::text_size(
+            font_request.merge(&self.self_weak.upgrade().unwrap().default_font_properties()),
+            text,
+            max_width,
+        )
     }
 
     fn text_input_byte_offset_for_position(
@@ -348,6 +351,10 @@ impl i_slint_core::backend::Backend for SimulatorBackend {
         _path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
         unimplemented!()
+    }
+
+    fn register_bitmap_font(&'static self, font_data: &'static i_slint_core::graphics::BitmapFont) {
+        crate::fonts::register_bitmap_font(font_data);
     }
 
     fn set_clipboard_text(&'static self, _text: String) {

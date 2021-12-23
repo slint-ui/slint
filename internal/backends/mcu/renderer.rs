@@ -8,7 +8,9 @@ use core::pin::Pin;
 
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
-use i_slint_core::graphics::{IntRect, PixelFormat, Point as PointF, Rect as RectF, Size as SizeF};
+use i_slint_core::graphics::{
+    FontRequest, IntRect, PixelFormat, Point as PointF, Rect as RectF, Size as SizeF,
+};
 use i_slint_core::items::Item;
 use i_slint_core::{Color, ImageInner};
 
@@ -270,7 +272,11 @@ enum SceneCommand {
 }
 
 fn prepare_scene(runtime_window: Rc<i_slint_core::window::Window>, size: SizeF) -> Scene {
-    let mut prepare_scene = PrepareScene::new(size, ScaleFactor(runtime_window.scale_factor()));
+    let mut prepare_scene = PrepareScene::new(
+        size,
+        ScaleFactor(runtime_window.scale_factor()),
+        runtime_window.default_font_properties(),
+    );
     runtime_window.draw_contents(|components| {
         for (component, origin) in components {
             i_slint_core::item_rendering::render_component_items(
@@ -288,10 +294,11 @@ struct PrepareScene {
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     scale_factor: ScaleFactor,
+    default_font: FontRequest,
 }
 
 impl PrepareScene {
-    fn new(size: SizeF, scale_factor: ScaleFactor) -> Self {
+    fn new(size: SizeF, scale_factor: ScaleFactor, default_font: FontRequest) -> Self {
         Self {
             items: vec![],
             state_stack: vec![],
@@ -301,6 +308,7 @@ impl PrepareScene {
                 clip: RectF::new(PointF::default(), size / scale_factor.0),
             },
             scale_factor,
+            default_font,
         }
     }
 
@@ -462,8 +470,38 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_text(&mut self, _text: Pin<&i_slint_core::items::Text>) {
-        // TODO
+    fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>) {
+        let font_request = text.unresolved_font_request().merge(&self.default_font);
+        let (font, glyphs) = crate::fonts::match_font(&font_request);
+
+        let color = text.color().color();
+
+        let baseline_y = font.ascent * (glyphs.pixel_size as f32) / font.units_per_em;
+
+        for (glyph_baseline_x, glyph) in crate::fonts::glyphs_for_text(font, glyphs, &text.text()) {
+            if let Some(dest_rect) = euclid::rect(
+                glyph_baseline_x + glyph.x as f32,
+                baseline_y - glyph.y as f32 - glyph.height as f32,
+                glyph.width as f32,
+                glyph.height as f32,
+            )
+            .intersection(&self.current_state.clip)
+            {
+                let stride = glyph.width;
+
+                self.new_scene_item(
+                    dest_rect,
+                    SceneCommand::Texture {
+                        data: glyph.data.as_slice(),
+                        stride,
+                        source_width: glyph.width,
+                        source_height: glyph.height,
+                        format: PixelFormat::AlphaMap,
+                        color,
+                    },
+                );
+            }
+        }
     }
 
     fn draw_text_input(&mut self, _text_input: Pin<&i_slint_core::items::TextInput>) {

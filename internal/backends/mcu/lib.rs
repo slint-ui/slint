@@ -26,6 +26,7 @@ mod simulator;
 #[cfg(feature = "simulator")]
 use simulator::event_loop;
 
+mod fonts;
 mod renderer;
 
 pub trait Devices {
@@ -131,11 +132,15 @@ mod the_backend {
         fn set_mouse_cursor(&self, _cursor: i_slint_core::items::MouseCursor) {}
         fn text_size(
             &self,
-            _font_request: i_slint_core::graphics::FontRequest,
+            font_request: i_slint_core::graphics::FontRequest,
             text: &str,
-            _max_width: Option<f32>,
+            max_width: Option<f32>,
         ) -> Size {
-            Size::new(text.len() as f32 * 10., 10.)
+            crate::fonts::text_size(
+                font_request.merge(&self.self_weak.upgrade().unwrap().default_font_properties()),
+                text,
+                max_width,
+            )
         }
 
         fn text_input_byte_offset_for_position(
@@ -267,6 +272,13 @@ mod the_backend {
 
         fn quit_event_loop(&'static self) {
             self.with_inner(|inner| inner.post_event(McuEvent::Quit))
+        }
+
+        fn register_bitmap_font(
+            &'static self,
+            font_data: &'static i_slint_core::graphics::BitmapFont,
+        ) {
+            crate::fonts::register_bitmap_font(font_data);
         }
 
         fn set_clipboard_text(&'static self, text: String) {
