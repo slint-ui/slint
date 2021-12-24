@@ -70,14 +70,16 @@ cargo install sixtyfps-lsp
 
 Then go to *Settings > Configure Kate*. In the *Plugins* section, enable the *LSP-Client* plugin.
 This will add a *LSP Client* section in the settings dialog. In that *LSP Client* section,
-go to the *User Server Settings*, and  enter the following in the text area: (**Replace YOUR_USER by your username**)
+go to the *User Server Settings*, and  enter the following in the text area:
 
 ```json
 {
   "servers": {
-	"SixtyFPS": {
-	  "command": ["/home/YOUR_USER/.cargo/bin/sixtyfps-lsp"],
-	  "highlightingModeRegex": "SixtyFPS"	}
+    "SixtyFPS": {
+      "path": ["%{ENV:HOME}/.cargo/bin", "%{ENV:USERPROFILE}/.cargo/bin"],
+      "command": ["sixtyfps-lsp"],
+      "highlightingModeRegex": "SixtyFPS"
+    }
   }
 }
 ```
