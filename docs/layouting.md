@@ -264,10 +264,10 @@ Example := Window {
 
 When the `alignment` is set to stretch (the default), the elements are sized to their minimum size,
 then the extra space is shared amongst element proportional to their stretch factor set with the
-`horizontal-stretch` and `vertical-stretch` properties. But the size does not exceed the maximum size.
+`horizontal-stretch` and `vertical-stretch` properties. The stretched size will not exceed the maximum size.
 The stretch factor is a floating point number. The elements that have a default content size usually defaults to 0
 while elements that default to the size of their parents defaults to 1.
-An element of a stretch factor if 0 will keep its minimum size, unless all the other elements also have a stretch
+An element of a stretch factor of 0 will keep its minimum size, unless all the other elements also have a stretch
 factor of 0 or reached their maximum size.
 
 Examples:
