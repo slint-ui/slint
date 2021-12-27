@@ -52,6 +52,19 @@ pub async fn run_passes(
         return;
     }
 
+    let style_metrics = {
+        // Ignore import errors
+        let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
+        let style_metrics = type_loader
+            .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
+            .await;
+        if let Some(Type::Component(c)) = style_metrics {
+            c
+        } else {
+            panic!("can't load style metrics")
+        }
+    };
+
     let global_type_registry = type_loader.global_type_registry.clone();
     let root_component = &doc.root_component;
     infer_aliases_types::resolve_aliases(doc, diag);
@@ -66,6 +79,12 @@ pub async fn run_passes(
     {
         compile_paths::compile_paths(component, &doc.local_registry, diag);
         lower_tabwidget::lower_tabwidget(component, &mut type_loader, diag).await;
+        apply_default_properties_from_style::apply_default_properties_from_style(
+            component,
+            &style_metrics,
+            diag,
+        );
+        lower_states::lower_states(component, &doc.local_registry, diag);
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);
@@ -81,19 +100,12 @@ pub async fn run_passes(
         focus_item::erase_forward_focus_properties(component);
     }
 
-    ensure_window::ensure_window(root_component, &doc.local_registry);
+    ensure_window::ensure_window(root_component, &doc.local_registry, &style_metrics);
 
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
     {
-        apply_default_properties_from_style::apply_default_properties_from_style(
-            component,
-            &mut type_loader,
-            diag,
-        )
-        .await;
         flickable::handle_flickable(component, &global_type_registry.borrow());
-        lower_states::lower_states(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         lower_layout::lower_layouts(component, &mut type_loader, diag).await;

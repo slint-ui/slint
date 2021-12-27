@@ -3,7 +3,7 @@
 
 //! Make sure that the top level element of the component is always a Window
 
-use crate::expression_tree::BindingExpression;
+use crate::expression_tree::{BindingExpression, Expression};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
@@ -11,7 +11,11 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
+pub fn ensure_window(
+    component: &Rc<Component>,
+    type_register: &TypeRegister,
+    style_metrics: &Rc<Component>,
+) {
     if component.root_element.borrow().builtin_type().map_or(true, |b| {
         matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow")
     }) {
@@ -86,4 +90,15 @@ pub fn ensure_window(component: &Rc<Component>, type_register: &TypeRegister) {
             *nr = NamedReference::new(&new_root, nr.name());
         }
     });
+
+    component.root_element.borrow_mut().bindings.insert(
+        "background".to_string(),
+        RefCell::new(
+            Expression::PropertyReference(NamedReference::new(
+                &style_metrics.root_element,
+                "window-background",
+            ))
+            .into(),
+        ),
+    );
 }

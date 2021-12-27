@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 
-SubComp := Rectangle {
+
+SubSubComp := Rectangle {
     property <bool> active;
     property <int> value: 10;
     states [
@@ -10,6 +11,16 @@ SubComp := Rectangle {
             value: 150;
         }
     ]
+}
+
+SubComp := SubSubComp {
+    states [
+        foobar when active : {
+            r.background: red;
+        }
+    ]
+
+    r := Rectangle {}
 }
 
 TestCase := Rectangle {

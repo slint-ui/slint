@@ -85,11 +85,9 @@ fn inline_element(
         elem_mut.property_analysis.borrow_mut().entry(p.clone()).or_default().merge_with_base(a);
     }
 
-    // FIXME: states and transitions will be merged while inlining, this is not what we want
-    elem_mut.states.extend(inlined_component.root_element.borrow().states.iter().cloned());
-    elem_mut
-        .transitions
-        .extend(inlined_component.root_element.borrow().transitions.iter().cloned());
+    // states and transitions must be lowered before inlining
+    debug_assert!(inlined_component.root_element.borrow().states.is_empty());
+    debug_assert!(inlined_component.root_element.borrow().transitions.is_empty());
 
     // Map the old element to the new
     let mut mapping = HashMap::new();

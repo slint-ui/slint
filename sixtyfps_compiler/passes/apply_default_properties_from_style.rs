@@ -9,20 +9,14 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::Component;
+use std::rc::Rc;
 
 /// Ideally we would be able to write this in builtin.60,  but the StyleMetrics is not available there
-pub async fn apply_default_properties_from_style(
-    root_component: &std::rc::Rc<Component>,
-    type_loader: &mut crate::typeloader::TypeLoader<'_>,
+pub fn apply_default_properties_from_style(
+    root_component: &Rc<Component>,
+    style_metrics: &Rc<Component>,
     _diag: &mut BuildDiagnostics,
 ) {
-    // Ignore import errors
-    let mut build_diags_to_ignore = BuildDiagnostics::default();
-    let style_metrics = type_loader
-        .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
-        .await;
-    let style_metrics = if let Some(Type::Component(c)) = style_metrics { c } else { return };
-
     crate::object_tree::recurse_elem_including_sub_components(
         root_component,
         &(),
