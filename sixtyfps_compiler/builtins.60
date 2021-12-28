@@ -590,7 +590,7 @@ export NativeTab := _ {
     property<string> title;
     property<image> icon;
     property<bool> enabled : true;
-    property<bool> pressed;
+    property<bool> pressed : native_output;
     property<int> current: native_output; // supposed to be a binding to the tab
     property<int> tab_index;
     property<int> num_tabs;
