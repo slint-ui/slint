@@ -7,9 +7,10 @@
 This crate is the main entry point for embedding user interfaces designed with
 [SixtyFPS UI](https://sixtyfps.io/) in Rust programs.
 
-If you are new to SixtyFPS, you might also consider going through our [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/rust).
+If you are new to SixtyFPS, start with the [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/rust).
+If you are already familiar with SixtyFPS, the following topics provide some
 
-## Reference Documentation
+## Foundation fopics
 
  * [The `.60` language reference](docs::langref)
  * [Builtin Elements](docs::builtin_elements)
@@ -17,18 +18,18 @@ If you are new to SixtyFPS, you might also consider going through our [Walk-thro
  * [Positioning and Layout of Elements](docs::layouting)
  * [Debugging Techniques](docs::debugging_techniques)
 
-## How to use:
+## How to use this crate:
 
-The user interfaces are described in the `.60` design markup language. There are two ways
-of including the design in Rust:
+Designs of user interfaces are described in the `.60` design markup language. There are two ways
+of including them in Rust:
 
- - The `.60` code is inline in a macro.
- - The `.60` code in external files compiled with `build.rs`
+ - The `.60` code is [inline in a macro](#the-60-code-in-a-macro).
+ - The `.60` code in [external files compiled with `build.rs`](#the-60-code-in-external-files-is-compiled-with-buildrs)
 
  This markup code is translated to Rust code and each component is turned into a Rust
- struct with functions to instantiated, show or access properties. This documentation
- includes an [example](docs::generated_code::SampleComponent) of how the API looks
- like.
+ struct with functions. Use these functions to instantiate and show the component, and
+ to access declared properties. Check out our [sample component](docs::generated_code::SampleComponent) for more
+ information about the generation functions and how to use them.
 
 ### The .60 code in a macro
 
@@ -49,14 +50,14 @@ fn main() {
 }
 ```
 
-### The .60 file in external files compiled with `build.rs`
+### The .60 code in external files is compiled with `build.rs`
 
-This method allows you to a separate `.60` file on the file system, which works well if
-your design becomes bigger and you split it up across multiple files. You need to use a
-so-called [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html)
-to trigger the compilation of the `.60` file.
+When your design becomes bigger in terms of markup code, you may want move it to a dedicated
+`.60` file. It's also possible to split a `.60` file into multiple files using (modules)[docs::langref#modules].
+Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
+your main `.60` file:
 
-In your Cargo.toml:
+In your Cargo.toml add a `build` assignment and use the `sixtyfps-build` crate in `build-dependencies`:
 
 ```toml
 [package]
@@ -73,7 +74,7 @@ sixtyfps = "0.1.5"
 sixtyfps-build = "0.1.5"
 ```
 
-In the `build.rs` file:
+Use the API of the sixtyfps-build crate in the `build.rs` file:
 
 ```ignore
 fn main() {
@@ -81,7 +82,7 @@ fn main() {
 }
 ```
 
-Then in your main file
+Finally, use the [`include_modules!`] macro in your `main.rs`:
 
 ```ignore
 sixtyfps::include_modules!();
@@ -90,8 +91,9 @@ fn main() {
 }
 ```
 
-To quickly get started with this pattern, we have a [Template Repository](https://github.com/sixtyfpsui/sixtyfps-rust-template) that
-can be used with cargo-generate.
+The [cargo-generate](https://github.com/cargo-generate/cargo-generate) tool is a great tool to up and running quickly with a new
+Rust project. You can use it in combination with our [Template Repository](https://github.com/sixtyfpsui/sixtyfps-rust-template) to
+create a skeleton file hierarchy that uses this method:
 
 ```bash
 cargo install cargo-generate
@@ -100,18 +102,30 @@ cargo generate --git https://github.com/sixtyfpsui/sixtyfps-rust-template
 
 ## Generated components
 
-As of now, only the last component of a .60 source is generated. It is planned to generate all exported components.
+Currently, only the last component in a `.60` source file is mapped to a Rust structure that be instantiated. We are tracking the
+resolution of this limitation in <https://github.com/sixtyfpsui/sixtyfps/issues/784>.
 
-The component is generated and re-exported at the location of the [`include_modules!`]  or [`sixtyfps!`] macro.
-it consist of a struct of the same name of the component.
-For example, if you have `export MyComponent := Window { /*...*/ }` in the .60 file, it will create a `struct MyComponent{ /*...*/ }`.
-This documentation contains a documented generated component: [`docs::generated_code::SampleComponent`].
+The component is generated and re-exported to the location of the [`include_modules!`]  or [`sixtyfps!`] macro. It is represented
+as a struct with the same name as the component.
 
-The component is created using the [`fn new() -> Self`](docs::generated_code::SampleComponent::new) function. In addition
-the following convenience functions are available through the [`ComponentHandle`] implementation:
+For example, if you have
 
-  - [`fn clone_strong(&self) -> Self`](docs::generated_code::SampleComponent::clone_strong): to create a strongly referenced clone.
-  - [`fn as_weak(&self) -> Weak`](docs::generated_code::SampleComponent::as_weak): to create a [weak](Weak) reference.
+```60
+export MyComponent := Window { /*...*/ }
+```
+
+in the .60 file, it will create a
+```rust
+struct MyComponent{ /*...*/ }
+```
+
+See also our [sample component](docs::generated_code::SampleComponent) for more information about the API of the generated struct.
+
+A component is instantiated using the [`fn new() -> Self`](docs::generated_code::SampleComponent::new) function. The following
+convenience functions are available through the [`ComponentHandle`] implementation:
+
+  - [`fn clone_strong(&self) -> Self`](docs::generated_code::SampleComponent::clone_strong): creates a strongly referenced clone of the component instance.
+  - [`fn as_weak(&self) -> Weak`](docs::generated_code::SampleComponent::as_weak): to create a [weak](Weak) reference to the component instance.
   - [`fn show(&self)`](docs::generated_code::SampleComponent::show): to show the window of the component.
   - [`fn hide(&self)`](docs::generated_code::SampleComponent::hide): to hide the window of the component.
   - [`fn run(&self)`](docs::generated_code::SampleComponent::run): a convenience function that first calls `show()`,
@@ -126,27 +140,26 @@ For each top-level callback
   - [`fn invoke_<callback_name>(&self)`](docs::generated_code::SampleComponent::invoke_hello): to invoke the callback
   - [`fn on_<callback_name>(&self, callback: impl Fn(<CallbackArgs>) + 'static)`](docs::generated_code::SampleComponent::on_hello): to set the callback handler.
 
-Note that all dashes (`-`) are replaced by underscores (`_`) in names of types or functions.
+Note: All dashes (`-`) are replaced by underscores (`_`) in names of types or functions.
 
-After instantiating the component you can call just [`ComponentHandle::run()`] on it, in order to show it and spin the event loop to
-render and react to input events. If you want to show multiple components simultaneously, then you can also call just
-[`ComponentHandle::show()`] first. When you're ready to enter the event loop, just call [`run_event_loop()`].
+After instantiating the component, call [`ComponentHandle::run()`] on show it on the screen and spin the event loop to
+react to input events. To show multiple components simultaneously, call [`ComponentHandle::show()`] on each instance.
+Call [`run_event_loop()`] when you're ready to enter the event loop.
 
-The generated component struct act as a handle holding a strong reference (similar to a `Rc`). It does not implement
-`Clone` because we want to make explicit if we are cloning a strong reference (with [`ComponentHandle::clone_strong`]),
-or a weak reference (with  [`ComponentHandle::as_weak`]). A strong reference should not be captured by the closures
-given to a callback, as this would produce a reference loop and leak the component. Instead, the callback function
-should capture a weak component.
+The generated component struct acts as a handle holding a strong reference (similar to an `Rc`). The `Clone` trait is
+not implemented. Instead you need to make explicit [`ComponentHandle::clone_strong`] and [`ComponentHandle::as_weak`]
+calls. A strong reference should not be captured by the closures given to a callback, as this would produce a reference
+loop and leak the component. Instead, the callback function should capture a weak component.
 
 ## Threading and Event-loop
 
 For platform-specific reasons, the event loop must run in the main thread, in most backends, and all the components
 must be created in the same thread as the thread the event loop is running or is going to run.
 
-Ideally, you should perform the minimum amount of work in the main thread and delegate the actual logic to another
-thread. To communicate from your worker thread to the UI thread, the [`invoke_from_event_loop`] function can be used.
+You should perform the minimum amount of work in the main thread and delegate the actual logic to another
+thread to avoid blocking animations. Use the [`invoke_from_event_loop`] function to communicate from your worker thread to the UI thread.
 
-To run a function with a delay or with an interval you can use a [`Timer`].
+To run a function with a delay or with an interval use a [`Timer`].
 
 ## Type Mappings
 
