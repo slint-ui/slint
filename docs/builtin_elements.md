@@ -9,7 +9,7 @@ These properties are valid on all visible items
 * **`width`** and **`height`** (*length*): The size of the element. When set, this overrides the default size.
 * **`max-width`** and **`max-height`** (*length*): The maximum size of an element when used in a layout.
 * **`min-width`** and **`min-height`** (*length*): The minimum size of an element when used in a layout.
-* **`preferred-width`** and **`preferred-height`** (*length*): The minimum size of an element when used in a layout.
+* **`preferred-width`** and **`preferred-height`** (*length*): The preferred size of an element when used in a layout. 
 * **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
 * **`horizontal-stretch`** and **`vertical-stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
   When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
