@@ -174,6 +174,11 @@ Example := Button {
 }
 ```
 
+The re-evaluation happens when the property is queried. Internally, dependency will be registered
+for any property accessed while evaluating this binding. When the dependent property are changed,
+all the dependent binding are marked dirty. Callbacks in native code by default does not depends on
+any property unless they query a property in the native code.
+
 ### Two-way Bindings
 
 Using the `<=>` syntax, one can create two ways binding between properties. These properties are now linked
