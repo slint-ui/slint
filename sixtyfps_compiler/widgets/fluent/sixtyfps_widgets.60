@@ -188,7 +188,7 @@ export Slider := Rectangle {
     }
 
     Rectangle {
-        width: (parent.width - parent.min-height) * (value / maximum);
+        width: (parent.width - parent.min-height) * ((value - minimum) / (maximum - minimum));
         x: parent.height / 2;
         height: parent.min-height / 4;
         y: (parent.height - height) / 2;

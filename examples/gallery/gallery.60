@@ -90,6 +90,8 @@ App := Window {
                         title: "Slider";
                         enabled: !disable-toggle.checked;
                         Slider {
+                            minimum: -100;
+                            maximum: 100;
                             value: 42;
                             enabled: !disable-toggle.checked;
                         }
