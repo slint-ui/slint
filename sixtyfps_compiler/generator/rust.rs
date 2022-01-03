@@ -936,9 +936,7 @@ fn generate_component(
         return None;
     }
 
-    let (drop_impl, pin) = if component.is_global() {
-        (None, quote!(#[pin]))
-    } else if component.is_sub_component() {
+    let (drop_impl, pin) = if component.is_global() || component.is_sub_component() {
         (None, quote!(#[pin]))
     } else {
         (
@@ -957,9 +955,8 @@ fn generate_component(
         }
     }
 
-    let (item_tree_impl, component_impl) = if component.is_global() {
-        (None, None)
-    } else if component.is_sub_component() {
+    let (item_tree_impl, component_impl) = if component.is_global() || component.is_sub_component()
+    {
         (None, None)
     } else {
         let item_tree_array_len = item_tree_array.len();
