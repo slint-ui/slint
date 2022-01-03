@@ -171,12 +171,10 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
     // sub-component children, needed to allocate the correct amount of
     // index spaces for sub-components.
     fn item_sub_tree_size(e: &ElementRc) -> usize {
-        let e = if let Some(sub_component) = e.borrow().sub_component() {
-            sub_component.root_element.clone()
-        } else {
-            e.clone()
-        };
         let mut count = e.borrow().children.len();
+        if let Some(sub_component) = e.borrow().sub_component() {
+            count += item_sub_tree_size(&sub_component.root_element);
+        }
         for i in &e.borrow().children {
             count += item_sub_tree_size(i);
         }

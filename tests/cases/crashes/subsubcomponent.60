@@ -14,6 +14,7 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
 ```
+
 ```rust
 let instance = TestCase::new();
 sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
