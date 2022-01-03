@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
    has changed. This was undocumented, but if one was handling this in the
    `FocusScope` event, these keys will now be ignored. Use the `Keys.LeftArrow`
    and other code exposed in the `Keys` namespace instead
+- **Breaking:** Changed the base class of `ModelHandle` to be a `SharedModel` which wraps the
+   `Rc<dyn Model>` that was used before.
 
 ### Added
 
