@@ -123,8 +123,10 @@ impl Item for NativeComboBox {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            if (is_open)
-                option.state |= QStyle::State_On;
+            if (is_open) {
+            // FIXME: This is commented out to workaround #456
+            //    option.state |= QStyle::State_On;
+            }
             option.subControls = QStyle::SC_All;
             qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, painter, widget);
             qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, painter, widget);
