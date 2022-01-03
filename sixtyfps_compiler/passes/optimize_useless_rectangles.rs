@@ -47,13 +47,9 @@ fn can_optimize(elem: &ElementRc) -> bool {
 
     // Check that no Rectangle property other than height and width are set
     let analysis = e.property_analysis.borrow();
-    e.bindings
-        .keys()
-        .chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k))
-        .filter(|k| !matches!(k.as_str(), "height" | "width"))
-        .filter(|k| {
-            !e.property_declarations.contains_key(*k) && base_type.properties.contains_key(*k)
-        })
-        .next()
-        .is_none()
+    !e.bindings.keys().chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k)).any(|k| {
+        !matches!(k.as_str(), "height" | "width")
+            && !e.property_declarations.contains_key(k.as_str())
+            && base_type.properties.contains_key(k.as_str())
+    })
 }
