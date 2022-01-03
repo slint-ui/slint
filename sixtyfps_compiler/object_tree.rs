@@ -1232,10 +1232,7 @@ pub fn type_from_node(
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
         if prop_type == Type::Invalid {
-            diag.push_error(
-                format!("Unknown type '{}'", qualified_type.to_string()),
-                &qualified_type_node,
-            );
+            diag.push_error(format!("Unknown type '{}'", qualified_type), &qualified_type_node);
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {

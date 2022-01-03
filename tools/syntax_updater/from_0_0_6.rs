@@ -23,11 +23,7 @@ pub(crate) fn fold_node(
                         .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string())
                         .unwrap_or_default();
                     if !matches!(elem_name.as_str(), "GridLayout" | "Row") {
-                        write!(
-                            file,
-                            "/* {} // REMOVED BY THE SYNTAX UPDATER */",
-                            node.to_string()
-                        )?;
+                        write!(file, "/* {} // REMOVED BY THE SYNTAX UPDATER */", **node)?;
                         return Ok(true);
                     }
                 }
