@@ -73,6 +73,7 @@ impl CompilerConfiguration {
 
     /// Create a new configuration that includes sets the include paths used for looking up
     /// `.60` imports to the specified vector of paths.
+    #[must_use]
     pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
         let mut config = self.config;
         config.include_paths = include_paths;
@@ -80,6 +81,7 @@ impl CompilerConfiguration {
     }
 
     /// Create a new configuration that selects the style to be used for widgets.
+    #[must_use]
     pub fn with_style(self, style: String) -> Self {
         let mut config = self.config;
         config.style = Some(style);

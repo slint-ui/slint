@@ -1228,6 +1228,7 @@ pub trait InterpolatedPropertyValue: PartialEq + Default + 'static {
     /// Returns the interpolated value between self and target_value according to the
     /// progress parameter t that's usually between 0 and 1. With certain animation
     /// easing curves it may over- or undershoot though.
+    #[must_use]
     fn interpolate(&self, target_value: &Self, t: f32) -> Self;
 }
 

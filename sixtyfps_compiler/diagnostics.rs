@@ -469,6 +469,7 @@ impl BuildDiagnostics {
     }
 
     #[cfg(feature = "display-diagnostics")]
+    #[must_use]
     pub fn check_and_exit_on_error(self) -> Self {
         if self.has_error() {
             self.print();
