@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         writeln!(tests_file, "\nmod {} {{", stem)?;
 
         let file = std::fs::read_to_string(&path)?;
-        let file = file.replace("\r", ""); // Remove \r, because Windows.
+        let file = file.replace('\r', ""); // Remove \r, because Windows.
         let mut rest = file.as_str();
         let mut count = 0;
         const BEGIN_MARKER: &str = "\n```60\n";
@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("cargo:rerun-if-changed={}", path.display());
     }
 
-    let cargo_manifest_dir = env!("CARGO_MANIFEST_DIR").replace("\\", "/");
+    let cargo_manifest_dir = env!("CARGO_MANIFEST_DIR").replace('\\', "/");
 
     for entry in std::fs::read_dir(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs/tutorial/rust/src"),

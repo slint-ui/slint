@@ -50,7 +50,7 @@ impl FPSCounter {
             Ok(var) => var,
             _ => return None,
         };
-        let options: Vec<&str> = options.split(",").collect();
+        let options: Vec<&str> = options.split(',').collect();
 
         let refresh_mode = match RefreshMode::try_from(&options) {
             Ok(mode) => mode,
