@@ -1713,7 +1713,7 @@ impl Exports {
                         parser::identifier_text(&ident).map(|text| (text, ident.clone().into()))
                     })
                     .unwrap_or_else(|| {
-                        (internal_name.clone(), export_specifier.ExportIdentifier().clone().into())
+                        (internal_name.clone(), export_specifier.ExportIdentifier().into())
                     });
 
                 NamedExport {

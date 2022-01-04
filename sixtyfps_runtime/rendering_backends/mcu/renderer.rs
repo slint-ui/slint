@@ -281,7 +281,7 @@ enum SceneCommand {
 
 fn prepare_scene(runtime_window: Rc<sixtyfps_corelib::window::Window>, size: SizeF) -> Scene {
     let mut prepare_scene = PrepareScene::new(size, ScaleFactor(runtime_window.scale_factor()));
-    runtime_window.clone().draw_contents(|components| {
+    runtime_window.draw_contents(|components| {
         for (component, origin) in components {
             sixtyfps_corelib::item_rendering::render_component_items(
                 &component,

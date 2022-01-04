@@ -81,7 +81,7 @@ fn generate_macro(
 
         println!("cargo:rerun-if-changed={}", abs_path.to_string_lossy());
     }
-    let mut abs_path = testcase.absolute_path.clone();
+    let mut abs_path = testcase.absolute_path;
     abs_path.pop();
     output.write_all(b"#[include_path=r#\"")?;
     output.write_all(abs_path.to_string_lossy().as_bytes())?;

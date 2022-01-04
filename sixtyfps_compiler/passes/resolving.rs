@@ -608,7 +608,7 @@ impl Expression {
                     })
                 })
             })
-            .map_or(Expression::Invalid, |n| Self::from_qualified_name_node(n.clone(), ctx));
+            .map_or(Expression::Invalid, |n| Self::from_qualified_name_node(n, ctx));
 
         let sub_expr = sub_expr.map(|n| {
             (Self::from_expression_node(n.clone(), ctx), Some(NodeOrToken::from((*n).clone())))
