@@ -248,7 +248,7 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
         serde_json::from_reader(std::fs::File::open(data_path)?)?
     };
 
-    let obj = json.as_object().ok_or_else(|| "The data is not a JSON object")?;
+    let obj = json.as_object().ok_or("The data is not a JSON object")?;
     for (name, v) in obj {
         fn from_json(v: &serde_json::Value) -> sixtyfps_interpreter::Value {
             match v {

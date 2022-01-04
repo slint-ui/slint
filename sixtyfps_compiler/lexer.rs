@@ -53,7 +53,7 @@ pub fn lex_whitespace(text: &str, _: &mut LexState) -> usize {
 pub fn lex_comment(text: &str, _: &mut LexState) -> usize {
     // FIXME: could report proper error if not properly terminated
     if text.starts_with("//") {
-        return text.find(&['\n', '\r'] as &[_]).unwrap_or_else(|| text.len());
+        return text.find(&['\n', '\r'] as &[_]).unwrap_or(text.len());
     }
     if text.starts_with("/*") {
         let mut nested = 0;
