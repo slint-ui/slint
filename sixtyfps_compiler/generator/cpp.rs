@@ -618,7 +618,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
                         }
                     }
 
-                    init.push_str("}");
+                    init.push('}');
 
                     Declaration::Var(Var {
                         ty: "inline uint8_t".into(),
