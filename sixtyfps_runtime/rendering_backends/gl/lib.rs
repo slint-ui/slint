@@ -759,7 +759,7 @@ impl ItemRenderer for GLItemRenderer {
             cache.borrow_mut().font(
                 self.graphics_window.default_font_properties(),
                 self.scale_factor,
-                &string,
+                string,
             )
         });
         let paint = font.init_paint(0.0, femtovg::Paint::color(to_femtovg_color(&color)));

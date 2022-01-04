@@ -30,7 +30,7 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
             }
         });
         for prop in elem.borrow().bindings.keys() {
-            let nr = NamedReference::new(&elem, &prop);
+            let nr = NamedReference::new(elem, prop);
             if !to_materialize.contains_key(&nr) {
                 let elem = elem.borrow();
                 if let Some(ty) =

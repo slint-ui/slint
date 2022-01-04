@@ -122,7 +122,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
 
     let mut sub_compos = Vec::new();
     for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
-        sub_compos.push(generate_component(&sub_comp, &doc.root_component, diag)?);
+        sub_compos.push(generate_component(sub_comp, &doc.root_component, diag)?);
     }
 
     let compo = generate_component(&doc.root_component, &doc.root_component, diag)?;
@@ -333,7 +333,7 @@ fn generate_component(
         .popup_windows
         .borrow()
         .iter()
-        .filter_map(|c| generate_component(&c.component, &root_component, diag))
+        .filter_map(|c| generate_component(&c.component, root_component, diag))
         .collect::<Vec<_>>();
 
     let self_init = if !component.is_global() {
@@ -495,7 +495,7 @@ fn generate_component(
                 let item = item_rc.borrow();
                 let base_component = item.base_type.as_component();
                 self.extra_components.push(
-                    generate_component(&*base_component, &self.root_component, self.diag)
+                    generate_component(&*base_component, self.root_component, self.diag)
                         .unwrap_or_else(|| {
                             assert!(self.diag.has_error());
                             Default::default()
@@ -801,8 +801,8 @@ fn generate_component(
         repeated_element_names: vec![],
         repeated_visit_branch: vec![],
         repeated_element_components: vec![],
-        generating_component: &component,
-        root_component: &root_component,
+        generating_component: component,
+        root_component,
         root_ref_tokens,
         item_index_base_tokens,
         diag,
@@ -1190,7 +1190,7 @@ fn generate_component(
         None
     };
 
-    let root_component_id = self::inner_component_id(&root_component);
+    let root_component_id = self::inner_component_id(root_component);
     let (root_field, root_initializer) = if component.is_sub_component() {
         (
             Some(

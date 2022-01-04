@@ -284,7 +284,7 @@ fn prepare_scene(runtime_window: Rc<sixtyfps_corelib::window::Window>, size: Siz
     runtime_window.draw_contents(|components| {
         for (component, origin) in components {
             sixtyfps_corelib::item_rendering::render_component_items(
-                &component,
+                component,
                 &mut prepare_scene,
                 origin.clone(),
             );
@@ -317,7 +317,7 @@ impl PrepareScene {
     fn should_draw(&self, rect: &RectF) -> bool {
         !rect.size.is_empty()
             && self.current_state.alpha > 0.01
-            && self.current_state.clip.intersects(&rect)
+            && self.current_state.clip.intersects(rect)
     }
 
     fn new_scene_item(&mut self, geometry: RectF, command: SceneCommand) {

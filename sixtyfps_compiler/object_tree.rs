@@ -282,7 +282,7 @@ impl Component {
         self.exported_global_names
             .borrow()
             .iter()
-            .filter(|name| name.as_str() != &self.root_element.borrow().id)
+            .filter(|name| name.as_str() != self.root_element.borrow().id)
             .map(|name| name.original_name())
             .collect()
     }
@@ -1479,7 +1479,7 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         .borrow()
         .globals
         .iter()
-        .for_each(|p| recurse_elem_including_sub_components_no_borrow(&p, state, vis));
+        .for_each(|p| recurse_elem_including_sub_components_no_borrow(p, state, vis));
 }
 
 /// This visit the binding attached to this element, but does not recurse in children elements

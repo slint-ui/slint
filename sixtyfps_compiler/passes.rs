@@ -44,7 +44,7 @@ use crate::langtype::Type;
 pub async fn run_passes(
     doc: &crate::object_tree::Document,
     diag: &mut crate::diagnostics::BuildDiagnostics,
-    mut type_loader: &mut crate::typeloader::TypeLoader<'_>,
+    type_loader: &mut crate::typeloader::TypeLoader<'_>,
     compiler_config: &crate::CompilerConfiguration,
 ) {
     if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
@@ -78,7 +78,7 @@ pub async fn run_passes(
         .chain(std::iter::once(root_component))
     {
         compile_paths::compile_paths(component, &doc.local_registry, diag);
-        lower_tabwidget::lower_tabwidget(component, &mut type_loader, diag).await;
+        lower_tabwidget::lower_tabwidget(component, type_loader, diag).await;
         apply_default_properties_from_style::apply_default_properties_from_style(
             component,
             &style_metrics,
@@ -108,7 +108,7 @@ pub async fn run_passes(
         flickable::handle_flickable(component, &global_type_registry.borrow());
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
-        lower_layout::lower_layouts(component, &mut type_loader, diag).await;
+        lower_layout::lower_layouts(component, type_loader, diag).await;
         z_order::reorder_by_z_order(component, diag);
         transform_and_opacity::handle_transform_and_opacity(
             component,
@@ -125,7 +125,7 @@ pub async fn run_passes(
         visible::handle_visible(component, &global_type_registry.borrow());
         materialize_fake_properties::materialize_fake_properties(component);
     }
-    collect_globals::collect_globals(&doc, diag);
+    collect_globals::collect_globals(doc, diag);
 
     if compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents);
@@ -155,7 +155,7 @@ pub async fn run_passes(
         remove_unused_properties::remove_unused_properties(component);
     }
 
-    collect_structs::collect_structs(&doc);
+    collect_structs::collect_structs(doc);
 
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))

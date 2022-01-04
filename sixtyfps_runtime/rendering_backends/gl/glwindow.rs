@@ -170,7 +170,7 @@ impl WinitWindow for GLWindow {
 
             for (component, origin) in components {
                 corelib::item_rendering::render_component_items(
-                    &component,
+                    component,
                     &mut renderer,
                     origin.clone(),
                 );

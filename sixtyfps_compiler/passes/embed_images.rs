@@ -47,13 +47,8 @@ fn embed_images_from_expression(
         }
     };
 
-    e.visit_mut(|mut e| {
-        embed_images_from_expression(
-            &mut e,
-            global_embedded_resources,
-            embed_files_by_default,
-            diag,
-        )
+    e.visit_mut(|e| {
+        embed_images_from_expression(e, global_embedded_resources, embed_files_by_default, diag)
     });
 }
 

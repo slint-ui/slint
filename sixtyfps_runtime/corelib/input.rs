@@ -255,7 +255,7 @@ fn handle_mouse_grab(
     let input_result = grabber.borrow().as_ref().input_event(event, window, &grabber);
     if input_result != InputEventResult::GrabMouse {
         mouse_input_state.grabbed = false;
-        send_exit_events(&mouse_input_state, mouse_event.pos(), window);
+        send_exit_events(mouse_input_state, mouse_event.pos(), window);
     }
 
     true

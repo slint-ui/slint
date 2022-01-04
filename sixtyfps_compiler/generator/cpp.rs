@@ -1173,8 +1173,8 @@ fn generate_component(
                     base_component,
                     self.component,
                     repeater_count,
-                    &mut self.component_struct,
-                    &mut self.init,
+                    self.component_struct,
+                    self.init,
                     &mut self.children_visitor_cases,
                     self.diag,
                 );
@@ -1194,7 +1194,7 @@ fn generate_component(
         ) {
             let item = item_rc.borrow();
             if component_state.is_empty() {
-                handle_item(item_rc, self.field_access, &mut self.component_struct);
+                handle_item(item_rc, self.field_access, self.component_struct);
             }
             if item.is_flickable_viewport {
                 self.tree_array.push(format!(
@@ -1231,7 +1231,7 @@ fn generate_component(
             let item = item_rc.borrow();
             // Sub-components don't have an entry in the item tree themselves, but we propagate their tree offsets through the constructors.
             if component_state.is_empty() {
-                let class_name = self::component_id(&sub_component);
+                let class_name = self::component_id(sub_component);
                 let member_name = ident(&item.id).into_owned();
 
                 self.init.push(format!("{}.init(self_weak.into_dyn());", member_name));
@@ -1475,7 +1475,7 @@ fn generate_component(
                     "(sixtyfps::Orientation o, [[maybe_unused]] const sixtyfps::private_api::WindowRc *window_handle) const -> sixtyfps::LayoutInfo"
                         .into(),
                 statements: Some(layout_info_function_body(
-                    &component,
+                    component,
                     "auto self = this;".to_owned(),
                     Some("window_handle"),
                 )),
@@ -1693,7 +1693,7 @@ fn generate_component_vtable(
                 "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::Orientation o) -> sixtyfps::LayoutInfo"
                     .into(),
             is_static: true,
-            statements: Some(layout_info_function_body(&component, format!(
+            statements: Some(layout_info_function_body(component, format!(
                 "[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);",
                 component_id
             ), None)),

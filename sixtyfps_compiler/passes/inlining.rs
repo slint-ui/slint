@@ -279,13 +279,13 @@ fn duplicate_sub_component(
         .map(|p| duplicate_popup(p, mapping))
         .collect();
     for p in new_component.popup_windows.borrow_mut().iter_mut() {
-        fixup_reference(&mut p.x, &mapping);
-        fixup_reference(&mut p.y, &mapping);
+        fixup_reference(&mut p.x, mapping);
+        fixup_reference(&mut p.y, mapping);
     }
     new_component
         .root_constraints
         .borrow_mut()
-        .visit_named_references(&mut |nr| fixup_reference(nr, &mapping));
+        .visit_named_references(&mut |nr| fixup_reference(nr, mapping));
     new_component
 }
 

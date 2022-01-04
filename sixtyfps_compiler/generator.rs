@@ -141,7 +141,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
     if let Some(sub_component) = root_component.root_element.borrow().sub_component() {
         assert!(root_component.root_element.borrow().children.is_empty());
         let sub_compo_state =
-            builder.enter_component(&root_component.root_element, &sub_component, 1, initial_state);
+            builder.enter_component(&root_component.root_element, sub_component, 1, initial_state);
         builder.enter_component_children(
             &root_component.root_element,
             0,
@@ -156,7 +156,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         visit_children(
             initial_state,
             &root_component.root_element.borrow().children,
-            &root_component,
+            root_component,
             &root_component.root_element,
             0,
             0,
@@ -222,7 +222,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                 visit_children(
                     &sub_component_state,
                     &nested_subcomponent.root_element.borrow().children,
-                    &nested_subcomponent,
+                    nested_subcomponent,
                     &nested_subcomponent.root_element,
                     parent_index,
                     relative_parent_index,
@@ -242,7 +242,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         for child in children.iter() {
             if let Some(sub_component) = child.borrow().sub_component() {
                 let sub_component_state =
-                    builder.enter_component(child, &sub_component, offset, state);
+                    builder.enter_component(child, sub_component, offset, state);
                 visit_item(
                     &sub_component_state,
                     &sub_component.root_element,
@@ -321,7 +321,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
                 let base = item.borrow().sub_component().map(|c| {
                     (
                         c.root_element.clone(),
-                        builder.enter_component(&item, &c, children_offset, &component_state),
+                        builder.enter_component(&item, c, children_offset, &component_state),
                     )
                 });
                 base

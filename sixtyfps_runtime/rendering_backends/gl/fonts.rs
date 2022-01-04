@@ -507,7 +507,7 @@ impl FontCache {
         request
             .family
             .as_ref()
-            .map(|family_name| self.available_families.contains(&family_name))
+            .map(|family_name| self.available_families.contains(family_name))
             .unwrap_or(false)
     }
 

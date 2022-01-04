@@ -1132,7 +1132,7 @@ impl QtWindow {
 
             for (component, origin) in components {
                 sixtyfps_corelib::item_rendering::render_component_items(
-                    &component,
+                    component,
                     &mut renderer,
                     origin.clone(),
                 );

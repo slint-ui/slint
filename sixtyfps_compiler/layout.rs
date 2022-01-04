@@ -387,7 +387,7 @@ fn find_binding<R>(
 
 /// Return a named reference to a property if a binding is set on that property
 fn binding_reference(element: &ElementRc, name: &str) -> Option<NamedReference> {
-    find_binding(element, name, |_, _, _| NamedReference::new(&element, name))
+    find_binding(element, name, |_, _, _| NamedReference::new(element, name))
 }
 
 fn init_fake_property(

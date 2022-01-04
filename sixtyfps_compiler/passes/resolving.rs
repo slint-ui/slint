@@ -163,7 +163,7 @@ impl Expression {
                 return Expression::Invalid;
             }
         };
-        e.maybe_convert_to(ctx.property_type.clone(), &node, &mut ctx.diag)
+        e.maybe_convert_to(ctx.property_type.clone(), &node, ctx.diag)
     }
 
     fn from_codeblock_node(node: syntax_nodes::CodeBlock, ctx: &mut LookupCtx) -> Expression {
@@ -198,7 +198,7 @@ impl Expression {
 
         exit_points_and_return_types.into_iter().for_each(|(index, _)| {
             let mut expr = std::mem::replace(&mut statements_or_exprs[index], Expression::Invalid);
-            expr = expr.maybe_convert_to(common_return_type.clone(), &node, &mut ctx.diag);
+            expr = expr.maybe_convert_to(common_return_type.clone(), &node, ctx.diag);
             statements_or_exprs[index] = expr;
         });
 
@@ -214,7 +214,7 @@ impl Expression {
             Box::new(Self::from_expression_node(n, ctx).maybe_convert_to(
                 return_type,
                 &node,
-                &mut ctx.diag,
+                ctx.diag,
             ))
         }))
     }
@@ -228,7 +228,7 @@ impl Expression {
         Self::from_codeblock_node(node.CodeBlock(), ctx).maybe_convert_to(
             ctx.return_type().clone(),
             &node,
-            &mut ctx.diag,
+            ctx.diag,
         )
     }
 
@@ -367,7 +367,7 @@ impl Expression {
             Box::new(Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
                 Type::Angle,
                 &angle_expr,
-                &mut ctx.diag,
+                ctx.diag,
             ));
 
         let mut stops = vec![];
@@ -405,15 +405,14 @@ impl Expression {
                 };
                 match std::mem::replace(&mut current_stop, Stop::Finished) {
                     Stop::Empty => {
-                        current_stop =
-                            Stop::Color(e.maybe_convert_to(Type::Color, &n, &mut ctx.diag))
+                        current_stop = Stop::Color(e.maybe_convert_to(Type::Color, &n, ctx.diag))
                     }
                     Stop::Finished => {
                         ctx.diag.push_error("Expected comma".into(), &n);
                         break;
                     }
                     Stop::Color(col) => {
-                        stops.push((col, e.maybe_convert_to(Type::Float32, &n, &mut ctx.diag)))
+                        stops.push((col, e.maybe_convert_to(Type::Float32, &n, ctx.diag)))
                     }
                 }
             }
@@ -516,7 +515,7 @@ impl Expression {
         };
 
         if let Some(depr) = result.deprecated() {
-            ctx.diag.push_property_deprecation_warning(&first_str, &depr, &first);
+            ctx.diag.push_property_deprecation_warning(&first_str, depr, &first);
         }
 
         match result {
@@ -617,12 +616,7 @@ impl Expression {
         let function = match function {
             Expression::BuiltinMacroReference(mac, n) => {
                 arguments.extend(sub_expr);
-                return crate::builtin_macros::lower_macro(
-                    mac,
-                    n,
-                    arguments.into_iter(),
-                    &mut ctx.diag,
-                );
+                return crate::builtin_macros::lower_macro(mac, n, arguments.into_iter(), ctx.diag);
             }
             Expression::MemberFunction { base, base_node, member } => {
                 arguments.push((*base, base_node));
@@ -648,7 +642,7 @@ impl Expression {
                     arguments
                         .into_iter()
                         .zip(args.iter())
-                        .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, &mut ctx.diag))
+                        .map(|((e, node), ty)| e.maybe_convert_to(ty.clone(), &node, ctx.diag))
                         .collect()
                 }
             }
@@ -706,7 +700,7 @@ impl Expression {
         let rhs = Self::from_expression_node(rhs_n.clone(), ctx);
         Expression::SelfAssignment {
             lhs: Box::new(lhs),
-            rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, &mut ctx.diag)),
+            rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, ctx.diag)),
             op,
         }
     }
@@ -773,7 +767,7 @@ impl Expression {
                                 rhs: Box::new(rhs.maybe_convert_to(
                                     Type::Float32,
                                     &rhs_n,
-                                    &mut ctx.diag,
+                                    ctx.diag,
                                 )),
                                 op,
                             }
@@ -783,7 +777,7 @@ impl Expression {
                                 lhs: Box::new(lhs.maybe_convert_to(
                                     Type::Float32,
                                     &lhs_n,
-                                    &mut ctx.diag,
+                                    ctx.diag,
                                 )),
                                 rhs: Box::new(rhs),
                                 op,
@@ -797,8 +791,8 @@ impl Expression {
             }
         };
         Expression::BinaryExpression {
-            lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), &lhs_n, &mut ctx.diag)),
-            rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, &mut ctx.diag)),
+            lhs: Box::new(lhs.maybe_convert_to(expected_ty.clone(), &lhs_n, ctx.diag)),
+            rhs: Box::new(rhs.maybe_convert_to(expected_ty, &rhs_n, ctx.diag)),
             op,
         }
     }
@@ -829,15 +823,15 @@ impl Expression {
         let condition = Self::from_expression_node(condition_n.clone(), ctx).maybe_convert_to(
             Type::Bool,
             &condition_n,
-            &mut ctx.diag,
+            ctx.diag,
         );
         let true_expr = Self::from_expression_node(true_expr_n.clone(), ctx);
         let false_expr = Self::from_expression_node(false_expr_n.clone(), ctx);
         let result_ty = Self::common_target_type_for_type_list(
             [true_expr.ty(), false_expr.ty()].iter().cloned(),
         );
-        let true_expr = true_expr.maybe_convert_to(result_ty.clone(), &true_expr_n, &mut ctx.diag);
-        let false_expr = false_expr.maybe_convert_to(result_ty, &false_expr_n, &mut ctx.diag);
+        let true_expr = true_expr.maybe_convert_to(result_ty.clone(), &true_expr_n, ctx.diag);
+        let false_expr = false_expr.maybe_convert_to(result_ty, &false_expr_n, ctx.diag);
         Expression::Condition {
             condition: Box::new(condition),
             true_expr: Box::new(true_expr),
