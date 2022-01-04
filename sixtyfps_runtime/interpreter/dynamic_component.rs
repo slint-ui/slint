@@ -836,7 +836,7 @@ pub(crate) fn generate_component<'id>(
             _children_offset: u32,
             _component_state: &Self::SubComponentState,
         ) -> Self::SubComponentState {
-            ()
+            /* nothing to do */
         }
 
         fn enter_component_children(

@@ -66,7 +66,6 @@ impl SharedString {
         let mut iter = x.as_bytes().iter().copied();
         if self.inner.is_empty() {
             self.inner.extend(iter.chain(core::iter::once(0)));
-            return;
         } else if let Some(first) = iter.next() {
             // We skip the `first` from `iter` because we will write it at the
             // location of the previous `\0`, after extend did the re-alloc of the
