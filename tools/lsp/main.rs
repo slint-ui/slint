@@ -160,8 +160,8 @@ fn run_lsp_server() -> Result<(), Error> {
         semantic_tokens_provider: Some(
             SemanticTokensOptions {
                 legend: SemanticTokensLegend {
-                    token_types: semantic_tokens::LEGEND_TYPES.iter().cloned().collect(),
-                    token_modifiers: semantic_tokens::LEGEND_MODS.iter().cloned().collect(),
+                    token_types: semantic_tokens::LEGEND_TYPES.to_vec(),
+                    token_modifiers: semantic_tokens::LEGEND_MODS.to_vec(),
                 },
                 full: Some(SemanticTokensFullOptions::Bool(true)),
                 ..Default::default()
