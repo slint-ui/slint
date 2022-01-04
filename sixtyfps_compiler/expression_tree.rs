@@ -839,6 +839,7 @@ impl Expression {
     }
 
     /// Create a conversion node if needed, or throw an error if the type is not matching
+    #[must_use]
     pub fn maybe_convert_to(
         self,
         target_type: Type,

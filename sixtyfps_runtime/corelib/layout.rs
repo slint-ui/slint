@@ -53,6 +53,7 @@ impl Default for LayoutInfo {
 
 impl LayoutInfo {
     // Note: This "logic" is duplicated in the cpp generator's generated code for merging layout infos.
+    #[must_use]
     pub fn merge(&self, other: &LayoutInfo) -> Self {
         Self {
             min: self.min.max(other.min),

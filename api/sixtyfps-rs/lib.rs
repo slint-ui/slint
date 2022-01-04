@@ -530,6 +530,7 @@ pub trait ComponentHandle {
         Self: Sized;
 
     /// Returns a clone of this handle that's a strong reference.
+    #[must_use]
     fn clone_strong(&self) -> Self;
 
     /// Internal function used when upgrading a weak reference to a strong one.

@@ -992,6 +992,7 @@ impl ComponentInstance {
     /// Clone is not implemented because of the danger of circular reference:
     /// If you want to use this instance in a callback, you should capture a weak
     /// reference given by [`Self::as_weak`].
+    #[must_use]
     pub fn clone_strong(&self) -> Self {
         Self { inner: self.inner.clone() }
     }

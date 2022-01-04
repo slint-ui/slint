@@ -142,6 +142,7 @@ pub struct FontRequest {
 impl FontRequest {
     /// Consumes the FontRequest, replaces any missing fields from the specified other request and
     /// returns the new request.
+    #[must_use]
     pub fn merge(self, other: &FontRequest) -> Self {
         Self {
             family: self.family.or_else(|| other.family.clone()),
