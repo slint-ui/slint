@@ -894,11 +894,7 @@ pub(crate) fn invoke_callback(
             };
             let item_info = &component_type.items[element.id.as_str()];
             let item = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
-            if let Some(callback) = item_info.rtti.callbacks.get(callback_name) {
-                Some(callback.call(item, args))
-            } else {
-                None
-            }
+            item_info.rtti.callbacks.get(callback_name).map(|callback| callback.call(item, args))
         }
         ComponentInstance::GlobalComponent(global) => {
             Some(global.as_ref().invoke_callback(callback_name, args).unwrap())
