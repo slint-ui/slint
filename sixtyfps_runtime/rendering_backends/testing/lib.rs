@@ -90,13 +90,9 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
     }
 }
 
+#[derive(Default)]
 pub struct TestingWindow {}
 
-impl Default for TestingWindow {
-    fn default() -> Self {
-        Self {}
-    }
-}
 impl PlatformWindow for TestingWindow {
     fn show(self: Rc<Self>) {
         unimplemented!("showing a testing window")
