@@ -37,6 +37,11 @@ public:
     {
     }
 
+    PathData(const SharedString &commands)
+        : data(cbindgen_private::types::PathData::Commands(commands))
+    {
+    }
+
     friend bool operator==(const PathData &a, const PathData &b)
     {
         if (a.data.tag != b.data.tag)
@@ -46,6 +51,8 @@ public:
             return a.data.elements._0 == b.data.elements._0;
         case cbindgen_private::types::PathData::Tag::Events:
             return a.data.events._0 == b.data.events._0 && b.data.events._0 == b.data.events._0;
+        case cbindgen_private::types::PathData::Tag::Commands:
+            return a.data.commands._0 == b.data.commands._0;
         case cbindgen_private::types::PathData::Tag::None:
             return true;
         }

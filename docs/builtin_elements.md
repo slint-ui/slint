@@ -277,7 +277,7 @@ accordingly.
 
 SVG is a popular file format for defining scalable graphics, which are often composed of paths. In SVG
 paths are composed using [commands](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/d#path_commands),
-which in turn are written in a string literal. In `.60` the path commands are provided to the `commands`
+which in turn are written in a string. In `.60` the path commands are provided to the `commands`
 property. The following example renders a shape consists of an arc and a rectangle, composed of `line-to`,
 `move-to` and `arc` commands:
 
@@ -293,7 +293,7 @@ Example := Path {
 
 The commands are provided in a property:
 
-* **`commands`** (*string): A string literal providing the commands according to the SVG path specification.
+* **`commands`** (*string): A string providing the commands according to the SVG path specification.
 
 #### Path Using SVG Path Elements
 

@@ -292,6 +292,8 @@ pub enum PathData {
     /// The Events variant describes the path as a series of low-level events and
     /// associated coordinates.
     Events(crate::SharedVector<PathEvent>, crate::SharedVector<Point>),
+    /// The Commands variant describes the path as a series of SVG encoded path commands.
+    Commands(crate::SharedString),
 }
 
 impl Default for PathData {
@@ -311,6 +313,13 @@ impl PathData {
                 ),
                 PathData::Events(events, coordinates) => {
                     LyonPathIteratorVariant::FromEvents(events, coordinates)
+                }
+                PathData::Commands(commands) => {
+                    let path_builder = lyon_path::Path::builder().with_svg();
+                    LyonPathIteratorVariant::FromPath(
+                        lyon_svg::path_utils::build_path(path_builder, &commands)
+                            .unwrap_or_default(),
+                    )
                 }
             },
             transform: Default::default(),
