@@ -1493,7 +1493,7 @@ impl PlatformWindow for QtWindow {
                 return QPointF();
             return QPointF(textLine.x() + textLine.cursorToX(offset), textLine.y());
         }};
-        return Point::new(r.x as _, r.y as _);
+        Point::new(r.x as _, r.y as _)
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

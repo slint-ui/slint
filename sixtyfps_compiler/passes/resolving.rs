@@ -547,12 +547,12 @@ impl Expression {
                                 ),
                                 &next_identifier,
                             );
-                            return Expression::Invalid;
+                            Expression::Invalid
                         }
                     }
                 } else {
                     ctx.diag.push_error("Cannot take reference to an enum".to_string(), &node);
-                    return Expression::Invalid;
+                    Expression::Invalid
                 }
             }
             LookupResult::Expression { expression, .. } => maybe_lookup_object(expression, it, ctx),
@@ -573,12 +573,12 @@ impl Expression {
                                 ),
                                 &next_identifier,
                             );
-                            return Expression::Invalid;
+                            Expression::Invalid
                         }
                     }
                 } else {
                     ctx.diag.push_error("Cannot take reference to a namespace".to_string(), &node);
-                    return Expression::Invalid;
+                    Expression::Invalid
                 }
             }
         }

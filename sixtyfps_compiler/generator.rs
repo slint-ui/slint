@@ -313,7 +313,6 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
         if item.borrow().repeated.is_some() {
             builder.push_repeated_item(item, *repeater_count, parent_index, component_state);
             *repeater_count += 1;
-            return;
         } else {
             let mut item = item.clone();
             let mut component_state = component_state.clone();

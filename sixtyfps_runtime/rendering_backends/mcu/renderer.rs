@@ -341,7 +341,7 @@ impl PrepareScene {
     ) {
         let image_inner: &ImageInner = source.into();
         match image_inner {
-            ImageInner::None => return,
+            ImageInner::None => (),
             ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => {
                 unimplemented!()
             }

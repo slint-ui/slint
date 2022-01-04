@@ -69,10 +69,10 @@ pub trait Backend: Send + Sync {
         #[cfg(feature = "std")]
         {
             let the_beginning = *INITIAL_INSTANT.get_or_init(instant::Instant::now);
-            return instant::Instant::now() - the_beginning;
+            instant::Instant::now() - the_beginning
         }
         #[cfg(not(feature = "std"))]
-        return core::time::Duration::ZERO;
+        core::time::Duration::ZERO
     }
 }
 
