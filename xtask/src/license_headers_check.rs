@@ -314,6 +314,7 @@ lazy_static! {
         ("LICENSE\\..*", LicenseLocation::NoLicense),
         (".+\\.txt$", LicenseLocation::NoLicense),
         ("(^|.+)\\.reuse/dep5$", LicenseLocation::NoLicense), // .reuse files have no license headers
+        ("memory.x$", LicenseLocation::NoLicense), // third-party file
         ("LICENSES/.+", LicenseLocation::NoLicense),
     ]
     .iter()

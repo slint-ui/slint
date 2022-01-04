@@ -271,5 +271,17 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
 
     println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
+
+    configure_linker();
+
     Ok(())
+}
+
+mod mcu {
+    pub mod pico_st7789;
+}
+
+fn configure_linker() {
+    #[cfg(feature = "mcu-pico-st7789")]
+    mcu::pico_st7789::configure_linker();
 }
