@@ -18,6 +18,8 @@ path = "lib.rs"
 [features]
 default = []
 
+mcu-pico-st7789 = []
+
 [dependencies]
 i-slint-compiler = { version = "=0.2.1", path = "../../../internal/compiler", features = ["rust", "display-diagnostics"] }
 
