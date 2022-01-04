@@ -119,7 +119,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ExternalName => Some((
                     self::TYPE,
                     if token.parent()?.parent().map_or(false, |p| {
-                        p.children().find(|n| n.kind() == SyntaxKind::InternalName).is_some()
+                        p.children().any(|n| n.kind() == SyntaxKind::InternalName)
                     }) {
                         0
                     } else {
