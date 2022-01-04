@@ -1335,6 +1335,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     };
                     quote!(sixtyfps::re_exports::PathData::Events(sixtyfps::re_exports::SharedVector::<_>::from_slice(&#events), sixtyfps::re_exports::SharedVector::<_>::from_slice(&#points)))
                 }
+                (Type::String, Type::PathData) => {
+                    quote!(sixtyfps::re_exports::PathData::Commands(#f))
+                }
                 _ => f,
             }
         }

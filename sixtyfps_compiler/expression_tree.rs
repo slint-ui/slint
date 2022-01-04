@@ -675,6 +675,7 @@ impl Expression {
                 Path::Events(events, coordinates) => {
                     events.iter().chain(coordinates.iter()).for_each(visitor);
                 }
+                Path::Commands(commands) => visitor(commands),
             },
             Expression::StoreLocalVariable { value, .. } => visitor(&**value),
             Expression::ReadLocalVariable { .. } => {}
@@ -767,6 +768,7 @@ impl Expression {
                 Path::Events(events, coordinates) => {
                     events.iter_mut().chain(coordinates.iter_mut()).for_each(visitor);
                 }
+                Path::Commands(commands) => visitor(commands),
             },
             Expression::StoreLocalVariable { value, .. } => visitor(&mut **value),
             Expression::ReadLocalVariable { .. } => {}
@@ -835,15 +837,13 @@ impl Expression {
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
             Expression::Struct { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
-            Expression::PathData(data) => {
-                if let Path::Elements(elements) = data {
-                    elements
-                        .iter()
-                        .all(|element| element.bindings.values().all(|v| v.borrow().is_constant()))
-                } else {
-                    true
-                }
-            }
+            Expression::PathData(data) => match data {
+                Path::Elements(elements) => elements
+                    .iter()
+                    .all(|element| element.bindings.values().all(|v| v.borrow().is_constant())),
+                Path::Events(_, _) => true,
+                Path::Commands(_) => false,
+            },
             Expression::StoreLocalVariable { .. } => false,
             // we should somehow find out if this is constant or not
             Expression::ReadLocalVariable { .. } => false,
@@ -1210,6 +1210,7 @@ pub struct BindingAnalysis {
 pub enum Path {
     Elements(Vec<PathElement>),
     Events(Vec<Expression>, Vec<Expression>),
+    Commands(Box<Expression>), // expr must evaluate to string
 }
 
 #[derive(Debug, Clone)]

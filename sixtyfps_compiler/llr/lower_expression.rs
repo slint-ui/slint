@@ -962,6 +962,10 @@ fn compile_path(path: &crate::expression_tree::Path, ctx: &ExpressionContext) ->
                 to: Type::PathData,
             }
         }
+        crate::expression_tree::Path::Commands(commands) => llr_Expression::Cast {
+            from: lower_expression(&commands, &ctx).into(),
+            to: Type::PathData,
+        },
     }
 }
 

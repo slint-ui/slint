@@ -12,7 +12,6 @@ TestCase := Rectangle {
     property<string> cmds: "M 350 300 L 550 300 ";
 
     Path {
-//  ^error{The commands property only accepts string literals}
         commands: cmds;
     }
 

@@ -1101,6 +1101,13 @@ pub fn convert_path(path: &ExprPath, local_context: &mut EvalLocalContext) -> Pa
         ExprPath::Events(events, points) => {
             convert_from_lyon_path(events.iter(), points.iter(), local_context)
         }
+        ExprPath::Commands(commands) => {
+            if let Value::String(commands) = eval_expression(commands, local_context) {
+                PathData::Commands(commands)
+            } else {
+                panic!("binding to path commands does not evalutate to string");
+            }
+        }
     }
 }
 
