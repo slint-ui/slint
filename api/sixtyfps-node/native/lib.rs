@@ -131,12 +131,12 @@ fn create<'cx>(
                         prop_name.as_str(),
                         make_callback_handler(cx, &persistent_context, fun, return_type),
                     )
-                    .or_else(|_| cx.throw_error("Cannot set callback".to_string()))?;
+                    .or_else(|_| cx.throw_error("Cannot set callback"))?;
             } else {
                 let value = to_eval_value(value, ty, cx, &persistent_context)?;
                 component
                     .set_property(prop_name.as_str(), value)
-                    .or_else(|_| cx.throw_error("Cannot assign property".to_string()))?;
+                    .or_else(|_| cx.throw_error("Cannot assign property"))?;
             }
         }
     }
@@ -374,7 +374,7 @@ declare_types! {
 
             let value = to_eval_value(cx.argument::<JsValue>(1)?, ty, &mut cx, &persistent_context)?;
             component.set_property(prop_name.as_str(), value)
-                .or_else(|_| cx.throw_error("Cannot assign property".to_string()))?;
+                .or_else(|_| cx.throw_error("Cannot assign property"))?;
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
@@ -434,7 +434,7 @@ declare_types! {
                 component.set_callback(
                     callback_name.as_str(),
                     make_callback_handler(&mut cx, &persistent_context, handler, return_type)
-                ).or_else(|_| cx.throw_error("Cannot set callback".to_string()))?;
+                ).or_else(|_| cx.throw_error("Cannot set callback"))?;
                 Ok(JsUndefined::new().as_value(&mut cx))
             } else {
                 cx.throw_error(format!("{} is not a callback", callback_name))?;
