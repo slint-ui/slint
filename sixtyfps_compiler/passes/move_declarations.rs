@@ -75,11 +75,11 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
     component.optimized_elements.borrow().iter().for_each(|e| move_bindings_and_animations(e));
     recurse_elem(&component.root_element, &(), &mut |e, _| move_bindings_and_animations(e));
 
-    component.root_constraints.borrow_mut().visit_named_references(&mut |e| fixup_reference(e));
+    component.root_constraints.borrow_mut().visit_named_references(&mut fixup_reference);
     component.popup_windows.borrow_mut().iter_mut().for_each(|p| {
         fixup_reference(&mut p.x);
         fixup_reference(&mut p.y);
-        visit_all_named_references(&p.component, &mut |e| fixup_reference(e))
+        visit_all_named_references(&p.component, &mut fixup_reference)
     });
     for pd in decl.property_declarations.values_mut() {
         pd.is_alias.as_mut().map(fixup_reference);

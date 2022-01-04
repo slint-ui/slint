@@ -68,7 +68,7 @@ pub trait Backend: Send + Sync {
     fn duration_since_start(&'static self) -> core::time::Duration {
         #[cfg(feature = "std")]
         {
-            let the_beginning = *INITIAL_INSTANT.get_or_init(|| instant::Instant::now());
+            let the_beginning = *INITIAL_INSTANT.get_or_init(instant::Instant::now);
             return instant::Instant::now() - the_beginning;
         }
         #[cfg(not(feature = "std"))]
@@ -83,7 +83,7 @@ static INITIAL_INSTANT: once_cell::sync::OnceCell<instant::Instant> =
 #[cfg(feature = "std")]
 impl std::convert::From<crate::animations::Instant> for instant::Instant {
     fn from(our_instant: crate::animations::Instant) -> Self {
-        let the_beginning = *INITIAL_INSTANT.get_or_init(|| instant::Instant::now());
+        let the_beginning = *INITIAL_INSTANT.get_or_init(instant::Instant::now);
         the_beginning + core::time::Duration::from_millis(our_instant.0)
     }
 }

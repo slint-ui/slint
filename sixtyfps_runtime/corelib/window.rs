@@ -409,7 +409,7 @@ impl Window {
         };
 
         if let Some(redraw_tracker) = self.redraw_tracker.get() {
-            redraw_tracker.as_ref().evaluate_as_dependency_root(|| draw_fn())
+            redraw_tracker.as_ref().evaluate_as_dependency_root(draw_fn)
         } else {
             draw_fn()
         }

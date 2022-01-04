@@ -259,7 +259,7 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
                 }
                 serde_json::Value::String(s) => SharedString::from(s.as_str()).into(),
                 serde_json::Value::Array(array) => {
-                    sixtyfps_interpreter::Value::Array(array.iter().map(|v| from_json(v)).collect())
+                    sixtyfps_interpreter::Value::Array(array.iter().map(from_json).collect())
                 }
                 serde_json::Value::Object(obj) => obj
                     .iter()

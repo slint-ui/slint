@@ -788,7 +788,7 @@ fn generate_component(
                 .borrow()
                 .sub_components
                 .iter()
-                .map(|sub_component| self::component_id(&sub_component))
+                .map(self::component_id)
                 .chain(std::mem::take(sub_components).into_iter()),
         );
     }
