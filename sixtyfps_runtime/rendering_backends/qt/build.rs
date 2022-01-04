@@ -38,9 +38,11 @@ fn main() {
     // Ref: https://docs.microsoft.com/en-us/cpp/build/reference/utf-8-set-source-and-executable-character-sets-to-utf-8
     config.flag_if_supported("/utf-8");
 
+    let qt_library_path = std::env::var("DEP_QT_LIBRARY_PATH").unwrap();
+
     if cfg!(target_os = "macos") {
         config.flag("-F");
-        config.flag(&std::env::var("DEP_QT_LIBRARY_PATH").unwrap());
+        config.flag(&qt_library_path);
     }
     config.include(std::env::var("DEP_QT_INCLUDE_PATH").unwrap()).build("lib.rs");
 
@@ -58,4 +60,14 @@ fn main() {
     println!("cargo:rerun-if-changed=qt_widgets/tabwidget.rs");
     println!("cargo:rerun-if-changed=lib.rs");
     println!("cargo:SUPPORTS_NATIVE_STYLE=1");
+
+    // Cargo doesn't support implicit transitive link flags for crates (https://github.com/rust-lang/cargo/issues/9554 | https://github.com/rust-lang/cargo/issues/9562 | https://github.com/sixtyfpsui/sixtyfps/issues/566).
+    // Instead of requiring Rust apps to have Qt backend specific code, propagate the needed rpath link options via a DEP_ variable to the default backend, which
+    // can write it to a file for use by sixtyfps-build.
+    // For C++ apps that's not an issue because we create a cdylib, qttypes emits `rustc-cdylib-link-arg` and that *is* propagated.
+    // This also means that the Qt backend cannot be combined with another backend that also writes to this file. The GL backend doesn't, but the MCU
+    // backend might/will.
+    if std::env::var("CARGO_CFG_TARGET_FAMILY").as_ref().map(|s| s.as_ref()) == Ok("unix") {
+        println!("cargo:LINK_ARGS=-Wl,-rpath,{}", &qt_library_path)
+    }
 }

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
+use std::fmt::Write;
 use std::path::Path;
 
 fn main() {
@@ -28,8 +29,38 @@ fn main() {
     // out_dir is something like
     // <target_dir>/build/sixtyfps-rendering-backend-default-1fe5c4ab61eb0584/out
     // and we want to write to a common directory, so write in the build/ dir
-    let target_path =
+    let style_target_path =
         Path::new(&out_dir).parent().unwrap().parent().unwrap().join("SIXTYFPS_DEFAULT_STYLE.txt");
-    std::fs::write(target_path, if has_native_style { b"native\n" as &[u8] } else { b"fluent\n" })
-        .unwrap();
+    std::fs::write(
+        style_target_path,
+        if has_native_style { b"native\n" as &[u8] } else { b"fluent\n" },
+    )
+    .unwrap();
+
+    let mut link_flags = String::new();
+
+    for backend in ["GL", "QT"] {
+        if let Ok(args) =
+            std::env::var(format!("DEP_SIXTYFPS_RENDERING_BACKEND_{}_LINK_ARGS", backend))
+        {
+            for arg in args.split('|') {
+                write!(&mut link_flags, "cargo:rustc-link-arg={}\n", arg).unwrap();
+            }
+        }
+        if let Ok(args) =
+            std::env::var(format!("DEP_SIXTYFPS_RENDERING_BACKEND_{}_LINK_SEARCH_PATHS", backend))
+        {
+            for arg in args.split('|') {
+                write!(&mut link_flags, "cargo:rustc-link-search={}\n", arg).unwrap();
+            }
+        }
+    }
+
+    let link_flags_target_path = std::path::Path::new(&out_dir)
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("SIXTYFPS_BACKEND_LINK_FLAGS.txt");
+    std::fs::write(link_flags_target_path, link_flags).unwrap();
 }

@@ -269,5 +269,25 @@ pub fn compile_with_config(
     println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
 
     println!("cargo:rustc-env=SIXTYFPS_INCLUDE_GENERATED={}", output_file_path.display());
+
+    apply_linker_flags();
+
     Ok(())
+}
+
+// Backends such as Qt or the MCU might need special link flags. We don't want to require users to have to
+// deal with those, so propagate them here.
+fn apply_linker_flags() {
+    // Same logic as in sixtyfps-rendering-backend-default's build script to get the path
+    if let Some(path) = std::env::var_os("OUT_DIR").and_then(|path| {
+        Some(Path::new(&path).parent()?.parent()?.join("SIXTYFPS_BACKEND_LINK_FLAGS.txt"))
+    }) {
+        // unfortunately, if for some reason the file is changed, it is changed after cargo decide to re-run
+        // this build script or not. So that means one will need two build to settle the right thing.
+        println!("cargo:rerun-if-changed={}", path.display());
+
+        if let Ok(mut link_flags_file) = std::fs::File::open(path) {
+            std::io::copy(&mut link_flags_file, &mut std::io::stdout()).ok();
+        }
+    }
 }
