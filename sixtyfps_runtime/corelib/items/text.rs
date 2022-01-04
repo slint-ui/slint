@@ -380,7 +380,7 @@ impl Item for TextInput {
                 if event.text.is_empty()
                     || event.text.as_str().chars().any(|ch| {
                         // exclude the private use area as we encode special keys into it
-                        (ch >= '\u{f700}' && ch <= '\u{f7ff}') || (ch.is_control() && ch != '\n')
+                        ('\u{f700}'..='\u{f7ff}').contains(&ch) || (ch.is_control() && ch != '\n')
                     })
                 {
                     return KeyEventResult::EventIgnored;
