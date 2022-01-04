@@ -1125,14 +1125,13 @@ pub fn instantiate(
         extra_data.globals = component_type
             .compiled_globals
             .iter()
-            .map(|g| {
+            .flat_map(|g| {
                 let (_, instance) = crate::global_component::instantiate(g);
                 g.names()
                     .iter()
                     .map(|name| (crate::normalize_identifier(name).to_string(), instance.clone()))
                     .collect::<Vec<_>>()
             })
-            .flatten()
             .collect();
 
         extra_data.embedded_file_resources = component_type
