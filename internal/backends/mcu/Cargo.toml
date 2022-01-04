@@ -11,6 +11,7 @@ publish = false
 description = "Rendering backend for Slint for use on Microcontrollers"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
+links = "i_slint_backend_mcu" # just so we can pass metadata to the slint build crate
 
 [lib]
 path = "lib.rs"
@@ -64,3 +65,6 @@ panic-probe = { version = "0.3.0", optional = true, features = ["print-defmt"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = { version = "0.24.0" }
+
+[build-dependencies]
+cfg-if = "1.0.0"
