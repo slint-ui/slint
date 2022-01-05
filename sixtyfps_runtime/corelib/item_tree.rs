@@ -23,30 +23,30 @@ pub enum TraversalOrder {
 /// otherwise this is the index of the item that aborted the visit.
 #[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub struct VisitChildrenResult(i64);
+pub struct VisitChildrenResult(u64);
 impl VisitChildrenResult {
     /// The result used for a visitor that want to continue the visit
-    pub const CONTINUE: Self = Self(-1);
+    pub const CONTINUE: Self = Self(u64::MAX);
 
     /// Returns a result that means that the visitor must stop, and convey the item that caused the abort
     pub fn abort(item_index: usize, index_within_repeater: usize) -> Self {
-        assert!(item_index < i32::MAX as usize);
-        assert!(index_within_repeater < i32::MAX as usize);
-        Self(item_index as i64 | (index_within_repeater as i64) << 32)
+        assert!(item_index < u32::MAX as usize);
+        assert!(index_within_repeater < u32::MAX as usize);
+        Self(item_index as u64 | (index_within_repeater as u64) << 32)
     }
     /// True if the visitor wants to abort the visit
     pub fn has_aborted(&self) -> bool {
-        self.0 != -1
+        self.0 != Self::CONTINUE.0
     }
     pub fn aborted_index(&self) -> Option<usize> {
-        if self.0 != -1 {
+        if self.0 != Self::CONTINUE.0 {
             Some((self.0 & 0xffff_ffff) as usize)
         } else {
             None
         }
     }
     pub fn aborted_indexes(&self) -> Option<(usize, usize)> {
-        if self.0 != -1 {
+        if self.0 != Self::CONTINUE.0 {
             Some(((self.0 & 0xffff_ffff) as usize, (self.0 >> 32) as usize))
         } else {
             None
@@ -55,7 +55,7 @@ impl VisitChildrenResult {
 }
 impl core::fmt::Debug for VisitChildrenResult {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        if self.0 == -1 {
+        if self.0 == Self::CONTINUE.0 {
             write!(f, "CONTINUE")
         } else {
             write!(f, "({},{})", (self.0 & 0xffff_ffff) as usize, (self.0 >> 32) as usize)

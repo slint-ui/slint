@@ -695,16 +695,16 @@ public:
         viewport_height->set(h);
     }
 
-    intptr_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
+    uintptr_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             int index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             auto ref = item_at(index);
-            if (ref.vtable->visit_children_item(ref, -1, order, visitor) != -1) {
+            if (ref.vtable->visit_children_item(ref, -1, order, visitor) != std::numeric_limits<uint64_t>::max()) {
                 return index;
             }
         }
-        return -1;
+        return std::numeric_limits<uint64_t>::max();
     }
 
     vtable::VRef<private_api::ComponentVTable> item_at(int i) const
