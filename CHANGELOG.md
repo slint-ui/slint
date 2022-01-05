@@ -19,6 +19,7 @@ All notable changes to this project will be documented in this file.
  - Optimize some property access by doing more constant propagation
  - More special keyboard key codes are provided in the `FocusScope`, and
    special keys are handled
+ - `start()`, `stop()`, `running()` and a default constructor for C++ `sixtyfps::Timer`
 
 ### Fixed
 
