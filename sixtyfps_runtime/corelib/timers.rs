@@ -356,9 +356,10 @@ pub(crate) mod ffi {
         }
     }
 
-    /// Start a timer with the given duration in millisecond.
-    /// Returns the timer id.
-    /// The timer MUST be stopped with sixtyfps_timer_stop
+    /// Start a timer with the given mode, duration in millisecond and callback. A timer id may be provided (first argument).
+    /// A value of -1 for the timer id means a new timer is to be allocated.
+    /// The (new) timer id is returned.
+    /// The timer MUST be destroyed with sixtyfps_timer_stop.
     #[no_mangle]
     pub extern "C" fn sixtyfps_timer_start(
         id: i64,
