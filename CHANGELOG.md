@@ -9,6 +9,8 @@ All notable changes to this project will be documented in this file.
    has changed. This was undocumented, but if one was handling this in the
    `FocusScope` event, these keys will now be ignored. Use the `Keys.LeftArrow`
    and other code exposed in the `Keys` namespace instead
+ - For `sixtyfps::Timer` (C++ and Rust), it's now possible to call `restart()` after
+   a timer has been stopped previously by calling `stop()`.
 
 ### Added
 

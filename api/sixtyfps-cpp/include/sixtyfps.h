@@ -374,7 +374,7 @@ struct Timer
     }
     Timer(const Timer &) = delete;
     Timer &operator=(const Timer &) = delete;
-    ~Timer() { cbindgen_private::sixtyfps_timer_stop(id); }
+    ~Timer() { cbindgen_private::sixtyfps_timer_destroy(id); }
 
     /// Starts the timer with the given \a mode and \a interval, in order for the \a callback to
     /// called when the timer fires. If the timer has been started previously and not fired yet,
@@ -388,12 +388,12 @@ struct Timer
     }
     /// Stops the previously started timer. Does nothing if the timer has never been started. A
     /// stopped timer cannot be restarted with restart() -- instead you need to call start().
-    void stop()
-    {
-        cbindgen_private::sixtyfps_timer_stop(id);
-        id = -1;
-    }
-    /// Restarts the timer, if it was previously started.
+    void stop() { cbindgen_private::sixtyfps_timer_stop(id); }
+    /// Restarts the timer. If the timer was previously started by calling [`Self::start()`]
+    /// with a duration and callback, then the time when the callback will be next invoked
+    /// is re-calculated to be in the specified duration relative to when this function is called.
+    ///
+    /// Does nothing if the timer was never started.
     void restart() { cbindgen_private::sixtyfps_timer_restart(id); }
     /// Returns true if the timer is running; false otherwise.
     bool running() const { return cbindgen_private::sixtyfps_timer_running(id); }

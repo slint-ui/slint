@@ -77,6 +77,57 @@ TEST_CASE("C++ Restart Singleshot Timer")
     REQUIRE(timer_was_running);
 }
 
+TEST_CASE("C++ Restart Repeated Timer")
+{
+    int timer_triggered = 0;
+    sixtyfps::Timer timer;
+
+    timer.start(sixtyfps::TimerMode::Repeated, std::chrono::milliseconds(30),
+                [&]() { timer_triggered++; });
+
+    REQUIRE(timer_triggered == 0);
+
+    bool timer_was_running = false;
+
+    sixtyfps::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        sixtyfps::quit_event_loop();
+    });
+
+    sixtyfps::run_event_loop();
+
+    REQUIRE(timer_triggered > 1);
+    REQUIRE(timer_was_running);
+
+    timer_was_running = false;
+    timer_triggered = 0;
+    timer.stop();
+    sixtyfps::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        sixtyfps::quit_event_loop();
+    });
+
+    sixtyfps::run_event_loop();
+
+    REQUIRE(timer_triggered == 0);
+    REQUIRE(!timer_was_running);
+
+    timer_was_running = false;
+    timer_triggered = 0;
+
+    timer.restart();
+
+    sixtyfps::Timer::single_shot(std::chrono::milliseconds(500), [&]() {
+        timer_was_running = timer.running();
+        sixtyfps::quit_event_loop();
+    });
+
+    sixtyfps::run_event_loop();
+
+    REQUIRE(timer_triggered > 1);
+    REQUIRE(timer_was_running);
+}
+
 TEST_CASE("Quit from event")
 {
     int called = 0;

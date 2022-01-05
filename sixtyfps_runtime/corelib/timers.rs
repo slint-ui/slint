@@ -110,17 +110,20 @@ impl Timer {
         })
     }
 
-    /// Stops the previously started timer. Does nothing if the timer has never been started. A stopped
-    /// timer cannot be restarted with restart() -- instead you need to call start().
+    /// Stops the previously started timer. Does nothing if the timer has never been started.
     pub fn stop(&self) {
-        if let Some(id) = self.id.take() {
+        if let Some(id) = self.id.get() {
             CURRENT_TIMERS.with(|timers| {
-                timers.borrow_mut().remove_timer(id);
+                timers.borrow_mut().deactivate_timer(id);
             });
         }
     }
 
-    /// Restarts the timer, if it was previously started.
+    /// Restarts the timer. If the timer was previously started by calling [`Self::start()`]
+    /// with a duration and callback, then the time when the callback will be next invoked
+    /// is re-calculated to be in the specified duration relative to when this function is called.
+    ///
+    /// Does nothing if the timer was never started.
     pub fn restart(&self) {
         if let Some(id) = self.id.get() {
             CURRENT_TIMERS.with(|timers| {
@@ -359,7 +362,7 @@ pub(crate) mod ffi {
     /// Start a timer with the given mode, duration in millisecond and callback. A timer id may be provided (first argument).
     /// A value of -1 for the timer id means a new timer is to be allocated.
     /// The (new) timer id is returned.
-    /// The timer MUST be destroyed with sixtyfps_timer_stop.
+    /// The timer MUST be destroyed with sixtyfps_timer_destroy.
     #[no_mangle]
     pub extern "C" fn sixtyfps_timer_start(
         id: i64,
@@ -396,12 +399,23 @@ pub(crate) mod ffi {
 
     /// Stop a timer and free its raw data
     #[no_mangle]
+    pub extern "C" fn sixtyfps_timer_destroy(id: i64) {
+        if id == -1 {
+            return;
+        }
+        let timer = Timer { id: Cell::new(Some(id as _)) };
+        drop(timer);
+    }
+
+    /// Stop a timer
+    #[no_mangle]
     pub extern "C" fn sixtyfps_timer_stop(id: i64) {
         if id == -1 {
             return;
         }
         let timer = Timer { id: Cell::new(Some(id as _)) };
-        timer.stop()
+        timer.stop();
+        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
     }
 
     /// Restart a repeated timer
@@ -412,7 +426,7 @@ pub(crate) mod ffi {
         }
         let timer = Timer { id: Cell::new(Some(id as _)) };
         timer.restart();
-        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call stop() in the destructor.
+        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
     }
 
     /// Returns true if the timer is running; false otherwise.
@@ -423,7 +437,7 @@ pub(crate) mod ffi {
         }
         let timer = Timer { id: Cell::new(Some(id as _)) };
         let running = timer.running();
-        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call stop() in the destructor.
+        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call destroy() in the destructor.
         running
     }
 }
