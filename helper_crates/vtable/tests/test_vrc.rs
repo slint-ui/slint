@@ -228,6 +228,9 @@ fn rc_map_test() {
 
     assert!(weak_struct_ref.upgrade().is_none());
     assert!(double_map_weak.upgrade().is_none());
+
+    let def = VWeakMapped::<AppVTable, SomeStruct>::default();
+    assert!(def.upgrade().is_none());
 }
 
 #[test]

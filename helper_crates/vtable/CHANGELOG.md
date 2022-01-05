@@ -6,6 +6,7 @@ All notable changes to this crate will be documented in this file.
  - Make it `#[no_std]`
  - Use `atomic-polyfill` to support compiling to architectures where a polyfill
    using critical sections is needed.
+ - Implement `Default` for `VWeakMapped`
 
 ## [0.1.4] - 2021-11-24
 

@@ -430,3 +430,11 @@ impl<VTable: VTableMetaDropInPlace + 'static, MappedType: ?Sized> Clone
         Self { parent_weak: self.parent_weak.clone(), object: self.object.clone() }
     }
 }
+
+impl<VTable: VTableMetaDropInPlace + 'static, MappedType> Default
+    for VWeakMapped<VTable, MappedType>
+{
+    fn default() -> Self {
+        Self { parent_weak: VWeak::default(), object: core::ptr::null() }
+    }
+}
