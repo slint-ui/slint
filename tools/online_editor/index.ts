@@ -24,7 +24,8 @@ self.MonacoEnvironment = {
     }
 };
 
-import sixtyfps_init, * as sixtyfps from "../../api/sixtyfps-wasm-interpreter/pkg/sixtyfps_wasm_interpreter.js";
+import sixtyfps_init, * as sixtyfps from "../../../wasm-interpreter/sixtyfps_wasm_interpreter.js";
+
 
 (async function () {
     await sixtyfps_init();
