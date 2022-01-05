@@ -31,7 +31,7 @@ pub enum TimerMode {
 /// Timer is a handle to the timer system that allows triggering a callback to be called
 /// after a specified period of time.
 ///
-/// Use [`Timer::default()`] to create a timer that can repeat at frequent interval, or
+/// Use [`Timer::start()`] to create a timer that can repeat at frequent interval, or
 /// [`Timer::single_shot`] if you just want to call a function with a delay and do not
 /// need to be able to stop it.
 ///
