@@ -139,7 +139,7 @@ impl WinitWindow for GLWindow {
             window.opengl_context.ensure_resized();
 
             {
-                let mut canvas = window.canvas.borrow_mut();
+                let mut canvas = window.canvas.as_ref().unwrap().borrow_mut();
                 // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
                 // text metrics. Since we do the entire translation from logical pixels to physical
                 // pixels on our end, we don't need femtovg to scale a second time.
@@ -154,7 +154,7 @@ impl WinitWindow for GLWindow {
             }
 
             let mut renderer = crate::GLItemRenderer {
-                canvas: window.canvas.clone(),
+                canvas: window.canvas.as_ref().unwrap().clone(),
                 layer_images_to_delete_after_flush: Default::default(),
                 graphics_window: self.clone(),
                 scale_factor,
@@ -436,7 +436,7 @@ impl PlatformWindow for GLWindow {
         drop(platform_window);
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-            canvas,
+            canvas: Some(canvas),
             opengl_context,
             clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
@@ -626,7 +626,7 @@ impl PlatformWindow for GLWindow {
 }
 
 struct MappedWindow {
-    canvas: CanvasRc,
+    canvas: Option<CanvasRc>,
     opengl_context: crate::OpenGLContext,
     clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
@@ -634,6 +634,15 @@ struct MappedWindow {
 
 impl Drop for MappedWindow {
     fn drop(&mut self) {
+        if let Some(canvas) = self.canvas.take().map(|canvas| Rc::try_unwrap(canvas).ok()) {
+            // The canvas must be destructed with a GL context current, in order to clean up correctly
+            self.opengl_context.with_current_context(|| {
+                drop(canvas);
+            });
+        } else {
+            corelib::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
+        }
+
         crate::event_loop::unregister_window(self.opengl_context.window().id());
     }
 }
