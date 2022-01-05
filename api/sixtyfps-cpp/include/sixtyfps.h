@@ -337,23 +337,66 @@ private:
     private_api::WindowRc inner;
 };
 
+#if !defined(DOXYGEN)
+using cbindgen_private::TimerMode;
+#else
+/// The TimerMode specifies what should happen after the timer fired.
+///
+/// Used by the sixtyfps::Timer::start() function.
+enum class TimerMode {
+    /// A SingleShot timer is fired only once.
+    SingleShot,
+    /// A Repeated timer is fired repeatedly until it is stopped or dropped.
+    Repeated,
+};
+#endif
+
 /// A Timer that can call a callback at repeated interval
 ///
 /// Use the static single_shot function to make a single shot timer
 struct Timer
 {
+    /// Construct a null timer. Use the start() method to activate the timer with a mode, interval
+    /// and callback.
+    Timer() : id(-1) { }
     /// Construct a timer which will repeat the callback every `interval` milliseconds until
     /// the destructor of the timer is called.
+    ///
+    /// This is a convenience function and equivalent to calling
+    /// `start(sixtyfps::TimerMode::Repeated, interval, callback);` on a default constructed Timer.
     template<typename F>
     Timer(std::chrono::milliseconds interval, F callback)
         : id(cbindgen_private::sixtyfps_timer_start(
-                interval.count(), [](void *data) { (*reinterpret_cast<F *>(data))(); },
-                new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); }))
+                -1, cbindgen_private::TimerMode::Repeated, interval.count(),
+                [](void *data) { (*reinterpret_cast<F *>(data))(); }, new F(std::move(callback)),
+                [](void *data) { delete reinterpret_cast<F *>(data); }))
     {
     }
     Timer(const Timer &) = delete;
     Timer &operator=(const Timer &) = delete;
     ~Timer() { cbindgen_private::sixtyfps_timer_stop(id); }
+
+    /// Starts the timer with the given \a mode and \a interval, in order for the \a callback to
+    /// called when the timer fires. If the timer has been started previously and not fired yet,
+    /// then it will be restarted.
+    template<typename F>
+    void start(TimerMode mode, std::chrono::milliseconds interval, F callback)
+    {
+        id = cbindgen_private::sixtyfps_timer_start(
+                id, mode, interval.count(), [](void *data) { (*reinterpret_cast<F *>(data))(); },
+                new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
+    }
+    /// Stops the previously started timer. Does nothing if the timer has never been started. A
+    /// stopped timer cannot be restarted with restart() -- instead you need to call start().
+    void stop()
+    {
+        cbindgen_private::sixtyfps_timer_stop(id);
+        id = -1;
+    }
+    /// Restarts the timer, if it was previously started.
+    void restart() { cbindgen_private::sixtyfps_timer_restart(id); }
+    /// Returns true if the timer is running; false otherwise.
+    bool running() const { return cbindgen_private::sixtyfps_timer_running(id); }
 
     /// Call the callback after the given duration.
     template<typename F>

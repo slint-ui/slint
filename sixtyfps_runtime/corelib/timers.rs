@@ -21,6 +21,7 @@ type SingleShotTimerCallback = Box<dyn FnOnce()>;
 ///
 /// Used by the [`Timer::start`] function.
 #[derive(Copy, Clone)]
+#[repr(C)]
 pub enum TimerMode {
     /// A SingleShot timer is fired only once.
     SingleShot,
@@ -360,6 +361,8 @@ pub(crate) mod ffi {
     /// The timer MUST be stopped with sixtyfps_timer_stop
     #[no_mangle]
     pub extern "C" fn sixtyfps_timer_start(
+        id: i64,
+        mode: TimerMode,
         duration: u64,
         callback: extern "C" fn(*mut c_void),
         user_data: *mut c_void,
@@ -367,7 +370,10 @@ pub(crate) mod ffi {
     ) -> i64 {
         let wrap = WrapFn { callback, user_data, drop_user_data };
         let timer = Timer::default();
-        timer.start(TimerMode::Repeated, core::time::Duration::from_millis(duration), move || {
+        if id != -1 {
+            timer.id.set(Some(id as _));
+        }
+        timer.start(mode, core::time::Duration::from_millis(duration), move || {
             (wrap.callback)(wrap.user_data)
         });
         timer.id.take().map(|x| x as i64).unwrap_or(-1)
@@ -395,5 +401,28 @@ pub(crate) mod ffi {
         }
         let timer = Timer { id: Cell::new(Some(id as _)) };
         timer.stop()
+    }
+
+    /// Restart a repeated timer
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_timer_restart(id: i64) {
+        if id == -1 {
+            return;
+        }
+        let timer = Timer { id: Cell::new(Some(id as _)) };
+        timer.restart();
+        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call stop() in the destructor.
+    }
+
+    /// Returns true if the timer is running; false otherwise.
+    #[no_mangle]
+    pub extern "C" fn sixtyfps_timer_running(id: i64) -> bool {
+        if id == -1 {
+            return false;
+        }
+        let timer = Timer { id: Cell::new(Some(id as _)) };
+        let running = timer.running();
+        timer.id.take(); // Make sure that dropping the Timer doesn't unregister it. C++ will call stop() in the destructor.
+        running
     }
 }
