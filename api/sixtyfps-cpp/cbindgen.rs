@@ -314,6 +314,22 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(public_config)
         .with_src(crate_dir.join("timers.rs"))
+        .with_after_include(format!(
+            r"
+/// This macro expands to the to the numeric value of the major version of SixtyFPS you're
+/// developing against. For example if you're using version 1.5.2, this macro will expand to 1.            
+#define SIXTYFPS_VERSION_MAJOR {}
+/// This macro expands to the to the numeric value of the minor version of SixtyFPS you're
+/// developing against. For example if you're using version 1.5.2, this macro will expand to 5.
+#define SIXTYFPS_VERSION_MINOR {}
+/// This macro expands to the to the numeric value of the patch version of SixtyFPS you're
+/// developing against. For example if you're using version 1.5.2, this macro will expand to 2.
+#define SIXTYFPS_VERSION_PATCH {}
+",
+            env!("CARGO_PKG_VERSION_MAJOR"),
+            env!("CARGO_PKG_VERSION_MINOR"),
+            env!("CARGO_PKG_VERSION_PATCH"),
+        ))
         .generate()
         .context("Unable to generate bindings for sixtyfps_generated_public.h")?
         .write_to_file(include_dir.join("sixtyfps_generated_public.h"));
@@ -358,16 +374,6 @@ fn gen_corelib(
         .with_include("sixtyfps_pathdata.h")
         .with_include("sixtyfps_brush.h")
         .with_include("sixtyfps_generated_public.h")
-        .with_header(format!(
-            r"
-#define SIXTYFPS_VERSION_MAJOR {}
-#define SIXTYFPS_VERSION_MINOR {}
-#define SIXTYFPS_VERSION_PATCH {}
-",
-            env!("CARGO_PKG_VERSION_MAJOR"),
-            env!("CARGO_PKG_VERSION_MINOR"),
-            env!("CARGO_PKG_VERSION_PATCH"),
-        ))
         .with_after_include(
             r"
 namespace sixtyfps {

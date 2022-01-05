@@ -36,19 +36,6 @@ struct ItemVTable;
 /// \endrst
 namespace sixtyfps {
 
-// these macro are defined in the generated sixtyfps_internal.h
-#if defined(DOXYGEN)
-/// This macro expands to the to the numeric value of the major version of SixtyFPS you're
-/// developing against. For example if you're using version 1.5.2, this macro will expand to 1.
-#    define SIXTYFPS_VERSION_MAJOR SIXTYFPS_VERSION_MAJOR
-/// This macro expands to the to the numeric value of the minor version of SixtyFPS you're
-/// developing against. For example if you're using version 1.5.2, this macro will expand to 5.
-#    define SIXTYFPS_VERSION_MINOR SIXTYFPS_VERSION_MINOR
-/// This macro expands to the to the numeric value of the patch version of SixtyFPS you're
-/// developing against. For example if you're using version 1.5.2, this macro will expand to 2.
-#    define SIXTYFPS_VERSION_PATCH SIXTYFPS_VERSION_PATCH
-#endif
-
 // Bring opaque structure in scope
 namespace private_api {
 using cbindgen_private::ComponentVTable;
