@@ -23,6 +23,3 @@ spin_on = "0.1"
 
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }
-anyhow = "1"
-cbindgen = "0.20"
-proc-macro2 = "1.0.11"
