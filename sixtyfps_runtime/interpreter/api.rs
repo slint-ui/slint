@@ -18,8 +18,6 @@ pub use sixtyfps_corelib::window::api::Window;
 
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
-// NOTE: The docs for ValueType are duplicated in sixtyfps_interpreter.h, for extraction by
-// Doxygen. Keep in sync!
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i8)]
 pub enum ValueType {

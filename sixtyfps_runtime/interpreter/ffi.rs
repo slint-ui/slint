@@ -655,23 +655,32 @@ pub unsafe extern "C" fn sixtyfps_interpreter_model_notify_row_removed(
 }
 
 // FIXME: Figure out how to re-export the one from compilerlib
-// Note: Documented in sixtyfps.h - keep in sync!
+/// DiagnosticLevel describes the severity of a diagnostic.
 #[derive(Clone)]
 #[repr(C)]
-pub enum CDiagnosticLevel {
+pub enum DiagnosticLevel {
+    /// The diagnostic belongs to an error.
     Error,
+    /// The diagnostic belongs to a warning.
     Warning,
 }
 
-// Note: Documented in sixtyfps.h - keep in sync!
+/// Diagnostic describes the aspects of either a warning or an error, along
+/// with its location and a description. Diagnostics are typically returned by
+/// sixtyfps::interpreter::ComponentCompiler::diagnostics() in a vector.
 #[derive(Clone)]
 #[repr(C)]
-pub struct CDiagnostic {
+pub struct Diagnostic {
+    /// The message describing the warning or error.
     message: SharedString,
+    /// The path to the source file where the warning or error is located.
     source_file: SharedString,
+    /// The line within the source file. Line numbers start at 1.
     line: usize,
+    /// The column within the source file. Column numbers start at 1.
     column: usize,
-    level: CDiagnosticLevel,
+    /// The level of the diagnostic, such as a warning or an error.
+    level: DiagnosticLevel,
 }
 
 #[repr(C)]
@@ -751,11 +760,11 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_include_pat
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_diagnostics(
     compiler: &ComponentCompilerOpaque,
-    out_diags: &mut SharedVector<CDiagnostic>,
+    out_diags: &mut SharedVector<Diagnostic>,
 ) {
     out_diags.extend(compiler.as_component_compiler().diagnostics.iter().map(|diagnostic| {
         let (line, column) = diagnostic.line_column();
-        CDiagnostic {
+        Diagnostic {
             message: diagnostic.message().into(),
             source_file: diagnostic
                 .source_file()
@@ -764,8 +773,10 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_diagnostics
             line,
             column,
             level: match diagnostic.level() {
-                DiagnosticLevel::Error => CDiagnosticLevel::Error,
-                DiagnosticLevel::Warning => CDiagnosticLevel::Warning,
+                sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Error => DiagnosticLevel::Error,
+                sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Warning => {
+                    DiagnosticLevel::Warning
+                }
             },
         }
     }));
@@ -810,11 +821,15 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_build_from_path
     }
 }
 
-// NOTE: The C++ documentation for this exists in sixtyfps_interpreter.h. Keep in sync!
+/// PropertyDescriptor is a simple structure that's used to describe a property declared in .60
+/// code. It is returned from in a vector from
+/// sixtyfps::interpreter::ComponentDefinition::properties().
 #[derive(Clone)]
 #[repr(C)]
 pub struct PropertyDescriptor {
+    /// The name of the declared property.
     property_name: SharedString,
+    /// The type of the property.
     property_type: ValueType,
 }
 
