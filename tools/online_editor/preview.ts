@@ -1,8 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
+import sixtyfps_init, * as sixtyfps from "../../api/sixtyfps-wasm-interpreter/pkg/sixtyfps_wasm_interpreter.js";
+
 (async function () {
-    let sixtyfps = await import("../../api/sixtyfps-wasm-interpreter/pkg/index.js");
+    await sixtyfps_init();
 
     var base_url = "";
 
