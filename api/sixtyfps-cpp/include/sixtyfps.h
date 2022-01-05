@@ -337,20 +337,6 @@ private:
     private_api::WindowRc inner;
 };
 
-#if !defined(DOXYGEN)
-using cbindgen_private::TimerMode;
-#else
-/// The TimerMode specifies what should happen after the timer fired.
-///
-/// Used by the sixtyfps::Timer::start() function.
-enum class TimerMode {
-    /// A SingleShot timer is fired only once.
-    SingleShot,
-    /// A Repeated timer is fired repeatedly until it is stopped or dropped.
-    Repeated,
-};
-#endif
-
 /// A Timer that can call a callback at repeated interval
 ///
 /// Use the static single_shot function to make a single shot timer
@@ -367,7 +353,7 @@ struct Timer
     template<typename F>
     Timer(std::chrono::milliseconds interval, F callback)
         : id(cbindgen_private::sixtyfps_timer_start(
-                -1, cbindgen_private::TimerMode::Repeated, interval.count(),
+                -1, TimerMode::Repeated, interval.count(),
                 [](void *data) { (*reinterpret_cast<F *>(data))(); }, new F(std::move(callback)),
                 [](void *data) { delete reinterpret_cast<F *>(data); }))
     {
