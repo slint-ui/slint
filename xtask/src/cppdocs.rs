@@ -7,6 +7,9 @@ use anyhow::{Context, Result};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
+#[path = "../../api/sixtyfps-cpp/cbindgen.rs"]
+mod cbindgen;
+
 fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
     if dst.as_ref().exists() {
         std::fs::remove_file(dst.as_ref()).context("Error removing old symlink")?;
@@ -79,6 +82,9 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
         ["..", "..", "api", "sixtyfps-cpp", "README.md"].iter().collect::<PathBuf>(),
         docs_build_dir.join("README.md"),
     )?;
+
+    let generated_headers_dir = docs_build_dir.join("generated_include");
+    cbindgen::gen_all(&root, &generated_headers_dir)?;
 
     let pip_env = vec![(OsString::from("PIPENV_PIPFILE"), docs_source_dir.join("docs/Pipfile"))];
 

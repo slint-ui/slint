@@ -56,8 +56,8 @@ exhale_args = {
     "doxygenStripFromPath": "..",
     "createTreeView": True,
     "exhaleExecutesDoxygen": True,
-    "exhaleDoxygenStdin": """INPUT = ../../api/sixtyfps-cpp/include
-EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api* vtable*
+    "exhaleDoxygenStdin": """INPUT = ../../api/sixtyfps-cpp/include generated_include
+EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api* vtable* SIXTYFPS_DECL_ITEM
 EXCLUDE = ../../api/sixtyfps-cpp/include/vtable.h ../../api/sixtyfps-cpp/include/sixtyfps_testing.h
 ENABLE_PREPROCESSING = YES
 PREDEFINED += DOXYGEN

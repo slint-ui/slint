@@ -20,5 +20,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     println!("cargo:GENERATED_INCLUDE_DIR={}", output_dir.display());
 
-    cbindgen::gen_all(&root_dir, &output_dir)
+    let dependencies = cbindgen::gen_all(&root_dir, &output_dir)?;
+    for path in dependencies {
+        println!("cargo:rerun-if-changed={}", path.display());
+    }
+    Ok(())
 }
