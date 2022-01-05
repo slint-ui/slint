@@ -471,17 +471,60 @@ fn gen_interpreter(
 ) -> anyhow::Result<()> {
     let mut config = default_config();
     // Avoid Value, just export ValueOpaque.
-    config.export.exclude.push("Value".into());
+    config.export.exclude = std::array::IntoIter::new([
+        "Value",
+        "ValueType",
+        "PropertyDescriptor",
+        "Diagnostic",
+        "PropertyDescriptor",
+    ])
+    .map(String::from)
+    .collect();
     let mut crate_dir = root_dir.to_owned();
 
     crate_dir.extend(["sixtyfps_runtime", "interpreter"].iter());
     ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
 
+    // Generate a header file with some public API (enums, etc.)
+    let mut public_config = config.clone();
+    public_config.namespaces = Some(vec!["sixtyfps".into(), "interpreter".into()]);
+    public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
+
+    public_config.export.exclude = std::array::IntoIter::new([
+        "ComponentCompilerOpaque",
+        "ComponentDefinitionOpaque",
+        "ModelAdaptorVTable",
+        "StructIteratorOpaque",
+        "ComponentInstance",
+        "StructIteratorResult",
+        "ValueOpaque",
+        "StructOpaque",
+        "ModelNotifyOpaque",
+    ])
+    .map(String::from)
+    .collect();
+
+    cbindgen::Builder::new()
+        .with_config(public_config)
+        .with_crate(crate_dir.clone())
+        .generate()
+        .context("Unable to generate bindings for sixtyfps_interpreter_generated_public.h")?
+        .write_to_file(include_dir.join("sixtyfps_interpreter_generated_public.h"));
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
         .with_include("sixtyfps_internal.h")
-        .with_after_include("namespace sixtyfps::cbindgen_private { struct Value; }")
+        .with_include("sixtyfps_interpreter_generated_public.h")
+        .with_after_include(
+            r"
+            namespace sixtyfps::cbindgen_private {
+                struct Value;
+                using sixtyfps::interpreter::ValueType;
+                using sixtyfps::interpreter::PropertyDescriptor;
+                using sixtyfps::interpreter::Diagnostic;
+            }",
+        )
         .generate()
         .context("Unable to generate bindings for sixtyfps_interpreter_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_interpreter_internal.h"));

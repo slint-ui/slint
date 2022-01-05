@@ -285,36 +285,8 @@ public:
     /// Destroys the value.
     ~Value() { cbindgen_private::sixtyfps_interpreter_value_destructor(&inner); }
 
-#if !defined(DOXYGEN)
-    using Type = cbindgen_private::ValueType;
-#else
-    /// This enum describes the different types the Value class can represent.
-    enum Type {
-        /// The variant that expresses the non-type. This is the default.
-        Void,
-        /// An `int` or a `float` (this is also used for unit based type such as `length` or
-        /// `angle`)
-        Number,
-        /// Correspond to the `string` type in .60
-        String,
-        /// Correspond to the `bool` type in .60
-        Bool,
-        /// An Array in the .60 language.
-        Array,
-        /// A more complex model which is not created by the interpreter itself (Type::Array can
-        /// also be used for models)
-        Model,
-        /// An object
-        Struct,
-        /// Correspond to `brush` or `color` type in .60.  For color, this is then a
-        /// sixtyfps::Brush with just a color.
-        Brush,
-        /// Correspond to `image` type in .60.
-        Image,
-        /// The type is not a public type but something internal.
-        Other = -1,
-    };
-#endif // else !defined(DOXYGEN)
+    /// A convenience alias for the value type enum.
+    using Type = ValueType;
 
     // optional<int> to_int() const;
     // optional<float> to_float() const;
@@ -788,21 +760,6 @@ public:
     }
 };
 
-#if !defined(DOXYGEN)
-using PropertyDescriptor = sixtyfps::cbindgen_private::PropertyDescriptor;
-#else
-/// PropertyDescriptor is a simple structure that's used to describe a property declared in .60
-/// code. It is returned from in a vector from
-/// sixtyfps::interpreter::ComponentDefinition::properties().
-struct PropertyDescriptor
-{
-    /// The name of the declared property.
-    SharedString property_name;
-    /// The type of the property.
-    Value::Type property_type;
-};
-#endif // else !defined(DOXYGEN)
-
 /// ComponentDefinition is a representation of a compiled component from .60 markup.
 ///
 /// It can be constructed from a .60 file using the ComponentCompiler::build_from_path() or
@@ -919,35 +876,6 @@ public:
         return {};
     }
 };
-
-#if !defined(DOXYGEN)
-using DiagnosticLevel = sixtyfps::cbindgen_private::CDiagnosticLevel;
-using Diagnostic = sixtyfps::cbindgen_private::CDiagnostic;
-#else
-/// DiagnosticLevel describes the severity of a diagnostic.
-enum DiagnosticLevel {
-    /// The diagnostic belongs to an error.
-    Error,
-    /// The diagnostic belongs to a warning.
-    Warning,
-};
-/// Diagnostic describes the aspects of either a warning or an error, along
-/// with its location and a description. Diagnostics are typically returned by
-/// sixtyfps::interpreter::ComponentCompiler::diagnostics() in a vector.
-struct Diagnostic
-{
-    /// The message describing the warning or error.
-    SharedString message;
-    /// The path to the source file where the warning or error is located.
-    SharedString source_file;
-    /// The line within the source file. Line numbers start at 1.
-    uintptr_t line;
-    /// The column within the source file. Column numbers start at 1.
-    uintptr_t column;
-    /// The level of the diagnostic, such as a warning or an error.
-    DiagnosticLevel level;
-};
-#endif // else !defined(DOXYGEN)
 
 /// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
 /// to load .60 files or compile them on-the-fly from a string
