@@ -2,7 +2,23 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use anyhow::Context;
-use xshell::{cmd, cp, pushd, read_file, rm_rf, write_file};
+use xshell::{cmd, cp, pushd, read_dir, read_file, rm_rf, write_file};
+
+fn cp_r(src: &std::path::Path, dst: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    if src.is_dir() {
+        assert!(dst.is_dir() || !dst.exists());
+
+        for f in read_dir(src)? {
+            let src = src.join(&f);
+            let dst = dst.join(&f);
+
+            cp_r(&src, &dst)?
+        }
+        Ok(())
+    } else {
+        cp(src, dst).map_err(|e| e.into())
+    }
+}
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
@@ -33,13 +49,15 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     write_file(cargo_toml_path.clone(), edited_toml).context("Error writing Cargo.toml")?;
 
-    println!("Putting LICENSE.md in place for the source package");
+    println!("Putting LICENSE information into place for the source package");
 
     cp(root.join("LICENSE.md"), node_dir.join("LICENSE.md"))
         .context("Error copying LICENSE.md into the node dir for packaging")?;
 
+    cp_r(&root.join("LICENSES"), &node_dir.join("LICENSES"))?;
+
     let package_json_source =
-        read_file(node_dir.join("package.json")).context("Error reading package.json")?;
+        read_file(&node_dir.join("package.json")).context("Error reading package.json")?;
 
     let package_json: serde_json::Value = serde_json::from_str(&package_json_source)?;
 
