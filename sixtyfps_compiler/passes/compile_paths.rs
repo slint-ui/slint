@@ -98,8 +98,16 @@ pub fn compile_paths(
                             element_name
                         ),
                     };
-                    let bindings = std::mem::take(&mut child.borrow_mut().bindings);
-                    path_data.push(PathElement { element_type, bindings });
+
+                    if child.borrow().repeated.is_some() {
+                        diag.push_error(
+                            "Path elements are not supported with `for`-`in` syntax, yet (https://github.com/sixtyfpsui/sixtyfps/issues/754)".into(),
+                            &*child.borrow(),
+                        );
+                    } else {
+                        let bindings = std::mem::take(&mut child.borrow_mut().bindings);
+                        path_data.push(PathElement { element_type, bindings });
+                    }
                 } else {
                     elem.children.push(child);
                 }

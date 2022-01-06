@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+
+TestCase := Rectangle {
+    Path {
+        MoveTo {
+        x: 0;
+        y: 0;
+        }
+        for sample[i] in [ 0, 1, 2, 3 ] : LineTo {
+//                                        ^error{Path elements are not supported with `for`-`in` syntax, yet \(https://github.com/sixtyfpsui/sixtyfps/issues/754\)}
+            x: i;
+            y: sample;
+        }
+        Close {}
+    }
+}
