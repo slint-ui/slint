@@ -78,14 +78,9 @@ pub fn lower_expression(
         tree_Expression::ElementReference(e) => {
             // We map an element reference to a reference to the property "" inside that native item
             Some(llr_Expression::PropertyReference(
-                ctx.mapping
-                    .map_property_reference(
-                        &NamedReference::new(&e.upgrade().unwrap(), ""),
-                        ctx.state,
-                    )
-                    .expect(
-                        "this should be a reference to a native item and it should always exist",
-                    ),
+                ctx.map_property_reference(&NamedReference::new(&e.upgrade().unwrap(), "")).expect(
+                    "this should be a reference to a native item and it should always exist",
+                ),
             ))
         }
         tree_Expression::RepeaterIndexReference { element } => {
@@ -186,9 +181,7 @@ pub fn lower_expression(
         )),
         tree_Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
             Some(llr_Expression::LayoutCacheAccess {
-                layout_cache_prop: ctx
-                    .mapping
-                    .map_property_reference(layout_cache_prop, ctx.state)?,
+                layout_cache_prop: ctx.map_property_reference(layout_cache_prop)?,
                 index: *index,
                 repeater_index: repeater_index
                     .as_ref()

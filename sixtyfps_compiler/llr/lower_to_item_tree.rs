@@ -84,7 +84,7 @@ impl LoweredSubComponentMapping {
         {
             return state.map_property_reference(alias);
         }
-        match self.element_mapping.get(&element.clone().into())? {
+        match self.element_mapping.get(&element.clone().into()).unwrap() {
             LoweredElement::SubComponent { sub_component_index } => {
                 if let Type::Component(base) = &element.borrow().base_type {
                     return Some(property_reference_within_sub_component(
@@ -441,6 +441,21 @@ fn lower_global(
         }
     }
 
+    let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
+        // We just generate the property so we know how to address them
+        for (p, x) in &builtin.properties {
+            let property_index = properties.len();
+            properties.push(Property { name: p.clone(), ty: x.ty.clone() });
+            let nr = NamedReference::new(&global.root_element, &p);
+            state
+                .global_properties
+                .insert(nr, PropertyReference::Global { global_index, property_index });
+        }
+        true
+    } else {
+        false
+    };
+
     let public_properties = public_properties(global, &mapping, &state);
     GlobalComponent {
         name: global.id.clone(),
@@ -450,7 +465,7 @@ fn lower_global(
         public_properties,
         exported: global.exported_global_names.borrow().is_empty(),
         aliases: global.global_aliases(),
-        is_builtin: global.root_element.borrow().native_class().is_some(),
+        is_builtin,
     }
 }
 
