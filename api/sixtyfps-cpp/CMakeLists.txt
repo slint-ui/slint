@@ -228,7 +228,7 @@ if(SIXTYFPS_PACKAGE_BUNDLE_QT)
             FILES ${Qt6_DIR}/../../../plugins/imageformats/qsvg.dll
             DESTINATION plugins/imageformats)
 
-        install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../licenses/ DESTINATION licenses)
+        install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../licenses/ DESTINATION LICENSES)
 
         set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_SKIP TRUE)
         include(InstallRequiredSystemLibraries)
