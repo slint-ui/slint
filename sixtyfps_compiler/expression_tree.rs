@@ -431,9 +431,7 @@ pub enum Expression {
         values: HashMap<String, Expression>,
     },
 
-    PathElements {
-        elements: Path,
-    },
+    PathData(Path),
 
     EasingCurve(EasingCurve),
 
@@ -585,7 +583,7 @@ impl Expression {
             Expression::UnaryOp { sub, .. } => sub.ty(),
             Expression::Array { element_ty, .. } => Type::Array(Box::new(element_ty.clone())),
             Expression::Struct { ty, .. } => ty.clone(),
-            Expression::PathElements { .. } => Type::PathElements,
+            Expression::PathData { .. } => Type::PathData,
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
@@ -653,8 +651,8 @@ impl Expression {
                     visitor(x);
                 }
             }
-            Expression::PathElements { elements } => {
-                if let Path::Elements(elements) = elements {
+            Expression::PathData(data) => {
+                if let Path::Elements(elements) = data {
                     for element in elements {
                         element.bindings.values().for_each(|binding| visitor(&binding.borrow()))
                     }
@@ -735,8 +733,8 @@ impl Expression {
                     visitor(x);
                 }
             }
-            Expression::PathElements { elements } => {
-                if let Path::Elements(elements) = elements {
+            Expression::PathData(data) => {
+                if let Path::Elements(elements) = data {
                     for element in elements {
                         element
                             .bindings
@@ -811,8 +809,8 @@ impl Expression {
             Expression::UnaryOp { sub, .. } => sub.is_constant(),
             Expression::Array { values, .. } => values.iter().all(Expression::is_constant),
             Expression::Struct { values, .. } => values.iter().all(|(_, v)| v.is_constant()),
-            Expression::PathElements { elements } => {
-                if let Path::Elements(elements) = elements {
+            Expression::PathData(data) => {
+                if let Path::Elements(elements) = data {
                     elements
                         .iter()
                         .all(|element| element.bindings.values().all(|v| v.borrow().is_constant()))
@@ -1024,7 +1022,7 @@ impl Expression {
             },
             Type::Bool => Expression::BoolLiteral(false),
             Type::Model => Expression::Invalid,
-            Type::PathElements => Expression::PathElements { elements: Path::Elements(vec![]) },
+            Type::PathData => Expression::PathData(Path::Elements(vec![])),
             Type::Array(element_ty) => {
                 Expression::Array { element_ty: (**element_ty).clone(), values: vec![] }
             }
@@ -1319,7 +1317,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, " }}")
         }
-        Expression::PathElements { elements } => write!(f, "{:?}", elements),
+        Expression::PathData(data) => write!(f, "{:?}", data),
         Expression::EasingCurve(e) => write!(f, "{:?}", e),
         Expression::LinearGradient { angle, stops } => {
             write!(f, "@linear-gradient(")?;

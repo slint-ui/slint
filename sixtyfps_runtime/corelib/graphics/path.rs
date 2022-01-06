@@ -118,7 +118,7 @@ pub struct PathQuadraticTo {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, derive_more::From)]
 /// PathElement describes a single element on a path, such as move-to, line-to, etc.
 pub enum PathElement {
     /// The MoveTo variant sets the current position on the path.

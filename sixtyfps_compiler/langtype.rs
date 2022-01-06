@@ -49,7 +49,7 @@ pub enum Type {
     Image,
     Bool,
     Model,
-    PathElements,
+    PathData, // Either a vector of path elements or a two vectors of events and coordinates
     Easing,
     Brush,
     /// This is usually a model
@@ -103,7 +103,7 @@ impl core::cmp::PartialEq for Type {
             Type::Image => matches!(other, Type::Image),
             Type::Bool => matches!(other, Type::Bool),
             Type::Model => matches!(other, Type::Model),
-            Type::PathElements => matches!(other, Type::PathElements),
+            Type::PathData => matches!(other, Type::PathData),
             Type::Easing => matches!(other, Type::Easing),
             Type::Brush => matches!(other, Type::Brush),
             Type::Array(a) => matches!(other, Type::Array(b) if a == b),
@@ -177,7 +177,7 @@ impl Display for Type {
                 write!(f, "}}")
             }
 
-            Type::PathElements => write!(f, "pathelements"),
+            Type::PathData => write!(f, "pathdata"),
             Type::Easing => write!(f, "easing"),
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
@@ -484,7 +484,7 @@ impl Type {
             Type::Image => None,
             Type::Bool => None,
             Type::Model => None,
-            Type::PathElements => None,
+            Type::PathData => None,
             Type::Easing => None,
             Type::Brush => None,
             Type::Array(_) => None,

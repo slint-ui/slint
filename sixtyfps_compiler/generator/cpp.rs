@@ -2297,7 +2297,7 @@ fn compile_expression(
                 panic!("Expression::Object is not a Type::Object")
             }
         }
-        Expression::PathElements { elements } => compile_path(elements, component),
+        Expression::PathData(data)  => compile_path(data, component),
         Expression::EasingCurve(EasingCurve::Linear) => "sixtyfps::cbindgen_private::EasingCurve()".into(),
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
             "sixtyfps::cbindgen_private::EasingCurve(sixtyfps::cbindgen_private::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",

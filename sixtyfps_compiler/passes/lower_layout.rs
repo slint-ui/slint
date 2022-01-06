@@ -596,9 +596,7 @@ fn lower_path_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
         .remove("elements")
         .map(RefCell::into_inner)
     {
-        Some(BindingExpression { expression: Expression::PathElements { elements }, .. }) => {
-            elements
-        }
+        Some(BindingExpression { expression: Expression::PathData(data), .. }) => data,
         _ => {
             diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), &*layout_element.borrow());
             return;
