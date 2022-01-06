@@ -115,9 +115,7 @@ pub fn compile_paths(
             crate::expression_tree::Path::Elements(path_data)
         };
 
-        elem.bindings.insert(
-            "elements".into(),
-            RefCell::new(Expression::PathElements { elements: path_data }.into()),
-        );
+        elem.bindings
+            .insert("elements".into(), RefCell::new(Expression::PathData(path_data).into()));
     });
 }

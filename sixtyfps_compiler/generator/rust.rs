@@ -1343,7 +1343,7 @@ impl<'a> llr::EvaluationContext for EvaluationContext<'a> {
             llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
                 if prop_name == "elements" {
                     // The `Path::elements` property is not in the NativeClasss
-                    return &Type::PathElements;
+                    return &Type::PathData;
                 }
 
                 let mut sub_component = self.current_sub_component.unwrap();
@@ -1412,6 +1412,22 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     });
                     let id = struct_name_to_tokens(n);
                     quote!({ let obj = #f; #id { #(#fields),*} })
+                }
+                (Type::Array(..), Type::PathData)
+                    if matches!(
+                        from.as_ref(),
+                        Expression::Array { element_ty: Type::Struct { .. }, .. }
+                    ) =>
+                {
+                    let path_elements = match from.as_ref() {
+                        Expression::Array { element_ty: _, values, as_model: _ } => values
+                            .iter()
+                            .map(|path_elem_expr| compile_expression(path_elem_expr, ctx)),
+                        _ => {
+                            unreachable!()
+                        }
+                    };
+                    quote!(sixtyfps::re_exports::PathData::Elements(sixtyfps::re_exports::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
                 }
                 _ => f,
             }

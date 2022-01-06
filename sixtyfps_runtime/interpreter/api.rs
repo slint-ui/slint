@@ -102,7 +102,7 @@ pub enum Value {
     Brush(Brush),
     #[doc(hidden)]
     /// The elements of a path
-    PathElements(PathData),
+    PathData(PathData),
     #[doc(hidden)]
     /// An easing curve
     EasingCurve(sixtyfps_corelib::animations::EasingCurve),
@@ -150,7 +150,7 @@ impl PartialEq for Value {
             Value::Model(lhs) => matches!(other, Value::Model(rhs) if Rc::ptr_eq(lhs, rhs)),
             Value::Struct(lhs) => matches!(other, Value::Struct(rhs) if lhs == rhs),
             Value::Brush(lhs) => matches!(other, Value::Brush(rhs) if lhs == rhs),
-            Value::PathElements(lhs) => matches!(other, Value::PathElements(rhs) if lhs == rhs),
+            Value::PathData(lhs) => matches!(other, Value::PathData(rhs) if lhs == rhs),
             Value::EasingCurve(lhs) => matches!(other, Value::EasingCurve(rhs) if lhs == rhs),
             Value::EnumerationValue(lhs_name, lhs_value) => {
                 matches!(other, Value::EnumerationValue(rhs_name, rhs_value) if lhs_name == rhs_name && lhs_value == rhs_value)
@@ -172,7 +172,7 @@ impl std::fmt::Debug for Value {
             Value::Model(_) => write!(f, "Value::Model(<model object>)"),
             Value::Struct(s) => write!(f, "Value::Struct({:?})", s),
             Value::Brush(b) => write!(f, "Value::Brush({:?})", b),
-            Value::PathElements(e) => write!(f, "Value::PathElements({:?})", e),
+            Value::PathData(e) => write!(f, "Value::PathElements({:?})", e),
             Value::EasingCurve(c) => write!(f, "Value::EasingCurve({:?})", c),
             Value::EnumerationValue(n, v) => write!(f, "Value::EnumerationValue({:?}, {:?})", n, v),
             Value::LayoutCache(v) => write!(f, "Value::LayoutCache({:?})", v),
@@ -215,7 +215,7 @@ declare_value_conversion!(Bool => [bool] );
 declare_value_conversion!(Image => [Image] );
 declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
-declare_value_conversion!(PathElements => [PathData]);
+declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [sixtyfps_corelib::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 

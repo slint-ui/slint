@@ -145,7 +145,7 @@ pub(crate) fn solve_layout(
                     x: 0.,
                     y: 0.,
                     elements: &eval::eval_expression(
-                        &Expression::PathElements { elements: path_layout.path.clone() },
+                        &Expression::PathData(path_layout.path.clone()),
                         local_context,
                     )
                     .try_into()
