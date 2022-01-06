@@ -37,14 +37,17 @@ jobs:
     - uses: Swatinem/rust-cache@v1
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-    - name: Compile sixtyfps-wasm-interpreter
-      run: wasm-pack build --release --target web -- --features console_error_panic_hook
-      working-directory: api/sixtyfps-wasm-interpreter
     - name: Compile online editor
       run: |
           npm install
           npm run build
       working-directory: tools/online_editor
+    - name: Clean wasm build artefacts from previous editor build
+      run: rm -rf pkg
+      working-directory: api/sixtyfps-wasm-interpreter      
+    - name: Compile sixtyfps-wasm-interpreter
+      run: wasm-pack build --release --target web -- --features console_error_panic_hook
+      working-directory: api/sixtyfps-wasm-interpreter
     - name: "Upload wasm Artifacts"
       uses: actions/upload-artifact@v2
       with:
