@@ -14,6 +14,7 @@ macro_rules! for_each_special_keys {
 '\u{0009}'  # Tab         # Qt_Key_Key_Tab          # Tab           ;
 '\u{000a}'  # Return      # Qt_Key_Key_Enter|Qt_Key_Key_Return # NumpadEnter|Return ;
 '\u{001b}'  # Escape      # Qt_Key_Key_Escape       # Escape       ;
+'\u{0019}'  # Backtab     # Qt_Key_Key_Backtab      #              ;
 '\u{007f}'  # Delete      # Qt_Key_Key_Delete       # Delete       ;
 
 '\u{F700}'	# UpArrow     # Qt_Key_Key_Up           # Up           ;
