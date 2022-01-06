@@ -390,7 +390,7 @@ fn generate_component(
                 property_and_callback_accessors.push(
                     quote!(
                         #[allow(dead_code)]
-                        pub fn #on_ident(&self, f: impl Fn(#(#callback_args),*) -> #return_type + 'static) {
+                        pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
                             #self_init
                             #[allow(unused)]
                             #prop.set_handler(
