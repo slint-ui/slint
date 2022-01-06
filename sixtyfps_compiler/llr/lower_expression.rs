@@ -385,7 +385,8 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> Op
                 name: "state".into(),
                 value: Box::new(lower_expression(state_ref, ctx)?),
             };
-            let mut get_anim = llr_Expression::default_value_for_type(&animation_ty())?;
+            let animation_ty = animation_ty();
+            let mut get_anim = llr_Expression::default_value_for_type(&animation_ty)?;
             for tr in animations.iter().rev() {
                 let condition = lower_expression(
                     &tr.condition(tree_Expression::ReadLocalVariable {
@@ -400,7 +401,34 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> Op
                     false_expr: Some(Box::new(get_anim)),
                 }
             }
-            Some(Animation::Transition(llr_Expression::CodeBlock(vec![set_state, get_anim])))
+            let result = llr_Expression::Struct {
+                // This is going to be a tuple
+                ty: Type::Struct {
+                    fields: IntoIterator::into_iter([
+                        ("0".to_string(), animation_ty),
+                        ("1".to_string(), Type::Duration),
+                    ])
+                    .collect(),
+                    name: None,
+                    node: None,
+                },
+                values: IntoIterator::into_iter([
+                    ("0".to_string(), get_anim),
+                    (
+                        "1".to_string(),
+                        llr_Expression::StructFieldAccess {
+                            base: llr_Expression::ReadLocalVariable {
+                                name: "state".into(),
+                                ty: state_ref.ty(),
+                            }
+                            .into(),
+                            name: "change_time".into(),
+                        },
+                    ),
+                ])
+                .collect(),
+            };
+            Some(Animation::Transition(llr_Expression::CodeBlock(vec![set_state, result])))
         }
     }
 }

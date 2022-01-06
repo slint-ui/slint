@@ -463,7 +463,7 @@ fn lower_global(
         init_values,
         const_properties,
         public_properties,
-        exported: global.exported_global_names.borrow().is_empty(),
+        exported: !global.exported_global_names.borrow().is_empty(),
         aliases: global.global_aliases(),
         is_builtin,
     }
