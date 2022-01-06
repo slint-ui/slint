@@ -20,7 +20,7 @@ use core::cell::Cell;
 #[repr(C)]
 pub struct Callback<Arg: ?Sized, Ret = ()> {
     /// FIXME: Box<dyn> is a fat object and we probably want to put an erased type in there
-    handler: Cell<Option<Box<dyn Fn(&Arg, &mut Ret)>>>,
+    handler: Cell<Option<Box<dyn FnMut(&Arg, &mut Ret)>>>,
 }
 
 impl<Arg: ?Sized, Ret> Default for Callback<Arg, Ret> {
@@ -33,7 +33,7 @@ impl<Arg: ?Sized, Ret: Default> Callback<Arg, Ret> {
     /// Call the callback with the given argument.
     pub fn call(&self, a: &Arg) -> Ret {
         let mut r = Ret::default();
-        if let Some(h) = self.handler.take() {
+        if let Some(mut h) = self.handler.take() {
             h(a, &mut r);
             assert!(self.handler.take().is_none(), "Callback Handler set while called");
             self.handler.set(Some(h));
@@ -44,7 +44,7 @@ impl<Arg: ?Sized, Ret: Default> Callback<Arg, Ret> {
     /// Set an handler to be called when the callback is called
     ///
     /// There can only be one single handler per callback.
-    pub fn set_handler(&self, f: impl Fn(&Arg) -> Ret + 'static) {
+    pub fn set_handler(&self, mut f: impl FnMut(&Arg) -> Ret + 'static) {
         self.handler.set(Some(Box::new(move |a: &Arg, r: &mut Ret| *r = f(a))));
     }
 }
@@ -97,7 +97,7 @@ pub(crate) mod ffi {
         ret: *mut c_void,
     ) {
         let sig = &*(sig as *const Callback<c_void>);
-        if let Some(h) = sig.handler.take() {
+        if let Some(mut h) = sig.handler.take() {
             h(&*arg, &mut *ret);
             assert!(sig.handler.take().is_none(), "Callback Handler set while called");
             sig.handler.set(Some(h));
