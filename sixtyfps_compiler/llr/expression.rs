@@ -233,7 +233,13 @@ impl Expression {
                 Type::Function { return_type, .. } => *return_type,
                 _ => unreachable!(),
             },
-            Self::CallBackCall { .. } => todo!(),
+            Self::CallBackCall { callback, .. } => {
+                if let Type::Callback { return_type, .. } = ctx.property_ty(callback) {
+                    return_type.as_ref().map_or(Type::Void, |x| (**x).clone())
+                } else {
+                    Type::Invalid
+                }
+            }
             Self::ExtraBuiltinFunctionCall { .. } => todo!(),
             Self::PropertyAssignment { .. } => Type::Void,
             Self::ModelDataAssignment { .. } => Type::Void,
