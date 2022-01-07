@@ -261,17 +261,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
                 Value::Number(x.log(y))
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Exp, _) => {
+            Expression::BuiltinFunctionReference(BuiltinFunction::Pow, _) => {
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-                Value::Number(x.exp())
-            }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Log10, _) => {
-                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-                Value::Number(x.log10())
-            }
-            Expression::BuiltinFunctionReference(BuiltinFunction::Log2, _) => {
-                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
-                Value::Number(x.log2())
+                let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+                Value::Number(x.powf(y))
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, _) => {
                 if arguments.len() != 1 {
