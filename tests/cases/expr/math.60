@@ -4,7 +4,9 @@
  TestCase := Rectangle {
     property <bool> test_sqrt: sqrt(100) == 10 && Math.sqrt(1) == 1 && sqrt(6.25) == 2.5;
     property <bool> test_abs: abs(100.5) == 100.5 && Math.abs(-200.5) == 200.5 && abs(0) == 0;
-    property <bool> test: test_sqrt && test_abs;
+    property <bool> test_log: log(4,2) == 2 && Math.log(9,3) == 2 && log(64,4) == 3;
+    property <bool> test_pow: pow(4,2) == 16 && Math.pow(9,3) == 729 && pow(4,3) == 64;
+    property <bool> test: test_sqrt && test_abs && test_log && test_pow;
 }
 /*
 ```cpp

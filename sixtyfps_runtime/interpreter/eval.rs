@@ -256,6 +256,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
                 Value::Number(x.atan().to_degrees())
             }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Log, _) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+                Value::Number(x.log(y))
+            }
+            Expression::BuiltinFunctionReference(BuiltinFunction::Pow, _) => {
+                let x: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+                let y: f64 = eval_expression(&arguments[1], local_context).try_into().unwrap();
+                Value::Number(x.powf(y))
+            }
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, _) => {
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to SetFocusItem")
