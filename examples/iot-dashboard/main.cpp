@@ -5,8 +5,7 @@
 #include <chrono>
 #include <sixtyfps_interpreter.h>
 
-#include <fmt/core.h>
-#include <fmt/chrono.h>
+#include <format>
 #include <random>
 #include <time.h>
 
@@ -44,7 +43,7 @@ ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [this] 
 
 void ClockWidget::update_clock()
 {
-    std::string current_time = fmt::format("{:%H:%M:%S}", fmt::localtime(std::time(nullptr)));
+    std::string current_time = std::format("{:%H:%M:%S}", std::localtime(std::time(nullptr)));
     set_property("time", sixtyfps::SharedString(current_time));
 }
 
