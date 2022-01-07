@@ -1635,7 +1635,7 @@ fn compile_expression(expr: &Expression, component: &Rc<Component>) -> TokenStre
             BuiltinFunction::ACos => quote!((|a| (a as f64).acos().to_degrees())),
             BuiltinFunction::ATan => quote!((|a| (a as f64).atan().to_degrees())),
             BuiltinFunction::Log => quote!((|a1, a2| (a1 as f64).log(a2 as f64))),
-            BuiltinFunction::Pow => quote!((|a1, a2| (a1 as f64).powf(a2 as 64))),
+            BuiltinFunction::Pow => quote!((|a1, a2| (a1 as f64).powf(a2 as f64))),
             BuiltinFunction::SetFocusItem | BuiltinFunction::ShowPopupWindow | BuiltinFunction::ImplicitLayoutInfo(_) => {
                 panic!("internal error: should be handled directly in CallFunction")
             }
