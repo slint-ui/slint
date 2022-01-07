@@ -22,6 +22,7 @@ All notable changes to this project will be documented in this file.
  - More special keyboard key codes are provided in the `FocusScope`, and
    special keys are handled
  - `start()`, `stop()`, `running()` and a default constructor for C++ `sixtyfps::Timer`
+ - Math functions `log`, and `pow`
 
 ### Fixed
 

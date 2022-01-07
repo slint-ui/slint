@@ -977,6 +977,14 @@ The trigonometry function. Note that the should be typed with `deg` or `rad` uni
 
 Square root
 
+* **`pow(float, float) -> float`**
+
+Return the value of the first value raised to the second
+
+* **`log(float, float) -> float`**
+
+Return the log of the first value with a base of the second value
+
 ### `Colors` namespace
 
 These functions are available both in the global scope, and in the `Colors` namespace.
