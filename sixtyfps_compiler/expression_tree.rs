@@ -31,6 +31,10 @@ pub enum BuiltinFunction {
     ACos,
     ASin,
     ATan,
+    Log10,
+    Log2,
+    Log,
+    Exp,
     SetFocusItem,
     ShowPopupWindow,
     /// the "42".to_float()
@@ -83,6 +87,13 @@ impl BuiltinFunction {
             BuiltinFunction::ACos | BuiltinFunction::ASin | BuiltinFunction::ATan => {
                 Type::Function { return_type: Box::new(Type::Angle), args: vec![Type::Float32] }
             }
+            BuiltinFunction::Log10 | BuiltinFunction::Log2 | BuiltinFunction::Exp => {
+                Type::Function { return_type: Box::new(Type::Float32), args: vec![Type::Float32] }
+            }
+            BuiltinFunction::Log => Type::Function {
+                return_type: Box::new(Type::Float32),
+                args: vec![Type::Float32, Type::Float32],
+            },
             BuiltinFunction::SetFocusItem => Type::Function {
                 return_type: Box::new(Type::Void),
                 args: vec![Type::ElementReference],
@@ -154,6 +165,10 @@ impl BuiltinFunction {
             | BuiltinFunction::Tan
             | BuiltinFunction::ACos
             | BuiltinFunction::ASin
+            | BuiltinFunction::Log10
+            | BuiltinFunction::Log2
+            | BuiltinFunction::Log
+            | BuiltinFunction::Exp
             | BuiltinFunction::ATan => true,
             BuiltinFunction::SetFocusItem => false,
             BuiltinFunction::ShowPopupWindow => false,

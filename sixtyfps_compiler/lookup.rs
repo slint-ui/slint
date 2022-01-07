@@ -537,6 +537,10 @@ impl LookupObject for MathFunctions {
             .or_else(|| f("asin", BuiltinFunctionReference(BuiltinFunction::ASin, sl())))
             .or_else(|| f("acos", BuiltinFunctionReference(BuiltinFunction::ACos, sl())))
             .or_else(|| f("atan", BuiltinFunctionReference(BuiltinFunction::ATan, sl())))
+            .or_else(|| f("log10", BuiltinFunctionReference(BuiltinFunction::Log10, sl())))
+            .or_else(|| f("log2", BuiltinFunctionReference(BuiltinFunction::Log2, sl())))
+            .or_else(|| f("log", BuiltinFunctionReference(BuiltinFunction::Log, sl())))
+            .or_else(|| f("exp", BuiltinFunctionReference(BuiltinFunction::Exp, sl())))
     }
 }
 
