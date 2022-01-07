@@ -31,9 +31,14 @@ assert_eq(callback_3_emited, 1);
 ```rust
 let instance = TestCase::new();
 let callback_3_emited = std::rc::Rc::new(std::cell::Cell::new(0));
+// test that mutable variables can be captured
+let mut _mutable_var = String::from("1");
 instance.on_test_callback3({
     let callback_3_emited = callback_3_emited.clone();
-    move || callback_3_emited.set(callback_3_emited.get() + 1)
+    move || {
+        callback_3_emited.set(callback_3_emited.get() + 1);
+        _mutable_var.push_str(&callback_3_emited.get().to_string());
+    }
 });
 instance.set_callback_emission_count(0);
 assert_eq!(instance.get_callback_emission_count(), 0);
