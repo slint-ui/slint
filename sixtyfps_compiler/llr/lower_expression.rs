@@ -845,6 +845,22 @@ fn compile_path(
     path: &crate::expression_tree::Path,
     ctx: &ExpressionContext,
 ) -> Option<llr_Expression> {
+    fn llr_path_elements(elements: Vec<llr_Expression>) -> llr_Expression {
+        llr_Expression::Cast {
+            from: llr_Expression::Array {
+                element_ty: Type::Struct {
+                    fields: Default::default(),
+                    name: Some("PathElement".to_owned()),
+                    node: None,
+                },
+                values: elements,
+                as_model: false,
+            }
+            .into(),
+            to: Type::PathData,
+        }
+    }
+
     match path {
         crate::expression_tree::Path::Elements(elements) => {
             let converted_elements = elements
@@ -876,22 +892,57 @@ fn compile_path(
                     }
                 })
                 .collect();
+            Some(llr_path_elements(converted_elements))
+        }
+        crate::expression_tree::Path::Events(events, points) => {
+            if events.is_empty() || points.is_empty() {
+                return Some(llr_path_elements(vec![]));
+            }
+
+            let events: Vec<_> =
+                events.into_iter().map(|event| lower_expression(&event, &ctx).unwrap()).collect();
+
+            let event_type = events.first().unwrap().ty(ctx).clone();
+
+            let points: Vec<_> =
+                points.into_iter().map(|point| lower_expression(&point, &ctx).unwrap()).collect();
+
+            let point_type = points.first().unwrap().ty(ctx).clone();
+
             Some(llr_Expression::Cast {
-                from: llr_Expression::Array {
-                    element_ty: Type::Struct {
-                        fields: Default::default(),
-                        name: Some("PathElement".to_owned()),
+                from: llr_Expression::Struct {
+                    ty: Type::Struct {
+                        fields: IntoIterator::into_iter([
+                            ("events".to_owned(), Type::Array(event_type.clone().into())),
+                            ("points".to_owned(), Type::Array(point_type.clone().into())),
+                        ])
+                        .collect(),
+                        name: None,
                         node: None,
                     },
-                    values: converted_elements,
-                    as_model: false,
+                    values: IntoIterator::into_iter([
+                        (
+                            "events".to_owned(),
+                            llr_Expression::Array {
+                                element_ty: event_type,
+                                values: events,
+                                as_model: false,
+                            },
+                        ),
+                        (
+                            "points".to_owned(),
+                            llr_Expression::Array {
+                                element_ty: point_type.clone(),
+                                values: points,
+                                as_model: false,
+                            },
+                        ),
+                    ])
+                    .collect(),
                 }
                 .into(),
                 to: Type::PathData,
             })
-        }
-        crate::expression_tree::Path::Events(events) => {
-            Some(llr_Expression::PathEvents(events.clone()))
         }
     }
 }

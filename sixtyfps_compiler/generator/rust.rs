@@ -1433,6 +1433,23 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     };
                     quote!(sixtyfps::re_exports::PathData::Elements(sixtyfps::re_exports::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
                 }
+                (Type::Struct { .. }, Type::PathData)
+                    if matches!(
+                        from.as_ref(),
+                        Expression::Struct { ty: Type::Struct { .. }, .. }
+                    ) =>
+                {
+                    let (events, points) = match from.as_ref() {
+                        Expression::Struct { ty: _, values } => (
+                            compile_expression(&values["events"], ctx),
+                            compile_expression(&values["points"], ctx),
+                        ),
+                        _ => {
+                            unreachable!()
+                        }
+                    };
+                    quote!(sixtyfps::re_exports::PathData::Events(sixtyfps::re_exports::SharedVector::<_>::from_slice(&#events), sixtyfps::re_exports::SharedVector::<_>::from_slice(&#points)))
+                }
                 _ => f,
             }
         }
@@ -1629,9 +1646,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     })
                 });
                 if let Some(name) = name {
-                    let name: TokenStream = struct_name_to_tokens(name.as_str());
+                    let name_tokens: TokenStream = struct_name_to_tokens(name.as_str());
                     let keys = fields.keys().map(|k| ident(k));
-                    quote!(#name { #(#keys: #elem as _,)* })
+                    if name == "Point" {
+                        quote!(#name_tokens{#(#keys: #elem as _,)* ..Default::default()})
+                    } else {
+                        quote!(#name_tokens { #(#keys: #elem as _,)* })
+                    }
                 } else {
                     let as_ = fields.values().map(|t| {
                         if t.as_unit_product().is_some() {
@@ -1650,7 +1671,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 panic!("Expression::Struct is not a Type::Struct")
             }
         }
-        Expression::PathEvents(_) => quote!(todo!("Expression::PathEvents")),
+
         Expression::StoreLocalVariable { name, value } => {
             let value = compile_expression(value, ctx);
             let name = ident(name);

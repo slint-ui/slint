@@ -308,6 +308,7 @@ declare_value_enum_conversion!(sixtyfps_corelib::items::StandardButtonKind, Stan
 declare_value_enum_conversion!(sixtyfps_corelib::items::PointerEventKind, PointerEventKind);
 declare_value_enum_conversion!(sixtyfps_corelib::items::PointerEventButton, PointerEventButton);
 declare_value_enum_conversion!(sixtyfps_corelib::items::DialogButtonRole, DialogButtonRole);
+declare_value_enum_conversion!(sixtyfps_corelib::graphics::PathEvent, PathEvent);
 
 impl From<sixtyfps_corelib::animations::Instant> for Value {
     fn from(value: sixtyfps_corelib::animations::Instant) -> Self {

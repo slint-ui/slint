@@ -1025,52 +1025,30 @@ pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::
 }
 
 fn convert_from_lyon_path<'a>(
-    it: impl IntoIterator<Item = &'a lyon_path::Event<lyon_path::math::Point, lyon_path::math::Point>>,
+    events_it: impl IntoIterator<Item = &'a sixtyfps_compilerlib::expression_tree::Expression>,
+    points_it: impl IntoIterator<Item = &'a sixtyfps_compilerlib::expression_tree::Expression>,
+    local_context: &mut EvalLocalContext,
 ) -> PathData {
-    use corelib::graphics::PathEvent;
-    use lyon_path::Event;
-
-    let mut coordinates = Vec::new();
-
-    let events = it
+    let events = events_it
         .into_iter()
-        .map(|event| match event {
-            Event::Begin { at } => {
-                coordinates.push(at);
-                PathEvent::Begin
-            }
-            Event::Line { from, to } => {
-                coordinates.push(from);
-                coordinates.push(to);
-                PathEvent::Line
-            }
-            Event::Quadratic { from, ctrl, to } => {
-                coordinates.push(from);
-                coordinates.push(ctrl);
-                coordinates.push(to);
-                PathEvent::Quadratic
-            }
-            Event::Cubic { from, ctrl1, ctrl2, to } => {
-                coordinates.push(from);
-                coordinates.push(ctrl1);
-                coordinates.push(ctrl2);
-                coordinates.push(to);
-                PathEvent::Cubic
-            }
-            Event::End { close, .. } => {
-                if *close {
-                    PathEvent::EndClosed
-                } else {
-                    PathEvent::EndOpen
-                }
-            }
-        })
-        .collect::<Vec<_>>();
+        .map(|event_expr| eval_expression(event_expr, local_context).try_into().unwrap())
+        .collect::<SharedVector<_>>();
 
-    PathData::Events(
-        SharedVector::from(events.as_slice()),
-        coordinates.into_iter().cloned().collect::<SharedVector<_>>(),
-    )
+    let points = points_it
+        .into_iter()
+        .map(|point_expr| {
+            let point_value = eval_expression(point_expr, local_context);
+            let point_struct: Struct = point_value.try_into().unwrap();
+            let mut point = sixtyfps_corelib::graphics::Point::default();
+            let x: f64 = point_struct.get_field("x").unwrap().clone().try_into().unwrap();
+            let y: f64 = point_struct.get_field("y").unwrap().clone().try_into().unwrap();
+            point.x = x as _;
+            point.y = y as _;
+            point
+        })
+        .collect::<SharedVector<_>>();
+
+    PathData::Events(events, points)
 }
 
 pub fn convert_path(path: &ExprPath, local_context: &mut EvalLocalContext) -> PathData {
@@ -1081,7 +1059,9 @@ pub fn convert_path(path: &ExprPath, local_context: &mut EvalLocalContext) -> Pa
                 .map(|element| convert_path_element(element, local_context))
                 .collect::<SharedVector<PathElement>>(),
         ),
-        ExprPath::Events(events) => convert_from_lyon_path(events.iter()),
+        ExprPath::Events(events, points) => {
+            convert_from_lyon_path(events.iter(), points.iter(), local_context)
+        }
     }
 }
 

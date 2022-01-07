@@ -136,22 +136,23 @@ pub enum PathElement {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[allow(non_camel_case_types)]
 /// PathEvent is a low-level data structure describing the composition of a path. Typically it is
 /// generated at compile time from a higher-level description, such as SVG commands.
 pub enum PathEvent {
     /// The beginning of the path.
-    Begin,
+    begin,
     /// A straight line on the path.
-    Line,
+    line,
     /// A quadratic bezier curve on the path.
-    Quadratic,
+    quadratic,
     /// A cubic bezier curve on the path.
-    Cubic,
+    cubic,
     /// The end of the path that remains open.
-    EndOpen,
+    end_open,
     /// The end of a path that is closed.
-    EndClosed,
+    end_closed,
 }
 
 struct ToLyonPathEventIterator<'a> {
@@ -167,26 +168,26 @@ impl<'a> Iterator for ToLyonPathEventIterator<'a> {
         use lyon_path::Event;
 
         self.events_it.next().map(|event| match event {
-            PathEvent::Begin => Event::Begin { at: *self.coordinates_it.next().unwrap() },
-            PathEvent::Line => Event::Line {
+            PathEvent::begin => Event::Begin { at: *self.coordinates_it.next().unwrap() },
+            PathEvent::line => Event::Line {
                 from: *self.coordinates_it.next().unwrap(),
                 to: *self.coordinates_it.next().unwrap(),
             },
-            PathEvent::Quadratic => Event::Quadratic {
+            PathEvent::quadratic => Event::Quadratic {
                 from: *self.coordinates_it.next().unwrap(),
                 ctrl: *self.coordinates_it.next().unwrap(),
                 to: *self.coordinates_it.next().unwrap(),
             },
-            PathEvent::Cubic => Event::Cubic {
+            PathEvent::cubic => Event::Cubic {
                 from: *self.coordinates_it.next().unwrap(),
                 ctrl1: *self.coordinates_it.next().unwrap(),
                 ctrl2: *self.coordinates_it.next().unwrap(),
                 to: *self.coordinates_it.next().unwrap(),
             },
-            PathEvent::EndOpen => {
+            PathEvent::end_open => {
                 Event::End { first: *self.first.unwrap(), last: *self.last.unwrap(), close: false }
             }
-            PathEvent::EndClosed => {
+            PathEvent::end_closed => {
                 Event::End { first: *self.first.unwrap(), last: *self.last.unwrap(), close: true }
             }
         })
