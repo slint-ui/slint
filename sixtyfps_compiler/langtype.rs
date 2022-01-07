@@ -56,7 +56,10 @@ pub enum Type {
     Array(Box<Type>),
     Struct {
         fields: BTreeMap<String, Type>,
+        /// When declared in .60 as  `struct Foo := { }`, then the name is "Foo"
+        /// When there is no node, but there is a name, then it is a builtin type
         name: Option<String>,
+        /// When declared in .60, this is the node of the declaration.
         node: Option<syntax_nodes::ObjectType>,
     },
     Enumeration(Rc<Enumeration>),
