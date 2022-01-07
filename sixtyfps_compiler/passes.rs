@@ -168,6 +168,8 @@ pub async fn run_passes(
         std::iter::once(&*doc).chain(type_loader.all_documents()),
         compiler_config.embed_resources,
     );
+    // collect globals once more: After optimizations we might have less globals
+    collect_globals::collect_globals(doc, diag);
     root_component.is_root_component.set(true);
 }
 

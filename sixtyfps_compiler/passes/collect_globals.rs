@@ -13,6 +13,7 @@ use std::collections::HashSet;
 
 /// Fill the root_component's used_types.globals
 pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
+    doc.root_component.used_types.borrow_mut().globals.clear();
     let mut set = HashSet::new();
     for (_, ty) in doc.exports() {
         if let Type::Component(c) = ty {
