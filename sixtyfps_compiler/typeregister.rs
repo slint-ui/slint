@@ -62,6 +62,15 @@ thread_local! {
             ).map(String::from).collect(),
             default_value: 0,
         });
+
+    pub static PATH_EVENT_ENUM: Rc<Enumeration> =
+    Rc::new(Enumeration {
+        name: "PathEvent".into(),
+        values: IntoIterator::into_iter(
+            ["begin", "line", "quadratic", "cubic", "end_open", "end_closed"]
+        ).map(String::from).collect(),
+        default_value: 0,
+    });
 }
 
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[

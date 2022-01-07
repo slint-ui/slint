@@ -2731,14 +2731,14 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                         })
                         .unwrap_or_default();
                     format!(
-                        "sixtyfps::private_api::PathElement::{}({})",
+                        "sixtyfps::cbindgen_private::PathElement::{}({})",
                         element.element_type.native_class.class_name, element_initializer
                     )
                 })
                 .collect();
             format!(
                 r#"[&](){{
-                sixtyfps::private_api::PathElement elements[{}] = {{
+                sixtyfps::cbindgen_private::PathElement elements[{}] = {{
                     {}
                 }};
                 return sixtyfps::private_api::PathData(&elements[0], std::size(elements));
@@ -2747,14 +2747,19 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                 converted_elements.join(",")
             )
         }
-        crate::expression_tree::Path::Events(events) => {
-            let (converted_events, converted_coordinates) = compile_path_events(events);
+        crate::expression_tree::Path::Events(events, points) => {
+            let converted_events =
+                events.iter().map(|event| compile_expression(event, component)).collect::<Vec<_>>();
+
+            let converted_coordinates =
+                points.into_iter().map(|pt| compile_expression(pt, component)).collect::<Vec<_>>();
+
             format!(
                 r#"[&](){{
-                sixtyfps::private_api::PathEvent events[{}] = {{
+                sixtyfps::cbindgen_private::PathEvent events[{}] = {{
                     {}
                 }};
-                sixtyfps::private_api::Point coordinates[{}] = {{
+                sixtyfps::cbindgen_private::Point coordinates[{}] = {{
                     {}
                 }};
                 return sixtyfps::private_api::PathData(&events[0], std::size(events), &coordinates[0], std::size(coordinates));
@@ -2766,55 +2771,6 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
             )
         }
     }
-}
-
-fn compile_path_events(events: &[crate::expression_tree::PathEvent]) -> (Vec<String>, Vec<String>) {
-    use lyon_path::Event;
-
-    let mut coordinates = Vec::new();
-
-    let events = events
-        .iter()
-        .map(|event| match event {
-            Event::Begin { at } => {
-                coordinates.push(at);
-                "sixtyfps::private_api::PathEvent::Begin"
-            }
-            Event::Line { from, to } => {
-                coordinates.push(from);
-                coordinates.push(to);
-                "sixtyfps::private_api::PathEvent::Line"
-            }
-            Event::Quadratic { from, ctrl, to } => {
-                coordinates.push(from);
-                coordinates.push(ctrl);
-                coordinates.push(to);
-                "sixtyfps::private_api::PathEvent::Quadratic"
-            }
-            Event::Cubic { from, ctrl1, ctrl2, to } => {
-                coordinates.push(from);
-                coordinates.push(ctrl1);
-                coordinates.push(ctrl2);
-                coordinates.push(to);
-                "sixtyfps::private_api::PathEvent::Cubic"
-            }
-            Event::End { close, .. } => {
-                if *close {
-                    "sixtyfps::private_api::PathEvent::EndClosed"
-                } else {
-                    "sixtyfps::private_api::PathEvent::EndOpen"
-                }
-            }
-        })
-        .map(String::from)
-        .collect();
-
-    let coordinates = coordinates
-        .into_iter()
-        .map(|pt| format!("sixtyfps::private_api::Point{{{}, {}}}", pt.x, pt.y))
-        .collect();
-
-    (events, coordinates)
 }
 
 /// Like compile_expression, but wrap inside a try{}catch{} block to intercept the return

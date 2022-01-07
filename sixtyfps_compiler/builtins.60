@@ -187,6 +187,7 @@ export BoxShadow := _ {
 
 export struct Point := {
     //-name:sixtyfps::private_api::Point
+    //-rust_type_constructor:sixtyfps::re_exports::Point::new({})
     x: length,
     y: length,
 }
@@ -269,7 +270,7 @@ MoveTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::MoveTo(PathMoveTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathMoveTo
+    //-cpp_type:sixtyfps::cbindgen_private::PathMoveTo
     //-is_non_item_type
 }
 
@@ -278,7 +279,7 @@ LineTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathLineTo
+    //-cpp_type:sixtyfps::cbindgen_private::PathLineTo
     //-is_non_item_type
 }
 
@@ -292,7 +293,7 @@ ArcTo := _ {
     property <bool> sweep;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathArcTo
+    //-cpp_type:sixtyfps::cbindgen_private::PathArcTo
     //-is_non_item_type
 }
 
@@ -305,7 +306,7 @@ CubicTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::CubicTo(PathCubicTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathCubicTo
+    //-cpp_type:sixtyfps::cbindgen_private::PathCubicTo
     //-is_non_item_type
 }
 
@@ -316,7 +317,7 @@ QuadraticTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::QuadraticTo(PathQuadraticTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathQuadraticTo
+    //-cpp_type:sixtyfps::cbindgen_private::PathQuadraticTo
     //-is_non_item_type
 }
 
