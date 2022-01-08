@@ -237,6 +237,7 @@ impl TypeRegister {
         register.supported_property_animation_types.insert(Type::PhysicalLength.to_string());
         register.supported_property_animation_types.insert(Type::LogicalLength.to_string());
         register.supported_property_animation_types.insert(Type::Brush.to_string());
+        register.supported_property_animation_types.insert(Type::Angle.to_string());
 
         crate::load_builtins::load_builtins(&mut register);
 
