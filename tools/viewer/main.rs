@@ -10,44 +10,50 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::Wake;
 use std::time::Duration;
-use structopt::StructOpt;
+
+use clap::Parser;
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
-#[derive(StructOpt, Clone)]
+#[derive(Clone, clap::Parser)]
 struct Cli {
-    #[structopt(short = "I", name = "include path for other .60 files", number_of_values = 1)]
+    #[clap(
+        short = 'I',
+        name = "include path for other .60 files",
+        number_of_values = 1,
+        parse(from_os_str)
+    )]
     include_paths: Vec<std::path::PathBuf>,
 
     /// The .60 file to load ('-' for stdin)
-    #[structopt(name = "path to .60 file", parse(from_os_str))]
+    #[clap(name = "path to .60 file", parse(from_os_str))]
     path: std::path::PathBuf,
 
     /// The style name ('native', 'fluent', or 'ugly')
-    #[structopt(long, name = "style name")]
+    #[clap(long, name = "style name")]
     style: Option<String>,
 
     /// The rendering backend
-    #[structopt(long, name = "backend")]
+    #[clap(long, name = "backend")]
     backend: Option<String>,
 
     /// Automatically watch the file system, and reload when it changes
-    #[structopt(long)]
+    #[clap(long)]
     auto_reload: bool,
 
     /// Load properties from a json file ('-' for stdin)
-    #[structopt(long, name = "load data file")]
+    #[clap(long, name = "load data file", parse(from_os_str))]
     load_data: Option<std::path::PathBuf>,
 
     /// Store properties values in a json file at exit ('-' for stdout)
-    #[structopt(long, name = "save data file")]
+    #[clap(long, name = "save data file", parse(from_os_str))]
     save_data: Option<std::path::PathBuf>,
 
     /// Specify callbacks handler.
     /// The first argument is the callback name, and the second argument is a string that is going
     /// to be passed to the shell to be executed. Occurences of `$1` will be replaced by the first argument,
     /// and so on.
-    #[structopt(long, value_names(&["callback", "handler"]), number_of_values = 2)]
+    #[clap(long, value_names(&["callback", "handler"]), number_of_values = 2)]
     on: Vec<String>,
 }
 
@@ -55,7 +61,7 @@ thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInsta
 static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn main() -> Result<()> {
-    let args = Cli::from_args();
+    let args = Cli::parse();
 
     if args.auto_reload && args.save_data.is_some() {
         eprintln!("Cannot pass both --auto-reload and --save-data");

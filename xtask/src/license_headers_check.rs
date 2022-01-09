@@ -6,7 +6,6 @@ use anyhow::Result;
 use lazy_static::lazy_static;
 use std::str::FromStr;
 use std::{path::Path, path::PathBuf};
-use structopt::StructOpt;
 
 #[derive(Copy, Clone, Debug)]
 struct LicenseTagStyle {
@@ -490,15 +489,15 @@ impl CargoToml {
     }
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct LicenseHeaderCheck {
-    #[structopt(long)]
+    #[clap(long)]
     fix_it: bool,
 
-    #[structopt(long)]
+    #[clap(long)]
     show_all: bool,
 
-    #[structopt(long)]
+    #[clap(long)]
     verbose: bool,
 }
 

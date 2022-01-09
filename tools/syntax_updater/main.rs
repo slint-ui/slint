@@ -19,27 +19,28 @@ use sixtyfps_compilerlib::object_tree;
 use sixtyfps_compilerlib::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use std::io::Write;
 use std::path::Path;
-use structopt::StructOpt;
+
+use clap::Parser;
 
 mod from_0_0_5;
 mod from_0_0_6;
 
-#[derive(StructOpt)]
+#[derive(clap::Parser)]
 struct Cli {
-    #[structopt(name = "path to .60 file(s)", parse(from_os_str))]
+    #[clap(name = "path to .60 file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout
-    #[structopt(short, long)]
+    #[clap(short, long)]
     inline: bool,
 
     /// Version to update from
-    #[structopt(long, name = "version")]
+    #[clap(long, name = "version")]
     from: String,
 }
 
 fn main() -> std::io::Result<()> {
-    let args = Cli::from_args();
+    let args = Cli::parse();
     if !matches!(args.from.as_str(), "0.0.5" | "0.0.6" | "0.1.0") {
         eprintln!("Invalid from version is supported, use `--from 0.0.5`");
         std::process::exit(1);

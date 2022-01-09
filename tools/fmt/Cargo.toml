@@ -12,7 +12,7 @@ homepage = "https://sixtyfps.io"
 
 [dependencies]
 sixtyfps-compilerlib = { path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
-structopt = "0.3.14"
+clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 codemap-diagnostic = "0.1.1"
 codemap = "0.1"
 rowan = "0.14.1"

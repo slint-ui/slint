@@ -14,6 +14,6 @@ path = "main.rs"
 
 [dependencies]
 sixtyfps-compilerlib = { version = "=0.1.6", path = "../../sixtyfps_compiler", features = ["display-diagnostics", "cpp", "rust"]}
-structopt = "0.3.14"
+clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 spin_on = "0.1"
 proc-macro2 = "1.0.11"

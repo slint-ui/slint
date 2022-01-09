@@ -8,10 +8,11 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{Arc, Condvar, Mutex};
 use std::task::Wake;
-use structopt::StructOpt;
 
 use lsp_server::Message;
 use lsp_types::notification::Notification;
+
+use clap::Parser;
 
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 
@@ -200,7 +201,7 @@ async fn reload_preview(
     }
 
     let mut builder = sixtyfps_interpreter::ComponentCompiler::default();
-    let cli_args = super::Cli::from_args();
+    let cli_args = super::Cli::parse();
     if !cli_args.style.is_empty() {
         builder.set_style(cli_args.style)
     };

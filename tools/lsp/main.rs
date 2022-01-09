@@ -9,7 +9,6 @@ mod semantic_tokens;
 mod util;
 
 use std::collections::HashMap;
-use structopt::StructOpt;
 
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
@@ -32,25 +31,28 @@ use sixtyfps_compilerlib::typeloader::TypeLoader;
 use sixtyfps_compilerlib::typeregister::TypeRegister;
 use sixtyfps_compilerlib::CompilerConfiguration;
 
+use clap::Parser;
+
 type Error = Box<dyn std::error::Error>;
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 
-#[derive(StructOpt, Clone)]
+#[derive(Clone, clap::Parser)]
 struct Cli {
-    #[structopt(
-        short = "I",
+    #[clap(
+        short = 'I',
         name = "Add include paths for the import statements",
-        number_of_values = 1
+        number_of_values = 1,
+        parse(from_os_str)
     )]
     include_paths: Vec<std::path::PathBuf>,
 
     /// The style name for the preview ('native', 'fluent' or 'ugly')
-    #[structopt(long, name = "style name", default_value)]
+    #[clap(long, name = "style name", default_value_t)]
     style: String,
 
     /// The backend used for the preview ('GL' or 'Qt')
-    #[structopt(long, name = "backend", default_value)]
+    #[clap(long, name = "backend", default_value_t)]
     backend: String,
 }
 
@@ -109,7 +111,7 @@ impl<'a> DocumentCache<'a> {
 }
 
 fn main() {
-    let args: Cli = Cli::from_args();
+    let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
         std::env::set_var("SIXTYFPS_BACKEND", &args.backend);
     }
@@ -178,7 +180,7 @@ fn run_lsp_server() -> Result<(), Error> {
 }
 
 fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
-    let cli_args: Cli = Cli::from_args();
+    let cli_args: Cli = Cli::parse();
     let params: InitializeParams = serde_json::from_value(params).unwrap();
     let mut compiler_config =
         CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Interpreter);

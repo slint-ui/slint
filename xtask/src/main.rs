@@ -2,34 +2,34 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use anyhow::Context;
+use clap::Parser;
 use std::error::Error;
 use std::path::PathBuf;
-use structopt::StructOpt;
 
 mod cppdocs;
 mod license_headers_check;
 mod nodepackage;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub enum TaskCommand {
-    #[structopt(name = "check_license_headers")]
+    #[clap(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
-    #[structopt(name = "cppdocs")]
+    #[clap(name = "cppdocs")]
     CppDocs(CppDocsCommand),
-    #[structopt(name = "node_package")]
+    #[clap(name = "node_package")]
     NodePackage,
 }
 
-#[derive(Debug, StructOpt)]
-#[structopt(name = "xtask")]
+#[derive(Debug, clap::Parser)]
+#[clap(name = "xtask")]
 pub struct ApplicationArguments {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub command: TaskCommand,
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, clap::Parser)]
 pub struct CppDocsCommand {
-    #[structopt(long)]
+    #[clap(long)]
     show_warnings: bool,
 }
 
@@ -76,7 +76,7 @@ where
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    match ApplicationArguments::from_args().command {
+    match ApplicationArguments::parse().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings)?,
         TaskCommand::NodePackage => nodepackage::generate()?,

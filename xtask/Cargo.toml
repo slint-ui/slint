@@ -8,7 +8,7 @@ publish = false
 
 [dependencies]
 const_format = "0.2"
-structopt = "0.3.14"
+clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 cargo_metadata = "0.14"
 anyhow = "1.0"
 lazy_static = "1.4.0"
