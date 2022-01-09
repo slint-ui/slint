@@ -18,22 +18,23 @@
 use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
 use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxNode, SyntaxToken};
 use std::io::Write;
-use structopt::StructOpt;
+
+use clap::Parser;
 
 mod fmt;
 
-#[derive(StructOpt)]
+#[derive(clap::Parser)]
 struct Cli {
-    #[structopt(name = "path to .60 file(s)", parse(from_os_str))]
+    #[clap(name = "path to .60 file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout
-    #[structopt(short, long)]
+    #[clap(short, long)]
     inline: bool,
 }
 
 fn main() -> std::io::Result<()> {
-    let args = Cli::from_args();
+    let args = Cli::parse();
 
     for path in args.paths {
         let source = std::fs::read_to_string(&path)?;

@@ -4,26 +4,25 @@
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
 
+use clap::Parser;
 use futures::prelude::*;
 use std::collections::HashMap;
 use std::fmt::Display;
-use structopt::StructOpt;
 use tokio::io::AsyncWriteExt;
 
-#[derive(Debug, StructOpt)]
-#[structopt(global_settings(&[structopt::clap::AppSettings::ColoredHelp]))]
+#[derive(Debug, Parser)]
 struct Opt {
     /// Figma asscess token
-    #[structopt(short = "t", long = "token")]
+    #[clap(short = 't', long = "token")]
     token: String,
     /// If present, load the specific node id
-    #[structopt(short = "n", long = "node")]
+    #[clap(short = 'n', long = "node")]
     node_id: Option<String>,
     /// If present, load the specific child node at the specified index
-    #[structopt(long = "child")]
+    #[clap(long = "child")]
     child_index: Option<usize>,
     /// If set, don't connect to the network, but use the `figma_output/cache.json`
-    #[structopt(long)]
+    #[clap(long)]
     read_from_cache: bool,
     /// Figma file
     file: String,
@@ -102,7 +101,7 @@ async fn load_from_network(opt: &Opt) -> Result<figmatypes::File, Box<dyn std::e
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let opt = Opt::from_args();
+    let opt = Opt::parse();
 
     let r = if !opt.read_from_cache {
         load_from_network(&opt).await?
