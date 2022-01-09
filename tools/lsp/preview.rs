@@ -258,7 +258,7 @@ fn notify_diagnostics(
 ) -> Option<()> {
     let mut lsp_diags: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
     for d in diagnostics {
-        if d.source_file().unwrap().is_relative() {
+        if d.source_file().map_or(true, |f| f.is_relative()) {
             continue;
         }
         let uri = lsp_types::Url::from_file_path(d.source_file().unwrap()).unwrap();
