@@ -11,7 +11,9 @@ use core::convert::TryInto;
 ///
 /// It is implemented if the macro has a "drop_in_place" function.
 ///
-/// Safety: the implementation of drop_in_place and dealloc must be correct
+/// # Safety
+///
+/// The implementation of drop_in_place and dealloc must be correct
 pub unsafe trait VTableMetaDropInPlace: VTableMeta {
     /// # Safety
     /// The target ptr argument needs to be pointing to a an instance of the VTable

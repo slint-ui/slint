@@ -74,7 +74,9 @@ pub use vrc::*;
 
 /// Internal trait that is implemented by the [`#[vtable]`](macro@vtable) macro.
 ///
-/// Safety: The Target object needs to be implemented correctly.
+/// # Safety
+///
+/// The Target object needs to be implemented correctly.
 /// And there should be a VTable::VTable::new<T> function that returns a
 /// VTable suitable for the type T.
 pub unsafe trait VTableMeta {
@@ -105,7 +107,9 @@ pub unsafe trait VTableMetaDrop: VTableMeta {
 
 /// Allow to associate a VTable with a type.
 ///
-/// Safety: the VTABLE and STATIC_VTABLE need to be a valid virtual table
+/// # Safety
+///
+/// The VTABLE and STATIC_VTABLE need to be a valid virtual table
 /// corresponding to pointer to Self instance.
 pub unsafe trait HasStaticVTable<VT>
 where
