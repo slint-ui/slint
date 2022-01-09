@@ -291,7 +291,7 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
                     check_alias(e, name, &binding.borrow());
                 }
             }
-            for (_, decl) in &e.borrow().property_declarations {
+            for decl in e.borrow().property_declarations.values() {
                 if let Some(alias) = &decl.is_alias {
                     mark_alias(alias)
                 }

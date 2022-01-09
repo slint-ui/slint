@@ -245,8 +245,7 @@ impl Expression {
                             format!(
                                 "'{}' must be called. Did you forgot the '()'?",
                                 QualifiedTypeName::from_node(n.clone())
-                            )
-                            .into(),
+                            ),
                             &n,
                         )
                     }

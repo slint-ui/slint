@@ -66,7 +66,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(sixtyfps::re_exports::Image)),
         Type::Struct { fields, name: None, .. } => {
-            let elem = fields.values().map(|v| rust_type(v)).collect::<Option<Vec<_>>>()?;
+            let elem = fields.values().map(rust_type).collect::<Option<Vec<_>>>()?;
             // This will produce a tuple
             Some(quote!((#(#elem,)*)))
         }
@@ -151,7 +151,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<TokenStre
                 glob.exported_global_names
                     .borrow()
                     .iter()
-                    .map(|name| ident(&name))
+                    .map(|name| ident(name))
                     .collect::<Vec<_>>() // Would prefer not to collect here, but borrow() requires
             })
         })

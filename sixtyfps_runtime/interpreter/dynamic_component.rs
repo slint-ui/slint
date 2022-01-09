@@ -568,7 +568,7 @@ impl<'id> ComponentDescription<'id> {
         // Safety: we just verified that the component has the right vtable
         let c = unsafe { InstanceRef::from_pin_ref(component, guard) };
         let extra_data = c.component_type.extra_data_offset.apply(c.instance.get_ref());
-        extra_data.globals.get(global_name).map(|g| g.clone()).ok_or(())
+        extra_data.globals.get(global_name).cloned().ok_or(())
     }
 }
 

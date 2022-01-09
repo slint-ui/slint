@@ -1599,7 +1599,7 @@ pub fn visit_all_named_references_in_element(
     elem.borrow_mut().layout_info_prop = layout_info_prop;
 
     // visit two way bindings
-    for (_, expr) in &elem.borrow().bindings {
+    for expr in elem.borrow().bindings.values() {
         for nr in &mut expr.borrow_mut().two_way_bindings {
             vis(nr);
         }

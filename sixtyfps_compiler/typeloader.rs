@@ -100,7 +100,7 @@ impl<'a> TypeLoader<'a> {
     ) -> Vec<ImportedTypes> {
         let dependencies = self.collect_dependencies(doc, diagnostics).await;
         let mut foreign_imports = vec![];
-        for mut import in dependencies.into_iter() {
+        for mut import in dependencies {
             if import.file.ends_with(".60") {
                 if let Some(imported_types) =
                     ImportedName::extract_imported_names(&import.imported_types)

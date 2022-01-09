@@ -31,12 +31,12 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
         });
         for prop in elem.borrow().bindings.keys() {
             let nr = NamedReference::new(elem, prop);
-            if !to_materialize.contains_key(&nr) {
+            if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
                 let elem = elem.borrow();
                 if let Some(ty) =
                     should_materialize(&elem.property_declarations, &elem.base_type, prop)
                 {
-                    to_materialize.insert(nr, ty);
+                    e.insert(ty);
                 }
             }
         }

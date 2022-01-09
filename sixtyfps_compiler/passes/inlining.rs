@@ -126,14 +126,11 @@ fn inline_element(
 
     elem_mut.children = new_children;
 
-    match &mut elem_mut.base_type {
-        Type::Component(c) => {
-            if c.parent_element.upgrade().is_some() {
-                debug_assert!(Rc::ptr_eq(elem, &c.parent_element.upgrade().unwrap()));
-                *c = duplicate_sub_component(c, elem, &mut mapping);
-            }
+    if let Type::Component(c) = &mut elem_mut.base_type {
+        if c.parent_element.upgrade().is_some() {
+            debug_assert!(Rc::ptr_eq(elem, &c.parent_element.upgrade().unwrap()));
+            *c = duplicate_sub_component(c, elem, &mut mapping);
         }
-        _ => {}
     };
 
     root_component.optimized_elements.borrow_mut().extend(
@@ -221,14 +218,11 @@ fn duplicate_element_with_mapping(
         is_flickable_viewport: elem.is_flickable_viewport,
     }));
     mapping.insert(element_key(element.clone()), new.clone());
-    match &mut new.borrow_mut().base_type {
-        Type::Component(c) => {
-            if c.parent_element.upgrade().is_some() {
-                debug_assert!(Rc::ptr_eq(element, &c.parent_element.upgrade().unwrap()));
-                *c = duplicate_sub_component(c, &new, mapping);
-            }
+    if let Type::Component(c) = &mut new.borrow_mut().base_type {
+        if c.parent_element.upgrade().is_some() {
+            debug_assert!(Rc::ptr_eq(element, &c.parent_element.upgrade().unwrap()));
+            *c = duplicate_sub_component(c, &new, mapping);
         }
-        _ => (),
     };
 
     new
@@ -447,11 +441,9 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         if prop.starts_with("drop-shadow-") || prop == "opacity" {
             return true;
         }
-        if prop == "height" || prop == "width" {
-            if binding.expression.ty() == Type::Percent {
-                // percentage size in the root element might not make sense anyway.
-                return true;
-            }
+        if (prop == "height" || prop == "width") && binding.expression.ty() == Type::Percent {
+            // percentage size in the root element might not make sense anyway.
+            return true;
         }
         if binding.animation.is_some() {
             // If there is an animation, we currently inline so that if this property

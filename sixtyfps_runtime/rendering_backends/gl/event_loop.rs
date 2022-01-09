@@ -600,13 +600,12 @@ pub fn run(quit_behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
                 _ => (),
             }
 
-            if *control_flow != winit::event_loop::ControlFlow::Exit {
-                if corelib::animations::CURRENT_ANIMATION_DRIVER
+            if *control_flow != winit::event_loop::ControlFlow::Exit
+                && corelib::animations::CURRENT_ANIMATION_DRIVER
                     .with(|driver| driver.has_active_animations())
-                {
-                    *control_flow = ControlFlow::Poll;
-                    redraw_all_windows()
-                }
+            {
+                *control_flow = ControlFlow::Poll;
+                redraw_all_windows()
             }
 
             corelib::timers::TimerList::maybe_activate_timers();

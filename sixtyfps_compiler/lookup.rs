@@ -112,7 +112,7 @@ pub trait LookupObject {
     /// Perform a lookup of a given identifier.
     /// One does not have to re-implement unless we can make it faster
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then(|| LookupResult::from(expr)))
+        self.for_each_entry(ctx, &mut |prop, expr| (prop == name).then(|| expr))
     }
 }
 
