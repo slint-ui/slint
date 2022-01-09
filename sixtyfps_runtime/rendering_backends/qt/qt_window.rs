@@ -1133,7 +1133,7 @@ impl QtWindow {
                 sixtyfps_corelib::item_rendering::render_component_items(
                     component,
                     &mut renderer,
-                    origin.clone(),
+                    *origin,
                 );
             }
 

@@ -421,7 +421,7 @@ fn process_window_event(
         WindowEvent::KeyboardInput { ref input, .. } => {
             corelib::animations::update_animations();
             window.currently_pressed_key_code().set(match input.state {
-                winit::event::ElementState::Pressed => input.virtual_keycode.clone(),
+                winit::event::ElementState::Pressed => input.virtual_keycode,
                 _ => None,
             });
             if let Some(text) = input.virtual_keycode.and_then(key_codes::winit_key_to_string) {

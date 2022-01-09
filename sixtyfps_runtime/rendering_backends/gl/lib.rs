@@ -923,7 +923,7 @@ impl GLItemRenderer {
 
                     TextureCacheKey::new(
                         image_inner,
-                        target_size_for_scalable_source.clone(),
+                        target_size_for_scalable_source,
                         image_rendering,
                     )
                     .and_then(|cache_key| {

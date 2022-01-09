@@ -169,11 +169,7 @@ impl WinitWindow for GLWindow {
             };
 
             for (component, origin) in components {
-                corelib::item_rendering::render_component_items(
-                    component,
-                    &mut renderer,
-                    origin.clone(),
-                );
+                corelib::item_rendering::render_component_items(component, &mut renderer, *origin);
             }
 
             if let Some(fps_counter) = &self.fps_counter {

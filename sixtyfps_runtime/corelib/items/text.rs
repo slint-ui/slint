@@ -355,8 +355,7 @@ impl Item for TextInput {
         match event.event_type {
             KeyEventType::KeyPressed => {
                 if let Some(keycode) = event.text.chars().next() {
-                    if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode.clone())
-                    {
+                    if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode) {
                         TextInput::move_cursor(
                             self,
                             text_cursor_movement,
