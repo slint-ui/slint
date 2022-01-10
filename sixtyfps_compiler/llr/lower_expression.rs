@@ -866,7 +866,7 @@ fn compile_path(
             let converted_elements = elements
                 .iter()
                 .map(|element| {
-                    let ty = Type::Struct {
+                    let element_type = Type::Struct {
                         fields: element
                             .element_type
                             .properties
@@ -878,14 +878,26 @@ fn compile_path(
                     };
 
                     llr_Expression::Struct {
-                        ty,
+                        ty: element_type,
                         values: element
-                            .bindings
+                            .element_type
+                            .properties
                             .iter()
-                            .map(|(property, expr)| {
+                            .map(|(element_field_name, element_property)| {
                                 (
-                                    property.clone(),
-                                    lower_expression(&expr.borrow().expression, ctx).unwrap(),
+                                    element_field_name.clone(),
+                                    element.bindings.get(element_field_name).map_or_else(
+                                        || {
+                                            llr_Expression::default_value_for_type(
+                                                &element_property.ty,
+                                            )
+                                            .unwrap()
+                                        },
+                                        |expr| {
+                                            lower_expression(&expr.borrow().expression, ctx)
+                                                .unwrap()
+                                        },
+                                    ),
                                 )
                             })
                             .collect(),
