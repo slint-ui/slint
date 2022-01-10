@@ -8,6 +8,9 @@
 
 // The C++ code generator assumes that enums are in the cbindgen_private namespace
 namespace sixtyfps::cbindgen_private {
+using cbindgen_private::types::PathEvent;
+}
+namespace sixtyfps::private_api {
 using cbindgen_private::types::PathArcTo;
 using cbindgen_private::types::PathCubicTo;
 using cbindgen_private::types::PathElement;
@@ -15,11 +18,6 @@ using cbindgen_private::types::PathEvent;
 using cbindgen_private::types::PathLineTo;
 using cbindgen_private::types::PathMoveTo;
 using cbindgen_private::types::PathQuadraticTo;
-using cbindgen_private::types::Point;
-}
-namespace sixtyfps::private_api {
-using cbindgen_private::types::PathElement;
-using cbindgen_private::types::PathEvent;
 using cbindgen_private::types::Point;
 
 struct PathData

@@ -270,7 +270,7 @@ MoveTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::MoveTo(PathMoveTo{{}})
-    //-cpp_type:sixtyfps::cbindgen_private::PathMoveTo
+    //-cpp_type:sixtyfps::private_api::PathMoveTo
     //-is_non_item_type
 }
 
@@ -279,7 +279,7 @@ LineTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})
-    //-cpp_type:sixtyfps::cbindgen_private::PathLineTo
+    //-cpp_type:sixtyfps::private_api::PathLineTo
     //-is_non_item_type
 }
 
@@ -293,7 +293,7 @@ ArcTo := _ {
     property <bool> sweep;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})
-    //-cpp_type:sixtyfps::cbindgen_private::PathArcTo
+    //-cpp_type:sixtyfps::private_api::PathArcTo
     //-is_non_item_type
 }
 
@@ -306,7 +306,7 @@ CubicTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::CubicTo(PathCubicTo{{}})
-    //-cpp_type:sixtyfps::cbindgen_private::PathCubicTo
+    //-cpp_type:sixtyfps::private_api::PathCubicTo
     //-is_non_item_type
 }
 
@@ -317,7 +317,7 @@ QuadraticTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::QuadraticTo(PathQuadraticTo{{}})
-    //-cpp_type:sixtyfps::cbindgen_private::PathQuadraticTo
+    //-cpp_type:sixtyfps::private_api::PathQuadraticTo
     //-is_non_item_type
 }
 

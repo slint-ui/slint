@@ -2731,14 +2731,14 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
                         })
                         .unwrap_or_default();
                     format!(
-                        "sixtyfps::cbindgen_private::PathElement::{}({})",
+                        "sixtyfps::private_api::PathElement::{}({})",
                         element.element_type.native_class.class_name, element_initializer
                     )
                 })
                 .collect();
             format!(
                 r#"[&](){{
-                sixtyfps::cbindgen_private::PathElement elements[{}] = {{
+                sixtyfps::private_api::PathElement elements[{}] = {{
                     {}
                 }};
                 return sixtyfps::private_api::PathData(&elements[0], std::size(elements));
@@ -2756,10 +2756,10 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
 
             format!(
                 r#"[&](){{
-                sixtyfps::cbindgen_private::PathEvent events[{}] = {{
+                sixtyfps::private_api::PathEvent events[{}] = {{
                     {}
                 }};
-                sixtyfps::cbindgen_private::Point coordinates[{}] = {{
+                sixtyfps::private_api::Point coordinates[{}] = {{
                     {}
                 }};
                 return sixtyfps::private_api::PathData(&events[0], std::size(events), &coordinates[0], std::size(coordinates));
