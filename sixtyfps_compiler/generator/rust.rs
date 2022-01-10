@@ -314,6 +314,7 @@ fn handle_property_init(
         ctx2.argument_types = &args;
         let tokens_for_expression = compile_expression(&binding_expression.expression, &ctx2);
         init.push(quote!({
+            #[allow(unreachable_code, unused)]
             sixtyfps::internal::set_callback_handler(#rust_property, &self_rc, {
                 move |self_rc, args| {
                     #init_self_pin_ref
@@ -337,7 +338,7 @@ fn handle_property_init(
             });
 
             if uses_return {
-                quote! { #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
+                quote! { #[allow(unreachable_code)] #rust_property.set((||-> #t { (#tokens_for_expression) as #t })()); }
             } else {
                 quote! { #rust_property.set({ (#tokens_for_expression) as #t }); }
             }
@@ -1830,15 +1831,15 @@ fn compile_builtin_function_call(
         }
 
         BuiltinFunction::Rgb => {
-            quote!(
-                (|r: i32, g: i32, b: i32, a: f32| {
-                    let r: u8 = r.max(0).min(255) as u8;
-                    let g: u8 = g.max(0).min(255) as u8;
-                    let b: u8 = b.max(0).min(255) as u8;
-                    let a: u8 = (255. * a).max(0.).min(255.) as u8;
-                    sixtyfps::re_exports::Color::from_argb_u8(a, r, g, b)
-                })(#(#a),*)
-            )
+            let (r, g, b, a) =
+                (a.next().unwrap(), a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
+            quote!({
+                let r: u8 = (#r as u32).max(0).min(255) as u8;
+                let g: u8 = (#g as u32).max(0).min(255) as u8;
+                let b: u8 = (#b as u32).max(0).min(255) as u8;
+                let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
+                sixtyfps::re_exports::Color::from_argb_u8(a, r, g, b)
+            })
         }
     }
 }
