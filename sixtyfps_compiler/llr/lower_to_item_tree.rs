@@ -421,7 +421,9 @@ fn lower_global(
         );
 
         properties.push(Property { name: p.clone(), ty: x.property_type.clone() });
-        const_properties.push(nr.is_constant());
+        if !matches!(x.property_type, Type::Callback { .. }) {
+            const_properties.push(nr.is_constant());
+        }
         state
             .global_properties
             .insert(nr.clone(), PropertyReference::Global { global_index, property_index });
@@ -464,7 +466,7 @@ fn lower_global(
 
     let public_properties = public_properties(global, &mapping, &state);
     GlobalComponent {
-        name: global.id.clone(),
+        name: global.root_element.borrow().id.clone(),
         properties,
         init_values,
         const_properties,
