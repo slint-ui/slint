@@ -198,7 +198,7 @@ pub struct SubComponentInstance {
     pub ty: Rc<SubComponent>,
     pub name: String,
     pub index_in_tree: usize,
-    //pub property_values: Vec<(PropertyReference, BindingExpression)>,
+    pub repeater_offset: usize,
 }
 
 impl std::fmt::Debug for SubComponentInstance {
