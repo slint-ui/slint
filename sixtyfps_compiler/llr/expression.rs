@@ -148,14 +148,17 @@ pub enum Expression {
         /// So this looks like `layout_cache_prop[layout_cache_prop[index] + repeater_index]`
         repeater_index: Option<Box<Expression>>,
     },
-    /// Generate the array of BoxLayoutCellData form elements
-    BoxLayoutCellDataArray {
+    /// Will call the sub_expression, with the cell variable set to the
+    /// array the array of BoxLayoutCellData form the elements
+    BoxLayoutFunction {
+        /// The local variable (as read with [`Self::ReadLocalVariable`]) that contains the sell
+        cells_variable: String,
+        /// The name for the local variable that contains the repeater indices
+        repeater_indices: Option<String>,
         /// Either an expression of type BoxLayoutCellData, or an index to the repeater
         elements: Vec<Either<Expression, usize>>,
-        /// The name for the local variable that stores the repeater indices
-        /// In other word, this expression has side effect and change that
-        repeater_indices: Option<String>,
         orientation: Orientation,
+        sub_expression: Box<Expression>,
     },
 }
 
@@ -261,9 +264,7 @@ impl Expression {
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::ReturnStatement(_) => Type::Invalid,
             Self::LayoutCacheAccess { .. } => crate::layout::layout_info_type(),
-            Self::BoxLayoutCellDataArray { .. } => {
-                Type::Array(Box::new(crate::layout::layout_info_type()))
-            }
+            Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
         }
     }
 
@@ -320,7 +321,8 @@ impl Expression {
                     visitor(&repeater_index);
                 }
             }
-            Expression::BoxLayoutCellDataArray { elements, .. } => {
+            Expression::BoxLayoutFunction { elements, sub_expression, .. } => {
+                visitor(&sub_expression);
                 elements.iter().filter_map(|x| x.as_ref().left()).for_each(visitor);
             }
         }

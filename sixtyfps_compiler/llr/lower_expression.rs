@@ -406,7 +406,8 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> Op
                 ty: Type::Struct {
                     fields: IntoIterator::into_iter([
                         ("0".to_string(), animation_ty),
-                        ("1".to_string(), Type::Duration),
+                        // The type is an instant, which does not exist in our type system
+                        ("1".to_string(), Type::Invalid),
                     ])
                     .collect(),
                     name: None,
@@ -449,17 +450,27 @@ fn compute_layout_info(
         }
         crate::layout::Layout::BoxLayout(layout) => {
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx)?;
-            let (cells, alignment) = box_layout_data(layout, o, ctx, None)?;
-            if o == layout.orientation {
-                Some(llr_Expression::ExtraBuiltinFunctionCall {
+            let bld = box_layout_data(layout, o, ctx);
+            let sub_expression = if o == layout.orientation {
+                llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info".into(),
-                    arguments: vec![cells, spacing, padding, alignment],
-                })
+                    arguments: vec![bld.cells, spacing, padding, bld.alignment],
+                }
             } else {
-                Some(llr_Expression::ExtraBuiltinFunctionCall {
+                llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info_ortho".into(),
-                    arguments: vec![cells, padding],
-                })
+                    arguments: vec![bld.cells, padding],
+                }
+            };
+            match bld.compute_cells {
+                Some((cells_variable, elements)) => Some(llr_Expression::BoxLayoutFunction {
+                    cells_variable,
+                    repeater_indices: None,
+                    elements,
+                    orientation: o,
+                    sub_expression: Box::new(sub_expression),
+                }),
+                None => Some(sub_expression),
             }
         }
         crate::layout::Layout::PathLayout(_) => unimplemented!(),
@@ -545,8 +556,7 @@ fn solve_layout(
         }
         crate::layout::Layout::BoxLayout(layout) => {
             let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx)?;
-            let mut repeated_indices = String::new();
-            let (cells, alignment) = box_layout_data(layout, o, ctx, Some(&mut repeated_indices))?;
+            let bld = box_layout_data(layout, o, ctx);
             let size = layout_geometry_size(&layout.geometry.rect, o, ctx)?;
             let data = make_struct(
                 "BoxLayoutData".into(),
@@ -558,13 +568,29 @@ fn solve_layout(
                         "alignment",
                         crate::typeregister::LAYOUT_ALIGNMENT_ENUM
                             .with(|e| Type::Enumeration(e.clone())),
-                        alignment,
+                        bld.alignment,
                     ),
-                    ("cells", cells.ty(ctx), cells),
+                    ("cells", bld.cells.ty(ctx), bld.cells),
                 ],
             );
-            if repeated_indices.is_empty() {
-                Some(llr_Expression::ExtraBuiltinFunctionCall {
+            match bld.compute_cells {
+                Some((cells_variable, elements)) => Some(llr_Expression::BoxLayoutFunction {
+                    cells_variable,
+                    repeater_indices: Some("repeated_indices".into()),
+                    elements,
+                    orientation: o,
+                    sub_expression: Box::new(llr_Expression::ExtraBuiltinFunctionCall {
+                        function: "solve_box_layout".into(),
+                        arguments: vec![
+                            data,
+                            llr_Expression::ReadLocalVariable {
+                                name: "repeated_indices".into(),
+                                ty: Type::Array(Type::Int32.into()),
+                            },
+                        ],
+                    }),
+                }),
+                None => Some(llr_Expression::ExtraBuiltinFunctionCall {
                     function: "solve_box_layout".into(),
                     arguments: vec![
                         data,
@@ -574,29 +600,7 @@ fn solve_layout(
                             as_model: false,
                         },
                     ],
-                })
-            } else {
-                Some(llr_Expression::CodeBlock(vec![
-                    llr_Expression::StoreLocalVariable {
-                        name: repeated_indices.clone(),
-                        value: llr_Expression::Array {
-                            element_ty: Type::Int32,
-                            values: vec![],
-                            as_model: false,
-                        }
-                        .into(),
-                    },
-                    llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "solve_box_layout".into(),
-                        arguments: vec![
-                            data,
-                            llr_Expression::ReadLocalVariable {
-                                name: repeated_indices,
-                                ty: Type::Array(Type::Int32.into()),
-                            },
-                        ],
-                    },
-                ]))
+                }),
             }
         }
         crate::layout::Layout::PathLayout(layout) => {
@@ -629,14 +633,21 @@ fn solve_layout(
     }
 }
 
+struct BoxLayoutDataResult {
+    alignment: llr_Expression,
+    cells: llr_Expression,
+    /// When there are repeater involved, we need to do a BoxLayoutFunction with the
+    /// given cell variable and elements
+    compute_cells: Option<(String, Vec<Either<llr_Expression, usize>>)>,
+}
+
 fn box_layout_data(
     layout: &crate::layout::BoxLayout,
     orientation: Orientation,
     ctx: &ExpressionContext,
-    repeater_indices: Option<&mut String>,
-) -> Option<(llr_Expression, llr_Expression)> {
+) -> BoxLayoutDataResult {
     let alignment = if let Some(expr) = &layout.geometry.alignment {
-        llr_Expression::PropertyReference(ctx.map_property_reference(expr)?)
+        llr_Expression::PropertyReference(ctx.map_property_reference(expr).unwrap())
     } else {
         let e = crate::typeregister::LAYOUT_ALIGNMENT_ENUM.with(|e| e.clone());
         llr_Expression::EnumerationValue(EnumerationValue {
@@ -675,7 +686,7 @@ fn box_layout_data(
             element_ty,
             as_model: false,
         };
-        Some((cells, alignment))
+        BoxLayoutDataResult { alignment, cells, compute_cells: None }
     } else {
         let mut elements = vec![];
         for item in &layout.elems {
@@ -695,17 +706,11 @@ fn box_layout_data(
                 )));
             }
         }
-        Some((
-            llr_Expression::BoxLayoutCellDataArray {
-                elements,
-                repeater_indices: repeater_indices.map(|ri| {
-                    *ri = "repeater_indices".into();
-                    (*ri).clone()
-                }),
-                orientation,
-            },
-            alignment,
-        ))
+        let cells = llr_Expression::ReadLocalVariable {
+            name: "cells".into(),
+            ty: Type::Array(Box::new(crate::layout::layout_info_type())),
+        };
+        BoxLayoutDataResult { alignment, cells, compute_cells: Some(("cells".into(), elements)) }
     }
 }
 
