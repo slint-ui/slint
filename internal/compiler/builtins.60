@@ -408,7 +408,7 @@ PropertyAnimation := _ {
     property <duration> delay;
     property <duration> duration;
     property <easing> easing;
-    property <int> loop-count;
+    property <float> iteration-count: 1.0;
     //-is_non_item_type
 }
 

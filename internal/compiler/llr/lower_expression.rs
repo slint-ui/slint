@@ -370,7 +370,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
     fn animation_fields() -> impl Iterator<Item = (String, Type)> {
         IntoIterator::into_iter([
             ("duration".to_string(), Type::Int32),
-            ("loop-count".to_string(), Type::Int32),
+            ("iteration-count".to_string(), Type::Float32),
             ("easing".to_string(), Type::Easing),
             ("delay".to_string(), Type::Int32),
         ])
