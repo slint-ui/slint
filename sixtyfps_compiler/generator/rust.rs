@@ -1697,14 +1697,20 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(#cache.get()[#index])
             }
         }
-        Expression::BoxLayoutCellDataArray { elements, repeater_indices, orientation } => {
-            box_layout_data(
-                elements,
-                repeater_indices.as_ref().map(|x| x.as_str()),
-                *orientation,
-                ctx,
-            )
-        }
+        Expression::BoxLayoutFunction {
+            cells_variable,
+            repeater_indices,
+            elements,
+            orientation,
+            sub_expression,
+        } => box_layout_function(
+            cells_variable,
+            repeater_indices.as_ref().map(String::as_str),
+            elements,
+            *orientation,
+            sub_expression,
+            ctx,
+        ),
     }
 }
 
@@ -1847,10 +1853,12 @@ fn struct_name_to_tokens(name: &str) -> TokenStream {
     name.parse().unwrap()
 }
 
-fn box_layout_data(
-    elements: &[Either<Expression, usize>],
+fn box_layout_function(
+    cells_variable: &str,
     repeated_indices: Option<&str>,
+    elements: &[Either<Expression, usize>],
     orientation: Orientation,
+    sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let repeated_indices = repeated_indices.map(ident);
@@ -1874,9 +1882,8 @@ fn box_layout_data(
                 repeated_count = quote!(#repeated_count + _self.#repeater_id.len());
                 let ri = repeated_indices.as_ref().map(|ri| {
                     quote!(
-                        //#ri[#repeater_idx * 2] = items_vec.len() as u32;
-                        //#ri[#repeater_idx * 2 + 1] = internal_vec.len() as u32;
-                        todo!("repeater_idx");
+                        #ri[#repeater_idx * 2] = items_vec.len() as u32;
+                        #ri[#repeater_idx * 2 + 1] = internal_vec.len() as u32;
                     )
                 });
                 repeater_idx += 1;
@@ -1894,11 +1901,20 @@ fn box_layout_data(
         }
     }
 
-    quote! { sixtyfps::re_exports::Slice::from_slice(&{
+    let ri = repeated_indices.as_ref().map(|ri| quote!(let mut #ri = [0u32; 2 * #repeater_idx];));
+    let ri2 =
+        repeated_indices.map(|ri| quote!(let #ri = sixtyfps::re_exports::Slice::from_slice(&#ri);));
+    let cells_variable = ident(cells_variable);
+    let sub_expression = compile_expression(sub_expression, ctx);
+
+    quote! { {
+        #ri
         let mut items_vec = sixtyfps::re_exports::Vec::with_capacity(#fixed_count #repeated_count);
         #(#push_code)*
-        items_vec
-    }) }
+        let #cells_variable = sixtyfps::re_exports::Slice::from_slice(&items_vec);
+        #ri2
+        #sub_expression
+    } }
 }
 
 /*
