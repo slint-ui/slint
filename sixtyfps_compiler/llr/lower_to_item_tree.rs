@@ -82,7 +82,7 @@ impl LoweredSubComponentMapping {
             .get(from.name())
             .and_then(|x| x.is_alias.as_ref())
         {
-            return state.map_property_reference(alias);
+            return self.map_property_reference(alias, state);
         }
         match self.element_mapping.get(&element.clone().into()).unwrap() {
             LoweredElement::SubComponent { sub_component_index } => {
@@ -205,6 +205,9 @@ fn lower_sub_component(
     crate::object_tree::recurse_elem(&component.root_element, &s, &mut |element, parent| {
         let elem = element.borrow();
         for (p, x) in &elem.property_declarations {
+            if x.is_alias.is_some() {
+                continue;
+            }
             let property_index = sub_component.properties.len();
             mapping.property_mapping.insert(
                 NamedReference::new(element, &p),
