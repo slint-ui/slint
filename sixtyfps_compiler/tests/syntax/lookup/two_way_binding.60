@@ -1,6 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
+global G := {
+    property <int> alala <=> alala;
+//                       ^error{Property cannot alias to itself}
+    property <string> yoyo <=> alala;
+//                         ^error{The property does not have the same type as the bound property}
+}
+
 X := Rectangle {
 
     property <brush> my_color <=> self.background;
@@ -32,4 +39,6 @@ X := Rectangle {
         property <length> loop_on_x <=> x;
 //                                  ^error{The binding for the property 'loop-on-x' is part of a binding loop}
     }
+
+    property gyoyo <=> G.yoyo;
 }
