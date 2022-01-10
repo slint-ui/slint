@@ -203,7 +203,13 @@ pub struct SubComponentInstance {
 
 impl std::fmt::Debug for SubComponentInstance {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.ty.name)
+        f.debug_struct("SubComponentInstance")
+            // only dump ty.name, not the whole structure
+            .field("ty", &self.ty.name)
+            .field("name", &self.name)
+            .field("index_in_tree", &self.index_in_tree)
+            .field("repeater_offset", &self.repeater_offset)
+            .finish()
     }
 }
 
@@ -221,7 +227,7 @@ pub struct ItemTree {
 pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub item_tree: ItemTree,
-    pub sub_components: BTreeMap<String, Rc<SubComponent>>,
+    pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
 }
 

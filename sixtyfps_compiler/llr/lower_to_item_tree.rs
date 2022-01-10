@@ -35,11 +35,7 @@ pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
     PublicComponent {
         item_tree,
         globals,
-        sub_components: state
-            .sub_components
-            .into_iter()
-            .map(|(c, sc)| (c.id.clone(), sc.sub_component))
-            .collect(),
+        sub_components: state.sub_components.into_values().map(|sc| sc.sub_component).collect(),
         public_properties,
     }
 }

@@ -113,7 +113,7 @@ pub fn generate(doc: &Document, _diag: &mut BuildDiagnostics) -> Option<TokenStr
 
     let sub_compos = llr
         .sub_components
-        .values()
+        .iter()
         .map(|sub_compo| generate_sub_component(&sub_compo, &llr, None, quote!()))
         .collect::<Option<Vec<_>>>()?;
 
