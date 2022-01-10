@@ -63,7 +63,8 @@ impl PropertySets {
 pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     // collect all sets that are linked together
     let mut property_sets = PropertySets::default();
-    recurse_elem_including_sub_components(component, &(), &mut |e, _| {
+
+    let mut process_element = |e: &ElementRc| {
         'bindings: for (name, binding) in &e.borrow().bindings {
             for nr in &binding.borrow().two_way_bindings {
                 let other_e = nr.element();
@@ -74,7 +75,12 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
                 property_sets.add_link(NamedReference::new(e, name), nr.clone());
             }
         }
-    });
+    };
+
+    recurse_elem_including_sub_components(component, &(), &mut |e, &()| process_element(e));
+    for g in &component.used_types.borrow().globals {
+        process_element(&g.root_element)
+    }
 
     // The key will be removed and replaced by the named reference
     let mut aliases_to_remove = Mapping::new();
