@@ -651,13 +651,16 @@ impl Expression {
                     visitor(x);
                 }
             }
-            Expression::PathData(data) => {
-                if let Path::Elements(elements) = data {
+            Expression::PathData(data) => match data {
+                Path::Elements(elements) => {
                     for element in elements {
                         element.bindings.values().for_each(|binding| visitor(&binding.borrow()))
                     }
                 }
-            }
+                Path::Events(events, coordinates) => {
+                    events.iter().chain(coordinates.iter()).for_each(visitor);
+                }
+            },
             Expression::StoreLocalVariable { value, .. } => visitor(&**value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
@@ -733,8 +736,8 @@ impl Expression {
                     visitor(x);
                 }
             }
-            Expression::PathData(data) => {
-                if let Path::Elements(elements) = data {
+            Expression::PathData(data) => match data {
+                Path::Elements(elements) => {
                     for element in elements {
                         element
                             .bindings
@@ -742,7 +745,10 @@ impl Expression {
                             .for_each(|binding| visitor(&mut binding.borrow_mut()))
                     }
                 }
-            }
+                Path::Events(events, coordinates) => {
+                    events.iter_mut().chain(coordinates.iter_mut()).for_each(visitor);
+                }
+            },
             Expression::StoreLocalVariable { value, .. } => visitor(&mut **value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
