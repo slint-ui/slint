@@ -142,7 +142,7 @@ MdiWindow := Rectangle {
 
 //------ Widgets ------
 
-import {LineEdit, TextEdit, ComboBox, GridBox, VerticalBox, HorizontalBox} from "sixtyfps_widgets.60";
+import {LineEdit, TextEdit, ComboBox, GridBox, VerticalBox, HorizontalBox, StyleMetrics} from "sixtyfps_widgets.60";
 
 Label := Text {
     color: Palette.text-color;
@@ -273,7 +273,7 @@ Slider := Rectangle {
         border-color: touch.has-hover ? Palette.widget-stroke.darker(100%) :  Palette.widget-stroke;
         border-width: touch.pressed ? 4px : touch.has-hover ? 3px : 2px;
         background: touch.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
-        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
+        x: (root.width - handle.width) * max(0, min(1, (value - minimum)/(maximum - minimum)));
     }
     touch := TouchArea {
         width: parent.width;
@@ -328,6 +328,27 @@ DragValue := TouchArea {
 
     property <float> _pressed-value;
     mouse-cursor: MouseCursor.ew-resize;
+}
+
+ProgressBar := Rectangle {
+    property <float> value;
+    min-height: 24px;
+    min-width: 100px;
+    background: StyleMetrics.textedit-background;
+    border-radius: height / 2;
+
+    Rectangle {
+        height: 100%;
+        width: height + (parent.width - height) * max(0, min(1, value / 100));
+        border-radius: height / 2;
+        background: Palette.hyper-blue;
+    }
+    Label {
+        height: 100%;
+        vertical-alignment: center;
+        x: height/2;
+        text: round(value) + "%";
+    }
 }
 
 
@@ -405,6 +426,11 @@ Gallery := GridBox {
             DragValue { value <=> sl.value; }
         }
     }
+    Row {
+        Text { text: "ProgressBar:"; }
+        ProgressBar { value <=> sl.value; }
+    }
+    Rectangle {}
 }
 
 TextEditDemo := VerticalLayout {
