@@ -174,10 +174,10 @@ Example := Button {
 }
 ```
 
-The re-evaluation happens when the property is queried. Internally, dependency will be registered
-for any property accessed while evaluating this binding. When the dependent property are changed,
-all the dependent binding are marked dirty. Callbacks in native code by default does not depends on
-any property unless they query a property in the native code.
+The re-evaluation happens when the property is queried. Internally, a dependency will be registered
+for any property accessed while evaluating this binding. When the dependent properties are changed,
+all the dependent bindings are marked dirty. Callbacks in native code by default do not depend on
+any properties unless they query a property in the native code.
 
 ### Two-way Bindings
 
