@@ -201,6 +201,7 @@ fn lower_sub_component(
     };
 
     let s: Option<ElementRc> = None;
+    let mut repeater_offset = 0;
     crate::object_tree::recurse_elem(&component.root_element, &s, &mut |element, parent| {
         let elem = element.borrow();
         for (p, x) in &elem.property_declarations {
@@ -246,10 +247,12 @@ fn lower_sub_component(
                     property_bindings.push((prop_ref.unwrap(), b.borrow().clone()));
                 }
                 sub_component.sub_components.push(SubComponentInstance {
-                    ty,
+                    ty: ty.clone(),
                     name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
+                    repeater_offset,
                 });
+                repeater_offset += ty.repeater_count();
             }
 
             Type::Native(n) => {
@@ -307,6 +310,9 @@ fn lower_sub_component(
     }
     sub_component.repeated =
         repeated.into_iter().map(|elem| lower_repeated_component(&elem, &ctx)).collect();
+    for s in &mut sub_component.sub_components {
+        s.repeater_offset += sub_component.repeated.len();
+    }
     sub_component.popup_windows = component
         .popup_windows
         .borrow()

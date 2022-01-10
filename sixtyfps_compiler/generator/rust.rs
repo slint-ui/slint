@@ -572,8 +572,6 @@ fn generate_sub_component(
     let mut sub_component_names: Vec<Ident> = vec![];
     let mut sub_component_types: Vec<Ident> = vec![];
 
-    let mut repeater_count = 0;
-
     for sub in &component.sub_components {
         let field_name = ident(&sub.name);
         let sub_component_id = self::inner_component_id(&sub.ty);
@@ -598,14 +596,14 @@ fn generate_sub_component(
 
         let sub_component_repeater_count = sub.ty.repeater_count();
         if sub_component_repeater_count > 0 {
-            let last_repeater: usize = repeater_count + sub_component_repeater_count - 1;
+            let repeater_offset = sub.repeater_offset;
+            let last_repeater: usize = repeater_offset + sub_component_repeater_count - 1;
             repeated_visit_branch.push(quote!(
-                #repeater_count..=#last_repeater => {
-                    Self::FIELD_OFFSETS.#field_name.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_count, order, visitor)
+                #repeater_offset..=#last_repeater => {
+                    Self::FIELD_OFFSETS.#field_name.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
                 }
             ));
         }
-        repeater_count += sub_component_repeater_count;
 
         sub_component_names.push(field_name);
         sub_component_types.push(sub_component_id);
@@ -851,7 +849,12 @@ fn generate_item_tree(
         let (path, component) = follow_sub_component_path(&sub_tree.root, &node.sub_component_path);
         if node.repeated {
             assert_eq!(node.children.len(), 0);
-            let repeater_index = node.item_index;
+            let mut repeater_index = node.item_index;
+            let mut sub_component = &sub_tree.root;
+            for i in &node.sub_component_path {
+                repeater_index += sub_component.sub_components[*i].repeater_offset;
+                sub_component = &sub_component.sub_components[*i].ty;
+            }
             item_tree_array.push(quote!(
                 sixtyfps::re_exports::ItemTreeNode::DynamicTree {
                     index: #repeater_index,

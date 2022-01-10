@@ -255,7 +255,7 @@ impl Expression {
             Self::Condition { true_expr, .. } => true_expr.ty(ctx),
             Self::Array { element_ty, .. } => Type::Array(element_ty.clone().into()),
             Self::Struct { ty, .. } => ty.clone(),
-            Self::PathEvents { .. } => todo!(),
+            Self::PathEvents { .. } => Type::PathData,
             Self::EasingCurve(_) => Type::Easing,
             Self::LinearGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
