@@ -1127,8 +1127,19 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
 
     fn compute_interpolated_value(&mut self) -> (T, bool) {
         let duration = self.details.duration as u128;
+        let delay = self.details.delay as u128;
+
         let new_tick = crate::animations::current_tick();
+
         let mut time_progress = new_tick.duration_since(self.start_time).as_millis();
+        if self.loop_iteration == 0 {
+            if time_progress >= delay {
+                time_progress -= delay;
+            } else {
+                return (self.from_value.clone(), false);
+            }
+        }
+
         if time_progress >= duration {
             if self.loop_iteration < self.details.loop_count || self.details.loop_count < 0 {
                 self.loop_iteration += (time_progress / duration) as i32;
