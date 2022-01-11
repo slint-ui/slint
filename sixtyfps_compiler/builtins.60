@@ -406,6 +406,7 @@ export PopupWindow := _ {
 export Dialog := WindowItem {}
 
 PropertyAnimation := _ {
+    property <duration> delay;
     property <duration> duration;
     property <easing> easing;
     property <int> loop-count;

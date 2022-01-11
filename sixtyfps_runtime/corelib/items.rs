@@ -984,6 +984,8 @@ pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBo
 #[pin]
 pub struct PropertyAnimation {
     #[rtti_field]
+    pub delay: i32,
+    #[rtti_field]
     pub duration: i32,
     #[rtti_field]
     pub loop_count: i32,
