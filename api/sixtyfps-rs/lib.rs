@@ -20,16 +20,17 @@ If you are already familiar with SixtyFPS, the following topics provide some
 
 ## How to use this crate:
 
-Designs of user interfaces are described in the `.60` design markup language. There are two ways
+Designs of user interfaces are described in the `.60` design markup language. There are three ways
 of including them in Rust:
 
  - The `.60` code is [inline in a macro](#the-60-code-in-a-macro).
  - The `.60` code in [external files compiled with `build.rs`](#the-60-code-in-external-files-is-compiled-with-buildrs)
+ - The `.60` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://docs.rs/sixtyfps-interpreter/latest/sixtyfps_interpreter/).
 
- This markup code is translated to Rust code and each component is turned into a Rust
- struct with functions. Use these functions to instantiate and show the component, and
- to access declared properties. Check out our [sample component](docs::generated_code::SampleComponent) for more
- information about the generation functions and how to use them.
+With the first two methods, the markup code is translated to Rust code and each component is turned into a Rust
+struct with functions. Use these functions to instantiate and show the component, and
+to access declared properties. Check out our [sample component](docs::generated_code::SampleComponent) for more
+information about the generation functions and how to use them.
 
 ### The .60 code in a macro
 
