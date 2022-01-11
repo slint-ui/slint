@@ -144,7 +144,7 @@ pub(crate) fn solve_layout(
                     height: path_layout.rect.height_reference.as_ref().map(expr_eval).unwrap_or(0.),
                     x: 0.,
                     y: 0.,
-                    elements: &eval::eval_expression(
+                    elements: eval::eval_expression(
                         &Expression::PathData(path_layout.path.clone()),
                         local_context,
                     )
