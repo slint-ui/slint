@@ -288,7 +288,7 @@ impl Expression {
             Expression::ReadLocalVariable { .. } => {}
             Expression::StructFieldAccess { base, .. } => visitor(&base),
             Expression::Cast { from, .. } => visitor(from),
-            Expression::CodeBlock(_) => {}
+            Expression::CodeBlock(b) => b.iter().for_each(visitor),
             Expression::BuiltinFunctionCall { arguments, .. } => arguments.iter().for_each(visitor),
             Expression::CallBackCall { arguments, .. } => arguments.iter().for_each(visitor),
             Expression::ExtraBuiltinFunctionCall { arguments, .. } => {
