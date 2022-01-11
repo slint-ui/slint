@@ -675,6 +675,7 @@ This will animate the color property for 100ms when it changes.
 
 Animation can be configured with the following parameter:
 
+* `delay`: the amount of time to wait before starting the animation
 * `duration`: the amount of time it takes for the animation to complete
 * `loop-count`: FIXME
 * `easing`: can be `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier(a, b, c, d)` as in CSS

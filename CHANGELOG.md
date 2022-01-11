@@ -23,6 +23,8 @@ All notable changes to this project will be documented in this file.
    special keys are handled
  - `start()`, `stop()`, `running()` and a default constructor for C++ `sixtyfps::Timer`
  - Math functions `log`, and `pow`
+ - Property animations now have a `delay` property, which will delay the start
+   of the animation.
 
 ### Fixed
 
