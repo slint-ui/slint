@@ -605,21 +605,27 @@ fn solve_layout(
                 llr_Expression::NumberLiteral(0.)
             };
 
-            let count = layout.elements.len(); // FIXME! repeater
+            // FIXME! repeater
+            let repeater_indices =
+                llr_Expression::Array { element_ty: Type::Int32, values: vec![], as_model: false };
+            let count = layout.elements.len();
             Some(llr_Expression::ExtraBuiltinFunctionCall {
                 function: "solve_path_layout".into(),
-                arguments: vec![make_struct(
-                    "PathLayoutData".into(),
-                    [
-                        ("width", Type::Float32, width),
-                        ("height", Type::Float32, height),
-                        ("x", Type::Float32, llr_Expression::NumberLiteral(0.)),
-                        ("y", Type::Float32, llr_Expression::NumberLiteral(0.)),
-                        ("elements", elements.ty(ctx), elements),
-                        ("offset", Type::Int32, offset),
-                        ("item_count", Type::Int32, llr_Expression::NumberLiteral(count as _)),
-                    ],
-                )],
+                arguments: vec![
+                    make_struct(
+                        "PathLayoutData".into(),
+                        [
+                            ("width", Type::Float32, width),
+                            ("height", Type::Float32, height),
+                            ("x", Type::Float32, llr_Expression::NumberLiteral(0.)),
+                            ("y", Type::Float32, llr_Expression::NumberLiteral(0.)),
+                            ("elements", elements.ty(ctx), elements),
+                            ("offset", Type::Int32, offset),
+                            ("item_count", Type::Int32, llr_Expression::NumberLiteral(count as _)),
+                        ],
+                    ),
+                    repeater_indices,
+                ],
             })
         }
     }
