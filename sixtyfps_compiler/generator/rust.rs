@@ -1084,16 +1084,11 @@ fn property_set_value_tokens(
     value_tokens: TokenStream,
     ctx: &EvaluationContext,
 ) -> TokenStream {
-    // FIXME! animation
-    /*if let Some(binding) = element.borrow().bindings.get(property_name) {
-        if let Some(crate::object_tree::PropertyAnimation::Static(animation)) =
-        binding.borrow().animation.as_ref()
-        {
-            let animation_tokens = property_animation_tokens(component, animation);
-            return quote!(set_animated_value(#value_tokens, #animation_tokens));
-        }
-    }*/
     let prop = access_member(property, ctx);
+    if let Some(animation) = ctx.current_sub_component.and_then(|c| c.animations.get(property)) {
+        let animation_tokens = compile_expression(animation, ctx);
+        return quote!(#prop.set_animated_value(#value_tokens as _, #animation_tokens));
+    }
     quote!(#prop.set(#value_tokens as _))
 }
 
