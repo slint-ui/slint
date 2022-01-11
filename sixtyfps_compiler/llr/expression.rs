@@ -158,6 +158,14 @@ pub enum Expression {
         orientation: Orientation,
         sub_expression: Box<Expression>,
     },
+
+    ComputeDialogLayoutCells {
+        /// The local variable where the slice of cells is going to be stored
+        cells_variable: String,
+        roles: Box<Expression>,
+        /// This is an Expression::Array
+        unsorted_cells: Box<Expression>,
+    },
 }
 
 impl Expression {
@@ -262,6 +270,9 @@ impl Expression {
             Self::ReturnStatement(_) => Type::Invalid,
             Self::LayoutCacheAccess { .. } => crate::layout::layout_info_type(),
             Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::ComputeDialogLayoutCells { .. } => {
+                Type::Array(super::lower_expression::grid_layout_cell_data_ty().into())
+            }
         }
     }
 
@@ -320,6 +331,10 @@ impl Expression {
             Expression::BoxLayoutFunction { elements, sub_expression, .. } => {
                 visitor(&sub_expression);
                 elements.iter().filter_map(|x| x.as_ref().left()).for_each(visitor);
+            }
+            Expression::ComputeDialogLayoutCells { cells_variable, roles, unsorted_cells } => {
+                visitor(&roles);
+                visitor(&unsorted_cells);
             }
         }
     }

@@ -1733,6 +1733,21 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             sub_expression,
             ctx,
         ),
+        Expression::ComputeDialogLayoutCells { cells_variable, roles, unsorted_cells } => {
+            let cells_variable = ident(&cells_variable);
+            let roles = compile_expression(roles, ctx);
+            let cells = match &**unsorted_cells {
+                Expression::Array { values, .. } => {
+                    values.iter().map(|v| compile_expression(v, ctx))
+                }
+                _ => panic!("dialog layout unsorted cells not an array"),
+            };
+            quote! {
+                let mut #cells_variable = [#(#cells),*];
+                sixtyfps::re_exports::reorder_dialog_button_layout(&mut #cells_variable, &#roles);
+                let #cells_variable = sixtyfps::re_exports::Slice::from_slice(&#cells_variable);
+            }
+        }
     }
 }
 
