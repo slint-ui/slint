@@ -501,23 +501,15 @@ fn solve_layout(
                     })
                     .collect();
                 Some(llr_Expression::CodeBlock(vec![
-                    llr_Expression::StoreLocalVariable {
-                        name: "cells".into(),
-                        value: Box::new(cells),
-                    },
-                    llr_Expression::ExtraBuiltinFunctionCall {
-                        function: "reorder_dialog_button_layout".into(),
-                        arguments: vec![
-                            llr_Expression::ReadLocalVariable {
-                                name: "cells".into(),
-                                ty: cells_ty.clone(),
-                            },
-                            llr_Expression::Array {
-                                element_ty: Type::Enumeration(e),
-                                values: roles,
-                                as_model: false,
-                            },
-                        ],
+                    llr_Expression::ComputeDialogLayoutCells {
+                        cells_variable: "cells".into(),
+                        roles: llr_Expression::Array {
+                            element_ty: Type::Enumeration(e),
+                            values: roles,
+                            as_model: false,
+                        }
+                        .into(),
+                        unsorted_cells: Box::new(cells),
                     },
                     llr_Expression::ExtraBuiltinFunctionCall {
                         function: "solve_grid_layout".into(),
@@ -720,16 +712,7 @@ fn grid_layout_cell_data(
     ctx: &ExpressionContext,
 ) -> Option<llr_Expression> {
     Some(llr_Expression::Array {
-        element_ty: Type::Struct {
-            fields: IntoIterator::into_iter([
-                ("col_or_row".to_string(), Type::Int32),
-                ("span".to_string(), Type::Int32),
-                ("constraint".to_string(), crate::layout::layout_info_type()),
-            ])
-            .collect(),
-            name: Some("GridLayoutCellData".into()),
-            node: None,
-        },
+        element_ty: grid_layout_cell_data_ty(),
         values: layout
             .elems
             .iter()
@@ -751,6 +734,19 @@ fn grid_layout_cell_data(
             .collect(),
         as_model: false,
     })
+}
+
+pub(super) fn grid_layout_cell_data_ty() -> Type {
+    Type::Struct {
+        fields: IntoIterator::into_iter([
+            ("col_or_row".to_string(), Type::Int32),
+            ("span".to_string(), Type::Int32),
+            ("constraint".to_string(), crate::layout::layout_info_type()),
+        ])
+        .collect(),
+        name: Some("GridLayoutCellData".into()),
+        node: None,
+    }
 }
 
 fn generate_layout_padding_and_spacing(
