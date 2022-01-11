@@ -2421,7 +2421,7 @@ fn compile_expression(
             // FIXME! repeater
             format!("[&] {{ \
                     const auto elements = {e};\
-                    sixtyfps::PathLayoutData path {{ &elements, {c}, 0, 0, {w}, {h}, {o} }};
+                    sixtyfps::PathLayoutData path {{ elements, {c}, 0, 0, {w}, {h}, {o} }};
                     sixtyfps::SharedVector<float> result;
                     sixtyfps::sixtyfps_solve_path_layout(&path, {{}}, &result);\
                     return result;

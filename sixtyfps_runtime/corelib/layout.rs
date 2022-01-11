@@ -598,8 +598,8 @@ pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding)
 
 #[cfg(feature = "std")]
 #[repr(C)]
-pub struct PathLayoutData<'a> {
-    pub elements: &'a crate::graphics::PathData,
+pub struct PathLayoutData {
+    pub elements: crate::graphics::PathData,
     pub item_count: u32,
     pub x: Coord,
     pub y: Coord,
