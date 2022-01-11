@@ -1294,6 +1294,7 @@ mod animation_tests {
     }
 
     const DURATION: instant::Duration = instant::Duration::from_millis(10000);
+    const DELAY: instant::Duration = instant::Duration::from_millis(800);
 
     // Helper just for testing
     fn get_prop_value<T: Clone>(prop: &Property<T>) -> T {
@@ -1328,8 +1329,62 @@ mod animation_tests {
             .with(|driver| driver.update_animations(start_time + DURATION));
         assert_eq!(get_prop_value(&compo.width), 200);
         assert_eq!(get_prop_value(&compo.width_times_two), 400);
+
+        // Overshoot: Always to_value.
         crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.update_animations(start_time + DURATION * 2));
+            .with(|driver| driver.update_animations(start_time + DURATION + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 200);
+        assert_eq!(get_prop_value(&compo.width_times_two), 400);
+
+        // the binding should be removed
+        compo.width.handle.access(|binding| assert!(binding.is_none()));
+    }
+
+    #[test]
+    fn properties_test_delayed_animation_triggered_by_set() {
+        let compo = Component::new_test_component();
+
+        let animation_details = PropertyAnimation {
+            delay: DELAY.as_millis() as _,
+            duration: DURATION.as_millis() as _,
+            ..PropertyAnimation::default()
+        };
+
+        compo.width.set(100);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        let start_time = crate::animations::current_tick();
+
+        compo.width.set_animated_value(200, animation_details);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        // In delay:
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY / 2));
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        // In animation:
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY));
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+        assert_eq!(get_prop_value(&compo.width_times_two), 300);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 200);
+        assert_eq!(get_prop_value(&compo.width_times_two), 400);
+
+        // Overshoot: Always to_value.
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY + DURATION + DURATION / 2));
         assert_eq!(get_prop_value(&compo.width), 200);
         assert_eq!(get_prop_value(&compo.width_times_two), 400);
 
@@ -1367,13 +1422,69 @@ mod animation_tests {
 
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION / 2));
-
         assert_eq!(get_prop_value(&compo.width), 150);
         assert_eq!(get_prop_value(&compo.width_times_two), 300);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 200);
+        assert_eq!(get_prop_value(&compo.width_times_two), 400);
+    }
 
+    #[test]
+    fn properties_test_delayed_animation_triggered_by_binding() {
+        let compo = Component::new_test_component();
+
+        let start_time = crate::animations::current_tick();
+
+        let animation_details = PropertyAnimation {
+            delay: DELAY.as_millis() as _,
+            duration: DURATION.as_millis() as _,
+            ..PropertyAnimation::default()
+        };
+
+        let w = Rc::downgrade(&compo);
+        compo.width.set_animated_binding(
+            move || {
+                let compo = w.upgrade().unwrap();
+                get_prop_value(&compo.feed_property)
+            },
+            animation_details,
+        );
+
+        compo.feed_property.set(100);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        compo.feed_property.set(200);
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        // In delay:
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY / 2));
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        // In animation:
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY));
+        assert_eq!(get_prop_value(&compo.width), 100);
+        assert_eq!(get_prop_value(&compo.width_times_two), 200);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY + DURATION / 2));
+        assert_eq!(get_prop_value(&compo.width), 150);
+        assert_eq!(get_prop_value(&compo.width_times_two), 300);
+
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY + DURATION));
+        assert_eq!(get_prop_value(&compo.width), 200);
+        assert_eq!(get_prop_value(&compo.width_times_two), 400);
+
+        // Overshoot: Always to_value.
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.update_animations(start_time + DELAY + DURATION + DURATION / 2));
         assert_eq!(get_prop_value(&compo.width), 200);
         assert_eq!(get_prop_value(&compo.width_times_two), 400);
     }
