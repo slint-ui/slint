@@ -172,6 +172,7 @@ fn lower_sub_component(
         popup_windows: Default::default(),
         sub_components: Default::default(),
         property_init: Default::default(),
+        animations: Default::default(),
         two_way_bindings: Default::default(),
         const_properties: Default::default(),
         // just initialize to dummy expression right now and it will be set later
@@ -269,14 +270,32 @@ fn lower_sub_component(
         if let Some(expression) =
             super::lower_expression::lower_expression(&binding.expression, &ctx)
         {
+            let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
             let animation = binding
                 .animation
                 .as_ref()
-                .and_then(|a| super::lower_expression::lower_animation(a, &ctx));
-            let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
+                .filter(|_| !is_constant)
+                .map(|a| super::lower_expression::lower_animation(a, &ctx).unwrap());
             sub_component
                 .property_init
                 .push((prop.clone(), BindingExpression { expression, animation, is_constant }))
+        }
+        if e.borrow()
+            .property_analysis
+            .borrow()
+            .get(p)
+            .map_or(true, |a| a.is_set || a.is_set_externally)
+        {
+            if let Some(anim) = binding.animation.as_ref() {
+                match super::lower_expression::lower_animation(anim, &ctx).unwrap() {
+                    Animation::Static(anim) => {
+                        sub_component.animations.insert(prop, anim);
+                    }
+                    Animation::Transition(_) => {
+                        // Cannot set a property with a transition anyway
+                    }
+                }
+            }
         }
     });
     sub_component.repeated =

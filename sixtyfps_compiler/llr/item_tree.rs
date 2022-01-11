@@ -3,7 +3,7 @@
 
 use super::Expression;
 use crate::langtype::{NativeClass, Type};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::num::NonZeroUsize;
 use std::rc::Rc;
 
@@ -43,7 +43,7 @@ pub struct GlobalComponent {
 }
 
 /// a Reference to a property, in the context of a SubComponent
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum PropertyReference {
     /// A property relative to this SubComponent
     Local { sub_component_path: Vec<usize>, property_index: PropertyIndex },
@@ -175,7 +175,11 @@ pub struct SubComponent {
     pub repeated: Vec<RepeatedElement>,
     pub popup_windows: Vec<ItemTree>,
     pub sub_components: Vec<SubComponentInstance>,
+    /// The initial value or binding for properties.
+    /// This is ordered in the order they must be set.
     pub property_init: Vec<(PropertyReference, BindingExpression)>,
+    /// The animation for properties which are animated
+    pub animations: HashMap<PropertyReference, Expression>,
     pub two_way_bindings: Vec<(PropertyReference, PropertyReference)>,
     pub const_properties: Vec<PropertyReference>,
 
