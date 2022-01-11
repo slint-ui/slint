@@ -268,7 +268,7 @@ impl Expression {
             Self::LinearGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::ReturnStatement(_) => Type::Invalid,
-            Self::LayoutCacheAccess { .. } => crate::layout::layout_info_type(),
+            Self::LayoutCacheAccess { .. } => Type::Array(Type::Int32.into()),
             Self::BoxLayoutFunction { sub_expression, .. } => sub_expression.ty(ctx),
             Self::ComputeDialogLayoutCells { .. } => {
                 Type::Array(super::lower_expression::grid_layout_cell_data_ty().into())
