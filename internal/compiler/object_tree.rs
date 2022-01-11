@@ -749,15 +749,7 @@ impl Element {
             diag,
         );
 
-        if let Type::Builtin(builtin_base) = &r.base_type {
-            for (prop, info) in &builtin_base.properties {
-                if let Some(expr) = &info.default_value {
-                    r.bindings
-                        .entry(prop.clone())
-                        .or_insert_with(|| RefCell::new(expr.clone().into()));
-                }
-            }
-        }
+        apply_default_type_properties(&mut r);
 
         for sig_decl in node.CallbackDeclaration() {
             let name =
@@ -1233,6 +1225,21 @@ impl Element {
     }
 }
 
+/// Apply default property values defined in `builtins.60` to the element.
+fn apply_default_type_properties(element: &mut Element) {
+    // Apply default property values on top:
+    if let Type::Builtin(builtin_base) = &element.base_type {
+        for (prop, info) in &builtin_base.properties {
+            if let Some(expr) = &info.default_value {
+                element
+                    .bindings
+                    .entry(prop.clone())
+                    .or_insert_with(|| RefCell::new(expr.clone().into()));
+            }
+        }
+    }
+}
+
 /// Create a Type for this node
 pub fn type_from_node(
     node: syntax_nodes::Type,
@@ -1302,6 +1309,9 @@ fn animation_element_from_node(
             }),
             diag,
         );
+
+        apply_default_type_properties(&mut anim_element);
+
         Some(Rc::new(RefCell::new(anim_element)))
     }
 }
