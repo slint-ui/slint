@@ -94,6 +94,12 @@ pub enum ItemTreeNode<T> {
 }
 
 impl<T> ItemTreeNode<T> {
+    pub fn parent_index(&self) -> usize {
+        match self {
+            ItemTreeNode::Item { parent_index, .. } => *parent_index as usize,
+            ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index as usize,
+        }
+    }
     pub fn children_index(&self) -> Option<usize> {
         match self {
             ItemTreeNode::Item { item: _, children_count: _, children_index, parent_index: _ } => {

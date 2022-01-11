@@ -949,12 +949,9 @@ fn generate_item_tree(
                     )*
                     return;
                 }
-                let parent_index = match &Self::item_tree()[index] {
-                    ItemTreeNode::Item { parent_index, .. } => *parent_index,
-                    ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index,
-                };
+                let parent_index = Self::item_tree()[index].parent_index();
                 let self_rc = sixtyfps::re_exports::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap());
-                *result = ItemRc::new(self_rc, parent_index as _).downgrade();
+                *result = ItemRc::new(self_rc, parent_index).downgrade();
             }
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation) -> sixtyfps::re_exports::LayoutInfo {
