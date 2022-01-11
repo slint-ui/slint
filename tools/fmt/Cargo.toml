@@ -8,7 +8,8 @@ publish = false
 description = "Tool used to update .60 files when we do syntax upgrade"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
-
+categories = ["gui", "development-tools"]
+keywords = ["formatter", "gui", "ui", "toolkit"]
 
 [dependencies]
 sixtyfps-compilerlib = { path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }

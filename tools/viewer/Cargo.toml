@@ -8,8 +8,7 @@ description = "Viewer binary for SixtyFPS"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 categories = ["gui", "development-tools"]
-keywords = ["gui", "toolkit", "graphics", "design", "ui"]
-
+keywords = ["viewer", "gui", "ui", "toolkit"]
 
 [features]
 sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]

@@ -7,7 +7,8 @@ license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 description = "Internal SixtyFPS runtime library."
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
-
+categories = ["gui", "development-tools"]
+keywords = ["gui", "ui", "toolkit", "graphics", "design"]
 
 [lib]
 path = "lib.rs"
