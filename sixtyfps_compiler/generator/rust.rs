@@ -1732,7 +1732,7 @@ fn compile_builtin_function_call(
                 let popup_window_id = inner_component_id(
                     &current_sub_component.popup_windows[*popup_index as usize].root,
                 );
-                let parent_component = quote!(todo!("BuiltinFunction::ShowPopupWindow"));
+                let parent_component = access_item_rc(parent_ref, ctx);
                 let x = compile_expression(x, ctx);
                 let y = compile_expression(y, ctx);
                 let window_tokens = access_window_field(ctx);
