@@ -93,6 +93,17 @@ pub enum ItemTreeNode<T> {
     },
 }
 
+impl<T> ItemTreeNode<T> {
+    pub fn children_index(&self) -> Option<usize> {
+        match self {
+            ItemTreeNode::Item { item: _, children_count: _, children_index, parent_index: _ } => {
+                Some(*children_index as usize)
+            }
+            ItemTreeNode::DynamicTree { .. } => None,
+        }
+    }
+}
+
 #[repr(C)]
 #[vtable]
 /// Object to be passed in visit_item_children method of the Component.

@@ -253,6 +253,7 @@ fn lower_sub_component(
                     } else {
                         elem.id.clone()
                     },
+                    index_in_tree: *elem.item_index.get().unwrap(),
                     is_flickable_viewport,
                 })
             }
