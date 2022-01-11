@@ -179,7 +179,6 @@ fn lower_sub_component(
         layout_info_v: super::Expression::BoolLiteral(false),
     };
     let mut mapping = LoweredSubComponentMapping::default();
-    let mut property_bindings = vec![];
     let mut repeated = vec![];
 
     if let Some(parent) = component.parent_element.upgrade() {
@@ -212,12 +211,6 @@ fn lower_sub_component(
             sub_component
                 .properties
                 .push(Property { name: format!("{}_{}", elem.id, p), ty: x.property_type.clone() });
-            if let Some(b) = elem.bindings.get(p.as_str()) {
-                property_bindings.push((
-                    PropertyReference::Local { sub_component_path: vec![], property_index },
-                    b.borrow().clone(),
-                ));
-            }
         }
         if elem.repeated.is_some() {
             mapping.element_mapping.insert(
@@ -236,15 +229,6 @@ fn lower_sub_component(
                     element.clone().into(),
                     LoweredElement::SubComponent { sub_component_index },
                 );
-                for (p, b) in &elem.bindings {
-                    if elem.property_declarations.contains_key(p.as_str()) {
-                        continue;
-                    }
-                    let prop_ref = state
-                        .map_property_reference(&NamedReference::new(&comp.root_element, p))
-                        .map(|x| property_reference_within_sub_component(x, sub_component_index));
-                    property_bindings.push((prop_ref.unwrap(), b.borrow().clone()));
-                }
                 sub_component.sub_components.push(SubComponentInstance {
                     ty: ty.clone(),
                     name: elem.id.clone(),
@@ -259,19 +243,6 @@ fn lower_sub_component(
                 mapping
                     .element_mapping
                     .insert(element.clone().into(), LoweredElement::NativeItem { item_index });
-                for (p, b) in &elem.bindings {
-                    if elem.property_declarations.contains_key(p.as_str()) {
-                        continue;
-                    }
-                    property_bindings.push((
-                        PropertyReference::InNativeItem {
-                            sub_component_path: vec![],
-                            item_index,
-                            prop_name: p.clone(),
-                        },
-                        b.borrow().clone(),
-                    ));
-                }
                 let is_flickable_viewport = elem.is_flickable_viewport;
                 sub_component.items.push(Item {
                     ty: n.clone(),
@@ -288,7 +259,8 @@ fn lower_sub_component(
         Some(element.clone())
     });
     let ctx = ExpressionContext { mapping: &mapping, state, parent: parent_context, component };
-    for (prop, binding) in property_bindings {
+    crate::generator::handle_property_bindings_init(component, |e, p, binding| {
+        let prop = ctx.map_property_reference(&NamedReference::new(e, p)).unwrap();
         for tw in &binding.two_way_bindings {
             sub_component
                 .two_way_bindings
@@ -306,7 +278,7 @@ fn lower_sub_component(
                 .property_init
                 .push((prop.clone(), BindingExpression { expression, animation, is_constant }))
         }
-    }
+    });
     sub_component.repeated =
         repeated.into_iter().map(|elem| lower_repeated_component(&elem, &ctx)).collect();
     for s in &mut sub_component.sub_components {
