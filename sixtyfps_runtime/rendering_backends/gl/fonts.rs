@@ -295,6 +295,9 @@ impl FontCache {
                 (
                     match source {
                         fontdb::Source::Binary(data) => data.clone(),
+                        // We feed only Source::Binary into fontdb on wasm
+                        #[allow(unreachable_patterns)]
+                        _ => unreachable!(),
                     },
                     face_index,
                 )
