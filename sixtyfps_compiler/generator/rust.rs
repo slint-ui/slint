@@ -1382,7 +1382,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, ctx);
             match (from.ty(ctx), to) {
-                (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
+                (from, Type::String) if from.as_unit_product().is_some() => {
                     quote!(sixtyfps::re_exports::SharedString::from(
                         sixtyfps::re_exports::format!("{}", #f).as_str()
                     ))
