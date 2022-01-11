@@ -639,6 +639,8 @@ fn generate_sub_component(
         quote!(sixtyfps::re_exports::VWeakMapped::<sixtyfps::re_exports::ComponentVTable, #parent_component_id>)
     });
 
+    init.extend(component.init_code.iter().map(|e| compile_expression(e, &ctx)));
+
     let layout_info_h = compile_expression(&component.layout_info_h, &ctx);
     let layout_info_v = compile_expression(&component.layout_info_v, &ctx);
 

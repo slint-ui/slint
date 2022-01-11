@@ -182,6 +182,8 @@ pub struct SubComponent {
     pub animations: HashMap<PropertyReference, Expression>,
     pub two_way_bindings: Vec<(PropertyReference, PropertyReference)>,
     pub const_properties: Vec<PropertyReference>,
+    // Code that is run in the sub component constructor, after property initializations
+    pub init_code: Vec<Expression>,
 
     pub layout_info_h: Expression,
     pub layout_info_v: Expression,

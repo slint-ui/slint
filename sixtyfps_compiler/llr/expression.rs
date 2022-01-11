@@ -332,7 +332,7 @@ impl Expression {
                 visitor(&sub_expression);
                 elements.iter().filter_map(|x| x.as_ref().left()).for_each(visitor);
             }
-            Expression::ComputeDialogLayoutCells { cells_variable, roles, unsorted_cells } => {
+            Expression::ComputeDialogLayoutCells { roles, unsorted_cells, .. } => {
                 visitor(&roles);
                 visitor(&unsorted_cells);
             }
