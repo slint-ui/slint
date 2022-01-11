@@ -175,6 +175,7 @@ fn lower_sub_component(
         animations: Default::default(),
         two_way_bindings: Default::default(),
         const_properties: Default::default(),
+        init_code: Default::default(),
         // just initialize to dummy expression right now and it will be set later
         layout_info_h: super::Expression::BoolLiteral(false),
         layout_info_v: super::Expression::BoolLiteral(false),
@@ -315,6 +316,13 @@ fn lower_sub_component(
             sub_component.const_properties.push(x);
         }
     });
+
+    sub_component.init_code = component
+        .setup_code
+        .borrow()
+        .iter()
+        .map(|e| super::lower_expression::lower_expression(e, &ctx).unwrap())
+        .collect();
 
     sub_component.layout_info_h = super::lower_expression::get_layout_info(
         &component.root_element,
