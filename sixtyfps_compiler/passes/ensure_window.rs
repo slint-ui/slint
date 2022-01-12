@@ -44,6 +44,7 @@ pub fn ensure_window(
         layout_info_prop: Default::default(),
         is_flickable_viewport: false,
         item_index: Default::default(),
+        item_index_of_first_children: Default::default(),
         node: win_elem_mut.node.clone(),
     };
     let new_root = Rc::new(RefCell::new(new_root));
