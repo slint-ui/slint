@@ -367,6 +367,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> Op
             ("duration".to_string(), Type::Int32),
             ("loop-count".to_string(), Type::Int32),
             ("easing".to_string(), Type::Easing),
+            ("delay".to_string(), Type::Int32),
         ])
     }
 
