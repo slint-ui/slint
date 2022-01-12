@@ -17,17 +17,9 @@ pub enum Expression {
     /// Bool
     BoolLiteral(bool),
 
-    /// Reference to the callback <name> in the <element>
+    /// Reference to a property (which can also be a callback) or an element (property name is empty then).
     PropertyReference(PropertyReference),
 
-    // TODO
-    // CallbackReference(P::PropertyReference),
-    /// Reference to a function built into the run-time, implemented natively
-    //BuiltinFunctionReference(BuiltinFunction, Option<SourceLocation>),
-
-    /// A reference to a specific element. This isn't possible to create in .60 syntax itself, but intermediate passes may generate this
-    /// type of expression.
-    //ElementReference(P::ItemReference),
 
     /// Reference the parameter at the given index of the current function.
     FunctionParameterReference {
