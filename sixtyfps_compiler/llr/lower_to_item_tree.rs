@@ -3,6 +3,7 @@
 
 use by_address::ByAddress;
 
+use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::Type;
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
@@ -64,12 +65,12 @@ impl LoweredSubComponentMapping {
         &self,
         from: &NamedReference,
         state: &LoweringState,
-    ) -> Option<PropertyReference> {
+    ) -> PropertyReference {
         if let Some(x) = self.property_mapping.get(&from) {
-            return Some(x.clone());
+            return x.clone();
         }
         if let Some(x) = state.global_properties.get(&from) {
-            return Some(x.clone());
+            return x.clone();
         }
         let element = from.element();
         if let Some(alias) = element
@@ -83,22 +84,22 @@ impl LoweredSubComponentMapping {
         match self.element_mapping.get(&element.clone().into()).unwrap() {
             LoweredElement::SubComponent { sub_component_index } => {
                 if let Type::Component(base) = &element.borrow().base_type {
-                    return Some(property_reference_within_sub_component(
+                    return property_reference_within_sub_component(
                         state.map_property_reference(&NamedReference::new(
                             &base.root_element,
                             from.name(),
-                        ))?,
+                        )),
                         *sub_component_index,
-                    ));
+                    );
                 }
                 unreachable!()
             }
             LoweredElement::NativeItem { item_index } => {
-                return Some(PropertyReference::InNativeItem {
+                return PropertyReference::InNativeItem {
                     sub_component_path: vec![],
                     item_index: *item_index,
                     prop_name: from.name().into(),
-                });
+                };
             }
             LoweredElement::Repeated { .. } => unreachable!(),
         }
@@ -111,15 +112,16 @@ pub struct LoweredSubComponent {
 }
 
 impl LoweringState {
-    pub fn map_property_reference(&self, from: &NamedReference) -> Option<PropertyReference> {
+    pub fn map_property_reference(&self, from: &NamedReference) -> PropertyReference {
         if let Some(x) = self.global_properties.get(&from) {
-            return Some(x.clone());
+            return x.clone();
         }
 
         let element = from.element();
         let enclosing = self
             .sub_components
-            .get(&element.borrow().enclosing_component.upgrade().unwrap().into())?;
+            .get(&element.borrow().enclosing_component.upgrade().unwrap().into())
+            .unwrap();
 
         enclosing.mapping.map_property_reference(from, self)
     }
@@ -264,25 +266,25 @@ fn lower_sub_component(
     });
     let ctx = ExpressionContext { mapping: &mapping, state, parent: parent_context, component };
     crate::generator::handle_property_bindings_init(component, |e, p, binding| {
-        let prop = ctx.map_property_reference(&NamedReference::new(e, p)).unwrap();
+        let prop = ctx.map_property_reference(&NamedReference::new(e, p));
         for tw in &binding.two_way_bindings {
-            sub_component
-                .two_way_bindings
-                .push((prop.clone(), ctx.map_property_reference(tw).unwrap()))
+            sub_component.two_way_bindings.push((prop.clone(), ctx.map_property_reference(tw)))
         }
-        if let Some(expression) =
-            super::lower_expression::lower_expression(&binding.expression, &ctx)
-        {
-            let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
-            let animation = binding
-                .animation
-                .as_ref()
-                .filter(|_| !is_constant)
-                .map(|a| super::lower_expression::lower_animation(a, &ctx).unwrap());
-            sub_component
-                .property_init
-                .push((prop.clone(), BindingExpression { expression, animation, is_constant }))
+        if matches!(binding.expression, tree_Expression::Invalid) {
+            return;
         }
+        let expression = super::lower_expression::lower_expression(&binding.expression, &ctx);
+
+        let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
+        let animation = binding
+            .animation
+            .as_ref()
+            .filter(|_| !is_constant)
+            .map(|a| super::lower_expression::lower_animation(a, &ctx));
+        sub_component
+            .property_init
+            .push((prop.clone(), BindingExpression { expression, animation, is_constant }));
+
         if e.borrow()
             .property_analysis
             .borrow()
@@ -290,7 +292,7 @@ fn lower_sub_component(
             .map_or(true, |a| a.is_set || a.is_set_externally)
         {
             if let Some(anim) = binding.animation.as_ref() {
-                match super::lower_expression::lower_animation(anim, &ctx).unwrap() {
+                match super::lower_expression::lower_animation(anim, &ctx) {
                     Animation::Static(anim) => {
                         sub_component.animations.insert(prop, anim);
                     }
@@ -314,16 +316,15 @@ fn lower_sub_component(
         .collect();
 
     crate::generator::for_each_const_properties(component, |elem, n| {
-        if let Some(x) = ctx.map_property_reference(&NamedReference::new(elem, n)) {
-            sub_component.const_properties.push(x);
-        }
+        let x = ctx.map_property_reference(&NamedReference::new(elem, n));
+        sub_component.const_properties.push(x);
     });
 
     sub_component.init_code = component
         .setup_code
         .borrow()
         .iter()
-        .map(|e| super::lower_expression::lower_expression(e, &ctx).unwrap())
+        .map(|e| super::lower_expression::lower_expression(e, &ctx))
         .collect();
 
     sub_component.layout_info_h = super::lower_expression::get_layout_info(
@@ -331,15 +332,13 @@ fn lower_sub_component(
         &ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Horizontal,
-    )
-    .unwrap();
+    );
     sub_component.layout_info_v = super::lower_expression::get_layout_info(
         &component.root_element,
         &ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
-    )
-    .unwrap();
+    );
 
     LoweredSubComponent { sub_component: Rc::new(sub_component), mapping }
 }
@@ -354,15 +353,14 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
     let map_inner_prop = |p| {
         sc.mapping
             .map_property_reference(&NamedReference::new(&component.root_element, p), &ctx.state)
-            .unwrap()
     };
 
     let listview = repeated.is_listview.as_ref().map(|lv| ListViewInfo {
-        viewport_y: ctx.map_property_reference(&lv.viewport_y).unwrap(),
-        viewport_height: ctx.map_property_reference(&lv.viewport_height).unwrap(),
-        viewport_width: ctx.map_property_reference(&lv.viewport_width).unwrap(),
-        listview_height: ctx.map_property_reference(&lv.listview_height).unwrap(),
-        listview_width: ctx.map_property_reference(&lv.listview_width).unwrap(),
+        viewport_y: ctx.map_property_reference(&lv.viewport_y),
+        viewport_height: ctx.map_property_reference(&lv.viewport_height),
+        viewport_width: ctx.map_property_reference(&lv.viewport_width),
+        listview_height: ctx.map_property_reference(&lv.listview_height),
+        listview_width: ctx.map_property_reference(&lv.listview_width),
 
         prop_y: map_inner_prop("y"),
         prop_width: map_inner_prop("width"),
@@ -370,7 +368,7 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
     });
 
     RepeatedElement {
-        model: super::lower_expression::lower_expression(&repeated.model, ctx).unwrap(),
+        model: super::lower_expression::lower_expression(&repeated.model, ctx),
         sub_tree: ItemTree {
             tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
             root: Rc::try_unwrap(sc.sub_component).unwrap(),
@@ -435,18 +433,17 @@ fn lower_global(
     for (prop, binding) in &global.root_element.borrow().bindings {
         assert!(binding.borrow().two_way_bindings.is_empty());
         assert!(binding.borrow().animation.is_none());
-        if let Some(expression) =
-            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx)
-        {
-            let nr = NamedReference::new(&global.root_element, prop);
-            let property_index = match mapping.property_mapping[&nr] {
-                PropertyReference::Local { property_index, .. } => property_index,
-                _ => unreachable!(),
-            };
-            let is_constant = binding.borrow().analysis.as_ref().map_or(false, |a| a.is_const);
-            init_values[property_index] =
-                Some(BindingExpression { expression, animation: None, is_constant });
-        }
+        let expression =
+            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx);
+
+        let nr = NamedReference::new(&global.root_element, prop);
+        let property_index = match mapping.property_mapping[&nr] {
+            PropertyReference::Local { property_index, .. } => property_index,
+            _ => unreachable!(),
+        };
+        let is_constant = binding.borrow().analysis.as_ref().map_or(false, |a| a.is_const);
+        init_values[property_index] =
+            Some(BindingExpression { expression, animation: None, is_constant });
     }
 
     let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
@@ -530,8 +527,7 @@ fn public_properties(
         .filter(|(_, c)| c.expose_in_public_api)
         .map(|(p, c)| {
             let property_reference = mapping
-                .map_property_reference(&NamedReference::new(&component.root_element, p), &state)
-                .unwrap();
+                .map_property_reference(&NamedReference::new(&component.root_element, p), &state);
             (p.clone(), (c.property_type.clone(), property_reference))
         })
         .collect()
