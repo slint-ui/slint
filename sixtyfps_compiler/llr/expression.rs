@@ -46,6 +46,13 @@ pub enum Expression {
         name: String,
     },
 
+    /// Access to a index within an array.
+    ArrayIndex {
+        /// This expression should have [`Type::Array`] type
+        array: Box<Expression>,
+        index: Box<Expression>,
+    },
+
     /// Cast an expression to the given type
     Cast {
         from: Box<Expression>,
@@ -227,6 +234,7 @@ impl Expression {
                 Type::Struct { fields, .. } => fields[name].clone(),
                 _ => unreachable!(),
             },
+            Self::ArrayIndex { array, .. } => array.ty(ctx),
             Self::Cast { to, .. } => to.clone(),
             Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty(ctx)),
             Self::BuiltinFunctionCall { function, .. } => match function.ty() {
@@ -278,6 +286,10 @@ impl Expression {
             Expression::StoreLocalVariable { value, .. } => visitor(&value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::StructFieldAccess { base, .. } => visitor(&base),
+            Expression::ArrayIndex { array, index } => {
+                visitor(array);
+                visitor(index);
+            }
             Expression::Cast { from, .. } => visitor(from),
             Expression::CodeBlock(b) => b.iter().for_each(visitor),
             Expression::BuiltinFunctionCall { arguments, .. } => arguments.iter().for_each(visitor),
