@@ -295,6 +295,7 @@ export TabImpl := Rectangle {
 
     touch := TouchArea {
         clicked => {
+            fs.focus(); // focus ourselves so that the previous tab don't keep the focus
             current = tab-index;
         }
     }
@@ -315,6 +316,8 @@ export TabImpl := Rectangle {
         y: parent.height - height;
         x: (parent.width - width) / 2;
     }
+
+    fs := FocusScope {}
 }
 
 export TabBarImpl := HorizontalLayout {

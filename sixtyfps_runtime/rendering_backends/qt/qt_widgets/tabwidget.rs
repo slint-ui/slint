@@ -382,8 +382,8 @@ impl Item for NativeTab {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        window: &WindowRc,
+        self_rc: &sixtyfps_corelib::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
         if !enabled {
@@ -408,6 +408,7 @@ impl Item for NativeTab {
         if matches!(event, MouseEvent::MouseReleased { .. } if !click_on_press)
             || matches!(event, MouseEvent::MousePressed { .. } if click_on_press)
         {
+            window.clone().set_focus_item(self_rc);
             self.current.set(self.tab_index());
             InputEventResult::EventAccepted
         } else {
