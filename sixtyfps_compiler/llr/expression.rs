@@ -20,7 +20,6 @@ pub enum Expression {
     /// Reference to a property (which can also be a callback) or an element (property name is empty then).
     PropertyReference(PropertyReference),
 
-
     /// Reference the parameter at the given index of the current function.
     FunctionParameterReference {
         index: usize,
