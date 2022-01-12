@@ -317,7 +317,7 @@ fn gen_corelib(
         .with_after_include(format!(
             r"
 /// This macro expands to the to the numeric value of the major version of SixtyFPS you're
-/// developing against. For example if you're using version 1.5.2, this macro will expand to 1.            
+/// developing against. For example if you're using version 1.5.2, this macro will expand to 1.
 #define SIXTYFPS_VERSION_MAJOR {}
 /// This macro expands to the to the numeric value of the minor version of SixtyFPS you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 5.
@@ -471,7 +471,7 @@ fn gen_interpreter(
 ) -> anyhow::Result<()> {
     let mut config = default_config();
     // Avoid Value, just export ValueOpaque.
-    config.export.exclude = std::array::IntoIter::new([
+    config.export.exclude = IntoIterator::into_iter([
         "Value",
         "ValueType",
         "PropertyDescriptor",
@@ -490,7 +490,7 @@ fn gen_interpreter(
     public_config.namespaces = Some(vec!["sixtyfps".into(), "interpreter".into()]);
     public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
 
-    public_config.export.exclude = std::array::IntoIter::new([
+    public_config.export.exclude = IntoIterator::into_iter([
         "ComponentCompilerOpaque",
         "ComponentDefinitionOpaque",
         "ModelAdaptorVTable",
