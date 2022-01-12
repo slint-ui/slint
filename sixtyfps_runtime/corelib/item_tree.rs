@@ -100,14 +100,6 @@ impl<T> ItemTreeNode<T> {
             ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index as usize,
         }
     }
-    pub fn children_index(&self) -> Option<usize> {
-        match self {
-            ItemTreeNode::Item { item: _, children_count: _, children_index, parent_index: _ } => {
-                Some(*children_index as usize)
-            }
-            ItemTreeNode::DynamicTree { .. } => None,
-        }
-    }
 }
 
 #[repr(C)]
