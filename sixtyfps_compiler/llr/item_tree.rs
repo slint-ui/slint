@@ -59,7 +59,6 @@ pub enum PropertyReference {
 pub struct Property {
     pub name: String,
     pub ty: Type,
-    //pub binding: Option<BindingExpression>,
 }
 
 #[derive(Debug, Clone)]
