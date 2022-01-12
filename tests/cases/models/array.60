@@ -4,6 +4,8 @@
 export TestCase := Rectangle {
     property<[int]> ints: [1, 2, 3, 4, 5];
     property<int> num_ints: ints.length;
+    property<int> operations: ints.length < 1 ? ints.length : ints.length + ints.length;
+    property<bool> test: num_ints == 5 && operations == 10;
 }
 
 /*

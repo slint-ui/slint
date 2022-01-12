@@ -1823,7 +1823,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ImageSize => quote!( #(#a)*.size()),
         BuiltinFunction::ArrayLength => {
-            quote!(match #(#a)* { x => {
+            quote!(match &#(#a)* { x => {
                 x.model_tracker().track_row_count_changes();
                 x.row_count() as i32
             }})
