@@ -103,6 +103,10 @@ pub fn lower_expression(
             base: Box::new(lower_expression(base, ctx)),
             name: name.clone(),
         },
+        tree_Expression::ArrayIndex { array, index } => llr_Expression::ArrayIndex {
+            array: Box::new(lower_expression(array, ctx)),
+            index: Box::new(lower_expression(index, ctx)),
+        },
         tree_Expression::Cast { from, to } => {
             llr_Expression::Cast { from: Box::new(lower_expression(from, ctx)), to: to.clone() }
         }

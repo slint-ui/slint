@@ -1377,10 +1377,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
             _ => panic!("Expression::StructFieldAccess's base expression is not an Object type"),
         },
-        Expression::ArrayIndex { array, index } => match array.ty() {
+        Expression::ArrayIndex { array, index } => match array.ty(ctx) {
             Type::Array(_) => {
-                let base_e = compile_expression(array, component);
-                let index_e = compile_expression(index, component);
+                let base_e = compile_expression(array, ctx);
+                let index_e = compile_expression(index, ctx);
                 quote!((#base_e).row_data((#index_e) as usize))
             }
             _ => panic!("Expression::ArrayIndex's base expression is not an Array type"),
