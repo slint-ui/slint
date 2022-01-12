@@ -35,6 +35,7 @@ pub mod langtype;
 pub mod layout;
 pub mod lexer;
 pub mod literals;
+pub mod llr;
 pub(crate) mod load_builtins;
 pub mod lookup;
 pub mod namedreference;
@@ -42,7 +43,6 @@ pub mod object_tree;
 pub mod parser;
 pub mod typeloader;
 pub mod typeregister;
-pub mod llr;
 
 mod passes;
 
