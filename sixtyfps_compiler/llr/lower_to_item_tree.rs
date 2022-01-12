@@ -270,20 +270,19 @@ fn lower_sub_component(
         for tw in &binding.two_way_bindings {
             sub_component.two_way_bindings.push((prop.clone(), ctx.map_property_reference(tw)))
         }
-        if matches!(binding.expression, tree_Expression::Invalid) {
-            return;
-        }
-        let expression = super::lower_expression::lower_expression(&binding.expression, &ctx);
+        if !matches!(binding.expression, tree_Expression::Invalid) {
+            let expression = super::lower_expression::lower_expression(&binding.expression, &ctx);
 
-        let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
-        let animation = binding
-            .animation
-            .as_ref()
-            .filter(|_| !is_constant)
-            .map(|a| super::lower_expression::lower_animation(a, &ctx));
-        sub_component
-            .property_init
-            .push((prop.clone(), BindingExpression { expression, animation, is_constant }));
+            let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
+            let animation = binding
+                .animation
+                .as_ref()
+                .filter(|_| !is_constant)
+                .map(|a| super::lower_expression::lower_animation(a, &ctx));
+            sub_component
+                .property_init
+                .push((prop.clone(), BindingExpression { expression, animation, is_constant }));
+        }
 
         if e.borrow()
             .property_analysis
