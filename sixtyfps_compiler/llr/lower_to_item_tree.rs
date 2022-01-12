@@ -235,6 +235,7 @@ fn lower_sub_component(
                     ty: ty.clone(),
                     name: elem.id.clone(),
                     index_in_tree: *elem.item_index.get().unwrap(),
+                    index_of_first_child_in_tree: *elem.item_index_of_first_children.get().unwrap(),
                     repeater_offset,
                 });
                 repeater_offset += ty.repeater_count();

@@ -39,6 +39,8 @@ mod unique_id;
 mod visible;
 mod z_order;
 
+use std::rc::Rc;
+
 use crate::langtype::Type;
 
 pub async fn run_passes(
@@ -96,7 +98,9 @@ pub async fn run_passes(
         .chain(std::iter::once(root_component))
     {
         focus_item::resolve_element_reference_in_set_focus_calls(component, diag);
-        focus_item::determine_initial_focus_item(component, diag);
+        if Rc::ptr_eq(component, root_component) {
+            focus_item::determine_initial_focus_item(component, diag);
+        }
         focus_item::erase_forward_focus_properties(component);
     }
 

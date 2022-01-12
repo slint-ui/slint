@@ -207,6 +207,7 @@ pub struct SubComponentInstance {
     pub ty: Rc<SubComponent>,
     pub name: String,
     pub index_in_tree: usize,
+    pub index_of_first_child_in_tree: usize,
     pub repeater_offset: usize,
 }
 
@@ -217,6 +218,7 @@ impl std::fmt::Debug for SubComponentInstance {
             .field("ty", &self.ty.name)
             .field("name", &self.name)
             .field("index_in_tree", &self.index_in_tree)
+            .field("index_of_first_child_in_tree", &self.index_of_first_child_in_tree)
             .field("repeater_offset", &self.repeater_offset)
             .finish()
     }

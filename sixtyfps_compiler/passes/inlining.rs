@@ -215,6 +215,7 @@ fn duplicate_element_with_mapping(
         layout_info_prop: elem.layout_info_prop.clone(),
         named_references: Default::default(),
         item_index: Default::default(), // Not determined yet
+        item_index_of_first_children: Default::default(),
         is_flickable_viewport: elem.is_flickable_viewport,
     }));
     mapping.insert(element_key(element.clone()), new.clone());

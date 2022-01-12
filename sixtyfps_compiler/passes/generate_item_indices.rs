@@ -69,12 +69,13 @@ impl crate::generator::ItemTreeBuilder for Helper {
     fn push_native_item(
         &mut self,
         item: &ElementRc,
-        _children_offset: u32,
+        children_offset: u32,
         _parent_index: u32,
         component_state: &Self::SubComponentState,
     ) {
         if !component_state {
             item.borrow().item_index.set(self.current_item_index).unwrap();
+            item.borrow().item_index_of_first_children.set(children_offset as _).unwrap();
         }
         self.current_item_index += 1;
     }
@@ -83,11 +84,12 @@ impl crate::generator::ItemTreeBuilder for Helper {
         &mut self,
         item: &ElementRc,
         _sub_component: &Rc<Component>,
-        _children_offset: u32,
+        children_offset: u32,
         component_state: &Self::SubComponentState,
     ) -> Self::SubComponentState {
         if !component_state {
             item.borrow().item_index.set(self.current_item_index).unwrap();
+            item.borrow().item_index_of_first_children.set(children_offset as _).unwrap();
         }
         true
     }
