@@ -81,7 +81,7 @@ pub fn generate(
         }
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
-            if let Some(output) = rust::generate(doc, diag) {
+            if let Some(output) = rust::generate(doc) {
                 write!(destination, "{}", output)?;
             }
         }

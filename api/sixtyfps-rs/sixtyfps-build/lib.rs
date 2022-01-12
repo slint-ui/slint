@@ -215,7 +215,7 @@ pub fn compile_with_config(
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, mut diag) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
+    let (doc, diag) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
         syntax_node,
         diag,
         compiler_config,
@@ -237,7 +237,7 @@ pub fn compile_with_config(
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = match sixtyfps_compilerlib::generator::rust::generate(&doc, &mut diag) {
+    let generated = match sixtyfps_compilerlib::generator::rust::generate(&doc) {
         Some(code) => {
             for x in &diag.all_loaded_files {
                 if x.is_absolute() {
