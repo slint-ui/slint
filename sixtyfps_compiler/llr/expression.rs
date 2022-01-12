@@ -214,7 +214,7 @@ impl Expression {
         })
     }
 
-    pub fn ty(&self, ctx: &dyn EvaluationContext) -> Type {
+    pub fn ty(&self, ctx: &dyn TypeResolutionContext) -> Type {
         match self {
             Self::StringLiteral(_) => Type::String,
             Self::NumberLiteral(_) => Type::Float32,
@@ -337,10 +337,107 @@ impl Expression {
     }
 }
 
-pub trait EvaluationContext {
+pub trait TypeResolutionContext {
     fn property_ty(&self, _: &PropertyReference) -> &Type;
     // The type of the specified argument when evaluating a callback
     fn arg_type(&self, _index: usize) -> &Type {
         unimplemented!()
+    }
+}
+
+#[derive(Clone, Copy)]
+pub struct ParentCtx<'a, T> {
+    pub ctx: &'a EvaluationContext<'a, T>,
+    // Index of the repeater within the ctx.current_sub_component
+    pub repeater_index: Option<usize>,
+}
+
+impl<'a, T> ParentCtx<'a, T> {
+    pub fn new(ctx: &'a EvaluationContext<'a, T>, repeater_index: Option<usize>) -> Self {
+        Self { ctx, repeater_index }
+    }
+}
+
+#[derive(Clone)]
+pub struct EvaluationContext<'a, T> {
+    pub public_component: &'a super::PublicComponent,
+    pub current_sub_component: Option<&'a super::SubComponent>,
+    pub current_global: Option<&'a super::GlobalComponent>,
+    /// path to access the public_component (so one can access the globals).
+    /// e.g: `_self` in case we already are the root
+    pub generator_state: T,
+    /// The repeater parent
+    pub parent: Option<ParentCtx<'a, T>>,
+
+    /// The callback argument types
+    pub argument_types: &'a [Type],
+}
+
+impl<'a, T> EvaluationContext<'a, T> {
+    pub fn new_sub_component(
+        public_component: &'a super::PublicComponent,
+        sub_component: &'a super::SubComponent,
+        generator_state: T,
+        parent: Option<ParentCtx<'a, T>>,
+    ) -> Self {
+        /*let generator_state = if let Some(parent) = &parent {
+            let p = &parent.ctx.generator_state;
+            quote!(parent.)
+        } else {
+            quote!(_self)
+        };*/
+        Self {
+            public_component,
+            current_sub_component: Some(sub_component),
+            current_global: None,
+            generator_state,
+            parent,
+            argument_types: &[],
+        }
+    }
+}
+
+impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
+    fn property_ty(&self, prop: &PropertyReference) -> &Type {
+        match prop {
+            PropertyReference::Local { sub_component_path, property_index } => {
+                if let Some(mut sub_component) = self.current_sub_component {
+                    for i in sub_component_path {
+                        sub_component = &sub_component.sub_components[*i].ty;
+                    }
+                    &sub_component.properties[*property_index].ty
+                } else if let Some(current_global) = self.current_global {
+                    &current_global.properties[*property_index].ty
+                } else {
+                    unreachable!()
+                }
+            }
+            PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
+                if prop_name == "elements" {
+                    // The `Path::elements` property is not in the NativeClasss
+                    return &Type::PathData;
+                }
+
+                let mut sub_component = self.current_sub_component.unwrap();
+                for i in sub_component_path {
+                    sub_component = &sub_component.sub_components[*i].ty;
+                }
+                sub_component.items[*item_index].ty.lookup_property(prop_name).unwrap()
+            }
+            PropertyReference::InParent { level, parent_reference } => {
+                let mut ctx = self;
+                for _ in 0..level.get() {
+                    ctx = ctx.parent.as_ref().unwrap().ctx;
+                }
+                ctx.property_ty(parent_reference)
+            }
+            PropertyReference::Global { global_index, property_index } => {
+                &self.public_component.globals[*global_index].properties[*property_index].ty
+            }
+        }
+    }
+
+    fn arg_type(&self, index: usize) -> &Type {
+        &self.argument_types[index]
     }
 }

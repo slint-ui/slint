@@ -48,7 +48,7 @@ impl ExpressionContext<'_> {
     }
 }
 
-impl super::EvaluationContext for ExpressionContext<'_> {
+impl super::TypeResolutionContext for ExpressionContext<'_> {
     fn property_ty(&self, _: &PropertyReference) -> &Type {
         todo!()
     }
