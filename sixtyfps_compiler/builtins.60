@@ -187,7 +187,6 @@ export BoxShadow := _ {
 
 export struct Point := {
     //-name:sixtyfps::private_api::Point
-    //-rust_type_constructor:sixtyfps::re_exports::Point::new({})
     x: length,
     y: length,
 }
