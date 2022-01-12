@@ -374,14 +374,14 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     }
 
     compiler_config.include_paths = include_paths;
-    let (root_component, mut diag) =
+    let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
     //println!("{:#?}", tree);
     if diag.has_error() {
         return diag.report_macro_diagnostic(&tokens);
     }
 
-    let mut result = generator::rust::generate(&root_component, &mut diag);
+    let mut result = generator::rust::generate(&root_component);
 
     // Make sure to recompile if any of the external files changes
     let reload = diag

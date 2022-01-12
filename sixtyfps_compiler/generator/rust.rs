@@ -10,7 +10,6 @@ Some convention used in the generated code:
     this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
 */
 
-use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, OperatorClass};
 use crate::langtype::Type;
 use crate::layout::Orientation;
@@ -86,9 +85,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
 }
 
 /// Generate the rust code for the given component.
-///
-/// Fill the diagnostic in case of error.
-pub fn generate(doc: &Document, _diag: &mut BuildDiagnostics) -> Option<TokenStream> {
+pub fn generate(doc: &Document) -> Option<TokenStream> {
     if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
         // empty document, nothing to generate
         return None;
