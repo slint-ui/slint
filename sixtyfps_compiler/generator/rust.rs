@@ -86,11 +86,6 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
 
 /// Generate the rust code for the given component.
 pub fn generate(doc: &Document) -> Option<TokenStream> {
-    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
-        // empty document, nothing to generate
-        return None;
-    }
-
     let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types
