@@ -26,6 +26,9 @@ jobs:
           - "https://github.com/getsentry/hackweek-rust-gui"
           - "https://github.com/Vuenc/SixtyFPS-Str8ts"
           - "https://github.com/jturcotte/chiptrack"
+          - "https://github.com/jrmoulton/prevmark"
+          - "https://github.com/jrmoulton/apple-music-player"
+          - "https://github.com/Kirottu/SteamRunner"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
