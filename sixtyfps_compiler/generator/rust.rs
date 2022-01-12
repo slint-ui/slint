@@ -1241,30 +1241,44 @@ fn absolute_element_item_index_expression(element: &ElementRc) -> TokenStream {
 /// Given a property reference to a native item (eg, the property name is empty)
 /// return tokens to the `ItemRc`
 fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> TokenStream {
-    let (component_vrc, item_index_tokens) = match pr {
+    let mut ctx = ctx;
+    let mut component_access_tokens = quote!(_self);
+
+    let pr = match pr {
+        llr::PropertyReference::InParent { level, parent_reference } => {
+            for _ in 0..level.get() {
+                component_access_tokens =
+                    quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
+                ctx = ctx.parent.unwrap().ctx;
+            }
+            parent_reference
+        }
+        other @ _ => other,
+    };
+
+    match pr {
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             assert!(prop_name.is_empty());
-            let (compo_path, sub_component) =
+            let (sub_compo_path, sub_component) =
                 follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
 
+            component_access_tokens = quote!(#component_access_tokens #sub_compo_path);
+
+            let component_rc_tokens = quote!(VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
+
             let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
-
-            let compo_tokens = quote!(VRcMapped::origin(&_self #compo_path .self_weak.get().unwrap().upgrade().unwrap()));
-
-            let inner_component_id = self::inner_component_id(&ctx.public_component.item_tree.root);
-
             let item_index_tokens = if item_index_in_tree == 0 {
-                quote!(_self #compo_path  .tree_index.get() as usize)
+                quote!(#component_access_tokens.tree_index.get() as usize)
             } else {
-                quote!(#inner_component_id::item_tree()[_self #compo_path .tree_index.get() as usize].children_index().unwrap() + #item_index_in_tree - 1)
+                let inner_component_id =
+                    self::inner_component_id(&ctx.public_component.item_tree.root);
+                quote!(#inner_component_id::item_tree()[#component_access_tokens.tree_index.get() as usize].children_index().unwrap() + #item_index_in_tree - 1)
             };
 
-            (compo_tokens, item_index_tokens)
+            quote!(&ItemRc::new(#component_rc_tokens, #item_index_tokens))
         }
-        llr::PropertyReference::InParent { .. } => (quote!(todo!()), quote!(todo!())),
         _ => unreachable!(),
-    };
-    quote!(&ItemRc::new(#component_vrc, #item_index_tokens))
+    }
 }
 
 #[derive(Clone, Copy)]
