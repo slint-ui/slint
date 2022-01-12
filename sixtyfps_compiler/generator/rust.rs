@@ -1190,54 +1190,6 @@ fn access_window_field(ctx: &EvaluationContext) -> TokenStream {
     quote!(#root.window.get().unwrap().window_handle())
 }
 
-/*
-/// Returns the code that creates a VRc<ComponentVTable, Dyn> for the component of the given element
-fn element_component_vrc(element: &ElementRc, component: &Rc<Component>) -> TokenStream {
-    let enclosing_component = element.borrow().enclosing_component.upgrade().unwrap();
-
-    let mut access_component = quote!(_self);
-
-    let mut component = component.clone();
-    while !Rc::ptr_eq(&component, &enclosing_component) {
-        access_component = quote!(#access_component.parent.upgrade().unwrap().as_pin_ref());
-        component = component
-            .parent_element
-            .upgrade()
-            .unwrap()
-            .borrow()
-            .enclosing_component
-            .upgrade()
-            .unwrap();
-    }
-
-    if component.is_sub_component() {
-        quote!(VRcMapped::origin(&#access_component.self_weak.get().unwrap().upgrade().unwrap()))
-    } else {
-        quote!(VRc::into_dyn(#access_component.self_weak.get().unwrap().upgrade().unwrap()))
-    }
-}
-
-// Returns an expression that will compute the absolute item index in the item tree for a
-// given element. For elements of a child component or the root component, the item_index
-// is already absolute within the corresponding item tree. For sub-components we return an
-// expression that computes the value at run-time.
-fn absolute_element_item_index_expression(element: &ElementRc) -> TokenStream {
-    let element = element.borrow();
-    let local_index = element.item_index.get().unwrap();
-    let enclosing_component = element.enclosing_component.upgrade().unwrap();
-    if enclosing_component.is_sub_component() {
-        if *local_index == 0 {
-            quote!(_self.tree_index.get() as usize)
-        } else if *local_index == 1 {
-            quote!(_self.tree_index_of_first_child.get() as usize)
-        } else {
-            quote!(_self.tree_index_of_first_child.get() as usize + #local_index)
-        }
-    } else {
-        quote!(#local_index)
-    }
-}*/
-
 /// Given a property reference to a native item (eg, the property name is empty)
 /// return tokens to the `ItemRc`
 fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> TokenStream {
