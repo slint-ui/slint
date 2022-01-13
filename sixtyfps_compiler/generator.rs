@@ -81,9 +81,8 @@ pub fn generate(
         }
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {
-            if let Some(output) = rust::generate(doc) {
-                write!(destination, "{}", output)?;
-            }
+            let output = rust::generate(doc);
+            write!(destination, "{}", output)?;
         }
         OutputFormat::Interpreter => {
             return Err(std::io::Error::new(

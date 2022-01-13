@@ -85,7 +85,12 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
 }
 
 /// Generate the rust code for the given component.
-pub fn generate(doc: &Document) -> Option<TokenStream> {
+pub fn generate(doc: &Document) -> TokenStream {
+    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+        // empty document, nothing to generate
+        return TokenStream::default();
+    }
+
     let (structs_ids, structs): (Vec<_>, Vec<_>) = doc
         .root_component
         .used_types
@@ -107,9 +112,9 @@ pub fn generate(doc: &Document) -> Option<TokenStream> {
         .sub_components
         .iter()
         .map(|sub_compo| generate_sub_component(&sub_compo, &llr, None, quote!()))
-        .collect::<Option<Vec<_>>>()?;
+        .collect::<Vec<_>>();
 
-    let compo = generate_public_component(&llr)?;
+    let compo = generate_public_component(&llr);
     let compo_id = public_component_id(&llr.item_tree.root);
     let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
     let version_check = format_ident!(
@@ -161,7 +166,7 @@ pub fn generate(doc: &Document) -> Option<TokenStream> {
             }
         }).collect::<Vec<_>>();
 
-    Some(quote! {
+    quote! {
         #[allow(non_snake_case)]
         #[allow(non_camel_case_types)]
         #[allow(clippy::style)]
@@ -178,16 +183,16 @@ pub fn generate(doc: &Document) -> Option<TokenStream> {
         }
         pub use #compo_module::{#compo_id #(,#structs_ids)* #(,#globals_ids)* };
         pub use sixtyfps::{ComponentHandle, Global};
-    })
+    }
 }
 
-fn generate_public_component(llr: &llr::PublicComponent) -> Option<TokenStream> {
+fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
     let public_component_id = public_component_id(&llr.item_tree.root);
     let inner_component_id = inner_component_id(&llr.item_tree.root);
     let global_container_id = format_ident!("Globals_{}", public_component_id);
 
     let component =
-        generate_item_tree(&llr.item_tree, llr, None, quote!(globals: #global_container_id))?;
+        generate_item_tree(&llr.item_tree, llr, None, quote!(globals: #global_container_id));
 
     let ctx = EvaluationContext {
         public_component: llr,
@@ -205,7 +210,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> Option<TokenStream> 
         llr.globals.iter().map(|g| format_ident!("global_{}", ident(&g.name))).collect::<Vec<_>>();
     let global_types = llr.globals.iter().map(|g| global_inner_name(g)).collect::<Vec<_>>();
 
-    Some(quote!(
+    quote!(
         #component
         pub struct #public_component_id(vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>);
 
@@ -270,7 +275,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> Option<TokenStream> 
                 }
             }
         }
-    ))
+    )
 }
 
 fn generate_struct(name: &str, fields: &BTreeMap<String, Type>) -> TokenStream {
@@ -452,7 +457,7 @@ fn generate_sub_component(
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
     extra_fields: TokenStream,
-) -> Option<TokenStream> {
+) -> TokenStream {
     let inner_component_id = inner_component_id(component);
 
     let ctx = EvaluationContext::new_sub_component(root, component, parent_ctx);
@@ -644,7 +649,7 @@ fn generate_sub_component(
     let visibility =
         core::ptr::eq(&root.item_tree.root as *const _, component as *const _).then(|| quote!(pub));
 
-    Some(quote!(
+    quote!(
         #[derive(sixtyfps::re_exports::FieldOffsets, Default)]
         #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
         #[repr(C)]
@@ -707,7 +712,7 @@ fn generate_sub_component(
         }
 
         #(#extra_components)*
-    ))
+    )
 }
 
 fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -> TokenStream {
@@ -817,8 +822,8 @@ fn generate_item_tree(
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
     extra_fields: TokenStream,
-) -> Option<TokenStream> {
-    let sub_comp = generate_sub_component(&sub_tree.root, root, parent_ctx, extra_fields)?;
+) -> TokenStream {
+    let sub_comp = generate_sub_component(&sub_tree.root, root, parent_ctx, extra_fields);
     let inner_component_id = self::inner_component_id(&sub_tree.root);
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id = self::inner_component_id(&parent.ctx.current_sub_component.unwrap());
@@ -886,7 +891,7 @@ fn generate_item_tree(
 
     let item_tree_array_len = item_tree_array.len();
 
-    Some(quote!(
+    quote!(
         #sub_comp
 
         impl #inner_component_id {
@@ -968,15 +973,15 @@ fn generate_item_tree(
         }
 
 
-    ))
+    )
 }
 
 fn generate_repeated_component(
     repeated: &llr::RepeatedElement,
     root: &llr::PublicComponent,
     parent_ctx: ParentCtx,
-) -> Option<TokenStream> {
-    let component = generate_item_tree(&repeated.sub_tree, root, Some(parent_ctx), quote!())?;
+) -> TokenStream {
+    let component = generate_item_tree(&repeated.sub_tree, root, Some(parent_ctx), quote!());
 
     let ctx = EvaluationContext {
         public_component: root,
@@ -1040,7 +1045,7 @@ fn generate_repeated_component(
     let index_prop = repeated.index_prop.iter().map(access_prop);
     let data_prop = repeated.data_prop.iter().map(access_prop);
 
-    Some(quote!(
+    quote!(
         #component
 
         impl sixtyfps::re_exports::RepeatedComponent for #inner_component_id {
@@ -1053,7 +1058,7 @@ fn generate_repeated_component(
             }
             #extra_fn
         }
-    ))
+    )
 }
 
 /// Return an identifier suitable for this component for internal use

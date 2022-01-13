@@ -237,28 +237,20 @@ pub fn compile_with_config(
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = match sixtyfps_compilerlib::generator::rust::generate(&doc) {
-        Some(code) => {
-            for x in &diag.all_loaded_files {
-                if x.is_absolute() {
-                    println!("cargo:rerun-if-changed={}", x.display());
-                }
-            }
+    let generated = sixtyfps_compilerlib::generator::rust::generate(&doc);
 
-            // print warnings
-            diag.diagnostics_as_string().lines().for_each(|w| {
-                if !w.is_empty() {
-                    println!("cargo:warning={}", w.strip_prefix("warning: ").unwrap_or(w))
-                }
-            });
-            code
+    for x in &diag.all_loaded_files {
+        if x.is_absolute() {
+            println!("cargo:rerun-if-changed={}", x.display());
         }
-        None => {
-            let vec = diag.to_string_vec();
-            diag.print();
-            return Err(CompileError::CompileError(vec));
+    }
+
+    // print warnings
+    diag.diagnostics_as_string().lines().for_each(|w| {
+        if !w.is_empty() {
+            println!("cargo:warning={}", w.strip_prefix("warning: ").unwrap_or(w))
         }
-    };
+    });
 
     write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
     println!("{}\ncargo:rerun-if-changed={}", rerun_if_changed, path.display());
