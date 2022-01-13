@@ -141,6 +141,23 @@ public:
         cbindgen_private::sixtyfps_windowrc_show_popup(&inner, &popup, p, &parent_item);
     }
 
+    template<typename F>
+    std::optional<SetRenderingNotifierError> set_rendering_notifier(F callback) const
+    {
+        auto actual_cb = [](RenderingState state, void *data) {
+            (*reinterpret_cast<F *>(data))(state);
+        };
+        SetRenderingNotifierError err;
+        if (cbindgen_private::sixtyfps_windowrc_set_rendering_notifier(
+                    &inner, actual_cb,
+                    [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
+                    new F(std::move(callback)), &err)) {
+            return {};
+        } else {
+            return err;
+        }
+    }
+
 private:
     cbindgen_private::WindowRcOpaque inner;
 };
@@ -313,6 +330,16 @@ public:
     void show() { inner.show(); }
     /// De-registers the window from the windowing system, therefore hiding it.
     void hide() { inner.hide(); }
+
+    /// This function allows registering a callback that's invoked during the different phases of
+    /// rendering. This allows custom rendering on top or below of the scene.
+    /// On success, the function returns a std::optional without value. On error, the function
+    /// returns the error code as value in the std::optional.
+    template<typename F>
+    std::optional<SetRenderingNotifierError> set_rendering_notifier(F &&callback) const
+    {
+        return inner.set_rendering_notifier(std::forward<F>(callback));
+    }
 
     /// \private
     private_api::WindowRc &window_handle() { return inner; }

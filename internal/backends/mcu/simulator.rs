@@ -224,8 +224,8 @@ impl WinitWindow for SimulatorWindow {
 
         let size = self.opengl_context.window().inner_size();
 
-        self.opengl_context.with_current_context(|| {
-            self.opengl_context.ensure_resized();
+        self.opengl_context.with_current_context(|opengl_context| {
+            opengl_context.ensure_resized();
 
             {
                 let mut canvas = self.canvas.borrow_mut();
@@ -294,7 +294,7 @@ impl WinitWindow for SimulatorWindow {
             canvas.flush();
             canvas.delete_image(image_id);
 
-            self.opengl_context.swap_buffers();
+            opengl_context.swap_buffers();
         });
     }
 
