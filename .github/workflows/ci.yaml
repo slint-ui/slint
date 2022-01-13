@@ -243,6 +243,54 @@ jobs:
     - name: ctest
       working-directory: ${{ runner.workspace }}/cppbuild
       run: ctest --verbose
+    - name: cpack
+      working-directory: ${{ runner.workspace }}/cppbuild
+      run: cmake --build . --config Debug --target package
+    - name: "Create C++ packages artefact"
+      uses: actions/upload-artifact@v2
+      with:
+          name: cpp_bin-${{ matrix.os }}
+          path: ${{ runner.workspace }}/cppbuild/SixtyFPS-cpp-*
+
+  cpp_package_test:
+    needs: [cpp_cmake]
+    runs-on: ubuntu-20.04
+    env:
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/6.2.1/clang_64/lib
+      QT_QPA_PLATFORM: offscreen
+      CARGO_INCREMENTAL: false
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Linux Dependencies
+      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+    - name: Cache Qt
+      id: cache-qt
+      uses: actions/cache@v2
+      with:
+        path: ~/work/sixtyfps/Qt
+        key: ${{ runner.os }}-${{ github.job }}-cpp-qt
+    - name: Install Qt (Ubuntu)
+      uses: jurplel/install-qt-action@v2
+      with:
+        version: 5.15.2
+        cached: ${{ steps.cache-qt.outputs.cache-hit }}
+    - uses: actions/download-artifact@v2
+      with:
+        name: cpp_bin-ubuntu-20.04
+        path: cpp-package
+    - name: unpack package
+      run: |
+          mkdir package
+          tar xvf cpp-package/SixtyFPS-cpp-*.tar.gz -C package --strip-components=1
+          echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
+    - name: Build examples
+      uses: lukka/run-cmake@v3.4
+      with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsTxtPath: examples/CMakeLists.txt
+        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=Debug -DSIXTYFPS_FEATURE_INTERPRETER=1 -DSIXTYFPS_FEATURE_BACKEND_QT=1'
+        buildDirectory: ${{ runner.workspace }}/examples/build
+        buildWithCMakeArgs: '--config Debug'
 
   docs:
     uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@master
