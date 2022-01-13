@@ -32,6 +32,14 @@ impl ModelTracker for ValueModel {
             self.notify.track_row_count_changes()
         }
     }
+
+    fn track_row_data_changes(&self, row: usize) {
+        if let Value::Model(ref model_ptr) = *self.value.borrow() {
+            model_ptr.model_tracker().track_row_data_changes(row)
+        } else {
+            self.notify.track_row_data_changes(row)
+        }
+    }
 }
 
 impl Model for ValueModel {

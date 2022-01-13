@@ -45,21 +45,27 @@ pub trait ModelTracker {
     /// Register the model as a dependency to the current binding being evaluated, so
     /// that it will be notified when the model changes its size.
     fn track_row_count_changes(&self);
+    fn track_row_data_changes(&self, row: usize);
 }
 
 impl ModelTracker for () {
     fn attach_peer(&self, _peer: ModelPeer) {}
 
     fn track_row_count_changes(&self) {}
+    fn track_row_data_changes(&self, _row: usize) {}
 }
 
 #[pin_project]
 #[derive(Default)]
 struct ModelNotifyInner {
     #[pin]
-    model_dirty_property: Property<()>,
+    model_row_count_dirty_property: Property<()>,
+    #[pin]
+    model_row_data_dirty_property: Property<()>,
     #[pin]
     peers: DependencyListHead,
+    // Sorted list of rows that track_row_data_changes() was called for
+    tracked_rows: RefCell<Vec<usize>>,
 }
 
 /// Dispatch notifications from a [`Model`] to one or several [`ModelPeer`].
@@ -77,20 +83,27 @@ impl ModelNotify {
     /// Notify the peers that a specific row was changed
     pub fn row_changed(&self, row: usize) {
         if let Some(inner) = self.inner.get() {
+            if inner.tracked_rows.borrow().binary_search(&row).is_ok() {
+                inner.model_row_data_dirty_property.mark_dirty();
+            }
             inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.row_changed(row))
         }
     }
     /// Notify the peers that rows were added
     pub fn row_added(&self, index: usize, count: usize) {
         if let Some(inner) = self.inner.get() {
-            inner.model_dirty_property.mark_dirty();
+            inner.model_row_count_dirty_property.mark_dirty();
+            inner.tracked_rows.borrow_mut().clear();
+            inner.model_row_data_dirty_property.mark_dirty();
             inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.row_added(index, count))
         }
     }
     /// Notify the peers that rows were removed
     pub fn row_removed(&self, index: usize, count: usize) {
         if let Some(inner) = self.inner.get() {
-            inner.model_dirty_property.mark_dirty();
+            inner.model_row_count_dirty_property.mark_dirty();
+            inner.tracked_rows.borrow_mut().clear();
+            inner.model_row_data_dirty_property.mark_dirty();
             inner
                 .as_ref()
                 .project_ref()
@@ -116,7 +129,18 @@ impl ModelTracker for ModelNotify {
     }
 
     fn track_row_count_changes(&self) {
-        self.inner().project_ref().model_dirty_property.get();
+        self.inner().project_ref().model_row_count_dirty_property.get();
+    }
+
+    fn track_row_data_changes(&self, row: usize) {
+        let inner = self.inner().project_ref();
+
+        let mut tracked_rows = inner.tracked_rows.borrow_mut();
+        if let Err(insertion_point) = tracked_rows.binary_search(&row) {
+            tracked_rows.insert(insertion_point, row);
+        }
+
+        inner.model_row_data_dirty_property.get();
     }
 }
 
@@ -946,4 +970,50 @@ fn test_tracking_model_handle() {
         }),
         1
     );
+}
+
+#[test]
+fn test_data_tracking() {
+    let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
+    let handle = ModelHandle::new(model.clone());
+    let tracker = Box::pin(crate::properties::PropertyTracker::default());
+    assert_eq!(
+        tracker.as_ref().evaluate(|| {
+            handle.model_tracker().track_row_data_changes(1);
+            handle.row_data(1)
+        }),
+        1
+    );
+    assert!(!tracker.is_dirty());
+
+    model.set_row_data(2, 42);
+    assert!(!tracker.is_dirty());
+    model.set_row_data(1, 100);
+    assert!(tracker.is_dirty());
+
+    assert_eq!(
+        tracker.as_ref().evaluate(|| {
+            handle.model_tracker().track_row_data_changes(1);
+            handle.row_data(1)
+        }),
+        100
+    );
+    assert!(!tracker.is_dirty());
+
+    // Any changes to rows (even if after tracked rows) for now also marks watched rows as dirty, to
+    // keep the logic simple.
+    model.push(200);
+    assert!(tracker.is_dirty());
+
+    assert_eq!(
+        tracker.as_ref().evaluate(|| {
+            handle.model_tracker().track_row_data_changes(1);
+            handle.row_data(1)
+        }),
+        100
+    );
+    assert!(!tracker.is_dirty());
+
+    model.insert(0, 255);
+    assert!(tracker.is_dirty());
 }
