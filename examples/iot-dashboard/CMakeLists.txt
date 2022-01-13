@@ -6,6 +6,7 @@ project(sixtyfps_cpp_iot_dashboard LANGUAGES CXX)
 
 if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
+    include(FetchContent)
 endif()
 
 FetchContent_Declare(fmt
