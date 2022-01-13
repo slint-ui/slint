@@ -359,7 +359,8 @@ declare_syntax! {
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?FunctionCallExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
-                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtLinearGradient],
+                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtLinearGradient,
+                       ?MemberAccess ],
         /// Concatenate the Expressions to make a string (usually expended from a template string)
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
@@ -376,6 +377,8 @@ declare_syntax! {
         BinaryExpression -> [2 Expression],
         /// `- expr`
         UnaryOpExpression -> [Expression],
+        /// `(foo).bar`, where `foo` is the base expression, and `bar` is a Identifier.
+        MemberAccess -> [Expression],
         /// `[ ... ]`
         Array -> [ *Expression ],
         /// `{ foo: bar }`

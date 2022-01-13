@@ -13,6 +13,7 @@ use super::prelude::*;
 /// 42px
 /// #aabbcc
 /// (something)
+/// (something).something
 /// @image-url("something")
 /// @image_url("something")
 /// some_id.some_property
@@ -27,6 +28,7 @@ use super::prelude::*;
 /// aa == cc && bb && (xxx || fff) && 3 + aaa == bbb
 /// [array]
 /// {object:42}
+/// "foo".bar.something().something.xx({a: 1.foo}.a)
 /// ```
 pub fn parse_expression(p: &mut impl Parser) -> bool {
     parse_expression_helper(p, OperatorPrecedence::Default)
@@ -85,12 +87,27 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
     }
 
-    if p.nth(0).kind() == SyntaxKind::LParent {
-        {
-            let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+    loop {
+        match p.nth(0).kind() {
+            SyntaxKind::Dot => {
+                {
+                    let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+                }
+                let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::MemberAccess);
+                p.consume(); // '.'
+                if !p.expect(SyntaxKind::Identifier) {
+                    return false;
+                }
+            }
+            SyntaxKind::LParent => {
+                {
+                    let _ = p.start_node_at(checkpoint.clone(), SyntaxKind::Expression);
+                }
+                let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::FunctionCallExpression);
+                parse_function_arguments(&mut *p);
+            }
+            _ => break,
         }
-        let mut p = p.start_node_at(checkpoint.clone(), SyntaxKind::FunctionCallExpression);
-        parse_function_arguments(&mut *p);
     }
 
     if precedence >= OperatorPrecedence::Mul {

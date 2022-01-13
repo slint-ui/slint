@@ -287,6 +287,7 @@ impl Expression {
             .or_else(|| {
                 node.FunctionCallExpression().map(|n| Self::from_function_call_node(n, ctx))
             })
+            .or_else(|| node.MemberAccess().map(|n| Self::from_member_access_node(n, ctx)))
             .or_else(|| node.SelfAssignment().map(|n| Self::from_self_assignment_node(n, ctx)))
             .or_else(|| node.BinaryExpression().map(|n| Self::from_binary_expression_node(n, ctx)))
             .or_else(|| {
@@ -591,22 +592,27 @@ impl Expression {
 
         let mut sub_expr = node.Expression();
 
-        let function = sub_expr
-            .next()
-            .and_then(|n| {
-                n.QualifiedName().or_else(|| {
+        let function = sub_expr.next().map_or(Self::Invalid, |n| {
+            // Treat the QualifiedName separately so we can catch the uses of uncalled signal
+            n.QualifiedName()
+                .or_else(|| {
                     n.Expression().and_then(|mut e| {
                         while let Some(e2) = e.Expression() {
                             e = e2;
                         }
                         e.QualifiedName().map(|q| {
-                            ctx.diag.push_warning("Parentheses around callable are deprecated. Remove the parentheses".into(), &n);
+                            ctx.diag.push_warning(
+                            "Parentheses around callable are deprecated. Remove the parentheses"
+                                .into(),
+                            &n,
+                        );
                             q
                         })
                     })
                 })
-            })
-            .map_or(Expression::Invalid, |n| Self::from_qualified_name_node(n, ctx));
+                .map(|qn| Self::from_qualified_name_node(qn, ctx))
+                .unwrap_or_else(|| Self::from_expression_node(n, ctx))
+        });
 
         let sub_expr = sub_expr.map(|n| {
             (Self::from_expression_node(n.clone(), ctx), Some(NodeOrToken::from((*n).clone())))
@@ -656,6 +662,14 @@ impl Expression {
             arguments,
             source_location: Some(node.to_source_location()),
         }
+    }
+
+    fn from_member_access_node(
+        node: syntax_nodes::MemberAccess,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
+        let base = Self::from_expression_node(node.Expression(), ctx);
+        maybe_lookup_object(base, node.child_token(SyntaxKind::Identifier).into_iter(), ctx)
     }
 
     fn from_self_assignment_node(
