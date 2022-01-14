@@ -269,6 +269,25 @@ fn lower_assignment(
 
             llr_Expression::ModelDataAssignment { level, value }
         }
+        tree_Expression::ArrayIndex { array, index } => {
+            let rhs = lower_expression(rhs, ctx);
+            let array = Box::new(lower_expression(array, ctx));
+            let index = Box::new(lower_expression(index, ctx));
+            let value = Box::new(if op == '=' {
+                rhs
+            } else {
+                // FIXME: this will compute the index and the array twice:
+                // Ideally we should store the index and the array in local variable
+                llr_Expression::BinaryExpression {
+                    lhs: llr_Expression::ArrayIndex { array: array.clone(), index: index.clone() }
+                        .into(),
+                    rhs: rhs.into(),
+                    op,
+                }
+            });
+
+            llr_Expression::ArrayIndexAssignment { array, index, value }
+        }
         _ => panic!("not a rvalue"),
     }
 }
