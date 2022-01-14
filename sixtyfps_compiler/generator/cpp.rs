@@ -3025,7 +3025,19 @@ fn llr_access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext
     }
     */
     match reference {
-        llr::PropertyReference::Local { sub_component_path, property_index } => todo!(),
+        llr::PropertyReference::Local { sub_component_path, property_index } => {
+            if let Some(sub_component) = ctx.current_sub_component {
+                let (compo_path, sub_component) =
+                    follow_sub_component_path(sub_component, sub_component_path);
+                let property_name = ident(&sub_component.properties[*property_index].name);                
+                format!("this->{}{}", compo_path, property_name)
+            } else if let Some(current_global) = ctx.current_global {                
+                let property_name = ident(&current_global.properties[*property_index].name);                
+                format!("global_{}.{}", ident(&current_global.name), property_name)
+            } else {
+                unreachable!()
+            }
+        },
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             in_native_item(ctx, sub_component_path, *item_index, prop_name, "this")
         }
