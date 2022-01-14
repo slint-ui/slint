@@ -25,7 +25,8 @@ All notable changes to this project will be documented in this file.
  - Math functions `log`, and `pow`
  - Property animations now have a `delay` property, which will delay the start
    of the animation.
- - `sixtyfps::VecModel` in Rust now has an `insert(index, value)` function.
+ - Rust: Added `sixtyfps::VecModel::insert(&self, index, value)`.
+ - C++: Added `sixtyfps::VecModel::insert(index, value)`.
 
 ### Fixed
 

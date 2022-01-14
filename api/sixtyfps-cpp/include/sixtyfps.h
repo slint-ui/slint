@@ -595,6 +595,13 @@ public:
         data.erase(data.begin() + index);
         this->row_removed(index, 1);
     }
+
+    /// Inserts the given value as a new row at the specified index
+    void insert(size_t index, const ModelData &value)
+    {
+        data.insert(data.begin() + index, value);
+        this->row_added(int(index), 1);
+    }
 };
 
 namespace private_api {
@@ -700,7 +707,8 @@ public:
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             int index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             auto ref = item_at(index);
-            if (ref.vtable->visit_children_item(ref, -1, order, visitor) != std::numeric_limits<uint64_t>::max()) {
+            if (ref.vtable->visit_children_item(ref, -1, order, visitor)
+                != std::numeric_limits<uint64_t>::max()) {
                 return index;
             }
         }
