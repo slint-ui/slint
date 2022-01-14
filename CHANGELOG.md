@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
    of the animation.
  - Rust: Added `sixtyfps::VecModel::insert(&self, index, value)`.
  - C++: Added `sixtyfps::VecModel::insert(index, value)`.
+ - Added ability to access elements of a model with the `[index]` syntax.
 
 ### Fixed
 
