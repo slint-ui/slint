@@ -542,9 +542,7 @@ fn handle_property_init(
 
         init.push(if binding_expression.is_constant {
             format!("{}.set({});", prop_access, init_expr)
-        } else {
-            todo!()
-            /*
+        } else {            
             let binding_code = format!(
                 "[this]() {{
                             [[maybe_unused]] auto self = this;
@@ -558,14 +556,15 @@ fn handle_property_init(
                 format!("sixtyfps::private_api::set_state_binding({}, {});", prop_access, binding_code)
             } else {
                 match &binding_expression.animation {
-                    Some(crate::object_tree::PropertyAnimation::Static(anim)) => {
-                        let anim = property_animation_code(component, anim);
+                    Some(llr::Animation::Static(anim)) => {
+                        let anim = llr_compile_expression(anim, ctx);                        
                         format!("{}.set_animated_binding({}, {});", prop_access, binding_code, anim)
                     }
-                    Some(crate::object_tree::PropertyAnimation::Transition {
-                        state_ref,
-                        animations,
-                    }) => {
+                    Some(llr::Animation::Transition (
+                        anim
+                    )) => {
+                        /*
+                        let anim = llr_compile_expression(anim, ctx);
                         let state_tokens = compile_expression(state_ref, component);
                         let mut anim_expr = animations.iter().map(|a| {
                             let cond = compile_expression(
@@ -592,11 +591,12 @@ fn handle_property_init(
                             state_tokens,
                             anim_expr.join(" ")
                         )
+                        */
+                        todo!()
                     }
                     None => format!("{}.set_binding({});", prop_access, binding_code),
                 }
             }
-            */
         });
     }
 }
@@ -3606,12 +3606,8 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
         }
         Expression::BoolLiteral(b) => b.to_string(),
         Expression::PropertyReference(nr) => {
-            todo!()
-            /*
-            let access =
-                access_named_reference(nr, component, "self");
-            format!(r#"{}.get()"#, access)
-            */
+            let access = llr_access_member(nr, ctx);
+            format!(r#"{}.get()"#, access)            
         }
         /* FIXME: handled in PropertyReference
         Expression::CallbackReference(nr) => {
@@ -3735,9 +3731,10 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
         Expression::ArrayIndex { array, index } => {
             format!("[&](const auto &model, const auto &index){{ model->track_row_data_changes(index); return model->row_data(index); }}({}, {})", compile_expression(array, component), compile_expression(index, component))
         },
+        */
         Expression::Cast { from, to } => {
-            let f = compile_expression(&*from, component);
-            match (from.ty(), to) {
+            let f = llr_compile_expression(&*from, ctx);
+            match (from.ty(ctx), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     format!("sixtyfps::SharedString::from_number({})", f)
                 }
@@ -3768,6 +3765,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
                 _ => f,
             }
         }
+        /*
         Expression::CodeBlock(sub) => {
             let len = sub.len();
             let mut x = sub.iter().enumerate().map(|(i, e)| {
@@ -3876,12 +3874,13 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
             let rhs = compile_expression(&*rhs, component);
             compile_assignment(lhs, *op, rhs, component)
         }
+        */
         Expression::BinaryExpression { lhs, rhs, op } => {
             let mut buffer = [0; 3];
             format!(
                 "({lhs} {op} {rhs})",
-                lhs = compile_expression(&*lhs, component),
-                rhs = compile_expression(&*rhs, component),
+                lhs = llr_compile_expression(&*lhs, ctx),
+                rhs = llr_compile_expression(&*rhs, ctx),
                 op = match op {
                     '=' => "==",
                     '!' => "!=",
@@ -3894,6 +3893,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
                 },
             )
         }
+        /*
         Expression::UnaryOp { sub, op } => {
             format!("({op} {sub})", sub = compile_expression(&*sub, component), op = op,)
         }
@@ -4089,7 +4089,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
 
         }
         */
-        _ => "\n#error invalid expression\n".to_string(),
+        _ => todo!("unimplemented llr expression: {:#?}", expr),
     }
 }
 
