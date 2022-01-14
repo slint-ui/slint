@@ -2779,6 +2779,47 @@ fn generate_sub_component(
         parent_ctx.clone(),
     );
 
+    for property in &component.properties {
+        let cpp_name = ident(&property.name);
+        /*
+        let access = if let Some(alias) = &property_decl.is_alias {
+            access_named_reference(alias, component, "this")
+        } else {
+            format!("this->{}", cpp_name)
+        };
+        */
+
+        let ty = if let Type::Callback { args, return_type } = &property.ty {
+            let param_types =
+                args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type = return_type
+                .as_ref()
+                .map_or("void".to_owned(), |t| t.cpp_type().unwrap());            
+            format!("sixtyfps::private_api::Callback<{}({})>", return_type, param_types.join(", "))
+        } else {
+            format!("sixtyfps::private_api::Property<{}>", property.ty.cpp_type().unwrap())            
+        };
+
+        /*
+        if is_sub_component {
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("get_{}", &cpp_name),
+                    signature: "() const".to_owned(),
+                    statements: Some(vec![format!("return &{};", access)]),
+                    ..Default::default()
+                }),
+            ));
+        }
+        */
+        
+        target_struct.members.push((
+            Access::Public, //FIXME: field_access,
+            Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
+        ));        
+    }    
+
     /*
     TODO: component.two_way_bindings
      */
