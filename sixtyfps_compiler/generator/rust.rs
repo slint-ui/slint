@@ -1506,7 +1506,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::Condition { condition, true_expr, false_expr } => {
             let condition_code = compile_expression(&*condition, ctx);
             let true_code = compile_expression(&*true_expr, ctx);
-            let false_code = false_expr.as_ref().map(|e| compile_expression(e, ctx));
+            let false_code = compile_expression(&false_expr, ctx);
             quote!(
                 if #condition_code {
                     #true_code

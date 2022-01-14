@@ -143,7 +143,7 @@ pub fn lower_expression(
             llr_Expression::Condition {
                 condition: Box::new(lower_expression(condition, ctx)),
                 true_expr: Box::new(lower_expression(true_expr, ctx)),
-                false_expr: Some(lower_expression(false_expr, ctx).into()),
+                false_expr: lower_expression(false_expr, ctx).into(),
             }
         }
         tree_Expression::Array { element_ty, values } => llr_Expression::Array {
@@ -404,7 +404,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &ExpressionContext<'_>) -> An
                 get_anim = llr_Expression::Condition {
                     condition: Box::new(condition),
                     true_expr: Box::new(lower_animation_element(&tr.animation, ctx)),
-                    false_expr: Some(Box::new(get_anim)),
+                    false_expr: Box::new(get_anim),
                 }
             }
             let result = llr_Expression::Struct {

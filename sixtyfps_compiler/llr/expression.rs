@@ -117,7 +117,7 @@ pub enum Expression {
     Condition {
         condition: Box<Expression>,
         true_expr: Box<Expression>,
-        false_expr: Option<Box<Expression>>,
+        false_expr: Box<Expression>,
     },
 
     Array {
@@ -318,9 +318,7 @@ impl Expression {
             Expression::Condition { condition, true_expr, false_expr } => {
                 visitor(&condition);
                 visitor(&true_expr);
-                if let Some(false_expr) = false_expr {
-                    visitor(&false_expr);
-                }
+                visitor(&false_expr);
             }
             Expression::Array { values, .. } => values.iter().for_each(visitor),
             Expression::Struct { values, .. } => values.values().for_each(visitor),
