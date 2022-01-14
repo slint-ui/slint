@@ -300,6 +300,13 @@ impl<T: 'static> VecModel<T> {
         self.notify.row_added(self.array.borrow().len() - 1, 1)
     }
 
+    /// Inserts a row at position index. All rows after that are shifted.
+    /// This function panics if index is > row_count().
+    pub fn insert(&self, index: usize, value: T) {
+        self.array.borrow_mut().insert(index, value);
+        self.notify.row_added(index, 1)
+    }
+
     /// Remove the row at the given index from the model
     pub fn remove(&self, index: usize) {
         self.array.borrow_mut().remove(index);
