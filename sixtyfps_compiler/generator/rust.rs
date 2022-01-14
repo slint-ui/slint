@@ -1377,14 +1377,12 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
             _ => panic!("Expression::StructFieldAccess's base expression is not an Object type"),
         },
-        Expression::ArrayIndex { array, index } => match array.ty(ctx) {
-            Type::Array(_) => {
-                let base_e = compile_expression(array, ctx);
-                let index_e = compile_expression(index, ctx);
-                quote!((#base_e).row_data((#index_e) as usize))
-            }
-            _ => panic!("Expression::ArrayIndex's base expression is not an Array type"),
-        },
+        Expression::ArrayIndex { array, index } => {
+            debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
+            let base_e = compile_expression(array, ctx);
+            let index_e = compile_expression(index, ctx);
+            quote!((#base_e).row_data((#index_e) as usize))
+        }
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, ctx));
             quote!({ #(#map);* })
@@ -1421,6 +1419,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 &format_ident!("repeater{}", repeater_index),
             );
             quote!(#repeater.apply_pin(#path.as_pin_ref()).model_set_row_data(#index_access.get() as _, #value as _))
+        }
+        Expression::ArrayIndexAssignment { array, index, value } => {
+            debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
+            let base_e = compile_expression(array, ctx);
+            let index_e = compile_expression(index, ctx);
+            let value_e = compile_expression(value, ctx);
+            quote!((#base_e).set_row_data(#index_e as usize, #value_e as _);)
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {

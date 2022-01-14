@@ -30,9 +30,15 @@ TestCase := Rectangle {
             person.score = person.score + 1;
             person.score += 1;
             clicked_score = score;
-
         }
     }
+
+    callback manual_score_update(int, int);
+    manual_score_update(i, val) => {
+        model[i].score += val;
+    }
+
+
 }
 
 /*
@@ -56,9 +62,11 @@ instance.set_model(sixtyfps::ModelHandle::new(another_model.clone()));
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 336);
 assert_eq!(another_model.row_data(2).2, 336.);
+
+instance.invoke_manual_score_update(2, 100);
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
-assert_eq!(instance.get_clicked_score(), 339);
-assert_eq!(another_model.row_data(2).2, 339.);
+assert_eq!(instance.get_clicked_score(), 439);
+assert_eq!(another_model.row_data(2).2, 439.);
 assert_eq!(another_model.row_data(2).1, sixtyfps::SharedString::from("world"));
 ```
 
@@ -79,9 +87,11 @@ instance.set_model(another_model);
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 336);
 assert_eq(std::get<2>(another_model->row_data(2)), 336.);
+
+instance.invoke_manual_score_update(2, 100);
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
-assert_eq(instance.get_clicked_score(), 339);
-assert_eq(std::get<2>(another_model->row_data(2)), 339.);
+assert_eq(instance.get_clicked_score(), 439);
+assert_eq(std::get<2>(another_model->row_data(2)), 439.);
 assert_eq(std::get<1>(another_model->row_data(2)), "world");
 ```
 
@@ -101,9 +111,11 @@ instance.model = another_model;
 instance.send_mouse_click(25., 5.);
 assert.equal(instance.clicked_score, 336);
 assert.equal(another_model.rowData(2).score, 336.);
+
+instance.manual_score_update(2, 100);
 instance.send_mouse_click(25., 5.);
-assert.equal(instance.clicked_score, 339);
-assert.equal(another_model.rowData(2).score, 339.);
+assert.equal(instance.clicked_score, 439);
+assert.equal(another_model.rowData(2).score, 439.);
 assert.equal(another_model.rowData(2).name, "world");
 ```
 

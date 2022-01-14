@@ -1081,6 +1081,7 @@ impl Expression {
             }
             Expression::StructFieldAccess { base, .. } => base.try_set_rw(),
             Expression::RepeaterModelReference { .. } => true,
+            Expression::ArrayIndex { .. } => true,
             _ => false,
         }
     }

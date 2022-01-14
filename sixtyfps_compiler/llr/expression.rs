@@ -90,6 +90,12 @@ pub enum Expression {
         level: usize,
         value: Box<Expression>,
     },
+    /// An assignement done with the `foo[idx] = ...`
+    ArrayIndexAssignment {
+        array: Box<Expression>,
+        index: Box<Expression>,
+        value: Box<Expression>,
+    },
 
     BinaryExpression {
         lhs: Box<Expression>,
@@ -251,6 +257,7 @@ impl Expression {
             Self::ExtraBuiltinFunctionCall { .. } => todo!(),
             Self::PropertyAssignment { .. } => Type::Void,
             Self::ModelDataAssignment { .. } => Type::Void,
+            Self::ArrayIndexAssignment { .. } => Type::Void,
             Self::BinaryExpression { lhs, rhs: _, op } => {
                 if crate::expression_tree::operator_class(*op) != OperatorClass::ArithmeticOp {
                     Type::Bool
@@ -287,8 +294,7 @@ impl Expression {
             Expression::ReadLocalVariable { .. } => {}
             Expression::StructFieldAccess { base, .. } => visitor(&base),
             Expression::ArrayIndex { array, index } => {
-                visitor(array);
-                visitor(index);
+                (visitor(array), visitor(index));
             }
             Expression::Cast { from, .. } => visitor(from),
             Expression::CodeBlock(b) => b.iter().for_each(visitor),
@@ -299,9 +305,11 @@ impl Expression {
             }
             Expression::PropertyAssignment { value, .. } => visitor(&value),
             Expression::ModelDataAssignment { value, .. } => visitor(&value),
+            Expression::ArrayIndexAssignment { array, index, value } => {
+                (visitor(array), visitor(index), visitor(value));
+            }
             Expression::BinaryExpression { lhs, rhs, .. } => {
-                visitor(lhs);
-                visitor(rhs);
+                (visitor(lhs), visitor(rhs));
             }
             Expression::UnaryOp { sub, .. } => {
                 visitor(sub);

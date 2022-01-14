@@ -2520,6 +2520,22 @@ fn compile_assignment(
                 )
             }
         }
+        Expression::ArrayIndex { array, index } => {
+            let array = compile_expression(array, component);
+            let index = compile_expression(index, component);
+            if op == '=' {
+                format!("{}->set_row_data({}, {})", array, index, rhs)
+            } else {
+                format!(
+                    "{array}->set_row_data({index}, {array}->row_data({index}) {op} {rhs})",
+                    array = array,
+                    index = index,
+                    op = op,
+                    rhs = rhs,
+                )
+            }
+        }
+
         _ => panic!("typechecking should make sure this was a PropertyReference"),
     }
 }

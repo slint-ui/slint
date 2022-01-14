@@ -736,6 +736,25 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
                 },
             )
         }
+        Expression::ArrayIndex { array, index } => {
+            let array = eval_expression(&array, local_context);
+            let index = eval_expression(&index, local_context);
+            match (array, index) {
+                (Value::Model(model), Value::Number(index)) => {
+                    let index = index as usize;
+                    if (index) < model.row_count() {
+                        if op == '=' {
+                            model.set_row_data(index, rhs);
+                        } else {
+                            model.set_row_data(index, eval(model.row_data(index)));
+                        }
+                    }
+                }
+                _ => {
+                    eprintln!("Attempting to write into an array that cannot be written");
+                }
+            }
+        }
         _ => panic!("typechecking should make sure this was a PropertyReference"),
     }
 }
