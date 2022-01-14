@@ -1381,7 +1381,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
             let base_e = compile_expression(array, ctx);
             let index_e = compile_expression(index, ctx);
-            quote!((#base_e).row_data((#index_e) as usize))
+            quote!(match &#base_e { x => {
+                let index = (#index_e) as usize;
+                x.model_tracker().track_row_data_changes(index);
+                x.row_data(index)
+            }})
         }
         Expression::CodeBlock(sub) => {
             let map = sub.iter().map(|e| compile_expression(e, ctx));

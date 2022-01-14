@@ -179,6 +179,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 }
                 (Value::Model(model), Value::Number(index)) => {
                     if (index as usize) < model.row_count() {
+                        model.model_tracker().track_row_data_changes(index as usize);
                         model.row_data(index as usize)
                     } else {
                         Value::Void
