@@ -16,7 +16,6 @@ SCENARIO("SharedString API")
     REQUIRE(str == "");
     REQUIRE(std::string_view(str.data()) == ""); // this test null termination of data()
 
-
     SECTION("Construct from string_view")
     {
         std::string foo("Foo");
@@ -40,7 +39,6 @@ SCENARIO("SharedString API")
         REQUIRE(str == "Hello 🦊!");
         REQUIRE(std::string_view(str.data()) == "Hello 🦊!");
     }
-
 }
 
 TEST_CASE("Basic SharedVector API", "[vector]")
@@ -107,6 +105,46 @@ TEST_CASE("Model row changes")
         model->track_row_count_changes();
         return model->row_count();
     }) == 1);
+}
+
+TEST_CASE("Track model row data changes")
+{
+    using namespace sixtyfps::private_api;
+
+    auto model = std::make_shared<sixtyfps::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+
+    PropertyTracker tracker;
+
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_data_changes(1);
+        return model->row_data(1);
+    }) == 1);
+    REQUIRE(!tracker.is_dirty());
+
+    model->set_row_data(2, 42);
+    REQUIRE(!tracker.is_dirty());
+    model->set_row_data(1, 100);
+    REQUIRE(tracker.is_dirty());
+
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_data_changes(1);
+        return model->row_data(1);
+    }) == 100);
+    REQUIRE(!tracker.is_dirty());
+
+    // Any changes to rows (even if after tracked rows) for now also marks watched rows as dirty, to
+    // keep the logic simple.
+    model->push_back(200);
+    REQUIRE(tracker.is_dirty());
+
+    REQUIRE(tracker.evaluate([&]() {
+        model->track_row_data_changes(1);
+        return model->row_data(1);
+    }) == 100);
+    REQUIRE(!tracker.is_dirty());
+
+    model->insert(0, 255);
+    REQUIRE(tracker.is_dirty());
 }
 
 TEST_CASE("Image")

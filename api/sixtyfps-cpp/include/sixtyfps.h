@@ -487,24 +487,43 @@ public:
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row count changes.
-    void track_row_count_changes() { model_dirty_property.get(); }
+    void track_row_count_changes() { model_row_count_dirty_property.get(); }
+
+    /// \private
+    /// Internal function called from within bindings to register with the currently
+    /// evaluating dependency and get notified when this model's row data changes.
+    void track_row_data_changes(int row)
+    {
+        auto it = std::lower_bound(tracked_rows.begin(), tracked_rows.end(), row);
+        if (it == tracked_rows.end() || row < *it) {
+            tracked_rows.insert(it, row);
+        }
+        model_row_data_dirty_property.get();
+    }
 
 protected:
     /// Notify the views that a specific row was changed
     void row_changed(int row)
     {
+        if (std::binary_search(tracked_rows.begin(), tracked_rows.end(), row)) {
+            model_row_data_dirty_property.mark_dirty();
+        }
         for_each_peers([=](auto peer) { peer->row_changed(row); });
     }
     /// Notify the views that rows were added
     void row_added(int index, int count)
     {
-        model_dirty_property.mark_dirty();
+        model_row_count_dirty_property.mark_dirty();
+        tracked_rows.clear();
+        model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_added(index, count); });
     }
     /// Notify the views that rows were removed
     void row_removed(int index, int count)
     {
-        model_dirty_property.mark_dirty();
+        model_row_count_dirty_property.mark_dirty();
+        tracked_rows.clear();
+        model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_removed(index, count); });
     }
 
@@ -524,7 +543,9 @@ private:
                     peers.end());
     }
     std::vector<private_api::ModelPeer> peers;
-    private_api::Property<bool> model_dirty_property;
+    private_api::Property<bool> model_row_count_dirty_property;
+    private_api::Property<bool> model_row_data_dirty_property;
+    std::vector<int> tracked_rows;
 };
 
 namespace private_api {
