@@ -251,8 +251,8 @@ use crate::expression_tree::{
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::llr::{
-    self, EvaluationContext as llr_EvaluationContext,
-    ParentCtx as llr_ParentCtx, TypeResolutionContext as _,
+    self, EvaluationContext as llr_EvaluationContext, ParentCtx as llr_ParentCtx,
+    TypeResolutionContext as _,
 };
 use crate::object_tree::{
     Component, Document, ElementRc, PropertyDeclaration, RepeatedElementInfo,
@@ -542,7 +542,7 @@ fn handle_property_init(
 
         init.push(if binding_expression.is_constant {
             format!("{}.set({});", prop_access, init_expr)
-        } else {            
+        } else {
             let binding_code = format!(
                 "[this]() {{
                             [[maybe_unused]] auto self = this;
@@ -557,7 +557,7 @@ fn handle_property_init(
             } else {
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
-                        let anim = llr_compile_expression(anim, ctx);                        
+                        let anim = llr_compile_expression(anim, ctx);
                         format!("{}.set_animated_binding({}, {});", prop_access, binding_code, anim)
                     }
                     Some(llr::Animation::Transition (
@@ -783,6 +783,10 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     //         }))
     //     }
     // }
+    llr.globals
+        .iter()
+        .filter(|glob| !glob.is_builtin)
+        .for_each(|glob| generate_global(&mut file, glob, &llr));
 
     generate_public_component(&mut file, &llr, diag, true);
 
@@ -1574,6 +1578,25 @@ fn generate_public_component(
     //
     // let global_field_name = |glob| format!("global_{}", self::component_id(glob));
     //
+
+    for glob in &component.globals {
+        let ty = if glob.is_builtin {
+            format!("sixtyfps::cbindgen_private::{}", glob.name)
+        } else {
+            todo!()
+        };
+
+        component_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: format!("std::shared_ptr<{}>", ty),
+                name: format!("global_{}", ident(&glob.name)),
+                init: Some(format!("std::make_shared<{}>()", ty)),
+                ..Default::default()
+            }),
+        ));
+    }
+
     // for glob in used_types.globals.iter() {
     //     let ty = match &glob.root_element.borrow().base_type {
     //         Type::Void => self::component_id(glob),
@@ -1593,6 +1616,7 @@ fn generate_public_component(
     //         }),
     //     ));
     // }
+
     // let mut global_accessor_function_body = Vec::new();
     //
     // for glob in used_types
@@ -2629,6 +2653,37 @@ fn generate_item_tree(
     ));
 
     generate_sub_component(target_struct, &sub_tree.root, root, parent_ctx.clone(), init);
+
+    let mut tree_array: Vec<String> = Default::default();
+
+    sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
+        let parent_index = parent_index as u32;
+        let (path, component) = follow_sub_component_path(&sub_tree.root, &node.sub_component_path);
+        if node.repeated {
+            todo!()
+        } else {
+            let item = &component.items[node.item_index];
+
+            if item.is_flickable_viewport {
+                todo!()
+            } else {
+                let children_count = node.children.len() as u32;
+                let children_index = children_offset as u32;
+
+                tree_array.push(format!(
+                    "sixtyfps::private_api::make_item_node({}offsetof({}, {}), {}, {}, {}, {})",
+                    path,
+                    &ident(&component.name),
+                    ident(&item.name),
+                    item.ty.cpp_vtable_getter,
+                    children_count,
+                    children_index,
+                    parent_index,
+                ));
+            }
+        }
+    });
+
     /*
     target_struct.members.push((
         Access::Private,
@@ -2688,6 +2743,7 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
+    */
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
@@ -2703,6 +2759,7 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
+    /*
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
@@ -2718,6 +2775,7 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
+    */
     target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
@@ -2726,6 +2784,7 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
+    /*
     let root_elem = component.root_element.borrow();
 
     let get_root_item_ref = if root_elem.sub_component().is_some() {
@@ -2790,14 +2849,12 @@ fn generate_sub_component(
         */
 
         let ty = if let Type::Callback { args, return_type } = &property.ty {
-            let param_types =
-                args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type = return_type
-                .as_ref()
-                .map_or("void".to_owned(), |t| t.cpp_type().unwrap());            
+            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type =
+                return_type.as_ref().map_or("void".to_owned(), |t| t.cpp_type().unwrap());
             format!("sixtyfps::private_api::Callback<{}({})>", return_type, param_types.join(", "))
         } else {
-            format!("sixtyfps::private_api::Property<{}>", property.ty.cpp_type().unwrap())            
+            format!("sixtyfps::private_api::Property<{}>", property.ty.cpp_type().unwrap())
         };
 
         /*
@@ -2813,12 +2870,12 @@ fn generate_sub_component(
             ));
         }
         */
-        
+
         target_struct.members.push((
             Access::Public, //FIXME: field_access,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
-        ));        
-    }    
+        ));
+    }
 
     /*
     TODO: component.two_way_bindings
@@ -2827,6 +2884,60 @@ fn generate_sub_component(
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, init, &ctx)
     }
+
+    for item in &component.items {
+        if item.is_flickable_viewport {
+            continue;
+        }
+        target_struct.members.push((
+            Access::Public, //FIXME: field_access,
+            Declaration::Var(Var {
+                ty: format!("sixtyfps::cbindgen_private::{}", ident(&item.ty.class_name)),
+                name: ident(&item.name),
+                init: Some("{}".to_owned()),
+                ..Default::default()
+            }),
+        ));
+    }
+}
+
+fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::PublicComponent) {
+    let mut global_struct = Struct { name: ident(&global.name), ..Default::default() };
+
+    for property in &global.properties {
+        let cpp_name = ident(&property.name);
+
+        let ty = if let Type::Callback { args, return_type } = &property.ty {
+            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type =
+                return_type.as_ref().map_or("void".to_owned(), |t| t.cpp_type().unwrap());
+            format!("sixtyfps::private_api::Callback<{}({})>", return_type, param_types.join(", "))
+        } else {
+            format!("sixtyfps::private_api::Property<{}>", property.ty.cpp_type().unwrap())
+        };
+
+        /*
+        if is_sub_component {
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("get_{}", &cpp_name),
+                    signature: "() const".to_owned(),
+                    statements: Some(vec![format!("return &{};", access)]),
+                    ..Default::default()
+                }),
+            ));
+        }
+        */
+
+        global_struct.members.push((
+            Access::Public, //FIXME: field_access,
+            Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
+        ));
+    }
+
+    file.definitions.extend(global_struct.extract_definitions().collect::<Vec<_>>());
+    file.declarations.push(Declaration::Struct(global_struct));
 }
 
 /// Retruns the tokens needed to access the root component (where global singletons are located).
@@ -3070,20 +3181,28 @@ fn llr_access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext
             if let Some(sub_component) = ctx.current_sub_component {
                 let (compo_path, sub_component) =
                     follow_sub_component_path(sub_component, sub_component_path);
-                let property_name = ident(&sub_component.properties[*property_index].name);                
+                let property_name = ident(&sub_component.properties[*property_index].name);
                 format!("this->{}{}", compo_path, property_name)
-            } else if let Some(current_global) = ctx.current_global {                
-                let property_name = ident(&current_global.properties[*property_index].name);                
+            } else if let Some(current_global) = ctx.current_global {
+                let property_name = ident(&current_global.properties[*property_index].name);
                 format!("global_{}.{}", ident(&current_global.name), property_name)
             } else {
                 unreachable!()
             }
-        },
+        }
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             in_native_item(ctx, sub_component_path, *item_index, prop_name, "this")
         }
         llr::PropertyReference::InParent { level, parent_reference } => todo!(),
-        llr::PropertyReference::Global { global_index, property_index } => todo!(),
+        llr::PropertyReference::Global { global_index, property_index } => {
+            let root_access = &ctx.generator_state;
+            let global = &ctx.public_component.globals[*global_index];
+            let global_id = format!("global_{}", ident(&global.name));
+            let property_name = ident(
+                &ctx.public_component.globals[*global_index].properties[*property_index].name,
+            );
+            format!("{}->{}->{}", root_access, global_id, property_name)
+        }
     }
 }
 
@@ -3660,7 +3779,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
         Expression::BoolLiteral(b) => b.to_string(),
         Expression::PropertyReference(nr) => {
             let access = llr_access_member(nr, ctx);
-            format!(r#"{}.get()"#, access)            
+            format!(r#"{}.get()"#, access)
         }
         /* FIXME: handled in PropertyReference
         Expression::CallbackReference(nr) => {
