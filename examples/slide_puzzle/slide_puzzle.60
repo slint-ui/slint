@@ -207,29 +207,7 @@ export MainWindow := Window {
     ];
 
     property<int> current-theme-index;
-
-    // FIXME: themes[current-theme-index]
-    property <Theme> current-theme: {
-            name: "SIMPLE",
-            window-background-color: #ffffff,
-            game-background-color: #ffffff,
-            game-border: 1px,
-            game-radius: 2px,
-            game-text-color: #858585,
-            game-highlight-color: #1d6aaa,
-            piece-border: 1px,
-            piece-background-1: #0d579b,
-            piece-background-2: #0d579b,
-            piece-border-color-1: #0a457b,
-            piece-border-color-2: #0a457b,
-            piece-text-color-1: #ffffff,
-            piece-text-color-2: #ffffff,
-            piece-text-weight-incorrect-pos: 400,
-            piece-text-weight-correct-pos: 700,
-            piece-radius: 5px,
-            /// Ratio of the piece size
-            piece-spacing: 10%,
-    };
+    property <Theme> current-theme: themes[current-theme-index];
 
     property<length> pieces-size: min(width, height) / 6;
     property<length> pieces-spacing: current-theme.game-use-background-image && tiles-left == 0 ?
