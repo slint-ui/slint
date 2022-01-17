@@ -743,6 +743,14 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         ..Default::default()
     }));
 
+    for sub_compo in &llr.sub_components {
+        let sub_compo_id = ident(&sub_compo.name);
+        let mut sub_compo_struct = Struct { name: sub_compo_id.clone(), ..Default::default() };
+        generate_sub_component(&mut sub_compo_struct, sub_compo, &llr, None);
+        file.definitions.extend(sub_compo_struct.extract_definitions().collect::<Vec<_>>());
+        file.declarations.push(Declaration::Struct(sub_compo_struct));
+    }
+
     // let mut components_to_add_as_friends = vec![];
     // for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
     //     generate_component(
@@ -910,9 +918,6 @@ fn generate_public_component(
     // };
 
     let field_access = if is_exported { Access::Public } else { Access::Private };
-
-    let mut init_signature = "()";
-    let mut init: Vec<String> = vec!["[[maybe_unused]] auto self = this;".into()];
 
     for (p, (ty, r)) in &component.public_properties {
         let prop_ident = ident(p);
@@ -1176,9 +1181,11 @@ fn generate_public_component(
         }),
     ));
 
-    init.insert(0, "m_window.window_handle().init_items(this, item_tree());".into());
-
     component_struct.friends.push("sixtyfps::private_api::WindowRc".into());
+
+    component_struct
+        .friends
+        .extend(component.sub_components.iter().map(|sub_compo| ident(&sub_compo.name)));
 
     // struct TreeBuilder<'a> {
     //     tree_array: Vec<String>,
@@ -1389,7 +1396,8 @@ fn generate_public_component(
         ),
         format!("auto self = const_cast<{0} *>(&*self_rc);", component_id),
         "self->self_weak = vtable::VWeak(self_rc);".into(),
-        "self->init();".into(),
+        "self->m_window.window_handle().init_items(self, item_tree());".into(),
+        "self->init(self, 0, 1);".into(),
         "self->m_window.window_handle().set_component(**self->self_weak.lock());".into(),
     ];
 
@@ -1431,7 +1439,6 @@ fn generate_public_component(
         &component,
         None,
         component_id.clone(),
-        &mut init,
         file,
     );
 
@@ -1568,15 +1575,6 @@ fn generate_public_component(
     //     ));
     // }
     // Became:
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Function(Function {
-            name: "init".to_owned(),
-            signature: format!("{} -> void", init_signature),
-            statements: Some(init),
-            ..Default::default()
-        }),
-    ));
 
     //
     // component_struct.members.push((
@@ -2665,7 +2663,6 @@ fn generate_item_tree(
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
     item_tree_class_name: String,
-    init: &mut Vec<String>,
     file: &mut File,
 ) {
     target_struct.friends.push(format!(
@@ -2673,17 +2670,31 @@ fn generate_item_tree(
         item_tree_class_name
     ));
 
-    generate_sub_component(target_struct, &sub_tree.root, root, parent_ctx.clone(), init);
+    generate_sub_component(target_struct, &sub_tree.root, root, parent_ctx.clone());
 
     let mut tree_array: Vec<String> = Default::default();
 
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
-        let (path, component) = follow_sub_component_path(&sub_tree.root, &node.sub_component_path);
+
+        let mut compo_offset = String::new();
+        let mut sub_component = &sub_tree.root;
+        for i in &node.sub_component_path {
+            let next_sub_component_name = ident(&sub_component.sub_components[*i].name);
+            write!(
+                compo_offset,
+                "offsetof({}, {}) + ",
+                ident(&sub_component.name),
+                next_sub_component_name
+            )
+            .unwrap();
+            sub_component = &sub_component.sub_components[*i].ty;
+        }
+
         if node.repeated {
             todo!()
         } else {
-            let item = &component.items[node.item_index];
+            let item = &sub_component.items[node.item_index];
 
             if item.is_flickable_viewport {
                 todo!()
@@ -2692,9 +2703,9 @@ fn generate_item_tree(
                 let children_index = children_offset as u32;
 
                 tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node({}offsetof({}, {}), {}, {}, {}, {})",
-                    path,
-                    &ident(&component.name),
+                    "sixtyfps::private_api::make_item_node({} offsetof({}, {}), {}, {}, {}, {})",
+                    compo_offset,
+                    &ident(&sub_component.name),
                     ident(&item.name),
                     item.ty.cpp_vtable_getter,
                     children_count,
@@ -2856,12 +2867,51 @@ fn generate_sub_component(
     component: &llr::SubComponent,
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
-    init: &mut Vec<String>,
 ) {
+    let root_ptr_type = format!("const {} *", ident(&root.item_tree.root.name));
+
+    let init_parameters = vec![
+        format!("{} root", root_ptr_type),
+        "[[maybe_unused]] uintptr_t tree_index".into(),
+        "[[maybe_unused]] uintptr_t tree_index_of_first_child".into(),
+    ];
+
+    let mut init: Vec<String> = vec!["[[maybe_unused]] auto self = this;".into()];
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: root_ptr_type.clone(),
+            name: "root".to_owned(),
+            ..Default::default()
+        }),
+    ));
+    init.push("this->root = root;".into());
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: "uintptr_t".to_owned(),
+            name: "tree_index_of_first_child".to_owned(),
+            ..Default::default()
+        }),
+    ));
+    init.push("this->tree_index_of_first_child = tree_index_of_first_child;".into());
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: "uintptr_t".to_owned(),
+            name: "tree_index".to_owned(),
+            ..Default::default()
+        }),
+    ));
+    init.push("this->tree_index = tree_index;".into());
+
     let ctx = EvaluationContext::new_sub_component(
         root,
         component,
-        "this".to_owned(),
+        "this->root".into(),
         parent_ctx.clone(),
     );
 
@@ -2904,12 +2954,60 @@ fn generate_sub_component(
         ));
     }
 
+    let mut subcomponent_init_code = Vec::new();
+    for sub in &component.sub_components {
+        let field_name = ident(&sub.name);
+        let local_tree_index: u32 = sub.index_in_tree as _;
+        let local_index_of_first_child: u32 = sub.index_of_first_child_in_tree as _;
+
+        // For children of sub-components, the item index generated by the generate_item_indices pass
+        // starts at 1 (0 is the root element).
+        let global_index = if local_tree_index == 0 {
+            "tree_index".into()
+        } else {
+            format!("tree_index_of_first_child + {} - 1", local_tree_index)
+        };
+        let global_children = if local_index_of_first_child == 0 {
+            "0".into()
+        } else {
+            format!("tree_index_of_first_child + {} - 1", local_index_of_first_child)
+        };
+
+        subcomponent_init_code.push(format!(
+            "this->{}.init(root, {}, {});",
+            field_name, global_index, global_children
+        ));
+
+        /* TODO
+        let sub_component_repeater_count = sub.ty.repeater_count();
+        if sub_component_repeater_count > 0 {
+            let repeater_offset = sub.repeater_offset;
+            let last_repeater: usize = repeater_offset + sub_component_repeater_count - 1;
+            repeated_visit_branch.push(quote!(
+                #repeater_offset..=#last_repeater => {
+                    Self::FIELD_OFFSETS.#field_name.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
+                }
+            ));
+        }
+        */
+
+        target_struct.members.push((
+            Access::Public, // FIXME
+            Declaration::Var(Var {
+                ty: ident(&sub.ty.name),
+                name: field_name,
+                ..Default::default()
+            }),
+        ));
+    }
+
     /*
     TODO: component.two_way_bindings
      */
 
+    let mut properties_init_code = Vec::new();
     for (prop, expression) in &component.property_init {
-        handle_property_init(prop, expression, init, &ctx)
+        handle_property_init(prop, expression, &mut properties_init_code, &ctx)
     }
 
     for item in &component.items {
@@ -2926,6 +3024,19 @@ fn generate_sub_component(
             }),
         ));
     }
+
+    init.extend(subcomponent_init_code);
+    init.extend(properties_init_code);
+
+    target_struct.members.push((
+        Access::Public, // FIXME
+        Declaration::Function(Function {
+            name: "init".to_owned(),
+            signature: format!("({}) -> void", init_parameters.join(",")),
+            statements: Some(init),
+            ..Default::default()
+        }),
+    ));
 }
 
 fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::PublicComponent) {
@@ -3115,7 +3226,7 @@ fn follow_sub_component_path<'a>(
     let mut sub_component = root;
     for i in sub_component_path {
         let sub_component_name = ident(&sub_component.sub_components[*i].name);
-        write!(compo_path, ".{}", sub_component_name).unwrap();
+        write!(compo_path, "{}.", sub_component_name).unwrap();
         sub_component = &sub_component.sub_components[*i].ty;
     }
     (compo_path, sub_component)
