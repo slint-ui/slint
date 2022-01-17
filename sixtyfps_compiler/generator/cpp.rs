@@ -423,14 +423,6 @@ fn handle_property_binding(
             code = compile_expression_wrap_return(binding_expression, &component)
         ));
     } else {
-        for nr in &binding_expression.two_way_bindings {
-            init.push(format!(
-                "sixtyfps::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
-                ty = prop_type.cpp_type().unwrap_or_default(),
-                p1 = prop_access,
-                p2 = access_named_reference(nr, &component, "this")
-            ));
-        }
         if matches!(binding_expression.expression, Expression::Invalid) {
             return;
         }
@@ -3001,9 +2993,14 @@ fn generate_sub_component(
         ));
     }
 
-    /*
-    TODO: component.two_way_bindings
-     */
+    for (prop1, prop2) in &component.two_way_bindings {
+        init.push(format!(
+            "sixtyfps::private_api::Property<{ty}>::link_two_way(&{p1}, &{p2});",
+            ty = ctx.property_ty(prop1).cpp_type().unwrap(),
+            p1 = access_member(prop1, &ctx),
+            p2 = access_member(prop2, &ctx),
+        ));
+    }
 
     let mut properties_init_code = Vec::new();
     for (prop, expression) in &component.property_init {
