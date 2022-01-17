@@ -1381,49 +1381,6 @@ fn generate_public_component(
     // });
     //
     // if is_child_component || component.is_root_component.get() {
-    let mut create_code = vec![
-        format!(
-            "auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make();",
-            component_id
-        ),
-        format!("auto self = const_cast<{0} *>(&*self_rc);", component_id),
-        "self->self_weak = vtable::VWeak(self_rc);".into(),
-        "self->m_window.window_handle().init_items(self, item_tree());".into(),
-        "self->init(self, 0, 1);".into(),
-        "self->m_window.window_handle().set_component(**self->self_weak.lock());".into(),
-    ];
-
-    // FIXME: Implement this
-    // create_code.extend(
-    //     component.setup_code.borrow().iter().map(|code| compile_expression(code, component)),
-    // );
-    create_code.push(format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", component_id));
-
-    component_struct.members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: "create".into(),
-            signature: format!("() -> sixtyfps::ComponentHandle<{}>", component_id),
-            statements: Some(create_code),
-            is_static: true,
-            ..Default::default()
-        }),
-    ));
-
-    let mut destructor = vec!["[[maybe_unused]] auto self = this;".to_owned()];
-
-    destructor.push("m_window.window_handle().free_graphics_resources(this, item_tree());".into());
-
-    component_struct.members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: format!("~{}", component_id),
-            signature: "()".to_owned(),
-            is_constructor_or_destructor: true,
-            statements: Some(destructor),
-            ..Default::default()
-        }),
-    ));
 
     generate_item_tree(
         &mut component_struct,
@@ -2862,6 +2819,51 @@ fn generate_item_tree(
         ),
         ..Default::default()
     }));
+
+    let mut create_code = vec![
+        format!(
+            "auto self_rc = vtable::VRc<sixtyfps::private_api::ComponentVTable, {0}>::make();",
+            target_struct.name
+        ),
+        format!("auto self = const_cast<{0} *>(&*self_rc);", target_struct.name),
+        "self->self_weak = vtable::VWeak(self_rc);".into(),
+        "self->m_window.window_handle().init_items(self, item_tree());".into(),
+        "self->init(self, 0, 1);".into(),
+        "self->m_window.window_handle().set_component(**self->self_weak.lock());".into(),
+    ];
+
+    // FIXME: Implement this
+    // create_code.extend(
+    //     component.setup_code.borrow().iter().map(|code| compile_expression(code, component)),
+    // );
+    create_code
+        .push(format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", target_struct.name));
+
+    target_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "create".into(),
+            signature: format!("() -> sixtyfps::ComponentHandle<{}>", target_struct.name),
+            statements: Some(create_code),
+            is_static: true,
+            ..Default::default()
+        }),
+    ));
+
+    let mut destructor = vec!["[[maybe_unused]] auto self = this;".to_owned()];
+
+    destructor.push("m_window.window_handle().free_graphics_resources(this, item_tree());".into());
+
+    target_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: format!("~{}", target_struct.name),
+            signature: "()".to_owned(),
+            is_constructor_or_destructor: true,
+            statements: Some(destructor),
+            ..Default::default()
+        }),
+    ));
 }
 
 fn generate_sub_component(
