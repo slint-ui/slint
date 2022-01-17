@@ -2777,7 +2777,7 @@ fn generate_item_tree(
                 item_tree_class_name
             ), None)),
             */
-            statements: Some(vec!["return {};".into()]),
+            statements: Some(vec!["(void)component;".into(), "(void)o;".into(), "return {};".into()]),
             ..Default::default()
         }),
     ));
