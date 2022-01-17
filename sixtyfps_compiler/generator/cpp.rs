@@ -2728,7 +2728,7 @@ fn generate_item_tree(
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
-                "reinterpret_cast<const {}*>(component.instance)->layout_info(o);",
+                "return reinterpret_cast<const {}*>(component.instance)->layout_info(o);",
                 item_tree_class_name
             )]),
             ..Default::default()
