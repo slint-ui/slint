@@ -3126,62 +3126,7 @@ fn llr_access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext
             format!("{}->{}{}.{}{}", path, compo_path, item_name, flick, property_name)
         }
     }
-    /*
-    let e = element.borrow();
-    let enclosing_component = e.enclosing_component.upgrade().unwrap();
-    if Rc::ptr_eq(component, &enclosing_component) {
-        if e.property_declarations.contains_key(name) || name.is_empty() || component.is_global() {
-            format!("{}->{}", component_cpp, ident(name))
-        } else if e.is_flickable_viewport {
-            format!(
-                "{}->{}.viewport.{}",
-                component_cpp,
-                ident(&crate::object_tree::find_parent_element(element).unwrap().borrow().id),
-                ident(name)
-            )
-        } else if let Some(sub_component) = e.sub_component() {
-            if sub_component.root_element.borrow().property_declarations.contains_key(name) {
-                format!("(*{}->{}.get_{}())", component_cpp, ident(&e.id), ident(name))
-            } else {
-                access_member(
-                    &sub_component.root_element,
-                    name,
-                    sub_component,
-                    &format!("(&{}->{})", component_cpp, ident(&e.id),),
-                )
-            }
-        } else {
-            format!("{}->{}.{}", component_cpp, ident(&e.id), ident(name))
-        }
-    } else if enclosing_component.is_global() {
-        let mut top_level_component = component.clone();
-        let mut component_cpp = component_cpp.to_owned();
-        while let Some(p) = top_level_component.parent_element.upgrade() {
-            top_level_component = p.borrow().enclosing_component.upgrade().unwrap();
-            component_cpp = format!("{}->parent", component_cpp);
-        }
-        if top_level_component.is_sub_component() {
-            component_cpp = format!("{}->m_root", component_cpp);
-        }
-        let global_comp =
-            format!("{}->global_{}", component_cpp, component_id(&enclosing_component));
-        access_member(element, name, &enclosing_component, &global_comp)
-    } else {
-        access_member(
-            element,
-            name,
-            &component
-                .parent_element
-                .upgrade()
-                .unwrap()
-                .borrow()
-                .enclosing_component
-                .upgrade()
-                .unwrap(),
-            &format!("{}->parent", component_cpp),
-        )
-    }
-    */
+
     match reference {
         llr::PropertyReference::Local { sub_component_path, property_index } => {
             if let Some(sub_component) = ctx.current_sub_component {
