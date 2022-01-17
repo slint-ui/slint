@@ -379,28 +379,20 @@ fn property_animation_code(component: &Rc<Component>, animation: &ElementRc) -> 
         component,
     )
 }
-
-fn property_set_value_code(
-    component: &Rc<Component>,
-    element: &ElementRc,
-    property_name: &str,
-    value_expr: &str,
-) -> String {
-    if let Some(binding) = element.borrow().bindings.get(property_name) {
-        if let Some(crate::object_tree::PropertyAnimation::Static(animation)) =
-            binding.borrow().animation.as_ref()
-        {
-            let animation_code = property_animation_code(component, animation);
-            return format!(
-                "set_animated_value({value}, {animation})",
-                value = value_expr,
-                animation = animation_code
-            );
-        }
-    }
-    format!("set({})", value_expr)
-}
 */
+fn property_set_value_code(
+    property: &llr::PropertyReference,
+    value_expr: &str,
+    ctx: &EvaluationContext,
+) -> String {
+    let prop = access_member(property, ctx);
+    if let Some(animation) = ctx.current_sub_component.and_then(|c| c.animations.get(property)) {
+        let animation_code = compile_expression(animation, ctx);
+        return format!("{}.set_animated_value({}, {})", prop, value_expr, animation_code);
+    }
+    format!("{}.set({})", prop, value_expr)
+}
+
 /*
 fn handle_property_binding(
     elem: &ElementRc,
@@ -3269,16 +3261,13 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let access = access_member(nr, ctx);
             format!(r#"{}.get()"#, access)
         }
-        /* FIXME: handled in PropertyReference
-        Expression::CallbackReference(nr) => {
-            format!(
-                "{}.call",
-                access_named_reference(nr, component, "self")
-            )
-        },
-        */
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(*function, &arguments, ctx)
+        }
+        Expression::CallBackCall{ callback, arguments } => {
+            let f = access_member(callback, ctx);
+            let a = arguments.iter().map(|a| compile_expression(a, ctx)).collect::<Vec<_>>();
+            format!("{}.call({});", f, a.join(","))
         }
         /*
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
@@ -3462,11 +3451,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 format!("{}({})", compile_expression(function, component), args.join(", "))
             }
         },
-        Expression::SelfAssignment { lhs, rhs, op } => {
-            let rhs = compile_expression(&*rhs, component);
-            compile_assignment(lhs, *op, rhs, component)
-        }
         */
+        Expression::PropertyAssignment { property, value} => {
+            let value = compile_expression(value, ctx);
+            property_set_value_code(property, &value, ctx)
+        }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let mut buffer = [0; 3];
             format!(
