@@ -520,7 +520,8 @@ fn handle_property_init(
     let prop_access = access_member(prop, ctx);
     let prop_type = ctx.property_ty(prop);
     if let Type::Callback { args, .. } = &prop_type {
-        /*
+        let mut ctx2 = ctx.clone();
+        ctx2.argument_types = &args;
 
         let mut params = args.iter().enumerate().map(|(i, ty)| {
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
@@ -534,9 +535,8 @@ fn handle_property_init(
                     }});",
             prop_access = prop_access,
             params = params.join(", "),
-            code = compile_expression_wrap_return(binding_expression, &component)
+            code = compile_expression_wrap_return(&binding_expression.expression, &ctx2)
         ));
-        */
     } else {
         let init_expr = compile_expression_wrap_return(&binding_expression.expression, ctx);
 
@@ -928,30 +928,43 @@ fn generate_public_component(
         let access = access_member(r, &ctx);
 
         if let Type::Callback { args, return_type } = ty {
-            // let callback_args = args.iter().map(|a| rust_type(a).unwrap()).collect::<Vec<_>>();
-            // let return_type = return_type.as_ref().map_or(quote!(()), |a| rust_type(a).unwrap());
-            // let args_name = (0..args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            // let caller_ident = format_ident!("invoke_{}", prop_ident);
-            // property_and_callback_accessors.push(quote!(
-            //     #[allow(dead_code)]
-            //     pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
-            //         let _self = #self_init;
-            //         #prop.call(&(#(#args_name,)*))
-            //     }
-            // ));
-            // let on_ident = format_ident!("on_{}", prop_ident);
-            // let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
-            // property_and_callback_accessors.push(quote!(
-            //     #[allow(dead_code)]
-            //     pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
-            //         let _self = #self_init;
-            //         #[allow(unused)]
-            //         #prop.set_handler(
-            //             // FIXME: why do i need to clone here?
-            //             move |args| f(#(args.#args_index.clone()),*)
-            //         )
-            //     }
-            // ));
+            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type = return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
+            let callback_emitter = vec![format!(
+                "return {}.call({});",
+                access,
+                (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+            )];
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("invoke_{}", ident(p)),
+                    signature: format!(
+                        "({}) const -> {}",
+                        param_types
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ty)| format!("{} arg_{}", ty, i))
+                            .join(", "),
+                        return_type
+                    ),
+                    statements: Some(callback_emitter),
+                    ..Default::default()
+                }),
+            ));
+            component_struct.members.push((
+                Access::Public,
+                Declaration::Function(Function {
+                    name: format!("on_{}", ident(p)),
+                    template_parameters: Some("typename Functor".into()),
+                    signature: "(Functor && callback_handler) const".into(),
+                    statements: Some(vec![format!(
+                        "{}.set_handler(std::forward<Functor>(callback_handler));",
+                        access
+                    )]),
+                    ..Default::default()
+                }),
+            ));
         } else {
             let cpp_property_type = ty.cpp_type().expect("Invalid type in public properties");
             let prop_getter: Vec<String> = vec![format!("return {}.get();", access)];
@@ -3289,8 +3302,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             );
             format!(r#"{}model_data.get()"#, access)
         }
-        Expression::FunctionParameterReference { index, .. } => format!("arg_{}", index),
         */
+        Expression::FunctionParameterReference { index, .. } => format!("arg_{}", index),
         Expression::StoreLocalVariable { name, value } => {
             format!("auto {} = {};", ident(name), compile_expression(value, ctx))
         }
