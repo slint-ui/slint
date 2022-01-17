@@ -3796,6 +3796,8 @@ fn compile_builtin_function_call(
     ctx: &EvaluationContext,
 ) -> String {
     let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+    let pi_180 = std::f64::consts::PI / 180.0;
+
     match function {
         BuiltinFunction::GetWindowScaleFactor => {
             "self->m_window.window_handle().scale_factor".into()
@@ -3805,19 +3807,19 @@ fn compile_builtin_function_call(
                 .into()
         }
         BuiltinFunction::Mod => format!("static_cast<int>({}) % static_cast<int>({})", a.next().unwrap(), a.next().unwrap()),
-        BuiltinFunction::Round => "std::round".into(),
-        BuiltinFunction::Ceil => "std::ceil".into(),
-        BuiltinFunction::Floor => "std::floor".into(),
-        BuiltinFunction::Sqrt => "std::sqrt".into(),
-        BuiltinFunction::Abs => "std::abs".into(),
-        BuiltinFunction::Log => "[](auto a1, auto a2){ return std::log(a1) / std::log(a2); }".into(),
-        BuiltinFunction::Pow => "[](auto a1, auto a2){return pow(a1, a2); }".into(),
-        BuiltinFunction::Sin => format!("[](float a){{ return std::sin(a * {}); }}", std::f32::consts::PI / 180.),
-        BuiltinFunction::Cos => format!("[](float a){{ return std::cos(a * {}); }}", std::f32::consts::PI / 180.),
-        BuiltinFunction::Tan => format!("[](float a){{ return std::tan(a * {}); }}", std::f32::consts::PI / 180.),
-        BuiltinFunction::ASin => format!("[](float a){{ return std::asin(a) / {}; }}", std::f32::consts::PI / 180.),
-        BuiltinFunction::ACos => format!("[](float a){{ return std::acos(a) / {}; }}", std::f32::consts::PI / 180.),
-        BuiltinFunction::ATan => format!("[](float a){{ return std::atan(a) / {}; }}", std::f32::consts::PI / 180.),
+        BuiltinFunction::Round => format!("std::round({})", a.next().unwrap()),
+        BuiltinFunction::Ceil => format!("std::ceil({})", a.next().unwrap()),
+        BuiltinFunction::Floor => format!("std::floor({})", a.next().unwrap()),
+        BuiltinFunction::Sqrt => format!("std::sqrt({})", a.next().unwrap()),
+        BuiltinFunction::Abs => format!("std::abs({})", a.next().unwrap()),
+        BuiltinFunction::Log => format!("std::log({}) / std::log({})", a.next().unwrap(), a.next().unwrap()),
+        BuiltinFunction::Pow => format!("std::pow(({}), ({}))", a.next().unwrap(), a.next().unwrap()),
+        BuiltinFunction::Sin => format!("std::sin(({}) * {})", a.next().unwrap(), pi_180),
+        BuiltinFunction::Cos => format!("std::cos(({}) * {})", a.next().unwrap(), pi_180),
+        BuiltinFunction::Tan => format!("std::tan(({}) * {})", a.next().unwrap(), pi_180),
+        BuiltinFunction::ASin => format!("std::asin({}) / {}", a.next().unwrap(), pi_180),
+        BuiltinFunction::ACos => format!("std::acos({}) / {}", a.next().unwrap(), pi_180),
+        BuiltinFunction::ATan => format!("std::atan({}) / {}", a.next().unwrap(), pi_180),
         BuiltinFunction::SetFocusItem => {
             "self->m_window.window_handle().set_focus_item".into()
         }
