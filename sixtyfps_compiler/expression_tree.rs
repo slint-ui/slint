@@ -1200,6 +1200,10 @@ pub struct BindingAnalysis {
 
     /// true if the binding is a constant value that can be set without creating a binding at runtime
     pub is_const: bool,
+
+    /// true if this binding does not depends on the value of property that are set externally.
+    /// When true, this binding cannot be part of a binding loop involving external components
+    pub no_external_dependencies: bool,
 }
 
 #[derive(Debug, Clone)]
