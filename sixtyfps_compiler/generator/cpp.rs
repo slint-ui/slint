@@ -16,6 +16,48 @@ fn ident(ident: &str) -> String {
     }
 }
 
+/// Given a property reference to a native item (eg, the property name is empty)
+/// return tokens to the `ItemRc`
+fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
+    let mut ctx = ctx;
+    let mut component_access = "self".into();
+
+    let pr = match pr {
+        llr::PropertyReference::InParent { level, parent_reference } => {
+            for _ in 0..level.get() {
+                component_access = format!("{}->parent", component_access);
+                ctx = ctx.parent.as_ref().unwrap().ctx;
+            }
+            parent_reference
+        }
+        other @ _ => other,
+    };
+
+    match pr {
+        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
+            assert!(prop_name.is_empty());
+            let (sub_compo_path, sub_component) =
+                follow_sub_component_path(ctx.current_sub_component.unwrap(), &sub_component_path);
+            if !sub_component_path.is_empty() {
+                component_access = format!("{}->{}", &component_access, &sub_compo_path);
+            }
+            let component_rc = format!("{}->self_weak.lock()->into_dyn()", &component_access);
+            let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
+            let item_index = if item_index_in_tree == 0 {
+                format!("{}->tree_index", &component_access)
+            } else {
+                format!(
+                    "{}->tree_index_of_first_child + {} - 1",
+                    &component_access, item_index_in_tree
+                )
+            };
+
+            format!("{}, {}", &component_rc, item_index)
+        }
+        _ => unreachable!(),
+    }
+}
+
 /// This module contains some data structure that helps represent a C++ code.
 /// It is then rendered into an actual C++ text using the Display trait
 mod cpp_ast {
@@ -2237,7 +2279,7 @@ fn generate_item_tree(
             .push("    return self->visit_dynamic_children(dyn_index, order, visitor);".into());
     }
 
-    visit_children_statements.extend([        
+    visit_children_statements.extend([
         "    std::abort();\n};".to_owned(),
         format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", item_tree_class_name),
         "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
@@ -2340,18 +2382,6 @@ fn generate_item_tree(
         }),
     ));
 
-    target_struct.members.push((
-        Access::Public,
-        Declaration::Var(Var {
-            ty: format!(
-                "vtable::VWeak<sixtyfps::private_api::ComponentVTable, {}>",
-                item_tree_class_name
-            ),
-            name: "self_weak".into(),
-            ..Var::default()
-        }),
-    ));
-
     /*
     let root_elem = component.root_element.borrow();
 
@@ -2408,13 +2438,10 @@ fn generate_item_tree(
             target_struct.name
         ),
         format!("auto self = const_cast<{0} *>(&*self_rc);", target_struct.name),
-        "self->self_weak = vtable::VWeak(self_rc);".into(),
+        "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
         format!("{}->m_window.window_handle().init_items(self, item_tree());", root_access),
-        format!("self->init({}, 0, 1 {});", root_access, init_parent_parameters),
-        format!(
-            "{}->m_window.window_handle().set_component(**self->self_weak.lock());",
-            root_access
-        ),
+        format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
+        format!("{}->m_window.window_handle().set_component(*self_rc);", root_access),
     ];
 
     // FIXME: Implement this
@@ -2439,10 +2466,10 @@ fn generate_item_tree(
         }),
     ));
 
-    let mut destructor = vec!["[[maybe_unused]] auto self = this;".to_owned()];
+    let mut destructor = vec!["auto self = this;".to_owned()];
 
     destructor.push(format!(
-        "{}->m_window.window_handle().free_graphics_resources(this, item_tree());",
+        "{}->m_window.window_handle().free_graphics_resources(self, item_tree());",
         root_access
     ));
 
@@ -2469,11 +2496,22 @@ fn generate_sub_component(
 
     let mut init_parameters = vec![
         format!("{} root", root_ptr_type),
-        "[[maybe_unused]] uintptr_t tree_index".into(),
-        "[[maybe_unused]] uintptr_t tree_index_of_first_child".into(),
+        "sixtyfps::cbindgen_private::ComponentWeak enclosing_component".into(),
+        "uintptr_t tree_index".into(),
+        "uintptr_t tree_index_of_first_child".into(),
     ];
 
-    let mut init: Vec<String> = vec!["[[maybe_unused]] auto self = this;".into()];
+    let mut init: Vec<String> =
+        vec!["auto self = this;".into(), "self->self_weak = enclosing_component;".into()];
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var {
+            ty: "sixtyfps::cbindgen_private::ComponentWeak".into(),
+            name: "self_weak".into(),
+            ..Default::default()
+        }),
+    ));
 
     target_struct.members.push((
         Access::Public, // FIXME
@@ -2483,7 +2521,7 @@ fn generate_sub_component(
             ..Default::default()
         }),
     ));
-    init.push("this->root = root;".into());
+    init.push("self->root = root;".into());
 
     target_struct.members.push((
         Access::Private,
@@ -2503,7 +2541,7 @@ fn generate_sub_component(
             ..Default::default()
         }),
     ));
-    init.push("this->tree_index = tree_index;".into());
+    init.push("self->tree_index = tree_index;".into());
 
     if let Some(parent_ctx) = &parent_ctx {
         let parent_type =
@@ -2518,13 +2556,13 @@ fn generate_sub_component(
                 ..Default::default()
             }),
         ));
-        init.push("this->parent = parent;".into());
+        init.push("self->parent = parent;".into());
     }
 
     let ctx = EvaluationContext::new_sub_component(
         root,
         component,
-        "this->root".into(),
+        "self->root".into(),
         parent_ctx.clone(),
     );
 
@@ -2589,7 +2627,7 @@ fn generate_sub_component(
         };
 
         subcomponent_init_code.push(format!(
-            "this->{}.init(root, {}, {});",
+            "this->{}.init(root, self_weak.into_dyn(), {}, {});",
             field_name, global_index, global_children
         ));
 
@@ -2949,7 +2987,7 @@ fn follow_sub_component_path<'a>(
 
 fn access_window_field(ctx: &EvaluationContext) -> String {
     let root = &ctx.generator_state;
-    format!("{}->m_window.window_handle()", root)
+    format!("{}->window().window_handle()", root)
 }
 
 /// Returns the code that can access the given property (but without the set or get)
@@ -3480,8 +3518,9 @@ fn compile_builtin_function_call(
 
     match function {
         BuiltinFunction::GetWindowScaleFactor => {
-            "self->m_window.window_handle().scale_factor()".into()
-        }
+                let window = access_window_field(ctx);
+                format!("{}.scale_factor()", window)
+        },
         BuiltinFunction::Debug => {
             "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
                 .into()
@@ -3501,8 +3540,14 @@ fn compile_builtin_function_call(
         BuiltinFunction::ACos => format!("std::acos({}) / {}", a.next().unwrap(), pi_180),
         BuiltinFunction::ATan => format!("std::atan({}) / {}", a.next().unwrap(), pi_180),
         BuiltinFunction::SetFocusItem => {
-            "self->m_window.window_handle().set_focus_item".into()
-        }
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                let window = access_window_field(ctx);
+                let focus_item = access_item_rc(pr, ctx);
+                format!("{}.set_focus_item({})", window, focus_item)
+            } else {
+                panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
+            }
+        },
         BuiltinFunction::ShowPopupWindow => {
             "self->m_window.window_handle().show_popup".into()
         }
