@@ -245,7 +245,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::EasingCurve;
+use crate::expression_tree::{BuiltinFunction, EasingCurve};
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::llr::{
@@ -3266,78 +3266,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         },
         */
+        Expression::BuiltinFunctionCall { function, arguments } => {
+            compile_builtin_function_call(*function, &arguments, ctx)
+        }
         /*
-        Expression::BuiltinFunctionReference(funcref, _) => match funcref {
-            BuiltinFunction::GetWindowScaleFactor => {
-                "self->m_window.window_handle().scale_factor".into()
-            }
-            BuiltinFunction::Debug => {
-                "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
-                    .into()
-            }
-            BuiltinFunction::Mod => "[](auto a1, auto a2){ return static_cast<int>(a1) % static_cast<int>(a2); }".into(),
-            BuiltinFunction::Round => "std::round".into(),
-            BuiltinFunction::Ceil => "std::ceil".into(),
-            BuiltinFunction::Floor => "std::floor".into(),
-            BuiltinFunction::Sqrt => "std::sqrt".into(),
-            BuiltinFunction::Abs => "std::abs".into(),
-            BuiltinFunction::Log => "[](auto a1, auto a2){ return std::log(a1) / std::log(a2); }".into(),
-            BuiltinFunction::Pow => "[](auto a1, auto a2){return pow(a1, a2); }".into(),
-            BuiltinFunction::Sin => format!("[](float a){{ return std::sin(a * {}); }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::Cos => format!("[](float a){{ return std::cos(a * {}); }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::Tan => format!("[](float a){{ return std::tan(a * {}); }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::ASin => format!("[](float a){{ return std::asin(a) / {}; }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::ACos => format!("[](float a){{ return std::acos(a) / {}; }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::ATan => format!("[](float a){{ return std::atan(a) / {}; }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::SetFocusItem => {
-                "self->m_window.window_handle().set_focus_item".into()
-            }
-            BuiltinFunction::ShowPopupWindow => {
-                "self->m_window.window_handle().show_popup".into()
-            }
-
-           /*  std::from_chars is unfortunately not yet implemented in gcc
-            BuiltinFunction::StringIsFloat => {
-                "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a); }"
-                    .into()
-            }
-            BuiltinFunction::StringToFloat => {
-                "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a) ? v : 0; }"
-                    .into()
-            }*/
-            BuiltinFunction::StringIsFloat => {
-                "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); std::strtod(std::begin(a), &e2); return e1 == e2; }"
-                    .into()
-            }
-            BuiltinFunction::StringToFloat => {
-                "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }"
-                    .into()
-            }
-            BuiltinFunction::ImplicitLayoutInfo(_) => {
-                unreachable!()
-            }
-            BuiltinFunction::ColorBrighter => {
-                "[](const auto &color, float factor) { return color.brighter(factor); }".into()
-            }
-            BuiltinFunction::ColorDarker => {
-                "[](const auto &color, float factor) { return color.darker(factor); }".into()
-            }
-            BuiltinFunction::ImageSize => {
-                "[](const sixtyfps::Image &img) { return img.size(); }".into()
-            }
-            BuiltinFunction::ArrayLength => {
-                "[](const auto &model) { (*model).track_row_count_changes(); return (*model).row_count(); }".into()
-            }
-            BuiltinFunction::Rgb => {
-                "[](int r, int g, int b, float a) {{ return sixtyfps::Color::from_argb_uint8(std::clamp(a * 255., 0., 255.), std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255)); }}".into()
-            }
-            BuiltinFunction::RegisterCustomFontByPath => {
-                panic!("internal error: RegisterCustomFontByPath can only be evaluated from within a FunctionCall expression")
-            }
-            BuiltinFunction::RegisterCustomFontByMemory => {
-                panic!("internal error: RegisterCustomFontByMemory can only be evaluated from within a FunctionCall expression")
-            }
-        },
         Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
         Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
         Expression::BuiltinMacroReference { .. } => panic!("macro expressions must not appear in the code generator anymore"),
@@ -3742,6 +3674,85 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         */
         _ => todo!("unimplemented llr expression: {:#?}", expr),
+    }
+}
+
+fn compile_builtin_function_call(
+    function: BuiltinFunction,
+    arguments: &[llr::Expression],
+    ctx: &EvaluationContext,
+) -> String {
+    let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+    match function {
+        BuiltinFunction::GetWindowScaleFactor => {
+            "self->m_window.window_handle().scale_factor".into()
+        }
+        BuiltinFunction::Debug => {
+            "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
+                .into()
+        }
+        BuiltinFunction::Mod => format!("static_cast<int>({}) % static_cast<int>({})", a.next().unwrap(), a.next().unwrap()),
+        BuiltinFunction::Round => "std::round".into(),
+        BuiltinFunction::Ceil => "std::ceil".into(),
+        BuiltinFunction::Floor => "std::floor".into(),
+        BuiltinFunction::Sqrt => "std::sqrt".into(),
+        BuiltinFunction::Abs => "std::abs".into(),
+        BuiltinFunction::Log => "[](auto a1, auto a2){ return std::log(a1) / std::log(a2); }".into(),
+        BuiltinFunction::Pow => "[](auto a1, auto a2){return pow(a1, a2); }".into(),
+        BuiltinFunction::Sin => format!("[](float a){{ return std::sin(a * {}); }}", std::f32::consts::PI / 180.),
+        BuiltinFunction::Cos => format!("[](float a){{ return std::cos(a * {}); }}", std::f32::consts::PI / 180.),
+        BuiltinFunction::Tan => format!("[](float a){{ return std::tan(a * {}); }}", std::f32::consts::PI / 180.),
+        BuiltinFunction::ASin => format!("[](float a){{ return std::asin(a) / {}; }}", std::f32::consts::PI / 180.),
+        BuiltinFunction::ACos => format!("[](float a){{ return std::acos(a) / {}; }}", std::f32::consts::PI / 180.),
+        BuiltinFunction::ATan => format!("[](float a){{ return std::atan(a) / {}; }}", std::f32::consts::PI / 180.),
+        BuiltinFunction::SetFocusItem => {
+            "self->m_window.window_handle().set_focus_item".into()
+        }
+        BuiltinFunction::ShowPopupWindow => {
+            "self->m_window.window_handle().show_popup".into()
+        }
+
+        /*  std::from_chars is unfortunately not yet implemented in gcc
+        BuiltinFunction::StringIsFloat => {
+            "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a); }"
+                .into()
+        }
+        BuiltinFunction::StringToFloat => {
+            "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a) ? v : 0; }"
+                .into()
+        }*/
+        BuiltinFunction::StringIsFloat => {
+            "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); std::strtod(std::begin(a), &e2); return e1 == e2; }"
+                .into()
+        }
+        BuiltinFunction::StringToFloat => {
+            "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }"
+                .into()
+        }
+        BuiltinFunction::ImplicitLayoutInfo(_) => {
+            unreachable!()
+        }
+        BuiltinFunction::ColorBrighter => {
+            "[](const auto &color, float factor) { return color.brighter(factor); }".into()
+        }
+        BuiltinFunction::ColorDarker => {
+            "[](const auto &color, float factor) { return color.darker(factor); }".into()
+        }
+        BuiltinFunction::ImageSize => {
+            "[](const sixtyfps::Image &img) { return img.size(); }".into()
+        }
+        BuiltinFunction::ArrayLength => {
+            "[](const auto &model) { (*model).track_row_count_changes(); return (*model).row_count(); }".into()
+        }
+        BuiltinFunction::Rgb => {
+            "[](int r, int g, int b, float a) {{ return sixtyfps::Color::from_argb_uint8(std::clamp(a * 255., 0., 255.), std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255)); }}".into()
+        }
+        BuiltinFunction::RegisterCustomFontByPath => {
+            panic!("internal error: RegisterCustomFontByPath can only be evaluated from within a FunctionCall expression")
+        }
+        BuiltinFunction::RegisterCustomFontByMemory => {
+            panic!("internal error: RegisterCustomFontByMemory can only be evaluated from within a FunctionCall expression")
+        }
     }
 }
 
