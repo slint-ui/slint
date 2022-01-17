@@ -245,9 +245,7 @@ mod cpp_ast {
 }
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::expression_tree::{
-    BindingExpression, BuiltinFunction, EasingCurve, Expression, NamedReference,
-};
+use crate::expression_tree::EasingCurve;
 use crate::langtype::Type;
 use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
 use crate::llr::{
@@ -259,7 +257,6 @@ use crate::object_tree::{
 };
 use cpp_ast::*;
 use itertools::Itertools;
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -350,6 +347,7 @@ fn remove_parentheses_test() {
     assert_eq!(remove_parentheses("()())("), "()())(");
 }
 
+/*
 fn new_struct_with_bindings(
     type_name: &str,
     bindings: &crate::object_tree::BindingsMap,
@@ -402,7 +400,8 @@ fn property_set_value_code(
     }
     format!("set({})", value_expr)
 }
-
+*/
+/*
 fn handle_property_binding(
     elem: &ElementRc,
     prop_name: &str,
@@ -506,6 +505,7 @@ fn handle_property_binding(
         });
     }
 }
+*/
 
 fn handle_property_init(
     prop: &llr::PropertyReference,
@@ -517,7 +517,7 @@ fn handle_property_init(
     let item = elem.borrow();
     let component = item.enclosing_component.upgrade().unwrap();
      */
-    let prop_access = llr_access_member(prop, ctx);
+    let prop_access = access_member(prop, ctx);
     let prop_type = ctx.property_ty(prop);
     if let Type::Callback { args, .. } = &prop_type {
         /*
@@ -538,7 +538,7 @@ fn handle_property_init(
         ));
         */
     } else {
-        let init_expr = llr_compile_expression_wrap_return(&binding_expression.expression, ctx);
+        let init_expr = compile_expression_wrap_return(&binding_expression.expression, ctx);
 
         init.push(if binding_expression.is_constant {
             format!("{}.set({});", prop_access, init_expr)
@@ -557,7 +557,7 @@ fn handle_property_init(
             } else {
                 match &binding_expression.animation {
                     Some(llr::Animation::Static(anim)) => {
-                        let anim = llr_compile_expression(anim, ctx);
+                        let anim = compile_expression(anim, ctx);
                         format!("{}.set_animated_binding({}, {});", prop_access, binding_code, anim)
                     }
                     Some(llr::Animation::Transition (
@@ -601,6 +601,7 @@ fn handle_property_init(
     }
 }
 
+/*
 fn handle_item(elem: &ElementRc, field_access: Access, main_struct: &mut Struct) {
     let item = elem.borrow();
     main_struct.members.push((
@@ -616,7 +617,9 @@ fn handle_item(elem: &ElementRc, field_access: Access, main_struct: &mut Struct)
         }),
     ));
 }
+*/
 
+/*
 fn handle_repeater(
     repeated: &RepeatedElementInfo,
     base_component: &Rc<Component>,
@@ -689,6 +692,7 @@ fn handle_repeater(
         }),
     ));
 }
+*/
 
 /// Returns the text of the C++ code produced by the given root component
 pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std::fmt::Display> {
@@ -808,6 +812,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     }
 }
 
+/*
 fn generate_struct(
     file: &mut File,
     name: &str,
@@ -865,6 +870,7 @@ fn generate_struct(
         ..Default::default()
     }))
 }
+*/
 
 /// Generate the component in `file`.
 ///
@@ -1660,6 +1666,7 @@ fn generate_public_component(
     file.declarations.push(Declaration::Struct(component_struct));
 }
 
+/*
 fn generate_component(
     file: &mut File,
     component: &Rc<Component>,
@@ -2492,7 +2499,9 @@ fn generate_component(
     file.definitions.extend(component_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(component_struct));
 }
+*/
 
+/*
 fn generate_component_vtable(
     component_struct: &mut Struct,
     component_id: String,
@@ -2637,6 +2646,7 @@ fn generate_component_vtable(
         ..Default::default()
     }));
 }
+*/
 
 fn generate_item_tree(
     target_struct: &mut Struct,
@@ -2946,6 +2956,7 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
     file.declarations.push(Declaration::Struct(global_struct));
 }
 
+/*
 /// Retruns the tokens needed to access the root component (where global singletons are located).
 /// This is needed for the `init()` calls on sub-components, that take the root as a parameter.
 fn access_root_tokens(component: &Rc<Component>) -> String {
@@ -3012,7 +3023,9 @@ fn model_data_type(parent_element: &ElementRc, diag: &mut BuildDiagnostics) -> S
         String::default()
     })
 }
+*/
 
+/*
 /// Returns the code that can access the given property (but without the set or get)
 ///
 /// to be used like:
@@ -3081,6 +3094,7 @@ fn access_member(
         )
     }
 }
+*/
 
 fn follow_sub_component_path<'a>(
     root: &'a llr::SubComponent,
@@ -3103,7 +3117,7 @@ fn follow_sub_component_path<'a>(
 /// let access = access_member(...);
 /// format!("{}.get()", access)
 /// ```
-fn llr_access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
+fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) -> String {
     fn in_native_item(
         ctx: &EvaluationContext,
         sub_component_path: &[usize],
@@ -3157,6 +3171,7 @@ fn llr_access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext
     }
 }
 
+/*
 /// Call access_member  for a NamedReference
 fn access_named_reference(
     nr: &NamedReference,
@@ -3214,506 +3229,9 @@ fn absolute_element_item_index_expression(element: &ElementRc) -> String {
         local_index.to_string()
     }
 }
+*/
 
-fn compile_expression(
-    expr: &crate::expression_tree::Expression,
-    component: &Rc<Component>,
-) -> String {
-    match expr {
-        Expression::StringLiteral(s) => {
-            format!(r#"sixtyfps::SharedString(u8"{}")"#, escape_string(s.as_str()))
-        }
-        Expression::NumberLiteral(n, unit) => {
-            let num = unit.normalize(*n);
-            if num > 1_000_000_000. {
-                // If the numbers are too big, decimal notation will give too many digit
-                format!("{:+e}", num)
-            } else {
-                num.to_string()
-            }
-        }
-        Expression::BoolLiteral(b) => b.to_string(),
-        Expression::PropertyReference(nr) => {
-            let access =
-                access_named_reference(nr, component, "self");
-            format!(r#"{}.get()"#, access)
-        }
-        Expression::CallbackReference(nr) => format!(
-            "{}.call",
-            access_named_reference(nr, component, "self")
-        ),
-        Expression::BuiltinFunctionReference(funcref, _) => match funcref {
-            BuiltinFunction::GetWindowScaleFactor => {
-                "self->m_window.window_handle().scale_factor".into()
-            }
-            BuiltinFunction::Debug => {
-                "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
-                    .into()
-            }
-            BuiltinFunction::Mod => "[](auto a1, auto a2){ return static_cast<int>(a1) % static_cast<int>(a2); }".into(),
-            BuiltinFunction::Round => "std::round".into(),
-            BuiltinFunction::Ceil => "std::ceil".into(),
-            BuiltinFunction::Floor => "std::floor".into(),
-            BuiltinFunction::Sqrt => "std::sqrt".into(),
-            BuiltinFunction::Abs => "std::abs".into(),
-            BuiltinFunction::Log => "[](auto a1, auto a2){ return std::log(a1) / std::log(a2); }".into(),
-            BuiltinFunction::Pow => "[](auto a1, auto a2){return pow(a1, a2); }".into(),
-            BuiltinFunction::Sin => format!("[](float a){{ return std::sin(a * {}); }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::Cos => format!("[](float a){{ return std::cos(a * {}); }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::Tan => format!("[](float a){{ return std::tan(a * {}); }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::ASin => format!("[](float a){{ return std::asin(a) / {}; }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::ACos => format!("[](float a){{ return std::acos(a) / {}; }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::ATan => format!("[](float a){{ return std::atan(a) / {}; }}", std::f32::consts::PI / 180.),
-            BuiltinFunction::SetFocusItem => {
-                "self->m_window.window_handle().set_focus_item".into()
-            }
-            BuiltinFunction::ShowPopupWindow => {
-                "self->m_window.window_handle().show_popup".into()
-            }
-
-           /*  std::from_chars is unfortunately not yet implemented in gcc
-            BuiltinFunction::StringIsFloat => {
-                "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a); }"
-                    .into()
-            }
-            BuiltinFunction::StringToFloat => {
-                "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a) ? v : 0; }"
-                    .into()
-            }*/
-            BuiltinFunction::StringIsFloat => {
-                "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); std::strtod(std::begin(a), &e2); return e1 == e2; }"
-                    .into()
-            }
-            BuiltinFunction::StringToFloat => {
-                "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }"
-                    .into()
-            }
-            BuiltinFunction::ImplicitLayoutInfo(_) => {
-                unreachable!()
-            }
-            BuiltinFunction::ColorBrighter => {
-                "[](const auto &color, float factor) { return color.brighter(factor); }".into()
-            }
-            BuiltinFunction::ColorDarker => {
-                "[](const auto &color, float factor) { return color.darker(factor); }".into()
-            }
-            BuiltinFunction::ImageSize => {
-                "[](const sixtyfps::Image &img) { return img.size(); }".into()
-            }
-            BuiltinFunction::ArrayLength => {
-                "[](const auto &model) { (*model).track_row_count_changes(); return (*model).row_count(); }".into()
-            }
-            BuiltinFunction::Rgb => {
-                "[](int r, int g, int b, float a) {{ return sixtyfps::Color::from_argb_uint8(std::clamp(a * 255., 0., 255.), std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255)); }}".into()
-            }
-            BuiltinFunction::RegisterCustomFontByPath => {
-                panic!("internal error: RegisterCustomFontByPath can only be evaluated from within a FunctionCall expression")
-            }
-            BuiltinFunction::RegisterCustomFontByMemory => {
-                panic!("internal error: RegisterCustomFontByMemory can only be evaluated from within a FunctionCall expression")
-            }
-        },
-        Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
-        Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
-        Expression::BuiltinMacroReference { .. } => panic!("macro expressions must not appear in the code generator anymore"),
-        Expression::RepeaterIndexReference { element } => {
-            let access = access_member(
-                &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
-                "",
-                component,
-                "self",
-            );
-            format!(r#"{}index.get()"#, access)
-        }
-        Expression::RepeaterModelReference { element } => {
-            let access = access_member(
-                &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
-                "",
-                component,
-                "self",
-            );
-            format!(r#"{}model_data.get()"#, access)
-        }
-        Expression::FunctionParameterReference { index, .. } => format!("arg_{}", index),
-        Expression::StoreLocalVariable { name, value } => {
-            format!("auto {} = {};", ident(name), compile_expression(value, component))
-        }
-        Expression::ReadLocalVariable { name, .. } => ident(name),
-        Expression::StructFieldAccess { base, name } => match base.ty() {
-            Type::Struct { fields, name : None, .. } => {
-                let index = fields
-                    .keys()
-                    .position(|k| k == name)
-                    .expect("Expression::ObjectAccess: Cannot find a key in an object");
-                format!("std::get<{}>({})", index, compile_expression(base, component))
-            }
-            Type::Struct{..} => {
-                format!("{}.{}", compile_expression(base, component), ident(name))
-            }
-            _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
-        },
-        Expression::ArrayIndex { array, index } => {
-            format!("[&](const auto &model, const auto &index){{ model->track_row_data_changes(index); return model->row_data(index); }}({}, {})", compile_expression(array, component), compile_expression(index, component))
-        }
-        Expression::Cast { from, to } => {
-            let f = compile_expression(&*from, component);
-            match (from.ty(), to) {
-                (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
-                    format!("sixtyfps::SharedString::from_number({})", f)
-                }
-                (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    format!("std::make_shared<sixtyfps::private_api::IntModel>({})", f)
-                }
-                (Type::Array(_), Type::Model) => f,
-                (Type::Float32, Type::Color) => {
-                    format!("sixtyfps::Color::from_argb_encoded({})", f)
-                }
-                (Type::Color, Type::Brush) => {
-                    format!("sixtyfps::Brush({})", f)
-                }
-                (Type::Brush, Type::Color) => {
-                    format!("{}.color()", f)
-                }
-                (Type::Struct { .. }, Type::Struct{ fields, name: Some(_), ..}) => {
-                    format!(
-                        "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
-                        struct_name = to.cpp_type().unwrap(),
-                        field_members = (0..fields.len()).map(|idx| format!("f_{}", idx)).join(", "),
-                        obj = f,
-                        fields = (0..fields.len())
-                            .map(|idx| format!("f_{} = std::get<{}>(o)", idx, idx))
-                            .join("; ")
-                    )
-                }
-                _ => f,
-            }
-        }
-        Expression::CodeBlock(sub) => {
-            let len = sub.len();
-            let mut x = sub.iter().enumerate().map(|(i, e)| {
-                if i == len - 1 {
-                    return_compile_expression(e, component, None) + ";"
-                }
-                else {
-                    compile_expression(e, component)
-                }
-
-            });
-
-            format!("[&]{{ {} }}()", x.join(";"))
-        }
-        Expression::FunctionCall { function, arguments, source_location: _  } => match &**function {
-            Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to SetFocusItem call");
-                }
-                if let Expression::ElementReference(focus_item) = &arguments[0] {
-                    let focus_item = focus_item.upgrade().unwrap();
-                    let component_ref = access_element_component(&focus_item, component, "self");
-                    format!("self->m_window.window_handle().set_focus_item({}->self_weak.lock()->into_dyn(), {});", component_ref, absolute_element_item_index_expression(&focus_item))
-                } else {
-                    panic!("internal error: argument to SetFocusItem must be an element")
-                }
-            }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ShowPopupWindow, _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to SetFocusItem call");
-                }
-                if let Expression::ElementReference(popup_window) = &arguments[0] {
-                    let popup_window = popup_window.upgrade().unwrap();
-                    let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                    let popup_window_rcid = component_id(&pop_comp);
-                    let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
-                    let popup_list = parent_component.popup_windows.borrow();
-                    let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
-                    let x = access_named_reference(&popup.x, component, "self");
-                    let y = access_named_reference(&popup.y, component, "self");
-                    let parent_component_ref = access_element_component(&popup.parent_element, component, "self");
-                    format!(
-                        "self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }}, {{ {}->self_weak.lock()->into_dyn(), {} }} );",
-                        popup_window_rcid, x, y,
-                        parent_component_ref,
-                        absolute_element_item_index_expression(&popup.parent_element),
-                    )
-                } else {
-                    panic!("internal error: argument to SetFocusItem must be an element")
-                }
-            }
-            Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo(orientation), _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to ImplicitLayoutInfo call");
-                }
-                if let Expression::ElementReference(item) = &arguments[0] {
-                    let item = item.upgrade().unwrap();
-                    let item = item.borrow();
-                    if item.sub_component().is_some() {
-                        format!("self->{compo}.layout_info({o}, &m_window.window_handle())",
-                            compo = ident(&item.id),
-                            o = to_cpp_orientation(*orientation)
-                        )
-                    } else {
-                        let native_item = item.base_type.as_native();
-                        format!("{vt}->layout_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &m_window.window_handle())",
-                            vt = native_item.cpp_vtable_getter,
-                            ty = native_item.class_name,
-                            id = ident(&item.id),
-                            o = to_cpp_orientation(*orientation),
-                        )
-                    }
-                } else {
-                    panic!("internal error: argument to ImplicitLayoutInfo must be an element")
-                }
-            }
-            Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to RegisterCustomFontByPath call");
-                }
-                if let Expression::StringLiteral(font_path) = &arguments[0] {
-                    format!("sixtyfps::private_api::register_font_from_path(\"{}\");", escape_string(font_path))
-                } else {
-                    panic!("internal error: argument to RegisterCustomFontByPath must be a string literal")
-                }
-            }
-            Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory, _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to RegisterCustomFontByMemory call");
-                }
-                if let Expression::NumberLiteral(resource_id, _) = &arguments[0] {
-                    let resource_id: usize = *resource_id as _;
-                    let symbol = format!("sfps_embedded_resource_{}", resource_id);
-                    format!("sixtyfps::private_api::register_font_from_data({}, std::size({}));", symbol, symbol)
-                } else {
-                    panic!("internal error: argument to RegisterCustomFontByMemory must be a number")
-                }
-            }
-            _ => {
-                let mut args = arguments.iter().map(|e| compile_expression(e, component));
-
-                format!("{}({})", compile_expression(function, component), args.join(", "))
-            }
-        },
-        Expression::SelfAssignment { lhs, rhs, op } => {
-            let rhs = compile_expression(&*rhs, component);
-            compile_assignment(lhs, *op, rhs, component)
-        }
-        Expression::BinaryExpression { lhs, rhs, op } => {
-            let mut buffer = [0; 3];
-            format!(
-                "({lhs} {op} {rhs})",
-                lhs = compile_expression(&*lhs, component),
-                rhs = compile_expression(&*rhs, component),
-                op = match op {
-                    '=' => "==",
-                    '!' => "!=",
-                    '≤' => "<=",
-                    '≥' => ">=",
-                    '&' => "&&",
-                    '|' => "||",
-                    '/' => "/(double)",
-                    _ => op.encode_utf8(&mut buffer),
-                },
-            )
-        }
-        Expression::UnaryOp { sub, op } => {
-            format!("({op} {sub})", sub = compile_expression(&*sub, component), op = op,)
-        }
-        Expression::ImageReference { resource_ref, .. }  => {
-            match resource_ref {
-                crate::expression_tree::ImageReference::None => r#"sixtyfps::Image()"#.to_string(),
-                crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"sixtyfps::Image::load_from_path(sixtyfps::SharedString(u8"{}"))"#, escape_string(path.as_str())),
-                crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format!("sfps_embedded_resource_{}", resource_id);
-                    format!(
-                        r#"sixtyfps::Image(sixtyfps::cbindgen_private::types::ImageInner::EmbeddedData(sixtyfps::Slice<uint8_t>{{std::data({}), std::size({})}}, sixtyfps::Slice<uint8_t>{{const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(u8"{}")), {}}}))"#,
-                        symbol, symbol, escape_string(extension), extension.as_bytes().len()
-                    )
-                }
-                crate::expression_tree::ImageReference::EmbeddedTexture{..} => todo!(),
-            }
-        }
-        Expression::Condition { condition, true_expr, false_expr } => {
-            let ty = expr.ty();
-            let cond_code = compile_expression(condition, component);
-            let cond_code = remove_parentheses(&cond_code);
-            let true_code = return_compile_expression(true_expr, component, Some(&ty));
-            let false_code = return_compile_expression(false_expr, component, Some(&ty));
-            format!(
-                r#"[&]() -> {} {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
-                ty.cpp_type().unwrap_or_else(|| "void".to_string()),
-                cond_code,
-                true_code,
-                false_code
-            )
-
-        }
-        Expression::Array { element_ty, values } => {
-            let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
-            format!(
-                "std::make_shared<sixtyfps::private_api::ArrayModel<{count},{ty}>>({val})",
-                count = values.len(),
-                ty = ty,
-                val = values
-                    .iter()
-                    .map(|e| format!(
-                        "{ty} ( {expr} )",
-                        expr = compile_expression(e, component),
-                        ty = ty,
-                    ))
-                    .join(", ")
-            )
-        }
-        Expression::Struct { ty, values } => {
-            if let Type::Struct{fields, ..} = ty {
-                let mut elem = fields.keys().map(|k| {
-                    values
-                        .get(k)
-                        .map(|e| compile_expression(e, component))
-                        .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
-                });
-                format!("{}{{{}}}", ty.cpp_type().unwrap(), elem.join(", "))
-            } else {
-                panic!("Expression::Object is not a Type::Object")
-            }
-        }
-        Expression::PathData(data)  => compile_path(data, component),
-        Expression::EasingCurve(EasingCurve::Linear) => "sixtyfps::cbindgen_private::EasingCurve()".into(),
-        Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
-            "sixtyfps::cbindgen_private::EasingCurve(sixtyfps::cbindgen_private::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
-            a, b, c, d
-        ),
-        Expression::LinearGradient{angle, stops} => {
-            let angle = compile_expression(angle, component);
-            let mut stops_it = stops.iter().map(|(color, stop)| {
-                let color = compile_expression(color, component);
-                let position = compile_expression(stop, component);
-                format!("sixtyfps::private_api::GradientStop{{ {}, {}, }}", color, position)
-            });
-            format!(
-                "[&] {{ const sixtyfps::private_api::GradientStop stops[] = {{ {} }}; return sixtyfps::Brush(sixtyfps::private_api::LinearGradientBrush({}, stops, {})); }}()",
-                stops_it.join(", "), angle, stops.len()
-            )
-        }
-        Expression::EnumerationValue(value) => {
-            format!("sixtyfps::cbindgen_private::{}::{}", value.enumeration.name, ident(&value.to_string()))
-        }
-        Expression::ReturnStatement(Some(expr)) => format!(
-            "throw sixtyfps::private_api::ReturnWrapper<{}>({})",
-            expr.ty().cpp_type().unwrap_or_default(),
-            compile_expression(expr, component)
-        ),
-        Expression::ReturnStatement(None) => "throw sixtyfps::private_api::ReturnWrapper<void>()".to_owned(),
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
-            let cache = access_named_reference(layout_cache_prop, component, "self");
-            if let Some(ri) = repeater_index {
-                format!("sixtyfps::private_api::layout_cache_access({}.get(), {}, {})", cache, index, compile_expression(ri, component))
-            } else {
-                format!("{}.get()[{}]", cache, index)
-            }
-        }
-        Expression::ComputeLayoutInfo(Layout::GridLayout(layout), o) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
-            let cells = grid_layout_cell_data(layout, *o, component);
-            format!("[&] {{ \
-                    const auto padding = {};\
-                    sixtyfps::GridLayoutCellData cells[] = {{ {} }}; \
-                    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}}; \
-                    return sixtyfps::sixtyfps_grid_layout_info(slice, {}, &padding);\
-                }}()",
-                padding, cells, spacing
-            )
-        }
-        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout), o) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
-            let (cells, alignment) = box_layout_data(layout, *o, component, None);
-            let call = if *o == layout.orientation {
-                format!("sixtyfps_box_layout_info(slice, {}, &padding, {})", spacing, alignment)
-            } else {
-                "sixtyfps_box_layout_info_ortho(slice, &padding)".to_string()
-            };
-            format!("[&] {{ \
-                    const auto padding = {};\
-                    {}\
-                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ std::data(cells), std::size(cells)}}; \
-                    return sixtyfps::cbindgen_private::{};\
-                }}()",
-                padding, cells, call
-            )
-        }
-        Expression::ComputeLayoutInfo(Layout::PathLayout(_), _) => unimplemented!(),
-        Expression::SolveLayout(Layout::GridLayout(layout), o) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
-            let cells = grid_layout_cell_data(layout, *o, component);
-            let size = layout_geometry_size(&layout.geometry.rect, *o, component);
-            let dialog = if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, *o) {
-                format!("sixtyfps::cbindgen_private::DialogButtonRole roles[] = {{ {r} }};\
-                        sixtyfps::cbindgen_private::sixtyfps_reorder_dialog_button_layout(cells,\
-                            sixtyfps::Slice<sixtyfps::cbindgen_private::DialogButtonRole>{{ roles, std::size(roles) }});\
-                        ",
-                    r = button_roles.iter().map(|r| format!("sixtyfps::cbindgen_private::DialogButtonRole::{}", r)).join(", ")
-                )
-            } else { String::new() };
-            format!("[&] {{\
-                    const auto padding = {p};\
-                    sixtyfps::GridLayoutCellData cells[] = {{ {c} }};\
-                    {dialog}
-                    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}};\
-                    const sixtyfps::GridLayoutData grid {{ {sz},  {s}, &padding, slice }};\
-                    sixtyfps::SharedVector<float> result;\
-                    sixtyfps::sixtyfps_solve_grid_layout(&grid, &result);\
-                    return result;\
-                }}()",
-                dialog = dialog, p = padding, c = cells, s = spacing, sz = size
-            )
-        }
-        Expression::SolveLayout(Layout::BoxLayout(layout), o) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
-            let mut repeated_indices = Default::default();
-            let mut repeated_indices_init = Default::default();
-            let (cells, alignment) = box_layout_data(layout, *o, component, Some((&mut repeated_indices, &mut repeated_indices_init)));
-            let size = layout_geometry_size(&layout.geometry.rect, *o, component);
-            format!("[&] {{ \
-                    {ri_init}\
-                    const auto padding = {p};\
-                    {c}\
-                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ std::data(cells), std::size(cells)}}; \
-                    sixtyfps::BoxLayoutData box {{ {sz}, {s}, &padding, {a}, slice }};
-                    sixtyfps::SharedVector<float> result;
-                    sixtyfps::sixtyfps_solve_box_layout(&box, {ri}, &result);\
-                    return result;
-                }}()",
-                ri_init = repeated_indices_init, ri = repeated_indices,
-                p = padding, c = cells, s = spacing, sz = size, a = alignment,
-            )
-        }
-        Expression::SolveLayout(Layout::PathLayout(layout), _) => {
-            let width = layout_geometry_size(&layout.rect, Orientation::Horizontal, component);
-            let height = layout_geometry_size(&layout.rect, Orientation::Vertical, component);
-            let elements = compile_path(&layout.path, component);
-            let prop = |expr: &Option<NamedReference>| {
-                if let Some(nr) = expr.as_ref() {
-                    format!("{}.get()", access_named_reference(nr, component, "self"))
-                } else {
-                    "0.".into()
-                }
-            };
-            // FIXME! repeater
-            format!("[&] {{ \
-                    const auto elements = {e};\
-                    sixtyfps::PathLayoutData path {{ elements, {c}, 0, 0, {w}, {h}, {o} }};
-                    sixtyfps::SharedVector<float> result;
-                    sixtyfps::sixtyfps_solve_path_layout(&path, {{}}, &result);\
-                    return result;
-                }}()",
-                e = elements, c = layout.elements.len(), w = width, h = height, o = prop(&layout.offset_reference)
-            )
-
-        }
-        Expression::Uncompiled(_) => panic!(),
-        Expression::Invalid => "\n#error invalid expression\n".to_string(),
-    }
-}
-
-fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
+fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
     use llr::Expression;
     match expr {
         Expression::StringLiteral(s) => {
@@ -3729,7 +3247,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
         }
         Expression::BoolLiteral(b) => b.to_string(),
         Expression::PropertyReference(nr) => {
-            let access = llr_access_member(nr, ctx);
+            let access = access_member(nr, ctx);
             format!(r#"{}.get()"#, access)
         }
         /* FIXME: handled in PropertyReference
@@ -3836,7 +3354,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
         Expression::FunctionParameterReference { index, .. } => format!("arg_{}", index),
         */
         Expression::StoreLocalVariable { name, value } => {
-            format!("auto {} = {};", ident(name), llr_compile_expression(value, ctx))
+            format!("auto {} = {};", ident(name), compile_expression(value, ctx))
         }
         Expression::ReadLocalVariable { name, .. } => ident(name),
         Expression::StructFieldAccess { base, name } => match base.ty(ctx) {
@@ -3845,18 +3363,18 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
                     .keys()
                     .position(|k| k == name)
                     .expect("Expression::ObjectAccess: Cannot find a key in an object");
-                format!("std::get<{}>({})", index, llr_compile_expression(base, ctx))
+                format!("std::get<{}>({})", index, compile_expression(base, ctx))
             }
             Type::Struct{..} => {
-                format!("{}.{}", llr_compile_expression(base, ctx), ident(name))
+                format!("{}.{}", compile_expression(base, ctx), ident(name))
             }
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
         Expression::ArrayIndex { array, index } => {
-            format!("[&](const auto &model, const auto &index){{ model->track_row_data_changes(index); return model->row_data(index); }}({}, {})", llr_compile_expression(array, ctx), llr_compile_expression(index, ctx))
+            format!("[&](const auto &model, const auto &index){{ model->track_row_data_changes(index); return model->row_data(index); }}({}, {})", compile_expression(array, ctx), compile_expression(index, ctx))
         },
         Expression::Cast { from, to } => {
-            let f = llr_compile_expression(&*from, ctx);
+            let f = compile_expression(&*from, ctx);
             match (from.ty(ctx), to) {
                 (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
                     format!("sixtyfps::SharedString::from_number({})", f)
@@ -3892,10 +3410,10 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
             let len = sub.len();
             let mut x = sub.iter().enumerate().map(|(i, e)| {
                 if i == len - 1 {
-                    llr_return_compile_expression(e, ctx, None) + ";"
+                    return_compile_expression(e, ctx, None) + ";"
                 }
                 else {
-                    llr_compile_expression(e, ctx)
+                    compile_expression(e, ctx)
                 }
 
             });
@@ -4002,8 +3520,8 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
             let mut buffer = [0; 3];
             format!(
                 "({lhs} {op} {rhs})",
-                lhs = llr_compile_expression(&*lhs, ctx),
-                rhs = llr_compile_expression(&*rhs, ctx),
+                lhs = compile_expression(&*lhs, ctx),
+                rhs = compile_expression(&*rhs, ctx),
                 op = match op {
                     '=' => "==",
                     '!' => "!=",
@@ -4017,7 +3535,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
             )
         }
         Expression::UnaryOp { sub, op } => {
-            format!("({op} {sub})", sub = llr_compile_expression(&*sub, ctx), op = op,)
+            format!("({op} {sub})", sub = compile_expression(&*sub, ctx), op = op,)
         }
         Expression::ImageReference { resource_ref, .. }  => {
             match resource_ref {
@@ -4035,10 +3553,10 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
         }
         Expression::Condition { condition, true_expr, false_expr } => {
             let ty = expr.ty(ctx);
-            let cond_code = llr_compile_expression(condition, ctx);
+            let cond_code = compile_expression(condition, ctx);
             let cond_code = remove_parentheses(&cond_code);
-            let true_code = llr_return_compile_expression(true_expr, ctx, Some(&ty));
-            let false_code = llr_return_compile_expression(false_expr, ctx, Some(&ty));
+            let true_code = return_compile_expression(true_expr, ctx, Some(&ty));
+            let false_code = return_compile_expression(false_expr, ctx, Some(&ty));
             format!(
                 r#"[&]() -> {} {{ if ({}) {{ {}; }} else {{ {}; }}}}()"#,
                 ty.cpp_type().unwrap_or_else(|| "void".to_string()),
@@ -4070,7 +3588,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
                 let mut elem = fields.keys().map(|k| {
                     values
                         .get(k)
-                        .map(|e| llr_compile_expression(e, ctx))
+                        .map(|e| compile_expression(e, ctx))
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
                 format!("{}{{{}}}", ty.cpp_type().unwrap(), elem.join(", "))
@@ -4087,10 +3605,10 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
             a, b, c, d
         ),
         Expression::LinearGradient{angle, stops} => {
-            let angle = llr_compile_expression(angle, ctx);
+            let angle = compile_expression(angle, ctx);
             let mut stops_it = stops.iter().map(|(color, stop)| {
-                let color = llr_compile_expression(color, ctx);
-                let position = llr_compile_expression(stop, ctx);
+                let color = compile_expression(color, ctx);
+                let position = compile_expression(stop, ctx);
                 format!("sixtyfps::private_api::GradientStop{{ {}, {}, }}", color, position)
             });
             format!(
@@ -4104,7 +3622,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
         Expression::ReturnStatement(Some(expr)) => format!(
             "throw sixtyfps::private_api::ReturnWrapper<{}>({})",
             expr.ty(ctx).cpp_type().unwrap_or_default(),
-            llr_compile_expression(expr, ctx)
+            compile_expression(expr, ctx)
         ),
         Expression::ReturnStatement(None) => "throw sixtyfps::private_api::ReturnWrapper<void>()".to_owned(),
         /*
@@ -4219,6 +3737,7 @@ fn llr_compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> St
     }
 }
 
+/*
 fn compile_assignment(
     lhs: &Expression,
     op: char,
@@ -4317,7 +3836,9 @@ fn compile_assignment(
         _ => panic!("typechecking should make sure this was a PropertyReference"),
     }
 }
+*/
 
+/*
 fn grid_layout_cell_data(
     layout: &crate::layout::GridLayout,
     orientation: Orientation,
@@ -4572,45 +4093,10 @@ fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) 
         }
     }
 }
+*/
 
 /// Like compile_expression, but wrap inside a try{}catch{} block to intercept the return
-fn compile_expression_wrap_return(expr: &Expression, component: &Rc<Component>) -> String {
-    /// Return a type if there is any `return` in sub expressions
-    fn return_type(expr: &Expression) -> Option<Type> {
-        if let Expression::ReturnStatement(val) = expr {
-            return Some(val.as_ref().map_or(Type::Void, |v| v.ty()));
-        }
-        let mut ret = None;
-        expr.visit(|e| {
-            if ret.is_none() {
-                ret = return_type(e)
-            }
-        });
-        ret
-    }
-
-    if let Some(ty) = return_type(expr) {
-        if ty == Type::Void || ty == Type::Invalid {
-            format!(
-                "[&]{{ try {{ {}; }} catch(const sixtyfps::private_api::ReturnWrapper<void> &w) {{ }} }}()",
-                compile_expression(expr, component)
-            )
-        } else {
-            let cpp_ty = ty.cpp_type().unwrap_or_default();
-            format!(
-                "[&]() -> {} {{ try {{ {}; }} catch(const sixtyfps::private_api::ReturnWrapper<{}> &w) {{ return w.value; }} }}()",
-                cpp_ty,
-                return_compile_expression(expr, component, Some(&ty)),
-                cpp_ty
-            )
-        }
-    } else {
-        compile_expression(expr, component)
-    }
-}
-
-/// Like compile_expression, but wrap inside a try{}catch{} block to intercept the return
-fn llr_compile_expression_wrap_return(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
+fn compile_expression_wrap_return(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
     let mut return_type = None;
     expr.visit_recursive(&mut |e| {
         if let llr::Expression::ReturnStatement(val) = e {
@@ -4622,53 +4108,30 @@ fn llr_compile_expression_wrap_return(expr: &llr::Expression, ctx: &EvaluationCo
         if ty == Type::Void || ty == Type::Invalid {
             format!(
                 "[&]{{ try {{ {}; }} catch(const sixtyfps::private_api::ReturnWrapper<void> &w) {{ }} }}()",
-                llr_compile_expression(expr, ctx)
+                compile_expression(expr, ctx)
             )
         } else {
             let cpp_ty = ty.cpp_type().unwrap_or_default();
             format!(
                 "[&]() -> {} {{ try {{ {}; }} catch(const sixtyfps::private_api::ReturnWrapper<{}> &w) {{ return w.value; }} }}()",
                 cpp_ty,
-                llr_return_compile_expression(expr, ctx, Some(&ty)),
+                return_compile_expression(expr, ctx, Some(&ty)),
                 cpp_ty
             )
         }
     } else {
-        llr_compile_expression(expr, ctx)
+        compile_expression(expr, ctx)
     }
 }
 
 /// Like compile expression, but prepended with `return` if not void.
 /// ret_type is the expecting type that should be returned with that return statement
 fn return_compile_expression(
-    expr: &Expression,
-    component: &Rc<Component>,
-    ret_type: Option<&Type>,
-) -> String {
-    let e = compile_expression(expr, component);
-    if ret_type == Some(&Type::Void) || ret_type == Some(&Type::Invalid) {
-        e
-    } else {
-        let ty = expr.ty();
-        if ty == Type::Invalid && ret_type.is_some() {
-            // e is unreachable so it probably throws. But we still need to return something to avoid a warning
-            format!("{}; return {{}}", e)
-        } else if ty == Type::Invalid || ty == Type::Void {
-            e
-        } else {
-            format!("return {}", e)
-        }
-    }
-}
-
-/// Like compile expression, but prepended with `return` if not void.
-/// ret_type is the expecting type that should be returned with that return statement
-fn llr_return_compile_expression(
     expr: &llr::Expression,
     ctx: &EvaluationContext,
     ret_type: Option<&Type>,
 ) -> String {
-    let e = llr_compile_expression(expr, ctx);
+    let e = compile_expression(expr, ctx);
     if ret_type == Some(&Type::Void) || ret_type == Some(&Type::Invalid) {
         e
     } else {
