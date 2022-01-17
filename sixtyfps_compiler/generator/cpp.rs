@@ -2640,20 +2640,31 @@ fn generate_item_tree(
         }
     });
 
+    let mut visit_children_statements = vec![
+        "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uintptr_t dyn_index) -> uint64_t {".to_owned(),
+        format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name)];
+
+    if target_struct.members.iter().any(|(_, declaration)| { match &declaration {
+        Declaration::Function(func @ Function{ .. } ) if func.name == "visit_dynamic_children" => true,
+        _ => false,
+    }}) {
+        visit_children_statements.push("    return self->visit_dynamic_children(dyn_index, order, visitor);".into());
+    }
+
+      
+    visit_children_statements.extend([        
+        "    std::abort();\n};".to_owned(),
+        format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", item_tree_class_name),
+        "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
+    ]);
+
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
             name: "visit_children".into(),
             signature: "(sixtyfps::private_api::ComponentRef component, intptr_t index, sixtyfps::private_api::TraversalOrder order, sixtyfps::private_api::ItemVisitorRefMut visitor) -> uint64_t".into(),
             is_static: true,
-            statements: Some(vec![
-                "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> uint64_t {".to_owned(),
-                format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name),
-                "    switch(dyn_index) {{  }};".to_string(), // FIXME: format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
-                "    std::abort();\n};".to_owned(),
-                format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", item_tree_class_name),
-                "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
-            ]),
+            statements: Some(visit_children_statements),
             ..Default::default()
         }),
     ));
@@ -2971,6 +2982,8 @@ fn generate_sub_component(
         ));
     }
 
+    let mut children_visitor_cases = Vec::new();
+
     let mut subcomponent_init_code = Vec::new();
     for sub in &component.sub_components {
         let field_name = ident(&sub.name);
@@ -2995,18 +3008,24 @@ fn generate_sub_component(
             field_name, global_index, global_children
         ));
 
-        /* TODO
         let sub_component_repeater_count = sub.ty.repeater_count();
         if sub_component_repeater_count > 0 {
+            let mut case_code = String::new();
             let repeater_offset = sub.repeater_offset;
-            let last_repeater: usize = repeater_offset + sub_component_repeater_count - 1;
-            repeated_visit_branch.push(quote!(
-                #repeater_offset..=#last_repeater => {
-                    Self::FIELD_OFFSETS.#field_name.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
-                }
+
+            for local_repeater_index in 0..sub_component_repeater_count {
+                write!(case_code, "case {}: ", repeater_offset + local_repeater_index).unwrap();
+            }
+
+            children_visitor_cases.push(format!(
+                "\n        {case_code} {{
+                        return self->{id}.visit_dynamic_children(dyn_index - {base}, order, visitor);
+                    }}",
+                case_code = case_code,
+                id = field_name,
+                base = repeater_offset,
             ));
         }
-        */
 
         target_struct.members.push((
             Access::Public, // FIXME
@@ -3048,7 +3067,19 @@ fn generate_sub_component(
     }
 
     for (idx, repeated) in component.repeated.iter().enumerate() {
-        generate_repeated_component(&repeated, root, ParentCtx::new(&ctx, Some(idx)), file);
+        let data_type = if let Some(data_prop) = repeated.data_prop {
+            repeated.sub_tree.root.properties[data_prop].ty.clone()
+        } else {
+            Type::Int32
+        };
+
+        generate_repeated_component(
+            &repeated,
+            root,
+            ParentCtx::new(&ctx, Some(idx)),
+            &data_type,
+            file,
+        );
 
         let repeater_id = format!("repeater_{}", idx);
 
@@ -3066,11 +3097,14 @@ fn generate_sub_component(
             model = model,
         ));
 
-        let data_type = if let Some(data_prop) = repeated.data_prop {
-            repeated.sub_tree.root.properties[data_prop].ty.clone()
-        } else {
-            Type::Int32
-        };
+        children_visitor_cases.push(format!(
+            "\n        case {i}: {{
+                self->{id}.ensure_updated(self);
+                return self->{id}.visit(order, visitor);
+            }}",
+            id = repeater_id,
+            i = idx,
+        ));
 
         target_struct.members.push((
             Access::Private,
@@ -3116,12 +3150,29 @@ fn generate_sub_component(
             ..Default::default()
         }),
     ));
+
+    if !children_visitor_cases.is_empty() {
+        target_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "visit_dynamic_children".into(),
+                signature: "(intptr_t dyn_index, [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor) const -> uint64_t".into(),
+                statements: Some(vec![
+                    "    auto self = this;".to_owned(),
+                    format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
+                    "    std::abort();".to_owned(),
+                ]),
+                ..Default::default()
+            }),
+        ));
+    }
 }
 
 fn generate_repeated_component(
     repeated: &llr::RepeatedElement,
     root: &llr::PublicComponent,
     parent_ctx: ParentCtx,
+    model_data_type: &Type,
     file: &mut File,
 ) {
     let repeater_id = ident(&repeated.sub_tree.root.name);
@@ -3143,6 +3194,32 @@ fn generate_repeated_component(
         parent: Some(parent_ctx),
         argument_types: &[],
     };
+
+    let access_prop = |&property_index| {
+        access_member(
+            &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
+            &ctx,
+        )
+    };
+    let index_prop = repeated.index_prop.iter().map(access_prop);
+    let data_prop = repeated.data_prop.iter().map(access_prop);
+
+    let mut update_statements = vec!["[[maybe_unused]] auto self = this;".into()];
+    update_statements.extend(index_prop.map(|prop| format!("{}.set(i);", prop)));
+    update_statements.extend(data_prop.map(|prop| format!("{}.set(data);", prop)));
+
+    repeater_struct.members.push((
+        Access::Public, // Because Repeater accesses it
+        Declaration::Function(Function {
+            name: "update_data".into(),
+            signature: format!(
+                "(int i, const {} &data) const -> void",
+                model_data_type.cpp_type().unwrap()
+            ),
+            statements: Some(update_statements),
+            ..Function::default()
+        }),
+    ));
 
     file.definitions.extend(repeater_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(repeater_struct));
@@ -3199,6 +3276,11 @@ fn follow_sub_component_path<'a>(
         sub_component = &sub_component.sub_components[*i].ty;
     }
     (compo_path, sub_component)
+}
+
+fn access_window_field(ctx: &EvaluationContext) -> String {
+    let root = &ctx.generator_state;
+    format!("{}->m_window.window_handle()", root)
 }
 
 /// Returns the code that can access the given property (but without the set or get)
@@ -3768,11 +3850,12 @@ fn compile_builtin_function_call(
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let native = native_item(pr, ctx);
                 format!(
-                    "{vt}->layout_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&{i})}}, {o}, &self->m_window.window_handle())",
+                    "{vt}->layout_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&{i})}}, {o}, &{window})",
                     vt = native.cpp_vtable_getter,
                     ty = native.class_name,
                     o = to_cpp_orientation(orient),
                     i = access_member(pr, ctx),
+                    window = access_window_field(ctx)
                 )
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {:?}", arguments)
