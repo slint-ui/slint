@@ -737,6 +737,12 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     //     },
     // ));
 
+    for ty in doc.root_component.used_types.borrow().structs.iter() {
+        if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
+            generate_struct(&mut file, name, fields, diag);
+        }
+    }
+
     let llr = llr::lower_to_item_tree::lower_to_item_tree(&doc.root_component);
 
     // Forward-declare the root so that sub-components can access singletons, the window, etc.
@@ -744,12 +750,6 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         name: ident(&llr.item_tree.root.name),
         ..Default::default()
     }));
-
-    // for ty in doc.root_component.used_types.borrow().structs.iter() {
-    //     if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
-    //         generate_struct(&mut file, name, fields, diag);
-    //     }
-    // }
 
     // let mut components_to_add_as_friends = vec![];
     // for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
@@ -812,7 +812,6 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     }
 }
 
-/*
 fn generate_struct(
     file: &mut File,
     name: &str,
@@ -870,7 +869,6 @@ fn generate_struct(
         ..Default::default()
     }))
 }
-*/
 
 /// Generate the component in `file`.
 ///
@@ -3505,24 +3503,26 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 false_code
             )
         }
-        /*
-        Expression::Array { element_ty, values } => {
-            let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
-            format!(
-                "std::make_shared<sixtyfps::private_api::ArrayModel<{count},{ty}>>({val})",
-                count = values.len(),
-                ty = ty,
-                val = values
-                    .iter()
-                    .map(|e| format!(
-                        "{ty} ( {expr} )",
-                        expr = llr_compile_expression(e, ctx),
-                        ty = ty,
-                    ))
-                    .join(", ")
-            )
+        Expression::Array { element_ty, values, as_model } => {
+            if *as_model {
+                let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
+                format!(
+                    "std::make_shared<sixtyfps::private_api::ArrayModel<{count},{ty}>>({val})",
+                    count = values.len(),
+                    ty = ty,
+                    val = values
+                        .iter()
+                        .map(|e| format!(
+                            "{ty} ( {expr} )",
+                            expr = compile_expression(e, ctx),
+                            ty = ty,
+                        ))
+                        .join(", ")
+                )
+            } else {
+                todo!("array slice expression")
+            }
         }
-        */
         Expression::Struct { ty, values } => {
             if let Type::Struct{fields, ..} = ty {
                 let mut elem = fields.keys().map(|k| {
