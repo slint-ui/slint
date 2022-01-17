@@ -696,38 +696,38 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
     file.includes.push("<cmath>".into()); // TODO: ideally only include this if needed (by floor/ceil/round)
     file.includes.push("<sixtyfps.h>".into());
 
-    // file.declarations.extend(doc.root_component.embedded_file_resources.borrow().iter().map(
-    //     |(path, er)| {
-    //         match &er.kind {
-    //             crate::embedded_resources::EmbeddedResourcesKind::RawData => {
-    //                 let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
-    //                 let data = file.read();
-    //
-    //                 let mut init = "{ ".to_string();
-    //
-    //                 for (index, byte) in data.iter().enumerate() {
-    //                     if index > 0 {
-    //                         init.push(',');
-    //                     }
-    //                     write!(&mut init, "0x{:x}", byte).unwrap();
-    //                     if index % 16 == 0 {
-    //                         init.push('\n');
-    //                     }
-    //                 }
-    //
-    //                 init.push('}');
-    //
-    //                 Declaration::Var(Var {
-    //                     ty: "inline uint8_t".into(),
-    //                     name: format!("sfps_embedded_resource_{}", er.id),
-    //                     array_size: Some(data.len()),
-    //                     init: Some(init),
-    //                 })
-    //             }
-    //             crate::embedded_resources::EmbeddedResourcesKind::TextureData(_) => todo!(),
-    //         }
-    //     },
-    // ));
+    file.declarations.extend(doc.root_component.embedded_file_resources.borrow().iter().map(
+        |(path, er)| {
+            match &er.kind {
+                crate::embedded_resources::EmbeddedResourcesKind::RawData => {
+                    let file = crate::fileaccess::load_file(std::path::Path::new(path)).unwrap(); // embedding pass ensured that the file exists
+                    let data = file.read();
+
+                    let mut init = "{ ".to_string();
+
+                    for (index, byte) in data.iter().enumerate() {
+                        if index > 0 {
+                            init.push(',');
+                        }
+                        write!(&mut init, "0x{:x}", byte).unwrap();
+                        if index % 16 == 0 {
+                            init.push('\n');
+                        }
+                    }
+
+                    init.push('}');
+
+                    Declaration::Var(Var {
+                        ty: "inline uint8_t".into(),
+                        name: format!("sfps_embedded_resource_{}", er.id),
+                        array_size: Some(data.len()),
+                        init: Some(init),
+                    })
+                }
+                crate::embedded_resources::EmbeddedResourcesKind::TextureData(_) => todo!(),
+            }
+        },
+    ));
 
     for ty in doc.root_component.used_types.borrow().structs.iter() {
         if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
@@ -3741,7 +3741,7 @@ fn compile_builtin_function_call(
             "[](const auto &color, float factor) { return color.darker(factor); }".into()
         }
         BuiltinFunction::ImageSize => {
-            "[](const sixtyfps::Image &img) { return img.size(); }".into()
+            format!("{}.size()", a.next().unwrap())
         }
         BuiltinFunction::ArrayLength => {
             "[](const auto &model) { (*model).track_row_count_changes(); return (*model).row_count(); }".into()
