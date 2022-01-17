@@ -3080,6 +3080,25 @@ fn generate_sub_component(
 
     for (idx, repeated) in component.repeated.iter().enumerate() {
         generate_repeated_component(&repeated, root, ParentCtx::new(&ctx, Some(idx)), file);
+
+        let data_type = if let Some(data_prop) = repeated.data_prop {
+            repeated.sub_tree.root.properties[data_prop].ty.clone()
+        } else {
+            Type::Bool
+        };
+
+        target_struct.members.push((
+            Access::Private,
+            Declaration::Var(Var {
+                ty: format!(
+                    "sixtyfps::private_api::Repeater<class {}, {}>",
+                    ident(&repeated.sub_tree.root.name),
+                    data_type.cpp_type().unwrap(),
+                ),
+                name: format!("repeater_{}", idx),
+                ..Default::default()
+            }),
+        ));
     }
 
     init.extend(subcomponent_init_code);
@@ -3210,31 +3229,6 @@ fn component_id(component: &Rc<Component>) -> String {
     }
 }
 
-fn model_data_type(parent_element: &ElementRc, diag: &mut BuildDiagnostics) -> String {
-    if parent_element.borrow().repeated.as_ref().unwrap().is_conditional_element {
-        return "int".into();
-    }
-    let model_data_type = crate::expression_tree::Expression::RepeaterModelReference {
-        element: Rc::downgrade(parent_element),
-    }
-    .ty();
-    model_data_type.cpp_type().unwrap_or_else(|| {
-        diag.push_error_with_span(
-            format!("Cannot map property type {} to C++", model_data_type),
-            parent_element
-                .borrow()
-                .node
-                .as_ref()
-                .map(|n| n.to_source_location())
-                .unwrap_or_default(),
-        );
-
-        String::default()
-    })
-}
-*/
-
-/*
 /// Returns the code that can access the given property (but without the set or get)
 ///
 /// to be used like:
