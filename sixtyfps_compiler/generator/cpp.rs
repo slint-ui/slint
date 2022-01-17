@@ -885,6 +885,15 @@ fn generate_public_component(
     let component_id = ident(&root_component.name);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
+    let ctx = EvaluationContext {
+        public_component: component,
+        current_sub_component: Some(&component.item_tree.root),
+        current_global: None,
+        generator_state: "this".to_string(),
+        parent: None,
+        argument_types: &[],
+    };
+
     // component_struct.friends.extend(
     //     component
     //         .used_types
@@ -918,8 +927,7 @@ fn generate_public_component(
     for (p, (ty, r)) in &component.public_properties {
         let prop_ident = ident(p);
 
-        // TODO: Handle this properly!
-        let access = format!("this->{}", prop_ident);
+        let access = access_member(r, &ctx);
 
         if let Type::Callback { args, return_type } = ty {
             // let callback_args = args.iter().map(|a| rust_type(a).unwrap()).collect::<Vec<_>>();
