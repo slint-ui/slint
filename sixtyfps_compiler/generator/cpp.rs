@@ -2684,7 +2684,6 @@ fn generate_item_tree(
         }
     });
 
-    /*
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
@@ -2694,7 +2693,7 @@ fn generate_item_tree(
             statements: Some(vec![
                 "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, uintptr_t dyn_index) -> uint64_t {".to_owned(),
                 format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name),
-                format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
+                "    switch(dyn_index) {{  }};".to_string(), // FIXME: format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
                 "    std::abort();\n};".to_owned(),
                 format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", item_tree_class_name),
                 "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
@@ -2714,9 +2713,13 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
+
     let parent_item_from_parent_component = if let Some(parent_index) =
-        component.parent_element.upgrade().and_then(|e| e.borrow().item_index.get().copied())
-    {
+        parent_ctx.and_then(|parent| {
+            parent
+                .repeater_index
+                .map(|idx| parent.ctx.current_sub_component.unwrap().repeated[idx].index_in_tree)
+        }) {
         format!(
             // that does not work when the parent is not a component with a ComponentVTable
             //"   *result = sixtyfps::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->item_tree(), {});",
@@ -2743,7 +2746,7 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
-    */
+
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
@@ -2759,7 +2762,7 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
-    /*
+
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
@@ -2768,14 +2771,17 @@ fn generate_item_tree(
                 "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::Orientation o) -> sixtyfps::LayoutInfo"
                     .into(),
             is_static: true,
+            /* FIXME
             statements: Some(layout_info_function_body(component, format!(
                 "[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);",
                 item_tree_class_name
             ), None)),
+            */
+            statements: Some(vec!["return {};".into()]),
             ..Default::default()
         }),
     ));
-    */
+
     target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
@@ -2812,6 +2818,7 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
+    */
     file.definitions.push(Declaration::Var(Var {
         ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
@@ -2821,7 +2828,6 @@ fn generate_item_tree(
         ),
         ..Default::default()
     }));
-    */
 }
 
 fn generate_sub_component(
