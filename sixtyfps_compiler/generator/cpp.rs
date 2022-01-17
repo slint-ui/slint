@@ -916,11 +916,14 @@ fn generate_public_component(
         if let Type::Callback { args, return_type } = ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let return_type = return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
-            let callback_emitter = vec![format!(
-                "return {}.call({});",
-                access,
-                (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
-            )];
+            let callback_emitter = vec![
+                "[[maybe_unused]] auto self = this;".into(),
+                format!(
+                    "return {}.call({});",
+                    access,
+                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                ),
+            ];
             component_struct.members.push((
                 Access::Public,
                 Declaration::Function(Function {
@@ -944,16 +947,19 @@ fn generate_public_component(
                     name: format!("on_{}", ident(p)),
                     template_parameters: Some("typename Functor".into()),
                     signature: "(Functor && callback_handler) const".into(),
-                    statements: Some(vec![format!(
-                        "{}.set_handler(std::forward<Functor>(callback_handler));",
-                        access
-                    )]),
+                    statements: Some(vec![
+                        "[[maybe_unused]] auto self = this;".into(),
+                        format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
+                    ]),
                     ..Default::default()
                 }),
             ));
         } else {
             let cpp_property_type = ty.cpp_type().expect("Invalid type in public properties");
-            let prop_getter: Vec<String> = vec![format!("return {}.get();", access)];
+            let prop_getter: Vec<String> = vec![
+                "[[maybe_unused]] auto self = this;".into(),
+                format!("return {}.get();", access),
+            ];
             component_struct.members.push((
                 Access::Public,
                 Declaration::Function(Function {
@@ -3044,10 +3050,26 @@ fn generate_sub_component(
     for (idx, repeated) in component.repeated.iter().enumerate() {
         generate_repeated_component(&repeated, root, ParentCtx::new(&ctx, Some(idx)), file);
 
+        let repeater_id = format!("repeater_{}", idx);
+
+        let mut model = compile_expression(&repeated.model, &ctx);
+        if repeated.model.ty(&ctx) == Type::Bool {
+            // bool converts to int
+            // FIXME: don't do a heap allocation here
+            model = format!("std::make_shared<sixtyfps::private_api::IntModel>({})", model)
+        }
+
+        // FIXME: optimize  if repeated.model.is_constant()
+        properties_init_code.push(format!(
+            "self->{repeater_id}.set_model_binding([self] {{ (void)self; return {model}; }});",
+            repeater_id = repeater_id,
+            model = model,
+        ));
+
         let data_type = if let Some(data_prop) = repeated.data_prop {
             repeated.sub_tree.root.properties[data_prop].ty.clone()
         } else {
-            Type::Bool
+            Type::Int32
         };
 
         target_struct.members.push((
@@ -3058,7 +3080,7 @@ fn generate_sub_component(
                     ident(&repeated.sub_tree.root.name),
                     data_type.cpp_type().unwrap(),
                 ),
-                name: format!("repeater_{}", idx),
+                name: repeater_id,
                 ..Default::default()
             }),
         ));
@@ -3117,7 +3139,7 @@ fn generate_repeated_component(
         public_component: root,
         current_sub_component: Some(&repeated.sub_tree.root),
         current_global: None,
-        generator_state: "this".into(),
+        generator_state: "self".into(),
         parent: Some(parent_ctx),
         argument_types: &[],
     };
@@ -3216,7 +3238,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 let (compo_path, sub_component) =
                     follow_sub_component_path(sub_component, sub_component_path);
                 let property_name = ident(&sub_component.properties[*property_index].name);
-                format!("this->{}{}", compo_path, property_name)
+                format!("self->{}{}", compo_path, property_name)
             } else if let Some(current_global) = ctx.current_global {
                 let property_name = ident(&current_global.properties[*property_index].name);
                 format!("global_{}.{}", ident(&current_global.name), property_name)
