@@ -2669,23 +2669,33 @@ fn generate_item_tree(
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
 
-        let mut compo_offset = String::new();
-        let mut sub_component = &sub_tree.root;
-        for i in &node.sub_component_path {
-            let next_sub_component_name = ident(&sub_component.sub_components[*i].name);
-            write!(
-                compo_offset,
-                "offsetof({}, {}) + ",
-                ident(&sub_component.name),
-                next_sub_component_name
-            )
-            .unwrap();
-            sub_component = &sub_component.sub_components[*i].ty;
-        }
-
         if node.repeated {
-            todo!()
+            assert_eq!(node.children.len(), 0);
+            let mut repeater_index = node.item_index;
+            let mut sub_component = &sub_tree.root;
+            for i in &node.sub_component_path {
+                repeater_index += sub_component.sub_components[*i].repeater_offset;
+                sub_component = &sub_component.sub_components[*i].ty;
+            }
+            tree_array.push(format!(
+                "sixtyfps::private_api::make_dyn_node({}, {})",
+                repeater_index, parent_index
+            ));
         } else {
+            let mut compo_offset = String::new();
+            let mut sub_component = &sub_tree.root;
+            for i in &node.sub_component_path {
+                let next_sub_component_name = ident(&sub_component.sub_components[*i].name);
+                write!(
+                    compo_offset,
+                    "offsetof({}, {}) + ",
+                    ident(&sub_component.name),
+                    next_sub_component_name
+                )
+                .unwrap();
+                sub_component = &sub_component.sub_components[*i].ty;
+            }
+
             let item = &sub_component.items[node.item_index];
 
             if item.is_flickable_viewport {
