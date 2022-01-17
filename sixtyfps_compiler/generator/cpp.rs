@@ -247,7 +247,7 @@ mod cpp_ast {
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve};
 use crate::langtype::Type;
-use crate::layout::{Layout, LayoutGeometry, LayoutRect, Orientation};
+use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, ParentCtx as llr_ParentCtx,
     TypeResolutionContext as _,
@@ -256,7 +256,7 @@ use crate::object_tree::{
     Component, Document, ElementRc, PropertyDeclaration, RepeatedElementInfo,
 };
 use cpp_ast::*;
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
@@ -1108,7 +1108,7 @@ fn generate_public_component(
     access = Access::Public;
 
     component_struct.members.push((
-        Access::Private,
+        access,
         Declaration::Var(Var {
             ty: "sixtyfps::Window".into(),
             name: "m_window".into(),
@@ -3384,13 +3384,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::CallBackCall{ callback, arguments } => {
             let f = access_member(callback, ctx);
-            let a = arguments.iter().map(|a| compile_expression(a, ctx)).collect::<Vec<_>>();
-            format!("{}.call({});", f, a.join(","))
+            let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+            format!("{}.call({})", f, a.join(","))
+        }
+        Expression::ExtraBuiltinFunctionCall { function, arguments } => {
+            let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
+            format!("{}({})", ident(&function), a.join(","))
         }
         /*
-        Expression::ElementReference(_) => todo!("Element references are only supported in the context of built-in function calls at the moment"),
-        Expression::MemberFunction { .. } => panic!("member function expressions must not appear in the code generator anymore"),
-        Expression::BuiltinMacroReference { .. } => panic!("macro expressions must not appear in the code generator anymore"),
         Expression::RepeaterIndexReference { element } => {
             let access = access_member(
                 &element.upgrade().unwrap().borrow().base_type.as_component().root_element,
@@ -3685,114 +3686,48 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             compile_expression(expr, ctx)
         ),
         Expression::ReturnStatement(None) => "throw sixtyfps::private_api::ReturnWrapper<void>()".to_owned(),
-        /*
-        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } => {
-            let cache = access_named_reference(layout_cache_prop, component, "self");
+        Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index } =>  {
+            let cache = access_member(layout_cache_prop, ctx);
             if let Some(ri) = repeater_index {
-                format!("sixtyfps::private_api::layout_cache_access({}.get(), {}, {})", cache, index, compile_expression(ri, component))
+                format!("sixtyfps::private_api::layout_cache_access({}.get(), {}, {})", cache, index, compile_expression(ri, ctx))
             } else {
                 format!("{}.get()[{}]", cache, index)
             }
         }
-        Expression::ComputeLayoutInfo(Layout::GridLayout(layout), o) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
-            let cells = grid_layout_cell_data(layout, *o, component);
-            format!("[&] {{ \
-                    const auto padding = {};\
-                    sixtyfps::GridLayoutCellData cells[] = {{ {} }}; \
-                    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}}; \
-                    return sixtyfps::sixtyfps_grid_layout_info(slice, {}, &padding);\
-                }}()",
-                padding, cells, spacing
-            )
-        }
-        Expression::ComputeLayoutInfo(Layout::BoxLayout(layout), o) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
-            let (cells, alignment) = box_layout_data(layout, *o, component, None);
-            let call = if *o == layout.orientation {
-                format!("sixtyfps_box_layout_info(slice, {}, &padding, {})", spacing, alignment)
-            } else {
-                "sixtyfps_box_layout_info_ortho(slice, &padding)".to_string()
-            };
-            format!("[&] {{ \
-                    const auto padding = {};\
-                    {}\
-                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ std::data(cells), std::size(cells)}}; \
-                    return sixtyfps::cbindgen_private::{};\
-                }}()",
-                padding, cells, call
-            )
-        }
-        Expression::ComputeLayoutInfo(Layout::PathLayout(_), _) => unimplemented!(),
-        Expression::SolveLayout(Layout::GridLayout(layout), o) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
-            let cells = grid_layout_cell_data(layout, *o, component);
-            let size = layout_geometry_size(&layout.geometry.rect, *o, component);
-            let dialog = if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, *o) {
-                format!("sixtyfps::cbindgen_private::DialogButtonRole roles[] = {{ {r} }};\
-                        sixtyfps::cbindgen_private::sixtyfps_reorder_dialog_button_layout(cells,\
-                            sixtyfps::Slice<sixtyfps::cbindgen_private::DialogButtonRole>{{ roles, std::size(roles) }});\
-                        ",
-                    r = button_roles.iter().map(|r| format!("sixtyfps::cbindgen_private::DialogButtonRole::{}", r)).join(", ")
-                )
-            } else { String::new() };
-            format!("[&] {{\
-                    const auto padding = {p};\
-                    sixtyfps::GridLayoutCellData cells[] = {{ {c} }};\
-                    {dialog}
-                    const sixtyfps::Slice<sixtyfps::GridLayoutCellData> slice{{ cells, std::size(cells)}};\
-                    const sixtyfps::GridLayoutData grid {{ {sz},  {s}, &padding, slice }};\
-                    sixtyfps::SharedVector<float> result;\
-                    sixtyfps::sixtyfps_solve_grid_layout(&grid, &result);\
-                    return result;\
-                }}()",
-                dialog = dialog, p = padding, c = cells, s = spacing, sz = size
-            )
-        }
-        Expression::SolveLayout(Layout::BoxLayout(layout), o) => {
-            let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, *o, component);
-            let mut repeated_indices = Default::default();
-            let mut repeated_indices_init = Default::default();
-            let (cells, alignment) = box_layout_data(layout, *o, component, Some((&mut repeated_indices, &mut repeated_indices_init)));
-            let size = layout_geometry_size(&layout.geometry.rect, *o, component);
-            format!("[&] {{ \
-                    {ri_init}\
-                    const auto padding = {p};\
-                    {c}\
-                    const sixtyfps::Slice<sixtyfps::BoxLayoutCellData> slice{{ std::data(cells), std::size(cells)}}; \
-                    sixtyfps::BoxLayoutData box {{ {sz}, {s}, &padding, {a}, slice }};
-                    sixtyfps::SharedVector<float> result;
-                    sixtyfps::sixtyfps_solve_box_layout(&box, {ri}, &result);\
-                    return result;
-                }}()",
-                ri_init = repeated_indices_init, ri = repeated_indices,
-                p = padding, c = cells, s = spacing, sz = size, a = alignment,
-            )
-        }
-        Expression::SolveLayout(Layout::PathLayout(layout), _) => {
-            let width = layout_geometry_size(&layout.rect, Orientation::Horizontal, component);
-            let height = layout_geometry_size(&layout.rect, Orientation::Vertical, component);
-            let elements = compile_path(&layout.path, component);
-            let prop = |expr: &Option<NamedReference>| {
-                if let Some(nr) = expr.as_ref() {
-                    format!("{}.get()", access_named_reference(nr, component, "self"))
-                } else {
-                    "0.".into()
+        ,
+        Expression::BoxLayoutFunction {
+            cells_variable,
+            repeater_indices,
+            elements,
+            orientation,
+            sub_expression,
+        } => box_layout_function(
+            cells_variable,
+            repeater_indices.as_ref().map(String::as_str),
+            elements,
+            *orientation,
+            sub_expression,
+            ctx,
+        ),
+        Expression::ComputeDialogLayoutCells { cells_variable, roles, unsorted_cells } => {
+            let cells_variable = ident(&cells_variable);
+            let mut cells = match &**unsorted_cells {
+                Expression::Array { values, .. } => {
+                    values.iter().map(|v| compile_expression(v, ctx))
                 }
+                _ => panic!("dialog layout unsorted cells not an array"),
             };
-            // FIXME! repeater
-            format!("[&] {{ \
-                    const auto elements = {e};\
-                    sixtyfps::PathLayoutData path {{ elements, {c}, 0, 0, {w}, {h}, {o} }};
-                    sixtyfps::SharedVector<float> result;
-                    sixtyfps::sixtyfps_solve_path_layout(&path, {{}}, &result);\
-                    return result;
-                }}()",
-                e = elements, c = layout.elements.len(), w = width, h = height, o = prop(&layout.offset_reference)
-            )
+            format!("sixtyfps::cbindgen_private::GridLayoutCellData {cv} [] = {{ {c} }};\
+                    sixtyfps::cbindgen_private::DialogButtonRole roles[] = {{ {r} }};\
+                    sixtyfps::cbindgen_private::sixtyfps_reorder_dialog_button_layout({cv}, {r});\
+                    ",
+                    r = compile_expression(roles, ctx),
+                    cv = cells_variable,
+                    c = cells.join(", "),
+                )
 
         }
-        */
+
         _ => todo!("unimplemented llr expression: {:#?}", expr),
     }
 }
@@ -3807,7 +3742,7 @@ fn compile_builtin_function_call(
 
     match function {
         BuiltinFunction::GetWindowScaleFactor => {
-            "self->m_window.window_handle().scale_factor".into()
+            "self->m_window.window_handle().scale_factor()".into()
         }
         BuiltinFunction::Debug => {
             "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
@@ -3979,76 +3914,34 @@ fn compile_assignment(
 }
 */
 
-/*
-fn grid_layout_cell_data(
-    layout: &crate::layout::GridLayout,
+fn box_layout_function(
+    cells_variable: &str,
+    repeated_indices: Option<&str>,
+    elements: &[Either<llr::Expression, usize>],
     orientation: Orientation,
-    component: &Rc<Component>,
+    sub_expression: &llr::Expression,
+    ctx: &llr_EvaluationContext<String>,
 ) -> String {
-    layout
-        .elems
-        .iter()
-        .map(|c| {
-            let (col_or_row, span) = c.col_or_row_and_span(orientation);
-            format!(
-                "sixtyfps::GridLayoutCellData {{ {}, {}, {} }}",
-                col_or_row,
-                span,
-                get_layout_info(&c.item.element, component, &c.item.constraints, orientation, None),
-            )
-        })
-        .join(", ")
-}
+    let repeated_indices = repeated_indices.map(ident);
+    let mut push_code =
+        format!("std::vector<sixtyfps::BoxLayoutCellData> {};", ident(cells_variable));
+    let mut repeater_idx = 0usize;
 
-/// Returns `(cells, alignment)`.
-/// The repeated_indices initialize the repeated_indices (var, init_code)
-fn box_layout_data(
-    layout: &crate::layout::BoxLayout,
-    orientation: Orientation,
-    component: &Rc<Component>,
-    mut repeated_indices: Option<(&mut String, &mut String)>,
-) -> (String, String) {
-    let alignment = if let Some(nr) = &layout.geometry.alignment {
-        format!("{}.get()", access_named_reference(nr, component, "self"))
-    } else {
-        "{}".into()
-    };
+    for item in elements {
+        match item {
+            Either::Left(value) => {
+                push_code += &format!("cells.push_back({{ {} }});", compile_expression(value, ctx));
+            }
+            Either::Right(repeater) => {
+                push_code += &format!("self->repeater_{}.ensure_updated(self);", repeater);
 
-    let repeater_count =
-        layout.elems.iter().filter(|i| i.element.borrow().repeated.is_some()).count();
-
-    if repeater_count == 0 {
-        let mut cells = layout.elems.iter().map(|li| {
-            format!(
-                "sixtyfps::BoxLayoutCellData{{ {} }}",
-                get_layout_info(&li.element, component, &li.constraints, orientation, None)
-            )
-        });
-        if let Some((ri, _)) = &mut repeated_indices {
-            **ri = "{}".into();
-        }
-        (format!("sixtyfps::BoxLayoutCellData cells[] = {{ {} }};", cells.join(", ")), alignment)
-    } else {
-        let mut push_code = "std::vector<sixtyfps::BoxLayoutCellData> cells;".to_owned();
-        if let Some((ri, init)) = &mut repeated_indices {
-            **ri =
-                "sixtyfps::Slice<unsigned int>{std::data(repeater_indices), std::size(repeater_indices)}"
-                    .to_owned();
-            **init = format!("std::array<unsigned int, {}> repeater_indices;", repeater_count * 2);
-        }
-        let mut repeater_idx = 0usize;
-        for item in &layout.elems {
-            if item.element.borrow().repeated.is_some() {
-                push_code += &format!(
-                    "self->repeater_{}.ensure_updated(self);",
-                    ident(&item.element.borrow().id)
-                );
-                if repeated_indices.is_some() {
-                    push_code += &format!("repeater_indices[{}] = cells.size();", repeater_idx * 2);
+                if let Some(ri) = &repeated_indices {
+                    push_code += &format!("{}[{}] = cells.size();", ri, repeater_idx * 2);
                     push_code += &format!(
-                        "repeater_indices[{c}] = self->repeater_{id}.inner ? self->repeater_{id}.inner->data.size() : 0;",
+                        "{ri}[{c}] = self->repeater_{id}.inner ? self->repeater_{id}.inner->data.size() : 0;",
+                        ri = ri,
                         c = repeater_idx * 2 + 1,
-                        id = ident(&item.element.borrow().id)
+                        id = repeater,
                     );
                 }
                 repeater_idx += 1;
@@ -4056,126 +3949,20 @@ fn box_layout_data(
                     "if (self->repeater_{id}.inner) \
                         for (auto &&sub_comp : self->repeater_{id}.inner->data) \
                            cells.push_back((*sub_comp.ptr)->box_layout_data({o}));",
-                    id = ident(&item.element.borrow().id),
+                    id = repeater,
                     o = to_cpp_orientation(orientation),
-                );
-            } else {
-                push_code += &format!(
-                    "cells.push_back({{ {} }});",
-                    get_layout_info(&item.element, component, &item.constraints, orientation, None)
                 );
             }
         }
-        (push_code, alignment)
     }
+
+    let ri = repeated_indices.as_ref().map_or(String::new(), |ri| {
+        format!("std::array<unsigned int, {}> {};", 2 * repeater_idx, ri)
+    });
+    ri + &push_code + &compile_expression(sub_expression, ctx)
 }
 
-fn generate_layout_padding_and_spacing(
-    layout_geometry: &LayoutGeometry,
-    orientation: Orientation,
-    component: &Rc<Component>,
-) -> (String, String) {
-    let prop = |expr: Option<&NamedReference>| {
-        if let Some(nr) = expr {
-            format!("{}.get()", access_named_reference(nr, component, "self"))
-        } else {
-            "0.".into()
-        }
-    };
-    let spacing = prop(layout_geometry.spacing.as_ref());
-    let (begin, end) = layout_geometry.padding.begin_end(orientation);
-    let padding = format!("sixtyfps::Padding {{ {}, {} }};", prop(begin), prop(end));
-    (padding, spacing)
-}
-
-fn layout_geometry_size(
-    rect: &LayoutRect,
-    orientation: Orientation,
-    component: &Rc<Component>,
-) -> String {
-    rect.size_reference(orientation).map_or_else(
-        || "0.".into(),
-        |nr| format!("{}.get()", access_named_reference(nr, component, "self")),
-    )
-}
-
-fn get_layout_info(
-    elem: &ElementRc,
-    component: &Rc<Component>,
-    constraints: &crate::layout::LayoutConstraints,
-    orientation: Orientation,
-    custom_window_handle_accessor: Option<&'_ str>,
-) -> String {
-    let window_handle = if let Some(custom_accessor) = custom_window_handle_accessor {
-        custom_accessor
-    } else {
-        "&self->m_window.window_handle()"
-    };
-    let mut layout_info = if let Some(layout_info_prop) =
-        &elem.borrow().layout_info_prop(orientation)
-    {
-        format!("{}.get()", access_named_reference(layout_info_prop, component, "self"))
-    } else if elem.borrow().sub_component().is_some() {
-        format!(
-            "self->{id}.layout_info({o}, {window_handle})",
-            id = ident(&elem.borrow().id),
-            o = to_cpp_orientation(orientation),
-            window_handle = window_handle
-        )
-    } else {
-        format!(
-            "{vt}->layout_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, {window_handle})",
-            vt = elem.borrow().base_type.as_native().cpp_vtable_getter,
-            ty = elem.borrow().base_type.as_native().class_name,
-            id = ident(&elem.borrow().id),
-            o = to_cpp_orientation(orientation),
-            window_handle = window_handle
-        )
-    };
-
-    if constraints.has_explicit_restrictions() {
-        layout_info = format!("[&]{{ auto layout_info = {};", layout_info);
-        for (expr, name) in constraints.for_each_restrictions(orientation) {
-            layout_info += &format!(
-                " layout_info.{} = {}.get();",
-                name,
-                access_named_reference(expr, component, "self")
-            );
-        }
-        layout_info += " return layout_info; }()";
-    }
-    layout_info
-}
-
-fn layout_info_function_body(
-    component: &Rc<Component>,
-    self_accessor: String,
-    custom_window_accessor: Option<&'_ str>,
-) -> Vec<String> {
-    vec![
-        self_accessor,
-        format!(
-            "if (o == sixtyfps::Orientation::Horizontal) return {};",
-            get_layout_info(
-                &component.root_element,
-                component,
-                &component.root_constraints.borrow(),
-                Orientation::Horizontal,
-                custom_window_accessor
-            )
-        ),
-        format!(
-            "else return {};",
-            get_layout_info(
-                &component.root_element,
-                component,
-                &component.root_constraints.borrow(),
-                Orientation::Vertical,
-                custom_window_accessor
-            )
-        ),
-    ]
-}
+/*
 
 fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) -> String {
     match path {
