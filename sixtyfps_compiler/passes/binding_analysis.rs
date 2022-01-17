@@ -3,7 +3,11 @@
 
 //! Compute binding analysis and attempt to find binding loops
 
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::rc::Rc;
+
+use by_address::ByAddress;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
@@ -17,55 +21,137 @@ use crate::namedreference::NamedReference;
 use crate::object_tree::Document;
 use crate::object_tree::PropertyAnimation;
 use crate::object_tree::{Component, ElementRc};
+use derive_more as dm;
 
-type PropertySet = linked_hash_set::LinkedHashSet<NamedReference>;
+/// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
+/// So if binding for property A has B in its BindingExpression::two_way_binding, then
+/// ReverseAliases maps B to A.
+type ReverseAliases = HashMap<NamedReference, Vec<NamedReference>>;
 
 pub fn binding_analysis(doc: &Document, diag: &mut BuildDiagnostics) {
     let component = &doc.root_component;
+    let mut reverse_aliases = Default::default();
     mark_used_base_properties(component);
-    propagate_is_set_on_aliases(component);
-    perform_binding_analysis(component, diag);
+    propagate_is_set_on_aliases(component, &mut reverse_aliases);
+    perform_binding_analysis(component, &reverse_aliases, diag);
 }
 
-fn perform_binding_analysis(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
-        component,
-        &(),
-        &mut |e, _| analyze_element(e, diag),
-    );
+/// A reference to a property which might be deep in a component path.
+/// eg: `foo.bar.baz.background`: `baz.background` is the `prop` and `foo` and `bar` are in elements
+#[derive(Hash, PartialEq, Eq, Clone)]
+struct PropertyPath {
+    elements: Vec<ByAddress<ElementRc>>,
+    prop: NamedReference,
+}
 
-    for c in &component.used_types.borrow().sub_components {
-        perform_binding_analysis(c, diag);
+impl std::fmt::Debug for PropertyPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for e in &self.elements {
+            write!(f, "{}.", e.borrow().id)?;
+        }
+        self.prop.fmt(f)
     }
 }
 
-fn analyze_element(elem: &ElementRc, diag: &mut BuildDiagnostics) {
+impl PropertyPath {
+    /// Given a namedReference accessed by something on the same leaf component
+    /// as self, return a new PropertyPath that represent the property pointer
+    /// to by nr in the higher possible element
+    fn relative(&self, nr: &NamedReference) -> Self {
+        let mut element = nr.element();
+        if element.borrow().enclosing_component.upgrade().unwrap().is_global() {
+            return Self::from(nr.clone());
+        }
+        let mut elements = self.elements.clone();
+        while Rc::ptr_eq(
+            &element,
+            &element.borrow().enclosing_component.upgrade().unwrap().root_element,
+        ) {
+            if let Some(last) = elements.pop() {
+                debug_assert!(Rc::ptr_eq(
+                    last.borrow().base_type.as_component(),
+                    &element.borrow().enclosing_component.upgrade().unwrap(),
+                ));
+                element = last.0;
+            } else {
+                break;
+            }
+        }
+        Self { elements, prop: NamedReference::new(&element, nr.name()) }
+    }
+}
+
+impl From<NamedReference> for PropertyPath {
+    fn from(prop: NamedReference) -> Self {
+        Self { elements: vec![], prop }
+    }
+}
+
+#[derive(Default)]
+struct AnalysisContext {
+    visited: HashSet<PropertyPath>,
+    currently_analyzing: linked_hash_set::LinkedHashSet<PropertyPath>,
+}
+
+fn perform_binding_analysis(
+    component: &Rc<Component>,
+    reverse_aliases: &ReverseAliases,
+    diag: &mut BuildDiagnostics,
+) {
+    for c in &component.used_types.borrow().sub_components {
+        perform_binding_analysis(c, reverse_aliases, diag);
+    }
+
+    let mut context = AnalysisContext::default();
+    crate::object_tree::recurse_elem_including_sub_components_no_borrow(
+        component,
+        &(),
+        &mut |e, _| analyze_element(e, &mut context, reverse_aliases, diag),
+    );
+}
+
+fn analyze_element(
+    elem: &ElementRc,
+    context: &mut AnalysisContext,
+    reverse_aliases: &ReverseAliases,
+    diag: &mut BuildDiagnostics,
+) {
     for (name, binding) in &elem.borrow().bindings {
         if binding.borrow().analysis.is_some() {
             continue;
         }
-        let mut set = PropertySet::default();
-        analyse_binding(elem, name, &mut set, diag);
+        analyse_binding(
+            &PropertyPath::from(NamedReference::new(elem, name)),
+            context,
+            reverse_aliases,
+            diag,
+        );
     }
 }
 
+#[derive(Copy, Clone, dm::BitAnd, dm::BitOr, dm::BitAndAssign, dm::BitOrAssign)]
+struct DependsOnExternal(bool);
+
 fn analyse_binding(
-    element: &ElementRc,
-    name: &str,
-    currently_analysing: &mut PropertySet,
+    current: &PropertyPath,
+    context: &mut AnalysisContext,
+    reverse_aliases: &ReverseAliases,
     diag: &mut BuildDiagnostics,
-) {
-    let nr = NamedReference::new(element, name);
-    if currently_analysing.back().map_or(false, |r| *r == nr)
+) -> DependsOnExternal {
+    let mut depends_on_external = DependsOnExternal(false);
+    let element = current.prop.element();
+    let name = current.prop.name();
+    if context.currently_analyzing.back().map_or(false, |r| r == current)
         && !element.borrow().bindings[name].borrow().two_way_bindings.is_empty()
     {
         // This is already reported as an error by the remove_alias pass.
         // FIXME: maybe we should report it there instead
-        return;
+        return depends_on_external;
     }
 
-    if currently_analysing.contains(&nr) {
-        for p in currently_analysing.iter().rev() {
+    if context.currently_analyzing.contains(&current) {
+        for it in context.currently_analyzing.iter().rev() {
+            let p = &it.prop;
             let elem = p.element();
             let elem = elem.borrow();
             let binding = elem.bindings[p.name()].borrow();
@@ -80,86 +166,122 @@ fn analyse_binding(
                 &span,
             );
 
-            if *p == nr {
+            if it == current {
                 break;
             }
         }
-        return;
+        return depends_on_external;
     }
 
     let binding = &element.borrow().bindings[name];
-    if binding.borrow().analysis.is_some() {
-        return;
+    if binding.borrow().analysis.as_ref().map_or(false, |a| a.no_external_dependencies) {
+        return depends_on_external;
+    } else if !context.visited.insert(current.clone()) {
+        return DependsOnExternal(true);
     }
+
     binding.borrow_mut().analysis = Some(Default::default());
-    currently_analysing.insert(nr.clone());
+    context.currently_analyzing.insert(current.clone());
+
+    let b = binding.borrow();
+    for nr in &b.two_way_bindings {
+        if nr != &current.prop {
+            depends_on_external |=
+                process_property(&current.relative(nr), context, reverse_aliases, diag);
+        }
+    }
 
     let mut process_prop = |prop: &NamedReference| {
-        let mut element = prop.element();
-        element
-            .borrow()
-            .property_analysis
-            .borrow_mut()
-            .entry(prop.name().into())
-            .or_default()
-            .is_read = true;
-
-        loop {
-            if element.borrow().bindings.contains_key(prop.name()) {
-                analyse_binding(&element, prop.name(), currently_analysing, diag);
+        depends_on_external |=
+            process_property(&current.relative(prop), context, reverse_aliases, diag);
+        for x in reverse_aliases.get(prop).unwrap_or(&Default::default()) {
+            if x != &current.prop && x != prop {
+                depends_on_external |=
+                    process_property(&current.relative(x), context, reverse_aliases, diag);
             }
-            let next = if let Type::Component(base) = &element.borrow().base_type {
-                if element.borrow().property_declarations.contains_key(prop.name()) {
-                    break;
-                }
-                base.root_element.clone()
-            } else {
-                break;
-            };
-            element = next;
-            element
-                .borrow()
-                .property_analysis
-                .borrow_mut()
-                .entry(prop.name().into())
-                .or_default()
-                .is_read_externally = true;
         }
     };
 
-    {
-        let b = binding.borrow();
-        for nr in &b.two_way_bindings {
-            process_prop(nr);
-        }
-        recurse_expression(&b.expression, &mut process_prop);
+    recurse_expression(&b.expression, &mut process_prop);
 
-        let mut is_const =
-            b.expression.is_constant() && b.two_way_bindings.iter().all(|n| n.is_constant());
+    let mut is_const =
+        b.expression.is_constant() && b.two_way_bindings.iter().all(|n| n.is_constant());
 
-        if is_const && matches!(b.expression, Expression::Invalid) {
-            // check the base
-            if let Some(base) = element.borrow().sub_component() {
-                is_const = NamedReference::new(&base.root_element, name).is_constant();
-            }
+    if is_const && matches!(b.expression, Expression::Invalid) {
+        // check the base
+        if let Some(base) = element.borrow().sub_component() {
+            is_const = NamedReference::new(&base.root_element, name).is_constant();
         }
-        drop(b);
-        binding.borrow_mut().analysis.as_mut().unwrap().is_const = is_const;
     }
+    drop(b);
+    binding.borrow_mut().analysis.as_mut().unwrap().is_const = is_const;
 
     match &binding.borrow().animation {
-        Some(PropertyAnimation::Static(e)) => analyze_element(e, diag),
+        Some(PropertyAnimation::Static(e)) => analyze_element(e, context, reverse_aliases, diag),
         Some(PropertyAnimation::Transition { animations, state_ref }) => {
             recurse_expression(state_ref, &mut process_prop);
             for a in animations {
-                analyze_element(&a.animation, diag);
+                analyze_element(&a.animation, context, reverse_aliases, diag);
             }
         }
         None => (),
     }
 
-    let o = currently_analysing.pop_back();
-    assert_eq!(o.unwrap(), nr);
+    let o = context.currently_analyzing.pop_back();
+    assert_eq!(&o.unwrap(), current);
+
+    return depends_on_external;
+}
+
+/// Process the property `prop`
+///
+/// This will visit all the bindings from that property
+fn process_property(
+    prop: &PropertyPath,
+    context: &mut AnalysisContext,
+    reverse_aliases: &ReverseAliases,
+    diag: &mut BuildDiagnostics,
+) -> DependsOnExternal {
+    let depends_on_external = match prop
+        .prop
+        .element()
+        .borrow()
+        .property_analysis
+        .borrow_mut()
+        .entry(prop.prop.name().into())
+        .or_default()
+    {
+        a => {
+            a.is_read = true;
+            DependsOnExternal(prop.elements.is_empty() && a.is_set_externally)
+        }
+    };
+
+    let mut prop = prop.clone();
+
+    loop {
+        let element = prop.prop.element();
+        if element.borrow().bindings.contains_key(prop.prop.name()) {
+            analyse_binding(&prop, context, reverse_aliases, diag);
+        }
+        let next = if let Type::Component(base) = &element.borrow().base_type {
+            if element.borrow().property_declarations.contains_key(prop.prop.name()) {
+                break;
+            }
+            base.root_element.clone()
+        } else {
+            break;
+        };
+        next.borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(prop.prop.name().into())
+            .or_default()
+            .is_read_externally = true;
+        prop.elements.push(element.into());
+        prop.prop = NamedReference::new(&next, prop.prop.name());
+    }
+    return depends_on_external;
 }
 
 // Same as in crate::visit_all_named_references_in_element, but not mut
@@ -281,7 +403,7 @@ fn visit_implicit_layout_info_dependencies(
 ///    property <int> foo; // must ensure that this is not considered as const, because the alias with bar
 /// }
 /// ```
-fn propagate_is_set_on_aliases(component: &Rc<Component>) {
+fn propagate_is_set_on_aliases(component: &Rc<Component>, reverse_aliases: &mut ReverseAliases) {
     crate::object_tree::recurse_elem_including_sub_components_no_borrow(
         component,
         &(),
@@ -289,6 +411,21 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
             for (name, binding) in &e.borrow().bindings {
                 if !binding.borrow().two_way_bindings.is_empty() {
                     check_alias(e, name, &binding.borrow());
+
+                    let nr = NamedReference::new(e, name);
+                    for a in &binding.borrow().two_way_bindings {
+                        if a != &nr
+                            && !a
+                                .element()
+                                .borrow()
+                                .enclosing_component
+                                .upgrade()
+                                .unwrap()
+                                .is_global()
+                        {
+                            reverse_aliases.entry(a.clone()).or_default().push(nr.clone())
+                        }
+                    }
                 }
             }
             for decl in e.borrow().property_declarations.values() {
@@ -325,11 +462,8 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>) {
         }
     }
 
-    for g in &component.used_types.borrow().globals {
-        propagate_is_set_on_aliases(g);
-    }
     for c in &component.used_types.borrow().sub_components {
-        propagate_is_set_on_aliases(c);
+        propagate_is_set_on_aliases(c, reverse_aliases);
     }
 }
 
