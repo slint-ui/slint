@@ -246,19 +246,16 @@ mod cpp_ast {
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve};
-use crate::langtype::Type;
+use crate::langtype::{NativeClass, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, ParentCtx as llr_ParentCtx,
     TypeResolutionContext as _,
 };
-use crate::object_tree::{
-    Component, Document, ElementRc, PropertyDeclaration, RepeatedElementInfo,
-};
+use crate::object_tree::{Document, PropertyDeclaration};
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::collections::BTreeMap;
-use std::rc::Rc;
 
 type EvaluationContext<'a> = llr_EvaluationContext<'a, String>;
 type ParentCtx<'a> = llr_ParentCtx<'a, String>;
@@ -1458,21 +1455,6 @@ fn generate_public_component(
     //         }),
     //     ));
     //
-    //     component_struct.members.push((
-    //         Access::Public,
-    //         Declaration::Function(Function {
-    //             name: "layout_info".into(),
-    //             signature:
-    //                 "(sixtyfps::Orientation o, [[maybe_unused]] const sixtyfps::private_api::WindowRc *window_handle) const -> sixtyfps::LayoutInfo"
-    //                     .into(),
-    //             statements: Some(layout_info_function_body(
-    //                 component,
-    //                 "auto self = this;".to_owned(),
-    //                 Some("window_handle"),
-    //             )),
-    //             ..Default::default()
-    //         }),
-    //     ));
     //
     //     if !children_visitor_cases.is_empty() {
     //         component_struct.members.push((
@@ -2315,22 +2297,6 @@ fn generate_component(
             }),
         ));
 
-        component_struct.members.push((
-            Access::Public,
-            Declaration::Function(Function {
-                name: "layout_info".into(),
-                signature:
-                    "(sixtyfps::Orientation o, [[maybe_unused]] const sixtyfps::private_api::WindowRc *window_handle) const -> sixtyfps::LayoutInfo"
-                        .into(),
-                statements: Some(layout_info_function_body(
-                    component,
-                    "auto self = this;".to_owned(),
-                    Some("window_handle"),
-                )),
-                ..Default::default()
-            }),
-        ));
-
         if !children_visitor_cases.is_empty() {
             component_struct.members.push((
                 Access::Public,
@@ -2755,13 +2721,10 @@ fn generate_item_tree(
                 "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::Orientation o) -> sixtyfps::LayoutInfo"
                     .into(),
             is_static: true,
-            /* FIXME
-            statements: Some(layout_info_function_body(component, format!(
-                "[[maybe_unused]] auto self = reinterpret_cast<const {}*>(component.instance);",
+            statements: Some(vec![format!(
+                "reinterpret_cast<const {}*>(component.instance)->layout_info(o);",
                 item_tree_class_name
-            ), None)),
-            */
-            statements: Some(vec!["(void)component;".into(), "(void)o;".into(), "return {};".into()]),
+            )]),
             ..Default::default()
         }),
     ));
@@ -3113,6 +3076,24 @@ fn generate_sub_component(
             ..Default::default()
         }),
     ));
+
+    target_struct.members.push((
+        Access::Public, // FIXME
+        Declaration::Function(Function {
+            name: "layout_info".into(),
+            signature: "(sixtyfps::cbindgen_private::Orientation o) const -> sixtyfps::LayoutInfo"
+                .into(),
+            statements: Some(vec![
+                "[[maybe_unused]] auto self = this;".into(),
+                format!(
+                    "return o == sixtyfps::cbindgen_private::Orientation::Horizontal ? {} : {};",
+                    compile_expression(&component.layout_info_h, &ctx),
+                    compile_expression(&component.layout_info_v, &ctx)
+                ),
+            ]),
+            ..Default::default()
+        }),
+    ));
 }
 
 fn generate_repeated_component(
@@ -3183,121 +3164,6 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
     file.definitions.extend(global_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(global_struct));
 }
-
-/*
-/// Retruns the tokens needed to access the root component (where global singletons are located).
-/// This is needed for the `init()` calls on sub-components, that take the root as a parameter.
-fn access_root_tokens(component: &Rc<Component>) -> String {
-    if component.is_global() {
-        return "\n#error can't access root from globals\n".into();
-    } else if component.is_root_component.get() {
-        return "this".into();
-    } else if component.is_sub_component() {
-        return "root".into();
-    }
-    let mut tokens = "parent".into();
-    let mut compo = component.clone();
-    loop {
-        let parent_compo = compo
-            .parent_element
-            .upgrade()
-            .expect("not the root and not a sub_component must have a parent")
-            .borrow()
-            .enclosing_component
-            .upgrade()
-            .unwrap();
-        if parent_compo.is_root_component.get() {
-            return tokens;
-        } else if parent_compo.is_sub_component() {
-            tokens += "->m_root";
-            return tokens;
-        }
-        compo = parent_compo;
-        tokens += "->parent";
-    }
-}
-
-fn component_id(component: &Rc<Component>) -> String {
-    if component.is_global() {
-        ident(&component.root_element.borrow().id)
-    } else if component.id.is_empty() {
-        format!("Component_{}", ident(&component.root_element.borrow().id))
-    } else if component.is_sub_component() {
-        ident(&format!("{}_{}", component.id, component.root_element.borrow().id))
-    } else {
-        ident(&component.id)
-    }
-}
-
-/// Returns the code that can access the given property (but without the set or get)
-///
-/// to be used like:
-/// ```ignore
-/// let access = access_member(...);
-/// format!("{}.get()", access)
-/// ```
-fn access_member(
-    element: &ElementRc,
-    name: &str,
-    component: &Rc<Component>,
-    component_cpp: &str,
-) -> String {
-    let e = element.borrow();
-    let enclosing_component = e.enclosing_component.upgrade().unwrap();
-    if Rc::ptr_eq(component, &enclosing_component) {
-        if e.property_declarations.contains_key(name) || name.is_empty() || component.is_global() {
-            format!("{}->{}", component_cpp, ident(name))
-        } else if e.is_flickable_viewport {
-            format!(
-                "{}->{}.viewport.{}",
-                component_cpp,
-                ident(&crate::object_tree::find_parent_element(element).unwrap().borrow().id),
-                ident(name)
-            )
-        } else if let Some(sub_component) = e.sub_component() {
-            if sub_component.root_element.borrow().property_declarations.contains_key(name) {
-                format!("(*{}->{}.get_{}())", component_cpp, ident(&e.id), ident(name))
-            } else {
-                access_member(
-                    &sub_component.root_element,
-                    name,
-                    sub_component,
-                    &format!("(&{}->{})", component_cpp, ident(&e.id),),
-                )
-            }
-        } else {
-            format!("{}->{}.{}", component_cpp, ident(&e.id), ident(name))
-        }
-    } else if enclosing_component.is_global() {
-        let mut top_level_component = component.clone();
-        let mut component_cpp = component_cpp.to_owned();
-        while let Some(p) = top_level_component.parent_element.upgrade() {
-            top_level_component = p.borrow().enclosing_component.upgrade().unwrap();
-            component_cpp = format!("{}->parent", component_cpp);
-        }
-        if top_level_component.is_sub_component() {
-            component_cpp = format!("{}->m_root", component_cpp);
-        }
-        let global_comp =
-            format!("{}->global_{}", component_cpp, component_id(&enclosing_component));
-        access_member(element, name, &enclosing_component, &global_comp)
-    } else {
-        access_member(
-            element,
-            name,
-            &component
-                .parent_element
-                .upgrade()
-                .unwrap()
-                .borrow()
-                .enclosing_component
-                .upgrade()
-                .unwrap(),
-            &format!("{}->parent", component_cpp),
-        )
-    }
-}
-*/
 
 fn follow_sub_component_path<'a>(
     root: &'a llr::SubComponent,
@@ -3374,15 +3240,32 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
     }
 }
 
-/*
-/// Call access_member  for a NamedReference
-fn access_named_reference(
-    nr: &NamedReference,
-    component: &Rc<Component>,
-    component_cpp: &str,
-) -> String {
-    access_member(&nr.element(), nr.name(), component, component_cpp)
+/// Returns the NativeClass for a PropertyReference::InNativeItem
+/// (or a InParent of InNativeItem )
+fn native_item<'a>(
+    item_ref: &llr::PropertyReference,
+    ctx: &'a EvaluationContext,
+) -> &'a NativeClass {
+    match item_ref {
+        llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name: _ } => {
+            let mut sub_component = ctx.current_sub_component.unwrap();
+            for i in sub_component_path {
+                sub_component = &sub_component.sub_components[*i].ty;
+            }
+            &sub_component.items[*item_index].ty
+        }
+        llr::PropertyReference::InParent { level, parent_reference } => {
+            let mut ctx = ctx;
+            for _ in 0..level.get() {
+                ctx = ctx.parent.as_ref().unwrap().ctx;
+            }
+            native_item(parent_reference, ctx)
+        }
+        _ => unreachable!(),
+    }
 }
+
+/*
 
 /// Returns the code that can access the component of the given element
 fn access_element_component<'a>(
@@ -3553,6 +3436,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
 
             format!("[&]{{ {} }}()", x.join(";"))
         }
+
         /*
         Expression::FunctionCall { function, arguments, source_location: _  } => match &**function {
             Expression::BuiltinFunctionReference(BuiltinFunction::SetFocusItem, _) => {
@@ -3592,29 +3476,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::ImplicitLayoutInfo(orientation), _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to ImplicitLayoutInfo call");
-                }
-                if let Expression::ElementReference(item) = &arguments[0] {
-                    let item = item.upgrade().unwrap();
-                    let item = item.borrow();
-                    if item.sub_component().is_some() {
-                        format!("self->{compo}.layout_info({o}, &m_window.window_handle())",
-                            compo = ident(&item.id),
-                            o = to_cpp_orientation(*orientation)
-                        )
-                    } else {
-                        let native_item = item.base_type.as_native();
-                        format!("{vt}->layout_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&self->{id})}}, {o}, &m_window.window_handle())",
-                            vt = native_item.cpp_vtable_getter,
-                            ty = native_item.class_name,
-                            id = ident(&item.id),
-                            o = to_cpp_orientation(*orientation),
-                        )
-                    }
-                } else {
-                    panic!("internal error: argument to ImplicitLayoutInfo must be an element")
-                }
+
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, _) => {
                 if arguments.len() != 1 {
@@ -3699,23 +3561,22 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::Array { element_ty, values, as_model } => {
+            let ty = element_ty.cpp_type().unwrap();
+            let mut val = values.iter().map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
             if *as_model {
-                let ty = element_ty.cpp_type().unwrap_or_else(|| "FIXME: report error".to_owned());
                 format!(
                     "std::make_shared<sixtyfps::private_api::ArrayModel<{count},{ty}>>({val})",
                     count = values.len(),
                     ty = ty,
-                    val = values
-                        .iter()
-                        .map(|e| format!(
-                            "{ty} ( {expr} )",
-                            expr = compile_expression(e, ctx),
-                            ty = ty,
-                        ))
-                        .join(", ")
+                    val = val.join(", ")
                 )
             } else {
-                todo!("array slice expression")
+                format!(
+                    "sixtyfps::Slice<{ty}>{{ std::array<{ty}, {count}>{{ {val} }}.data(), {count} }}",
+                    count = values.len(),
+                    ty = ty,
+                    val = val.join(", ")
+                )
             }
         }
         Expression::Struct { ty, values } => {
@@ -3860,9 +3721,6 @@ fn compile_builtin_function_call(
             "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }"
                 .into()
         }
-        BuiltinFunction::ImplicitLayoutInfo(_) => {
-            unreachable!()
-        }
         BuiltinFunction::ColorBrighter => {
             "[](const auto &color, float factor) { return color.brighter(factor); }".into()
         }
@@ -3883,6 +3741,20 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByMemory => {
             panic!("internal error: RegisterCustomFontByMemory can only be evaluated from within a FunctionCall expression")
+        }
+        BuiltinFunction::ImplicitLayoutInfo(orient) => {
+            if let [llr::Expression::PropertyReference(pr)] = arguments {
+                let native = native_item(pr, ctx);
+                format!(
+                    "{vt}->layout_info({{{vt}, const_cast<sixtyfps::cbindgen_private::{ty}*>(&{i})}}, {o}, &self->m_window.window_handle())",
+                    vt = native.cpp_vtable_getter,
+                    ty = native.class_name,
+                    o = to_cpp_orientation(orient),
+                    i = access_member(pr, ctx),
+                )
+            } else {
+                panic!("internal error: invalid args to ImplicitLayoutInfo {:?}", arguments)
+            }
         }
     }
 }
