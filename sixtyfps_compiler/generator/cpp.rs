@@ -1162,10 +1162,6 @@ fn generate_item_tree(
         format!("{}->m_window.window_handle().set_component(*self_rc);", root_access),
     ];
 
-    // FIXME: Implement this
-    // create_code.extend(
-    //     component.setup_code.borrow().iter().map(|code| compile_expression(code, component)),
-    // );
     create_code
         .push(format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", target_struct.name));
 
@@ -1465,6 +1461,7 @@ fn generate_sub_component(
 
     init.extend(subcomponent_init_code);
     init.extend(properties_init_code);
+    init.extend(component.init_code.iter().map(|e| compile_expression(e, &ctx)));
 
     target_struct.members.push((
         Access::Public,
