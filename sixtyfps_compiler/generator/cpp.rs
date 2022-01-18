@@ -3208,13 +3208,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
                 (Type::Struct { .. }, Type::Struct{ fields, name: Some(_), ..}) => {
                     format!(
-                        "[&](const auto &o){{ {struct_name} s; auto& [{field_members}] = s; {fields}; return s; }}({obj})",
+                        "[&](const auto &o){{ {struct_name} s; {fields} return s; }}({obj})",
                         struct_name = to.cpp_type().unwrap(),
-                        field_members = (0..fields.len()).map(|idx| format!("f_{}", idx)).join(", "),
+                        fields = fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
                         obj = f,
-                        fields = (0..fields.len())
-                            .map(|idx| format!("f_{} = std::get<{}>(o)", idx, idx))
-                            .join("; ")
                     )
                 }
                 _ => f,
@@ -3378,7 +3375,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             }
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct{fields, ..} = ty {
+            if let Type::Struct{fields, name: None, ..} = ty {
                 let mut elem = fields.keys().map(|k| {
                     values
                         .get(k)
@@ -3386,6 +3383,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
                 format!("{}{{{}}}", ty.cpp_type().unwrap(), elem.join(", "))
+            } else if let Type::Struct{ name: Some(name), .. } = ty {
+                format!(
+                    "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
+                    args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
+                    ty = ty.cpp_type().unwrap(),
+                    fields = values.keys().enumerate().map(|(i, f)| format!("o.{} = a_{}; ", ident(f), i)).join(""),
+                    vals = values.values().map(|e| compile_expression(e, ctx)).join(", "),
+                )
             } else {
                 panic!("Expression::Object is not a Type::Object")
             }
