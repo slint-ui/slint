@@ -2062,11 +2062,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         }
                     };
                     format!(
-                        r#"[&](){{
-                          auto events = {};
-                           auto points = {};
+                        r#"[&](auto events, auto points){{
                             return sixtyfps::private_api::PathData(events.ptr, events.len, points.ptr, points.len);
-                        }}()"#,
+                        }}({}, {})"#,
                         events, points
                     )
                 }
