@@ -2065,6 +2065,30 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         path_elements.join(",")
                     )
                 }
+                (Type::Struct { .. }, Type::PathData)
+                    if matches!(
+                        from.as_ref(),
+                        Expression::Struct { ty: Type::Struct { .. }, .. }
+                    ) =>
+                {
+                    let (events, points) = match from.as_ref() {
+                        Expression::Struct { ty: _, values } => (
+                            compile_expression(&values["events"], ctx),
+                            compile_expression(&values["points"], ctx),
+                        ),
+                        _ => {
+                            unreachable!()
+                        }
+                    };
+                    format!(
+                        r#"[&](){{
+                          auto events = {};
+                           auto points = {};
+                            return sixtyfps::private_api::PathData(events.ptr, events.len, points.ptr, points.len);
+                        }}()"#,
+                        events, points
+                    )
+                }
                 _ => f,
             }
         }
@@ -2482,67 +2506,6 @@ fn box_layout_function(
         compile_expression(sub_expression, ctx)
     )
 }
-
-/*
-
-fn compile_path(path: &crate::expression_tree::Path, component: &Rc<Component>) -> String {
-    match path {
-        crate::expression_tree::Path::Elements(elements) => {
-            let converted_elements: Vec<String> = elements
-                .iter()
-                .map(|element| {
-                    let element_initializer = element
-                        .element_type
-                        .native_class
-                        .cpp_type
-                        .as_ref()
-                        .map(|cpp_type| {
-                            new_struct_with_bindings(cpp_type, &element.bindings, component)
-                        })
-                        .unwrap_or_default();
-                    format!(
-                        "sixtyfps::private_api::PathElement::{}({})",
-                        element.element_type.native_class.class_name, element_initializer
-                    )
-                })
-                .collect();
-            format!(
-                r#"[&](){{
-                sixtyfps::private_api::PathElement elements[{}] = {{
-                    {}
-                }};
-                return sixtyfps::private_api::PathData(&elements[0], std::size(elements));
-            }}()"#,
-                converted_elements.len(),
-                converted_elements.join(",")
-            )
-        }
-        crate::expression_tree::Path::Events(events, points) => {
-            let converted_events =
-                events.iter().map(|event| compile_expression(event, component)).collect::<Vec<_>>();
-
-            let converted_coordinates =
-                points.into_iter().map(|pt| compile_expression(pt, component)).collect::<Vec<_>>();
-
-            format!(
-                r#"[&](){{
-                sixtyfps::private_api::PathEvent events[{}] = {{
-                    {}
-                }};
-                sixtyfps::private_api::Point coordinates[{}] = {{
-                    {}
-                }};
-                return sixtyfps::private_api::PathData(&events[0], std::size(events), &coordinates[0], std::size(coordinates));
-            }}()"#,
-                converted_events.len(),
-                converted_events.join(","),
-                converted_coordinates.len(),
-                converted_coordinates.join(",")
-            )
-        }
-    }
-}
-*/
 
 /// Like compile_expression, but wrap inside a try{}catch{} block to intercept the return
 fn compile_expression_wrap_return(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
