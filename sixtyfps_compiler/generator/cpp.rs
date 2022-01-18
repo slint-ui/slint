@@ -1116,22 +1116,22 @@ fn generate_item_tree(
             let item = &sub_component.items[node.item_index];
 
             if item.is_flickable_viewport {
-                todo!()
-            } else {
-                let children_count = node.children.len() as u32;
-                let children_index = children_offset as u32;
-
-                tree_array.push(format!(
-                    "sixtyfps::private_api::make_item_node({} offsetof({}, {}), {}, {}, {}, {})",
-                    compo_offset,
-                    &ident(&sub_component.name),
-                    ident(&item.name),
-                    item.ty.cpp_vtable_getter,
-                    children_count,
-                    children_index,
-                    parent_index,
-                ));
+                compo_offset += "offsetof(sixtyfps::cbindgen_private::Flickable, viewport) + ";
             }
+
+            let children_count = node.children.len() as u32;
+            let children_index = children_offset as u32;
+
+            tree_array.push(format!(
+                "sixtyfps::private_api::make_item_node({} offsetof({}, {}), {}, {}, {}, {})",
+                compo_offset,
+                &ident(&sub_component.name),
+                ident(&item.name),
+                item.ty.cpp_vtable_getter,
+                children_count,
+                children_index,
+                parent_index,
+            ));
         }
     });
 
@@ -1922,7 +1922,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             let property_name = ident(&prop_name);
             let flick = sub_component.items[item_index]
                 .is_flickable_viewport
-                .then(|| ".viewport")
+                .then(|| "viewport.")
                 .unwrap_or_default();
             format!("{}->{}{}.{}{}", path, compo_path, item_name, flick, property_name)
         }
