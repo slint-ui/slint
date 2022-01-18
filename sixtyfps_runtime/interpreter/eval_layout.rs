@@ -104,7 +104,7 @@ pub(crate) fn solve_layout(
             core_layout::solve_grid_layout(&core_layout::GridLayoutData {
                 size: size_ref.map(expr_eval).unwrap_or(0.),
                 spacing,
-                padding: &padding,
+                padding,
                 cells: Slice::from(cells.as_slice()),
             })
             .into()
@@ -128,7 +128,7 @@ pub(crate) fn solve_layout(
                 &core_layout::BoxLayoutData {
                     size: size_ref.as_ref().map(expr_eval).unwrap_or(0.),
                     spacing,
-                    padding: &padding,
+                    padding,
                     alignment,
                     cells: Slice::from(cells.as_slice()),
                 },
