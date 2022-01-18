@@ -1303,7 +1303,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     let path_elements = match from.as_ref() {
                         Expression::Array { element_ty: _, values, as_model: _ } => values
                             .iter()
-                            .map(|path_elem_expr| 
+                            .map(|path_elem_expr|
                                 // Close{} is a struct with no fields in markup, and PathElement::Close has no fields, so map to an empty token stream
                                 // and thus later just unit type, which can convert into PathElement::Close.
                                 if matches!(path_elem_expr, Expression::Struct { ty: Type::Struct { fields, .. }, .. } if fields.len() == 0) {
