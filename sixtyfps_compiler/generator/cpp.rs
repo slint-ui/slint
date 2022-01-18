@@ -1102,6 +1102,21 @@ fn generate_sub_component(
         parent_ctx.clone(),
     );
 
+    component.popup_windows.iter().for_each(|c| {
+        let component_id = ident(&c.root.name);
+        let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
+        generate_item_tree(
+            &mut popup_struct,
+            &c,
+            &root,
+            Some(ParentCtx::new(&ctx, None)),
+            component_id,
+            file,
+        );
+        file.definitions.extend(popup_struct.extract_definitions().collect::<Vec<_>>());
+        file.declarations.push(Declaration::Struct(popup_struct));
+    });
+
     for property in &component.properties {
         let cpp_name = ident(&property.name);
 
@@ -2171,28 +2186,24 @@ fn compile_builtin_function_call(
                 a = a.next().unwrap(),
             )
         }
-
         BuiltinFunction::ShowPopupWindow => {
-            todo!();
-            /*if let Expression::ElementReference(popup_window) = &arguments[0] {
-                let popup_window = popup_window.upgrade().unwrap();
-                let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                let popup_window_rcid = component_id(&pop_comp);
-                let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
-                let popup_list = parent_component.popup_windows.borrow();
-                let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
-                let x = access_named_reference(&popup.x, component, "self");
-                let y = access_named_reference(&popup.y, component, "self");
-                let parent_component_ref = access_element_component(&popup.parent_element, component, "self");
+            if let [llr::Expression::NumberLiteral(popup_index), x, y, llr::Expression::PropertyReference(parent_ref)] =
+                arguments
+            {
+                let window = access_window_field(ctx);
+                let current_sub_component = ctx.current_sub_component.unwrap();
+                let popup_window_id =
+                    ident(&current_sub_component.popup_windows[*popup_index as usize].root.name);
+                let parent_component = access_item_rc(parent_ref, ctx);
+                let x = compile_expression(x, ctx);
+                let y = compile_expression(y, ctx);
                 format!(
-                    "self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }}, {{ {}->self_weak.lock()->into_dyn(), {} }} );",
-                    popup_window_rcid, x, y,
-                    parent_component_ref,
-                    absolute_element_item_index_expression(&popup.parent_element),
+                    "{}.show_popup<{}>(self, {{ {}, {} }}, {{ {} }})",
+                    window, popup_window_id, x, y, parent_component,
                 )
             } else {
-                panic!("internal error: argument to SetFocusItem must be an element")
-            }*/
+                panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
+            }
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [llr::Expression::StringLiteral(path)] = arguments {
