@@ -2836,7 +2836,7 @@ fn generate_repeated_component(
         Declaration::Function(Function {
             name: "update_data".into(),
             signature: format!(
-                "(int i, const {} &data) const -> void",
+                "([[maybe_unused]] int i, [[maybe_unused]] const {} &data) const -> void",
                 model_data_type.cpp_type().unwrap()
             ),
             statements: Some(update_statements),
