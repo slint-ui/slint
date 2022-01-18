@@ -562,10 +562,12 @@ pub fn generate(doc: &Document) -> Option<impl std::fmt::Display> {
     //     );
     // }
 
-    llr.globals
-        .iter()
-        .filter(|glob| !glob.is_builtin)
-        .for_each(|glob| generate_global(&mut file, glob, &llr));
+    for glob in llr.globals.iter().filter(|glob| !glob.is_builtin) {
+        generate_global(&mut file, glob, &llr);
+        file.definitions.extend(glob.aliases.iter().map(|name| {
+            Declaration::TypeAlias(TypeAlias { old_name: ident(&glob.name), new_name: ident(name) })
+        }))
+    }
 
     generate_public_component(&mut file, &llr);
 
@@ -663,14 +665,6 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
     //     sub_components.extend_from_slice(friends.as_slice());
     //     component_struct.friends.append(&mut friends);
     // }
-
-    // let expose_property = |property: &PropertyDeclaration| -> bool {
-    //     if component.is_global() || component.is_root_component.get() {
-    //         property.expose_in_public_api
-    //     } else {
-    //         false
-    //     }
-    // };
 
     component_struct.members.iter_mut().for_each(|(access, _)| {
         *access = Access::Private;
@@ -869,45 +863,6 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
     // }
     //
 
-    // // For globals nobody calls init(), so move the init code into the constructor.
-    // // For everything else we want for whoever creates us to call init() when ready.
-    // if component.is_global() {
-    //     constructor_code.extend(init);
-    // } else {
-    //     component_struct.members.push((
-    //         if !component.is_global() && !is_sub_component {
-    //             Access::Private
-    //         } else {
-    //             Access::Public
-    //         },
-    //         Declaration::Function(Function {
-    //             name: "init".to_owned(),
-    //             signature: format!("{} -> void", init_signature),
-    //             statements: Some(init),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    // }
-    // Became:
-
-    //
-    // component_struct.members.push((
-    //     if !component.is_global() && !is_sub_component { Access::Private } else { Access::Public },
-    //     Declaration::Function(Function {
-    //         name: component_id,
-    //         signature: format!("({})", constructor_arguments),
-    //         is_constructor_or_destructor: true,
-    //         statements: Some(constructor_code),
-    //         constructor_member_initializers,
-    //         ..Default::default()
-    //     }),
-    // ));
-    //
-    // let used_types = component.used_types.borrow();
-    //
-    // let global_field_name = |glob| format!("global_{}", self::component_id(glob));
-    //
-
     for glob in &component.globals {
         let ty = if glob.is_builtin {
             format!("sixtyfps::cbindgen_private::{}", glob.name)
@@ -946,45 +901,32 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
     //     ));
     // }
 
-    // let mut global_accessor_function_body = Vec::new();
-    //
-    // for glob in used_types
-    //     .globals
-    //     .iter()
-    //     .filter(|glob| glob.visible_in_public_api() && glob.requires_code_generation())
-    // {
-    //     let mut accessor_statement = String::new();
-    //
-    //     if !global_accessor_function_body.is_empty() {
-    //         accessor_statement.push_str("else ");
-    //     }
-    //
-    //     accessor_statement.push_str(&format!(
-    //         "if constexpr(std::is_same_v<T, {}>) {{ return *{}.get(); }}",
-    //         self::component_id(glob),
-    //         global_field_name(glob)
-    //     ));
-    //
-    //     global_accessor_function_body.push(accessor_statement);
-    // }
-    //
-    // if !global_accessor_function_body.is_empty() {
-    //     global_accessor_function_body.push(
-    //         "else { static_assert(!sizeof(T*), \"The type is not global/or exported\"); }".into(),
-    //     );
-    //
-    //     component_struct.members.push((
-    //         Access::Public,
-    //         Declaration::Function(Function {
-    //             name: "global".into(),
-    //             signature: "() const -> const T&".into(),
-    //             statements: Some(global_accessor_function_body),
-    //             template_parameters: Some("typename T".into()),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    // }
-    //
+    let mut global_accessor_function_body = Vec::new();
+    for glob in component.globals.iter().filter(|glob| glob.exported && !glob.is_builtin) {
+        let accessor_statement = format!(
+            "{0}if constexpr(std::is_same_v<T, {1}>) {{ return *global_{1}.get(); }}",
+            if global_accessor_function_body.is_empty() { "" } else { "else " },
+            ident(&glob.name),
+        );
+        global_accessor_function_body.push(accessor_statement);
+    }
+    if !global_accessor_function_body.is_empty() {
+        global_accessor_function_body.push(
+            "else { static_assert(!sizeof(T*), \"The type is not global/or exported\"); }".into(),
+        );
+
+        component_struct.members.push((
+            Access::Public,
+            Declaration::Function(Function {
+                name: "global".into(),
+                signature: "() const -> const T&".into(),
+                statements: Some(global_accessor_function_body),
+                template_parameters: Some("typename T".into()),
+                ..Default::default()
+            }),
+        ));
+    }
+
     file.definitions.extend(component_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(component_struct));
 }
@@ -1380,20 +1322,6 @@ fn generate_sub_component(
             format!("sixtyfps::private_api::Property<{}>", property.ty.cpp_type().unwrap())
         };
 
-        /*
-        if is_sub_component {
-            component_struct.members.push((
-                Access::Public,
-                Declaration::Function(Function {
-                    name: format!("get_{}", &cpp_name),
-                    signature: "() const".to_owned(),
-                    statements: Some(vec![format!("return &{};", access)]),
-                    ..Default::default()
-                }),
-            ));
-        }
-        */
-
         target_struct.members.push((
             Access::Public, //FIXME: field_access,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
@@ -1753,13 +1681,15 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
         }),
     ));
 
+    let declarations = generate_public_api_for_properties(&global.public_properties, &ctx);
+    global_struct.members.extend(declarations.into_iter().map(|decl| (Access::Public, decl)));
+
     file.definitions.extend(global_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(global_struct));
 }
 
 fn generate_public_api_for_properties(
     public_properties: &llr::PublicProperties,
-
     ctx: &EvaluationContext,
 ) -> Vec<Declaration> {
     let mut declarations = Vec::new();
