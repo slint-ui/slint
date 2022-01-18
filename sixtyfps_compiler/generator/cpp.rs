@@ -2302,8 +2302,7 @@ fn compile_builtin_function_call(
                 format!("{}.scale_factor()", window)
         },
         BuiltinFunction::Debug => {
-            "[](auto... args){ (std::cout << ... << args) << std::endl; return nullptr; }"
-                .into()
+            format!("std::cout << {} << std::endl;", a.join("<<"))
         }
         BuiltinFunction::Mod => format!("static_cast<int>({}) % static_cast<int>({})", a.next().unwrap(), a.next().unwrap()),
         BuiltinFunction::Round => format!("std::round({})", a.next().unwrap()),
