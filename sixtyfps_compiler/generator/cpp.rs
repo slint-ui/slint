@@ -452,36 +452,19 @@ fn handle_property_init(
                     Some(llr::Animation::Transition (
                         anim
                     )) => {
-                        /*
-                        let anim = llr_compile_expression(anim, ctx);
-                        let state_tokens = compile_expression(state_ref, component);
-                        let mut anim_expr = animations.iter().map(|a| {
-                            let cond = compile_expression(
-                                &a.condition(Expression::ReadLocalVariable {
-                                    name: "state".into(),
-                                    ty: state_ref.ty(),
-                                }),
-                                component,
-                            );
-                            let anim = property_animation_code(component, &a.animation);
-                            format!("if ({}) {{ return {}; }}", remove_parentheses(&cond), anim)
-                        });
+                        let anim = compile_expression(anim, ctx);
                         format!(
                             "{}.set_animated_binding_for_transition({},
                             [this](uint64_t *start_time) -> sixtyfps::cbindgen_private::PropertyAnimation {{
                                 [[maybe_unused]] auto self = this;
-                                auto state = {};
-                                *start_time = state.change_time;
-                                {}
-                                return {{}};
+                                auto [anim, time] = {};
+                                *start_time = time;
+                                return anim;
                             }});",
                             prop_access,
                             binding_code,
-                            state_tokens,
-                            anim_expr.join(" ")
+                            anim,
                         )
-                        */
-                        todo!()
                     }
                     None => format!("{}.set_binding({});", prop_access, binding_code),
                 }
@@ -2222,8 +2205,8 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         .map(|e| compile_expression(e, ctx))
                         .unwrap_or_else(|| "(Error: missing member in object)".to_owned())
                 });
-                format!("{}{{{}}}", ty.cpp_type().unwrap(), elem.join(", "))
-            } else if let Type::Struct{ name: Some(name), .. } = ty {
+                format!("std::make_tuple({})", elem.join(", "))
+            } else if let Type::Struct{ name: Some(_), .. } = ty {
                 format!(
                     "[&]({args}){{ {ty} o{{}}; {fields}return o; }}({vals})",
                     args = (0..values.len()).map(|i| format!("const auto &a_{}", i)).join(", "),
