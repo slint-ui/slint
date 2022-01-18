@@ -2025,13 +2025,18 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         Expression::Array { element_ty: _, values, as_model: _ } => values
                             .iter()
                             .map(|path_elem_expr| {
-                                let qualified_elem_type_name = match path_elem_expr.ty(ctx) {
-                                    Type::Struct{ name: Some(name), .. } => name,
+                                let (field_count, qualified_elem_type_name) = match path_elem_expr.ty(ctx) {
+                                    Type::Struct{ fields, name: Some(name), .. } => (fields.len(), name),
                                     _ => unreachable!()
                                 };
                                 // Turn sixtyfps::private_api::PathLineTo into `LineTo`
                                 let elem_type_name = qualified_elem_type_name.split("::").last().unwrap().strip_prefix("Path").unwrap();
-                                format!("sixtyfps::private_api::PathElement::{}({})", elem_type_name, compile_expression(path_elem_expr, ctx))
+                                let elem_init = if field_count > 0 {
+                                    compile_expression(path_elem_expr, ctx)
+                                } else {
+                                    String::new()
+                                };
+                                format!("sixtyfps::private_api::PathElement::{}({})", elem_type_name, elem_init)
                             }),
                         _ => {
                             unreachable!()

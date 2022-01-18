@@ -322,6 +322,7 @@ QuadraticTo := _ {
 
 Close := _ {
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::Close
+    //-cpp_type:sixtyfps::private_api::PathClose
     //-is_non_item_type
     //-is_non_item_type
 }
