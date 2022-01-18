@@ -786,15 +786,10 @@ pub fn generate(doc: &Document) -> Option<impl std::fmt::Display> {
         ..Default::default()
     }));
 
-
     Some(file)
 }
 
-fn generate_struct(
-    file: &mut File,
-    name: &str,
-    fields: &BTreeMap<String, Type>,
-) {
+fn generate_struct(file: &mut File, name: &str, fields: &BTreeMap<String, Type>) {
     let mut operator_eq = String::new();
     let mut members = fields
         .iter()
@@ -844,10 +839,7 @@ fn generate_struct(
 /// Generate the component in `file`.
 ///
 /// `sub_components`, if Some, will be filled with all the sub component which needs to be added as friends
-fn generate_public_component(
-    file: &mut File,
-    component: &llr::PublicComponent,
-) {
+fn generate_public_component(file: &mut File, component: &llr::PublicComponent) {
     let root_component = &component.item_tree.root;
     let component_id = ident(&root_component.name);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
@@ -886,7 +878,7 @@ fn generate_public_component(
     //     }
     // };
 
-    component_struct.members.iter_mut().for_each(|(access, _)|{
+    component_struct.members.iter_mut().for_each(|(access, _)| {
         *access = Access::Private;
     });
 
@@ -2235,14 +2227,16 @@ fn generate_item_tree(
         "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uintptr_t dyn_index) -> uint64_t {".to_owned(),
         format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name)];
 
-    if target_struct.members.iter().any(|(_, declaration)| { match &declaration {
-        Declaration::Function(func @ Function{ .. } ) if func.name == "visit_dynamic_children" => true,
+    if target_struct.members.iter().any(|(_, declaration)| match &declaration {
+        Declaration::Function(func @ Function { .. }) if func.name == "visit_dynamic_children" => {
+            true
+        }
         _ => false,
-    }}) {
-        visit_children_statements.push("    return self->visit_dynamic_children(dyn_index, order, visitor);".into());
+    }) {
+        visit_children_statements
+            .push("    return self->visit_dynamic_children(dyn_index, order, visitor);".into());
     }
 
-      
     visit_children_statements.extend([        
         "    std::abort();\n};".to_owned(),
         format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", item_tree_class_name),
@@ -2846,7 +2840,10 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
         */
 
         global_struct.members.push((
-            Access::Public, //FIXME: field_access,
+            // FIXME: this is public (and also was public in the pre-llr generator) because other generated code accesses the
+            // fields directly. But it shouldn't be from an API point of view since the same `global_struct` class is public API
+            // when the global is exported and exposed in the public component.
+            Access::Public,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
         ));
     }
@@ -2857,7 +2854,7 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
 
 fn generate_public_api_for_properties(
     public_properties: &llr::PublicProperties,
-   
+
     ctx: &EvaluationContext,
 ) -> Vec<Declaration> {
     let mut declarations = Vec::new();
@@ -2877,48 +2874,42 @@ fn generate_public_api_for_properties(
                     (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
                 ),
             ];
-            declarations.push(
-                Declaration::Function(Function {
-                    name: format!("invoke_{}", ident(p)),
-                    signature: format!(
-                        "({}) const -> {}",
-                        param_types
-                            .iter()
-                            .enumerate()
-                            .map(|(i, ty)| format!("{} arg_{}", ty, i))
-                            .join(", "),
-                        return_type
-                    ),
-                    statements: Some(callback_emitter),
-                    ..Default::default()
-                }),
-            );
-            declarations.push(
-                Declaration::Function(Function {
-                    name: format!("on_{}", ident(p)),
-                    template_parameters: Some("typename Functor".into()),
-                    signature: "(Functor && callback_handler) const".into(),
-                    statements: Some(vec![
-                        "[[maybe_unused]] auto self = this;".into(),
-                        format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
-                    ]),
-                    ..Default::default()
-                }),
-            );
+            declarations.push(Declaration::Function(Function {
+                name: format!("invoke_{}", ident(p)),
+                signature: format!(
+                    "({}) const -> {}",
+                    param_types
+                        .iter()
+                        .enumerate()
+                        .map(|(i, ty)| format!("{} arg_{}", ty, i))
+                        .join(", "),
+                    return_type
+                ),
+                statements: Some(callback_emitter),
+                ..Default::default()
+            }));
+            declarations.push(Declaration::Function(Function {
+                name: format!("on_{}", ident(p)),
+                template_parameters: Some("typename Functor".into()),
+                signature: "(Functor && callback_handler) const".into(),
+                statements: Some(vec![
+                    "[[maybe_unused]] auto self = this;".into(),
+                    format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
+                ]),
+                ..Default::default()
+            }));
         } else {
             let cpp_property_type = ty.cpp_type().expect("Invalid type in public properties");
             let prop_getter: Vec<String> = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!("return {}.get();", access),
             ];
-            declarations.push(
-                Declaration::Function(Function {
-                    name: format!("get_{}", &prop_ident),
-                    signature: format!("() const -> {}", &cpp_property_type),
-                    statements: Some(prop_getter),
-                    ..Default::default()
-                }),
-            );
+            declarations.push(Declaration::Function(Function {
+                name: format!("get_{}", &prop_ident),
+                signature: format!("() const -> {}", &cpp_property_type),
+                statements: Some(prop_getter),
+                ..Default::default()
+            }));
 
             let set_value = "set(value)"; // FIXME: Do the right thing here!
                                           // let set_value = if let Some(alias) = &property_decl.is_alias {
@@ -2931,17 +2922,13 @@ fn generate_public_api_for_properties(
                 "[[maybe_unused]] auto self = this;".into(),
                 format!("{}.{};", access, set_value),
             ];
-            declarations.push(
-                Declaration::Function(Function {
-                    name: format!("set_{}", &prop_ident),
-                    signature: format!("(const {} &value) const", &cpp_property_type),
-                    statements: Some(prop_setter),
-                    ..Default::default()
-                }),
-            );
+            declarations.push(Declaration::Function(Function {
+                name: format!("set_{}", &prop_ident),
+                signature: format!("(const {} &value) const", &cpp_property_type),
+                statements: Some(prop_setter),
+                ..Default::default()
+            }));
         }
-
-       
     }
     declarations
 }
@@ -3027,7 +3014,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     let (compo_path, sub_component) =
                         follow_sub_component_path(sub_component, sub_component_path);
                     let property_name = ident(&sub_component.properties[*property_index].name);
-                    format!("{}->{}{}", path, compo_path, property_name)                    
+                    format!("{}->{}{}", path, compo_path, property_name)
                 }
                 llr::PropertyReference::InNativeItem {
                     sub_component_path,
@@ -3038,7 +3025,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     unreachable!()
                 }
             }
-        },
+        }
         llr::PropertyReference::Global { global_index, property_index } => {
             let root_access = &ctx.generator_state;
             let global = &ctx.public_component.globals[*global_index];
