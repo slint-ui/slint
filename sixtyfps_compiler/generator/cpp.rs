@@ -1699,58 +1699,6 @@ fn native_item<'a>(
     }
 }
 
-/*
-
-/// Returns the code that can access the component of the given element
-fn access_element_component<'a>(
-    element: &ElementRc,
-    current_component: &Rc<Component>,
-    component_cpp: &'a str,
-) -> Cow<'a, str> {
-    let e = element.borrow();
-    let enclosing_component = e.enclosing_component.upgrade().unwrap();
-    if Rc::ptr_eq(current_component, &enclosing_component) {
-        component_cpp.into()
-    } else {
-        access_element_component(
-            element,
-            &current_component
-                .parent_element
-                .upgrade()
-                .unwrap()
-                .borrow()
-                .enclosing_component
-                .upgrade()
-                .unwrap(),
-            &format!("{}->parent", component_cpp),
-        )
-        .to_string()
-        .into()
-    }
-}
-
-// Returns an expression that will compute the absolute item index in the item tree for a
-// given element. For elements of a child component or the root component, the item_index
-// is already absolute within the corresponding item tree. For sub-components we return an
-// expression that computes the value at run-time.
-fn absolute_element_item_index_expression(element: &ElementRc) -> String {
-    let element = element.borrow();
-    let local_index = element.item_index.get().unwrap();
-    let enclosing_component = element.enclosing_component.upgrade().unwrap();
-    if enclosing_component.is_sub_component() {
-        if *local_index == 0 {
-            "this->tree_index".to_string()
-        } else if *local_index == 1 {
-            "this->tree_index_of_first_child".to_string()
-        } else {
-            format!("this->tree_index_of_first_child + {}", local_index)
-        }
-    } else {
-        local_index.to_string()
-    }
-}
-*/
-
 fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String {
     use llr::Expression;
     match expr {
