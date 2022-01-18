@@ -456,8 +456,6 @@ fn public_api(
 }
 
 /// Generate the rust code for the given component.
-///
-/// Fill the diagnostic in case of error.
 fn generate_sub_component(
     component: &llr::SubComponent,
     root: &llr::PublicComponent,
