@@ -1574,6 +1574,7 @@ fn generate_repeated_component(
                     "(float *offset_y, const sixtyfps::private_api::Property<float> *viewport_width) const -> void"
                         .to_owned(),
                 statements: Some(vec![
+                    "[[maybe_unused]] auto self = this;".into(),
                     "float vp_w = viewport_width->get();".to_owned(),
 
                     format!("{}.set(*offset_y);", p_y), // FIXME: shouldn't that be handled by apply layout?
@@ -1803,7 +1804,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             }
         }
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
-            in_native_item(ctx, sub_component_path, *item_index, prop_name, "this")
+            in_native_item(ctx, sub_component_path, *item_index, prop_name, "self")
         }
         llr::PropertyReference::InParent { level, parent_reference } => {
             let mut ctx = ctx;

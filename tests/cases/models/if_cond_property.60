@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// Test that the condition of an if can access the properties of native items
+
+
+TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    ta := TouchArea {}
+    if (ta.pressed) : Rectangle {}
+}
