@@ -987,18 +987,17 @@ fn generate_item_tree(
         "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uintptr_t dyn_index) -> uint64_t {".to_owned(),
         format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name)];
 
-    if target_struct.members.iter().any(|(_, declaration)| match &declaration {
-        Declaration::Function(func @ Function { .. }) if func.name == "visit_dynamic_children" => {
-            true
-        }
-        _ => false,
+    if target_struct.members.iter().any(|(_, declaration)| {
+        matches!(&declaration, Declaration::Function(func @ Function { .. }) if func.name == "visit_dynamic_children")
     }) {
         visit_children_statements
             .push("    return self->visit_dynamic_children(dyn_index, order, visitor);".into());
+    } else {
+        visit_children_statements.push("    std::abort();".into());
     }
 
     visit_children_statements.extend([
-        "    std::abort();\n};".to_owned(),
+        "};".into(),
         format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", item_tree_class_name),
         "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
     ]);
