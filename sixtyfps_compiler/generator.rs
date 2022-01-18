@@ -75,9 +75,8 @@ pub fn generate(
     match format {
         #[cfg(feature = "cpp")]
         OutputFormat::Cpp => {
-            if let Some(output) = cpp::generate(doc) {
-                write!(destination, "{}", output)?;
-            }
+            let output = cpp::generate(doc);
+            write!(destination, "{}", output)?;
         }
         #[cfg(feature = "rust")]
         OutputFormat::Rust => {

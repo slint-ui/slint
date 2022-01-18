@@ -470,7 +470,7 @@ fn handle_property_init(
 }
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(doc: &Document) -> Option<impl std::fmt::Display> {
+pub fn generate(doc: &Document) -> impl std::fmt::Display {
     let mut file = File::default();
 
     file.includes.push("<array>".into());
@@ -554,7 +554,7 @@ pub fn generate(doc: &Document) -> Option<impl std::fmt::Display> {
         ..Default::default()
     }));
 
-    Some(file)
+    file
 }
 
 fn generate_struct(file: &mut File, name: &str, fields: &BTreeMap<String, Type>) {
