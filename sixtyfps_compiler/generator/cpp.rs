@@ -1978,7 +1978,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, ctx);
             match (from.ty(ctx), to) {
-                (Type::Float32, Type::String) | (Type::Int32, Type::String) => {
+                (from, Type::String) if from.as_unit_product().is_some() => {
                     format!("sixtyfps::SharedString::from_number({})", f)
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
