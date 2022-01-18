@@ -1733,16 +1733,9 @@ fn generate_public_api_for_properties(
                 ..Default::default()
             }));
 
-            let set_value = "set(value)"; // FIXME: Do the right thing here!
-                                          // let set_value = if let Some(alias) = &property_decl.is_alias {
-                                          //     property_set_value_code(component, &alias.element(), alias.name(), "value")
-                                          // } else {
-                                          //     property_set_value_code(component, &component.root_element, prop_name, "value")
-                                          // };
-
             let prop_setter: Vec<String> = vec![
                 "[[maybe_unused]] auto self = this;".into(),
-                format!("{}.{};", access, set_value),
+                property_set_value_code(r, "value", ctx) + ";",
             ];
             declarations.push(Declaration::Function(Function {
                 name: format!("set_{}", &prop_ident),
