@@ -781,7 +781,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         .filter(|glob| !glob.is_builtin)
         .for_each(|glob| generate_global(&mut file, glob, &llr));
 
-    generate_public_component(&mut file, &llr, diag, true);
+    generate_public_component(&mut file, &llr, diag);
 
     file.definitions.push(Declaration::Var(Var{
         ty: format!(
@@ -866,7 +866,6 @@ fn generate_public_component(
     file: &mut File,
     component: &llr::PublicComponent,
     diag: &mut BuildDiagnostics,
-    is_exported: bool,
 ) {
     let root_component = &component.item_tree.root;
     let component_id = ident(&root_component.name);
@@ -906,198 +905,12 @@ fn generate_public_component(
     //     }
     // };
 
-    let field_access = if is_exported { Access::Public } else { Access::Private };
+    component_struct.members.iter_mut().for_each(|(access, _)|{
+        *access = Access::Private;
+    });
 
-    for (p, (ty, r)) in &component.public_properties {
-        let prop_ident = ident(p);
-
-        let access = access_member(r, &ctx);
-
-        if let Type::Callback { args, return_type } = ty {
-            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
-            let return_type = return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
-            let callback_emitter = vec![
-                "[[maybe_unused]] auto self = this;".into(),
-                format!(
-                    "return {}.call({});",
-                    access,
-                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
-                ),
-            ];
-            component_struct.members.push((
-                Access::Public,
-                Declaration::Function(Function {
-                    name: format!("invoke_{}", ident(p)),
-                    signature: format!(
-                        "({}) const -> {}",
-                        param_types
-                            .iter()
-                            .enumerate()
-                            .map(|(i, ty)| format!("{} arg_{}", ty, i))
-                            .join(", "),
-                        return_type
-                    ),
-                    statements: Some(callback_emitter),
-                    ..Default::default()
-                }),
-            ));
-            component_struct.members.push((
-                Access::Public,
-                Declaration::Function(Function {
-                    name: format!("on_{}", ident(p)),
-                    template_parameters: Some("typename Functor".into()),
-                    signature: "(Functor && callback_handler) const".into(),
-                    statements: Some(vec![
-                        "[[maybe_unused]] auto self = this;".into(),
-                        format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
-                    ]),
-                    ..Default::default()
-                }),
-            ));
-        } else {
-            let cpp_property_type = ty.cpp_type().expect("Invalid type in public properties");
-            let prop_getter: Vec<String> = vec![
-                "[[maybe_unused]] auto self = this;".into(),
-                format!("return {}.get();", access),
-            ];
-            component_struct.members.push((
-                Access::Public,
-                Declaration::Function(Function {
-                    name: format!("get_{}", &prop_ident),
-                    signature: format!("() const -> {}", &cpp_property_type),
-                    statements: Some(prop_getter),
-                    ..Default::default()
-                }),
-            ));
-
-            let set_value = "set(value)"; // FIXME: Do the right thing here!
-                                          // let set_value = if let Some(alias) = &property_decl.is_alias {
-                                          //     property_set_value_code(component, &alias.element(), alias.name(), "value")
-                                          // } else {
-                                          //     property_set_value_code(component, &component.root_element, prop_name, "value")
-                                          // };
-
-            let prop_setter: Vec<String> = vec![
-                "[[maybe_unused]] auto self = this;".into(),
-                format!("{}.{};", access, set_value),
-            ];
-            component_struct.members.push((
-                Access::Public,
-                Declaration::Function(Function {
-                    name: format!("set_{}", &prop_ident),
-                    signature: format!("(const {} &value) const", &cpp_property_type),
-                    statements: Some(prop_setter),
-                    ..Default::default()
-                }),
-            ));
-        }
-
-        //     let access = if let Some(alias) = &property_decl.is_alias {
-        //         access_named_reference(alias, component, "this")
-        //     } else {
-        //         format!("this->{}", cpp_name)
-        //     };
-        //
-        //     let ty = if let Type::Callback { args, return_type } = &property_decl.property_type {
-        //         let param_types =
-        //             args.iter().map(|t| get_cpp_type(t, property_decl, diag)).collect::<Vec<_>>();
-        //         let return_type = return_type
-        //             .as_ref()
-        //             .map_or("void".into(), |t| get_cpp_type(t, property_decl, diag));
-        //         if expose_property(property_decl) {
-        //             let callback_emitter = vec![format!(
-        //                 "return {}.call({});",
-        //                 access,
-        //                 (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
-        //             )];
-        //             component_struct.members.push((
-        //                 Access::Public,
-        //                 Declaration::Function(Function {
-        //                     name: format!("invoke_{}", cpp_name),
-        //                     signature: format!(
-        //                         "({}) const -> {}",
-        //                         param_types
-        //                             .iter()
-        //                             .enumerate()
-        //                             .map(|(i, ty)| format!("{} arg_{}", ty, i))
-        //                             .join(", "),
-        //                         return_type
-        //                     ),
-        //                     statements: Some(callback_emitter),
-        //                     ..Default::default()
-        //                 }),
-        //             ));
-        //             component_struct.members.push((
-        //                 Access::Public,
-        //                 Declaration::Function(Function {
-        //                     name: format!("on_{}", cpp_name),
-        //                     template_parameters: Some("typename Functor".into()),
-        //                     signature: "(Functor && callback_handler) const".into(),
-        //                     statements: Some(vec![format!(
-        //                         "{}.set_handler(std::forward<Functor>(callback_handler));",
-        //                         access
-        //                     )]),
-        //                     ..Default::default()
-        //                 }),
-        //             ));
-        //         }
-        //         format!("sixtyfps::private_api::Callback<{}({})>", return_type, param_types.join(", "))
-        //     } else {
-        //         let cpp_type = get_cpp_type(&property_decl.property_type, property_decl, diag);
-        //
-        //         if expose_property(property_decl) {
-        //             let prop_getter: Vec<String> = vec![format!("return {}.get();", access)];
-        //             component_struct.members.push((
-        //                 Access::Public,
-        //                 Declaration::Function(Function {
-        //                     name: format!("get_{}", cpp_name),
-        //                     signature: format!("() const -> {}", cpp_type),
-        //                     statements: Some(prop_getter),
-        //                     ..Default::default()
-        //                 }),
-        //             ));
-        //
-        //             let set_value = if let Some(alias) = &property_decl.is_alias {
-        //                 property_set_value_code(component, &alias.element(), alias.name(), "value")
-        //             } else {
-        //                 property_set_value_code(component, &component.root_element, prop_name, "value")
-        //             };
-        //
-        //             let prop_setter: Vec<String> = vec![
-        //                 "[[maybe_unused]] auto self = this;".into(),
-        //                 format!("{}.{};", access, set_value),
-        //             ];
-        //             component_struct.members.push((
-        //                 Access::Public,
-        //                 Declaration::Function(Function {
-        //                     name: format!("set_{}", cpp_name),
-        //                     signature: format!("(const {} &value) const", cpp_type),
-        //                     statements: Some(prop_setter),
-        //                     ..Default::default()
-        //                 }),
-        //             ));
-        //         }
-        //         format!("sixtyfps::private_api::Property<{}>", cpp_type)
-        //     };
-        //
-        //     if is_sub_component {
-        //         component_struct.members.push((
-        //             Access::Public,
-        //             Declaration::Function(Function {
-        //                 name: format!("get_{}", &cpp_name),
-        //                 signature: "() const".to_owned(),
-        //                 statements: Some(vec![format!("return &{};", access)]),
-        //                 ..Default::default()
-        //             }),
-        //         ));
-        //     }
-        //     if property_decl.is_alias.is_none() {
-        //         component_struct.members.push((
-        //             field_access,
-        //             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
-        //         ));
-        //     }
-    }
+    let declarations = generate_public_api_for_properties(&component.public_properties, &ctx);
+    component_struct.members.extend(declarations.into_iter().map(|decl| (Access::Public, decl)));
 
     // let mut constructor_arguments = String::new();
     // let mut constructor_member_initializers = vec![];
@@ -1172,209 +985,6 @@ fn generate_public_component(
     component_struct
         .friends
         .extend(component.sub_components.iter().map(|sub_compo| ident(&sub_compo.name)));
-
-    // struct TreeBuilder<'a> {
-    //     tree_array: Vec<String>,
-    //     children_visitor_cases: Vec<String>,
-    //     constructor_member_initializers: &'a mut Vec<String>,
-    //     root_ptr: String,
-    //     item_index_base: &'static str,
-    //     field_access: Access,
-    //     component_struct: &'a mut Struct,
-    //     component: &'a Rc<Component>,
-    //     root_component: &'a Rc<Component>,
-    //     diag: &'a mut BuildDiagnostics,
-    //     file: &'a mut File,
-    //     sub_components: &'a mut Vec<String>,
-    //     init: &'a mut Vec<String>,
-    // }
-    // impl<'a> super::ItemTreeBuilder for TreeBuilder<'a> {
-    //     // offsetof(App, sub_component) + offsetof(SubComponent, sub_sub_component) + ...
-    //     type SubComponentState = String;
-    //
-    //     fn push_repeated_item(
-    //         &mut self,
-    //         item_rc: &crate::object_tree::ElementRc,
-    //         repeater_count: u32,
-    //         parent_index: u32,
-    //         component_state: &Self::SubComponentState,
-    //     ) {
-    //         if component_state.is_empty() {
-    //             let item = item_rc.borrow();
-    //             let base_component = item.base_type.as_component();
-    //             let mut friends = Vec::new();
-    //             generate_component(
-    //                 self.file,
-    //                 base_component,
-    //                 self.root_component,
-    //                 self.diag,
-    //                 &mut friends,
-    //             );
-    //             self.sub_components.extend_from_slice(friends.as_slice());
-    //             self.sub_components.push(self::component_id(base_component));
-    //             self.component_struct.friends.append(&mut friends);
-    //             self.component_struct.friends.push(self::component_id(base_component));
-    //             let repeated = item.repeated.as_ref().unwrap();
-    //             handle_repeater(
-    //                 repeated,
-    //                 base_component,
-    //                 self.component,
-    //                 repeater_count,
-    //                 self.component_struct,
-    //                 self.init,
-    //                 &mut self.children_visitor_cases,
-    //                 self.diag,
-    //             );
-    //         }
-    //
-    //         self.tree_array.push(format!(
-    //             "sixtyfps::private_api::make_dyn_node({}, {})",
-    //             repeater_count, parent_index
-    //         ));
-    //     }
-    //     fn push_native_item(
-    //         &mut self,
-    //         item_rc: &ElementRc,
-    //         children_offset: u32,
-    //         parent_index: u32,
-    //         component_state: &Self::SubComponentState,
-    //     ) {
-    //         let item = item_rc.borrow();
-    //         if component_state.is_empty() {
-    //             handle_item(item_rc, self.field_access, self.component_struct);
-    //         }
-    //         if item.is_flickable_viewport {
-    //             self.tree_array.push(format!(
-    //                 "sixtyfps::private_api::make_item_node({}offsetof({}, {}) + offsetof(sixtyfps::cbindgen_private::Flickable, viewport), SIXTYFPS_GET_ITEM_VTABLE(RectangleVTable), {}, {}, {})",
-    //                 component_state,
-    //                 &self::component_id(&item.enclosing_component.upgrade().unwrap()),
-    //                 ident(&crate::object_tree::find_parent_element(item_rc).unwrap().borrow().id),
-    //                 item.children.len(),
-    //                 children_offset,
-    //                 parent_index,
-    //             ));
-    //         } else if let Type::Native(native_class) = &item.base_type {
-    //             self.tree_array.push(format!(
-    //                 "sixtyfps::private_api::make_item_node({}offsetof({}, {}), {}, {}, {}, {})",
-    //                 component_state,
-    //                 &self::component_id(&item.enclosing_component.upgrade().unwrap()),
-    //                 ident(&item.id),
-    //                 native_class.cpp_vtable_getter,
-    //                 item.children.len(),
-    //                 children_offset,
-    //                 parent_index,
-    //             ));
-    //         } else {
-    //             panic!("item don't have a native type");
-    //         }
-    //     }
-    //     fn enter_component(
-    //         &mut self,
-    //         item_rc: &ElementRc,
-    //         sub_component: &Rc<Component>,
-    //         children_offset: u32,
-    //         component_state: &Self::SubComponentState,
-    //     ) -> Self::SubComponentState {
-    //         let item = item_rc.borrow();
-    //         // Sub-components don't have an entry in the item tree themselves, but we propagate their tree offsets through the constructors.
-    //         if component_state.is_empty() {
-    //             let class_name = self::component_id(sub_component);
-    //             let member_name = ident(&item.id);
-    //
-    //             self.init.push(format!("{}.init(self_weak.into_dyn());", member_name));
-    //
-    //             self.component_struct.members.push((
-    //                 self.field_access,
-    //                 Declaration::Var(Var {
-    //                     ty: class_name,
-    //                     name: member_name,
-    //                     ..Default::default()
-    //                 }),
-    //             ));
-    //
-    //             self.constructor_member_initializers.push(format!(
-    //                 "{member_name}{{{root_ptr}, {item_index_base}{local_index}, {item_index_base}{local_children_offset}}}",
-    //                 root_ptr = self.root_ptr,
-    //                 member_name = ident(&item.id),
-    //                 item_index_base = self.item_index_base,
-    //                 local_index = item.item_index.get().unwrap(),
-    //                 local_children_offset = children_offset
-    //             ));
-    //         };
-    //
-    //         format!(
-    //             "{}offsetof({}, {}) + ",
-    //             component_state,
-    //             &self::component_id(&item.enclosing_component.upgrade().unwrap()),
-    //             ident(&item.id)
-    //         )
-    //     }
-    //
-    //     fn enter_component_children(
-    //         &mut self,
-    //         item_rc: &ElementRc,
-    //         repeater_count: u32,
-    //         component_state: &Self::SubComponentState,
-    //         _sub_component_state: &Self::SubComponentState,
-    //     ) {
-    //         let item = item_rc.borrow();
-    //         if component_state.is_empty() {
-    //             let sub_component = item.sub_component().unwrap();
-    //             let member_name = ident(&item.id);
-    //
-    //             let sub_component_repeater_count = sub_component.repeater_count();
-    //             if sub_component_repeater_count > 0 {
-    //                 let mut case_code = String::new();
-    //                 for local_repeater_index in 0..sub_component_repeater_count {
-    //                     write!(case_code, "case {}: ", repeater_count + local_repeater_index)
-    //                         .unwrap();
-    //                 }
-    //
-    //                 self.children_visitor_cases.push(format!(
-    //                     "\n        {case_code} {{
-    //                             return self->{id}.visit_dynamic_children(dyn_index - {base}, order, visitor);
-    //                         }}",
-    //                     case_code = case_code,
-    //                     id = member_name,
-    //                     base = repeater_count,
-    //                 ));
-    //             }
-    //         }
-    //     }
-    // }
-    //
-    // For children of sub-components, the item index generated by the generate_item_indices pass
-    // starts at 1 (0 is the root element).
-    // let item_index_base = if is_sub_component { "tree_index_of_first_child - 1 + " } else { "" };
-    //
-    // let mut builder = TreeBuilder {
-    //     tree_array: vec![],
-    //     children_visitor_cases: vec![],
-    //     constructor_member_initializers: &mut constructor_member_initializers,
-    //     root_ptr: access_root_tokens(component),
-    //     item_index_base,
-    //     field_access,
-    //     component_struct: &mut component_struct,
-    //     component,
-    //     root_component,
-    //     diag,
-    //     file,
-    //     sub_components,
-    //     init: &mut init,
-    // };
-    // if !component.is_global() {
-    //     super::build_item_tree(component, &String::new(), &mut builder);
-    // }
-    //
-    // let tree_array = std::mem::take(&mut builder.tree_array);
-    // let children_visitor_cases = std::mem::take(&mut builder.children_visitor_cases);
-    // drop(builder);
-    //
-    // super::handle_property_bindings_init(component, |elem, prop, binding| {
-    //     handle_property_binding(elem, prop, binding, &mut init)
-    // });
-    //
-    // if is_child_component || component.is_root_component.get() {
 
     generate_item_tree(
         &mut component_struct,
@@ -3028,7 +2638,7 @@ fn generate_sub_component(
         }
 
         target_struct.members.push((
-            Access::Public, // FIXME
+            Access::Public,
             Declaration::Var(Var {
                 ty: ident(&sub.ty.name),
                 name: field_name,
@@ -3056,7 +2666,7 @@ fn generate_sub_component(
             continue;
         }
         target_struct.members.push((
-            Access::Public, //FIXME: field_access,
+            Access::Public,
             Declaration::Var(Var {
                 ty: format!("sixtyfps::cbindgen_private::{}", ident(&item.ty.class_name)),
                 name: ident(&item.name),
@@ -3124,7 +2734,7 @@ fn generate_sub_component(
     init.extend(properties_init_code);
 
     target_struct.members.push((
-        Access::Public, // FIXME
+        Access::Public,
         Declaration::Function(Function {
             name: "init".to_owned(),
             signature: format!("({}) -> void", init_parameters.join(",")),
@@ -3134,7 +2744,7 @@ fn generate_sub_component(
     ));
 
     target_struct.members.push((
-        Access::Public, // FIXME
+        Access::Public,
         Declaration::Function(Function {
             name: "layout_info".into(),
             signature: "(sixtyfps::cbindgen_private::Orientation o) const -> sixtyfps::LayoutInfo"
@@ -3262,6 +2872,97 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
 
     file.definitions.extend(global_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(global_struct));
+}
+
+fn generate_public_api_for_properties(
+    public_properties: &llr::PublicProperties,
+   
+    ctx: &EvaluationContext,
+) -> Vec<Declaration> {
+    let mut declarations = Vec::new();
+    for (p, (ty, r)) in public_properties.iter() {
+        let prop_ident = ident(p);
+
+        let access = access_member(r, &ctx);
+
+        if let Type::Callback { args, return_type } = ty {
+            let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
+            let return_type = return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
+            let callback_emitter = vec![
+                "[[maybe_unused]] auto self = this;".into(),
+                format!(
+                    "return {}.call({});",
+                    access,
+                    (0..args.len()).map(|i| format!("arg_{}", i)).join(", ")
+                ),
+            ];
+            declarations.push(
+                Declaration::Function(Function {
+                    name: format!("invoke_{}", ident(p)),
+                    signature: format!(
+                        "({}) const -> {}",
+                        param_types
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ty)| format!("{} arg_{}", ty, i))
+                            .join(", "),
+                        return_type
+                    ),
+                    statements: Some(callback_emitter),
+                    ..Default::default()
+                }),
+            );
+            declarations.push(
+                Declaration::Function(Function {
+                    name: format!("on_{}", ident(p)),
+                    template_parameters: Some("typename Functor".into()),
+                    signature: "(Functor && callback_handler) const".into(),
+                    statements: Some(vec![
+                        "[[maybe_unused]] auto self = this;".into(),
+                        format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
+                    ]),
+                    ..Default::default()
+                }),
+            );
+        } else {
+            let cpp_property_type = ty.cpp_type().expect("Invalid type in public properties");
+            let prop_getter: Vec<String> = vec![
+                "[[maybe_unused]] auto self = this;".into(),
+                format!("return {}.get();", access),
+            ];
+            declarations.push(
+                Declaration::Function(Function {
+                    name: format!("get_{}", &prop_ident),
+                    signature: format!("() const -> {}", &cpp_property_type),
+                    statements: Some(prop_getter),
+                    ..Default::default()
+                }),
+            );
+
+            let set_value = "set(value)"; // FIXME: Do the right thing here!
+                                          // let set_value = if let Some(alias) = &property_decl.is_alias {
+                                          //     property_set_value_code(component, &alias.element(), alias.name(), "value")
+                                          // } else {
+                                          //     property_set_value_code(component, &component.root_element, prop_name, "value")
+                                          // };
+
+            let prop_setter: Vec<String> = vec![
+                "[[maybe_unused]] auto self = this;".into(),
+                format!("{}.{};", access, set_value),
+            ];
+            declarations.push(
+                Declaration::Function(Function {
+                    name: format!("set_{}", &prop_ident),
+                    signature: format!("(const {} &value) const", &cpp_property_type),
+                    statements: Some(prop_setter),
+                    ..Default::default()
+                }),
+            );
+        }
+
+       
+    }
+    declarations
 }
 
 fn follow_sub_component_path<'a>(
