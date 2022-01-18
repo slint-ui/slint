@@ -297,6 +297,7 @@ use crate::object_tree::Document;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::collections::BTreeMap;
+use std::num::NonZeroUsize;
 
 type EvaluationContext<'a> = llr_EvaluationContext<'a, String>;
 type ParentCtx<'a> = llr_ParentCtx<'a, String>;
@@ -826,6 +827,15 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
     component_struct
         .friends
         .extend(component.sub_components.iter().map(|sub_compo| ident(&sub_compo.name)));
+
+    component_struct.friends.extend(
+        component
+            .item_tree
+            .root
+            .repeated
+            .iter()
+            .map(|repeater| ident(&repeater.sub_tree.root.name)),
+    );
 
     generate_item_tree(
         &mut component_struct,
@@ -2113,7 +2123,42 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let value = compile_expression(value, ctx);
             property_set_value_code(property, &value, ctx)
         }
-        Expression::ModelDataAssignment { .. } | Expression::ArrayIndexAssignment { .. } => todo!("LLR {:#?}", expr),
+        Expression::ModelDataAssignment { level, value } => {
+            let value = compile_expression(value, ctx);
+            let mut path = "self".to_string();
+            let mut ctx2 = ctx;
+            let mut repeater_index = None;
+            for _ in 0..=*level {
+                let x = ctx2.parent.clone().unwrap();
+                ctx2 = x.ctx;
+                repeater_index = x.repeater_index;
+                write!(path, "->parent").unwrap();
+            }
+            let repeater_index = repeater_index.unwrap();
+            let mut index_prop = llr::PropertyReference::Local {
+                sub_component_path: vec![],
+                property_index: ctx2.current_sub_component.unwrap().repeated[repeater_index]
+                    .index_prop
+                    .unwrap(),
+            };
+            if let Some(level) = NonZeroUsize::new(*level) {
+                index_prop =
+                    llr::PropertyReference::InParent { level, parent_reference: index_prop.into() };
+            }
+            let index_access = access_member(&index_prop, ctx);
+            write!(path, "->repeater_{}", repeater_index).unwrap();
+            format!("{}.model_set_row_data({}.get(), {})", path, index_access, value)
+        }
+        Expression::ArrayIndexAssignment { array, index, value } => {
+            debug_assert!(matches!(array.ty(ctx), Type::Array(_)));
+            let base_e = compile_expression(array, ctx);
+            let index_e = compile_expression(index, ctx);
+            let value_e = compile_expression(value, ctx);
+            format!(
+                "{}->set_row_data({}, {})",
+                base_e, index_e, value_e
+            )
+        }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let mut buffer = [0; 3];
             format!(
