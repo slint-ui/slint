@@ -75,6 +75,7 @@ pub enum Expression {
     /// A BuiltinFunctionCall, but the function is not yet in the `BuiltinFunction` enum
     /// TODO: merge in BuiltinFunctionCall
     ExtraBuiltinFunctionCall {
+        return_ty: Type,
         function: String,
         arguments: Vec<Expression>,
     },
@@ -254,7 +255,7 @@ impl Expression {
                     Type::Invalid
                 }
             }
-            Self::ExtraBuiltinFunctionCall { .. } => todo!(),
+            Self::ExtraBuiltinFunctionCall { return_ty, .. } => return_ty.clone(),
             Self::PropertyAssignment { .. } => Type::Void,
             Self::ModelDataAssignment { .. } => Type::Void,
             Self::ArrayIndexAssignment { .. } => Type::Void,
