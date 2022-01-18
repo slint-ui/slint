@@ -664,19 +664,13 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
     // let mut constructor_member_initializers = vec![];
     // let mut constructor_code = vec![];
 
-    let mut window_init = None;
-    let mut access = Access::Private;
-
-    window_init = Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into());
-    // FIXME: many of the different component bindings need to access this
-    access = Access::Public;
-
     component_struct.members.push((
-        access,
+        // FIXME: many of the different component bindings need to access this
+        Access::Public,
         Declaration::Var(Var {
             ty: "sixtyfps::Window".into(),
             name: "m_window".into(),
-            init: window_init,
+            init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
             ..Default::default()
         }),
     ));
