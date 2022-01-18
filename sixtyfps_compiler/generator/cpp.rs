@@ -2381,35 +2381,30 @@ fn compile_builtin_function_call(
                 panic!("internal error: argument to SetFocusItem must be an element")
             }*/
         }
-        BuiltinFunction::RegisterCustomFontByPath | BuiltinFunction::RegisterCustomFontByMemory => {
-            todo!()
+        BuiltinFunction::RegisterCustomFontByPath => {
+            if let [llr::Expression::StringLiteral(path)] = arguments {
+                format!(
+                    "sixtyfps::private_api::register_font_from_path(\"{}\");",
+                    escape_string(path)
+                )
+            } else {
+                panic!(
+                    "internal error: argument to RegisterCustomFontByPath must be a string literal"
+                )
+            }
         }
-        /*
-            Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to RegisterCustomFontByPath call");
-                }
-                if let Expression::StringLiteral(font_path) = &arguments[0] {
-                    format!("sixtyfps::private_api::register_font_from_path(\"{}\");", escape_string(font_path))
-                } else {
-                    panic!("internal error: argument to RegisterCustomFontByPath must be a string literal")
-                }
+        BuiltinFunction::RegisterCustomFontByMemory => {
+            if let [llr::Expression::NumberLiteral(resource_id)] = &arguments {
+                let resource_id: usize = *resource_id as _;
+                let symbol = format!("sfps_embedded_resource_{}", resource_id);
+                format!(
+                    "sixtyfps::private_api::register_font_from_data({}, std::size({}));",
+                    symbol, symbol
+                )
+            } else {
+                panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
             }
-            Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByMemory, _) => {
-                if arguments.len() != 1 {
-                    panic!("internal error: incorrect argument count to RegisterCustomFontByMemory call");
-                }
-                if let Expression::NumberLiteral(resource_id, _) = &arguments[0] {
-                    let resource_id: usize = *resource_id as _;
-                    let symbol = format!("sfps_embedded_resource_{}", resource_id);
-                    format!("sixtyfps::private_api::register_font_from_data({}, std::size({}));", symbol, symbol)
-                } else {
-                    panic!("internal error: argument to RegisterCustomFontByMemory must be a number")
-                }
-            }
-
-        },
-        */
+        }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let native = native_item(pr, ctx);
