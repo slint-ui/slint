@@ -425,11 +425,11 @@ inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 
 namespace private_api {
 
-inline SharedVector<float> solve_box_layout(const BoxLayoutData &data,
-                                            Slice<uint32_t> repeater_indexes)
+inline SharedVector<float> solve_box_layout(const BoxLayoutData &data, Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    cbindgen_private::sixtyfps_solve_box_layout(&data, repeater_indexes, &result);
+    Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
+    cbindgen_private::sixtyfps_solve_box_layout(&data, ri, &result);
     return result;
 }
 
@@ -458,10 +458,11 @@ inline LayoutInfo box_layout_info_ortho(Slice<BoxLayoutCellData> cells, const Pa
 }
 
 inline SharedVector<float> solve_path_layout(const PathLayoutData &data,
-                                             Slice<uint32_t> repeater_indexes)
+                                             Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    cbindgen_private::sixtyfps_solve_path_layout(&data, repeater_indexes, &result);
+    Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
+    cbindgen_private::sixtyfps_solve_path_layout(&data, ri, &result);
     return result;
 }
 

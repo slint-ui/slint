@@ -1714,6 +1714,43 @@ fn generate_repeated_component(
         }),
     ));
 
+    if let Some(listview) = &repeated.listview {
+        let p_y = access_member(&listview.prop_y, &ctx);
+        let p_height = access_member(&listview.prop_height, &ctx);
+        let p_width = access_member(&listview.prop_width, &ctx);
+
+        repeater_struct.members.push((
+            Access::Public, // Because Repeater accesses it
+            Declaration::Function(Function {
+                name: "listview_layout".into(),
+                signature:
+                    "(float *offset_y, const sixtyfps::private_api::Property<float> *viewport_width) const -> void"
+                        .to_owned(),
+                statements: Some(vec![
+                    "float vp_w = viewport_width->get();".to_owned(),
+
+                    format!("{}.set(*offset_y);", p_y), // FIXME: shouldn't that be handled by apply layout?
+                    format!("*offset_y += {}.get();", p_height),
+                    format!("float w = {}.get();", p_width),
+                    "if (vp_w < w)".to_owned(),
+                    "    viewport_width->set(w);".to_owned(),
+                ]),
+                ..Function::default()
+            }),
+        ));
+    } else {
+        repeater_struct.members.push((
+            Access::Public, // Because Repeater accesses it
+            Declaration::Function(Function {
+                name: "box_layout_data".into(),
+                signature: "(sixtyfps::Orientation o) const -> sixtyfps::BoxLayoutCellData".to_owned(),
+                statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
+
+                ..Function::default()
+            }),
+        ));
+    }
+
     file.definitions.extend(repeater_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(repeater_struct));
 }
@@ -2470,22 +2507,23 @@ fn box_layout_function(
     ctx: &llr_EvaluationContext<String>,
 ) -> String {
     let repeated_indices = repeated_indices.map(ident);
-    let mut push_code =
-        format!("std::vector<sixtyfps::BoxLayoutCellData> {};", ident(cells_variable));
+    let mut push_code = "std::vector<sixtyfps::BoxLayoutCellData> cells_vector;".to_owned();
     let mut repeater_idx = 0usize;
 
     for item in elements {
         match item {
             Either::Left(value) => {
-                push_code += &format!("cells.push_back({{ {} }});", compile_expression(value, ctx));
+                push_code +=
+                    &format!("cells_vector.push_back({{ {} }});", compile_expression(value, ctx));
             }
             Either::Right(repeater) => {
                 push_code += &format!("self->repeater_{}.ensure_updated(self);", repeater);
 
                 if let Some(ri) = &repeated_indices {
-                    push_code += &format!("{}[{}] = cells.size();", ri, repeater_idx * 2);
+                    push_code +=
+                        &format!("{}_array[{}] = cells_vector.size();", ri, repeater_idx * 2);
                     push_code += &format!(
-                        "{ri}[{c}] = self->repeater_{id}.inner ? self->repeater_{id}.inner->data.size() : 0;",
+                        "{ri}_array[{c}] = self->repeater_{id}.inner ? self->repeater_{id}.inner->data.size() : 0;",
                         ri = ri,
                         c = repeater_idx * 2 + 1,
                         id = repeater,
@@ -2495,7 +2533,7 @@ fn box_layout_function(
                 push_code += &format!(
                     "if (self->repeater_{id}.inner) \
                         for (auto &&sub_comp : self->repeater_{id}.inner->data) \
-                           cells.push_back((*sub_comp.ptr)->box_layout_data({o}));",
+                           cells_vector.push_back((*sub_comp.ptr)->box_layout_data({o}));",
                     id = repeater,
                     o = to_cpp_orientation(orientation),
                 );
@@ -2504,9 +2542,19 @@ fn box_layout_function(
     }
 
     let ri = repeated_indices.as_ref().map_or(String::new(), |ri| {
-        format!("std::array<unsigned int, {}> {};", 2 * repeater_idx, ri)
+        push_code += &format!(
+            "sixtyfps::Slice<int> {ri}{{ {ri}_array.data(), {ri}_array.size() }};",
+            ri = ri
+        );
+        format!("std::array<int, {}> {}_array;", 2 * repeater_idx, ri)
     });
-    ri + &push_code + &compile_expression(sub_expression, ctx)
+    format!(
+        "[&]{{ {} {} sixtyfps::Slice<sixtyfps::BoxLayoutCellData>{}{{cells_vector.data(), cells_vector.size()}}; return {}; }}()",
+        ri,
+        push_code,
+        ident(cells_variable),
+        compile_expression(sub_expression, ctx)
+    )
 }
 
 /*
