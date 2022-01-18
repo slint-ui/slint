@@ -1530,7 +1530,7 @@ fn generate_public_component(
         };
 
         component_struct.members.push((
-            Access::Private,
+            Access::Public, // FIXME
             Declaration::Var(Var {
                 ty: format!("std::shared_ptr<{}>", ty),
                 name: format!("global_{}", ident(&glob.name)),
@@ -3331,7 +3331,32 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             in_native_item(ctx, sub_component_path, *item_index, prop_name, "this")
         }
-        llr::PropertyReference::InParent { level, parent_reference } => todo!(),
+        llr::PropertyReference::InParent { level, parent_reference } => {
+            let mut ctx = ctx;
+            let mut path = "self".to_string();
+            for _ in 0..level.get() {
+                write!(path, "->parent").unwrap();
+                ctx = ctx.parent.as_ref().unwrap().ctx;
+            }
+
+            match &**parent_reference {
+                llr::PropertyReference::Local { sub_component_path, property_index } => {
+                    let sub_component = ctx.current_sub_component.unwrap();
+                    let (compo_path, sub_component) =
+                        follow_sub_component_path(sub_component, sub_component_path);
+                    let property_name = ident(&sub_component.properties[*property_index].name);
+                    format!("{}->{}{}", path, compo_path, property_name)                    
+                }
+                llr::PropertyReference::InNativeItem {
+                    sub_component_path,
+                    item_index,
+                    prop_name,
+                } => in_native_item(ctx, sub_component_path, *item_index, prop_name, &path),
+                llr::PropertyReference::InParent { .. } | llr::PropertyReference::Global { .. } => {
+                    unreachable!()
+                }
+            }
+        },
         llr::PropertyReference::Global { global_index, property_index } => {
             let root_access = &ctx.generator_state;
             let global = &ctx.public_component.globals[*global_index];
