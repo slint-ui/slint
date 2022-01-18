@@ -318,7 +318,11 @@ impl CppType for Type {
             Type::Bool => Some("bool".to_owned()),
             Type::Struct { name: Some(name), node: Some(_), .. } => Some(ident(name)),
             Type::Struct { name: Some(name), node: None, .. } => {
-                Some(format!("sixtyfps::cbindgen_private::{}", ident(name)))
+                Some(if name.starts_with("sixtyfps::") {
+                    name.clone()
+                } else {
+                    format!("sixtyfps::cbindgen_private::{}", ident(name))
+                })
             }
             Type::Struct { fields, .. } => {
                 let elem = fields.values().map(|v| v.cpp_type()).collect::<Option<Vec<_>>>()?;
@@ -2026,6 +2030,39 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                         struct_name = to.cpp_type().unwrap(),
                         fields = fields.keys().enumerate().map(|(i, n)| format!("s.{} = std::get<{}>(o); ", ident(n), i)).join(""),
                         obj = f,
+                    )
+                }
+                (Type::Array(..), Type::PathData)
+                    if matches!(
+                        from.as_ref(),
+                        Expression::Array { element_ty: Type::Struct { .. }, .. }
+                    ) =>
+                {
+                    let path_elements = match from.as_ref() {
+                        Expression::Array { element_ty: _, values, as_model: _ } => values
+                            .iter()
+                            .map(|path_elem_expr| {
+                                let qualified_elem_type_name = match path_elem_expr.ty(ctx) {
+                                    Type::Struct{ name: Some(name), .. } => name,
+                                    _ => unreachable!()
+                                };
+                                // Turn sixtyfps::private_api::PathLineTo into `LineTo`
+                                let elem_type_name = qualified_elem_type_name.split("::").last().unwrap().strip_prefix("Path").unwrap();
+                                format!("sixtyfps::private_api::PathElement::{}({})", elem_type_name, compile_expression(path_elem_expr, ctx))
+                            }),
+                        _ => {
+                            unreachable!()
+                        }
+                    }.collect::<Vec<_>>();
+                    format!(
+                        r#"[&](){{
+                            sixtyfps::private_api::PathElement elements[{}] = {{
+                                {}
+                            }};
+                            return sixtyfps::private_api::PathData(&elements[0], std::size(elements));
+                        }}()"#,
+                        path_elements.len(),
+                        path_elements.join(",")
                     )
                 }
                 _ => f,
