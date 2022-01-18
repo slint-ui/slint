@@ -452,6 +452,7 @@ fn compute_layout_info(
             llr_Expression::ExtraBuiltinFunctionCall {
                 function: "grid_layout_info".into(),
                 arguments: vec![cells, spacing, padding],
+                return_ty: crate::layout::layout_info_type(),
             }
         }
         crate::layout::Layout::BoxLayout(layout) => {
@@ -461,11 +462,13 @@ fn compute_layout_info(
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info".into(),
                     arguments: vec![bld.cells, spacing, padding, bld.alignment],
+                    return_ty: crate::layout::layout_info_type(),
                 }
             } else {
                 llr_Expression::ExtraBuiltinFunctionCall {
                     function: "box_layout_info_ortho".into(),
                     arguments: vec![bld.cells, padding],
+                    return_ty: crate::layout::layout_info_type(),
                 }
             };
             match bld.compute_cells {
@@ -535,6 +538,7 @@ fn solve_layout(
                                 ),
                             ],
                         )],
+                        return_ty: Type::LayoutCache,
                     },
                 ])
             } else {
@@ -549,6 +553,7 @@ fn solve_layout(
                             ("cells", cells.ty(ctx), cells),
                         ],
                     )],
+                    return_ty: Type::LayoutCache,
                 }
             }
         }
@@ -586,6 +591,7 @@ fn solve_layout(
                                 ty: Type::Array(Type::Int32.into()),
                             },
                         ],
+                        return_ty: Type::LayoutCache,
                     }),
                 },
                 None => llr_Expression::ExtraBuiltinFunctionCall {
@@ -598,6 +604,7 @@ fn solve_layout(
                             as_model: false,
                         },
                     ],
+                    return_ty: Type::LayoutCache,
                 },
             }
         }
@@ -632,6 +639,7 @@ fn solve_layout(
                     ),
                     repeater_indices,
                 ],
+                return_ty: Type::LayoutCache,
             }
         }
     }

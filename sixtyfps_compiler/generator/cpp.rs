@@ -1956,7 +1956,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             format!("{}.call({})", f, a.join(","))
         }
-        Expression::ExtraBuiltinFunctionCall { function, arguments } => {
+        Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             format!("sixtyfps::private_api::{}({})", ident(&function), a.join(","))
         }

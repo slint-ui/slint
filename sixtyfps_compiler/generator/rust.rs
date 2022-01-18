@@ -1344,7 +1344,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let a = arguments.iter().map(|a| compile_expression(a, ctx));
             quote! { #f.call(&(#(#a.clone() as _,)*).into())}
         }
-        Expression::ExtraBuiltinFunctionCall { function, arguments } => {
+        Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let f = ident(&function);
             let a = arguments.iter().map(|a| {
                 let arg = compile_expression(a, ctx);
