@@ -2275,10 +2275,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
                 _ => panic!("dialog layout unsorted cells not an array"),
             };
-            format!("sixtyfps::cbindgen_private::GridLayoutCellData {cv} [] = {{ {c} }};\
-                    sixtyfps::cbindgen_private::DialogButtonRole roles[] = {{ {r} }};\
-                    sixtyfps::cbindgen_private::sixtyfps_reorder_dialog_button_layout({cv}, {r});\
-                    ",
+            format!("sixtyfps::cbindgen_private::GridLayoutCellData {cv}_array [] = {{ {c} }};\
+                    sixtyfps::cbindgen_private::sixtyfps_reorder_dialog_button_layout({cv}_array, {r});\
+                    sixtyfps::Slice<sixtyfps::cbindgen_private::GridLayoutCellData> {cv} {{ std::data({cv}_array), std::size({cv}_array) }}",
                     r = compile_expression(roles, ctx),
                     cv = cells_variable,
                     c = cells.join(", "),
