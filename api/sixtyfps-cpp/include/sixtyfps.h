@@ -395,12 +395,6 @@ using cbindgen_private::Orientation;
 using cbindgen_private::Padding;
 using cbindgen_private::PathLayoutData;
 using cbindgen_private::Rect;
-using cbindgen_private::sixtyfps_box_layout_info;
-using cbindgen_private::sixtyfps_box_layout_info_ortho;
-using cbindgen_private::sixtyfps_grid_layout_info;
-using cbindgen_private::sixtyfps_solve_box_layout;
-using cbindgen_private::sixtyfps_solve_grid_layout;
-using cbindgen_private::sixtyfps_solve_path_layout;
 
 #if !defined(DOXYGEN)
 inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
@@ -430,6 +424,47 @@ inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 }
 
 namespace private_api {
+
+inline SharedVector<float> solve_box_layout(const BoxLayoutData &data,
+                                            Slice<uint32_t> repeater_indexes)
+{
+    SharedVector<float> result;
+    cbindgen_private::sixtyfps_solve_box_layout(&data, repeater_indexes, &result);
+    return result;
+}
+
+inline SharedVector<float> solve_grid_layout(const GridLayoutData &data)
+{
+    SharedVector<float> result;
+    cbindgen_private::sixtyfps_solve_grid_layout(&data, &result);
+    return result;
+}
+
+inline LayoutInfo grid_layout_info(Slice<GridLayoutCellData> cells, float spacing,
+                                   const Padding &padding)
+{
+    return cbindgen_private::sixtyfps_grid_layout_info(cells, spacing, &padding);
+}
+
+inline LayoutInfo box_layout_info(Slice<BoxLayoutCellData> cells, float spacing,
+                                  const Padding &padding, LayoutAlignment alignment)
+{
+    return cbindgen_private::sixtyfps_box_layout_info(cells, spacing, &padding, alignment);
+}
+
+inline LayoutInfo box_layout_info_ortho(Slice<BoxLayoutCellData> cells, const Padding &padding)
+{
+    return cbindgen_private::sixtyfps_box_layout_info_ortho(cells, &padding);
+}
+
+inline SharedVector<float> solve_path_layout(const PathLayoutData &data,
+                                             Slice<uint32_t> repeater_indexes)
+{
+    SharedVector<float> result;
+    cbindgen_private::sixtyfps_solve_path_layout(&data, repeater_indexes, &result);
+    return result;
+}
+
 /// Access the layout cache of an item within a repeater
 inline float layout_cache_access(const SharedVector<float> &cache, int offset, int repeater_index)
 {

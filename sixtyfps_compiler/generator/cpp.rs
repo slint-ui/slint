@@ -3182,7 +3182,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments } => {
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
-            format!("{}({})", ident(&function), a.join(","))
+            format!("sixtyfps::private_api::{}({})", ident(&function), a.join(","))
         }
         /*
         Expression::RepeaterIndexReference { element } => {
