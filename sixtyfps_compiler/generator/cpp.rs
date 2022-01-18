@@ -1238,7 +1238,7 @@ fn generate_sub_component(
     ));
 
     target_struct.members.push((
-        Access::Public, // FIXME
+        Access::Public,
         Declaration::Var(Var {
             ty: root_ptr_type.clone(),
             name: "root".to_owned(),
@@ -1248,7 +1248,7 @@ fn generate_sub_component(
     init.push("self->root = root;".into());
 
     target_struct.members.push((
-        Access::Private,
+        Access::Public,
         Declaration::Var(Var {
             ty: "uintptr_t".to_owned(),
             name: "tree_index_of_first_child".to_owned(),
@@ -1258,7 +1258,7 @@ fn generate_sub_component(
     init.push("this->tree_index_of_first_child = tree_index_of_first_child;".into());
 
     target_struct.members.push((
-        Access::Private,
+        Access::Public,
         Declaration::Var(Var {
             ty: "uintptr_t".to_owned(),
             name: "tree_index".to_owned(),
