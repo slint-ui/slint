@@ -1156,13 +1156,19 @@ fn generate_item_tree(
         ),
         format!("auto self = const_cast<{0} *>(&*self_rc);", target_struct.name),
         "self->self_weak = vtable::VWeak(self_rc).into_dyn();".into(),
-        format!("{}->m_window.window_handle().set_component(*self_rc);", root_access),
-        format!("{}->m_window.window_handle().init_items(self, item_tree());", root_access),
-        format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
     ];
 
-    create_code
-        .push(format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", target_struct.name));
+    if parent_ctx.is_none() {
+        create_code.extend([
+            format!("{}->m_window.window_handle().set_component(*self_rc);", root_access),
+            format!("{}->m_window.window_handle().init_items(self, item_tree());", root_access),
+        ]);
+    }
+
+    create_code.extend([
+        format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
+        format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", target_struct.name),
+    ]);
 
     target_struct.members.push((
         Access::Public,
