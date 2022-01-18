@@ -486,81 +486,6 @@ fn handle_property_init(
     }
 }
 
-/*
-fn handle_repeater(
-    repeated: &RepeatedElementInfo,
-    base_component: &Rc<Component>,
-    parent_component: &Rc<Component>,
-    repeater_count: u32,
-    component_struct: &mut Struct,
-    init: &mut Vec<String>,
-    children_visitor_cases: &mut Vec<String>,
-    diag: &mut BuildDiagnostics,
-) {
-    let parent_element = base_component.parent_element.upgrade().unwrap();
-    let repeater_id = format!("repeater_{}", ident(&parent_element.borrow().id));
-
-    let mut model = compile_expression(&repeated.model, parent_component);
-    if repeated.is_conditional_element {
-        // bool converts to int
-        // FIXME: don't do a heap allocation here
-        model = format!("std::make_shared<sixtyfps::private_api::IntModel>({})", model)
-    };
-
-    // FIXME: optimize  if repeated.model.is_constant()
-    init.push(format!(
-        "self->{repeater_id}.set_model_binding([self] {{ (void)self; return {model}; }});",
-        repeater_id = repeater_id,
-        model = model,
-    ));
-
-    if let Some(listview) = &repeated.is_listview {
-        let vp_y = access_named_reference(&listview.viewport_y, parent_component, "self");
-        let vp_h = access_named_reference(&listview.viewport_height, parent_component, "self");
-        let lv_h = access_named_reference(&listview.listview_height, parent_component, "self");
-        let vp_w = access_named_reference(&listview.viewport_width, parent_component, "self");
-        let lv_w = access_named_reference(&listview.listview_width, parent_component, "self");
-
-        let ensure_updated = format!(
-            "self->{}.ensure_updated_listview(self, &{}, &{}, &{}, {}.get(), {}.get());",
-            repeater_id, vp_w, vp_h, vp_y, lv_w, lv_h
-        );
-
-        children_visitor_cases.push(format!(
-            "\n        case {i}: {{
-                {e_u}
-                return self->{id}.visit(order, visitor);
-            }}",
-            i = repeater_count,
-            e_u = ensure_updated,
-            id = repeater_id,
-        ));
-    } else {
-        children_visitor_cases.push(format!(
-            "\n        case {i}: {{
-                self->{id}.ensure_updated(self);
-                return self->{id}.visit(order, visitor);
-            }}",
-            id = repeater_id,
-            i = repeater_count,
-        ));
-    }
-
-    component_struct.members.push((
-        Access::Private,
-        Declaration::Var(Var {
-            ty: format!(
-                "sixtyfps::private_api::Repeater<class {}, {}>",
-                component_id(base_component),
-                model_data_type(&parent_element, diag)
-            ),
-            name: repeater_id,
-            ..Default::default()
-        }),
-    ));
-}
-*/
-
 /// Returns the text of the C++ code produced by the given root component
 pub fn generate(doc: &Document) -> Option<impl std::fmt::Display> {
     let mut file = File::default();
@@ -1590,13 +1515,29 @@ fn generate_sub_component(
             model = model,
         ));
 
+        let ensure_updated = if let Some(listview) = &repeated.listview {
+            let vp_y = access_member(&listview.viewport_y, &ctx);
+            let vp_h = access_member(&listview.viewport_height, &ctx);
+            let lv_h = access_member(&listview.listview_height, &ctx);
+            let vp_w = access_member(&listview.viewport_width, &ctx);
+            let lv_w = access_member(&listview.listview_width, &ctx);
+
+            format!(
+                "self->{}.ensure_updated_listview(self, &{}, &{}, &{}, {}.get(), {}.get());",
+                repeater_id, vp_w, vp_h, vp_y, lv_w, lv_h
+            )
+        } else {
+            format!("self->{id}.ensure_updated(self);", id = repeater_id)
+        };
+
         children_visitor_cases.push(format!(
             "\n        case {i}: {{
-                self->{id}.ensure_updated(self);
+                {e_u}
                 return self->{id}.visit(order, visitor);
             }}",
             id = repeater_id,
             i = idx,
+            e_u = ensure_updated,
         ));
 
         target_struct.members.push((
