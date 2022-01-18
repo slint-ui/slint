@@ -1711,20 +1711,6 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
             format!("sixtyfps::private_api::Property<{}>", property.ty.cpp_type().unwrap())
         };
 
-        /*
-        if is_sub_component {
-            component_struct.members.push((
-                Access::Public,
-                Declaration::Function(Function {
-                    name: format!("get_{}", &cpp_name),
-                    signature: "() const".to_owned(),
-                    statements: Some(vec![format!("return &{};", access)]),
-                    ..Default::default()
-                }),
-            ));
-        }
-        */
-
         global_struct.members.push((
             // FIXME: this is public (and also was public in the pre-llr generator) because other generated code accesses the
             // fields directly. But it shouldn't be from an API point of view since the same `global_struct` class is public API
@@ -1733,6 +1719,39 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
         ));
     }
+
+    let mut init = vec![];
+
+    let ctx = EvaluationContext {
+        public_component: root,
+        current_sub_component: None,
+        current_global: Some(global),
+        generator_state: "\n#error can't access root from global\n".into(),
+        parent: None,
+        argument_types: &[],
+    };
+
+    for (property_index, expression) in global.init_values.iter().enumerate() {
+        if let Some(expression) = expression.as_ref() {
+            handle_property_init(
+                &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
+                expression,
+                &mut init,
+                &ctx,
+            )
+        }
+    }
+
+    global_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: ident(&global.name),
+            signature: "()".into(),
+            is_constructor_or_destructor: true,
+            statements: Some(init),
+            ..Default::default()
+        }),
+    ));
 
     file.definitions.extend(global_struct.extract_definitions().collect::<Vec<_>>());
     file.declarations.push(Declaration::Struct(global_struct));
@@ -1877,8 +1896,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 let property_name = ident(&sub_component.properties[*property_index].name);
                 format!("self->{}{}", compo_path, property_name)
             } else if let Some(current_global) = ctx.current_global {
-                let property_name = ident(&current_global.properties[*property_index].name);
-                format!("global_{}.{}", ident(&current_global.name), property_name)
+                format!("this->{}", ident(&current_global.properties[*property_index].name))
             } else {
                 unreachable!()
             }
