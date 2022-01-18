@@ -2298,20 +2298,28 @@ fn compile_builtin_function_call(
 
     match function {
         BuiltinFunction::GetWindowScaleFactor => {
-                let window = access_window_field(ctx);
-                format!("{}.scale_factor()", window)
-        },
+            let window = access_window_field(ctx);
+            format!("{}.scale_factor()", window)
+        }
         BuiltinFunction::Debug => {
             format!("std::cout << {} << std::endl;", a.join("<<"))
         }
-        BuiltinFunction::Mod => format!("static_cast<int>({}) % static_cast<int>({})", a.next().unwrap(), a.next().unwrap()),
+        BuiltinFunction::Mod => format!(
+            "static_cast<int>({}) % static_cast<int>({})",
+            a.next().unwrap(),
+            a.next().unwrap()
+        ),
         BuiltinFunction::Round => format!("std::round({})", a.next().unwrap()),
         BuiltinFunction::Ceil => format!("std::ceil({})", a.next().unwrap()),
         BuiltinFunction::Floor => format!("std::floor({})", a.next().unwrap()),
         BuiltinFunction::Sqrt => format!("std::sqrt({})", a.next().unwrap()),
         BuiltinFunction::Abs => format!("std::abs({})", a.next().unwrap()),
-        BuiltinFunction::Log => format!("std::log({}) / std::log({})", a.next().unwrap(), a.next().unwrap()),
-        BuiltinFunction::Pow => format!("std::pow(({}), ({}))", a.next().unwrap(), a.next().unwrap()),
+        BuiltinFunction::Log => {
+            format!("std::log({}) / std::log({})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::Pow => {
+            format!("std::pow(({}), ({}))", a.next().unwrap(), a.next().unwrap())
+        }
         BuiltinFunction::Sin => format!("std::sin(({}) * {})", a.next().unwrap(), pi_180),
         BuiltinFunction::Cos => format!("std::cos(({}) * {})", a.next().unwrap(), pi_180),
         BuiltinFunction::Tan => format!("std::tan(({}) * {})", a.next().unwrap(), pi_180),
@@ -2326,7 +2334,7 @@ fn compile_builtin_function_call(
             } else {
                 panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
             }
-        },
+        }
         /*  std::from_chars is unfortunately not yet implemented in gcc
         BuiltinFunction::StringIsFloat => {
             "[](const auto &a){ double v; auto r = std::from_chars(std::begin(a), std::end(a), v); return r.ptr == std::end(a); }"
@@ -2337,18 +2345,16 @@ fn compile_builtin_function_call(
                 .into()
         }*/
         BuiltinFunction::StringIsFloat => {
-            "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); std::strtod(std::begin(a), &e2); return e1 == e2; }"
-                .into()
+            format!("[](const auto &a){{ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); std::strtod(std::begin(a), &e2); return e1 == e2; }}({})", a.next().unwrap())
         }
         BuiltinFunction::StringToFloat => {
-            "[](const auto &a){ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }"
-                .into()
+            format!("[](const auto &a){{ auto e1 = std::end(a); auto e2 = const_cast<char*>(e1); auto r = std::strtod(std::begin(a), &e2); return e1 == e2 ? r : 0; }}({})", a.next().unwrap())
         }
         BuiltinFunction::ColorBrighter => {
-            "[](const auto &color, float factor) { return color.brighter(factor); }".into()
+            format!("{}.brighter({})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::ColorDarker => {
-            "[](const auto &color, float factor) { return color.darker(factor); }".into()
+            format!("{}.darker({})", a.next().unwrap(), a.next().unwrap())
         }
         BuiltinFunction::ImageSize => {
             format!("{}.size()", a.next().unwrap())
@@ -2357,33 +2363,39 @@ fn compile_builtin_function_call(
             format!("[](const auto &model){{ (*model).track_row_count_changes(); return (*model).row_count(); }}({})", a.next().unwrap())
         }
         BuiltinFunction::Rgb => {
-            "[](int r, int g, int b, float a) {{ return sixtyfps::Color::from_argb_uint8(std::clamp(a * 255., 0., 255.), std::clamp(r, 0, 255), std::clamp(g, 0, 255), std::clamp(b, 0, 255)); }}".into()
+            format!("sixtyfps::Color::from_argb_uint8(std::clamp(static_cast<float>({a}) * 255., 0., 255.), std::clamp(static_cast<int>({r}), 0, 255), std::clamp(static_cast<int>({g}), 0, 255), std::clamp(static_cast<int>({b}), 0, 255))",
+                r = a.next().unwrap(),
+                g = a.next().unwrap(),
+                b = a.next().unwrap(),
+                a = a.next().unwrap(),
+            )
         }
 
         BuiltinFunction::ShowPopupWindow => {
             todo!();
             /*if let Expression::ElementReference(popup_window) = &arguments[0] {
-                    let popup_window = popup_window.upgrade().unwrap();
-                    let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
-                    let popup_window_rcid = component_id(&pop_comp);
-                    let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
-                    let popup_list = parent_component.popup_windows.borrow();
-                    let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
-                    let x = access_named_reference(&popup.x, component, "self");
-                    let y = access_named_reference(&popup.y, component, "self");
-                    let parent_component_ref = access_element_component(&popup.parent_element, component, "self");
-                    format!(
-                        "self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }}, {{ {}->self_weak.lock()->into_dyn(), {} }} );",
-                        popup_window_rcid, x, y,
-                        parent_component_ref,
-                        absolute_element_item_index_expression(&popup.parent_element),
-                    )
-                } else {
-                    panic!("internal error: argument to SetFocusItem must be an element")
-                }*/
-
+                let popup_window = popup_window.upgrade().unwrap();
+                let pop_comp = popup_window.borrow().enclosing_component.upgrade().unwrap();
+                let popup_window_rcid = component_id(&pop_comp);
+                let parent_component = pop_comp.parent_element.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+                let popup_list = parent_component.popup_windows.borrow();
+                let popup = popup_list.iter().find(|p| Rc::ptr_eq(&p.component, &pop_comp)).unwrap();
+                let x = access_named_reference(&popup.x, component, "self");
+                let y = access_named_reference(&popup.y, component, "self");
+                let parent_component_ref = access_element_component(&popup.parent_element, component, "self");
+                format!(
+                    "self->m_window.window_handle().show_popup<{}>(self, {{ {}.get(), {}.get() }}, {{ {}->self_weak.lock()->into_dyn(), {} }} );",
+                    popup_window_rcid, x, y,
+                    parent_component_ref,
+                    absolute_element_item_index_expression(&popup.parent_element),
+                )
+            } else {
+                panic!("internal error: argument to SetFocusItem must be an element")
+            }*/
         }
-        BuiltinFunction::RegisterCustomFontByPath | BuiltinFunction::RegisterCustomFontByMemory => todo!(),
+        BuiltinFunction::RegisterCustomFontByPath | BuiltinFunction::RegisterCustomFontByMemory => {
+            todo!()
+        }
         /*
             Expression::BuiltinFunctionReference(BuiltinFunction::RegisterCustomFontByPath, _) => {
                 if arguments.len() != 1 {
