@@ -2505,7 +2505,7 @@ fn generate_sub_component(
         vec!["auto self = this;".into(), "self->self_weak = enclosing_component;".into()];
 
     target_struct.members.push((
-        Access::Private,
+        Access::Public,
         Declaration::Var(Var {
             ty: "sixtyfps::cbindgen_private::ComponentWeak".into(),
             name: "self_weak".into(),
