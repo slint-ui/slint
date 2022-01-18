@@ -402,10 +402,6 @@ fn handle_property_init(
     init: &mut Vec<String>,
     ctx: &EvaluationContext,
 ) {
-    /*
-    let item = elem.borrow();
-    let component = item.enclosing_component.upgrade().unwrap();
-     */
     let prop_access = access_member(prop, ctx);
     let prop_type = ctx.property_ty(prop);
     if let Type::Callback { args, .. } = &prop_type {
@@ -538,17 +534,6 @@ pub fn generate(doc: &Document) -> Option<impl std::fmt::Display> {
         file.declarations.push(Declaration::Struct(sub_compo_struct));
     }
 
-    // let mut components_to_add_as_friends = vec![];
-    // for sub_comp in doc.root_component.used_types.borrow().sub_components.iter() {
-    //     generate_component(
-    //         &mut file,
-    //         sub_comp,
-    //         &doc.root_component,
-    //         diag,
-    //         &mut components_to_add_as_friends,
-    //     );
-    // }
-
     for glob in llr.globals.iter().filter(|glob| !glob.is_builtin) {
         generate_global(&mut file, glob, &llr);
         file.definitions.extend(glob.aliases.iter().map(|name| {
@@ -636,33 +621,12 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         argument_types: &[],
     };
 
-    // component_struct.friends.extend(
-    //     component
-    //         .used_types
-    //         .borrow()
-    //         .sub_components
-    //         .iter()
-    //         .map(self::component_id)
-    //         .chain(std::mem::take(sub_components).into_iter()),
-    // );
-
-    // for c in component.popup_windows.borrow().iter() {
-    //     let mut friends = vec![self::component_id(&c.component)];
-    //     generate_component(file, &c.component, root_component, diag, &mut friends);
-    //     sub_components.extend_from_slice(friends.as_slice());
-    //     component_struct.friends.append(&mut friends);
-    // }
-
     component_struct.members.iter_mut().for_each(|(access, _)| {
         *access = Access::Private;
     });
 
     let declarations = generate_public_api_for_properties(&component.public_properties, &ctx);
     component_struct.members.extend(declarations.into_iter().map(|decl| (Access::Public, decl)));
-
-    // let mut constructor_arguments = String::new();
-    // let mut constructor_member_initializers = vec![];
-    // let mut constructor_code = vec![];
 
     component_struct.members.push((
         // FIXME: many of the different component bindings need to access this
@@ -746,104 +710,6 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         file,
     );
 
-    // } else if is_sub_component {
-    //     let root_ptr_type = format!("const {} *", self::component_id(root_component));
-    //
-    //     constructor_arguments =
-    //         format!("{} root, [[maybe_unused]] uintptr_t tree_index, [[maybe_unused]] uintptr_t tree_index_of_first_child", root_ptr_type);
-    //
-    //     component_struct.members.push((
-    //         Access::Private,
-    //         Declaration::Var(Var {
-    //             ty: "sixtyfps::Window".into(),
-    //             name: "m_window".into(),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    //     constructor_member_initializers.push("m_window(root->m_window.window_handle())".into());
-    //
-    //     component_struct.members.push((
-    //         Access::Private,
-    //         Declaration::Var(Var {
-    //             ty: root_ptr_type,
-    //             name: "m_root".to_owned(),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    //     constructor_member_initializers.push("m_root(root)".into());
-    //     constructor_code.push("(void)m_root;".into()); // silence warning about unused variable.
-    //
-    //     // self_weak is not really self in that case, it is a pointer to the enclosing component
-    //     component_struct.members.push((
-    //         Access::Private,
-    //         Declaration::Var(Var {
-    //             ty: "sixtyfps::cbindgen_private::ComponentWeak".into(),
-    //             name: "self_weak".into(),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    //
-    //     component_struct.members.push((
-    //         Access::Private,
-    //         Declaration::Var(Var {
-    //             ty: "uintptr_t".to_owned(),
-    //             name: "tree_index_of_first_child".to_owned(),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    //     constructor_member_initializers
-    //         .push("tree_index_of_first_child(tree_index_of_first_child)".into());
-    //     constructor_code.push("(void)this->tree_index_of_first_child;".into()); // silence warning about unused variable.
-    //
-    //     component_struct.members.push((
-    //         Access::Private,
-    //         Declaration::Var(Var {
-    //             ty: "uintptr_t".to_owned(),
-    //             name: "tree_index".to_owned(),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    //     constructor_member_initializers.push("tree_index(tree_index)".into());
-    //     constructor_code.push("(void)this->tree_index;".into()); // silence warning about unused variable.
-    //
-    //     let root_element = component.root_element.borrow();
-    //     let get_root_item = if root_element.sub_component().is_some() {
-    //         format!("{}.root_item()", ident(&root_element.id))
-    //     } else {
-    //         format!("&{}", ident(&root_element.id))
-    //     };
-    //     component_struct.members.push((
-    //         Access::Public,
-    //         Declaration::Function(Function {
-    //             name: "root_item".to_owned(),
-    //             signature: "() const".into(),
-    //             statements: Some(vec![format!("return {};", get_root_item)]),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    //
-    //
-    //     if !children_visitor_cases.is_empty() {
-    //         component_struct.members.push((
-    //             Access::Public,
-    //             Declaration::Function(Function {
-    //                 name: "visit_dynamic_children".into(),
-    //                 signature: "(intptr_t dyn_index, [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor) const -> uint64_t".into(),
-    //                 statements: Some(vec![
-    //                     "    auto self = this;".to_owned(),
-    //                     format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
-    //                     "    std::abort();".to_owned(),
-    //                 ]),
-    //                 ..Default::default()
-    //             }),
-    //         ));
-    //     }
-    //
-    //     init_signature = "(sixtyfps::cbindgen_private::ComponentWeak enclosing_component)";
-    //     init.insert(0, "self_weak = enclosing_component;".to_string());
-    // }
-    //
-
     for glob in &component.globals {
         let ty = if glob.is_builtin {
             format!("sixtyfps::cbindgen_private::{}", glob.name)
@@ -861,26 +727,6 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
             }),
         ));
     }
-
-    // for glob in used_types.globals.iter() {
-    //     let ty = match &glob.root_element.borrow().base_type {
-    //         Type::Void => self::component_id(glob),
-    //         Type::Builtin(b) => {
-    //             format!("sixtyfps::cbindgen_private::{}", b.native_class.class_name)
-    //         }
-    //         _ => unreachable!(),
-    //     };
-    //
-    //     component_struct.members.push((
-    //         Access::Private,
-    //         Declaration::Var(Var {
-    //             ty: format!("std::shared_ptr<{}>", ty),
-    //             name: global_field_name(glob),
-    //             init: Some(format!("std::make_shared<{}>()", ty)),
-    //             ..Default::default()
-    //         }),
-    //     ));
-    // }
 
     let mut global_accessor_function_body = Vec::new();
     for glob in component.globals.iter().filter(|glob| glob.exported && !glob.is_builtin) {
@@ -1099,35 +945,6 @@ fn generate_item_tree(
         }),
     ));
 
-    /*
-    let root_elem = component.root_element.borrow();
-
-    let get_root_item_ref = if root_elem.sub_component().is_some() {
-        format!("this->{id}.root_item()", id = ident(&root_elem.id))
-    } else {
-        format!("&this->{id}", id = ident(&root_elem.id))
-    };
-
-    let mut builtin_root_element = component.root_element.clone();
-    while let Some(sub_component) = builtin_root_element.clone().borrow().sub_component() {
-        builtin_root_element = sub_component.root_element.clone();
-    }
-
-    target_struct.members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: "root_item".into(),
-            signature: "() const -> sixtyfps::private_api::ItemRef".into(),
-            statements: Some(vec![format!(
-                "return {{ {vt}, const_cast<sixtyfps::cbindgen_private::{cpp_type}*>({root_item_ref}) }};",
-                cpp_type = builtin_root_element.borrow().base_type.as_native().class_name,
-                vt = builtin_root_element.borrow().base_type.as_native().cpp_vtable_getter,
-                root_item_ref = get_root_item_ref
-            )]),
-            ..Default::default()
-        }),
-    ));
-    */
     file.definitions.push(Declaration::Var(Var {
         ty: "const sixtyfps::private_api::ComponentVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
@@ -1287,13 +1104,6 @@ fn generate_sub_component(
 
     for property in &component.properties {
         let cpp_name = ident(&property.name);
-        /*
-        let access = if let Some(alias) = &property_decl.is_alias {
-            access_named_reference(alias, component, "this")
-        } else {
-            format!("this->{}", cpp_name)
-        };
-        */
 
         let ty = if let Type::Callback { args, return_type } = &property.ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
@@ -2211,9 +2021,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 panic!("Expression::Object is not a Type::Object")
             }
         }
-        /*
-        Expression::PathData(data)  => compile_path(data, component),
-        */
         Expression::EasingCurve(EasingCurve::Linear) => "sixtyfps::cbindgen_private::EasingCurve()".into(),
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
             "sixtyfps::cbindgen_private::EasingCurve(sixtyfps::cbindgen_private::EasingCurve::Tag::CubicBezier, {}, {}, {}, {})",
