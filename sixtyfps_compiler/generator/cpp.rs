@@ -987,7 +987,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         let ty = if glob.is_builtin {
             format!("sixtyfps::cbindgen_private::{}", glob.name)
         } else {
-            todo!()
+            ident(&glob.name)
         };
 
         component_struct.members.push((
