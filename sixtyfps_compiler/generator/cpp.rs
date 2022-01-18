@@ -244,7 +244,6 @@ mod cpp_ast {
     }
 }
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BuiltinFunction, EasingCurve};
 use crate::langtype::{NativeClass, Type};
 use crate::layout::Orientation;
@@ -252,7 +251,7 @@ use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, ParentCtx as llr_ParentCtx,
     TypeResolutionContext as _,
 };
-use crate::object_tree::{Document, PropertyDeclaration};
+use crate::object_tree::Document;
 use cpp_ast::*;
 use itertools::{Either, Itertools};
 use std::collections::BTreeMap;
@@ -295,13 +294,6 @@ impl CppType for Type {
             _ => None,
         }
     }
-}
-
-fn get_cpp_type(ty: &Type, decl: &PropertyDeclaration, diag: &mut BuildDiagnostics) -> String {
-    ty.cpp_type().unwrap_or_else(|| {
-        diag.push_error("Cannot map property type to C++".into(), &decl.type_node());
-        "".into()
-    })
 }
 
 fn to_cpp_orientation(o: Orientation) -> &'static str {
@@ -676,7 +668,7 @@ fn handle_repeater(
 */
 
 /// Returns the text of the C++ code produced by the given root component
-pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std::fmt::Display> {
+pub fn generate(doc: &Document) -> Option<impl std::fmt::Display> {
     let mut file = File::default();
 
     file.includes.push("<array>".into());
@@ -720,7 +712,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
 
     for ty in doc.root_component.used_types.borrow().structs.iter() {
         if let Type::Struct { fields, name: Some(name), node: Some(_) } = ty {
-            generate_struct(&mut file, name, fields, diag);
+            generate_struct(&mut file, name, fields);
         }
     }
 
@@ -781,7 +773,7 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         .filter(|glob| !glob.is_builtin)
         .for_each(|glob| generate_global(&mut file, glob, &llr));
 
-    generate_public_component(&mut file, &llr, diag);
+    generate_public_component(&mut file, &llr);
 
     file.definitions.push(Declaration::Var(Var{
         ty: format!(
@@ -794,18 +786,14 @@ pub fn generate(doc: &Document, diag: &mut BuildDiagnostics) -> Option<impl std:
         ..Default::default()
     }));
 
-    if diag.has_error() {
-        None
-    } else {
-        Some(file)
-    }
+
+    Some(file)
 }
 
 fn generate_struct(
     file: &mut File,
     name: &str,
     fields: &BTreeMap<String, Type>,
-    diag: &mut BuildDiagnostics,
 ) {
     let mut operator_eq = String::new();
     let mut members = fields
@@ -815,13 +803,7 @@ fn generate_struct(
             (
                 Access::Public,
                 Declaration::Var(Var {
-                    ty: t.cpp_type().unwrap_or_else(|| {
-                        diag.push_error(
-                            format!("Cannot map {} to a C++ type", t),
-                            &Option::<crate::parser::SyntaxNode>::None,
-                        );
-                        Default::default()
-                    }),
+                    ty: t.cpp_type().unwrap(),
                     name: ident(name),
                     ..Default::default()
                 }),
@@ -865,7 +847,6 @@ fn generate_struct(
 fn generate_public_component(
     file: &mut File,
     component: &llr::PublicComponent,
-    diag: &mut BuildDiagnostics,
 ) {
     let root_component = &component.item_tree.root;
     let component_id = ident(&root_component.name);
