@@ -2549,7 +2549,7 @@ fn generate_sub_component(
         init_parameters.push(format!("{} parent", parent_type));
 
         target_struct.members.push((
-            Access::Private,
+            Access::Public,
             Declaration::Var(Var {
                 ty: parent_type,
                 name: "parent".to_owned(),
