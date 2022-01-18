@@ -334,7 +334,7 @@ impl Default for Constraint {
 }
 
 #[repr(C)]
-#[derive(Debug, Default)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Padding {
     pub begin: Coord,
     pub end: Coord,
@@ -345,7 +345,7 @@ pub struct Padding {
 pub struct GridLayoutData<'a> {
     pub size: Coord,
     pub spacing: Coord,
-    pub padding: &'a Padding,
+    pub padding: Padding,
     pub cells: Slice<'a, GridLayoutCellData>,
 }
 
@@ -432,7 +432,7 @@ impl Default for LayoutAlignment {
 pub struct BoxLayoutData<'a> {
     pub size: Coord,
     pub spacing: Coord,
-    pub padding: &'a Padding,
+    pub padding: Padding,
     pub alignment: LayoutAlignment,
     pub cells: Slice<'a, BoxLayoutCellData>,
 }

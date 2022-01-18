@@ -1529,18 +1529,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::Struct { ty, values } => {
-            if let Type::Struct { fields, name, node } = ty {
-                let elem = fields.keys().map(|k| {
-                    values.get(k).map(|e| {
-                        let e = compile_expression(e, ctx);
-                        if node.is_none() && k == "padding" {
-                            // FIXME: it would be nice if we didn't have to handle this field specially
-                            quote!(&#e)
-                        } else {
-                            e
-                        }
-                    })
-                });
+            if let Type::Struct { fields, name, .. } = ty {
+                let elem = fields.keys().map(|k| values.get(k).map(|e| compile_expression(e, ctx)));
                 if let Some(name) = name {
                     let name_tokens: TokenStream = struct_name_to_tokens(name.as_str());
                     let keys = fields.keys().map(|k| ident(k));
