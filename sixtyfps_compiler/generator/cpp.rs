@@ -636,7 +636,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         &component,
         None,
         component_id.clone(),
-        Access::Private, // Hid eproperties and other fields from the C++ API
+        Access::Private, // Hide properties and other fields from the C++ API
         file,
     );
 
