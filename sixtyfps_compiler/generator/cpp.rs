@@ -1001,13 +1001,14 @@ fn generate_item_tree(
     ];
 
     if parent_ctx.is_none() {
-        create_code.extend([
-            format!("{}->m_window.window_handle().set_component(*self_rc);", root_access),
-            format!("{}->m_window.window_handle().init_items(self, item_tree());", root_access),
-        ]);
+        create_code.extend([format!(
+            "{}->m_window.window_handle().set_component(*self_rc);",
+            root_access
+        )]);
     }
 
     create_code.extend([
+        format!("{}->m_window.window_handle().init_items(self, item_tree());", root_access),
         format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
         format!("return sixtyfps::ComponentHandle<{0}>{{ self_rc }};", target_struct.name),
     ]);
