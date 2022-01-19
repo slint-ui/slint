@@ -40,7 +40,13 @@ mod renderer;
 pub trait Devices {
     fn screen_size(&self) -> IntSize;
     fn fill_region(&mut self, region: IntRect, pixels: &[Rgb888]);
+    fn read_touch_event(&mut self) -> Option<sixtyfps_corelib::input::MouseEvent> {
+        None
+    }
     fn debug(&mut self, _: &str);
+    fn time(&mut self) -> core::time::Duration {
+        core::time::Duration::ZERO
+    }
 }
 
 impl<T: embedded_graphics::draw_target::DrawTarget> crate::Devices for T
@@ -68,12 +74,10 @@ where
     fn debug(&mut self, text: &str) {
         use embedded_graphics::{
             mono_font::{ascii::FONT_6X10, MonoTextStyle},
-            text::{Alignment, Text},
+            text::Text,
         };
         let style = MonoTextStyle::new(&FONT_6X10, Rgb888::RED.into());
-        Text::with_alignment(text, Point::new(20, 30), style, Alignment::Center)
-            .draw(self)
-            .unwrap();
+        Text::new(text, Point::new(20, 30), style).draw(self).unwrap();
     }
 }
 
@@ -210,7 +214,7 @@ mod the_backend {
             DEVICES.with(|devices| {
                 let mut devices = devices.borrow_mut();
                 let devices = devices.as_mut().unwrap();
-                let size = devices.screen_size();
+                let size = devices.screen_size().to_f32() / runtime_window.scale_factor();
                 runtime_window.set_window_item_geometry(size.width as _, size.height as _);
                 let background =
                     crate::renderer::to_rgb888_color_discard_alpha(window.background_color.get());
@@ -240,12 +244,33 @@ mod the_backend {
                     Some(McuEvent::Custom(e)) => e(),
                     Some(McuEvent::Repaint) => {
                         if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
+                            sixtyfps_corelib::animations::update_animations();
                             self.draw(window)
                         }
                     }
                     None => {
                         // TODO: sleep();
                     }
+                }
+                DEVICES.with(|devices| {
+                    let e = devices.borrow_mut().as_mut().unwrap().read_touch_event();
+                    //devices.borrow_mut().as_mut().unwrap().debug(&alloc::format!("EVENT: {:?}", e));
+                    if let Some(mut event) = e {
+                        if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
+                            let w = window.self_weak.upgrade().unwrap();
+                            // scale the event by the scale factor:
+                            if let Some(p) = event.pos() {
+                                event.translate(p / w.scale_factor() - p);
+                            }
+                            w.process_mouse_input(event);
+                        }
+                    }
+                    let t = devices.borrow_mut().as_mut().unwrap().time().as_secs();
+                    devices.borrow_mut().as_mut().unwrap().debug(&alloc::format!("{}", t));
+                });
+                sixtyfps_corelib::animations::update_animations();
+                if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
+                    self.draw(window)
                 }
             }
         }
@@ -298,6 +323,10 @@ mod the_backend {
         ) -> Result<(), Box<dyn std::error::Error>> {
             unimplemented!()
         }
+
+        fn duration_since_start(&'static self) -> core::time::Duration {
+            DEVICES.with(|devices| devices.borrow_mut().as_mut().unwrap().time())
+        }
     }
 }
 
@@ -314,7 +343,7 @@ pub fn init_simulator() {
     });
 }
 
-pub fn init_with_display<Display: Devices + 'static>(mut display: Display) {
+pub fn init_with_display<Display: Devices + 'static>(display: Display) {
     DEVICES.with(|d| *d.borrow_mut() = Some(Box::new(display)));
     sixtyfps_corelib::backend::instance_or_init(|| {
         alloc::boxed::Box::new(the_backend::MCUBackend::default())

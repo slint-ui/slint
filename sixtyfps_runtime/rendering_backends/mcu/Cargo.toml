@@ -19,7 +19,7 @@ path = "lib.rs"
 simulator = ["winit", "glutin", "femtovg", "embedded-graphics-simulator", "std", "imgref", "scoped-tls-hkt"]
 default = ["simulator"]
 
-pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "display-interface-spi", "st7789", "defmt", "defmt-rtt", "panic-probe", "sixtyfps-corelib/defmt" ]
+pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "display-interface-spi", "st7789", "defmt", "defmt-rtt", "panic-probe", "sixtyfps-corelib/defmt", "shared-bus" ]
 
 unsafe_single_core = ["sixtyfps-corelib/unsafe_single_core"]
 
@@ -54,6 +54,7 @@ embedded-time = { version = "0.12.0", optional = true }
 cortex-m = { version = "0.7.2", optional = true }
 display-interface-spi = { version = "0.4.1", optional = true }
 st7789 = { version = "0.6.1", optional = true }
+shared-bus = { version = "0.2", optional = true }
 
 defmt = { version = "0.3.0", optional = true }
 defmt-rtt = { version = "0.3.0", optional = true }
