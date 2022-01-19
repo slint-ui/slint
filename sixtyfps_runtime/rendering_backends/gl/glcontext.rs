@@ -164,10 +164,8 @@ impl OpenGLContext {
             });
             let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
-            let renderer = femtovg::renderer::OpenGl::new(|symbol| {
-                windowed_context.get_proc_address(symbol) as *const _
-            })
-            .unwrap();
+            let renderer =
+                femtovg::renderer::OpenGl::new_from_glutin_context(&windowed_context).unwrap();
 
             #[cfg(target_os = "macos")]
             {
