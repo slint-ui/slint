@@ -345,8 +345,8 @@ impl CppType for Type {
 
 fn to_cpp_orientation(o: Orientation) -> &'static str {
     match o {
-        Orientation::Horizontal => "sixtyfps::Orientation::Horizontal",
-        Orientation::Vertical => "sixtyfps::Orientation::Vertical",
+        Orientation::Horizontal => "sixtyfps::cbindgen_private::Orientation::Horizontal",
+        Orientation::Vertical => "sixtyfps::cbindgen_private::Orientation::Vertical",
     }
 }
 
@@ -925,7 +925,7 @@ fn generate_item_tree(
         Declaration::Function(Function {
             name: "layout_info".into(),
             signature:
-                "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::Orientation o) -> sixtyfps::LayoutInfo"
+                "([[maybe_unused]] sixtyfps::private_api::ComponentRef component, sixtyfps::cbindgen_private::Orientation o) -> sixtyfps::cbindgen_private::LayoutInfo"
                     .into(),
             is_static: true,
             statements: Some(vec![format!(
@@ -1307,7 +1307,7 @@ fn generate_sub_component(
         Access::Public,
         Declaration::Function(Function {
             name: "layout_info".into(),
-            signature: "(sixtyfps::cbindgen_private::Orientation o) const -> sixtyfps::LayoutInfo"
+            signature: "(sixtyfps::cbindgen_private::Orientation o) const -> sixtyfps::cbindgen_private::LayoutInfo"
                 .into(),
             statements: Some(vec![
                 "[[maybe_unused]] auto self = this;".into(),
@@ -1421,7 +1421,7 @@ fn generate_repeated_component(
             Access::Public, // Because Repeater accesses it
             Declaration::Function(Function {
                 name: "box_layout_data".into(),
-                signature: "(sixtyfps::Orientation o) const -> sixtyfps::BoxLayoutCellData".to_owned(),
+                signature: "(sixtyfps::cbindgen_private::Orientation o) const -> sixtyfps::cbindgen_private::BoxLayoutCellData".to_owned(),
                 statements: Some(vec!["return { layout_info({&static_vtable, const_cast<void *>(static_cast<const void *>(this))}, o) };".into()]),
 
                 ..Function::default()
@@ -2204,7 +2204,8 @@ fn box_layout_function(
     ctx: &llr_EvaluationContext<String>,
 ) -> String {
     let repeated_indices = repeated_indices.map(ident);
-    let mut push_code = "std::vector<sixtyfps::BoxLayoutCellData> cells_vector;".to_owned();
+    let mut push_code =
+        "std::vector<sixtyfps::cbindgen_private::BoxLayoutCellData> cells_vector;".to_owned();
     let mut repeater_idx = 0usize;
 
     for item in elements {
@@ -2246,7 +2247,7 @@ fn box_layout_function(
         format!("std::array<int, {}> {}_array;", 2 * repeater_idx, ri)
     });
     format!(
-        "[&]{{ {} {} sixtyfps::Slice<sixtyfps::BoxLayoutCellData>{}{{cells_vector.data(), cells_vector.size()}}; return {}; }}()",
+        "[&]{{ {} {} sixtyfps::Slice<sixtyfps::cbindgen_private::BoxLayoutCellData>{}{{cells_vector.data(), cells_vector.size()}}; return {}; }}()",
         ri,
         push_code,
         ident(cells_variable),
