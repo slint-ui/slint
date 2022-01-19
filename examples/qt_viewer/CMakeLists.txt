@@ -8,7 +8,7 @@ if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
 endif()
 
-find_package(Qt6 6.0 COMPONENTS Core Widgets)
+find_package(Qt6 6.0 COMPONENTS Core Widgets QUIET)
 if (NOT TARGET Qt::Widgets)
     find_package(Qt5 5.15 COMPONENTS Core Widgets)
 endif()
