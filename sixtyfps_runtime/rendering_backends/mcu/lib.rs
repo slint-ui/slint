@@ -17,6 +17,18 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 
 extern crate alloc;
 
+use alloc::boxed::Box;
+use core::cell::RefCell;
+use embedded_graphics::pixelcolor::Rgb888;
+use embedded_graphics::prelude::*;
+use sixtyfps_corelib::graphics::{IntRect, IntSize};
+
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use sixtyfps_corelib::unsafe_single_core;
+
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use sixtyfps_corelib::thread_local_ as thread_local;
+
 #[cfg(feature = "simulator")]
 mod simulator;
 
@@ -25,76 +37,83 @@ use simulator::event_loop;
 
 mod renderer;
 
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use sixtyfps_corelib::unsafe_single_core;
+pub trait Devices {
+    fn screen_size(&self) -> IntSize;
+    fn fill_region(&mut self, region: IntRect, pixels: &[Rgb888]);
+    fn debug(&mut self, _: &str);
+}
 
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use sixtyfps_corelib::thread_local_ as thread_local;
+impl<T: embedded_graphics::draw_target::DrawTarget> crate::Devices for T
+where
+    T::Error: core::fmt::Debug,
+    T::Color: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
+{
+    fn screen_size(&self) -> sixtyfps_corelib::graphics::IntSize {
+        let s = self.bounding_box().size;
+        sixtyfps_corelib::graphics::IntSize::new(s.width, s.height)
+    }
 
-#[cfg(feature = "snapshot_renderer")]
-// Backend to render one snapshot frame
-mod snapshotbackend {
+    fn fill_region(&mut self, region: sixtyfps_corelib::graphics::IntRect, pixels: &[Rgb888]) {
+        self.color_converted()
+            .fill_contiguous(
+                &embedded_graphics::primitives::Rectangle::new(
+                    Point::new(region.origin.x, region.origin.y),
+                    Size::new(region.size.width as u32, region.size.height as u32),
+                ),
+                pixels.iter().copied(),
+            )
+            .unwrap()
+    }
+
+    fn debug(&mut self, text: &str) {
+        use embedded_graphics::{
+            mono_font::{ascii::FONT_6X10, MonoTextStyle},
+            text::{Alignment, Text},
+        };
+        let style = MonoTextStyle::new(&FONT_6X10, Rgb888::RED.into());
+        Text::with_alignment(text, Point::new(20, 30), style, Alignment::Center)
+            .draw(self)
+            .unwrap();
+    }
+}
+
+thread_local! { static DEVICES: RefCell<Option<Box<dyn Devices + 'static>>> = RefCell::new(None) }
+
+mod the_backend {
     use super::*;
     use alloc::boxed::Box;
+    use alloc::collections::VecDeque;
     use alloc::rc::{Rc, Weak};
     use alloc::string::String;
     use core::cell::{Cell, RefCell};
     use core::pin::Pin;
     use sixtyfps_corelib::component::ComponentRc;
-    use sixtyfps_corelib::graphics::{Color, Image, Point, Size};
+    use sixtyfps_corelib::graphics::{Color, Point, Size};
     use sixtyfps_corelib::window::PlatformWindow;
     use sixtyfps_corelib::window::Window;
     use sixtyfps_corelib::ImageInner;
 
-    thread_local! {
-        static CUSTOM_WINDOW: RefCell<Option<Box<dyn FnOnce(&Weak<sixtyfps_corelib::window::Window>) -> Rc<dyn PlatformWindow>>>> = RefCell::new(None)
-    }
+    thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
 
-    pub struct SingleFrameWindow<Display: 'static> {
+    pub struct McuWindow {
+        backend: &'static MCUBackend,
         self_weak: Weak<Window>,
-        display: RefCell<Display>,
         background_color: Cell<Color>,
     }
-    impl<Display: 'static> SingleFrameWindow<Display> {
-        pub fn new(self_weak: &Weak<Window>, display: Display) -> Rc<Self> {
-            Self {
-                self_weak: self_weak.clone(),
-                display: RefCell::new(display),
-                background_color: Color::from_rgb_u8(0, 0, 0).into(),
-            }
-            .into()
-        }
-    }
-    impl<Display, DisplayColor, DisplayError> sixtyfps_corelib::window::PlatformWindow
-        for SingleFrameWindow<Display>
-    where
-        Display:
-            embedded_graphics::draw_target::DrawTarget<Color = DisplayColor, Error = DisplayError>,
-        DisplayColor: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
-        DisplayError: core::fmt::Debug,
-    {
+
+    impl PlatformWindow for McuWindow {
         fn show(self: Rc<Self>) {
-            use embedded_graphics::draw_target::DrawTargetExt;
-            let runtime_window = self.self_weak.upgrade().unwrap();
-            runtime_window.set_scale_factor(
+            self.self_weak.upgrade().unwrap().set_scale_factor(
                 option_env!("SIXTYFPS_SCALE_FACTOR").and_then(|x| x.parse().ok()).unwrap_or(1.),
             );
-
-            runtime_window.update_window_properties();
-
-            let mut display = self.display.borrow_mut();
-
-            let size = display.bounding_box().size;
-            runtime_window.set_window_item_geometry(size.width as _, size.height as _);
-
-            let background =
-                crate::renderer::to_rgb888_color_discard_alpha(self.background_color.get());
-
-            let mut display = display.color_converted();
-            crate::renderer::render_window_frame(runtime_window, background, &mut display);
+            WINDOWS.with(|x| *x.borrow_mut() = Some(self))
         }
-        fn hide(self: Rc<Self>) {}
-        fn request_redraw(&self) {}
+        fn hide(self: Rc<Self>) {
+            WINDOWS.with(|x| *x.borrow_mut() = None)
+        }
+        fn request_redraw(&self) {
+            self.backend.with_inner(|inner| inner.post_event(McuEvent::Repaint))
+        }
         fn free_graphics_resources<'a>(
             &self,
             _items: &mut dyn Iterator<Item = Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
@@ -105,7 +124,6 @@ mod snapshotbackend {
         }
         fn request_window_properties_update(&self) {}
         fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
-            //todo!()
             self.background_color.set(window_item.background());
         }
         fn apply_geometry_constraint(
@@ -143,60 +161,116 @@ mod snapshotbackend {
         }
     }
 
-    pub struct SnapshotBackend;
+    enum McuEvent {
+        Custom(Box<dyn FnOnce() + Send>),
+        Quit,
+        Repaint,
+    }
 
-    impl SnapshotBackend {
-        pub fn new_with_display<Display, DisplayColor, DisplayError>(display: Display) -> Self
-        where
-            Display: embedded_graphics::draw_target::DrawTarget<
-                    Color = DisplayColor,
-                    Error = DisplayError,
-                > + 'static,
-            DisplayColor: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
-            DisplayError: core::fmt::Debug,
-        {
-            CUSTOM_WINDOW.with(|window_factory| {
-                *window_factory.borrow_mut() =
-                    Some(Box::new(move |window| SingleFrameWindow::new(window, display)))
-            });
+    #[derive(Default)]
+    struct MCUBackendInner {
+        event_queue: VecDeque<McuEvent>,
+        clipboard: String,
+    }
 
-            Self
+    impl MCUBackendInner {
+        fn post_event(&mut self, event: McuEvent) {
+            self.event_queue.push_back(event);
+            // TODO! wake
         }
     }
 
-    impl sixtyfps_corelib::backend::Backend for SnapshotBackend {
-        fn create_window(&'static self) -> Rc<Window> {
+    #[derive(Default)]
+    pub struct MCUBackend {
+        #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+        inner: RefCell<MCUBackendInner>,
+        #[cfg(feature = "std")]
+        inner: std::sync::Mutex<MCUBackendInner>,
+    }
+
+    #[cfg(feature = "unsafe_single_core")]
+    unsafe impl Sync for MCUBackend {}
+    #[cfg(feature = "unsafe_single_core")]
+    unsafe impl Send for MCUBackend {}
+
+    impl MCUBackend {
+        fn with_inner<T>(&self, f: impl FnOnce(&mut MCUBackendInner) -> T) -> T {
+            f(
+                #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+                &mut self.inner.borrow_mut(),
+                #[cfg(feature = "std")]
+                &mut self.inner.lock().unwrap(),
+            )
+        }
+
+        fn draw(&self, window: Rc<McuWindow>) {
+            let runtime_window = window.self_weak.upgrade().unwrap();
+            runtime_window.update_window_properties();
+
+            DEVICES.with(|devices| {
+                let mut devices = devices.borrow_mut();
+                let devices = devices.as_mut().unwrap();
+                let size = devices.screen_size();
+                runtime_window.set_window_item_geometry(size.width as _, size.height as _);
+                let background =
+                    crate::renderer::to_rgb888_color_discard_alpha(window.background_color.get());
+                crate::renderer::render_window_frame(runtime_window, background, &mut **devices);
+            });
+        }
+    }
+
+    impl sixtyfps_corelib::backend::Backend for MCUBackend {
+        fn create_window(&'static self) -> Rc<sixtyfps_corelib::window::Window> {
             sixtyfps_corelib::window::Window::new(|window| {
-                CUSTOM_WINDOW.with(|window_factory| match window_factory.borrow_mut().take() {
-                    Some(f) => f(window),
-                    None => {
-                        todo!()
-                    }
+                Rc::new(McuWindow {
+                    backend: self,
+                    self_weak: window.clone(),
+                    background_color: Color::from_rgb_u8(0, 0, 0).into(),
                 })
             })
         }
 
         fn run_event_loop(
             &'static self,
-            _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
+            behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
         ) {
+            loop {
+                match self.with_inner(|inner| inner.event_queue.pop_front()) {
+                    Some(McuEvent::Quit) => break,
+                    Some(McuEvent::Custom(e)) => e(),
+                    Some(McuEvent::Repaint) => {
+                        if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
+                            self.draw(window)
+                        }
+                    }
+                    None => {
+                        // TODO: sleep();
+                    }
+                }
+            }
         }
 
-        fn quit_event_loop(&'static self) {}
+        fn quit_event_loop(&'static self) {
+            self.with_inner(|inner| inner.post_event(McuEvent::Quit))
+        }
 
-        fn set_clipboard_text(&'static self, _text: String) {
-            unimplemented!()
+        fn set_clipboard_text(&'static self, text: String) {
+            self.with_inner(|inner| inner.clipboard = text)
         }
 
         fn clipboard_text(&'static self) -> Option<String> {
-            unimplemented!()
+            let c = self.with_inner(|inner| inner.clipboard.clone());
+            c.is_empty().then(|| c)
         }
 
-        fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
-            unimplemented!()
+        fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
+            self.with_inner(|inner| inner.post_event(McuEvent::Custom(event)));
         }
 
-        fn image_size(&'static self, image: &Image) -> Size {
+        fn image_size(
+            &'static self,
+            image: &sixtyfps_corelib::graphics::Image,
+        ) -> sixtyfps_corelib::graphics::Size {
             let inner: &ImageInner = image.into();
             match inner {
                 ImageInner::None => Default::default(),
@@ -210,8 +284,19 @@ mod snapshotbackend {
             }
         }
 
-        fn duration_since_start(&'static self) -> core::time::Duration {
-            Default::default()
+        #[cfg(feature = "std")]
+        fn register_font_from_memory(
+            &'static self,
+            data: &'static [u8],
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            unimplemented!()
+        }
+        #[cfg(feature = "std")]
+        fn register_font_from_path(
+            &'static self,
+            path: &std::path::Path,
+        ) -> Result<(), Box<dyn std::error::Error>> {
+            unimplemented!()
         }
     }
 }
@@ -229,20 +314,14 @@ pub fn init_simulator() {
     });
 }
 
-#[cfg(feature = "snapshot_renderer")]
-pub fn init_with_display<Display, DisplayColor, DisplayError>(display: Display)
-where
-    Display: embedded_graphics::draw_target::DrawTarget<Color = DisplayColor, Error = DisplayError>
-        + 'static,
-    DisplayColor: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
-    DisplayError: core::fmt::Debug,
-{
+pub fn init_with_display<Display: Devices + 'static>(mut display: Display) {
+    DEVICES.with(|d| *d.borrow_mut() = Some(Box::new(display)));
     sixtyfps_corelib::backend::instance_or_init(|| {
-        alloc::boxed::Box::new(snapshotbackend::SnapshotBackend::new_with_display(display))
+        alloc::boxed::Box::new(the_backend::MCUBackend::default())
     });
 }
 
-#[cfg(not(feature = "simulator"))]
+#[cfg(not(feature = "pico-st7789"))]
 pub fn init_with_mock_display() {
     struct EmptyDisplay;
     impl embedded_graphics::draw_target::DrawTarget for EmptyDisplay {

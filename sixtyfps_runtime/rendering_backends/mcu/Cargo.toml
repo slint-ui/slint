@@ -16,7 +16,7 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [features]
-simulator = ["winit", "glutin", "femtovg", "embedded-graphics-simulator", "sixtyfps-corelib/std", "imgref", "scoped-tls-hkt"]
+simulator = ["winit", "glutin", "femtovg", "embedded-graphics-simulator", "std", "imgref", "scoped-tls-hkt"]
 default = ["simulator"]
 
 pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "display-interface-spi", "st7789", "defmt", "defmt-rtt", "panic-probe", "sixtyfps-corelib/defmt" ]
@@ -24,6 +24,7 @@ pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "
 unsafe_single_core = ["sixtyfps-corelib/unsafe_single_core"]
 
 snapshot_renderer = []
+std = ["sixtyfps-corelib/std"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.1.6", path = "../../corelib", default-features = false }

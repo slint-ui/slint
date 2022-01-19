@@ -82,6 +82,5 @@ pub fn init_board() {
 
     display.init(&mut delay).unwrap();
     display.set_orientation(st7789::Orientation::Landscape).unwrap();
-
     crate::init_with_display(display);
 }

@@ -14,14 +14,14 @@ use sixtyfps_corelib::graphics::{
 use sixtyfps_corelib::items::Item;
 use sixtyfps_corelib::{Color, ImageInner};
 
-pub fn render_window_frame<T: DrawTarget<Color = Rgb888>>(
+use crate::Devices;
+
+pub fn render_window_frame(
     runtime_window: Rc<sixtyfps_corelib::window::Window>,
     background: Rgb888,
-    display: &mut T,
-) where
-    T::Error: core::fmt::Debug,
-{
-    let size = display.bounding_box().size;
+    devices: &mut dyn Devices,
+) {
+    let size = devices.screen_size();
     let mut scene = prepare_scene(runtime_window, SizeF::new(size.width as _, size.height as _));
 
     /*for item in scene.future_items {
@@ -149,15 +149,7 @@ pub fn render_window_frame<T: DrawTarget<Color = Rgb888>>(
                 }
             }
         }
-        display
-            .fill_contiguous(
-                &embedded_graphics::primitives::Rectangle::new(
-                    Point::new(0, line.line as i32),
-                    Size::new(size.width, 1),
-                ),
-                line_buffer.iter().copied(),
-            )
-            .unwrap()
+        devices.fill_region(euclid::rect(0, line.line as i32, size.width as i32, 1), &line_buffer)
     }
 }
 
