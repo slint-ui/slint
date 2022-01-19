@@ -107,7 +107,7 @@ fn generate_source(
     let syntax_node = parser::parse(source.to_owned(), Some(&testcase.absolute_path), &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Rust);
     compiler_config.include_paths = include_paths;
-    let (root_component, mut diag) =
+    let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_error() {
@@ -118,7 +118,6 @@ fn generate_source(
         ));
     }
 
-    generator::generate(generator::OutputFormat::Rust, output, &root_component, &mut diag)?;
-    diag.print_warnings_and_exit_on_error();
+    generator::generate(generator::OutputFormat::Rust, output, &root_component)?;
     Ok(())
 }
