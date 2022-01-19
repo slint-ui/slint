@@ -37,7 +37,7 @@ once_cell = { version = "1.9", default-features = false, features = ["alloc", "a
 derive_more = "0.99.5"
 winit = { version = "0.26.0", default-features = false, optional = true, features = ["x11"] }
 glutin = { version = "0.28", default-features = false, optional = true, features = ["x11"] }
-femtovg = { version = "0.2.8", optional = true }
+femtovg = { version = "0.2.9", optional = true }
 scoped-tls-hkt = { version = "0.1", optional = true }
 imgref = { version = "1.6.1", optional = true }
 embedded-graphics = "0.7.1"
