@@ -529,7 +529,14 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
     for sub_compo in &llr.sub_components {
         let sub_compo_id = ident(&sub_compo.name);
         let mut sub_compo_struct = Struct { name: sub_compo_id.clone(), ..Default::default() };
-        generate_sub_component(&mut sub_compo_struct, sub_compo, &llr, None, &mut file);
+        generate_sub_component(
+            &mut sub_compo_struct,
+            sub_compo,
+            &llr,
+            None,
+            Access::Public,
+            &mut file,
+        );
         file.definitions.extend(sub_compo_struct.extract_definitions().collect::<Vec<_>>());
         file.declarations.push(Declaration::Struct(sub_compo_struct));
     }
@@ -621,9 +628,28 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         argument_types: &[],
     };
 
-    component_struct.members.iter_mut().for_each(|(access, _)| {
-        *access = Access::Private;
-    });
+    let old_declarations = file.declarations.len();
+
+    generate_item_tree(
+        &mut component_struct,
+        &component.item_tree,
+        &component,
+        None,
+        component_id.clone(),
+        Access::Private, // Hid eproperties and other fields from the C++ API
+        file,
+    );
+
+    // Give generated sub-components, etc. access to our fields
+
+    for new_decl in file.declarations.iter().skip(old_declarations) {
+        match new_decl {
+            Declaration::Struct(struc @ Struct { .. }) => {
+                component_struct.friends.push(struc.name.clone());
+            }
+            _ => {}
+        };
+    }
 
     let declarations = generate_public_api_for_properties(&component.public_properties, &ctx);
     component_struct.members.extend(declarations.into_iter().map(|decl| (Access::Public, decl)));
@@ -701,15 +727,6 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
             .map(|repeater| ident(&repeater.sub_tree.root.name)),
     );
 
-    generate_item_tree(
-        &mut component_struct,
-        &component.item_tree,
-        &component,
-        None,
-        component_id.clone(),
-        file,
-    );
-
     for glob in &component.globals {
         let ty = if glob.is_builtin {
             format!("sixtyfps::cbindgen_private::{}", glob.name)
@@ -764,6 +781,7 @@ fn generate_item_tree(
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
     item_tree_class_name: String,
+    field_access: Access,
     file: &mut File,
 ) {
     target_struct.friends.push(format!(
@@ -771,7 +789,14 @@ fn generate_item_tree(
         item_tree_class_name
     ));
 
-    generate_sub_component(target_struct, &sub_tree.root, root, parent_ctx.clone(), file);
+    generate_sub_component(
+        target_struct,
+        &sub_tree.root,
+        root,
+        parent_ctx.clone(),
+        field_access,
+        file,
+    );
 
     let root_access = if parent_ctx.is_some() { "parent->root" } else { "self" };
 
@@ -1026,6 +1051,7 @@ fn generate_sub_component(
     component: &llr::SubComponent,
     root: &llr::PublicComponent,
     parent_ctx: Option<ParentCtx>,
+    field_access: Access,
     file: &mut File,
 ) {
     let root_ptr_type = format!("const {} *", ident(&root.item_tree.root.name));
@@ -1050,7 +1076,7 @@ fn generate_sub_component(
     ));
 
     target_struct.members.push((
-        Access::Public,
+        field_access,
         Declaration::Var(Var {
             ty: root_ptr_type.clone(),
             name: "root".to_owned(),
@@ -1060,7 +1086,7 @@ fn generate_sub_component(
     init.push("self->root = root;".into());
 
     target_struct.members.push((
-        Access::Public,
+        field_access,
         Declaration::Var(Var {
             ty: "uintptr_t".to_owned(),
             name: "tree_index_of_first_child".to_owned(),
@@ -1070,7 +1096,7 @@ fn generate_sub_component(
     init.push("this->tree_index_of_first_child = tree_index_of_first_child;".into());
 
     target_struct.members.push((
-        Access::Public,
+        field_access,
         Declaration::Var(Var {
             ty: "uintptr_t".to_owned(),
             name: "tree_index".to_owned(),
@@ -1085,7 +1111,7 @@ fn generate_sub_component(
         init_parameters.push(format!("{} parent", parent_type));
 
         target_struct.members.push((
-            Access::Public,
+            field_access,
             Declaration::Var(Var {
                 ty: parent_type,
                 name: "parent".to_owned(),
@@ -1111,6 +1137,7 @@ fn generate_sub_component(
             &root,
             Some(ParentCtx::new(&ctx, None)),
             component_id,
+            Access::Public,
             file,
         );
         file.definitions.extend(popup_struct.extract_definitions().collect::<Vec<_>>());
@@ -1130,7 +1157,7 @@ fn generate_sub_component(
         };
 
         target_struct.members.push((
-            Access::Public, //FIXME: field_access,
+            field_access,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
         ));
     }
@@ -1181,7 +1208,7 @@ fn generate_sub_component(
         }
 
         target_struct.members.push((
-            Access::Public,
+            field_access,
             Declaration::Var(Var {
                 ty: ident(&sub.ty.name),
                 name: field_name,
@@ -1209,7 +1236,7 @@ fn generate_sub_component(
             continue;
         }
         target_struct.members.push((
-            Access::Public,
+            field_access,
             Declaration::Var(Var {
                 ty: format!("sixtyfps::cbindgen_private::{}", ident(&item.ty.class_name)),
                 name: ident(&item.name),
@@ -1294,7 +1321,7 @@ fn generate_sub_component(
     init.extend(component.init_code.iter().map(|e| compile_expression(e, &ctx)));
 
     target_struct.members.push((
-        Access::Public,
+        field_access,
         Declaration::Function(Function {
             name: "init".to_owned(),
             signature: format!("({}) -> void", init_parameters.join(",")),
@@ -1304,7 +1331,7 @@ fn generate_sub_component(
     ));
 
     target_struct.members.push((
-        Access::Public,
+        field_access,
         Declaration::Function(Function {
             name: "layout_info".into(),
             signature: "(sixtyfps::cbindgen_private::Orientation o) const -> sixtyfps::cbindgen_private::LayoutInfo"
@@ -1323,7 +1350,7 @@ fn generate_sub_component(
 
     if !children_visitor_cases.is_empty() {
         target_struct.members.push((
-            Access::Public,
+            field_access,
             Declaration::Function(Function {
                 name: "visit_dynamic_children".into(),
                 signature: "(intptr_t dyn_index, [[maybe_unused]] sixtyfps::private_api::TraversalOrder order, [[maybe_unused]] sixtyfps::private_api::ItemVisitorRefMut visitor) const -> uint64_t".into(),
@@ -1353,6 +1380,7 @@ fn generate_repeated_component(
         root,
         Some(parent_ctx.clone()),
         repeater_id.clone(),
+        Access::Public,
         file,
     );
 
