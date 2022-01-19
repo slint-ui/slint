@@ -599,8 +599,10 @@ fn generate_sub_component(
             quote!(tree_index_of_first_child + #local_index_of_first_child - 1)
         };
 
+        let sub_compo_field = access_component_field_offset(&format_ident!("Self"), &field_name);
+
         init.push(quote!(#sub_component_id::init(
-            VRcMapped::map(self_rc.clone(), |x| Self::FIELD_OFFSETS.#field_name.apply_pin(x)),
+            VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
             &#root_ref_tokens,
             #global_index, #global_children
         );));
@@ -611,7 +613,7 @@ fn generate_sub_component(
             let last_repeater: usize = repeater_offset + sub_component_repeater_count - 1;
             repeated_visit_branch.push(quote!(
                 #repeater_offset..=#last_repeater => {
-                    Self::FIELD_OFFSETS.#field_name.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
+                    #sub_compo_field.apply_pin(_self).visit_dynamic_children(dyn_index - #repeater_offset, order, visitor)
                 }
             ));
         }
@@ -1121,16 +1123,17 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
         let component_id = inner_component_id(sub_component);
         let item_name = ident(&sub_component.items[item_index].name);
+        let item_field = access_component_field_offset(&component_id, &item_name);
         if prop_name.is_empty() {
             // then this is actually a reference to the element itself
-            quote!((#compo_path #component_id::FIELD_OFFSETS.#item_name).apply_pin(_self))
+            quote!((#compo_path #item_field).apply_pin(_self))
         } else {
             let property_name = ident(&prop_name);
             let item_ty = ident(&sub_component.items[item_index].ty.class_name);
             let flick = sub_component.items[item_index]
                 .is_flickable_viewport
                 .then(|| quote!(+ sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport));
-            quote!((#compo_path #component_id::FIELD_OFFSETS.#item_name #flick + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
+            quote!((#compo_path #item_field #flick + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
         }
     }
 
@@ -1141,11 +1144,13 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                     follow_sub_component_path(sub_component, sub_component_path);
                 let component_id = inner_component_id(sub_component);
                 let property_name = ident(&sub_component.properties[*property_index].name);
-                quote!((#compo_path #component_id::FIELD_OFFSETS.#property_name).apply_pin(_self))
+                let property_field = access_component_field_offset(&component_id, &property_name);
+                quote!((#compo_path #property_field).apply_pin(_self))
             } else if let Some(current_global) = ctx.current_global {
                 let global_name = global_inner_name(&current_global);
                 let property_name = ident(&current_global.properties[*property_index].name);
-                quote!(#global_name::FIELD_OFFSETS.#property_name.apply_pin(_self))
+                let property_field = access_component_field_offset(&global_name, &property_name);
+                quote!(#property_field.apply_pin(_self))
             } else {
                 unreachable!()
             }
