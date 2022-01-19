@@ -10,7 +10,6 @@ There is one sub module for every language
 use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
-use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression};
 use crate::langtype::Type;
 use crate::namedreference::NamedReference;
@@ -62,7 +61,6 @@ pub fn generate(
     format: OutputFormat,
     destination: &mut impl std::io::Write,
     doc: &Document,
-    diag: &mut BuildDiagnostics,
 ) -> std::io::Result<()> {
     #![allow(unused_variables)]
     #![allow(unreachable_code)]

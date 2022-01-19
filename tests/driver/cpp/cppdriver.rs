@@ -17,7 +17,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let syntax_node = parser::parse(source.clone(), Some(&testcase.absolute_path), &mut diag);
     let mut compiler_config = CompilerConfiguration::new(generator::OutputFormat::Cpp);
     compiler_config.include_paths = include_paths;
-    let (root_component, mut diag) =
+    let (root_component, diag) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_error() {
@@ -27,12 +27,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let mut generated_cpp: Vec<u8> = Vec::new();
 
-    generator::generate(
-        generator::OutputFormat::Cpp,
-        &mut generated_cpp,
-        &root_component,
-        &mut diag,
-    )?;
+    generator::generate(generator::OutputFormat::Cpp, &mut generated_cpp, &root_component)?;
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
