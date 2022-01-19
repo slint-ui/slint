@@ -384,19 +384,7 @@ private:
     int64_t id;
 };
 
-// layouts:
-using cbindgen_private::BoxLayoutCellData;
-using cbindgen_private::BoxLayoutData;
-using cbindgen_private::GridLayoutCellData;
-using cbindgen_private::GridLayoutData;
-using cbindgen_private::LayoutAlignment;
-using cbindgen_private::LayoutInfo;
-using cbindgen_private::Orientation;
-using cbindgen_private::Padding;
-using cbindgen_private::PathLayoutData;
-using cbindgen_private::Rect;
-
-#if !defined(DOXYGEN)
+namespace cbindgen_private {
 inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
 {
     // Note: This "logic" is duplicated from LayoutInfo::merge in layout.rs.
@@ -407,10 +395,8 @@ inline LayoutInfo LayoutInfo::merge(const LayoutInfo &other) const
                         std::max(preferred, other.preferred),
                         std::min(stretch, other.stretch) };
 }
-#endif
 
 /// FIXME! this should be done by cbindgen
-namespace cbindgen_private {
 inline bool operator==(const LayoutInfo &a, const LayoutInfo &b)
 {
     return a.min == b.min && a.max == b.max && a.min_percent == b.min_percent
@@ -425,7 +411,8 @@ inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 
 namespace private_api {
 
-inline SharedVector<float> solve_box_layout(const BoxLayoutData &data, Slice<int> repeater_indexes)
+inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutData &data,
+                                            Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
     Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
@@ -433,31 +420,36 @@ inline SharedVector<float> solve_box_layout(const BoxLayoutData &data, Slice<int
     return result;
 }
 
-inline SharedVector<float> solve_grid_layout(const GridLayoutData &data)
+inline SharedVector<float> solve_grid_layout(const cbindgen_private::GridLayoutData &data)
 {
     SharedVector<float> result;
     cbindgen_private::sixtyfps_solve_grid_layout(&data, &result);
     return result;
 }
 
-inline LayoutInfo grid_layout_info(Slice<GridLayoutCellData> cells, float spacing,
-                                   const Padding &padding)
+inline cbindgen_private::LayoutInfo
+grid_layout_info(Slice<cbindgen_private::GridLayoutCellData> cells, float spacing,
+                 const cbindgen_private::Padding &padding)
 {
     return cbindgen_private::sixtyfps_grid_layout_info(cells, spacing, &padding);
 }
 
-inline LayoutInfo box_layout_info(Slice<BoxLayoutCellData> cells, float spacing,
-                                  const Padding &padding, LayoutAlignment alignment)
+inline cbindgen_private::LayoutInfo
+box_layout_info(Slice<cbindgen_private::BoxLayoutCellData> cells, float spacing,
+                const cbindgen_private::Padding &padding,
+                cbindgen_private::LayoutAlignment alignment)
 {
     return cbindgen_private::sixtyfps_box_layout_info(cells, spacing, &padding, alignment);
 }
 
-inline LayoutInfo box_layout_info_ortho(Slice<BoxLayoutCellData> cells, const Padding &padding)
+inline cbindgen_private::LayoutInfo
+box_layout_info_ortho(Slice<cbindgen_private::BoxLayoutCellData> cells,
+                      const cbindgen_private::Padding &padding)
 {
     return cbindgen_private::sixtyfps_box_layout_info_ortho(cells, &padding);
 }
 
-inline SharedVector<float> solve_path_layout(const PathLayoutData &data,
+inline SharedVector<float> solve_path_layout(const cbindgen_private::PathLayoutData &data,
                                              Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
