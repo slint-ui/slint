@@ -6,36 +6,36 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
  - **Breaking:** The internal key code for the keys left, right, home and end
-   has changed. This was undocumented, but if one was handling this in the
+   has changed. This was undocumented, but if you were handling this in the
    `FocusScope` event, these keys will now be ignored. Use the `Keys.LeftArrow`
-   and other code exposed in the `Keys` namespace instead
+   and other code exposed in the `Keys` namespace instead.
  - For `sixtyfps::Timer` (C++ and Rust), it's now possible to call `restart()` after
    a timer has been stopped previously by calling `stop()`.
+ - Property access in `.60` was optimized by doing more constant propagation.
 
 ### Added
 
- - Colors names can now be accessed through the `Colors` namespace
- - Math function are now available through the `Math` namespace
- - `TouchArea` gained a `mouse-cursor` property to change the mouse cursor
- - C++: Added version macros
- - Optimize some property access by doing more constant propagation
+ - Color names can now be accessed through the `Colors` namespace (in `.60`).
+ - Math function are now available through the `Math` namespace (in `.60`).
+ - `TouchArea` gained a `mouse-cursor` property to change the mouse cursor.
+ - C++: Added `SIXTYFPS_VERSION_MAJOR`/`SIXTYFPS_VERSION_MINOR`/`SIXTYFPS_VERSION_PATCH` version macros.
  - More special keyboard key codes are provided in the `FocusScope`, and
    special keys are handled
  - `start()`, `stop()`, `running()` and a default constructor for C++ `sixtyfps::Timer`
- - Math functions `log`, and `pow`
+ - Added math functions `log`, and `pow`.
  - Property animations now have a `delay` property, which will delay the start
-   of the animation.
+   of the animation. Use this to create sequential animations.
  - Rust: Added `sixtyfps::VecModel::insert(&self, index, value)`.
  - C++: Added `sixtyfps::VecModel::insert(index, value)`.
  - Added ability to access elements of a model with the `[index]` syntax.
 
 ### Fixed
 
- - Memory leak in C++
- - Properly change all the colors when switching dark mode on or of (#687)
+ - Memory leak in C++.
+ - Native style: Colors are updated automatically when the Windowing system switches to and from dark mode (#687)
  - Ctrl/Command+X in text fields copies the selected text to the clipboard and deletes it (cut).
- - Improved native ComboBox look
- - panics or compilation error when using two way bindings on global properties
+ - Improved native ComboBox look.
+ - Fixed panics or compilation error when using two way bindings on global properties.
 
 ## [0.1.5] - 2021-11-24
 
