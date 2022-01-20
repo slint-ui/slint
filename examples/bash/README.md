@@ -19,4 +19,4 @@ The examples also assume that [`jq`](https://stedolan.github.io/jq/) is in the p
 
 The `laptop.svg` icon is `emoji_u1f4bb.svg` from the Noto Emoji font from
     https://github.com/googlefonts/noto-emoji
-and licensed under the terms of the Apache license, version 2.0; copyright Google Inc.
+and licensed under the terms of the SIL Open Font License, version 1.1; copyright Google Inc.

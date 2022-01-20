@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 use const_field_offset::*;
 use memoffset::offset_of;

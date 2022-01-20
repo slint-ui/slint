@@ -1,12 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+# SPDX-License-Identifier: MIT OR Apache-2.0
 
 [package]
 name = "const-field-offset-macro"
 version = "0.1.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
-license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
+license = "MIT OR Apache-2.0"
 description = "Procedural macro to generate constant field offset from repr(c) struct"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
