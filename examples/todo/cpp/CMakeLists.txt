@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 cmake_minimum_required(VERSION 3.14)
-project(sixtyfps_cpptest LANGUAGES CXX)
+project(sixtyfps_cpp_todo LANGUAGES CXX)
 
 if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
