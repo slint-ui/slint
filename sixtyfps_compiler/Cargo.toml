@@ -53,8 +53,8 @@ sixtyfps-common = { version = "=0.1.6", path = "../sixtyfps_runtime/common" }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 image = "0.23"
 tiny-skia = "0.6.1"
-resvg = "0.19"
-usvg = "0.19"
+resvg = "0.20"
+usvg = "0.20"
 
 [dev-dependencies]
 regex = "1.3.7"

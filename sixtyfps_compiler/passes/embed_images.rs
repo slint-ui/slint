@@ -257,7 +257,8 @@ fn load_image(file: crate::fileaccess::VirtualFile) -> image::ImageResult<image:
             size.height() as u32,
         )
         .ok_or_else(size_error)?;
-        resvg::render(&tree, usvg::FitTo::Original, skia_buffer).ok_or_else(size_error)?;
+        resvg::render(&tree, usvg::FitTo::Original, Default::default(), skia_buffer)
+            .ok_or_else(size_error)?;
         return image::RgbaImage::from_raw(size.width() as u32, size.height() as u32, buffer)
             .ok_or_else(size_error);
     }
