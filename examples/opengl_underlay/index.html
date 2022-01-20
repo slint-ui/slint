@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+
+<!-- Copyright © SixtyFPS GmbH <info@sixtyfps.io> -->
+<!-- SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial) -->
+
+<html>
+<!--
+    This is a static html file used to display the wasm build.
+    In order to generate the build
+     - uncomment the #wasm# lines in Cargo.toml
+     - Run `wasm-pack build --release --target web` in this directory.
+  -->
+
+<head>
+  <meta charset="UTF-8">
+  <title>SixtyFPS OpenGL Underlay Example (Web Assembly version)</title>
+</head>
+<style>
+  canvas:focus {
+    outline: none;
+    touch-action: none;
+  }
+
+  /* beautify ignore:start */
+  .spinner:before {
+    content: ''; box-sizing: border-box; position: absolute;
+    top: 50%; left: 50%; width: 100px; height: 100px;
+    margin-top: -10px; margin-left: -10px;
+    border-radius: 50%;  border: 2px solid transparent;
+    border-top-color: #07d; border-bottom-color: #07d;
+    animation: spinner 1s ease infinite;
+  }
+  @keyframes spinner { to { transform: rotate(360deg); } }
+  /* beautify ignore:end */
+</style>
+
+<body>
+  <p>This is the <a href="https://sixtyfps.io">SixtyFPS</a> OpenGL Underlay example compiled to WebAssembly. It demonstrates an OpenGL rendered scene under a SixtyFPS scene.</p>
+  <div id="spinner" style="position: relative;">
+    <div class="spinner">Loading...</div>
+  </div>
+  <canvas id="canvas" width="640" height="480"></canvas>
+  <p>
+    <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/opengl_underlay/scene.60">
+      View Source Code on GitHub</a> -
+    <a
+      href="https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/opengl_underlay/scene.60">
+      Edit in the online code editor
+    </a>
+  </p>
+  <script type="module">
+    import init from './pkg/opengl_underlay.js';
+    init().finally(() => {
+      document.getElementById("spinner").remove();
+    });
+  </script>
+</body>
+
+</html>

@@ -3,6 +3,10 @@
 cmake_minimum_required(VERSION 3.19)
 project(SixtyFPSExamples LANGUAGES CXX)
 
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
+
+find_package(OpenGLES2 QUIET)
+
 if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
     include(FetchContent)
@@ -21,4 +25,7 @@ if (SIXTYFPS_FEATURE_INTERPRETER AND SIXTYFPS_FEATURE_BACKEND_QT)
 endif()
 if (SIXTYFPS_FEATURE_INTERPRETER)
     add_subdirectory(iot-dashboard/)
+endif()
+if (OpenGLES2_FOUND AND SIXTYFPS_FEATURE_BACKEND_GL)
+    add_subdirectory(opengl_underlay)
 endif()

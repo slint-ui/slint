@@ -1,0 +1,38 @@
+# Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+[package]
+name = "opengl_underlay"
+version = "0.1.6"
+authors = ["SixtyFPS <info@sixtyfps.io>"]
+edition = "2021"
+build = "build.rs"
+license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "opengl_underlay"
+
+[dependencies]
+sixtyfps = { path = "../../api/sixtyfps-rs" }
+glow = { version = "0.11" }
+instant = { version = "0.1", features = [ "now" ] }
+
+[build-dependencies]
+sixtyfps-build = { path = "../../api/rs/build" }
+
+# Remove the `#wasm#` to uncomment the wasm build.
+# This is commented out by default because we don't want to build it as a library by default
+# The CI has a script that does sed "s/#wasm# //" to generate the wasm build.
+
+#wasm# [lib]
+#wasm# crate-type = ["cdylib"]
+#wasm# path = "main.rs"
+#wasm#
+#wasm# [target.'cfg(target_arch = "wasm32")'.dependencies]
+#wasm# wasm-bindgen = { version = "0.2" }
+#wasm# web-sys = { version = "0.3", features=["console"] }
+#wasm# console_error_panic_hook = "0.1.5"
+#wasm# instant = { version = "0.1", features = [ "wasm-bindgen" ] }
+
