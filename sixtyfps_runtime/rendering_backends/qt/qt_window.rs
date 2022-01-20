@@ -856,12 +856,16 @@ pub(crate) fn load_image_from_resource(
     source_size: Option<qttypes::QSize>,
     image_fit: ImageFit,
 ) -> Option<qttypes::QPixmap> {
-    let (is_path, data) = match resource {
+    let (is_path, data, format) = match resource {
         ImageInner::None => return None,
-        ImageInner::AbsoluteFilePath(path) => (true, qttypes::QByteArray::from(path.as_str())),
-        ImageInner::EmbeddedData { data, format: _ } => {
-            (false, qttypes::QByteArray::from(data.as_slice()))
+        ImageInner::AbsoluteFilePath(path) => {
+            (true, qttypes::QByteArray::from(path.as_str()), Default::default())
         }
+        ImageInner::EmbeddedData { data, format } => (
+            false,
+            qttypes::QByteArray::from(data.as_slice()),
+            qttypes::QByteArray::from(format.as_slice()),
+        ),
         ImageInner::EmbeddedImage(buffer) => {
             let (format, bytes_per_line, buffer_ptr) = match buffer {
                 SharedImageBuffer::RGBA8(img) => {
@@ -893,18 +897,28 @@ pub(crate) fn load_image_from_resource(
     Some(cpp! { unsafe [
             data as "QByteArray",
             is_path as "bool",
+            format as "QByteArray",
             size_requested as "bool",
             source_size as "QSize",
             image_fit as "int"] -> qttypes::QPixmap as "QPixmap" {
-        if (size_requested) {
-            QImageReader reader;
-            QBuffer buffer;
-            if (is_path) {
-                reader.setFileName(QString::fromUtf8(data));
+        QImageReader reader;
+        QBuffer buffer;
+        if (is_path) {
+            reader.setFileName(QString::fromUtf8(data));
+        } else {
+            buffer.setBuffer(const_cast<QByteArray *>(&data));
+            reader.setDevice(&buffer);
+        }
+        if (!reader.canRead()) {
+            QString fileName = reader.fileName();
+            if (!fileName.isEmpty()) {
+                qWarning("Error loading image \"%s\": %s", QFile::encodeName(fileName).constData(), qPrintable(reader.errorString()));
             } else {
-                buffer.setBuffer(const_cast<QByteArray *>(&data));
-                reader.setDevice(&buffer);
+                qWarning("Error loading image of format %s: %s", format.constData(), qPrintable(reader.errorString()));
             }
+            return QPixmap();
+        }
+        if (size_requested) {
             if (reader.supportsOption(QImageIOHandler::ScaledSize)) {
                 auto target_size = source_size;
                 if (image_fit == 1) { //ImageFit::contain
@@ -915,12 +929,9 @@ pub(crate) fn load_image_from_resource(
                     target_size = (s * qMax(source_size.width() / s.width(), source_size.height() / s.height())).toSize();
                 }
                 reader.setScaledSize(target_size);
-                return QPixmap::fromImageReader(&reader);
             }
         }
-        QPixmap img;
-        is_path ? img.load(QString::fromUtf8(data)) : img.loadFromData(data);
-        return img;
+        return QPixmap::fromImageReader(&reader);
     }})
 }
 
