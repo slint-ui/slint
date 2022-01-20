@@ -40,6 +40,7 @@ Test := Rectangle {
         Text {
             text: "hello \{l.preferred-width/1px}x\{l.preferred-height/1px}";
 //               ^error{The binding for the property 'text' is part of a binding loop}
+            wrap: word-wrap;
         }
     }
 

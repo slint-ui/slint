@@ -192,7 +192,7 @@ impl NamedReferenceContainer {
     }
 }
 
-/// Mark that a given property is `is_set_derived` in all bases
+/// Mark that a given property is `is_set_externally` in all bases
 pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &str) {
     loop {
         let next = if let Type::Component(c) = &element.borrow().base_type {
