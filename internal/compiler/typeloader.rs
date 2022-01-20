@@ -9,10 +9,10 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::object_tree::{self, Document};
-use crate::parser;
 use crate::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxToken};
 use crate::typeregister::TypeRegister;
 use crate::CompilerConfiguration;
+use crate::{fileaccess, parser};
 
 /// Storage for a cache of all loaded documents
 #[derive(Default)]
@@ -98,6 +98,19 @@ impl<'a> TypeLoader<'a> {
             }
             Cow::from("fluent")
         });
+
+        let known_styles = fileaccess::styles();
+        if !known_styles.contains(&style.as_ref()) {
+            diag.push_diagnostic_with_span(
+                format!(
+                    "Style {} in not known. Use one of [{}] instead",
+                    &style,
+                    known_styles.join(", ")
+                ),
+                Default::default(),
+                crate::diagnostics::DiagnosticLevel::Error,
+            );
+        }
 
         Self { global_type_registry, compiler_config, style, all_documents: Default::default() }
     }
