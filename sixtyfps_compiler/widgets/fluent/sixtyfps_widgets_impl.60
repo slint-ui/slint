@@ -85,11 +85,13 @@ export Button := Rectangle {
         : Palette.white;
     horizontal-stretch: 0;
     vertical-stretch: 0;
-    min-height: 32px;
-    HorizontalLayout {
+    min-height: max(32px, l.min-height);
+    l := HorizontalLayout {
         padding-left: 16px;
         padding-right: 16px;
         spacing: 8px;
+        padding-top: 3px;
+        padding-bottom: 3px;
 
         if (icon.width > 0 && icon.height > 0): Image {
             source <=> icon;

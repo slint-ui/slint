@@ -97,7 +97,7 @@ export SpinBox := FocusScope {
     property <image> icon;
     property <length> font-size <=> button.font-size;
 
-    min-height: 32px;
+    min-height: max(32px, l.min-height);
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
@@ -105,8 +105,10 @@ export SpinBox := FocusScope {
         background: !enabled ? Palette.neutralLighter : Palette.white;
     }
 
-    GridLayout {
+    l := GridLayout {
         padding-left: 8px;
+        padding-top: 3px;
+        padding-bottom: 3px;
         text := Text {
             rowspan: 2;
             text: value;
@@ -339,6 +341,7 @@ export LineEdit := Rectangle {
 
     horizontal-stretch: 1;
     vertical-stretch: 0;
+    min-height: max(32px, l.min-height);
 
     background: !enabled ? Palette.neutralLighter : Palette.white;
     border-radius: 2px;
@@ -347,9 +350,11 @@ export LineEdit := Rectangle {
         : has-focus ? Palette.themeSecondary
         : Palette.neutralPrimary;
 
-    HorizontalLayout {
+    l := HorizontalLayout {
         padding-left: 8px;
         padding-right: 8px;
+        padding-top: 3px;
+        padding-bottom: 3px;
         inner := LineEditInner {
             placeholder-color: !enabled ? Palette.neutralTertiary : Palette.neutralSecondary;
         }
@@ -415,11 +420,13 @@ export ComboBox := FocusScope {
     horizontal-stretch: 1;
     vertical-stretch: 0;
     min-width: 170px;
-    min-height: 32px;
+    min-height: max(32px, l.min-height);
 
-    HorizontalLayout {
+    l := HorizontalLayout {
         padding-left: 8px;
         padding-right: 8px;
+        padding-bottom: 3px;
+        padding-top: 3px;
         spacing: 8px;
         t := Text {
             text <=> root.current-value;
