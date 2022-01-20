@@ -25,7 +25,7 @@ in lexicographic order.
 
 For example, if you have this structure in the .60 file
 
-```60
+```60,ignore
 export struct MyStruct := {
     foo: int,
     bar: string,
