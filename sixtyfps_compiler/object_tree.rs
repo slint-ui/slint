@@ -132,7 +132,13 @@ impl Document {
                     || import.file.ends_with(".ttf")
                     || import.file.ends_with(".otf")
                 {
-                    if crate::fileaccess::load_file(std::path::Path::new(&import.file)).is_some() {
+                    // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
+                    // local paths we should try to verify the existence and let the developer know ASAP.
+                    if import.file.starts_with("http://")
+                        || import.file.starts_with("https://")
+                        || crate::fileaccess::load_file(std::path::Path::new(&import.file))
+                            .is_some()
+                    {
                         Some(import.file)
                     } else {
                         diag.push_error(
