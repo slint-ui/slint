@@ -10,8 +10,8 @@ include(CMakeDependentOption)
 include(FetchContent)
 FetchContent_Declare(
     Corrosion
-    GIT_REPOSITORY https://github.com/AndrewGaspar/corrosion.git
-    GIT_TAG f679545a63a8b214a415e086f910126ab66714fa
+    GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
+    GIT_TAG 6593a33881839d1f298ae51a32bce3a27e3217c5
 )
 FetchContent_MakeAvailable(Corrosion)
 
