@@ -10,6 +10,7 @@ license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 description = "SixtyFPS compiler binary"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
+publish = false
 
 [[bin]]
 name = "sixtyfps-compiler"

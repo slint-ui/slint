@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 /*!
 This crate expose the [`FieldOffsets`] derive macro and the types it uses.
 

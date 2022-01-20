@@ -1,4 +1,4 @@
-The icons originate from Font-Awesome font ( http://fontawesome.io ) and licensed under the CC BY-SA 3.0 (SVG download)
+The icons originate from Font-Awesome font ( http://fontawesome.io ) and licensed under the CC BY 4.0 (SVG download)
 
     https://fontawesome.com/license/free
 

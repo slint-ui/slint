@@ -1,3 +1,6 @@
+# Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 [package]
 name = "const-field-offset"
 version = "0.1.2"

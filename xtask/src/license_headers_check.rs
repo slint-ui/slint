@@ -263,8 +263,7 @@ enum LicenseLocation {
 lazy_static! {
     // cspell:disable
     static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
-        ("^helper_crates/const-field-offset/src/lib.rs$", LicenseLocation::NoLicense), // Upstream fork
-        ("^helper_crates/const-field-offset/Cargo.toml$", LicenseLocation::NoLicense), // Upstream fork
+        ("^helper_crates/const-field-offset/.*", LicenseLocation::NoLicense), // Upstream fork
         (".+webpack\\..+\\.js$", LicenseLocation::NoLicense),
         (".+\\.license$", LicenseLocation::NoLicense),
         (".+\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
@@ -310,8 +309,9 @@ lazy_static! {
         (".+\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".*README$", LicenseLocation::NoLicense),
         ("LICENSE\\..*", LicenseLocation::NoLicense),
-        ("LICENSE-DejaVu", LicenseLocation::NoLicense),
         (".+\\.txt$", LicenseLocation::NoLicense),
+        ("(^|.+)\\.reuse/dep5$", LicenseLocation::NoLicense), // .reuse files have no license headers
+        ("LICENSES/.+", LicenseLocation::NoLicense),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
