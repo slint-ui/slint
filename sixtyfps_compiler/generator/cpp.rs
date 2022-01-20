@@ -619,6 +619,18 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
     let component_id = ident(&root_component.name);
     let mut component_struct = Struct { name: component_id.clone(), ..Default::default() };
 
+    // The window need to be the first member so it is destroyed last
+    component_struct.members.push((
+        // FIXME: many of the different component bindings need to access this
+        Access::Public,
+        Declaration::Var(Var {
+            ty: "sixtyfps::Window".into(),
+            name: "m_window".into(),
+            init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
+            ..Default::default()
+        }),
+    ));
+
     let ctx = EvaluationContext {
         public_component: component,
         current_sub_component: Some(&component.item_tree.root),
@@ -653,17 +665,6 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
 
     let declarations = generate_public_api_for_properties(&component.public_properties, &ctx);
     component_struct.members.extend(declarations.into_iter().map(|decl| (Access::Public, decl)));
-
-    component_struct.members.push((
-        // FIXME: many of the different component bindings need to access this
-        Access::Public,
-        Declaration::Var(Var {
-            ty: "sixtyfps::Window".into(),
-            name: "m_window".into(),
-            init: Some("sixtyfps::Window{sixtyfps::private_api::WindowRc()}".into()),
-            ..Default::default()
-        }),
-    ));
 
     component_struct.members.push((
         Access::Public,
