@@ -778,7 +778,7 @@ This structure is generated and passed to the `pointer-event` callback of the `T
 
 # Builtin Enums
 
-The default value of each enum type is always the first value
+The default value of each enum type is always the first value.
 
 ## `TextHorizontalAlignment`
 
