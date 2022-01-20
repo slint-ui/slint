@@ -397,7 +397,14 @@ fn visit_implicit_layout_info_dependencies(
             vis(&NamedReference::new(item, "font-weight"));
             vis(&NamedReference::new(item, "letter-spacing"));
             vis(&NamedReference::new(item, "wrap"));
-            if orientation == Orientation::Vertical {
+            let wrap_set = item.borrow().is_binding_set("wrap", false)
+                || item
+                    .borrow()
+                    .property_analysis
+                    .borrow()
+                    .get("wrap")
+                    .map_or(false, |a| a.is_set || a.is_set_externally);
+            if wrap_set && orientation == Orientation::Vertical {
                 vis(&NamedReference::new(item, "width"));
             }
             if base_type.as_str() == "TextInput" {
@@ -486,7 +493,7 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>, reverse_aliases: &mut 
     }
 }
 
-/// Make sure that the set_in_derived is true for all bindings
+/// Make sure that the is_set_externally is true for all bindings
 fn mark_used_base_properties(component: &Rc<Component>) {
     crate::object_tree::recurse_elem_including_sub_components_no_borrow(
         component,
