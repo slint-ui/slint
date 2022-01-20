@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+
+export Btn := Rectangle {
+    min-height: max(32px, l.min-height);
+    l := HorizontalLayout {
+        if (false): button_in_image := Image {
+            width: 24px;
+        }
+        text := Text {  }
+    }
+}
+
+export TestCase := Window {
+    x := HorizontalLayout {
+        btn := Btn {}
+    }
+}
+

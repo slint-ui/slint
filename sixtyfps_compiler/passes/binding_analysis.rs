@@ -68,15 +68,34 @@ impl PropertyPath {
             &element.borrow().enclosing_component.upgrade().unwrap().root_element,
         ) {
             if let Some(last) = elements.pop() {
-                debug_assert!(Rc::ptr_eq(
-                    last.borrow().base_type.as_component(),
-                    &element.borrow().enclosing_component.upgrade().unwrap(),
-                ));
+                #[cfg(debug_assertions)]
+                fn check_that_element_is_in_the_component(
+                    e: &ElementRc,
+                    c: &Rc<Component>,
+                ) -> bool {
+                    let enclosing = e.borrow().enclosing_component.upgrade().unwrap();
+                    Rc::ptr_eq(c, &enclosing)
+                        || enclosing
+                            .parent_element
+                            .upgrade()
+                            .map_or(false, |e| check_that_element_is_in_the_component(&e, c))
+                }
+                #[cfg(debug_assertions)]
+                debug_assert!(
+                    check_that_element_is_in_the_component(
+                        &element,
+                        last.borrow().base_type.as_component()
+                    ),
+                    "The element is not in the component pointed at by the path ({:?} / {:?})",
+                    self,
+                    nr
+                );
                 element = last.0;
             } else {
                 break;
             }
         }
+        debug_assert!(elements.last().map_or(true, |x| *x != ByAddress(nr.element())));
         Self { elements, prop: NamedReference::new(&element, nr.name()) }
     }
 }
