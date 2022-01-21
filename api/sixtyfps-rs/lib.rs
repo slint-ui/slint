@@ -68,11 +68,11 @@ resolver = "2" # avoid dependency conflicts on some platforms
 edition = "2018"
 
 [dependencies]
-sixtyfps = "0.1.5"
+sixtyfps = "0.1.6"
 ...
 
 [build-dependencies]
-sixtyfps-build = "0.1.5"
+sixtyfps-build = "0.1.6"
 ```
 
 Use the API of the sixtyfps-build crate in the `build.rs` file:
