@@ -9,7 +9,7 @@ These properties are valid on all visible items
 * **`width`** and **`height`** (*length*): The size of the element. When set, this overrides the default size.
 * **`max-width`** and **`max-height`** (*length*): The maximum size of an element when used in a layout.
 * **`min-width`** and **`min-height`** (*length*): The minimum size of an element when used in a layout.
-* **`preferred-width`** and **`preferred-height`** (*length*): The preferred size of an element when used in a layout. 
+* **`preferred-width`** and **`preferred-height`** (*length*): The preferred size of an element when used in a layout.
 * **`col`**, **`row`**, **`colspan`**, **`rowspan`** (*int*): See [`GridLayout`](#gridlayout).
 * **`horizontal-stretch`** and **`vertical-stretch`** (*float*): Specify how much relative space these elements are stretching in a layout.
   When 0, this means that the elements will not be stretched unless all elements are 0. Builtin widgets have a value of either 0 or 1
@@ -460,7 +460,7 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 The KeyEvent has a text property which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
-or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the `Keys` namespace
+or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Keys`](#keys) namespace
 
 ### Properties
 
@@ -888,3 +888,57 @@ Depending on the backend and used OS unidirectional resize cursors may be replac
 * **`ns-resize`**: Bidirectional resize north-south.
 * **`nesw-resize`**: Bidirectional resize north-east-south-west.
 * **`nwse-resize`**: Bidirectional resize north-west-south-east.
+
+# Namespaces
+
+The following namespaces provide access to common constants such as special keys or named colors.
+
+## `Keys`
+
+Use the constants in the `Keys` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](#keyevent)'s `text` property
+against the constants below.
+
+* **`Backspace`**
+* **`Tab`**
+* **`Return`**
+* **`Escape`**
+* **`Backtab`**
+* **`Delete`**
+* **`UpArrow`**
+* **`DownArrow`**
+* **`LeftArrow`**
+* **`RightArrow`**
+* **`F1`**
+* **`F2`**
+* **`F3`**
+* **`F4`**
+* **`F5`**
+* **`F6`**
+* **`F7`**
+* **`F8`**
+* **`F9`**
+* **`F10`**
+* **`F11`**
+* **`F12`**
+* **`F13`**
+* **`F14`**
+* **`F15`**
+* **`F16`**
+* **`F17`**
+* **`F18`**
+* **`F19`**
+* **`F20`**
+* **`F21`**
+* **`F22`**
+* **`F23`**
+* **`F24`**
+* **`Insert`**
+* **`Home`**
+* **`End`**
+* **`PageUp`**
+* **`PageDown`**
+* **`ScrollLock`**
+* **`Pause`**
+* **`SysReq`**
+* **`Stop`**
+* **`Menu`**
