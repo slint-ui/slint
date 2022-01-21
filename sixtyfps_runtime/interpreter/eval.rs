@@ -572,8 +572,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 _ => local_context.return_value.clone().expect("conditional expression did not evaluate to boolean"),
             }
         }
-        Expression::Array { values, .. } => Value::Array(
-            values.iter().map(|e| eval_expression(e, local_context)).collect(),
+        Expression::Array { values, .. } => Value::Model(
+            Rc::new(corelib::model::VecModel::from(
+                values.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>()
+            )) as Rc<dyn corelib::model::Model<Data = Value>>
         ),
         Expression::Struct { values, .. } => Value::Struct(
             values

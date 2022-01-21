@@ -16,6 +16,8 @@ This version changes some APIs in incompatible ways. For details how to migrate 
 
 ### Fixed
 
+ - Models initialized from arrays are now also mutable when run in the interpreter.
+
 ## [0.1.6] - 2022-01-21
 
 ### Changed

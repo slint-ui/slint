@@ -49,6 +49,10 @@ let instance = TestCase::new();
 sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 792);
 
+assert_eq!(instance.get_model().row_data(1).unwrap().2, 792.);
+instance.invoke_manual_score_update(1, 100);
+assert_eq!(instance.get_model().row_data(1).unwrap().2, 892.);
+
 type ModelData = (sixtyfps::SharedString, sixtyfps::SharedString, f32);
 let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
     vec![
@@ -79,6 +83,10 @@ const TestCase &instance = *handle;
 sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 792);
 
+assert_eq(std::get<2>(instance.get_model()->row_data(1)), 792.);
+instance.invoke_manual_score_update(1, 100);
+assert_eq(std::get<2>(instance.get_model()->row_data(1)), 892.);
+
 using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
 std::vector<ModelData> array;
 array.push_back(ModelData{"a1", "hello", 111.});
@@ -106,6 +114,10 @@ assert_eq(another_model->row_count(), 3);
 var instance = new sixtyfps.TestCase({});
 instance.send_mouse_click(15., 5.);
 assert.equal(instance.clicked_score, 792);
+
+assert.equal(instance.model[1].score, 792.);
+instance.manual_score_update(1, 100);
+assert.equal(instance.model[1].score, 892.);
 
 let another_model = new sixtyfpslib.ArrayModel([
     {account: "a1", name: "hello", score: 111.},
