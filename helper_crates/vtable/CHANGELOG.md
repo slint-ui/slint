@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.1.5]
+## [0.1.5] - 2022-01-21
 
  - Make it `#[no_std]`
  - Use `atomic-polyfill` to support compiling to architectures where a polyfill
