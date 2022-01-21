@@ -942,3 +942,8 @@ against the constants below.
 * **`SysReq`**
 * **`Stop`**
 * **`Menu`**
+
+## `Colors`
+
+Use the colors namespace to select colors by their name. For example you can use `Colors.aquamarine` or `Colors.bisque`.
+The entire list of names is very long. You can find a complete list in the [CSS Specification](https://www.w3.org/TR/css-color-3/#svg-color).
