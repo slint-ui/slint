@@ -271,7 +271,15 @@ fn to_js_value<'cx>(
             if let Some(js_model) = model.as_any().downcast_ref::<js_model::JsModel>() {
                 js_model.get_object(cx, persistent_context)?.as_value(cx)
             } else {
-                todo!("converting a generic model to js has not been implemented")
+                // TODO: this should probably create a proxy object instead of extracting the entire model. On the other hand
+                // we should encounter this only if the model was created in .60, which is when it'll be an array
+                // of values.
+                let js_array = JsArray::new(cx, model.row_count() as _);
+                for i in 0..model.row_count() {
+                    let v = to_js_value(model.row_data(i).unwrap(), cx, persistent_context)?;
+                    js_array.set(cx, i as u32, v)?;
+                }
+                js_array.as_value(cx)
             }
         }
         Value::Struct(o) => {
