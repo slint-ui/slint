@@ -51,10 +51,9 @@ mod builtin_library {
     pub(crate) fn styles() -> Vec<&'static str> {
         widget_library()
             .iter()
-            .filter_map(|d| {
-                let style = d.0;
-                if d.1.iter().any(|f| f.path == "sixtyfps_widgets.60") {
-                    Some(style)
+            .filter_map(|(style, directory)| {
+                if directory.iter().any(|f| f.path == "sixtyfps_widgets.60") {
+                    Some(*style)
                 } else {
                     None
                 }
