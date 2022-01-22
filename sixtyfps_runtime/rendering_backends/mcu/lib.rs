@@ -239,12 +239,12 @@ mod the_backend {
             behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
         ) {
             loop {
+                sixtyfps_corelib::animations::update_animations();
                 match self.with_inner(|inner| inner.event_queue.pop_front()) {
                     Some(McuEvent::Quit) => break,
                     Some(McuEvent::Custom(e)) => e(),
                     Some(McuEvent::Repaint) => {
                         if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
-                            sixtyfps_corelib::animations::update_animations();
                             self.draw(window)
                         }
                     }
@@ -254,7 +254,6 @@ mod the_backend {
                 }
                 DEVICES.with(|devices| {
                     let e = devices.borrow_mut().as_mut().unwrap().read_touch_event();
-                    //devices.borrow_mut().as_mut().unwrap().debug(&alloc::format!("EVENT: {:?}", e));
                     if let Some(mut event) = e {
                         if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
                             let w = window.self_weak.upgrade().unwrap();
@@ -265,12 +264,14 @@ mod the_backend {
                             w.process_mouse_input(event);
                         }
                     }
-                    let t = devices.borrow_mut().as_mut().unwrap().time().as_secs();
-                    devices.borrow_mut().as_mut().unwrap().debug(&alloc::format!("{}", t));
                 });
-                sixtyfps_corelib::animations::update_animations();
-                if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
-                    self.draw(window)
+                match behavior {
+                    sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                        if WINDOWS.with(|x| x.borrow().is_none()) {
+                            break;
+                        }
+                    }
+                    sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => (),
                 }
             }
         }
