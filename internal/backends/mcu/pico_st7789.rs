@@ -5,6 +5,7 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 pub use cortex_m_rt::entry;
+use embedded_graphics::pixelcolor::Rgb888;
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_time::rate::*;
@@ -139,6 +140,13 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
                 let point = point.to_f32() / (i16::MAX as f32);
                 let size = self.display.screen_size().to_f32();
                 let pos = euclid::point2(point.x * size.width, point.y * size.height);
+                self.display.fill_region(
+                    crate::PhysicalRect::new(
+                        crate::PhysicalPoint::from_untyped(pos.cast()),
+                        euclid::size2(1, 1),
+                    ),
+                    &[<Rgb888 as embedded_graphics::prelude::RgbColor>::RED],
+                );
                 match self.last_touch.replace(pos) {
                     Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
                     None => i_slint_core::input::MouseEvent::MousePressed { pos, button },
