@@ -8,9 +8,9 @@ pub use cortex_m_rt::entry;
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_time::rate::*;
-use rp_pico::hal;
 use rp_pico::hal::pac;
 use rp_pico::hal::prelude::*;
+use rp_pico::hal::{self, Timer};
 
 use defmt_rtt as _; // global logger
 
@@ -22,7 +22,6 @@ fn oom(layout: core::alloc::Layout) -> ! {
     panic!("Out of memory {:?}", layout);
 }
 use alloc_cortex_m::CortexMHeap;
-use rp_pico::hal::rtc::{DateTime, RealTimeClock};
 
 use crate::Devices;
 
@@ -99,30 +98,16 @@ pub fn init_board() {
     )
     .unwrap();
 
-    let clock = RealTimeClock::new(
-        pac.RTC,
-        clocks.rtc_clock,
-        &mut pac.RESETS,
-        DateTime {
-            year: 1970,
-            month: 1,
-            day: 1,
-            day_of_week: hal::rtc::DayOfWeek::Thursday,
-            hour: 0,
-            minute: 0,
-            second: 0,
-        },
-    )
-    .unwrap();
+    let timer = Timer::new(pac.TIMER, &mut pac.RESETS);
 
-    crate::init_with_display(PicoDevices { display, touch, last_touch: Default::default(), clock });
+    crate::init_with_display(PicoDevices { display, touch, last_touch: Default::default(), timer });
 }
 
 struct PicoDevices<Display, Touch> {
     display: Display,
     touch: Touch,
     last_touch: Option<sixtyfps_corelib::graphics::Point>,
-    clock: RealTimeClock,
+    timer: Timer,
 }
 
 impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Transfer<u8>> Devices
@@ -167,12 +152,7 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
     }
 
     fn time(&mut self) -> core::time::Duration {
-        let time = self.clock.now();
-        match time {
-            // FIXME! milisecond
-            Ok(t) => core::time::Duration::from_secs(t.second as u64 + t.minute as u64 * 60),
-            Err(_) => core::time::Duration::ZERO,
-        }
+        core::time::Duration::from_micros(self.timer.get_counter())
     }
 }
 
