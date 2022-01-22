@@ -66,7 +66,7 @@ pub fn init_board() {
     let spi = spi.init(
         &mut pac.RESETS,
         clocks.peripheral_clock.freq(),
-        4_000_000u32.Hz(),
+        18_000_000u32.Hz(),
         &embedded_hal::spi::MODE_3,
     );
     // FIXME: a cleaner way to get a static reference, or be able to use non-static backend
@@ -159,6 +159,7 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
 mod xpt2046 {
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::{InputPin, OutputPin};
+    use embedded_time::rate::Extensions;
     use euclid::default::Point2D;
 
     pub struct XPT2046<IRQ: InputPin, CS: OutputPin, SPI: Transfer<u8>> {
@@ -177,28 +178,39 @@ mod xpt2046 {
 
         pub fn read(&mut self) -> Result<Option<Point2D<i16>>, Error<PinE, SPI::Error>> {
             if self.irq.is_low().map_err(|e| Error::Pin(e))? {
-                self.cs.set_low().map_err(|e| Error::Pin(e))?;
                 const CMD_X_READ: u8 = 0b10010000;
                 const CMD_Y_READ: u8 = 0b11010000;
+
+                let mut point = Point2D::new(0u32, 0u32);
+
+                // FIXME! how else set the frequency to this device
+                unsafe { set_spi_freq(3_000_000u32.Hz()) };
+
+                self.cs.set_low().map_err(|e| Error::Pin(e))?;
 
                 macro_rules! xchg {
                     ($byte:expr) => {
                         match self.spi.transfer(&mut [$byte]).map_err(|e| Error::Transfer(e))? {
-                            [x] => *x as i16,
+                            [x] => *x as u32,
                             _ => return Err(Error::InternalError),
                         }
                     };
                 }
 
-                xchg!(CMD_X_READ);
-                let mut x = xchg!(0) << 8;
-                x += xchg!(CMD_Y_READ);
-                let mut y = xchg!(0) << 8;
-                y += xchg!(0);
+                for _ in 0..10 {
+                    xchg!(CMD_X_READ);
+                    let mut x = xchg!(0) << 8;
+                    x |= xchg!(CMD_Y_READ);
+                    let mut y = xchg!(0) << 8;
+                    y |= xchg!(0);
 
+                    point += euclid::vec2(i16::MAX as u32 - x, y)
+                }
                 self.cs.set_high().map_err(|e| Error::Pin(e))?;
 
-                Ok(Some(Point2D::new(i16::MAX - x, y)))
+                unsafe { set_spi_freq(18_000_000u32.Hz()) };
+
+                Ok(Some((point / 10).cast()))
             } else {
                 Ok(None)
             }
@@ -209,6 +221,12 @@ mod xpt2046 {
         Pin(PinE),
         Transfer(TransferE),
         InternalError,
+    }
+
+    unsafe fn set_spi_freq(freq: impl Into<super::Hertz<u32>>) {
+        // FIXME: the touchscreen and the LCD have different frequencies, but we cannot really set different frequencies to different SpiProxy without this hack
+        rp_pico::hal::spi::Spi::<_, _, 8>::new(rp_pico::hal::pac::Peripherals::steal().SPI1)
+            .set_baudrate(125_000_000u32.Hz(), freq);
     }
 }
 
