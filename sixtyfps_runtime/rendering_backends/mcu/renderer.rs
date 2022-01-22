@@ -342,24 +342,23 @@ impl PrepareScene {
                 let sx = geom.width() / (size.width as f32);
                 let sy = geom.height() / (size.height as f32);
                 for t in textures.as_slice() {
-                    if let Some(dest_rect) = t
-                        .rect
-                        .intersection(&source_clip)
-                        .and_then(|r| r.cast().scale(sx, sy).intersection(&self.current_state.clip))
-                    {
-                        let actual_x = (dest_rect.origin.x / sx) as i32 - t.rect.origin.x;
-                        let actual_y = (dest_rect.origin.y / sy) as i32 - t.rect.origin.y;
+                    if let Some(dest_rect) = t.rect.intersection(&source_clip).and_then(|r| {
+                        r.intersection(
+                            &self.current_state.clip.scale(1. / sx, 1. / sy).round_in().cast(),
+                        )
+                    }) {
+                        let actual_x = dest_rect.origin.x - t.rect.origin.x;
+                        let actual_y = dest_rect.origin.y - t.rect.origin.y;
                         let stride = t.rect.width() as u16 * bpp(t.format);
-
                         self.new_scene_item(
-                            dest_rect,
+                            dest_rect.cast().scale(sx, sy),
                             SceneCommand::Texture {
                                 data: &data.as_slice()[(t.index
                                     + (stride as usize) * (actual_y as usize)
                                     + (bpp(t.format) as usize) * (actual_x as usize))..],
                                 stride,
-                                source_height: (dest_rect.height() / sy) as u16,
-                                source_width: (dest_rect.width() / sx) as u16,
+                                source_height: dest_rect.height() as u16,
+                                source_width: dest_rect.width() as u16,
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
                             },
