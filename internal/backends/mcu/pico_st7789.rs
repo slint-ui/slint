@@ -289,6 +289,13 @@ impl<
             .map(|point| {
                 let size = self.screen_size().to_f32();
                 let pos = euclid::point2(point.x * size.width, point.y * size.height).cast();
+                self.display.fill_region(
+                    crate::PhysicalRect::new(
+                        crate::PhysicalPoint::from_untyped(pos.cast()),
+                        euclid::size2(1, 1),
+                    ),
+                    &[embedded_graphics::prelude::RgbColor::RED],
+                );
                 match self.last_touch.replace(pos) {
                     Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
                     None => i_slint_core::input::MouseEvent::MousePressed { pos, button },
