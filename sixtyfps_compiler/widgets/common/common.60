@@ -6,6 +6,8 @@ import { StyleMetrics, ScrollView } from "sixtyfps_widgets_impl.60";
 export LineEditInner := Rectangle {
     callback accepted(string);
     callback edited(string);
+    property<length> font-size <=> input.font-size;
+    property<string> placeholder-text;
     property<string> placeholder-text;
     property text <=> input.text;
     property placeholder-color <=> placeholder.color;
@@ -41,6 +43,7 @@ export LineEditInner := Rectangle {
 }
 
 export TextEdit := ScrollView {
+    property<length> font-size <=> input.font-size;
     property <string> text <=> input.text;
     has-focus <=> input.has-focus;
     enabled <=> input.enabled;
