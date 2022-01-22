@@ -7,6 +7,136 @@
 use alloc::boxed::Box;
 use core::cell::Cell;
 
+#[cfg(feature = "std")]
+use lyon_algorithms::geom::cubic_bezier;
+#[cfg(not(feature = "std"))]
+mod cubic_bezier {
+    //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation
+    type S = f32;
+    use euclid::default::Point2D as Point;
+    use num_traits::Float;
+    trait Scalar {
+        const ONE: f32 = 1.;
+        const THREE: f32 = 3.;
+        const HALF: f32 = 0.5;
+        const SIX: f32 = 6.;
+        const NINE: f32 = 9.;
+        fn value(v: f32) -> f32 {
+            v
+        }
+    }
+    impl Scalar for f32 {}
+    pub struct CubicBezierSegment {
+        pub from: Point<S>,
+        pub ctrl1: Point<S>,
+        pub ctrl2: Point<S>,
+        pub to: Point<S>,
+    }
+
+    impl CubicBezierSegment {
+        /// Sample the x coordinate of the curve at t (expecting t between 0 and 1).
+        pub fn x(&self, t: S) -> S {
+            let t2 = t * t;
+            let t3 = t2 * t;
+            let one_t = S::ONE - t;
+            let one_t2 = one_t * one_t;
+            let one_t3 = one_t2 * one_t;
+
+            self.from.x * one_t3
+                + self.ctrl1.x * S::THREE * one_t2 * t
+                + self.ctrl2.x * S::THREE * one_t * t2
+                + self.to.x * t3
+        }
+
+        /// Sample the y coordinate of the curve at t (expecting t between 0 and 1).
+        pub fn y(&self, t: S) -> S {
+            let t2 = t * t;
+            let t3 = t2 * t;
+            let one_t = S::ONE - t;
+            let one_t2 = one_t * one_t;
+            let one_t3 = one_t2 * one_t;
+
+            self.from.y * one_t3
+                + self.ctrl1.y * S::THREE * one_t2 * t
+                + self.ctrl2.y * S::THREE * one_t * t2
+                + self.to.y * t3
+        }
+
+        #[inline]
+        fn derivative_coefficients(&self, t: S) -> (S, S, S, S) {
+            let t2 = t * t;
+            (
+                -S::THREE * t2 + S::SIX * t - S::THREE,
+                S::NINE * t2 - S::value(12.0) * t + S::THREE,
+                -S::NINE * t2 + S::SIX * t,
+                S::THREE * t2,
+            )
+        }
+
+        /// Sample the x coordinate of the curve's derivative at t (expecting t between 0 and 1).
+        pub fn dx(&self, t: S) -> S {
+            let (c0, c1, c2, c3) = self.derivative_coefficients(t);
+            self.from.x * c0 + self.ctrl1.x * c1 + self.ctrl2.x * c2 + self.to.x * c3
+        }
+    }
+
+    impl CubicBezierSegment {
+        // This is actually in the Monotonic<CubicBezierSegment<S>> impl
+        pub fn solve_t_for_x(&self, x: S, t_range: core::ops::Range<S>, tolerance: S) -> S {
+            debug_assert!(t_range.start <= t_range.end);
+            let from = self.x(t_range.start);
+            let to = self.x(t_range.end);
+            if x <= from {
+                return t_range.start;
+            }
+            if x >= to {
+                return t_range.end;
+            }
+
+            // Newton's method.
+            let mut t = x - from / (to - from);
+            for _ in 0..8 {
+                let x2 = self.x(t);
+
+                if S::abs(x2 - x) <= tolerance {
+                    return t;
+                }
+
+                let dx = self.dx(t);
+
+                if dx <= S::EPSILON {
+                    break;
+                }
+
+                t -= (x2 - x) / dx;
+            }
+
+            // Fall back to binary search.
+            let mut min = t_range.start;
+            let mut max = t_range.end;
+            let mut t = S::HALF;
+
+            while min < max {
+                let x2 = self.x(t);
+
+                if S::abs(x2 - x) < tolerance {
+                    return t;
+                }
+
+                if x > x2 {
+                    min = t;
+                } else {
+                    max = t;
+                }
+
+                t = (max - min) * S::HALF + min;
+            }
+
+            t
+        }
+    }
+}
+
 /// The representation of an easing curve, for animations
 #[repr(C, u32)]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -143,23 +273,19 @@ pub fn current_tick() -> Instant {
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {
         EasingCurve::Linear => value,
-        #[cfg(feature = "std")]
         EasingCurve::CubicBezier([a, b, c, d]) => {
             if !(0.0..=1.0).contains(a) && !(0.0..=1.0).contains(c) {
                 return value;
             };
-            let curve = lyon_algorithms::geom::cubic_bezier::CubicBezierSegment {
+            let curve = cubic_bezier::CubicBezierSegment {
                 from: (0., 0.).into(),
                 ctrl1: (*a, *b).into(),
                 ctrl2: (*c, *d).into(),
                 to: (1., 1.).into(),
             };
+            #[cfg(feature = "std")]
             let curve = curve.assume_monotonic();
             curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.01))
-        }
-        #[cfg(not(feature = "std"))]
-        EasingCurve::CubicBezier(_) => {
-            todo!("bezier curve not implemented when no_std")
         }
     }
 }
