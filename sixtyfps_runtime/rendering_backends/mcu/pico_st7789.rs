@@ -13,11 +13,13 @@ use rp_pico::hal::pac;
 use rp_pico::hal::prelude::*;
 
 use defmt_rtt as _; // global logger
+
+#[cfg(feature = "panic-probe")]
 use panic_probe as _;
 
 #[alloc_error_handler]
-fn oom(_: core::alloc::Layout) -> ! {
-    loop {}
+fn oom(layout: core::alloc::Layout) -> ! {
+    panic!("Out of memory {:?}", layout);
 }
 use alloc_cortex_m::CortexMHeap;
 use rp_pico::hal::rtc::{DateTime, RealTimeClock};
@@ -227,5 +229,99 @@ mod xpt2046 {
         Pin(PinE),
         Transfer(TransferE),
         InternalError,
+    }
+}
+
+#[cfg(not(feature = "panic-probe"))]
+#[inline(never)]
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    // Safety: it's ok to steal here since we are in the manic handler, and the rest of the code will not be run anymore
+    let (mut pac, core) = unsafe { (pac::Peripherals::steal(), pac::CorePeripherals::steal()) };
+
+    let sio = hal::sio::Sio::new(pac.SIO);
+
+    let pins = rp_pico::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
+    let mut led = pins.led.into_push_pull_output();
+    led.set_high().unwrap();
+
+    // Reset the heap so we can allocate the format string
+    unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
+
+    // Re-init the display
+    let mut watchdog = hal::watchdog::Watchdog::new(pac.WATCHDOG);
+    let clocks = hal::clocks::init_clocks_and_plls(
+        rp_pico::XOSC_CRYSTAL_FREQ,
+        pac.XOSC,
+        pac.CLOCKS,
+        pac.PLL_SYS,
+        pac.PLL_USB,
+        &mut pac.RESETS,
+        &mut watchdog,
+    )
+    .ok()
+    .unwrap();
+
+    let _spi_sclk = pins.gpio10.into_mode::<hal::gpio::FunctionSpi>();
+    let _spi_mosi = pins.gpio11.into_mode::<hal::gpio::FunctionSpi>();
+    let _spi_miso = pins.gpio12.into_mode::<hal::gpio::FunctionSpi>();
+
+    let spi = hal::spi::Spi::<_, _, 8>::new(pac.SPI1);
+    let spi = spi.init(
+        &mut pac.RESETS,
+        clocks.peripheral_clock.freq(),
+        4_000_000u32.Hz(),
+        &embedded_hal::spi::MODE_3,
+    );
+
+    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
+
+    let rst = pins.gpio15.into_push_pull_output();
+    let dc = pins.gpio8.into_push_pull_output();
+    let cs = pins.gpio9.into_push_pull_output();
+    let di = display_interface_spi::SPIInterface::new(spi, dc, cs);
+    let mut display = st7789::ST7789::new(di, rst, 320, 240);
+
+    // Turn on backlight
+    {
+        let mut bl = pins.gpio13.into_push_pull_output();
+        bl.set_low().unwrap();
+        delay.delay_us(10_000);
+        bl.set_high().unwrap();
+    }
+
+    display.init(&mut delay).unwrap();
+    display.set_orientation(st7789::Orientation::Landscape).unwrap();
+    display
+        .fill_solid(&display.bounding_box(), embedded_graphics::pixelcolor::Rgb565::WHITE)
+        .unwrap();
+    use embedded_graphics::{
+        draw_target::DrawTarget,
+        mono_font::{ascii::FONT_6X10, MonoTextStyle},
+        prelude::*,
+        text::Text,
+    };
+    let style = MonoTextStyle::new(&FONT_6X10, embedded_graphics::pixelcolor::Rgb565::RED);
+    let mut y = 1;
+    let mut x = 0;
+    let width = display.bounding_box().size.width / 6 - 2;
+    for line in alloc::format!("{}", info).split_inclusive(|c| {
+        if c == '\n' || x > width {
+            x = 0;
+            true
+        } else {
+            x += 1;
+            false
+        }
+    }) {
+        Text::new(line, Point::new(0, y * 10), style).draw(&mut display).unwrap();
+        y += 1;
+    }
+
+    loop {
+        delay.delay_ms(100);
+        led.set_low().unwrap();
+        delay.delay_ms(100);
+        led.set_high().unwrap();
     }
 }
