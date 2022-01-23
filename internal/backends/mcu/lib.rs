@@ -265,7 +265,7 @@ mod the_backend {
     pub struct MCUBackend {
         #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
         inner: RefCell<MCUBackendInner>,
-        #[cfg(feature = "std")]
+        #[cfg(any(feature = "std", not(feature = "unsafe_single_core")))]
         inner: std::sync::Mutex<MCUBackendInner>,
     }
 
@@ -279,7 +279,7 @@ mod the_backend {
             f(
                 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
                 &mut self.inner.borrow_mut(),
-                #[cfg(feature = "std")]
+                #[cfg(any(feature = "std", not(feature = "unsafe_single_core")))]
                 &mut self.inner.lock().unwrap(),
             )
         }
@@ -505,7 +505,12 @@ pub fn init_with_display<Display: Devices + 'static>(display: Display) {
     });
 }
 
-#[cfg(not(any(feature = "pico-st7789", feature = "stm32h735g", feature = "simulator")))]
+#[cfg(not(any(
+    feature = "pico-st7789",
+    feature = "stm32h735g",
+    feature = "simulator",
+    feature = "terminal"
+)))]
 pub fn init() {
     struct EmptyDisplay;
     impl embedded_graphics::draw_target::DrawTarget for EmptyDisplay {
@@ -541,3 +546,8 @@ pub use stm32h735g::*;
 
 #[cfg(not(any(feature = "pico-st7789", feature = "stm32h735g")))]
 pub use i_slint_core_macros::identity as entry;
+
+#[cfg(feature = "terminal")]
+mod terminal;
+#[cfg(feature = "terminal")]
+pub use terminal::*;
