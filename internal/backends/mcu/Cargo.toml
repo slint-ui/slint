@@ -19,6 +19,7 @@ path = "lib.rs"
 simulator = ["winit", "glutin", "femtovg", "embedded-graphics-simulator", "std", "imgref", "scoped-tls-hkt"]
 
 pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "display-interface-spi", "st7789", "defmt", "defmt-rtt",  "i-slint-core/defmt", "shared-bus", "i-slint-core/libm" ]
+terminal = ["crossterm", "i-slint-core/unsafe_single_core"] # not great that this enable unsafe_single_core, but i would like to avoid std
 
 unsafe_single_core = ["i-slint-core/unsafe_single_core"]
 
@@ -61,6 +62,8 @@ st7789 = { version = "0.6.1", optional = true }
 defmt-rtt = { version = "0.3.0", optional = true }
 defmt = { version = "0.3.0", optional = true }
 panic-probe = { version = "0.3.0", optional = true, features = ["print-defmt"] }
+
+crossterm = { version = "0.22.1", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = { version = "0.24.0" }
