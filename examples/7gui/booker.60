@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { LineEdit, Button, ComboBox, VerticalBox } from "sixtyfps_widgets.60";
+import { TextEdit,LineEdit, Button, ComboBox, VerticalBox } from "sixtyfps_widgets.60";
 
 Booker := Window {
     // returns true if the string parameter is a valid date
@@ -16,6 +16,9 @@ Booker := Window {
             model: ["one-way flight", "return flight"];
             current-value: "one-way flight";
             current-index: 0;
+        }
+        t := TextEdit{
+            text: "some-text";
         }
         t1 := LineEdit {
             text: "27.03.2014";
