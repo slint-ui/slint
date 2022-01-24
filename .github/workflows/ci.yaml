@@ -266,7 +266,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+      if: matrix.os == 'ubuntu-20.04'
+      run: |
+          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
+          echo "CXX=g++-10" >> $GITHUB_ENV
     - name: Cache Qt
       id: cache-qt
       uses: actions/cache@v2
