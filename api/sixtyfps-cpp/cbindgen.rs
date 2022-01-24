@@ -352,7 +352,12 @@ fn gen_corelib(
     config.export.body.insert(
         "LayoutInfo".to_owned(),
         "    inline LayoutInfo merge(const LayoutInfo &other) const;
-    friend inline LayoutInfo operator+(const LayoutInfo &a, const LayoutInfo &b) { return a.merge(b); }".into(),
+    friend inline LayoutInfo operator+(const LayoutInfo &a, const LayoutInfo &b) { return a.merge(b); }
+    friend bool operator==(const LayoutInfo&, const LayoutInfo&) = default;".into(),
+    );
+    config.export.body.insert(
+        "StandardListViewItem".to_owned(),
+        "friend bool operator==(const StandardListViewItem&, const StandardListViewItem&) = default;".into(),
     );
     config
         .export

@@ -19,7 +19,6 @@ pub enum Orientation {
 type Coord = f32;
 
 /// The constraint that applies to an item
-// NOTE: when adding new fields, the C++ operator== also need updates
 // Also, the field needs to be in alphabetical order because how the generated code sort fields for struct
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]

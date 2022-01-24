@@ -400,12 +400,6 @@ public:
     {
         return cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
     }
-    /// Returns true if \a and \b hold values of the same type and the underlying vales are not
-    /// equal.
-    friend bool operator!=(const Value &a, const Value &b)
-    {
-        return !cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
-    }
 
 private:
     inline Value(const void *) = delete; // Avoid that for example Value("foo") turns to Value(bool)

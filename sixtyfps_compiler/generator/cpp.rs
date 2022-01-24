@@ -565,11 +565,9 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
 }
 
 fn generate_struct(file: &mut File, name: &str, fields: &BTreeMap<String, Type>) {
-    let mut operator_eq = String::new();
     let mut members = fields
         .iter()
         .map(|(name, t)| {
-            write!(operator_eq, " && a.{0} == b.{0}", ident(name)).unwrap();
             (
                 Access::Public,
                 Declaration::Var(Var {
@@ -588,22 +586,13 @@ fn generate_struct(file: &mut File, name: &str, fields: &BTreeMap<String, Type>)
         Access::Public,
         Declaration::Function(Function {
             name: "operator==".to_owned(),
-            signature: format!("(const {0} &a, const {0} &b) -> bool", name),
+            signature: format!("(const {0} &a, const {0} &b) -> bool = default", name),
             is_friend: true,
-            statements: Some(vec![format!("return true{};", operator_eq)]),
+            statements: None,
             ..Function::default()
         }),
     ));
-    members.push((
-        Access::Public,
-        Declaration::Function(Function {
-            name: "operator!=".to_owned(),
-            signature: format!("(const {0} &a, const {0} &b) -> bool", name),
-            is_friend: true,
-            statements: Some(vec!["return !(a == b);".into()]),
-            ..Function::default()
-        }),
-    ));
+
     file.declarations.push(Declaration::Struct(Struct {
         name: name.into(),
         members,
