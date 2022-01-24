@@ -677,8 +677,11 @@ public:
     ///
     /// Note: Since the ComponentInstance holds the handler, the handler itself should not
     /// capture a strong reference to the instance.
-    template<typename F>
-    bool set_callback(std::string_view name, F callback) const
+    // clang-format off
+    template<std::invocable<std::span<const Value>> F>
+        requires(std::is_convertible_v<std::invoke_result_t<F, std::span<const Value>>, Value>)
+    auto set_callback(std::string_view name, F callback) const -> bool
+    // clang-format on
     {
         using cbindgen_private::ValueOpaque;
         auto actual_cb = [](void *data, cbindgen_private::Slice<ValueOpaque> arg,
@@ -748,7 +751,7 @@ public:
     ///
     /// **Note:** Only globals that are exported or re-exported from the main .slint file will
     /// be accessible
-    template<typename F>
+    template<std::invocable<std::span<const Value>> F>
     bool set_global_callback(std::string_view global, std::string_view name, F callback) const
     {
         using cbindgen_private::ValueOpaque;

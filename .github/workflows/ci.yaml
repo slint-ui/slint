@@ -86,7 +86,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-11, windows-2022]
+        os: [ubuntu-20.04, macos-12, windows-2022]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -120,7 +120,7 @@ jobs:
       CARGO_INCREMENTAL: false
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-11, windows-2022]
+        os: [ubuntu-20.04, macos-12, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v3
