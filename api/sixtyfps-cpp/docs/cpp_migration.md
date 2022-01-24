@@ -6,7 +6,9 @@ This guide lists all API incompatible changes between major versions and describ
 
 ## Migrating from Version 0.1.x to 0.2.0
 
-In the 0.2.x series we have increased the minimum version of C++ and Rust that we require. You need to have Rust >= 1.56 installed and a C++ compiler that supports C++ 20 or newer. If you have installed Rust using `rustup`, then you can upgrade to the latest Version of Rust by running `rustup update`.
+In the 0.2.x series we have increased the minimum version of C++. You need to have a C++ compiler installed that supports C++ 20 or newer.
+
+If you are building SixtyFPS from source, you need to make sure that your Rust installation is up-to-date. If you have installed Rust using `rustup`, then you can upgrade to the latest Version of Rust by running `rustup update`.
 
 ### C++ Interpreter API
 
