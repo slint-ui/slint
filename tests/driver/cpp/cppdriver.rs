@@ -82,14 +82,14 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler_command.arg(&*cpp_file);
 
     if compiler.is_like_clang() || compiler.is_like_gnu() {
-        compiler_command.arg("-std=c++17");
+        compiler_command.arg("-std=c++20");
         compiler_command.arg("-g");
         compiler_command.arg("-Werror").arg("-Wall").arg("-Wextra");
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
         compiler_command.arg("-lsixtyfps_cpp");
         compiler_command.arg("-o").arg(&*binary_path);
     } else if compiler.is_like_msvc() {
-        compiler_command.arg("/std:c++17");
+        compiler_command.arg("/std:c++20");
         compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\sixtyfps_cpp.dll.lib"));
         let mut out_arg = std::ffi::OsString::from("/OUT:");
         out_arg.push(&*binary_path);

@@ -37,7 +37,7 @@ You can still not build it by doing `cargo build --workspace --exclude sixtyfps-
 ### For the C++ dev (optional)
 
 * **[cmake](https://cmake.org/download/)** (3.19 or newer)
-* A C++ compiler that can do C++17 (e.g., **MSVC 2019** on Windows)
+* A C++ compiler that can do C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
 ## Testing
 

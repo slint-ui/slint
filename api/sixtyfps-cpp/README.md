@@ -26,7 +26,7 @@ First you need to install the prerequisites:
 * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). Once this is done,
   you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
 * **[cmake](https://cmake.org/download/)** (3.19 or newer)
-* A C++ compiler that supports C++17 (e.g., **MSVC 2019** on Windows)
+* A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
 You can include SixtyFPS in your CMake project using CMake's `FetchContent` feature. Insert the following snippet into your
 `CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:

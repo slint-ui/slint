@@ -3,7 +3,7 @@
 In this tutorial, we use C++ as the host programming language. We also support other programming languages like
 [Rust](https://sixtyfps.io/docs/rust/sixtyfps/) or [JavaScript](https://sixtyfps.io/docs/node/).
 
-You will need a development environment that can compile C++17 with CMake 3.19.
+You will need a development environment that can compile C++20 with CMake 3.19.
 We do not provide binaries of SixtyFPS yet, so we will use the CMake integration that will automatically build
 the tools and library from source. Since it is implemented in the Rust programming language, this means that
 you also need to install a Rust compiler (1.56). You can easily install a Rust compiler

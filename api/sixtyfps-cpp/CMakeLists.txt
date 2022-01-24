@@ -36,7 +36,7 @@ set_property(
 add_library(SixtyFPS INTERFACE)
 add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
 target_link_libraries(SixtyFPS INTERFACE sixtyfps-cpp)
-target_compile_features(SixtyFPS INTERFACE cxx_std_17)
+target_compile_features(SixtyFPS INTERFACE cxx_std_20)
 
 function(define_cargo_feature cargo-feature description default)
     # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
