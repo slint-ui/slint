@@ -415,7 +415,7 @@ PropertyAnimation := _ {
 }
 
 export struct StandardListViewItem := {
-    //-name:sixtyfps::StandardListViewItem
+    //-name:sixtyfps::private_api::StandardListViewItem
     text: string
 }
 

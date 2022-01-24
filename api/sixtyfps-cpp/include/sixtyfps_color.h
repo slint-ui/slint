@@ -149,15 +149,7 @@ public:
 
     /// Returns true if \a lhs has the same values for the individual color channels as \a rhs;
     /// false otherwise.
-    friend bool operator==(const Color &lhs, const Color &rhs)
-    {
-        return lhs.inner.red == rhs.inner.red && lhs.inner.green == rhs.inner.green
-                && lhs.inner.blue == rhs.inner.blue && lhs.inner.alpha == rhs.inner.alpha;
-    }
-
-    /// Returns true if \a lhs has any different values for the individual color channels as \a rhs;
-    /// false otherwise.
-    friend bool operator!=(const Color &lhs, const Color &rhs) { return !(lhs == rhs); }
+    friend bool operator==(const Color &lhs, const Color &rhs) = default;
 
     /// Writes the \a color to the specified \a stream and returns a reference to the
     /// stream.

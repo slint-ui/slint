@@ -42,23 +42,7 @@ public:
     {
     }
 
-    friend bool operator==(const PathData &a, const PathData &b)
-    {
-        if (a.data.tag != b.data.tag)
-            return false;
-        switch (a.data.tag) {
-        case cbindgen_private::types::PathData::Tag::Elements:
-            return a.data.elements._0 == b.data.elements._0;
-        case cbindgen_private::types::PathData::Tag::Events:
-            return a.data.events._0 == b.data.events._0 && b.data.events._0 == b.data.events._0;
-        case cbindgen_private::types::PathData::Tag::Commands:
-            return a.data.commands._0 == b.data.commands._0;
-        case cbindgen_private::types::PathData::Tag::None:
-            return true;
-        }
-        return false; // unreachable
-    }
-    friend bool operator!=(const PathData &a, const PathData &b) { return !(a == b); }
+    friend bool operator==(const PathData &a, const PathData &b) = default;
 
 private:
     static SharedVector<PathElement> elements_from_array(const PathElement *firstElement,
