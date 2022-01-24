@@ -1,5 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+cmake_minimum_required(VERSION 3.19)
+project(SixtyFPSExamples LANGUAGES CXX)
 
 if (NOT TARGET SixtyFPS::SixtyFPS)
     find_package(SixtyFPS REQUIRED)
