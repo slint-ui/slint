@@ -94,7 +94,6 @@ jobs:
       RUSTFLAGS: -D warnings
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
-      CXX: g++10
     strategy:
       matrix:
         os: [ubuntu-20.04, macOS-11, windows-latest]
@@ -104,7 +103,9 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
       if: matrix.os == 'ubuntu-20.04'
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
+      run: |
+          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
+          echo "CXX=g++10" >> $GITHUB_ENV
     - name: Cache Qt
       if: matrix.os != 'windows-latest'
       id: cache-qt
