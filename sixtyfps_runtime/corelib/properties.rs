@@ -2387,10 +2387,16 @@ pub(crate) mod ffi {
             }
         }
 
+        impl CStateBinding {
+            fn call(&self) -> i32 {
+                (self.binding)(self.user_data)
+            }
+        }
+
         let c_state_binding = CStateBinding { binding, user_data, drop_user_data };
         let bind_callable = StateInfoBinding {
             dirty_time: Cell::new(None),
-            binding: move || (c_state_binding.binding)(c_state_binding.user_data),
+            binding: move || c_state_binding.call(),
         };
         handle.0.set_binding(bind_callable)
     }

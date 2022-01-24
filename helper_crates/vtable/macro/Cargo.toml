@@ -5,7 +5,7 @@
 name = "vtable-macro"
 version = "0.1.5"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
-edition = "2018"
+edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 description = "Helper crate to generate ffi-friendly virtual tables"
 repository = "https://github.com/sixtyfpsui/sixtyfps"

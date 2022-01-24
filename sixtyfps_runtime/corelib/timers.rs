@@ -359,6 +359,12 @@ pub(crate) mod ffi {
         }
     }
 
+    impl WrapFn {
+        fn call(&self) {
+            (self.callback)(self.user_data)
+        }
+    }
+
     /// Start a timer with the given mode, duration in millisecond and callback. A timer id may be provided (first argument).
     /// A value of -1 for the timer id means a new timer is to be allocated.
     /// The (new) timer id is returned.
@@ -377,9 +383,7 @@ pub(crate) mod ffi {
         if id != -1 {
             timer.id.set(Some(id as _));
         }
-        timer.start(mode, core::time::Duration::from_millis(duration), move || {
-            (wrap.callback)(wrap.user_data)
-        });
+        timer.start(mode, core::time::Duration::from_millis(duration), move || wrap.call());
         timer.id.take().map(|x| x as i64).unwrap_or(-1)
     }
 
@@ -392,9 +396,7 @@ pub(crate) mod ffi {
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) {
         let wrap = WrapFn { callback, user_data, drop_user_data };
-        Timer::single_shot(core::time::Duration::from_millis(delay), move || {
-            (wrap.callback)(wrap.user_data)
-        });
+        Timer::single_shot(core::time::Duration::from_millis(delay), move || wrap.call());
     }
 
     /// Stop a timer and free its raw data

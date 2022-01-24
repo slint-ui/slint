@@ -5,7 +5,7 @@
 name = "sixtyfps-cpp"
 version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
-edition = "2018"
+edition = "2021"
 build = "build.rs"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 description = "SixtyFPS C++ integration"

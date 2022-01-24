@@ -5,7 +5,7 @@
 name = "const-field-offset"
 version = "0.1.2"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
-edition = "2018"
+edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Wrapper around field-offset crate and const-field-offset-macro"
 repository = "https://github.com/sixtyfpsui/sixtyfps"

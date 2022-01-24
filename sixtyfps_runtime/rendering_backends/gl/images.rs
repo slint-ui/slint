@@ -235,8 +235,6 @@ impl CachedImage {
         current_renderer: &GLItemRenderer,
         scaling: Option<ImageRendering>,
     ) -> femtovg::ImageId {
-        use std::convert::TryFrom;
-
         let canvas = &current_renderer.canvas;
 
         let image_flags = match scaling.unwrap_or_default() {
@@ -287,8 +285,6 @@ impl CachedImage {
 
         scaling: ImageRendering,
     ) -> Option<Self> {
-        use std::convert::TryFrom;
-
         let canvas = &current_renderer.canvas;
 
         let image_flags = match scaling {
