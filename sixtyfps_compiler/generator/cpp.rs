@@ -934,7 +934,7 @@ fn generate_item_tree(
         Access::Private,
         Declaration::Function(Function {
             name: "item_tree".into(),
-            signature: "() -> sixtyfps::Slice<sixtyfps::private_api::ItemTreeNode>".into(),
+            signature: "() -> sixtyfps::cbindgen_private::Slice<sixtyfps::private_api::ItemTreeNode>".into(),
             is_static: true,
             statements: Some(vec![
                 "static const sixtyfps::private_api::ItemTreeNode children[] {".to_owned(),
@@ -1953,7 +1953,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format!("sfps_embedded_resource_{}", resource_id);
                     format!(
-                        r#"sixtyfps::Image(sixtyfps::cbindgen_private::types::ImageInner::EmbeddedData(sixtyfps::Slice<uint8_t>{{std::data({}), std::size({})}}, sixtyfps::Slice<uint8_t>{{const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(u8"{}")), {}}}))"#,
+                        r#"sixtyfps::Image(sixtyfps::cbindgen_private::types::ImageInner::EmbeddedData(sixtyfps::cbindgen_private::Slice<uint8_t>{{std::data({}), std::size({})}}, sixtyfps::cbindgen_private::Slice<uint8_t>{{const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(u8"{}")), {}}}))"#,
                         symbol, symbol, escape_string(extension), extension.as_bytes().len()
                     )
                 }
@@ -1986,7 +1986,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 )
             } else {
                 format!(
-                    "sixtyfps::Slice<{ty}>{{ std::array<{ty}, {count}>{{ {val} }}.data(), {count} }}",
+                    "sixtyfps::cbindgen_private::Slice<{ty}>{{ std::array<{ty}, {count}>{{ {val} }}.data(), {count} }}",
                     count = values.len(),
                     ty = ty,
                     val = val.join(", ")
@@ -2072,7 +2072,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             };
             format!("sixtyfps::cbindgen_private::GridLayoutCellData {cv}_array [] = {{ {c} }};\
                     sixtyfps::cbindgen_private::sixtyfps_reorder_dialog_button_layout({cv}_array, {r});\
-                    sixtyfps::Slice<sixtyfps::cbindgen_private::GridLayoutCellData> {cv} {{ std::data({cv}_array), std::size({cv}_array) }}",
+                    sixtyfps::cbindgen_private::Slice<sixtyfps::cbindgen_private::GridLayoutCellData> {cv} {{ std::data({cv}_array), std::size({cv}_array) }}",
                     r = compile_expression(roles, ctx),
                     cv = cells_variable,
                     c = cells.join(", "),
@@ -2271,13 +2271,13 @@ fn box_layout_function(
 
     let ri = repeated_indices.as_ref().map_or(String::new(), |ri| {
         push_code += &format!(
-            "sixtyfps::Slice<int> {ri}{{ {ri}_array.data(), {ri}_array.size() }};",
+            "sixtyfps::cbindgen_private::Slice<int> {ri}{{ {ri}_array.data(), {ri}_array.size() }};",
             ri = ri
         );
         format!("std::array<int, {}> {}_array;", 2 * repeater_idx, ri)
     });
     format!(
-        "[&]{{ {} {} sixtyfps::Slice<sixtyfps::cbindgen_private::BoxLayoutCellData>{}{{cells_vector.data(), cells_vector.size()}}; return {}; }}()",
+        "[&]{{ {} {} sixtyfps::cbindgen_private::Slice<sixtyfps::cbindgen_private::BoxLayoutCellData>{}{{cells_vector.data(), cells_vector.size()}}; return {}; }}()",
         ri,
         push_code,
         ident(cells_variable),

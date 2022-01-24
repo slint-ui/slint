@@ -3,6 +3,16 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changed
+
+ - Minimum rust version is now 1.56
+ - C++ compiler requires C++20
+ - In the C++ interpreter API `std::span` is used for callbacks arguments, instead of `sixtyfps::Slice`
+
+### Added
+
+### Fixed
+
 ## [0.1.6] - 2022-01-21
 
 ### Changed

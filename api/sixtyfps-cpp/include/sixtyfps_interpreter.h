@@ -612,7 +612,6 @@ public:
             return {};
         }
     }
-    // FIXME! Slice in public API?  Should be std::span (c++20) or we need to improve the Slice API
     /// Invoke the specified callback declared in .60 with the given arguments
     ///
     /// Example: imagine the .60 file contains the given callback declaration:
@@ -628,10 +627,10 @@ public:
     /// Returns an null optional if the callback don't exist or if the argument don't match
     /// Otherwise return the returned value from the callback, which may be an empty Value if
     /// the callback did not return a value.
-    std::optional<Value> invoke_callback(std::string_view name, Slice<Value> args) const
+    std::optional<Value> invoke_callback(std::string_view name, std::span<const Value> args) const
     {
         using namespace cbindgen_private;
-        Slice<ValueOpaque> args_view { reinterpret_cast<ValueOpaque *>(args.ptr), args.len };
+        Slice<ValueOpaque> args_view { const_cast<ValueOpaque *>(reinterpret_cast<const ValueOpaque *>(args.data())), args.size() };
         ValueOpaque out;
         if (sixtyfps_interpreter_component_instance_invoke_callback(
                     inner(), sixtyfps::private_api::string_to_slice(name), args_view, &out)) {
@@ -666,8 +665,8 @@ public:
     bool set_callback(std::string_view name, F callback) const
     {
         using cbindgen_private::ValueOpaque;
-        auto actual_cb = [](void *data, Slice<ValueOpaque> arg, ValueOpaque *ret) {
-            Slice<Value> args_view { reinterpret_cast<Value *>(arg.ptr), arg.len };
+        auto actual_cb = [](void *data, cbindgen_private::Slice<ValueOpaque> arg, ValueOpaque *ret) {
+            std::span<const Value> args_view { reinterpret_cast<const Value *>(arg.ptr), arg.len };
             Value r = (*reinterpret_cast<F *>(data))(args_view);
             new (ret) Value(std::move(r));
         };
@@ -730,8 +729,8 @@ public:
     bool set_global_callback(std::string_view global, std::string_view name, F callback) const
     {
         using cbindgen_private::ValueOpaque;
-        auto actual_cb = [](void *data, Slice<ValueOpaque> arg, ValueOpaque *ret) {
-            Slice<Value> args_view { reinterpret_cast<Value *>(arg.ptr), arg.len };
+        auto actual_cb = [](void *data, cbindgen_private::Slice<ValueOpaque> arg, ValueOpaque *ret) {
+            std::span<const Value> args_view { reinterpret_cast<const Value *>(arg.ptr), arg.len };
             Value r = (*reinterpret_cast<F *>(data))(args_view);
             new (ret) Value(std::move(r));
         };
@@ -741,14 +740,13 @@ public:
                 [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 
-    // FIXME! Slice in public API?  Should be std::span (c++20) or we need to improve the Slice API
     /// Invoke the specified callback declared in an exported global singleton
     std::optional<Value> invoke_global_callback(std::string_view global,
                                                 std::string_view callback_name,
-                                                Slice<Value> args) const
+                                                std::span<const Value> args) const
     {
         using namespace cbindgen_private;
-        Slice<ValueOpaque> args_view { reinterpret_cast<ValueOpaque *>(args.ptr), args.len };
+        Slice<ValueOpaque> args_view { const_cast<ValueOpaque *>(reinterpret_cast<const ValueOpaque *>(args.data())), args.size() };
         ValueOpaque out;
         if (sixtyfps_interpreter_component_instance_invoke_global_callback(
                     inner(), sixtyfps::private_api::string_to_slice(global),

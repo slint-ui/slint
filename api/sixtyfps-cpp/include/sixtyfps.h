@@ -17,6 +17,7 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <span>
 
 namespace sixtyfps::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
@@ -47,9 +48,6 @@ using cbindgen_private::ComponentRc;
 using cbindgen_private::ItemWeak;
 using cbindgen_private::TraversalOrder;
 }
-
-// FIXME: this should not be public API
-using cbindgen_private::Slice;
 
 namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
@@ -161,14 +159,14 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t
                                                            parent_index } };
 }
 
-inline ItemRef get_item_ref(ComponentRef component, Slice<ItemTreeNode> item_tree, int index)
+inline ItemRef get_item_ref(ComponentRef component, cbindgen_private::Slice<ItemTreeNode> item_tree, int index)
 {
     const auto &item = item_tree.ptr[index].item.item;
     return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
 }
 
 inline ItemWeak parent_item(cbindgen_private::ComponentWeak component,
-                            Slice<ItemTreeNode> item_tree, int index)
+                            cbindgen_private::Slice<ItemTreeNode> item_tree, int index)
 {
     const auto &node = item_tree.ptr[index];
     if (node.tag == ItemTreeNode::Tag::Item) {
@@ -412,10 +410,10 @@ inline bool operator!=(const LayoutInfo &a, const LayoutInfo &b)
 namespace private_api {
 
 inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutData &data,
-                                            Slice<int> repeater_indexes)
+                                            cbindgen_private::Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
+    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
     cbindgen_private::sixtyfps_solve_box_layout(&data, ri, &result);
     return result;
 }
@@ -428,14 +426,14 @@ inline SharedVector<float> solve_grid_layout(const cbindgen_private::GridLayoutD
 }
 
 inline cbindgen_private::LayoutInfo
-grid_layout_info(Slice<cbindgen_private::GridLayoutCellData> cells, float spacing,
+grid_layout_info(cbindgen_private::Slice<cbindgen_private::GridLayoutCellData> cells, float spacing,
                  const cbindgen_private::Padding &padding)
 {
     return cbindgen_private::sixtyfps_grid_layout_info(cells, spacing, &padding);
 }
 
 inline cbindgen_private::LayoutInfo
-box_layout_info(Slice<cbindgen_private::BoxLayoutCellData> cells, float spacing,
+box_layout_info(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> cells, float spacing,
                 const cbindgen_private::Padding &padding,
                 cbindgen_private::LayoutAlignment alignment)
 {
@@ -443,17 +441,17 @@ box_layout_info(Slice<cbindgen_private::BoxLayoutCellData> cells, float spacing,
 }
 
 inline cbindgen_private::LayoutInfo
-box_layout_info_ortho(Slice<cbindgen_private::BoxLayoutCellData> cells,
+box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> cells,
                       const cbindgen_private::Padding &padding)
 {
     return cbindgen_private::sixtyfps_box_layout_info_ortho(cells, &padding);
 }
 
 inline SharedVector<float> solve_path_layout(const cbindgen_private::PathLayoutData &data,
-                                             Slice<int> repeater_indexes)
+                                             cbindgen_private::Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
+    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
     cbindgen_private::sixtyfps_solve_path_layout(&data, ri, &result);
     return result;
 }
