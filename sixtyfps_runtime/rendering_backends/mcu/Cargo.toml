@@ -3,7 +3,7 @@
 
 [package]
 name = "sixtyfps-rendering-backend-mcu"
-version = "0.1.6"
+version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
@@ -27,8 +27,8 @@ snapshot_renderer = []
 std = ["sixtyfps-corelib/std"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.1.6", path = "../../corelib", default-features = false }
-sixtyfps-common = { version = "=0.1.6", path = "../../common", default-features = false }
+sixtyfps-corelib = { version = "=0.2.0", path = "../../corelib", default-features = false }
+sixtyfps-common = { version = "=0.2.0", path = "../../common", default-features = false }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 rgb = "0.8.27"
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }

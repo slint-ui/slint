@@ -3,7 +3,7 @@
 
 [package]
 name = "sixtyfps-rendering-backend-testing"
-version = "0.1.6"
+version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
@@ -16,5 +16,5 @@ publish = false
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.1.6", path = "../../corelib" }
+sixtyfps-corelib = { version = "=0.2.0", path = "../../corelib" }
 image = { version = "0.23.14", default-features = false, features = ["png"] }

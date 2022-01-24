@@ -3,7 +3,7 @@
 
 [package]
 name = "sixtyfps"
-version = "0.1.6"
+version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
@@ -26,11 +26,11 @@ std = ["sixtyfps-corelib/std"]
 
 [dependencies]
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
-sixtyfps-macros = { version = "=0.1.6", path = "sixtyfps-macros" }
+sixtyfps-macros = { version = "=0.2.0", path = "sixtyfps-macros" }
 const-field-offset = { version = "0.1.2", path = "../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.5", path = "../../helper_crates/vtable" }
-sixtyfps-corelib = { version = "=0.1.6", path="../../sixtyfps_runtime/corelib", default-features = false }
-sixtyfps-rendering-backend-default = { version = "=0.1.6", path="../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-corelib = { version = "=0.2.0", path="../../sixtyfps_runtime/corelib", default-features = false }
+sixtyfps-rendering-backend-default = { version = "=0.2.0", path="../../sixtyfps_runtime/rendering_backends/default" }
 pin-weak = { version = "1.1", default-features = false }
 
 [package.metadata.docs.rs]
