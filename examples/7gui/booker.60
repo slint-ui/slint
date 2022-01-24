@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { TextEdit,LineEdit, Button, ComboBox, VerticalBox } from "sixtyfps_widgets.60";
+import { LineEdit, Button, ComboBox, VerticalBox } from "sixtyfps_widgets.60";
 
 Booker := Window {
     // returns true if the string parameter is a valid date
@@ -17,13 +17,8 @@ Booker := Window {
             current-value: "one-way flight";
             current-index: 0;
         }
-        t := TextEdit{
-            text: "some-text";
-            font-size: 18px;
-        }
         t1 := LineEdit {
             text: "27.03.2014";
-            font-size: 12px;
             Rectangle {
                 width: 100%;
                 height: 100%;
@@ -32,7 +27,6 @@ Booker := Window {
         }
         t2 := LineEdit {
             text: "27.03.2014";
-            font-size: 12px;
             enabled: combo.current-index == 1;
             Rectangle {
                 width: 100%;

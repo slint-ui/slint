@@ -182,8 +182,8 @@ import { LineEdit } from "sixtyfps_widgets.60";
 Example := Window {
     width: 200px;
     height: 25px;
-    font-size: 14px;
     LineEdit {
+        font-size: 14px;
         width: parent.width;
         height: parent.height;
         placeholder-text: "Enter text here";
@@ -217,8 +217,8 @@ import { TextEdit } from "sixtyfps_widgets.60";
 Example := Window {
     width: 200px;
     height: 200px;
-    font-size: 14px;
     TextEdit {
+        font-size: 14px;
         width: parent.width;
         height: parent.height;
         text: "Lorem ipsum dolor sit amet\n, consectetur adipisici elit";
