@@ -3,7 +3,7 @@
 
 [package]
 name = "sixtyfps-rendering-backend-default"
-version = "0.1.6"
+version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
@@ -19,7 +19,7 @@ x11 = ["sixtyfps-rendering-backend-gl/x11"]
 wayland = ["sixtyfps-rendering-backend-gl/wayland"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.1.6", path = "../../corelib", default-features = false }
-sixtyfps-rendering-backend-gl = { version = "=0.1.6", path = "../gl", optional = true }
-sixtyfps-rendering-backend-qt = { version = "=0.1.6", path = "../qt", optional = true }
+sixtyfps-corelib = { version = "=0.2.0", path = "../../corelib", default-features = false }
+sixtyfps-rendering-backend-gl = { version = "=0.2.0", path = "../gl", optional = true }
+sixtyfps-rendering-backend-qt = { version = "=0.2.0", path = "../qt", optional = true }
 cfg-if = "1"

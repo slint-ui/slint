@@ -3,7 +3,7 @@
 
 [package]
 name = "printerdemo_old"
-version = "0.1.6"
+version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 build = "build.rs"

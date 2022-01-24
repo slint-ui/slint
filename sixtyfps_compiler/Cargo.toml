@@ -3,7 +3,7 @@
 
 [package]
 name = "sixtyfps-compilerlib"
-version = "0.1.6"
+version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 build = "build.rs"
@@ -47,7 +47,7 @@ once_cell = "1"
 url = "2.2.1"
 dunce = "1.0.1"
 linked_hash_set = "0.1.4"
-sixtyfps-common = { version = "=0.1.6", path = "../sixtyfps_runtime/common" }
+sixtyfps-common = { version = "=0.2.0", path = "../sixtyfps_runtime/common" }
 
 # for processing and embedding the rendered image (texture)
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

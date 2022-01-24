@@ -3,7 +3,7 @@
 
 [package]
 name = "sixtyfps-corelib"
-version = "0.1.6"
+version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2018"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
@@ -36,7 +36,7 @@ libm = ["num-traits/libm", "euclid/libm"]
 [dependencies]
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version="0.1.1", path = "../../helper_crates/vtable" }
-sixtyfps-corelib-macros = { version = "=0.1.6", path = "../corelib_macros" }
+sixtyfps-corelib-macros = { version = "=0.2.0", path = "../corelib_macros" }
 lyon_path = { version = "0.17.3" , optional = true }
 lyon_algorithms = { version = "0.17.1" , optional = true }
 lyon_geom = { version = "0.17.0", optional = true  }
@@ -58,7 +58,7 @@ rgb = "0.8.27"
 pin-project = "1"
 atomic-polyfill = { version = "0.1.5" }
 num-traits = { version = "0.2", default-features = false }
-sixtyfps-common = { version = "=0.1.6", path = "../common" }
+sixtyfps-common = { version = "=0.2.0", path = "../common" }
 
 defmt = { version = "0.3.0", optional = true }
 
