@@ -497,7 +497,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 }
                 if (last_line_begin < string.size()) {
                     elided = string.left(last_line_begin);
-                    QString to_elide = QStringView(string).mid(last_line_begin, last_line_size).trimmed() % QStringView(u"…");
+                    QString to_elide = QStringView(string).mid(last_line_begin, last_line_size).trimmed() % QStringView(QT_UNICODE_LITERAL("…"));
                     elided += fm.elidedText(to_elide, Qt::ElideRight, rect.width());
                 }
                 painter->drawText(rect, flags, elided);

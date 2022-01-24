@@ -119,6 +119,7 @@ pub(crate) mod ffi {
         struct UserData {
             user_data: *mut c_void,
             drop_user_data: Option<extern "C" fn(*mut c_void)>,
+            binding: extern "C" fn(user_data: *mut c_void, arg: *const c_void, ret: *mut c_void),
         }
 
         impl Drop for UserData {
@@ -128,9 +129,17 @@ pub(crate) mod ffi {
                 }
             }
         }
-        let ud = UserData { user_data, drop_user_data };
+
+        impl UserData {
+            /// Safety: the arguments must be valid pointers
+            unsafe fn call(&self, arg: *const c_void, ret: *mut c_void) {
+                (self.binding)(self.user_data, arg, ret)
+            }
+        }
+
+        let ud = UserData { user_data, drop_user_data, binding };
         sig.handler.set(Some(Box::new(move |a: &(), r: &mut ()| {
-            binding(ud.user_data, a as *const c_void, r as *mut c_void)
+            ud.call(a as *const c_void, r as *mut c_void)
         })));
     }
 

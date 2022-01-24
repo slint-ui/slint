@@ -346,8 +346,6 @@ impl Item for TextInput {
     }
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &WindowRc) -> KeyEventResult {
-        use core::convert::TryFrom;
-
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
         }
