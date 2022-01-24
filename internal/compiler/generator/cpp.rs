@@ -1953,7 +1953,10 @@ fn generate_public_api_for_properties(
             }));
             declarations.push(Declaration::Function(Function {
                 name: format!("on_{}", ident(&p.name)),
-                template_parameters: Some("typename Functor".into()),
+                template_parameters: Some(format!(
+                    "std::invocable<{}> Functor",
+                    param_types.join(", "),
+                )),
                 signature: "(Functor && callback_handler) const".into(),
                 statements: Some(vec![
                     "[[maybe_unused]] auto self = this;".into(),

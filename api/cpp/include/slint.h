@@ -19,6 +19,7 @@
 #include <condition_variable>
 #include <span>
 #include <functional>
+#include <concepts>
 
 namespace slint::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
@@ -152,7 +153,7 @@ public:
         cbindgen_private::slint_windowrc_show_popup(&inner, &popup, p, &parent_item);
     }
 
-    template<typename F>
+    template<std::invocable<RenderingState, GraphicsAPI> F>
     std::optional<SetRenderingNotifierError> set_rendering_notifier(F callback) const
     {
         auto actual_cb = [](RenderingState state, GraphicsAPI graphics_api, void *data) {
@@ -169,8 +170,11 @@ public:
         }
     }
 
-    template<typename F>
+    // clang-format off
+    template<std::invocable F>
+        requires(std::is_convertible_v<std::invoke_result_t<F>, CloseRequestResponse>)
     void on_close_requested(F callback) const
+    // clang-format on
     {
         auto actual_cb = [](void *data) { return (*reinterpret_cast<F *>(data))(); };
         cbindgen_private::slint_windowrc_on_close_requested(
@@ -412,7 +416,7 @@ public:
     /// rendering. This allows custom rendering on top or below of the scene.
     /// On success, the function returns a std::optional without value. On error, the function
     /// returns the error code as value in the std::optional.
-    template<typename F>
+    template<std::invocable<RenderingState, GraphicsAPI> F>
     std::optional<SetRenderingNotifierError> set_rendering_notifier(F &&callback) const
     {
         return inner.set_rendering_notifier(std::forward<F>(callback));
@@ -421,12 +425,12 @@ public:
     /// This function allows registering a callback that's invoked when the user tries to close
     /// a window.
     /// The callback has to return a CloseRequestResponse.
-    template<typename F>
+    // clang-format off
+    template<std::invocable F>
+        requires(std::is_convertible_v<std::invoke_result_t<F>, CloseRequestResponse>)
     void on_close_requested(F &&callback) const
+    // clang-format on
     {
-        static_assert(std::is_invocable_v<F>, "Functor callback must be callable");
-        static_assert(std::is_same_v<std::invoke_result_t<F>, CloseRequestResponse>,
-                      "Functor callback must return CloseRequestResponse");
         return inner.on_close_requested(std::forward<F>(callback));
     }
 
@@ -479,7 +483,7 @@ struct Timer
     ///
     /// This is a convenience function and equivalent to calling
     /// `start(slint::TimerMode::Repeated, interval, callback);` on a default constructed Timer.
-    template<typename F>
+    template<std::invocable F>
     Timer(std::chrono::milliseconds interval, F callback)
         : id(cbindgen_private::slint_timer_start(
                 -1, TimerMode::Repeated, interval.count(),
@@ -494,7 +498,7 @@ struct Timer
     /// Starts the timer with the given \a mode and \a interval, in order for the \a callback to
     /// called when the timer fires. If the timer has been started previously and not fired yet,
     /// then it will be restarted.
-    template<typename F>
+    template<std::invocable F>
     void start(TimerMode mode, std::chrono::milliseconds interval, F callback)
     {
         id = cbindgen_private::slint_timer_start(
@@ -514,7 +518,7 @@ struct Timer
     bool running() const { return cbindgen_private::slint_timer_running(id); }
 
     /// Call the callback after the given duration.
-    template<typename F>
+    template<std::invocable F>
     static void single_shot(std::chrono::milliseconds duration, F callback)
     {
         cbindgen_private::slint_timer_singleshot(
@@ -1489,7 +1493,7 @@ inline void quit_event_loop()
 /// ```
 ///
 /// See also blocking_invoke_from_event_loop() for a blocking version of this function
-template<typename Functor>
+template<std::invocable Functor>
 void invoke_from_event_loop(Functor f)
 {
     cbindgen_private::slint_post_event(
@@ -1532,8 +1536,7 @@ void invoke_from_event_loop(Functor f)
 ///     ...
 /// }
 /// ```
-template<typename Functor,
-         typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<Functor>>>>
+template<std::invocable Functor>
 auto blocking_invoke_from_event_loop(Functor f) -> std::invoke_result_t<Functor>
 {
     std::optional<std::invoke_result_t<Functor>> result;
@@ -1550,9 +1553,12 @@ auto blocking_invoke_from_event_loop(Functor f) -> std::invoke_result_t<Functor>
     return std::move(*result);
 }
 
-template<typename Functor,
-         typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<Functor>>>>
-auto blocking_invoke_from_event_loop(Functor f) -> void
+#if !defined(DOXYGEN) // Doxygen doesn't see this as an overload of the previous one
+// clang-format off
+template<std::invocable Functor>
+    requires(std::is_void_v<std::invoke_result_t<Functor>>)
+void blocking_invoke_from_event_loop(Functor f)
+// clang-format on
 {
     std::mutex mtx;
     std::condition_variable cv;
@@ -1566,5 +1572,6 @@ auto blocking_invoke_from_event_loop(Functor f) -> void
     std::unique_lock lock(mtx);
     cv.wait(lock, [&] { return ok; });
 }
+#endif
 
 } // namespace slint
