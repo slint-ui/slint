@@ -16,7 +16,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Corrosion)
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.54 REQUIRED MODULE)
+find_package(Rust 1.56 REQUIRED MODULE)
 
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
     CRATES sixtyfps-compiler sixtyfps-cpp)

@@ -30,7 +30,7 @@ The recommended and most flexible way to use the C++ API is to build SixtyFPS fr
 First you need to install the prerequisites:
 
 * Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-  have Rust installed, make sure that it's at least version 1.54 or newer. You can check which version you have installed
+  have Rust installed, make sure that it's at least version 1.56 or newer. You can check which version you have installed
   by running `rustc --version`. Once this is done, you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
 * **[cmake](https://cmake.org/download/)** (3.19 or newer)
 * A C++ compiler that supports C++17 (e.g., **MSVC 2019** on Windows)
