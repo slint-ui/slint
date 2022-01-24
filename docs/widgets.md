@@ -182,6 +182,7 @@ import { LineEdit } from "sixtyfps_widgets.60";
 Example := Window {
     width: 200px;
     height: 25px;
+    font-size: 14px;
     LineEdit {
         width: parent.width;
         height: parent.height;
@@ -216,6 +217,7 @@ import { TextEdit } from "sixtyfps_widgets.60";
 Example := Window {
     width: 200px;
     height: 200px;
+    font-size: 14px;
     TextEdit {
         width: parent.width;
         height: parent.height;

@@ -19,9 +19,11 @@ Booker := Window {
         }
         t := TextEdit{
             text: "some-text";
+            font-size: 18px;
         }
         t1 := LineEdit {
             text: "27.03.2014";
+            font-size: 12px;
             Rectangle {
                 width: 100%;
                 height: 100%;
@@ -30,6 +32,7 @@ Booker := Window {
         }
         t2 := LineEdit {
             text: "27.03.2014";
+            font-size: 12px;
             enabled: combo.current-index == 1;
             Rectangle {
                 width: 100%;
