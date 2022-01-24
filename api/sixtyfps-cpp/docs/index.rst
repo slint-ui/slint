@@ -39,6 +39,8 @@ Welcome to SixtyFPS C++'s documentation!
 
    markdown/debugging_techniques.md
 
+   cpp_migration.md
+
 .. image:: https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg
    :target: https://github.com/sixtyfpsui/sixtyfps/actions
    :alt: GitHub CI Build Status
