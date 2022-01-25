@@ -6,7 +6,7 @@ This guide lists all API incompatible changes between major versions and describ
 
 ## Migrating from Version 0.1.x to 0.2.0
 
-In 0.2.0 we have increased the minimum version of C++. You need to have a C++ compiler installed that supports C++ 20 or newer.
+In version 0.2.0 we have increased the minimum version of C++. You need to have a C++ compiler installed that supports C++ 20 or newer.
 
 If you are building SixtyFPS from source, you need to make sure that your Rust installation is up-to-date. If you have installed Rust using `rustup`, then you can upgrade to the latest Version of Rust by running `rustup update`.
 
@@ -32,12 +32,14 @@ instance->invoke_callback("foo", args);
 
 #### Models
 
-`Model::row_data` will now return a `std::optional<ModelData>` and can thus be used with indices that are out of bounds.
+`Model::row_data` returns now a `std::optional<ModelData>` and can thus be used with indices that are out of bounds.
+
+This also means that `Model`s must handle invalid indices and may not crash when a invalid index is passed in.
 
 Old code:
 
 ```cpp
-std::get<2>(another_model->row_data(2)), 336.);
+another_model->row_data(2);
 ```
 
 New code:

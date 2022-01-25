@@ -401,11 +401,7 @@ impl Model for bool {
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        if row >= self.row_count() {
-            None
-        } else {
-            Some(())
-        }
+        (row < self.row_count()).then(|| ())
     }
 
     fn as_any(&self) -> &dyn core::any::Any {

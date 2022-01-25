@@ -14,6 +14,8 @@ In 0.2.0 we have increased the minimum version of rust. You need to have rust co
 
 `Model::row_data` now returns an `Option<T>` instead of a simple `T`.
 
+This implies that `Model`s must handle invalid indices and may not panic when they encounter one.
+
 Old code:
 
 ```rust
