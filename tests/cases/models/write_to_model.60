@@ -68,6 +68,9 @@ sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 439);
 assert_eq!(another_model.row_data(2).unwrap().2, 439.);
 assert_eq!(another_model.row_data(2).unwrap().1, sixtyfps::SharedString::from("world"));
+
+instance.invoke_manual_score_update(200, 100);
+assert_eq!(another_model.row_count(), 3);
 ```
 
 ```cpp
@@ -93,6 +96,9 @@ sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 439);
 assert_eq(std::get<2>(another_model->row_data(2)), 439.);
 assert_eq(std::get<1>(another_model->row_data(2)), "world");
+
+instance.invoke_manual_score_update(200, 100);
+assert_eq(another_model->row_count(), 3);
 ```
 
 
@@ -117,6 +123,9 @@ instance.send_mouse_click(25., 5.);
 assert.equal(instance.clicked_score, 439);
 assert.equal(another_model.rowData(2).score, 439.);
 assert.equal(another_model.rowData(2).name, "world");
+
+instance.manual_score_update(200, 100); // should do nothing
+assert.equal(another_model.length, 3);
 ```
 
 
