@@ -11,8 +11,8 @@ int main()
     std::vector<TileData> new_tiles;
     new_tiles.reserve(old_tiles->row_count() * 2);
     for (int i = 0; i < old_tiles->row_count(); ++i) {
-        new_tiles.push_back(old_tiles->row_data(i));
-        new_tiles.push_back(old_tiles->row_data(i));
+        new_tiles.push_back(*old_tiles->row_data(i));
+        new_tiles.push_back(*old_tiles->row_data(i));
     }
     std::default_random_engine rng{};
     std::shuffle(std::begin(new_tiles), std::end(new_tiles), rng);
@@ -25,7 +25,7 @@ int main()
         int first_visible_index = -1;
         TileData first_visible_tile;
         for (int i = 0; i < tiles_model->row_count(); ++i) {
-            auto tile = tiles_model->row_data(i);
+            auto tile = *tiles_model->row_data(i);
             if (!tile.image_visible || tile.solved)
                 continue;
             if (first_visible_index == -1) {

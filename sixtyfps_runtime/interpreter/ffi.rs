@@ -568,7 +568,8 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_create(
 #[repr(C)]
 pub struct ModelAdaptorVTable {
     pub row_count: extern "C" fn(VRef<ModelAdaptorVTable>) -> usize,
-    pub row_data: unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, out: *mut ValueOpaque),
+    pub row_data:
+        unsafe extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, out: *mut ValueOpaque) -> bool,
     pub set_row_data: extern "C" fn(VRef<ModelAdaptorVTable>, row: usize, value: &ValueOpaque),
     pub get_notify: extern "C" fn(VRef<ModelAdaptorVTable>) -> &ModelNotifyOpaque,
     pub drop: extern "C" fn(VRefMut<ModelAdaptorVTable>),
@@ -583,13 +584,13 @@ impl Model for ModelAdaptorWrapper {
     }
 
     fn row_data(&self, row: usize) -> Option<Value> {
-        if row >= self.row_count() {
-            None
-        } else {
-            unsafe {
-                let mut v = std::mem::MaybeUninit::<Value>::uninit();
-                self.0.row_data(row, v.as_mut_ptr() as *mut ValueOpaque);
+        println!("Row data({})", row);
+        unsafe {
+            let mut v = std::mem::MaybeUninit::<Value>::uninit();
+            if self.0.row_data(row, v.as_mut_ptr() as *mut ValueOpaque) {
                 Some(v.assume_init())
+            } else {
+                None
             }
         }
     }
@@ -599,8 +600,11 @@ impl Model for ModelAdaptorWrapper {
     }
 
     fn set_row_data(&self, row: usize, data: Value) {
-        let val: &ValueOpaque = unsafe { std::mem::transmute::<&Value, &ValueOpaque>(&data) };
-        self.0.set_row_data(row, val);
+        println!("Set row data({})", row);
+        if row < self.row_count() {
+            let val: &ValueOpaque = unsafe { std::mem::transmute::<&Value, &ValueOpaque>(&data) };
+            self.0.set_row_data(row, val);
+        }
     }
 }
 

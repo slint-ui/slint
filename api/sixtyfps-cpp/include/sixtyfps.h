@@ -481,7 +481,7 @@ public:
     virtual int row_count() const = 0;
     /// Returns the data for a particular row. This function should be called with `row <
     /// row_count()`.
-    virtual ModelData row_data(int i) const = 0;
+    virtual std::optional<ModelData> row_data(int i) const = 0;
     /// Sets the data for a particular row.
     ///
     /// This function should only be called with `row < row_count()`.
@@ -578,11 +578,18 @@ public:
     {
     }
     int row_count() const override { return Count; }
-    ModelData row_data(int i) const override { return data[i]; }
+    std::optional<ModelData> row_data(int i) const override
+    {
+        if (i >= row_count())
+            return {};
+        return data[i];
+    }
     void set_row_data(int i, const ModelData &value) override
     {
-        data[i] = value;
-        this->row_changed(i);
+        if (i < row_count()) {
+            data[i] = value;
+            this->row_changed(i);
+        }
     }
 };
 
@@ -595,7 +602,12 @@ struct IntModel : Model<int>
     int data;
     /// \copydoc Model::row_count
     int row_count() const override { return data; }
-    int row_data(int value) const override { return value; }
+    std::optional<int> row_data(int value) const override
+    {
+        if (value >= row_count())
+            return {};
+        return value;
+    }
 };
 } // namespace private_api
 
@@ -611,11 +623,18 @@ public:
     /// Constructs a new VectorModel from \a array.
     VectorModel(std::vector<ModelData> array) : data(std::move(array)) { }
     int row_count() const override { return int(data.size()); }
-    ModelData row_data(int i) const override { return data[i]; }
+    std::optional<ModelData> row_data(int i) const override
+    {
+        if (i >= row_count())
+            return {};
+        return std::optional<ModelData> { data[i] };
+    }
     void set_row_data(int i, const ModelData &value) override
     {
-        data[i] = value;
-        this->row_changed(i);
+        if (i < row_count()) {
+            data[i] = value;
+            this->row_changed(i);
+        }
     }
 
     /// Append a new row with the given value
@@ -711,7 +730,7 @@ public:
                         c.ptr = C::create(parent);
                     }
                     if (c.state == RepeaterInner::State::Dirty) {
-                        (*c.ptr)->update_data(i, m->row_data(i));
+                        (*c.ptr)->update_data(i, *m->row_data(i));
                     }
                 }
             } else {
@@ -776,11 +795,13 @@ public:
             std::abort();
         }
         if (auto m = model.get()) {
-            m->set_row_data(row, data);
-            if (inner && inner->is_dirty.get()) {
-                auto &c = inner->data[row];
-                if (c.state == RepeaterInner::State::Dirty && c.ptr) {
-                    (*c.ptr)->update_data(row, m->row_data(row));
+            if (row < m->row_count()) {
+                m->set_row_data(row, data);
+                if (inner && inner->is_dirty.get()) {
+                    auto &c = inner->data[row];
+                    if (c.state == RepeaterInner::State::Dirty && c.ptr) {
+                        (*c.ptr)->update_data(row, *m->row_data(row));
+                    }
                 }
             }
         }
