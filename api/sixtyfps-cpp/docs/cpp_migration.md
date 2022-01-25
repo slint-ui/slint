@@ -43,5 +43,11 @@ std::get<2>(another_model->row_data(2)), 336.);
 New code:
 
 ```cpp
-std::get<2>(*another_model->row_data(2)), 336.); // Note the extra *. You should check whether the returned value `has_value()` before accessing it
+// `another_model` is a model that contains floats.
+std::optional<float> entry = another_model->row_data(2);
+if (entry.has_value()) {
+    do_something(*entry);
+} else {
+    // row index 2 is out of bounds
+}
 ```
