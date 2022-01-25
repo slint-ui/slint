@@ -10,6 +10,7 @@ This version changes some APIs in incompatible ways. For details how to migrate 
  - Minimum rust version is now 1.56
  - C++ compiler requires C++20
  - In the C++ interpreter API `std::span` is used for callbacks arguments, instead of `sixtyfps::Slice`
+ - In rust `Model::row_data(...)` will now return a `Option<T>` instead of a plain `T`
 
 ### Added
 
