@@ -15,14 +15,11 @@ Then we edit `Cargo.toml` to add the sixtyfps dependency:
 ```toml
 [package]
 #...
-edition = "2018"
-resolver = "2"
+edition = "2021"
 
 [dependencies]
 sixtyfps = "0.1.6"
 ```
-
-The `resolver = "2"` line is there to avoid some errors because of conflicting dependencies on some platforms.
 
 Finally we copy the hello world program from the [SixtyFPS documentation](https://sixtyfps.io/docs/rust/sixtyfps/) into our `src/main.rs`:
 
