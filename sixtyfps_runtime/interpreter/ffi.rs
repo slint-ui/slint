@@ -584,7 +584,6 @@ impl Model for ModelAdaptorWrapper {
     }
 
     fn row_data(&self, row: usize) -> Option<Value> {
-        println!("Row data({})", row);
         unsafe {
             let mut v = std::mem::MaybeUninit::<Value>::uninit();
             if self.0.row_data(row, v.as_mut_ptr() as *mut ValueOpaque) {
