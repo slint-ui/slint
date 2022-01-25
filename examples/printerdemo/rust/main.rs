@@ -83,7 +83,7 @@ pub fn main() {
         move || {
             if let Some(printer_queue) = printer_queue_weak.upgrade() {
                 if printer_queue.data.row_count() > 0 {
-                    let mut top_item = printer_queue.data.row_data(0);
+                    let mut top_item = printer_queue.data.row_data(0).unwrap();
                     top_item.progress += 1;
                     top_item.status = "PRINTING".into();
                     if top_item.progress > 100 {
@@ -91,7 +91,7 @@ pub fn main() {
                         if printer_queue.data.row_count() == 0 {
                             return;
                         }
-                        top_item = printer_queue.data.row_data(0);
+                        top_item = printer_queue.data.row_data(0).unwrap();
                     }
                     printer_queue.data.set_row_data(0, top_item);
                 } else {

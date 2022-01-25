@@ -582,11 +582,15 @@ impl Model for ModelAdaptorWrapper {
         self.0.row_count()
     }
 
-    fn row_data(&self, row: usize) -> Value {
-        unsafe {
-            let mut v = std::mem::MaybeUninit::<Value>::uninit();
-            self.0.row_data(row, v.as_mut_ptr() as *mut ValueOpaque);
-            v.assume_init()
+    fn row_data(&self, row: usize) -> Option<Value> {
+        if row >= self.row_count() {
+            None
+        } else {
+            unsafe {
+                let mut v = std::mem::MaybeUninit::<Value>::uninit();
+                self.0.row_data(row, v.as_mut_ptr() as *mut ValueOpaque);
+                Some(v.assume_init())
+            }
         }
     }
 

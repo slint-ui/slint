@@ -170,8 +170,12 @@ impl ModelTracker for ModelNotify {
 ///         self.array.borrow().len()
 ///     }
 ///
-///     fn row_data(&self, row: usize) -> Self::Data {
-///         self.array.borrow()[row].clone()
+///     fn row_data(&self, row: usize) -> Option<Self::Data> {
+///         if row >= self.row_count() {
+///             None
+///         } else {
+///             Some(self.array.borrow()[row].clone())
+///         }
 ///     }
 ///
 ///     fn set_row_data(&self, row: usize, data: Self::Data) {
@@ -212,7 +216,7 @@ pub trait Model {
     /// The amount of row in the model
     fn row_count(&self) -> usize;
     /// Returns the data for a particular row. This function should be called with `row < row_count()`.
-    fn row_data(&self, row: usize) -> Self::Data;
+    fn row_data(&self, row: usize) -> Option<Self::Data>;
     /// Sets the data for a particular row.
     ///
     /// This function should be called with `row < row_count()`, otherwise the implementation can panic.
@@ -261,7 +265,7 @@ pub trait Model {
     /// let handle = ModelHandle::from(vec_model as Rc<dyn Model<Data = i32>>);
     /// // later:
     /// handle.as_any().downcast_ref::<VecModel<i32>>().unwrap().push(4);
-    /// assert_eq!(handle.row_data(3), 4);
+    /// assert_eq!(handle.row_data(3).unwrap(), 4);
     /// ```
     ///
     /// Note: the default implementation returns nothing interesting. this method should be
@@ -285,13 +289,11 @@ impl<'a, T> Iterator for ModelIterator<'a, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let row = self.row;
         if self.row < self.model.row_count() {
-            let row = self.row;
             self.row += 1;
-            Some(self.model.row_data(row))
-        } else {
-            None
         }
+        self.model.row_data(row)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -351,13 +353,15 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         self.array.borrow().len()
     }
 
-    fn row_data(&self, row: usize) -> Self::Data {
-        self.array.borrow()[row].clone()
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.array.borrow().get(row).cloned()
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        self.array.borrow_mut()[row] = data;
-        self.notify.row_changed(row);
+        if row < self.row_count() {
+            self.array.borrow_mut()[row] = data;
+            self.notify.row_changed(row);
+        }
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -376,8 +380,8 @@ impl Model for usize {
         *self
     }
 
-    fn row_data(&self, row: usize) -> Self::Data {
-        row as i32
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        (row < self.row_count()).then(|| row as i32)
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
@@ -396,7 +400,13 @@ impl Model for bool {
         }
     }
 
-    fn row_data(&self, _row: usize) -> Self::Data {}
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        if row >= self.row_count() {
+            None
+        } else {
+            Some(())
+        }
+    }
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
@@ -459,12 +469,14 @@ impl<T> Model for ModelHandle<T> {
         self.0.as_ref().map_or(0, |model| model.row_count())
     }
 
-    fn row_data(&self, row: usize) -> Self::Data {
-        self.0.as_ref().unwrap().row_data(row)
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.0.as_ref().and_then(|model| model.row_data(row))
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        self.0.as_ref().unwrap().set_row_data(row, data)
+        if let Some(model) = self.0.as_ref() {
+            model.set_row_data(row, data)
+        }
     }
 
     fn attach_peer(&self, peer: ModelPeer) {
@@ -692,7 +704,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     created = true;
                     c.1 = Some(init());
                 }
-                c.1.as_ref().unwrap().update(i + offset, model.row_data(i + offset));
+                c.1.as_ref().unwrap().update(i + offset, model.row_data(i + offset).unwrap());
                 c.0 = RepeatedComponentState::Clean;
             }
         }
@@ -856,7 +868,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             if let Some(c) = self.inner.borrow_mut().components.get_mut(row) {
                 if c.0 == RepeatedComponentState::Dirty {
                     if let Some(comp) = c.1.as_ref() {
-                        comp.update(row, model.row_data(row));
+                        comp.update(row, model.row_data(row).unwrap());
                         c.0 = RepeatedComponentState::Clean;
                     }
                 }
@@ -980,7 +992,7 @@ fn test_data_tracking() {
     assert_eq!(
         tracker.as_ref().evaluate(|| {
             handle.model_tracker().track_row_data_changes(1);
-            handle.row_data(1)
+            handle.row_data(1).unwrap()
         }),
         1
     );
@@ -994,7 +1006,7 @@ fn test_data_tracking() {
     assert_eq!(
         tracker.as_ref().evaluate(|| {
             handle.model_tracker().track_row_data_changes(1);
-            handle.row_data(1)
+            handle.row_data(1).unwrap()
         }),
         100
     );
@@ -1008,7 +1020,7 @@ fn test_data_tracking() {
     assert_eq!(
         tracker.as_ref().evaluate(|| {
             handle.model_tracker().track_row_data_changes(1);
-            handle.row_data(1)
+            handle.row_data(1).unwrap()
         }),
         100
     );

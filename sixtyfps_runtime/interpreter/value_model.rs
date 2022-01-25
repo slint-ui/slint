@@ -62,13 +62,17 @@ impl Model for ValueModel {
         }
     }
 
-    fn row_data(&self, row: usize) -> Self::Data {
-        match &*self.value.borrow() {
-            Value::Bool(_) => Value::Void,
-            Value::Number(_) => Value::Number(row as _),
-            Value::Array(a) => a[row].clone(),
-            Value::Model(model_ptr) => model_ptr.row_data(row),
-            x => panic!("Invalid model {:?}", x),
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        if row >= self.row_count() {
+            None
+        } else {
+            Some(match &*self.value.borrow() {
+                Value::Bool(_) => Value::Void,
+                Value::Number(_) => Value::Number(row as _),
+                Value::Array(a) => a[row].clone(),
+                Value::Model(model_ptr) => model_ptr.row_data(row).unwrap_or(Value::Void),
+                x => panic!("Invalid model {:?}", x),
+            })
         }
     }
 

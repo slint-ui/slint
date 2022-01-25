@@ -64,22 +64,27 @@ impl Model for JsModel {
         r.get()
     }
 
-    fn row_data(&self, row: usize) -> Self::Data {
-        let r = Cell::new(sixtyfps_interpreter::Value::default());
-        crate::run_with_global_context(&|cx, persistent_context| {
-            let row = JsNumber::new(cx, row as f64);
-            let obj = self.get_object(cx, persistent_context).unwrap();
-            let _ = obj
-                .get(cx, "rowData")
-                .ok()
-                .and_then(|func| func.downcast::<JsFunction>().ok())
-                .and_then(|func| func.call(cx, obj, std::iter::once(row)).ok())
-                .and_then(|res| {
-                    crate::to_eval_value(res, self.data_type.clone(), cx, persistent_context).ok()
-                })
-                .map(|res| r.set(res));
-        });
-        r.into_inner()
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        if row >= self.row_count() {
+            None
+        } else {
+            let r = Cell::new(sixtyfps_interpreter::Value::default());
+            crate::run_with_global_context(&|cx, persistent_context| {
+                let row = JsNumber::new(cx, row as f64);
+                let obj = self.get_object(cx, persistent_context).unwrap();
+                let _ = obj
+                    .get(cx, "rowData")
+                    .ok()
+                    .and_then(|func| func.downcast::<JsFunction>().ok())
+                    .and_then(|func| func.call(cx, obj, std::iter::once(row)).ok())
+                    .and_then(|res| {
+                        crate::to_eval_value(res, self.data_type.clone(), cx, persistent_context)
+                            .ok()
+                    })
+                    .map(|res| r.set(res));
+            });
+            Some(r.into_inner())
+        }
     }
 
     fn model_tracker(&self) -> &dyn sixtyfps_corelib::model::ModelTracker {

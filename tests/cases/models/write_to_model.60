@@ -61,13 +61,13 @@ instance.set_model(sixtyfps::ModelHandle::new(another_model.clone()));
 
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 336);
-assert_eq!(another_model.row_data(2).2, 336.);
+assert_eq!(another_model.row_data(2).unwrap().2, 336.);
 
 instance.invoke_manual_score_update(2, 100);
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 439);
-assert_eq!(another_model.row_data(2).2, 439.);
-assert_eq!(another_model.row_data(2).1, sixtyfps::SharedString::from("world"));
+assert_eq!(another_model.row_data(2).unwrap().2, 439.);
+assert_eq!(another_model.row_data(2).unwrap().1, sixtyfps::SharedString::from("world"));
 ```
 
 ```cpp
