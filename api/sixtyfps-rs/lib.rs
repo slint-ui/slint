@@ -64,8 +64,7 @@ In your Cargo.toml add a `build` assignment and use the `sixtyfps-build` crate i
 [package]
 ...
 build = "build.rs"
-resolver = "2" # avoid dependency conflicts on some platforms
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 sixtyfps = "0.1.6"

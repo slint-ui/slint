@@ -74,8 +74,6 @@ default-members = [
     'tests/driver/interpreter',
 ]
 
-resolver = "2"
-
 [profile.release]
 lto = true
 panic = "abort"
