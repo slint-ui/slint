@@ -22,6 +22,6 @@ let row_five = model.row_data(5);
 
 New code:
 
-```rust
+```rust,ignore
 let row_five = model.row_data(5).unwrap_or_default();
 ```
