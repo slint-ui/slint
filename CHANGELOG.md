@@ -11,6 +11,7 @@ This version changes some APIs in incompatible ways. For details how to migrate 
  - C++ compiler requires C++20
  - In the C++ interpreter API `std::span` is used for callbacks arguments, instead of `sixtyfps::Slice`
  - In rust `Model::row_data(...)` will now return a `Option<T>` instead of a plain `T`
+ - In C++ `Model::row_data(...)` will now return a `std::optional<ModelData>` instead of a plain `ModelData`
 
 ### Added
 

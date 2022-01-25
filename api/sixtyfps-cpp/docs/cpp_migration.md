@@ -6,7 +6,7 @@ This guide lists all API incompatible changes between major versions and describ
 
 ## Migrating from Version 0.1.x to 0.2.0
 
-In the 0.2.x series we have increased the minimum version of C++. You need to have a C++ compiler installed that supports C++ 20 or newer.
+In 0.2.0 we have increased the minimum version of C++. You need to have a C++ compiler installed that supports C++ 20 or newer.
 
 If you are building SixtyFPS from source, you need to make sure that your Rust installation is up-to-date. If you have installed Rust using `rustup`, then you can upgrade to the latest Version of Rust by running `rustup update`.
 
@@ -28,4 +28,20 @@ New code:
 ```cpp
 sixtyfps::Value args[] = { SharedString("Hello"), 42. };
 instance->invoke_callback("foo", args);
+```
+
+#### Models
+
+`Model::row_data` will now return a `std::optional<ModelData>` and can thus be used with indices that are out of bounds.
+
+Old code:
+
+```cpp
+std::get<2>(another_model->row_data(2)), 336.);
+```
+
+New code:
+
+```cpp
+std::get<2>(*another_model->row_data(2)), 336.); // Note the extra *. You should check whether the returned value `has_value()` before accessing it
 ```
