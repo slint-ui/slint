@@ -4,6 +4,7 @@
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::graphics::Image;
+use sixtyfps_corelib::model::SharedVectorModel;
 use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -123,7 +124,17 @@ impl Value {
             Value::String(_) => ValueType::String,
             Value::Bool(_) => ValueType::Bool,
             Value::Array(_) => ValueType::Array,
-            Value::Model(_) => ValueType::Model,
+            Value::Model(model) => {
+                if model
+                    .as_any()
+                    .downcast_ref::<sixtyfps_corelib::model::SharedVectorModel<Value>>()
+                    .is_some()
+                {
+                    ValueType::Array
+                } else {
+                    ValueType::Model
+                }
+            }
             Value::Struct(_) => ValueType::Struct,
             Value::Brush(_) => ValueType::Brush,
             Value::Image(_) => ValueType::Image,
@@ -146,8 +157,34 @@ impl PartialEq for Value {
             Value::String(lhs) => matches!(other, Value::String(rhs) if lhs == rhs),
             Value::Bool(lhs) => matches!(other, Value::Bool(rhs) if lhs == rhs),
             Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
-            Value::Array(lhs) => matches!(other, Value::Array(rhs) if lhs == rhs),
-            Value::Model(lhs) => matches!(other, Value::Model(rhs) if Rc::ptr_eq(lhs, rhs)),
+            Value::Array(lhs) => {
+                match other {
+                    Value::Array(rhs) => return lhs == rhs,
+                    Value::Model(model) => {
+                        if let Some(rhs_array) =
+                            model.as_any().downcast_ref::<SharedVectorModel<Value>>()
+                        {
+                            return lhs == &rhs_array.shared_vector();
+                        }
+                    }
+                    _ => {}
+                }
+                false
+            }
+            Value::Model(lhs) => {
+                match other {
+                    Value::Model(rhs) => return Rc::ptr_eq(lhs, rhs),
+                    Value::Array(rhs_array) => {
+                        if let Some(lhs_array) =
+                            lhs.as_any().downcast_ref::<SharedVectorModel<Value>>()
+                        {
+                            return &lhs_array.shared_vector() == rhs_array;
+                        }
+                    }
+                    _ => {}
+                }
+                false
+            }
             Value::Struct(lhs) => matches!(other, Value::Struct(rhs) if lhs == rhs),
             Value::Brush(lhs) => matches!(other, Value::Brush(rhs) if lhs == rhs),
             Value::PathData(lhs) => matches!(other, Value::PathData(rhs) if lhs == rhs),

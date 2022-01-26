@@ -419,8 +419,10 @@ inline Value::Value(const sixtyfps::SharedVector<Value> &array)
 
 inline std::optional<sixtyfps::SharedVector<Value>> Value::to_array() const
 {
-    if (auto *array = cbindgen_private::sixtyfps_interpreter_value_to_array(&inner)) {
-        return *reinterpret_cast<const sixtyfps::SharedVector<Value> *>(array);
+    sixtyfps::SharedVector<Value> array;
+    if (cbindgen_private::sixtyfps_interpreter_value_to_array(
+                &inner, &reinterpret_cast<sixtyfps::SharedVector<ValueOpaque> &>(array))) {
+        return array;
     } else {
         return {};
     }

@@ -11,7 +11,7 @@ use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
 use crate::properties::dependency_tracker::DependencyNode;
-use crate::Property;
+use crate::{Property, SharedVector};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
@@ -358,6 +358,59 @@ impl<T: Clone + 'static> Model for VecModel<T> {
             self.array.borrow_mut()[row] = data;
             self.notify.row_changed(row);
         }
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &self.notify
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+}
+
+/// A model backed by a `SharedVector<T>`
+#[derive(Default)]
+pub struct SharedVectorModel<T> {
+    array: RefCell<SharedVector<T>>,
+    notify: ModelNotify,
+}
+
+impl<T: Clone + 'static> SharedVectorModel<T> {
+    /// Add a row at the end of the model
+    pub fn push(&self, value: T) {
+        self.array.borrow_mut().push(value);
+        self.notify.row_added(self.array.borrow().len() - 1, 1)
+    }
+}
+
+impl<T> SharedVectorModel<T> {
+    /// Returns a clone of the model's backing shared vector.
+    pub fn shared_vector(&self) -> SharedVector<T> {
+        self.array.borrow_mut().clone()
+    }
+}
+
+impl<T> From<SharedVector<T>> for SharedVectorModel<T> {
+    fn from(array: SharedVector<T>) -> Self {
+        SharedVectorModel { array: RefCell::new(array), notify: Default::default() }
+    }
+}
+
+impl<T: Clone + 'static> Model for SharedVectorModel<T> {
+    type Data = T;
+
+    fn row_count(&self) -> usize {
+        self.array.borrow().len()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.array.borrow().get(row).cloned()
+    }
+
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        self.array.borrow_mut().make_mut_slice()[row] = data;
+        self.notify.row_changed(row);
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
