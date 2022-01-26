@@ -70,7 +70,7 @@ impl Model for ValueModel {
                 Value::Bool(_) => Value::Void,
                 Value::Number(_) => Value::Number(row as _),
                 Value::Array(a) => a[row].clone(),
-                Value::Model(model_ptr) => model_ptr.row_data(row).unwrap_or(Value::Void),
+                Value::Model(model_ptr) => model_ptr.row_data(row)?,
                 x => panic!("Invalid model {:?}", x),
             })
         }
