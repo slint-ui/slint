@@ -37,7 +37,7 @@ let row_five = model.row_data(5).unwrap_or_default();
 Old code:
 
 ```rust
-fn attach_peer(&self, peer: ...) {
+fn attach_peer(&self, peer: sixtyfps::ModelPeer) {
     self.model_notify.attach_peer(peer);
 }
 ```
