@@ -174,9 +174,6 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             let array = eval_expression(array, local_context);
             let index = eval_expression(index, local_context);
             match (array, index) {
-                (Value::Array(vec), Value::Number(index)) => {
-                    vec.as_slice().get(index as usize).cloned().unwrap_or(Value::Void)
-                }
                 (Value::Model(model), Value::Number(index)) => {
                     if (index as usize) < model.row_count() {
                         model.model_tracker().track_row_data_changes(index as usize);
@@ -415,9 +412,6 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     panic!("internal error: incorrect argument count to ArrayLength")
                 }
                 match eval_expression(&arguments[0], local_context) {
-                    Value::Array(array) => {
-                        Value::Number(array.len() as f64)
-                    }
                     Value::Model(model) => {
                         model.model_tracker().track_row_count_changes();
                         Value::Number(model.row_count() as f64)
@@ -893,14 +887,13 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         Type::Image => matches!(value, Value::Image(_)),
         Type::Bool => matches!(value, Value::Bool(_)),
         Type::Model => {
-            matches!(value, Value::Model(_) | Value::Bool(_) | Value::Number(_) | Value::Array(_))
+            matches!(value, Value::Model(_) | Value::Bool(_) | Value::Number(_))
         }
         Type::PathData => matches!(value, Value::PathData(_)),
         Type::Easing => matches!(value, Value::EasingCurve(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
-        Type::Array(inner) => {
+        Type::Array(_) => {
             matches!(value, Value::Model(_))
-                || matches!(value, Value::Array(vec) if vec.iter().all(|x| check_value_type(x, inner)))
         }
         Type::Struct { fields, .. } => {
             matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| fields.get(k).map_or(false, |ty| check_value_type(v, ty))))
@@ -1164,7 +1157,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Struct { fields, .. } => Value::Struct(
             fields.iter().map(|(n, t)| (n.clone(), default_value_for_type(t))).collect::<Struct>(),
         ),
-        Type::Array(_) => Value::Array(Default::default()),
+        Type::Array(_) => Value::Void,
         Type::Percent => Value::Number(0.),
         Type::Enumeration(e) => {
             Value::EnumerationValue(e.name.clone(), e.values.get(e.default_value).unwrap().clone())

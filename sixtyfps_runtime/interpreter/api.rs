@@ -30,8 +30,6 @@ pub enum ValueType {
     String,
     /// Correspond to the `bool` type in .60
     Bool,
-    /// An Array in the .60 language.
-    Array,
     /// A more complex model which is not created by the interpreter itself (ValueType::Array can also be used for models)
     Model,
     /// An object
@@ -57,7 +55,7 @@ impl From<LangType> for ValueType {
             | LangType::UnitProduct(_) => Self::Number,
             LangType::String => Self::String,
             LangType::Color => Self::Brush,
-            LangType::Array(_) => Self::Array,
+            LangType::Array(_) => Self::Model,
             LangType::Bool => Self::Bool,
             LangType::Struct { .. } => Self::Struct,
             LangType::Void => Self::Void,
@@ -93,8 +91,6 @@ pub enum Value {
     Bool(bool),
     /// Correspond to the `image` type in .60
     Image(Image),
-    /// An Array in the .60 language.
-    Array(SharedVector<Value>),
     /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for models)
     Model(Rc<dyn sixtyfps_corelib::model::Model<Data = Value>>),
     /// An object
@@ -123,18 +119,7 @@ impl Value {
             Value::Number(_) => ValueType::Number,
             Value::String(_) => ValueType::String,
             Value::Bool(_) => ValueType::Bool,
-            Value::Array(_) => ValueType::Array,
-            Value::Model(model) => {
-                if model
-                    .as_any()
-                    .downcast_ref::<sixtyfps_corelib::model::SharedVectorModel<Value>>()
-                    .is_some()
-                {
-                    ValueType::Array
-                } else {
-                    ValueType::Model
-                }
-            }
+            Value::Model(_) => ValueType::Model,
             Value::Struct(_) => ValueType::Struct,
             Value::Brush(_) => ValueType::Brush,
             Value::Image(_) => ValueType::Image,
@@ -157,31 +142,17 @@ impl PartialEq for Value {
             Value::String(lhs) => matches!(other, Value::String(rhs) if lhs == rhs),
             Value::Bool(lhs) => matches!(other, Value::Bool(rhs) if lhs == rhs),
             Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
-            Value::Array(lhs) => {
-                match other {
-                    Value::Array(rhs) => return lhs == rhs,
-                    Value::Model(model) => {
-                        if let Some(rhs_array) =
-                            model.as_any().downcast_ref::<SharedVectorModel<Value>>()
-                        {
-                            return lhs == &rhs_array.shared_vector();
-                        }
-                    }
-                    _ => {}
-                }
-                false
-            }
             Value::Model(lhs) => {
-                match other {
-                    Value::Model(rhs) => return Rc::ptr_eq(lhs, rhs),
-                    Value::Array(rhs_array) => {
-                        if let Some(lhs_array) =
-                            lhs.as_any().downcast_ref::<SharedVectorModel<Value>>()
-                        {
-                            return &lhs_array.shared_vector() == rhs_array;
+                if let Value::Model(rhs) = other {
+                    match (
+                        lhs.as_any().downcast_ref::<SharedVectorModel<Value>>(),
+                        rhs.as_any().downcast_ref::<SharedVectorModel<Value>>(),
+                    ) {
+                        (Some(lhs_array), Some(rhs_array)) => {
+                            return lhs_array.shared_vector() == rhs_array.shared_vector()
                         }
+                        _ => return Rc::ptr_eq(lhs, rhs),
                     }
-                    _ => {}
                 }
                 false
             }
@@ -205,7 +176,6 @@ impl std::fmt::Debug for Value {
             Value::String(s) => write!(f, "Value::String({:?})", s),
             Value::Bool(b) => write!(f, "Value::Bool({:?})", b),
             Value::Image(i) => write!(f, "Value::Image({:?})", i),
-            Value::Array(a) => write!(f, "Value::Array({:?})", a),
             Value::Model(_) => write!(f, "Value::Model(<model object>)"),
             Value::Struct(s) => write!(f, "Value::Struct({:?})", s),
             Value::Brush(b) => write!(f, "Value::Brush({:?})", b),
@@ -452,23 +422,6 @@ impl FromIterator<(String, Value)> for Struct {
                 .map(|(s, v)| (if s.contains('_') { s.replace('_', "-") } else { s }, v))
                 .collect(),
         )
-    }
-}
-
-/// FIXME: use SharedArray instead?
-impl From<Vec<Value>> for Value {
-    fn from(a: Vec<Value>) -> Self {
-        Value::Array(a.into_iter().collect())
-    }
-}
-impl TryInto<Vec<Value>> for Value {
-    type Error = Value;
-    fn try_into(self) -> Result<Vec<Value>, Value> {
-        if let Value::Array(a) = self {
-            Ok(a.into_iter().collect())
-        } else {
-            Err(self)
-        }
     }
 }
 

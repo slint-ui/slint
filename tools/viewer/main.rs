@@ -3,9 +3,11 @@
 
 #![doc = include_str!("README.md")]
 
+use sixtyfps_corelib::SharedVector;
 use sixtyfps_interpreter::{ComponentInstance, SharedString, Value};
 use std::future::Future;
 use std::pin::Pin;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::Wake;
@@ -105,10 +107,10 @@ fn main() -> Result<()> {
                     sixtyfps_interpreter::Value::Number(x) => Some(x.into()),
                     sixtyfps_interpreter::Value::String(x) => Some(x.as_str().into()),
                     sixtyfps_interpreter::Value::Bool(x) => Some(x.into()),
-                    sixtyfps_interpreter::Value::Array(arr) => {
-                        let mut res = Vec::with_capacity(arr.len());
-                        for x in arr {
-                            res.push(to_json(x)?);
+                    sixtyfps_interpreter::Value::Model(model) => {
+                        let mut res = Vec::with_capacity(model.row_count());
+                        for i in 0..model.row_count() {
+                            res.push(to_json(model.row_data(i).unwrap())?);
                         }
                         Some(serde_json::Value::Array(res))
                     }
@@ -264,9 +266,12 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
                     sixtyfps_interpreter::Value::Number(n.as_f64().unwrap_or(f64::NAN))
                 }
                 serde_json::Value::String(s) => SharedString::from(s.as_str()).into(),
-                serde_json::Value::Array(array) => {
-                    sixtyfps_interpreter::Value::Array(array.iter().map(from_json).collect())
-                }
+                serde_json::Value::Array(array) => sixtyfps_interpreter::Value::Model(Rc::new(
+                    sixtyfps_corelib::model::SharedVectorModel::from(
+                        array.iter().map(from_json).collect::<SharedVector<Value>>(),
+                    ),
+                )
+                    as Rc<dyn sixtyfps_corelib::model::Model<Data = sixtyfps_interpreter::Value>>),
                 serde_json::Value::Object(obj) => obj
                     .iter()
                     .map(|(k, v)| (k.clone(), from_json(v)))

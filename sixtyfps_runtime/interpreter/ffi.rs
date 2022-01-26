@@ -3,12 +3,39 @@
 
 use crate::dynamic_component::ErasedComponentBox;
 
-use super::*;
+//use super::*;
 use sixtyfps_corelib::model::{Model, ModelNotify, SharedVectorModel};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{WindowHandleAccess, WindowRc};
 use std::ffi::c_void;
 use vtable::VRef;
+
+/// This enum represents the different public variants of the [`Value`] enum, without
+/// the contained values.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[repr(i8)]
+pub enum ValueType {
+    /// The variant that expresses the non-type. This is the default.
+    Void,
+    /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
+    Number,
+    /// Correspond to the `string` type in .60
+    String,
+    /// Correspond to the `bool` type in .60
+    Bool,
+    /// An Array in the .60 language.
+    Array,
+    /// A more complex model which is not created by the interpreter itself (ValueType::Array can also be used for models)
+    Model,
+    /// An object
+    Struct,
+    /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
+    Brush,
+    /// Correspond to `image` type in .60.
+    Image,
+    /// The type is not a public type but something internal.
+    Other = -1,
+}
 
 #[repr(C)]
 #[cfg(target_pointer_width = "64")]
@@ -75,21 +102,21 @@ pub unsafe extern "C" fn sixtyfps_interpreter_value_new_bool(b: bool, val: *mut 
     std::ptr::write(val as *mut Value, Value::Bool(b))
 }
 
-/// Construct a new Value in the given memory location as array
+/// Construct a new Value in the given memory location as array model
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_interpreter_value_new_array(
+pub unsafe extern "C" fn sixtyfps_interpreter_value_new_array_model(
     a: &SharedVector<ValueOpaque>,
     val: *mut ValueOpaque,
 ) {
     std::ptr::write(
         val as *mut Value,
-        Value::Array(
+        Value::Model(Rc::new(SharedVectorModel::<Value>::from(
             {
                 // Safety: We assert that Value and ValueOpaque have the same size and alignment
                 std::mem::transmute::<&SharedVector<ValueOpaque>, &SharedVector<Value>>(a)
             }
             .clone(),
-        ),
+        )) as Rc<dyn Model<Data = Value>>),
     )
 }
 
@@ -128,7 +155,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_value_new_model(
 
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_interpreter_value_type(val: *const ValueOpaque) -> ValueType {
-    (&*val).as_value().value_type()
+    match (&*val).as_value().value_type() {}
 }
 
 #[no_mangle]
@@ -164,14 +191,6 @@ pub extern "C" fn sixtyfps_interpreter_value_to_array(
     out: *mut SharedVector<ValueOpaque>,
 ) -> bool {
     match val.as_value() {
-        Value::Array(v) => unsafe {
-            // Safety: We assert that Value and ValueOpaque have the same size and alignment
-            std::ptr::write(
-                out,
-                std::mem::transmute::<&SharedVector<Value>, &SharedVector<ValueOpaque>>(v).clone(),
-            );
-            true
-        },
         Value::Model(m) => {
             if let Some(model) = m.as_any().downcast_ref::<SharedVectorModel<Value>>() {
                 let vec = model.shared_vector();

@@ -7,12 +7,11 @@ use std::cell::RefCell;
 
 pub struct ValueModel {
     value: RefCell<Value>,
-    notify: sixtyfps_corelib::model::ModelNotify,
 }
 
 impl ValueModel {
     pub fn new(value: Value) -> Self {
-        Self { value: RefCell::new(value), notify: Default::default() }
+        Self { value: RefCell::new(value) }
     }
 }
 
@@ -20,24 +19,18 @@ impl ModelTracker for ValueModel {
     fn attach_peer(&self, peer: sixtyfps_corelib::model::ModelPeer) {
         if let Value::Model(ref model_ptr) = *self.value.borrow() {
             model_ptr.model_tracker().attach_peer(peer)
-        } else {
-            self.notify.attach_peer(peer)
         }
     }
 
     fn track_row_count_changes(&self) {
         if let Value::Model(ref model_ptr) = *self.value.borrow() {
             model_ptr.model_tracker().track_row_count_changes()
-        } else {
-            self.notify.track_row_count_changes()
         }
     }
 
     fn track_row_data_changes(&self, row: usize) {
         if let Value::Model(ref model_ptr) = *self.value.borrow() {
             model_ptr.model_tracker().track_row_data_changes(row)
-        } else {
-            self.notify.track_row_data_changes(row)
         }
     }
 }
@@ -55,7 +48,6 @@ impl Model for ValueModel {
                 }
             }
             Value::Number(x) => *x as usize,
-            Value::Array(a) => a.len(),
             Value::Void => 0,
             Value::Model(model_ptr) => model_ptr.row_count(),
             x => panic!("Invalid model {:?}", x),
@@ -69,7 +61,6 @@ impl Model for ValueModel {
             Some(match &*self.value.borrow() {
                 Value::Bool(_) => Value::Void,
                 Value::Number(_) => Value::Number(row as _),
-                Value::Array(a) => a[row].clone(),
                 Value::Model(model_ptr) => model_ptr.row_data(row)?,
                 x => panic!("Invalid model {:?}", x),
             })
@@ -82,10 +73,6 @@ impl Model for ValueModel {
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
         match &mut *self.value.borrow_mut() {
-            Value::Array(a) => {
-                a.make_mut_slice()[row] = data;
-                self.notify.row_changed(row)
-            }
             Value::Model(model_ptr) => model_ptr.set_row_data(row, data),
             _ => eprintln!("Trying to change the value of a read-only integer model."),
         }

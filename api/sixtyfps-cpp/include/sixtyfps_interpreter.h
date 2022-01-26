@@ -413,7 +413,7 @@ private:
 
 inline Value::Value(const sixtyfps::SharedVector<Value> &array)
 {
-    cbindgen_private::sixtyfps_interpreter_value_new_array(
+    cbindgen_private::sixtyfps_interpreter_value_new_array_model(
             &reinterpret_cast<const sixtyfps::SharedVector<ValueOpaque> &>(array), &inner);
 }
 
@@ -464,7 +464,8 @@ inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
         return reinterpret_cast<ModelWrapper *>(self.instance)->model->row_count();
     };
     auto row_data = [](VRef<ModelAdaptorVTable> self, uintptr_t row, ValueOpaque *out) {
-        std::optional<Value> v = reinterpret_cast<ModelWrapper *>(self.instance)->model->row_data(int(row));
+        std::optional<Value> v =
+                reinterpret_cast<ModelWrapper *>(self.instance)->model->row_data(int(row));
         if (v.has_value()) {
             *out = v->inner;
             cbindgen_private::sixtyfps_interpreter_value_new(&v->inner);
@@ -630,7 +631,9 @@ public:
     std::optional<Value> invoke_callback(std::string_view name, std::span<const Value> args) const
     {
         using namespace cbindgen_private;
-        Slice<ValueOpaque> args_view { const_cast<ValueOpaque *>(reinterpret_cast<const ValueOpaque *>(args.data())), args.size() };
+        Slice<ValueOpaque> args_view { const_cast<ValueOpaque *>(
+                                               reinterpret_cast<const ValueOpaque *>(args.data())),
+                                       args.size() };
         ValueOpaque out;
         if (sixtyfps_interpreter_component_instance_invoke_callback(
                     inner(), sixtyfps::private_api::string_to_slice(name), args_view, &out)) {
@@ -665,7 +668,8 @@ public:
     bool set_callback(std::string_view name, F callback) const
     {
         using cbindgen_private::ValueOpaque;
-        auto actual_cb = [](void *data, cbindgen_private::Slice<ValueOpaque> arg, ValueOpaque *ret) {
+        auto actual_cb = [](void *data, cbindgen_private::Slice<ValueOpaque> arg,
+                            ValueOpaque *ret) {
             std::span<const Value> args_view { reinterpret_cast<const Value *>(arg.ptr), arg.len };
             Value r = (*reinterpret_cast<F *>(data))(args_view);
             new (ret) Value(std::move(r));
@@ -729,7 +733,8 @@ public:
     bool set_global_callback(std::string_view global, std::string_view name, F callback) const
     {
         using cbindgen_private::ValueOpaque;
-        auto actual_cb = [](void *data, cbindgen_private::Slice<ValueOpaque> arg, ValueOpaque *ret) {
+        auto actual_cb = [](void *data, cbindgen_private::Slice<ValueOpaque> arg,
+                            ValueOpaque *ret) {
             std::span<const Value> args_view { reinterpret_cast<const Value *>(arg.ptr), arg.len };
             Value r = (*reinterpret_cast<F *>(data))(args_view);
             new (ret) Value(std::move(r));
@@ -746,7 +751,9 @@ public:
                                                 std::span<const Value> args) const
     {
         using namespace cbindgen_private;
-        Slice<ValueOpaque> args_view { const_cast<ValueOpaque *>(reinterpret_cast<const ValueOpaque *>(args.data())), args.size() };
+        Slice<ValueOpaque> args_view { const_cast<ValueOpaque *>(
+                                               reinterpret_cast<const ValueOpaque *>(args.data())),
+                                       args.size() };
         ValueOpaque out;
         if (sixtyfps_interpreter_component_instance_invoke_global_callback(
                     inner(), sixtyfps::private_api::string_to_slice(global),
