@@ -111,13 +111,6 @@ impl ModelNotify {
                 .for_each(|p| unsafe { &**p }.row_removed(index, count))
         }
     }
-    /// Attach one peer. The peer will be notified when the model changes
-    #[deprecated(
-        note = "In your model, re-implement `model_tracker` of the `Model` trait instead of calling this function from our `attach_peer` implementation"
-    )]
-    pub fn attach(&self, peer: ModelPeer) {
-        self.attach_peer(peer)
-    }
 }
 
 impl ModelTracker for ModelNotify {
@@ -230,16 +223,11 @@ pub trait Model {
             core::any::type_name::<Self>(),
         );
     }
-    /// The implementation should forward to [`ModelNotify::attach`]
-    #[deprecated(note = "Re-implement model_tracker instead of this function")]
-    fn attach_peer(&self, peer: ModelPeer) {
-        self.model_tracker().attach_peer(peer)
-    }
 
     /// The implementation should return a reference to its [`ModelNotify`] field.
-    fn model_tracker(&self) -> &dyn ModelTracker {
-        &()
-    }
+    ///
+    /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field.
+    fn model_tracker(&self) -> &dyn ModelTracker;
 
     /// Returns an iterator visiting all elements of the model.
     fn iter(&self) -> ModelIterator<Self::Data>
@@ -436,6 +424,10 @@ impl Model for usize {
     fn as_any(&self) -> &dyn core::any::Any {
         self
     }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &()
+    }
 }
 
 impl Model for bool {
@@ -455,6 +447,10 @@ impl Model for bool {
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &()
     }
 }
 
@@ -521,14 +517,6 @@ impl<T> Model for ModelHandle<T> {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         if let Some(model) = self.0.as_ref() {
             model.set_row_data(row, data)
-        }
-    }
-
-    fn attach_peer(&self, peer: ModelPeer) {
-        // Forward, in case the model doesn't provide `model_tracker` yet.
-        if let Some(model) = self.0.as_ref() {
-            #[allow(deprecated)]
-            model.attach_peer(peer);
         }
     }
 
@@ -713,8 +701,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     ))
                 });
 
-                #[allow(deprecated)]
-                m.attach_peer(ModelPeer { inner: PinWeak::downgrade(peer.clone()) });
+                m.model_tracker()
+                    .attach_peer(ModelPeer { inner: PinWeak::downgrade(peer.clone()) });
             }
         }
         model.get()

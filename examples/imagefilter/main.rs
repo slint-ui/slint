@@ -67,6 +67,10 @@ impl sixtyfps::Model for Filters {
     fn row_data(&self, row: usize) -> Option<Self::Data> {
         self.0.get(row).map(|x| x.name.clone())
     }
+
+    fn model_tracker(&self) -> &dyn sixtyfps::ModelTracker {
+        &()
+    }
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]

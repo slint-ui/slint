@@ -12,13 +12,15 @@ In 0.2.0 we have increased the minimum version of rust. You need to have rust co
 
 #### Models
 
+##### `Model::row_data`
+
 `Model::row_data` now returns an `Option<T>` instead of a simple `T`.
 
 This implies that `Model`s must handle invalid indices and may not panic when they encounter one.
 
 Old code:
 
-```rust
+```rust,ignore
 let row_five = model.row_data(5);
 ```
 
@@ -26,4 +28,32 @@ New code:
 
 ```rust,ignore
 let row_five = model.row_data(5).unwrap_or_default();
+```
+
+##### `Model::attach_peer` and `Model::model_tracker`
+
+`attach_peer()` has been removed. Instead you must implement the `fn model_tracker(&self) -> &dyn ModelTracker` function. If you have a constant model, then you can just return `&()`, otherwise you can return a reference to the `ModelNotify` instance that you previously used in `attach_peer`:
+
+Old code:
+
+```rust
+fn attach_peer(&self, peer: sixtyfps::ModelPeer) {
+    self.model_notify.attach_peer(peer);
+}
+```
+
+New code:
+
+```rust
+fn model_tracker(&self) -> &dyn ModelTracker {
+    &self.model_notify
+}
+```
+
+or if your model is constant:
+
+```rust
+fn model_tracker(&self) -> &dyn ModelTracker {
+    &()
+}
 ```
