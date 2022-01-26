@@ -8,11 +8,9 @@ This guide lists all API incompatible changes between major versions and describ
 
 In 0.2.0 we have increased the minimum version of rust. You need to have rust compiler version >= 1.56 installed.
 
-### Rust API
+### Models
 
-#### Models
-
-##### `Model::row_data`
+#### `Model::row_data`
 
 `Model::row_data` now returns an `Option<T>` instead of a simple `T`.
 
@@ -30,7 +28,7 @@ New code:
 let row_five = model.row_data(5).unwrap_or_default();
 ```
 
-##### `Model::attach_peer` and `Model::model_tracker`
+#### `Model::attach_peer` and `Model::model_tracker`
 
 `attach_peer()` has been removed. Instead you must implement the `fn model_tracker(&self) -> &dyn ModelTracker` function. If you have a constant model, then you can just return `&()`, otherwise you can return a reference to the `ModelNotify` instance that you previously used in `attach_peer`:
 
