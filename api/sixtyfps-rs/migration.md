@@ -30,29 +30,30 @@ New code:
 let row_five = model.row_data(5).unwrap_or_default();
 ```
 
-##### `Model::model_tracker`
+##### `Model::attach_peer` and `Model::model_tracker`
 
-`Model::model_tracker` has no default implementation anymore. This has no effect for custom dynamic models, as
-those have overridden the default implementation in any case. You will need to add this code into the implementation of the `Model` trait of your custom model:
-
-```rust,ignore
-fn model_tracker(&self) -> &dyn ModelTracker {
-    &()
-}
-```
-
-##### `Model::attach_peer`
-
-The deprecated method `Model::attach_peer` was removed.
+`attach_peer()` has been removed. Instead you must implement the `fn model_tracker(&self) -> &dyn ModelTracker` function. If you have a constant model, then you can just return `&()`, otherwise you can return a reference to the `ModelNotify` instance that you previously used in `attach_peer`:
 
 Old code:
 
-```rust,ignore
-model.attach_peer(some_peer);
+```rust
+fn attach_peer(&self, peer: ...) {
+    self.model_notify.attach_peer(peer);
+}
 ```
 
 New code:
 
-```rust,ignore
-model.model_tracker().attach_peer(some_peer);
+```rust
+fn model_tracker(&self) -> &dyn ModelTracker {
+    &self.model_notify
+}
+```
+
+or if your model is constant:
+
+```rust
+fn model_tracker(&self) -> &dyn ModelTracker {
+    &()
+}
 ```
