@@ -7,6 +7,7 @@ use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_corelib::window::WindowHandleAccess;
 use sixtyfps_corelib::{ImageInner, SharedVector};
+use std::rc::Rc;
 
 mod js_model;
 mod persistent_context;
@@ -180,11 +181,12 @@ fn to_eval_value<'cx>(
         Type::Array(a) => match val.downcast::<JsArray>() {
             Ok(arr) => {
                 let vec = arr.to_vec(cx)?;
-                Ok(Value::Array(
+                Ok(Value::Model(Rc::new(sixtyfps_corelib::model::SharedVectorModel::from(
                     vec.into_iter()
                         .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
                         .collect::<Result<SharedVector<_>, _>>()?,
                 ))
+                    as Rc<dyn sixtyfps_corelib::model::Model<Data = Value>>))
             }
             Err(_) => {
                 let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
@@ -259,14 +261,6 @@ fn to_js_value<'cx>(
             | &ImageInner::EmbeddedImage { .. }
             | &ImageInner::StaticTextures { .. } => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
         },
-        Value::Array(a) => {
-            let js_array = JsArray::new(cx, a.len() as _);
-            for (i, e) in a.into_iter().enumerate() {
-                let v = to_js_value(e, cx, persistent_context)?;
-                js_array.set(cx, i as u32, v)?;
-            }
-            js_array.as_value(cx)
-        }
         Value::Model(model) => {
             if let Some(js_model) = model.as_any().downcast_ref::<js_model::JsModel>() {
                 js_model.get_object(cx, persistent_context)?.as_value(cx)
