@@ -12,6 +12,8 @@ In 0.2.0 we have increased the minimum version of rust. You need to have rust co
 
 #### Models
 
+##### `Model::row_data`
+
 `Model::row_data` now returns an `Option<T>` instead of a simple `T`.
 
 This implies that `Model`s must handle invalid indices and may not panic when they encounter one.
@@ -28,6 +30,8 @@ New code:
 let row_five = model.row_data(5).unwrap_or_default();
 ```
 
+##### `Model::model_tracker`
+
 `Model::model_tracker` has no default implementation anymore. This has no effect for custom dynamic models, as
 those have overridden the default implementation in any case. You will need to add this code into the implementation of the `Model` trait of your custom model:
 
@@ -35,4 +39,20 @@ those have overridden the default implementation in any case. You will need to a
 fn model_tracker(&self) -> &dyn ModelTracker {
     &()
 }
+```
+
+##### `Model::attach_peer`
+
+The deprecated method `Model::attach_peer` was removed.
+
+Old code:
+
+```rust,ignore
+model.attach_peer(some_peer);
+```
+
+New code:
+
+```rust,ignore
+model.model_tracker().attach_peer(some_peer);
 ```

@@ -111,13 +111,6 @@ impl ModelNotify {
                 .for_each(|p| unsafe { &**p }.row_removed(index, count))
         }
     }
-    /// Attach one peer. The peer will be notified when the model changes
-    #[deprecated(
-        note = "In your model, re-implement `model_tracker` of the `Model` trait instead of calling this function from our `attach_peer` implementation"
-    )]
-    pub fn attach(&self, peer: ModelPeer) {
-        self.attach_peer(peer)
-    }
 }
 
 impl ModelTracker for ModelNotify {
@@ -229,11 +222,6 @@ pub trait Model {
             This happens when trying to modify a read-only model",
             core::any::type_name::<Self>(),
         );
-    }
-    /// The implementation should forward to [`ModelNotify::attach`]
-    #[deprecated(note = "Re-implement model_tracker instead of this function")]
-    fn attach_peer(&self, peer: ModelPeer) {
-        self.model_tracker().attach_peer(peer)
     }
 
     /// The implementation should return a reference to its [`ModelNotify`] field.
@@ -479,14 +467,6 @@ impl<T> Model for ModelHandle<T> {
         }
     }
 
-    fn attach_peer(&self, peer: ModelPeer) {
-        // Forward, in case the model doesn't provide `model_tracker` yet.
-        if let Some(model) = self.0.as_ref() {
-            #[allow(deprecated)]
-            model.attach_peer(peer);
-        }
-    }
-
     fn model_tracker(&self) -> &dyn ModelTracker {
         self.0.as_ref().map_or(&(), |model| model.model_tracker())
     }
@@ -668,8 +648,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     ))
                 });
 
-                #[allow(deprecated)]
-                m.attach_peer(ModelPeer { inner: PinWeak::downgrade(peer.clone()) });
+                m.model_tracker()
+                    .attach_peer(ModelPeer { inner: PinWeak::downgrade(peer.clone()) });
             }
         }
         model.get()

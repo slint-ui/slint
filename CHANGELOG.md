@@ -12,6 +12,7 @@ This version changes some APIs in incompatible ways. For details how to migrate 
  - In the C++ interpreter API `std::span` is used for callbacks arguments, instead of `sixtyfps::Slice`
  - `Model::row_data` will now return a `Option<T>` / `std::optional<T>` instead of a plain `T`.
  - `Model::model_tracker` no longer has a default implementation.
+ - The depricated methods `Model::attach_peer` and `ModelNotify::attach` were removed.
 
 ### Added
 
