@@ -91,6 +91,7 @@ impl CompilerConfiguration {
 
 /// Error returned by the `compile` function
 #[derive(thiserror::Error, Debug)]
+#[non_exhaustive]
 pub enum CompileError {
     /// Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.
     #[error("Cannot read environment variable CARGO_MANIFEST_DIR or OUT_DIR. The build script need to be run via cargo.")]
