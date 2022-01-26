@@ -155,7 +155,6 @@ impl Spanned for Option<SourceLocation> {
     }
 }
 
-/// Diagnostics level (error or warning)
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum DiagnosticLevel {
     Error,

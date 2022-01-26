@@ -21,6 +21,7 @@ pub use sixtyfps_corelib::window::api::Window;
 /// the contained values.
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(i8)]
+#[non_exhaustive]
 pub enum ValueType {
     /// The variant that expresses the non-type. This is the default.
     Void,
@@ -1028,6 +1029,7 @@ impl WeakComponentInstance {
 
 /// Error returned by [`ComponentInstance::get_property`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum GetPropertyError {
     /// There is no property with the given name
     #[error("no such property")]
@@ -1036,6 +1038,7 @@ pub enum GetPropertyError {
 
 /// Error returned by [`ComponentInstance::set_property`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum SetPropertyError {
     /// There is no property with the given name
     #[error("no such property")]
@@ -1047,6 +1050,7 @@ pub enum SetPropertyError {
 
 /// Error returned by [`ComponentInstance::set_callback`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum SetCallbackError {
     /// There is no callback with the given name
     #[error("no such callback")]
@@ -1055,6 +1059,7 @@ pub enum SetCallbackError {
 
 /// Error returned by [`ComponentInstance::invoke_callback`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[non_exhaustive]
 pub enum InvokeCallbackError {
     /// There is no callback with the given name
     #[error("no such callback")]
