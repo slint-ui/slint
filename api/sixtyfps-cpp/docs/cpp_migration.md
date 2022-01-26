@@ -39,16 +39,17 @@ This also means that `Model`s must handle invalid indices and may not crash when
 Old code:
 
 ```cpp
-another_model->row_data(2);
+float value = another_model->row_data(2);
+do_something(value)
 ```
 
 New code:
 
 ```cpp
 // `another_model` is a model that contains floats.
-std::optional<float> entry = another_model->row_data(2);
-if (entry.has_value()) {
-    do_something(*entry);
+std::optional<float> value = another_model->row_data(2);
+if (value.has_value()) {
+    do_something(*value);
 } else {
     // row index 2 is out of bounds
 }

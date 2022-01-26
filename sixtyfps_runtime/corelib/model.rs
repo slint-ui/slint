@@ -171,11 +171,7 @@ impl ModelTracker for ModelNotify {
 ///     }
 ///
 ///     fn row_data(&self, row: usize) -> Option<Self::Data> {
-///         if row >= self.row_count() {
-///             None
-///         } else {
-///             Some(self.array.borrow()[row].clone())
-///         }
+///         self.array.borrow().get(row).cloned()
 ///     }
 ///
 ///     fn set_row_data(&self, row: usize, data: Self::Data) {
