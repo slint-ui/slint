@@ -226,7 +226,7 @@ pub trait Model {
 
     /// The implementation should return a reference to its [`ModelNotify`] field.
     ///
-    /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field
+    /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field.
     fn model_tracker(&self) -> &dyn ModelTracker;
 
     /// Returns an iterator visiting all elements of the model.
