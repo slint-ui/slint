@@ -64,8 +64,8 @@ impl sixtyfps::Model for Filters {
         self.0.len()
     }
 
-    fn row_data(&self, row: usize) -> Self::Data {
-        self.0[row].name.clone()
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.0.get(row).map(|x| x.name.clone())
     }
 }
 

@@ -10,7 +10,11 @@ using sixtyfps::interpreter::Value;
 struct InkLevelModel : sixtyfps::Model<Value>
 {
     int row_count() const override { return m_data.size(); }
-    Value row_data(int i) const override { return m_data[i]; }
+    std::optional<Value> row_data(int i) const override {
+        if (i < m_data.size())
+            return { m_data[i] };
+        return {};
+    }
 
 private:
     static Value make_inklevel_value(sixtyfps::Color color, float level)
@@ -93,7 +97,7 @@ int main()
 
     sixtyfps::Timer printer_queue_progress_timer(std::chrono::seconds(1), [=]() {
         if (printer_queue->row_count() > 0) {
-            auto top_item = *printer_queue->row_data(0).to_struct();
+            auto top_item = *(*printer_queue->row_data(0)).to_struct();
             auto progress = *top_item.get_field("progress")->to_number() + 1.;
             top_item.set_field("progress", progress);
             top_item.set_field("status", sixtyfps::SharedString("PRINTING"));

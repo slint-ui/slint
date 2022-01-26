@@ -74,7 +74,7 @@ impl AppState {
     }
 
     fn piece_clicked(&mut self, p: i8) -> bool {
-        let piece = self.pieces.row_data(p as usize);
+        let piece = self.pieces.row_data(p as usize).unwrap_or_default();
         assert_eq!(self.positions[(piece.pos_x * 4 + piece.pos_y) as usize], p);
 
         // find the coordinate of the hole.
@@ -148,7 +148,7 @@ impl AppState {
 
         let mut has_animation = false;
         for idx in 0..15 {
-            let mut p = self.pieces.row_data(idx);
+            let mut p = self.pieces.row_data(idx).unwrap_or_default();
             let ax = spring_animation(&mut p.offset_x, &mut self.speed_for_kick_animation[idx].0);
             let ay = spring_animation(&mut p.offset_y, &mut self.speed_for_kick_animation[idx].1);
             if ax || ay {

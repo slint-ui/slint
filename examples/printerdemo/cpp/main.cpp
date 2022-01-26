@@ -8,7 +8,11 @@
 struct InkLevelModel : sixtyfps::Model<InkLevel>
 {
     int row_count() const override { return m_data.size(); }
-    InkLevel row_data(int i) const override { return m_data[i]; }
+    std::optional<InkLevel> row_data(int i) const override {
+        if (i < row_count())
+            return { m_data[i] };
+        return {};
+    }
 
     std::vector<InkLevel> m_data = { { sixtyfps::Color::from_rgb_uint8(255, 255, 0), 0.9 },
                                      { sixtyfps::Color::from_rgb_uint8(0, 255, 255), 0.5 },
@@ -26,7 +30,7 @@ int main()
     auto printer_queue = std::make_shared<sixtyfps::VectorModel<PrinterQueueItem>>();
     auto default_queue = printer_demo->global<PrinterQueue>().get_printer_queue();
     for (int i = 0; i < default_queue->row_count(); ++i) {
-        printer_queue->push_back(default_queue->row_data(i));
+        printer_queue->push_back(*default_queue->row_data(i));
     }
     printer_demo->global<PrinterQueue>().set_printer_queue(printer_queue);
 
@@ -50,7 +54,7 @@ int main()
 
     sixtyfps::Timer printer_queue_progress_timer(std::chrono::seconds(1), [=]() {
         if (printer_queue->row_count() > 0) {
-            auto top_item = printer_queue->row_data(0);
+            auto top_item = *printer_queue->row_data(0);
             top_item.progress += 1;
             if (top_item.progress > 100) {
                 printer_queue->erase(0);

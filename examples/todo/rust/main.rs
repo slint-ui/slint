@@ -37,7 +37,7 @@ pub fn main() {
         move || {
             let mut offset = 0;
             for i in 0..todo_model.row_count() {
-                if todo_model.row_data(i - offset).checked {
+                if todo_model.row_data(i - offset).unwrap().checked {
                     todo_model.remove(i - offset);
                     offset += 1;
                 }

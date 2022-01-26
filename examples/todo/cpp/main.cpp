@@ -27,7 +27,7 @@ int main()
         int offset = 0;
         int count = todo_model->row_count();
         for (int i = 0; i < count; ++i) {
-            if (todo_model->row_data(i - offset).checked) {
+            if (todo_model->row_data(i - offset)->checked) {
                 todo_model->erase(i - offset);
                 offset += 1;
             }

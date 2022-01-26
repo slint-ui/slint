@@ -180,9 +180,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (Value::Model(model), Value::Number(index)) => {
                     if (index as usize) < model.row_count() {
                         model.model_tracker().track_row_data_changes(index as usize);
-                        model.row_data(index as usize)
+                        model.row_data(index as usize).unwrap_or_else(|| default_value_for_type(&expression.ty()))
                     } else {
-                        Value::Void
+                        default_value_for_type(&expression.ty())
                     }
                 }
                 _ => {
@@ -747,7 +747,14 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
                         if op == '=' {
                             model.set_row_data(index, rhs);
                         } else {
-                            model.set_row_data(index, eval(model.row_data(index)));
+                            model.set_row_data(
+                                index,
+                                eval(
+                                    model
+                                        .row_data(index)
+                                        .unwrap_or_else(|| default_value_for_type(&lhs.ty())),
+                                ),
+                            );
                         }
                     }
                 }

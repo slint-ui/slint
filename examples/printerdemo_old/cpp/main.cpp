@@ -6,7 +6,12 @@
 struct InkLevelModel : sixtyfps::Model<InkLevel>
 {
     int row_count() const override { return m_data.size(); }
-    InkLevel row_data(int i) const override { return m_data[i]; }
+    std::optional<InkLevel> row_data(int i) const override
+    {
+        if (i < row_count())
+            return { m_data[i] };
+        return {};
+    }
 
     std::vector<InkLevel> m_data = { { sixtyfps::Color::from_rgb_uint8(255, 255, 0), 0.9 },
                                      { sixtyfps::Color::from_rgb_uint8(0, 255, 255), 0.5 },
@@ -21,7 +26,7 @@ int main()
     printer_demo->on_quit([] { std::exit(0); });
 
     printer_demo->on_fax_number_erase([printer_demo = sixtyfps::ComponentWeakHandle(printer_demo)] {
-        std::string fax_number{(*printer_demo.lock())->get_fax_number()};
+        std::string fax_number { (*printer_demo.lock())->get_fax_number() };
         fax_number.pop_back();
         (*printer_demo.lock())->set_fax_number(fax_number.data());
     });
