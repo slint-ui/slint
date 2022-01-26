@@ -599,10 +599,8 @@ impl Model for ModelAdaptorWrapper {
     }
 
     fn set_row_data(&self, row: usize, data: Value) {
-        if row < self.row_count() {
-            let val: &ValueOpaque = unsafe { std::mem::transmute::<&Value, &ValueOpaque>(&data) };
-            self.0.set_row_data(row, val);
-        }
+        let val: &ValueOpaque = unsafe { std::mem::transmute::<&Value, &ValueOpaque>(&data) };
+        self.0.set_row_data(row, val);
     }
 }
 
