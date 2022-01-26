@@ -83,9 +83,9 @@ const TestCase &instance = *handle;
 sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 792);
 
-assert_eq(std::get<2>(instance.get_model()->row_data(1)), 792.);
+assert_eq(std::get<2>(*instance.get_model()->row_data(1)), 792.);
 instance.invoke_manual_score_update(1, 100);
-assert_eq(std::get<2>(instance.get_model()->row_data(1)), 892.);
+assert_eq(std::get<2>(*instance.get_model()->row_data(1)), 892.);
 
 using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
 std::vector<ModelData> array;
