@@ -165,6 +165,7 @@ A widget used to enter a single line of text
 ### Properties
 
 * **`text`** (*string*): The text being edited
+* **`font-size`** (*length*): the size of the font of the input text
 * **`has-focus`**: (*bool*): Set to true when the line edit currently has the focus
 * **`placeholder-text`**: (*string*): A placeholder text being shown when there is no text in the edit field
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
@@ -182,6 +183,7 @@ Example := Window {
     width: 200px;
     height: 25px;
     LineEdit {
+        font-size: 14px;
         width: parent.width;
         height: parent.height;
         placeholder-text: "Enter text here";
@@ -199,6 +201,7 @@ shortcut will be implemented in a future version: <https://github.com/sixtyfpsui
 ### Properties
 
 * **`text`** (*string*): The text being edited
+* **`font-size`** (*length*): the size of the font of the input text
 * **`has-focus`**: (*bool*): Set to true when the widget currently has the focus
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
 * **`wrap`** (*enum [`TextWrap`](builtin_elements.md#textwrap)*): The way the text wraps (default: word-wrap).
@@ -215,6 +218,7 @@ Example := Window {
     width: 200px;
     height: 200px;
     TextEdit {
+        font-size: 14px;
         width: parent.width;
         height: parent.height;
         text: "Lorem ipsum dolor sit amet\n, consectetur adipisici elit";
@@ -416,7 +420,7 @@ import { AboutSixtyFPS } from "sixtyfps_widgets.60";
 Example := Window {
     width: 128px;
     height: 128px;
-    AboutSixtyFPS {        
+    AboutSixtyFPS {
     }
 }
 ```

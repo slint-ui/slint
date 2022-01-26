@@ -330,6 +330,7 @@ export TabBarImpl := HorizontalLayout {
 export TabWidget := TabWidget {}
 
 export LineEdit := Rectangle {
+    property <length> font-size <=> inner.font-size;
     property <string> text <=> inner.text;
     property <string> placeholder-text <=> inner.placeholder-text;
     property <bool> has-focus: inner.has-focus;
