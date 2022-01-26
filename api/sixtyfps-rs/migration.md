@@ -18,7 +18,7 @@ This implies that `Model`s must handle invalid indices and may not panic when th
 
 Old code:
 
-```rust
+```rust,ignore
 let row_five = model.row_data(5);
 ```
 
@@ -26,4 +26,13 @@ New code:
 
 ```rust,ignore
 let row_five = model.row_data(5).unwrap_or_default();
+```
+
+`Model::model_tracker` has no default implementation anymore. This has no effect for custom dynamic models, as
+those have overridden the default implementation in any case. You will need to add this code into the implementation of the `Model` trait of your custom model:
+
+```rust,ignore
+fn model_tracker(&self) -> &dyn ModelTracker {
+    &()
+}
 ```

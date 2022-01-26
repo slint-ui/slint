@@ -237,9 +237,9 @@ pub trait Model {
     }
 
     /// The implementation should return a reference to its [`ModelNotify`] field.
-    fn model_tracker(&self) -> &dyn ModelTracker {
-        &()
-    }
+    ///
+    /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field
+    fn model_tracker(&self) -> &dyn ModelTracker;
 
     /// Returns an iterator visiting all elements of the model.
     fn iter(&self) -> ModelIterator<Self::Data>
@@ -383,6 +383,10 @@ impl Model for usize {
     fn as_any(&self) -> &dyn core::any::Any {
         self
     }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &()
+    }
 }
 
 impl Model for bool {
@@ -402,6 +406,10 @@ impl Model for bool {
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &()
     }
 }
 
