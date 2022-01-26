@@ -4,7 +4,7 @@
 use crate::dynamic_component::ErasedComponentBox;
 
 use super::*;
-use sixtyfps_corelib::model::{Model, ModelNotify};
+use sixtyfps_corelib::model::{Model, ModelNotify, SharedVectorModel};
 use sixtyfps_corelib::slice::Slice;
 use sixtyfps_corelib::window::{WindowHandleAccess, WindowRc};
 use std::ffi::c_void;
@@ -155,16 +155,42 @@ pub extern "C" fn sixtyfps_interpreter_value_to_bool(val: &ValueOpaque) -> Optio
     }
 }
 
+/// Extracts a SharedVector<ValueOpaque> out of the given value `val`, writes that into the
+/// `out` parameter and returns true; returns false if the value does not hold an extractable
+/// array.
 #[no_mangle]
 pub extern "C" fn sixtyfps_interpreter_value_to_array(
     val: &ValueOpaque,
-) -> Option<&SharedVector<ValueOpaque>> {
+    out: *mut SharedVector<ValueOpaque>,
+) -> bool {
     match val.as_value() {
-        Value::Array(v) => Some(unsafe {
+        Value::Array(v) => unsafe {
             // Safety: We assert that Value and ValueOpaque have the same size and alignment
-            std::mem::transmute::<&SharedVector<Value>, &SharedVector<ValueOpaque>>(v)
-        }),
-        _ => None,
+            std::ptr::write(
+                out,
+                std::mem::transmute::<&SharedVector<Value>, &SharedVector<ValueOpaque>>(v).clone(),
+            );
+            true
+        },
+        Value::Model(m) => {
+            if let Some(model) = m.as_any().downcast_ref::<SharedVectorModel<Value>>() {
+                let vec = model.shared_vector();
+                // Safety: We assert that Value and ValueOpaque have the same size and alignment
+                unsafe {
+                    std::ptr::write(
+                        out,
+                        std::mem::transmute::<&SharedVector<Value>, &SharedVector<ValueOpaque>>(
+                            &vec,
+                        )
+                        .clone(),
+                    );
+                }
+                true
+            } else {
+                false
+            }
+        }
+        _ => false,
     }
 }
 

@@ -573,8 +573,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Array { values, .. } => Value::Model(
-            Rc::new(corelib::model::VecModel::from(
-                values.iter().map(|e| eval_expression(e, local_context)).collect::<Vec<_>>()
+            Rc::new(corelib::model::SharedVectorModel::from(
+                values.iter().map(|e| eval_expression(e, local_context)).collect::<SharedVector<_>>()
             )) as Rc<dyn corelib::model::Model<Data = Value>>
         ),
         Expression::Struct { values, .. } => Value::Struct(
