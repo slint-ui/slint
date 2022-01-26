@@ -84,7 +84,10 @@ fn make_callback_handler<'cx>(
         let borrow_ret = &ret;
         let return_type = &return_type;
         run_with_global_context(&move |cx, persistent_context| {
-            let args = args.iter().map(|a| to_js_value(a.clone(), cx).unwrap()).collect::<Vec<_>>();
+            let args = args
+                .iter()
+                .map(|a| to_js_value(a.clone(), cx, persistent_context).unwrap())
+                .collect::<Vec<_>>();
             let ret = persistent_context
                 .get(cx, fun_idx)
                 .unwrap()
@@ -239,6 +242,7 @@ fn to_eval_value<'cx>(
 fn to_js_value<'cx>(
     val: sixtyfps_interpreter::Value,
     cx: &mut impl Context<'cx>,
+    persistent_context: &persistent_context::PersistentContext<'cx>,
 ) -> NeonResult<Handle<'cx, JsValue>> {
     use sixtyfps_interpreter::Value;
     Ok(match val {
@@ -258,15 +262,22 @@ fn to_js_value<'cx>(
         Value::Array(a) => {
             let js_array = JsArray::new(cx, a.len() as _);
             for (i, e) in a.into_iter().enumerate() {
-                let v = to_js_value(e, cx)?;
+                let v = to_js_value(e, cx, persistent_context)?;
                 js_array.set(cx, i as u32, v)?;
             }
             js_array.as_value(cx)
         }
+        Value::Model(model) => {
+            if let Some(js_model) = model.as_any().downcast_ref::<js_model::JsModel>() {
+                js_model.get_object(cx, persistent_context)?.as_value(cx)
+            } else {
+                todo!("converting a generic model to js has not been implemented")
+            }
+        }
         Value::Struct(o) => {
             let js_object = JsObject::new(cx);
             for (k, e) in o.iter() {
-                let v = to_js_value(e.clone(), cx)?;
+                let v = to_js_value(e.clone(), cx, persistent_context)?;
                 js_object.set(cx, k.replace('-', "_").as_str(), v)?;
             }
             js_object.as_value(cx)
@@ -349,13 +360,15 @@ declare_types! {
         method get_property(mut cx) {
             let prop_name = cx.argument::<JsString>(0)?.value();
             let this = cx.this();
+            let persistent_context =
+                persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let value = run_scoped(&mut cx,this.downcast().unwrap(), || {
                 component.get_property(prop_name.as_str())
                     .map_err(|_| "Cannot read property".to_string())
             })?;
-            to_js_value(value, &mut cx)
+            to_js_value(value, &mut cx, &persistent_context)
         }
         method set_property(mut cx) {
             let prop_name = cx.argument::<JsString>(0)?.value();
@@ -412,7 +425,7 @@ declare_types! {
                 component.invoke_callback(callback_name.as_str(), args.as_slice())
                     .map_err(|_| "Cannot emit callback".to_string())
             })?;
-            to_js_value(res, &mut cx)
+            to_js_value(res, &mut cx, &persistent_context)
         }
 
         method connect_callback(mut cx) {

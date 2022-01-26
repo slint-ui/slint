@@ -168,6 +168,9 @@ let another_model = new sixtyfpslib.ArrayModel([
 ]);
 instance.model = another_model;
 
+let roundtripped_model = instance.model;
+assert.equal(another_model, roundtripped_model);
+
 instance.send_mouse_click(25., 5.);
 assert.equal(instance.clicked_score, 333000);
 assert.equal(instance.clicked_internal_state, 1);

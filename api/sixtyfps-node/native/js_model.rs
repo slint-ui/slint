@@ -37,7 +37,7 @@ impl JsModel {
         Ok(model)
     }
 
-    fn get_object<'cx>(
+    pub fn get_object<'cx>(
         &self,
         cx: &mut impl Context<'cx>,
         persistent_context: &crate::persistent_context::PersistentContext<'cx>,
@@ -94,7 +94,7 @@ impl Model for JsModel {
     fn set_row_data(&self, row: usize, data: Self::Data) {
         crate::run_with_global_context(&|cx, persistent_context| {
             let row = JsNumber::new(cx, row as f64).as_value(cx);
-            let data = crate::to_js_value(data.clone(), cx).unwrap();
+            let data = crate::to_js_value(data.clone(), cx, persistent_context).unwrap();
             let obj = self.get_object(cx, persistent_context).unwrap();
             let _ = obj
                 .get(cx, "setRowData")
