@@ -1454,7 +1454,7 @@ impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
 }
 
 impl sixtyfps_corelib::window::WindowHandleAccess for ErasedComponentBox {
-    fn window_handle(&self) -> &sixtyfps::re_exports::Rc<sixtyfps::re_exports::Window> {
+    fn window_handle(&self) -> &Rc<sixtyfps_corelib::window::Window> {
         self.window().window_handle()
     }
 }
