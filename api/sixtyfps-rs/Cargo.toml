@@ -18,7 +18,13 @@ path = "lib.rs"
 
 [features]
 
-default = ["backend-gl", "x11", "backend-qt"]
+default = ["std", "backend-gl", "x11", "backend-qt", "compat-0-2-0"]
+
+## Mandatory feature:
+## This feature is required to keep the compatibility with SixtyFPS 0.2.0
+## Newer patch version may put current functionality behind a new feature
+## that would be enabled by default only if this feature was added
+compat-0-2-0 = []
 
 ## Enable use of the Rust standard library.
 std = ["sixtyfps-corelib/std"]
