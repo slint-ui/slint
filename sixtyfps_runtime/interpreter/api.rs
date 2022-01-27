@@ -30,7 +30,7 @@ pub enum ValueType {
     String,
     /// Correspond to the `bool` type in .60
     Bool,
-    /// A more complex model which is not created by the interpreter itself (ValueType::Array can also be used for models)
+    /// A model (that includes array in .60)
     Model,
     /// An object
     Struct,
@@ -91,7 +91,7 @@ pub enum Value {
     Bool(bool),
     /// Correspond to the `image` type in .60
     Image(Image),
-    /// A more complex model which is not created by the interpreter itself (Value::Array can also be used for models)
+    /// A model (that includes array in .60)
     Model(Rc<dyn sixtyfps_corelib::model::Model<Data = Value>>),
     /// An object
     Struct(Struct),
@@ -176,7 +176,13 @@ impl std::fmt::Debug for Value {
             Value::String(s) => write!(f, "Value::String({:?})", s),
             Value::Bool(b) => write!(f, "Value::Bool({:?})", b),
             Value::Image(i) => write!(f, "Value::Image({:?})", i),
-            Value::Model(_) => write!(f, "Value::Model(<model object>)"),
+            Value::Model(m) => {
+                write!(f, "Value::Model(")?;
+                f.debug_list()
+                    .entries(sixtyfps_corelib::model::ModelIterator::new(&**m))
+                    .finish()?;
+                write!(f, "])")
+            }
             Value::Struct(s) => write!(f, "Value::Struct({:?})", s),
             Value::Brush(b) => write!(f, "Value::Brush({:?})", b),
             Value::PathData(e) => write!(f, "Value::PathElements({:?})", e),
@@ -1338,6 +1344,64 @@ fn component_definition_struct_properties() {
         instance.set_property("test", Value::Struct(invalid_struct)),
         Err(SetPropertyError::WrongType)
     );
+}
+
+#[test]
+fn component_definition_model_properties() {
+    use sixtyfps_corelib::model::*;
+    sixtyfps_rendering_backend_testing::init();
+    let mut compiler = ComponentCompiler::default();
+    compiler.set_style("fluent".into());
+    let comp_def = spin_on::spin_on(compiler.build_from_source(
+        "export Dummy := Rectangle { property <[int]> prop: [42, 12]; }".into(),
+        "".into(),
+    ))
+    .unwrap();
+
+    let props = comp_def.properties().collect::<Vec<(_, _)>>();
+    assert_eq!(props.len(), 1);
+    assert_eq!(props[0].0, "prop");
+    assert_eq!(props[0].1, ValueType::Model);
+
+    let instance = comp_def.create();
+
+    let int_model = Value::Model(Rc::new(VecModel::from_slice(&[
+        Value::Number(14.),
+        Value::Number(15.),
+        Value::Number(16.),
+    ])));
+    let empty_model = Value::Model(Rc::new(VecModel::<Value>::default()));
+    let model_with_string = Value::Model(Rc::new(VecModel::from_slice(&[
+        Value::Number(1000.),
+        Value::String("foo".into()),
+        Value::Number(1111.),
+    ])));
+
+    #[track_caller]
+    fn check_model(val: Value, r: &[f64]) {
+        if let Value::Model(m) = val {
+            assert_eq!(r.len(), m.row_count());
+            for (i, v) in r.iter().enumerate() {
+                assert_eq!(m.row_data(i).unwrap(), Value::Number(*v));
+            }
+        } else {
+            panic!("{:?} not a model", val);
+        }
+    }
+
+    assert_eq!(instance.get_property("prop").unwrap().value_type(), ValueType::Model);
+    check_model(instance.get_property("prop").unwrap(), &[42., 12.]);
+
+    instance.set_property("prop", int_model).unwrap();
+    check_model(instance.get_property("prop").unwrap(), &[14., 15., 16.]);
+
+    assert_eq!(instance.set_property("prop", Value::Number(42.)), Err(SetPropertyError::WrongType));
+    check_model(instance.get_property("prop").unwrap(), &[14., 15., 16.]);
+    assert_eq!(instance.set_property("prop", model_with_string), Err(SetPropertyError::WrongType));
+    check_model(instance.get_property("prop").unwrap(), &[14., 15., 16.]);
+
+    assert_eq!(instance.set_property("prop", empty_model), Ok(()));
+    check_model(instance.get_property("prop").unwrap(), &[]);
 }
 
 #[cfg(feature = "ffi")]

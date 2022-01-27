@@ -234,7 +234,7 @@ pub trait Model {
     where
         Self: Sized,
     {
-        ModelIterator { model: self, row: 0 }
+        ModelIterator::new(self)
     }
 
     /// Return something that can be downcast'ed (typically self)
@@ -267,6 +267,12 @@ pub trait Model {
 pub struct ModelIterator<'a, T> {
     model: &'a dyn Model<Data = T>,
     row: usize,
+}
+
+impl<'a, T> ModelIterator<'a, T> {
+    pub fn new(model: &'a dyn Model<Data = T>) -> Self {
+        Self { model, row: 0 }
+    }
 }
 
 impl<'a, T> Iterator for ModelIterator<'a, T> {

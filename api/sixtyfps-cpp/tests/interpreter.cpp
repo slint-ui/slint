@@ -54,7 +54,7 @@ SCENARIO("Value API")
         REQUIRE(!value.to_array().has_value());
         sixtyfps::SharedVector<Value> array { Value(42.0), Value(true) };
         value = Value(array);
-        REQUIRE(value.type() == Value::Type::Array);
+        REQUIRE(value.type() == Value::Type::Model);
 
         auto array_opt = value.to_array();
         REQUIRE(array_opt.has_value());
@@ -400,7 +400,7 @@ SCENARIO("Array between .60 and C++")
     {
         auto maybe_array = instance->get_property("array");
         REQUIRE(maybe_array.has_value());
-        REQUIRE(maybe_array->type() == Value::Type::Array);
+        REQUIRE(maybe_array->type() == Value::Type::Model);
 
         auto array = *maybe_array;
         REQUIRE(array == sixtyfps::SharedVector<Value> { Value(1.), Value(2.), Value(3.) });
@@ -413,7 +413,7 @@ SCENARIO("Array between .60 and C++")
         instance->set_property("array", Value(cpp_array));
         auto maybe_array = instance->get_property("array");
         REQUIRE(maybe_array.has_value());
-        REQUIRE(maybe_array->type() == Value::Type::Array);
+        REQUIRE(maybe_array->type() == Value::Type::Model);
 
         auto actual_array = *maybe_array;
         REQUIRE(actual_array == cpp_array);
